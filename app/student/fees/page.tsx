@@ -1,33 +1,41 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-type Student = {
+type EventItem = {
   id: number;
-  student_name: string | null;
-  student_username: string;
+  date: string;
+  title: string;
+  type: "CLASS" | "EXAM" | "HOLIDAY" | "EVENT";
+  description: string;
 };
 
-type Fee = {
-  id: number;
-  student_id: number;
-  month: number;
-  year: number;
-  amount: number;
-  status: string;
-  payment_date: string | null;
-  transaction_id: string | null;
-  remarks: string | null;
-};
+const initialEvents: EventItem[] = [
+  {
+    id: 1,
+    date: "2026-08-25",
+    title: "Regular Classes",
+    type: "CLASS",
+    description: "Regular college classes",
+  },
+  {
+    id: 2,
+    date: "2026-08-29",
+    title: "Saturday",
+    type: "HOLIDAY",
+    description: "Weekly holiday",
+  },
+  {
+    id: 3,
+    date: "2026-09-05",
+    title: "Class Test",
+    type: "EXAM",
+    description: "Internal class test",
+  },
+];
 
-const months = [
+const monthNames = [
   "January",
   "February",
   "March",
@@ -42,196 +50,103 @@ const months = [
   "December",
 ];
 
-export default function StudentFeesPage() {
-  const [student, setStudent] = useState<Student | null>(null);
-  const [fees, setFees] = useState<Fee[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+export default function StudentCalendarPage() {
+  const router = useRouter();
 
-  useEffect(() => {
-    loadFees();
-  }, []);
+  const today = new Date();
 
-  async function loadFees() {
-    setLoading(true);
-    setError("");
-
-    try {
-      const username =
-        localStorage.getItem("student_username") ||
-        localStorage.getItem("studentUsername") ||
-        localStorage.getItem("username");
-
-      if (!username) {
-        setError("Student login information not found.");
-        setLoading(false);
-        return;
-      }
-
-      const { data: studentData, error: studentError } =
-        await supabase
-          .from("students")
-          .select(
-            "id, student_name, student_username"
-          )
-          .ilike(
-            "student_username",
-            username
-          )
-          .maybeSingle();
-
-      if (studentError) {
-        setError(studentError.message);
-        setLoading(false);
-        return;
-      }
-
-      if (!studentData) {
-        setError("Student account not found.");
-        setLoading(false);
-        return;
-      }
-
-      setStudent(studentData);
-
-      const { data: feeData, error: feeError } =
-        await supabase
-          .from("fees")
-          .select("*")
-          .eq("student_id", studentData.id)
-          .order("year", {
-            ascending: false,
-          })
-          .order("month", {
-            ascending: false,
-          });
-
-      if (feeError) {
-        setError(feeError.message);
-        setLoading(false);
-        return;
-      }
-
-      setFees(feeData || []);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Something went wrong."
-      );
-    }
-
-    setLoading(false);
-  }
-
-  const totalAmount = fees.reduce(
-    (sum, fee) => sum + Number(fee.amount),
-    0
+  const [currentMonth, setCurrentMonth] = useState(
+    new Date(today.getFullYear(), today.getMonth(), 1)
   );
 
-  const submittedAmount = fees
-    .filter(
-      (fee) =>
-        fee.status.toUpperCase() === "SUBMITTED"
-    )
-    .reduce(
-      (sum, fee) => sum + Number(fee.amount),
-      0
-    );
+  const [events] = useState<EventItem[]>(initialEvents);
 
-  const pendingAmount = fees
-    .filter(
-      (fee) =>
-        fee.status.toUpperCase() === "PENDING"
-    )
-    .reduce(
-      (sum, fee) => sum + Number(fee.amount),
-      0
-    );
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
 
-  const refundedAmount = fees
-    .filter(
-      (fee) =>
-        fee.status.toUpperCase() === "REFUNDED"
-    )
-    .reduce(
-      (sum, fee) => sum + Number(fee.amount),
-      0
-    );
+  const daysInMonth = new Date(
+    year,
+    month + 1,
+    0
+  ).getDate();
 
-  function getStatusStyle(status: string) {
-    switch (status.toUpperCase()) {
-      case "SUBMITTED":
-        return {
-          background: "#dcfce7",
-          color: "#166534",
-        };
+  const firstDay = new Date(
+    year,
+    month,
+    1
+  ).getDay();
 
-      case "PENDING":
-        return {
-          background: "#fef3c7",
-          color: "#92400e",
-        };
+  const calendarDays = useMemo(() => {
+    const days: (number | null)[] = [];
 
-      case "REFUNDED":
-        return {
-          background: "#ede9fe",
-          color: "#5b21b6",
-        };
-
-      case "CANCELLED":
-        return {
-          background: "#fee2e2",
-          color: "#991b1b",
-        };
-
-      default:
-        return {
-          background: "#e2e8f0",
-          color: "#334155",
-        };
+    for (let i = 0; i < firstDay; i++) {
+      days.push(null);
     }
-  }
 
-  function getStatusIcon(status: string) {
-    switch (status.toUpperCase()) {
-      case "SUBMITTED":
-        return "✓";
-
-      case "PENDING":
-        return "⏳";
-
-      case "REFUNDED":
-        return "↩️";
-
-      case "CANCELLED":
-        return "✕";
-
-      default:
-        return "•";
+    for (let day = 1; day <= daysInMonth; day++) {
+      days.push(day);
     }
+
+    return days;
+  }, [firstDay, daysInMonth]);
+
+  function previousMonth() {
+    setCurrentMonth(
+      new Date(year, month - 1, 1)
+    );
   }
 
-  function formatDate(date: string | null) {
-    if (!date) return "—";
-
-    return new Date(
-      date + "T00:00:00"
-    ).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+  function nextMonth() {
+    setCurrentMonth(
+      new Date(year, month + 1, 1)
+    );
   }
 
-  if (loading) {
+  function goToday() {
+    setCurrentMonth(
+      new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        1
+      )
+    );
+  }
+
+  function formatDate(day: number) {
+    const m = String(month + 1).padStart(2, "0");
+    const d = String(day).padStart(2, "0");
+
+    return `${year}-${m}-${d}`;
+  }
+
+  function getEvents(day: number) {
+    const date = formatDate(day);
+
+    return events.filter(
+      (event) => event.date === date
+    );
+  }
+
+  function isToday(day: number) {
     return (
-      <main style={styles.page}>
-        <div style={styles.loading}>
-          💰 Loading Fees...
-        </div>
-      </main>
+      day === today.getDate() &&
+      month === today.getMonth() &&
+      year === today.getFullYear()
     );
+  }
+
+  function eventColor(type: EventItem["type"]) {
+    if (type === "CLASS") return "#2563eb";
+    if (type === "EXAM") return "#dc2626";
+    if (type === "HOLIDAY") return "#16a34a";
+    return "#7c3aed";
+  }
+
+  function eventBackground(type: EventItem["type"]) {
+    if (type === "CLASS") return "#eff6ff";
+    if (type === "EXAM") return "#fef2f2";
+    if (type === "HOLIDAY") return "#f0fdf4";
+    return "#f5f3ff";
   }
 
   return (
@@ -242,327 +157,253 @@ export default function StudentFeesPage() {
 
         <header style={styles.header}>
           <div>
-            <div style={styles.smallTitle}>
-              STUDENT PORTAL
-            </div>
-
             <h1 style={styles.title}>
-              💰 Fees Management
+              📅 Student Calendar
             </h1>
 
             <p style={styles.subtitle}>
-              View your fee payment records
+              View classes, exams, holidays and important dates
             </p>
           </div>
 
-          <Link
-            href="/student/dashboard"
+          <button
+            onClick={() =>
+              router.push("/student/dashboard")
+            }
             style={styles.backButton}
           >
-            ← Dashboard
-          </Link>
+            ← Student Dashboard
+          </button>
         </header>
 
-        {/* STUDENT INFO */}
+        {/* MONTH NAVIGATION */}
 
-        <section style={styles.studentCard}>
-          <div style={styles.avatar}>
-            👨‍🎓
-          </div>
+        <section style={styles.calendarCard}>
 
-          <div>
-            <p style={styles.infoLabel}>
-              Student
-            </p>
+          <div style={styles.calendarHeader}>
 
-            <h2 style={styles.studentName}>
-              {student?.student_name ||
-                student?.student_username}
-            </h2>
+            <button
+              onClick={previousMonth}
+              style={styles.navButton}
+            >
+              ←
+            </button>
 
-            <p style={styles.username}>
-              Username:{" "}
-              {student?.student_username}
-            </p>
-          </div>
-        </section>
-
-        {/* ERROR */}
-
-        {error && (
-          <div style={styles.error}>
-            ❌ {error}
-          </div>
-        )}
-
-        {/* SUMMARY */}
-
-        <section style={styles.statsGrid}>
-
-          <div style={styles.statCard}>
-            <div style={styles.statIcon}>
-              💰
-            </div>
-
-            <div>
-              <p style={styles.statLabel}>
-                Total Fees
-              </p>
-
-              <h2 style={styles.statValue}>
-                ₹
-                {totalAmount.toLocaleString(
-                  "en-IN"
-                )}
-              </h2>
-            </div>
-          </div>
-
-          <div style={styles.statCard}>
-            <div style={styles.statIcon}>
-              ✅
-            </div>
-
-            <div>
-              <p style={styles.statLabel}>
-                Paid
-              </p>
-
-              <h2
-                style={{
-                  ...styles.statValue,
-                  color: "#16a34a",
-                }}
-              >
-                ₹
-                {submittedAmount.toLocaleString(
-                  "en-IN"
-                )}
-              </h2>
-            </div>
-          </div>
-
-          <div style={styles.statCard}>
-            <div style={styles.statIcon}>
-              ⏳
-            </div>
-
-            <div>
-              <p style={styles.statLabel}>
-                Pending
-              </p>
-
-              <h2
-                style={{
-                  ...styles.statValue,
-                  color: "#d97706",
-                }}
-              >
-                ₹
-                {pendingAmount.toLocaleString(
-                  "en-IN"
-                )}
-              </h2>
-            </div>
-          </div>
-
-          <div style={styles.statCard}>
-            <div style={styles.statIcon}>
-              ↩️
-            </div>
-
-            <div>
-              <p style={styles.statLabel}>
-                Refunded
-              </p>
-
-              <h2
-                style={{
-                  ...styles.statValue,
-                  color: "#7c3aed",
-                }}
-              >
-                ₹
-                {refundedAmount.toLocaleString(
-                  "en-IN"
-                )}
-              </h2>
-            </div>
-          </div>
-
-        </section>
-
-        {/* FEE HISTORY */}
-
-        <section style={styles.card}>
-
-          <div style={styles.historyHeader}>
-            <div>
-              <h2 style={styles.sectionTitle}>
-                📋 Fee History
-              </h2>
-
-              <p style={styles.sectionSubtitle}>
-                Your complete monthly fee records
-              </p>
+            <div style={styles.monthTitle}>
+              {monthNames[month]} {year}
             </div>
 
             <button
-              onClick={loadFees}
-              style={styles.refreshButton}
+              onClick={nextMonth}
+              style={styles.navButton}
             >
-              🔄 Refresh
+              →
             </button>
+
           </div>
 
-          {fees.length === 0 ? (
-            <div style={styles.empty}>
-              <div style={styles.emptyIcon}>
-                📭
+          <button
+            onClick={goToday}
+            style={styles.todayButton}
+          >
+            📍 Today
+          </button>
+
+          {/* WEEK DAYS */}
+
+          <div style={styles.weekGrid}>
+            {[
+              "Sun",
+              "Mon",
+              "Tue",
+              "Wed",
+              "Thu",
+              "Fri",
+              "Sat",
+            ].map((day) => (
+              <div
+                key={day}
+                style={styles.weekDay}
+              >
+                {day}
               </div>
+            ))}
+          </div>
 
-              <h3 style={styles.emptyTitle}>
-                No Fee Records
-              </h3>
+          {/* CALENDAR */}
 
-              <p style={styles.emptyText}>
-                Your fee records will appear here
-                once they are added by your teacher.
-              </p>
-            </div>
-          ) : (
-            <div style={styles.tableWrapper}>
+          <div style={styles.calendarGrid}>
 
-              <table style={styles.table}>
+            {calendarDays.map(
+              (day, index) => {
 
-                <thead>
-                  <tr>
+                if (day === null) {
+                  return (
+                    <div
+                      key={`empty-${index}`}
+                      style={styles.emptyDay}
+                    />
+                  );
+                }
 
-                    <th style={styles.th}>
-                      #
-                    </th>
+                const dayEvents =
+                  getEvents(day);
 
-                    <th style={styles.th}>
-                      Month
-                    </th>
+                return (
+                  <div
+                    key={day}
+                    style={{
+                      ...styles.dayCell,
+                      ...(isToday(day)
+                        ? styles.todayCell
+                        : {}),
+                    }}
+                  >
 
-                    <th style={styles.th}>
-                      Amount
-                    </th>
+                    <div
+                      style={{
+                        ...styles.dayNumber,
+                        ...(isToday(day)
+                          ? styles.todayNumber
+                          : {}),
+                      }}
+                    >
+                      {day}
+                    </div>
 
-                    <th style={styles.th}>
-                      Status
-                    </th>
+                    <div style={styles.eventsArea}>
 
-                    <th style={styles.th}>
-                      Payment Date
-                    </th>
-
-                    <th style={styles.th}>
-                      Transaction ID
-                    </th>
-
-                    <th style={styles.th}>
-                      Remarks
-                    </th>
-
-                  </tr>
-                </thead>
-
-                <tbody>
-
-                  {fees.map(
-                    (fee, index) => (
-
-                      <tr key={fee.id}>
-
-                        <td style={styles.td}>
-                          {index + 1}
-                        </td>
-
-                        <td style={styles.td}>
-                          <strong>
-                            {months[
-                              fee.month - 1
-                            ] || "Unknown"}{" "}
-                            {fee.year}
-                          </strong>
-                        </td>
-
-                        <td style={styles.td}>
-                          ₹
-                          {Number(
-                            fee.amount
-                          ).toLocaleString(
-                            "en-IN"
-                          )}
-                        </td>
-
-                        <td style={styles.td}>
-
-                          <span
+                      {dayEvents.map(
+                        (event) => (
+                          <div
+                            key={event.id}
                             style={{
-                              ...styles.badge,
-                              ...getStatusStyle(
-                                fee.status
-                              ),
+                              ...styles.event,
+                              color:
+                                eventColor(
+                                  event.type
+                                ),
+                              background:
+                                eventBackground(
+                                  event.type
+                                ),
                             }}
                           >
-                            {getStatusIcon(
-                              fee.status
-                            )}{" "}
-                            {fee.status}
-                          </span>
+                            {event.title}
+                          </div>
+                        )
+                      )}
 
-                        </td>
+                    </div>
 
-                        <td style={styles.td}>
-                          {formatDate(
-                            fee.payment_date
-                          )}
-                        </td>
+                  </div>
+                );
+              }
+            )}
 
-                        <td style={styles.td}>
-                          {fee.transaction_id ||
-                            "—"}
-                        </td>
-
-                        <td style={styles.td}>
-                          {fee.remarks || "—"}
-                        </td>
-
-                      </tr>
-                    )
-                  )}
-
-                </tbody>
-
-              </table>
-
-            </div>
-          )}
+          </div>
 
         </section>
 
-        {/* PAYMENT INFORMATION */}
+        {/* LEGEND */}
 
-        <section style={styles.infoCard}>
+        <section style={styles.card}>
 
-          <div style={styles.infoIcon}>
-            💡
+          <h2 style={styles.sectionTitle}>
+            📌 Calendar Guide
+          </h2>
+
+          <div style={styles.legendGrid}>
+
+            <Legend
+              color="#2563eb"
+              background="#eff6ff"
+              title="Classes"
+              text="Regular classes and lectures"
+            />
+
+            <Legend
+              color="#dc2626"
+              background="#fef2f2"
+              title="Exams"
+              text="Tests and examinations"
+            />
+
+            <Legend
+              color="#16a34a"
+              background="#f0fdf4"
+              title="Holidays"
+              text="College holidays"
+            />
+
+            <Legend
+              color="#7c3aed"
+              background="#f5f3ff"
+              title="Events"
+              text="Important college events"
+            />
+
           </div>
 
-          <div>
-            <h3 style={styles.infoTitle}>
-              Fee Payment Information
-            </h3>
+        </section>
 
-            <p style={styles.infoText}>
-              Your fee status is updated by your
-              teacher. If you have already paid
-              your fees but the status still shows
-              Pending, please contact your teacher.
-            </p>
+        {/* UPCOMING EVENTS */}
+
+        <section style={styles.card}>
+
+          <h2 style={styles.sectionTitle}>
+            🔔 Upcoming Dates
+          </h2>
+
+          <p style={styles.sectionSubtitle}>
+            Important upcoming events
+          </p>
+
+          <div style={styles.eventList}>
+
+            {events.map((event) => (
+              <div
+                key={event.id}
+                style={{
+                  ...styles.eventCard,
+                  borderLeft:
+                    `5px solid ${eventColor(
+                      event.type
+                    )}`,
+                }}
+              >
+
+                <div>
+                  <div style={styles.eventDate}>
+                    📅 {event.date}
+                  </div>
+
+                  <h3 style={styles.eventTitle}>
+                    {event.title}
+                  </h3>
+
+                  <p style={styles.eventDescription}>
+                    {event.description}
+                  </p>
+                </div>
+
+                <span
+                  style={{
+                    ...styles.typeBadge,
+                    color:
+                      eventColor(event.type),
+                    background:
+                      eventBackground(
+                        event.type
+                      ),
+                  }}
+                >
+                  {event.type}
+                </span>
+
+              </div>
+            ))}
+
           </div>
 
         </section>
@@ -570,17 +411,49 @@ export default function StudentFeesPage() {
         {/* FOOTER */}
 
         <footer style={styles.footer}>
-          <strong>
-            Attendance Portal
-          </strong>
-
-          <span>
-            Student Fees • 2026
-          </span>
+          Attendance Portal • Student Calendar • 2026
         </footer>
 
       </div>
     </main>
+  );
+}
+
+function Legend({
+  color,
+  background,
+  title,
+  text,
+}: {
+  color: string;
+  background: string;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div style={styles.legendItem}>
+
+      <div
+        style={{
+          ...styles.legendIcon,
+          background,
+          color,
+        }}
+      >
+        ●
+      </div>
+
+      <div>
+        <strong style={styles.legendTitle}>
+          {title}
+        </strong>
+
+        <p style={styles.legendText}>
+          {text}
+        </p>
+      </div>
+
+    </div>
   );
 }
 
@@ -591,22 +464,22 @@ const styles: {
   page: {
     minHeight: "100vh",
     background:
-      "linear-gradient(135deg,#eff6ff,#f8fafc,#eef2ff)",
-    padding: "20px",
-    boxSizing: "border-box",
+      "linear-gradient(135deg,#eff6ff,#f8fafc)",
+    padding: "20px 15px",
     fontFamily:
       "Arial, Helvetica, sans-serif",
+    boxSizing: "border-box",
   },
 
   container: {
     width: "100%",
-    maxWidth: "1150px",
+    maxWidth: "1200px",
     margin: "0 auto",
   },
 
   header: {
     background: "white",
-    borderRadius: "20px",
+    borderRadius: "18px",
     padding: "22px",
     display: "flex",
     alignItems: "center",
@@ -618,18 +491,10 @@ const styles: {
       "0 8px 25px rgba(15,23,42,0.08)",
   },
 
-  smallTitle: {
-    color: "#2563eb",
-    fontSize: "11px",
-    fontWeight: "800",
-    letterSpacing: "2px",
-    marginBottom: "5px",
-  },
-
   title: {
     margin: 0,
     color: "#172554",
-    fontSize: "30px",
+    fontSize: "29px",
     fontWeight: "800",
   },
 
@@ -640,118 +505,150 @@ const styles: {
   },
 
   backButton: {
-    textDecoration: "none",
+    border: "none",
     background: "#1e3a8a",
     color: "white",
     padding: "12px 18px",
     borderRadius: "10px",
     fontWeight: "700",
+    cursor: "pointer",
   },
 
-  studentCard: {
-    background:
-      "linear-gradient(135deg,#1d4ed8,#4f46e5)",
-    color: "white",
-    borderRadius: "20px",
-    padding: "25px",
-    display: "flex",
-    alignItems: "center",
-    gap: "18px",
-    marginBottom: "20px",
-    boxShadow:
-      "0 12px 30px rgba(37,99,235,0.20)",
-  },
-
-  avatar: {
-    width: "70px",
-    height: "70px",
-    borderRadius: "20px",
-    background:
-      "rgba(255,255,255,0.16)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "38px",
-  },
-
-  infoLabel: {
-    margin: 0,
-    fontSize: "12px",
-    opacity: 0.8,
-    fontWeight: "700",
-  },
-
-  studentName: {
-    margin: "4px 0",
-    fontSize: "25px",
-  },
-
-  username: {
-    margin: 0,
-    fontSize: "13px",
-    opacity: 0.85,
-  },
-
-  statsGrid: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(auto-fit,minmax(200px,1fr))",
-    gap: "15px",
-    marginBottom: "20px",
-  },
-
-  statCard: {
+  calendarCard: {
     background: "white",
-    borderRadius: "18px",
-    padding: "20px",
-    display: "flex",
-    alignItems: "center",
-    gap: "14px",
+    borderRadius: "20px",
+    padding: "22px",
     boxShadow:
-      "0 8px 25px rgba(15,23,42,0.07)",
+      "0 8px 25px rgba(15,23,42,0.08)",
+    overflow: "hidden",
   },
 
-  statIcon: {
-    width: "52px",
-    height: "52px",
-    borderRadius: "15px",
-    background: "#eff6ff",
+  calendarHeader: {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "25px",
-    flexShrink: 0,
+    gap: "18px",
   },
 
-  statLabel: {
-    margin: 0,
-    color: "#64748b",
-    fontSize: "12px",
-    fontWeight: "700",
-  },
-
-  statValue: {
-    margin: "4px 0 0",
+  monthTitle: {
     color: "#172554",
+    fontSize: "25px",
+    fontWeight: "800",
+    minWidth: "190px",
+    textAlign: "center",
+  },
+
+  navButton: {
+    width: "42px",
+    height: "42px",
+    border: "none",
+    borderRadius: "10px",
+    background: "#eff6ff",
+    color: "#1d4ed8",
     fontSize: "22px",
     fontWeight: "800",
+    cursor: "pointer",
+  },
+
+  todayButton: {
+    display: "block",
+    margin: "18px auto",
+    border: "none",
+    background: "#2563eb",
+    color: "white",
+    padding: "10px 18px",
+    borderRadius: "10px",
+    fontWeight: "700",
+    cursor: "pointer",
+  },
+
+  weekGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(7,minmax(0,1fr))",
+    gap: "5px",
+    marginTop: "10px",
+  },
+
+  weekDay: {
+    textAlign: "center",
+    padding: "12px 4px",
+    background: "#eff6ff",
+    color: "#1e3a8a",
+    fontWeight: "800",
+    fontSize: "13px",
+    borderRadius: "8px",
+  },
+
+  calendarGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(7,minmax(0,1fr))",
+    gap: "5px",
+    marginTop: "5px",
+  },
+
+  emptyDay: {
+    minHeight: "90px",
+    background: "#f8fafc",
+    borderRadius: "8px",
+  },
+
+  dayCell: {
+    minHeight: "90px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "8px",
+    padding: "7px",
+    background: "white",
+    boxSizing: "border-box",
+  },
+
+  todayCell: {
+    border: "2px solid #2563eb",
+    background: "#f8fbff",
+  },
+
+  dayNumber: {
+    width: "27px",
+    height: "27px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "50%",
+    color: "#334155",
+    fontSize: "13px",
+    fontWeight: "700",
+  },
+
+  todayNumber: {
+    background: "#2563eb",
+    color: "white",
+  },
+
+  eventsArea: {
+    marginTop: "5px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "4px",
+  },
+
+  event: {
+    padding: "4px 5px",
+    borderRadius: "5px",
+    fontSize: "10px",
+    fontWeight: "700",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
 
   card: {
     background: "white",
     borderRadius: "20px",
-    padding: "25px",
-    marginBottom: "20px",
+    padding: "24px",
+    marginTop: "20px",
     boxShadow:
-      "0 8px 25px rgba(15,23,42,0.07)",
-  },
-
-  historyHeader: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "15px",
-    marginBottom: "20px",
+      "0 8px 25px rgba(15,23,42,0.08)",
   },
 
   sectionTitle: {
@@ -767,130 +664,89 @@ const styles: {
     fontSize: "13px",
   },
 
-  refreshButton: {
-    border: "none",
-    background: "#2563eb",
-    color: "white",
-    padding: "10px 15px",
+  legendGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit,minmax(220px,1fr))",
+    gap: "15px",
+    marginTop: "18px",
+  },
+
+  legendItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    padding: "14px",
+    borderRadius: "12px",
+    background: "#f8fafc",
+  },
+
+  legendIcon: {
+    width: "40px",
+    height: "40px",
     borderRadius: "10px",
-    fontWeight: "700",
-    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "18px",
   },
 
-  tableWrapper: {
-    width: "100%",
-    overflowX: "auto",
-  },
-
-  table: {
-    width: "100%",
-    minWidth: "900px",
-    borderCollapse: "collapse",
-  },
-
-  th: {
-    background: "#eff6ff",
-    color: "#1e3a8a",
-    padding: "13px",
-    textAlign: "left",
-    borderBottom:
-      "2px solid #dbeafe",
-    fontSize: "13px",
-  },
-
-  td: {
-    padding: "14px 13px",
-    borderBottom:
-      "1px solid #e2e8f0",
-    color: "#334155",
+  legendTitle: {
+    color: "#172554",
     fontSize: "14px",
   },
 
-  badge: {
-    display: "inline-block",
-    padding: "7px 12px",
-    borderRadius: "999px",
-    fontSize: "12px",
-    fontWeight: "800",
-  },
-
-  empty: {
-    textAlign: "center",
-    padding: "45px 20px",
-  },
-
-  emptyIcon: {
-    fontSize: "45px",
-  },
-
-  emptyTitle: {
-    margin: "10px 0 5px",
-    color: "#172554",
-    fontSize: "19px",
-  },
-
-  emptyText: {
-    margin: 0,
+  legendText: {
+    margin: "3px 0 0",
     color: "#64748b",
-    fontSize: "13px",
+    fontSize: "12px",
   },
 
-  infoCard: {
-    background:
-      "linear-gradient(135deg,#eff6ff,#eef2ff)",
-    border:
-      "1px solid #dbeafe",
-    borderRadius: "18px",
-    padding: "22px",
-    display: "flex",
-    gap: "15px",
-    alignItems: "flex-start",
+  eventList: {
+    display: "grid",
+    gap: "12px",
+    marginTop: "18px",
   },
 
-  infoIcon: {
-    fontSize: "28px",
-  },
-
-  infoTitle: {
-    margin: 0,
-    color: "#1e3a8a",
-    fontSize: "17px",
-  },
-
-  infoText: {
-    margin: "7px 0 0",
-    color: "#475569",
-    fontSize: "13px",
-    lineHeight: 1.6,
-  },
-
-  error: {
-    background: "#fee2e2",
-    color: "#991b1b",
-    padding: "13px 16px",
+  eventCard: {
+    background: "#f8fafc",
     borderRadius: "12px",
-    marginBottom: "20px",
-    fontWeight: "600",
+    padding: "15px 17px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "15px",
   },
 
-  loading: {
-    background: "white",
-    maxWidth: "400px",
-    margin: "100px auto",
-    padding: "40px",
-    borderRadius: "20px",
-    textAlign: "center",
-    fontSize: "18px",
+  eventDate: {
+    color: "#64748b",
+    fontSize: "12px",
     fontWeight: "700",
   },
 
+  eventTitle: {
+    margin: "5px 0 0",
+    color: "#172554",
+    fontSize: "16px",
+  },
+
+  eventDescription: {
+    margin: "4px 0 0",
+    color: "#64748b",
+    fontSize: "12px",
+  },
+
+  typeBadge: {
+    padding: "7px 10px",
+    borderRadius: "999px",
+    fontSize: "10px",
+    fontWeight: "800",
+    flexShrink: 0,
+  },
+
   footer: {
-    padding: "20px 10px",
     textAlign: "center",
-    display: "flex",
-    justifyContent: "center",
-    gap: "8px",
-    flexWrap: "wrap",
+    padding: "25px 10px 10px",
     color: "#64748b",
     fontSize: "12px",
   },
