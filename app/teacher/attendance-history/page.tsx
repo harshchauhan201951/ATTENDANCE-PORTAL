@@ -23,6 +23,7 @@ type AttendanceRecord = {
 type HistoryRow = {
   student: Student;
   status: string;
+  attendance_date: string;
 };
 
 export default function AttendanceHistoryPage() {
@@ -33,7 +34,9 @@ export default function AttendanceHistoryPage() {
   const [search, setSearch] = useState("");
 
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
     loadData();
@@ -47,9 +50,7 @@ export default function AttendanceHistoryPage() {
       await Promise.all([
         supabase
           .from("students")
-          .select(
-            "id, student_name, student_username"
-          )
+          .select("id, student_name, student_username")
           .order("id", {
             ascending: true,
           }),
@@ -95,16 +96,79 @@ export default function AttendanceHistoryPage() {
     }
 
     setStudents(
-      (studentsResult.data ||
-        []) as Student[]
+      (studentsResult.data || []) as Student[]
     );
 
     setRecords(
-      (attendanceResult.data ||
-        []) as AttendanceRecord[]
+      (attendanceResult.data || []) as AttendanceRecord[]
     );
 
     setLoading(false);
+  }
+
+  async function deleteAttendance(
+    studentId: number,
+    attendanceDate: string
+  ) {
+    const deleteKey =
+      `${studentId}-${attendanceDate}`;
+
+    const confirmed = window.confirm(
+      `Kya aap ${formatDate(
+        attendanceDate
+      )} ki attendance delete karna chahte hain?\n\nIsse is student ki us din ki attendance permanently delete ho jayegi.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeleting(deleteKey);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    const { error } = await supabase
+      .from("attendance")
+      .delete()
+      .eq("student_id", studentId)
+      .eq("attendance_date", attendanceDate);
+
+    if (error) {
+      console.error(
+        "Delete attendance error:",
+        error
+      );
+
+      setErrorMessage(
+        "Attendance delete nahi hui: " +
+          error.message
+      );
+
+      setDeleting(null);
+      return;
+    }
+
+    setRecords((currentRecords) =>
+      currentRecords.filter(
+        (record) =>
+          !(
+            record.student_id === studentId &&
+            record.attendance_date === attendanceDate
+          )
+      )
+    );
+
+    setSuccessMessage(
+      `Attendance successfully deleted for ${formatDate(
+        attendanceDate
+      )}.`
+    );
+
+    setDeleting(null);
+
+    setTimeout(() => {
+      setSuccessMessage("");
+    }, 3000);
   }
 
   const availableDates = useMemo(() => {
@@ -144,7 +208,9 @@ export default function AttendanceHistoryPage() {
             item.id === record.student_id
         );
 
-        if (!student) return false;
+        if (!student) {
+          return false;
+        }
 
         return (
           student.student_name
@@ -173,11 +239,15 @@ export default function AttendanceHistoryPage() {
             item.id === record.student_id
         );
 
-        if (!student) return null;
+        if (!student) {
+          return null;
+        }
 
         return {
           student,
           status: record.status,
+          attendance_date:
+            record.attendance_date,
         };
       })
       .filter(
@@ -202,6 +272,10 @@ export default function AttendanceHistoryPage() {
   const totalCount = historyRows.length;
 
   function formatDate(date: string) {
+    if (!date) {
+      return "";
+    }
+
     return new Date(
       `${date}T00:00:00`
     ).toLocaleDateString("en-IN", {
@@ -233,8 +307,8 @@ export default function AttendanceHistoryPage() {
             </h1>
 
             <p style={styles.subtitle}>
-              View previous student attendance
-              records
+              View, manage and delete previous
+              student attendance records
             </p>
           </div>
 
@@ -247,6 +321,14 @@ export default function AttendanceHistoryPage() {
             ← Back
           </button>
         </header>
+
+        {/* SUCCESS MESSAGE */}
+
+        {successMessage && (
+          <div style={styles.successBox}>
+            ✅ {successMessage}
+          </div>
+        )}
 
         {/* FILTERS */}
 
@@ -266,9 +348,7 @@ export default function AttendanceHistoryPage() {
                 type="text"
                 value={search}
                 onChange={(e) =>
-                  setSearch(
-                    e.target.value
-                  )
+                  setSearch(e.target.value)
                 }
                 placeholder="Name or username..."
                 style={styles.input}
@@ -509,107 +589,172 @@ export default function AttendanceHistoryPage() {
                     <th style={styles.th}>
                       Status
                     </th>
+
+                    <th
+                      style={{
+                        ...styles.th,
+                        textAlign: "center",
+                      }}
+                    >
+                      Action
+                    </th>
                   </tr>
                 </thead>
 
                 <tbody>
                   {historyRows.map(
-                    (row, index) => (
-                      <tr
-                        key={`${row.student.id}-${index}`}
-                      >
-                        <td style={styles.td}>
-                          {index + 1}
-                        </td>
+                    (row, index) => {
+                      const deleteKey =
+                        `${row.student.id}-${row.attendance_date}`;
 
-                        <td style={styles.td}>
-                          <div
-                            style={
-                              styles.studentCell
-                            }
-                          >
+                      const isDeleting =
+                        deleting === deleteKey;
+
+                      return (
+                        <tr
+                          key={`${row.student.id}-${row.attendance_date}`}
+                        >
+                          <td style={styles.td}>
+                            {index + 1}
+                          </td>
+
+                          <td style={styles.td}>
                             <div
                               style={
-                                styles.studentAvatar
+                                styles.studentCell
                               }
                             >
-                              {row.student.student_name
-                                ?.charAt(0)
-                                .toUpperCase() ||
-                                "S"}
+                              <div
+                                style={
+                                  styles.studentAvatar
+                                }
+                              >
+                                {row.student.student_name
+                                  ?.charAt(0)
+                                  .toUpperCase() ||
+                                  "S"}
+                              </div>
+
+                              <strong
+                                style={
+                                  styles.studentName
+                                }
+                              >
+                                {row.student
+                                  .student_name ||
+                                  "Student"}
+                              </strong>
                             </div>
+                          </td>
 
-                            <strong
+                          <td style={styles.td}>
+                            <span
                               style={
-                                styles.studentName
+                                styles.username
                               }
                             >
-                              {row.student
-                                .student_name ||
-                                "Student"}
-                            </strong>
-                          </div>
-                        </td>
+                              {
+                                row.student
+                                  .student_username
+                              }
+                            </span>
+                          </td>
 
-                        <td style={styles.td}>
-                          <span
-                            style={
-                              styles.username
-                            }
+                          <td style={styles.td}>
+                            {formatDate(
+                              row.attendance_date
+                            )}
+                          </td>
+
+                          <td style={styles.td}>
+                            {row.status
+                              .toLowerCase() ===
+                            "present" ? (
+                              <span
+                                style={
+                                  styles.presentBadge
+                                }
+                              >
+                                ✓ Present
+                              </span>
+                            ) : (
+                              <span
+                                style={
+                                  styles.absentBadge
+                                }
+                              >
+                                ✕ Absent
+                              </span>
+                            )}
+                          </td>
+
+                          <td
+                            style={{
+                              ...styles.td,
+                              textAlign: "center",
+                            }}
                           >
-                            {
-                              row.student
-                                .student_username
-                            }
-                          </span>
-                        </td>
-
-                        <td style={styles.td}>
-                          {selectedDate
-                            ? formatDate(
-                                selectedDate
-                              )
-                            : formatDate(
-                                records.find(
-                                  (record) =>
-                                    record
-                                      .student_id ===
-                                    row.student
-                                      .id
+                            <button
+                              onClick={() =>
+                                deleteAttendance(
+                                  row.student.id,
+                                  row.attendance_date
                                 )
-                                  ?.attendance_date ||
-                                  ""
-                              )}
-                        </td>
-
-                        <td style={styles.td}>
-                          {row.status
-                            .toLowerCase() ===
-                          "present" ? (
-                            <span
-                              style={
-                                styles.presentBadge
                               }
+                              disabled={isDeleting}
+                              style={{
+                                ...styles.deleteButton,
+                                opacity:
+                                  isDeleting
+                                    ? 0.6
+                                    : 1,
+                                cursor:
+                                  isDeleting
+                                    ? "not-allowed"
+                                    : "pointer",
+                              }}
                             >
-                              ✓ Present
-                            </span>
-                          ) : (
-                            <span
-                              style={
-                                styles.absentBadge
-                              }
-                            >
-                              ✕ Absent
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    )
+                              {isDeleting
+                                ? "⏳ Deleting..."
+                                : "🗑️ Delete"}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    }
                   )}
                 </tbody>
               </table>
             </div>
           )}
+        </section>
+
+        {/* DELETE INFORMATION */}
+
+        <section style={styles.deleteInfoCard}>
+          <div style={styles.deleteInfoIcon}>
+            🗑️
+          </div>
+
+          <div>
+            <h3 style={styles.deleteInfoTitle}>
+              Delete Incorrect Attendance
+            </h3>
+
+            <p style={styles.deleteInfoText}>
+              Agar galti se Sunday, holiday ya kisi
+              wrong date ki attendance mark ho gayi
+              hai, to us record ke saamne
+              <strong> Delete </strong>
+              button dabakar attendance remove
+              kar sakte hain.
+            </p>
+
+            <p style={styles.deleteWarning}>
+              ⚠️ Delete karne ke baad attendance
+              record permanently remove ho jayega.
+            </p>
+          </div>
         </section>
 
         {/* FOOTER */}
@@ -693,6 +838,16 @@ const styles: {
     fontWeight: "800",
     cursor: "pointer",
     fontSize: "14px",
+  },
+
+  successBox: {
+    background: "#dcfce7",
+    color: "#166534",
+    border: "1px solid #bbf7d0",
+    borderRadius: "12px",
+    padding: "15px",
+    marginBottom: "20px",
+    fontWeight: "800",
   },
 
   filterCard: {
@@ -872,7 +1027,7 @@ const styles: {
 
   table: {
     width: "100%",
-    minWidth: "700px",
+    minWidth: "850px",
     borderCollapse: "collapse",
     background: "#ffffff",
   },
@@ -948,6 +1103,57 @@ const styles: {
     borderRadius: "999px",
     fontSize: "11px",
     fontWeight: "900",
+  },
+
+  deleteButton: {
+    border: "none",
+    background: "#dc2626",
+    color: "#ffffff",
+    padding: "9px 13px",
+    borderRadius: "9px",
+    fontWeight: "900",
+    cursor: "pointer",
+    fontSize: "12px",
+    boxShadow:
+      "0 4px 10px rgba(220,38,38,0.18)",
+  },
+
+  deleteInfoCard: {
+    marginTop: "20px",
+    background: "#fff7ed",
+    border: "1px solid #fed7aa",
+    borderRadius: "18px",
+    padding: "20px",
+    display: "flex",
+    gap: "14px",
+    alignItems: "flex-start",
+  },
+
+  deleteInfoIcon: {
+    fontSize: "30px",
+    flexShrink: 0,
+  },
+
+  deleteInfoTitle: {
+    margin: 0,
+    color: "#9a3412",
+    fontSize: "17px",
+    fontWeight: "900",
+  },
+
+  deleteInfoText: {
+    margin: "7px 0 0",
+    color: "#7c2d12",
+    fontSize: "13px",
+    lineHeight: 1.6,
+    fontWeight: "600",
+  },
+
+  deleteWarning: {
+    margin: "8px 0 0",
+    color: "#b91c1c",
+    fontSize: "12px",
+    fontWeight: "800",
   },
 
   loadingBox: {
