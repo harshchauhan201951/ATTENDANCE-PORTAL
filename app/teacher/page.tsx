@@ -21,7 +21,7 @@ const menuItems: MenuItem[] = [
     icon: "📅",
     title: "Attendance History",
     description: "View previous attendance records",
-    path: "/dashboard",
+    path: "/teacher/attendance-history",
   },
   {
     icon: "💰",
@@ -33,25 +33,25 @@ const menuItems: MenuItem[] = [
     icon: "👨‍🎓",
     title: "Students",
     description: "View and manage all students",
-    path: "/dashboard",
+    path: "/teacher/students",
   },
   {
     icon: "🗓️",
     title: "Calendar",
     description: "View classes and important dates",
-    path: "/dashboard",
+    path: "/academic-calendar",
   },
   {
     icon: "📊",
     title: "Reports",
     description: "View attendance and fee reports",
-    path: "/dashboard",
+    path: "/teacher/reports",
   },
   {
     icon: "⚙️",
     title: "Settings",
     description: "Manage teacher dashboard settings",
-    path: "/dashboard",
+    path: "/teacher/settings",
   },
 ];
 
@@ -106,13 +106,10 @@ export default function TeacherDashboard() {
     <main style={styles.page}>
       <div style={styles.container}>
 
-        {/* TOP NAVBAR */}
+        {/* NAVBAR */}
         <header style={styles.navbar}>
-
           <div style={styles.brandArea}>
-            <div style={styles.logo}>
-              🎓
-            </div>
+            <div style={styles.logo}>🎓</div>
 
             <div>
               <h1 style={styles.brandTitle}>
@@ -126,7 +123,6 @@ export default function TeacherDashboard() {
           </div>
 
           <div style={styles.navRight}>
-
             <div style={styles.clock}>
               🕐 {time}
             </div>
@@ -137,14 +133,11 @@ export default function TeacherDashboard() {
             >
               🚪 Logout
             </button>
-
           </div>
-
         </header>
 
         {/* HERO */}
         <section style={styles.hero}>
-
           <div>
             <div style={styles.welcomeSmall}>
               TEACHER PORTAL
@@ -164,7 +157,6 @@ export default function TeacherDashboard() {
           <div style={styles.heroIcon}>
             👨‍🏫
           </div>
-
         </section>
 
         {/* QUICK STATS */}
@@ -248,15 +240,13 @@ export default function TeacherDashboard() {
         <section>
 
           <div style={styles.sectionHeading}>
-            <div>
-              <h2 style={styles.sectionTitle}>
-                Teacher Control Center
-              </h2>
+            <h2 style={styles.sectionTitle}>
+              Teacher Control Center
+            </h2>
 
-              <p style={styles.sectionSubtitle}>
-                Choose what you want to manage
-              </p>
-            </div>
+            <p style={styles.sectionSubtitle}>
+              Choose what you want to manage
+            </p>
           </div>
 
           <div style={styles.menuGrid}>
@@ -269,23 +259,23 @@ export default function TeacherDashboard() {
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform =
                     "translateY(-5px)";
+
                   e.currentTarget.style.boxShadow =
                     "0 18px 35px rgba(15,23,42,0.14)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform =
                     "translateY(0)";
+
                   e.currentTarget.style.boxShadow =
                     "0 8px 25px rgba(15,23,42,0.07)";
                 }}
               >
-
                 <div style={styles.menuIcon}>
                   {item.icon}
                 </div>
 
                 <div style={styles.menuContent}>
-
                   <h3 style={styles.menuTitle}>
                     {item.title}
                   </h3>
@@ -293,18 +283,15 @@ export default function TeacherDashboard() {
                   <p style={styles.menuDescription}>
                     {item.description}
                   </p>
-
                 </div>
 
                 <div style={styles.arrow}>
                   →
                 </div>
-
               </button>
             ))}
 
           </div>
-
         </section>
 
         {/* QUICK ACTIONS */}
@@ -321,7 +308,9 @@ export default function TeacherDashboard() {
           <div style={styles.quickGrid}>
 
             <button
-              onClick={() => router.push("/dashboard")}
+              onClick={() =>
+                router.push("/dashboard")
+              }
               style={styles.quickButton}
             >
               <span>📝</span>
@@ -331,7 +320,9 @@ export default function TeacherDashboard() {
             </button>
 
             <button
-              onClick={() => router.push("/teacher/fees")}
+              onClick={() =>
+                router.push("/teacher/fees")
+              }
               style={styles.quickButton}
             >
               <span>💰</span>
@@ -341,17 +332,20 @@ export default function TeacherDashboard() {
             </button>
 
             <button
-              onClick={() => router.push("/dashboard")}
+              onClick={() =>
+                router.push(
+                  "/teacher/attendance-history"
+                )
+              }
               style={styles.quickButton}
             >
-              <span>📊</span>
+              <span>📅</span>
               <span>
-                View Records
+                Attendance History
               </span>
             </button>
 
           </div>
-
         </section>
 
         {/* INFORMATION */}
@@ -362,7 +356,6 @@ export default function TeacherDashboard() {
           </div>
 
           <div>
-
             <h3 style={styles.infoTitle}>
               Teacher Dashboard
             </h3>
@@ -370,17 +363,15 @@ export default function TeacherDashboard() {
             <p style={styles.infoText}>
               This is your central control panel.
               From here you can manage attendance,
-              fees, students, history, calendar and
-              reports.
+              fees, students, attendance history,
+              calendar, reports and settings.
             </p>
-
           </div>
 
         </section>
 
         {/* FOOTER */}
         <footer style={styles.footer}>
-
           <strong>
             Attendance Portal
           </strong>
@@ -388,7 +379,6 @@ export default function TeacherDashboard() {
           <span>
             Teacher Control Center • 2026
           </span>
-
         </footer>
 
       </div>
@@ -408,6 +398,7 @@ const styles: {
     boxSizing: "border-box",
     fontFamily:
       "Arial, Helvetica, sans-serif",
+    color: "#172554",
   },
 
   container: {
@@ -417,7 +408,7 @@ const styles: {
   },
 
   navbar: {
-    background: "white",
+    background: "#ffffff",
     borderRadius: "18px",
     padding: "16px 20px",
     display: "flex",
@@ -457,8 +448,9 @@ const styles: {
 
   brandSubtitle: {
     margin: "4px 0 0",
-    color: "#64748b",
+    color: "#475569",
     fontSize: "12px",
+    fontWeight: "600",
   },
 
   navRight: {
@@ -505,7 +497,7 @@ const styles: {
     fontSize: "12px",
     fontWeight: "800",
     letterSpacing: "2px",
-    opacity: 0.8,
+    opacity: 0.9,
     marginBottom: "8px",
   },
 
@@ -519,7 +511,7 @@ const styles: {
     margin: "12px 0 0",
     maxWidth: "650px",
     lineHeight: 1.6,
-    opacity: 0.9,
+    opacity: 0.95,
     fontSize: "15px",
   },
 
@@ -527,7 +519,8 @@ const styles: {
     width: "100px",
     height: "100px",
     borderRadius: "28px",
-    background: "rgba(255,255,255,0.15)",
+    background:
+      "rgba(255,255,255,0.15)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -544,7 +537,7 @@ const styles: {
   },
 
   statCard: {
-    background: "white",
+    background: "#ffffff",
     borderRadius: "18px",
     padding: "20px",
     display: "flex",
@@ -568,7 +561,7 @@ const styles: {
 
   statLabel: {
     margin: 0,
-    color: "#64748b",
+    color: "#475569",
     fontSize: "12px",
     fontWeight: "700",
   },
@@ -577,12 +570,14 @@ const styles: {
     margin: "3px 0",
     color: "#172554",
     fontSize: "23px",
+    fontWeight: "800",
   },
 
   statDescription: {
     margin: 0,
-    color: "#94a3b8",
+    color: "#64748b",
     fontSize: "11px",
+    fontWeight: "600",
   },
 
   sectionHeading: {
@@ -598,8 +593,9 @@ const styles: {
 
   sectionSubtitle: {
     margin: "5px 0 0",
-    color: "#64748b",
+    color: "#475569",
     fontSize: "13px",
+    fontWeight: "600",
   },
 
   menuGrid: {
@@ -611,7 +607,7 @@ const styles: {
 
   menuCard: {
     border: "none",
-    background: "white",
+    background: "#ffffff",
     borderRadius: "18px",
     padding: "21px",
     display: "flex",
@@ -623,6 +619,7 @@ const styles: {
       "0 8px 25px rgba(15,23,42,0.07)",
     transition:
       "transform 0.2s ease, box-shadow 0.2s ease",
+    color: "#172554",
   },
 
   menuIcon: {
@@ -650,9 +647,10 @@ const styles: {
 
   menuDescription: {
     margin: "5px 0 0",
-    color: "#64748b",
+    color: "#475569",
     fontSize: "12px",
     lineHeight: 1.4,
+    fontWeight: "600",
   },
 
   arrow: {
@@ -662,7 +660,7 @@ const styles: {
   },
 
   quickSection: {
-    background: "white",
+    background: "#ffffff",
     borderRadius: "20px",
     padding: "25px",
     marginTop: "30px",
@@ -679,7 +677,7 @@ const styles: {
   },
 
   quickButton: {
-    border: "1px solid #e2e8f0",
+    border: "1px solid #cbd5e1",
     background: "#f8fafc",
     borderRadius: "12px",
     padding: "14px",
@@ -697,7 +695,7 @@ const styles: {
     marginTop: "20px",
     background:
       "linear-gradient(135deg,#eff6ff,#eef2ff)",
-    border: "1px solid #dbeafe",
+    border: "1px solid #bfdbfe",
     borderRadius: "18px",
     padding: "22px",
     display: "flex",
@@ -713,13 +711,15 @@ const styles: {
     margin: 0,
     color: "#1e3a8a",
     fontSize: "17px",
+    fontWeight: "800",
   },
 
   infoText: {
     margin: "7px 0 0",
-    color: "#475569",
+    color: "#334155",
     fontSize: "13px",
     lineHeight: 1.6,
+    fontWeight: "600",
   },
 
   footer: {
@@ -729,7 +729,7 @@ const styles: {
     justifyContent: "center",
     gap: "8px",
     flexWrap: "wrap",
-    color: "#64748b",
+    color: "#475569",
     fontSize: "12px",
   },
 };
