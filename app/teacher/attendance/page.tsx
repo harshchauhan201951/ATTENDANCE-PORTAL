@@ -45,33 +45,61 @@ export default function TeacherAttendancePage() {
     setMessage("");
 
     try {
-      const { data: studentData, error: studentError } =
-        await supabase
-          .from("students")
-          .select("id, student_name, student_username")
-          .order("student_name", { ascending: true });
+      // STUDENTS
+      const { data: studentData, error: studentError } = await supabase
+        .from("students")
+        .select("id, student_name, student_username")
+        .order("id", { ascending: true });
+
+      console.log("STUDENTS:", studentData);
+      console.log("STUDENT ERROR:", studentError);
 
       if (studentError) {
-        throw new Error(studentError.message);
+        throw new Error(
+          "Students load error: " + studentError.message
+        );
       }
 
+      // ATTENDANCE
       const { data: attendanceData, error: attendanceError } =
         await supabase
           .from("attendance")
-          .select("id, student_id, attendance_date, status")
-          .order("attendance_date", { ascending: false });
+          .select(
+            "id, student_id, attendance_date, status"
+          )
+          .order("attendance_date", {
+            ascending: false,
+          });
+
+      console.log("ATTENDANCE:", attendanceData);
+      console.log("ATTENDANCE ERROR:", attendanceError);
 
       if (attendanceError) {
-        throw new Error(attendanceError.message);
+        throw new Error(
+          "Attendance load error: " +
+            attendanceError.message
+        );
       }
 
       setStudents(studentData || []);
       setAttendance(attendanceData || []);
+
+      if (!studentData || studentData.length === 0) {
+        setMessage(
+          "⚠️ Students table se 0 students mil rahe hain."
+        );
+      } else {
+        setMessage(
+          `✅ ${studentData.length} students successfully loaded.`
+        );
+      }
     } catch (error) {
+      console.error(error);
+
       setMessage(
         error instanceof Error
           ? error.message
-          : "Unable to load attendance data."
+          : "Unable to load data."
       );
     } finally {
       setLoading(false);
@@ -81,19 +109,28 @@ export default function TeacherAttendancePage() {
   const filteredStudents = useMemo(() => {
     const text = search.trim().toLowerCase();
 
-    if (!text) return students;
+    if (!text) {
+      return students;
+    }
 
     return students.filter((student) => {
+      const name =
+        student.student_name?.toLowerCase() || "";
+
+      const username =
+        student.student_username?.toLowerCase() || "";
+
       return (
-        student.student_name?.toLowerCase().includes(text) ||
-        student.student_username.toLowerCase().includes(text)
+        name.includes(text) ||
+        username.includes(text)
       );
     });
   }, [students, search]);
 
   const selectedDateRecords = useMemo(() => {
     return attendance.filter(
-      (record) => record.attendance_date === selectedDate
+      (record) =>
+        record.attendance_date === selectedDate
     );
   }, [attendance, selectedDate]);
 
@@ -151,11 +188,18 @@ export default function TeacherAttendancePage() {
           throw new Error(error.message);
         }
 
-        setAttendance((current) => [data, ...current]);
+        setAttendance((current) => [
+          data,
+          ...current,
+        ]);
       }
 
-      setMessage("Attendance saved successfully.");
+      setMessage(
+        "✅ Attendance saved successfully."
+      );
     } catch (error) {
+      console.error(error);
+
       setMessage(
         error instanceof Error
           ? error.message
@@ -168,21 +212,28 @@ export default function TeacherAttendancePage() {
 
   function getStudentStats(studentId: number) {
     const records = attendance.filter(
-      (record) => record.student_id === studentId
+      (record) =>
+        record.student_id === studentId
     );
 
     const present = records.filter(
-      (record) => record.status?.toLowerCase() === "present"
+      (record) =>
+        record.status?.toLowerCase() ===
+        "present"
     ).length;
 
     const absent = records.filter(
-      (record) => record.status?.toLowerCase() === "absent"
+      (record) =>
+        record.status?.toLowerCase() ===
+        "absent"
     ).length;
 
     const total = records.length;
 
     const percentage =
-      total > 0 ? Math.round((present / total) * 100) : 0;
+      total > 0
+        ? Math.round((present / total) * 100)
+        : 0;
 
     return {
       total,
@@ -194,27 +245,40 @@ export default function TeacherAttendancePage() {
 
   const totalStudents = students.length;
 
-  const presentToday = selectedDateRecords.filter(
-    (record) => record.status?.toLowerCase() === "present"
-  ).length;
+  const presentToday =
+    selectedDateRecords.filter(
+      (record) =>
+        record.status?.toLowerCase() ===
+        "present"
+    ).length;
 
-  const absentToday = selectedDateRecords.filter(
-    (record) => record.status?.toLowerCase() === "absent"
-  ).length;
+  const absentToday =
+    selectedDateRecords.filter(
+      (record) =>
+        record.status?.toLowerCase() ===
+        "absent"
+    ).length;
 
-  const pendingToday =
-    totalStudents - presentToday - absentToday;
+  const pendingToday = Math.max(
+    0,
+    totalStudents -
+      presentToday -
+      absentToday
+  );
 
   const history = useMemo(() => {
     const filtered = month
-      ? attendance.filter(
-          (record) =>
-            record.attendance_date.startsWith(month)
+      ? attendance.filter((record) =>
+          record.attendance_date.startsWith(
+            month
+          )
         )
       : attendance;
 
     return [...filtered].sort((a, b) =>
-      b.attendance_date.localeCompare(a.attendance_date)
+      b.attendance_date.localeCompare(
+        a.attendance_date
+      )
     );
   }, [attendance, month]);
 
@@ -222,9 +286,15 @@ export default function TeacherAttendancePage() {
     return (
       <main style={styles.page}>
         <div style={styles.loadingCard}>
-          <div style={styles.spinner}>⏳</div>
+          <div style={styles.loadingIcon}>
+            ⏳
+          </div>
+
           <h2>Loading Attendance...</h2>
-          <p>Please wait while student records are loaded.</p>
+
+          <p>
+            Loading students from Supabase...
+          </p>
         </div>
       </main>
     );
@@ -247,7 +317,7 @@ export default function TeacherAttendancePage() {
             </h1>
 
             <p style={styles.subtitle}>
-              Manage students, daily attendance and complete history.
+              Manage students and daily attendance.
             </p>
           </div>
 
@@ -264,22 +334,19 @@ export default function TeacherAttendancePage() {
         {message && (
           <div
             style={
-              message.toLowerCase().includes("success")
+              message.includes("successfully") ||
+              message.includes("success")
                 ? styles.success
                 : styles.error
             }
           >
-            {message.toLowerCase().includes("success")
-              ? "✅"
-              : "❌"}{" "}
             {message}
           </div>
         )}
 
-        {/* STATISTICS */}
+        {/* STATS */}
 
         <section style={styles.statsGrid}>
-
           <Stat
             icon="👨‍🎓"
             title="Total Students"
@@ -304,16 +371,14 @@ export default function TeacherAttendancePage() {
           <Stat
             icon="⏳"
             title="Pending"
-            value={String(Math.max(0, pendingToday))}
+            value={String(pendingToday)}
             background="linear-gradient(135deg,#f59e0b,#d97706)"
           />
-
         </section>
 
-        {/* DATE + SEARCH */}
+        {/* CONTROLS */}
 
         <section style={styles.controlCard}>
-
           <div style={styles.controlBox}>
             <label style={styles.label}>
               📅 Attendance Date
@@ -323,7 +388,9 @@ export default function TeacherAttendancePage() {
               type="date"
               value={selectedDate}
               onChange={(e) =>
-                setSelectedDate(e.target.value)
+                setSelectedDate(
+                  e.target.value
+                )
               }
               style={styles.input}
             />
@@ -340,17 +407,15 @@ export default function TeacherAttendancePage() {
               onChange={(e) =>
                 setSearch(e.target.value)
               }
-              placeholder="Name or username..."
+              placeholder="Search name or username..."
               style={styles.input}
             />
           </div>
-
         </section>
 
         {/* STUDENTS */}
 
         <section style={styles.card}>
-
           <div style={styles.sectionHeader}>
             <div>
               <h2 style={styles.sectionTitle}>
@@ -358,52 +423,62 @@ export default function TeacherAttendancePage() {
               </h2>
 
               <p style={styles.sectionSubtitle}>
-                Mark attendance for {formatDate(selectedDate)}
+                Mark attendance for{" "}
+                {formatDate(selectedDate)}
               </p>
             </div>
 
             <div style={styles.countBadge}>
-              {filteredStudents.length} Students
+              Showing{" "}
+              {filteredStudents.length} /{" "}
+              {students.length}
             </div>
           </div>
 
-          {filteredStudents.length === 0 ? (
-            <div style={styles.empty}>
-              <div style={styles.emptyIcon}>
-                🔍
+          {students.length === 0 ? (
+            <div style={styles.noStudents}>
+              <div style={styles.noStudentsIcon}>
+                ⚠️
               </div>
 
-              <h3>No Students Found</h3>
+              <h2>
+                No Students Loaded
+              </h2>
 
               <p>
-                Try another student name or username.
+                Supabase se students table
+                mein koi record nahi aa raha.
               </p>
+
+              <p>
+                Refresh button dabakar dobara
+                check karo.
+              </p>
+            </div>
+          ) : filteredStudents.length === 0 ? (
+            <div style={styles.empty}>
+              🔍 No student found for "{search}"
             </div>
           ) : (
             <div style={styles.studentList}>
-
               {filteredStudents.map(
                 (student, index) => {
-
                   const status =
                     getStatus(student.id);
 
                   const stats =
-                    getStudentStats(student.id);
+                    getStudentStats(
+                      student.id
+                    );
 
                   return (
                     <div
                       key={student.id}
                       style={styles.studentRow}
                     >
-
-                      {/* NUMBER */}
-
                       <div style={styles.number}>
                         {index + 1}
                       </div>
-
-                      {/* AVATAR */}
 
                       <div style={styles.avatar}>
                         {(
@@ -414,22 +489,34 @@ export default function TeacherAttendancePage() {
                           .toUpperCase()}
                       </div>
 
-                      {/* DETAILS */}
-
                       <div style={styles.studentInfo}>
-
-                        <h3 style={styles.studentName}>
+                        <h3
+                          style={
+                            styles.studentName
+                          }
+                        >
                           {student.student_name ||
                             "Student"}
                         </h3>
 
-                        <p style={styles.username}>
-                          {student.student_username}
+                        <p
+                          style={
+                            styles.username
+                          }
+                        >
+                          Username:{" "}
+                          {
+                            student.student_username
+                          }
                         </p>
 
-                        <div style={styles.miniStats}>
+                        <div
+                          style={
+                            styles.miniStats
+                          }
+                        >
                           <span>
-                            📚 {stats.total} Classes
+                            📚 {stats.total}
                           </span>
 
                           <span>
@@ -444,29 +531,34 @@ export default function TeacherAttendancePage() {
                             📊 {stats.percentage}%
                           </span>
                         </div>
-
                       </div>
 
-                      {/* STATUS */}
-
-                      <div style={styles.attendanceActions}>
-
+                      <div
+                        style={
+                          styles.attendanceActions
+                        }
+                      >
                         {status && (
                           <span
                             style={
-                              status === "present"
+                              status ===
+                              "present"
                                 ? styles.presentBadge
                                 : styles.absentBadge
                             }
                           >
-                            {status === "present"
+                            {status ===
+                            "present"
                               ? "✓ Present"
                               : "✗ Absent"}
                           </span>
                         )}
 
-                        <div style={styles.buttons}>
-
+                        <div
+                          style={
+                            styles.buttons
+                          }
+                        >
                           <button
                             disabled={saving}
                             onClick={() =>
@@ -475,11 +567,9 @@ export default function TeacherAttendancePage() {
                                 "present"
                               )
                             }
-                            style={{
-                              ...styles.presentButton,
-                              opacity:
-                                saving ? 0.6 : 1,
-                            }}
+                            style={
+                              styles.presentButton
+                            }
                           >
                             ✓ Present
                           </button>
@@ -492,42 +582,33 @@ export default function TeacherAttendancePage() {
                                 "absent"
                               )
                             }
-                            style={{
-                              ...styles.absentButton,
-                              opacity:
-                                saving ? 0.6 : 1,
-                            }}
+                            style={
+                              styles.absentButton
+                            }
                           >
                             ✗ Absent
                           </button>
-
                         </div>
-
                       </div>
-
                     </div>
                   );
                 }
               )}
-
             </div>
           )}
-
         </section>
 
         {/* HISTORY */}
 
         <section style={styles.card}>
-
           <div style={styles.sectionHeader}>
-
             <div>
               <h2 style={styles.sectionTitle}>
                 📜 Attendance History
               </h2>
 
               <p style={styles.sectionSubtitle}>
-                Complete date-wise attendance records.
+                Complete attendance history.
               </p>
             </div>
 
@@ -539,26 +620,15 @@ export default function TeacherAttendancePage() {
               }
               style={styles.monthInput}
             />
-
           </div>
 
           {history.length === 0 ? (
             <div style={styles.empty}>
-              <div style={styles.emptyIcon}>
-                📅
-              </div>
-
-              <h3>No Attendance History</h3>
-
-              <p>
-                Attendance records will appear here.
-              </p>
+              📅 No attendance history.
             </div>
           ) : (
             <div style={styles.tableWrapper}>
-
               <table style={styles.table}>
-
                 <thead>
                   <tr>
                     <th style={styles.th}>
@@ -584,10 +654,8 @@ export default function TeacherAttendancePage() {
                 </thead>
 
                 <tbody>
-
                   {history.map(
                     (record, index) => {
-
                       const student =
                         students.find(
                           (item) =>
@@ -601,32 +669,42 @@ export default function TeacherAttendancePage() {
                         "present";
 
                       return (
-                        <tr key={record.id}>
-
-                          <td style={styles.td}>
+                        <tr
+                          key={record.id}
+                        >
+                          <td
+                            style={styles.td}
+                          >
                             {index + 1}
                           </td>
 
-                          <td style={styles.td}>
+                          <td
+                            style={styles.td}
+                          >
                             {formatDate(
                               record.attendance_date
                             )}
                           </td>
 
-                          <td style={styles.td}>
+                          <td
+                            style={styles.td}
+                          >
                             <strong>
                               {student?.student_name ||
                                 "Unknown Student"}
                             </strong>
                           </td>
 
-                          <td style={styles.td}>
+                          <td
+                            style={styles.td}
+                          >
                             {student?.student_username ||
                               "-"}
                           </td>
 
-                          <td style={styles.td}>
-
+                          <td
+                            style={styles.td}
+                          >
                             <span
                               style={
                                 isPresent
@@ -638,29 +716,21 @@ export default function TeacherAttendancePage() {
                                 ? "✓ Present"
                                 : "✗ Absent"}
                             </span>
-
                           </td>
-
                         </tr>
                       );
                     }
                   )}
-
                 </tbody>
-
               </table>
-
             </div>
           )}
-
         </section>
 
-        {/* FOOTER */}
-
         <footer style={styles.footer}>
-          Attendance Portal • Teacher Management Center • 2026
+          Attendance Portal • Teacher Management
+          Center • 2026
         </footer>
-
       </div>
     </main>
   );
@@ -708,23 +778,24 @@ function formatDate(value: string) {
     return value;
   }
 
-  return date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  return date.toLocaleDateString(
+    "en-IN",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }
+  );
 }
 
 const styles: {
   [key: string]: React.CSSProperties;
 } = {
-
   page: {
     minHeight: "100vh",
     background:
       "linear-gradient(135deg,#eff6ff,#f8fafc,#eef2ff)",
     padding: "25px 15px",
-    boxSizing: "border-box",
     fontFamily:
       "Arial, Helvetica, sans-serif",
   },
@@ -785,8 +856,6 @@ const styles: {
   success: {
     background: "#dcfce7",
     color: "#166534",
-    border:
-      "1px solid #86efac",
     padding: "14px 18px",
     borderRadius: "12px",
     marginBottom: "20px",
@@ -796,8 +865,6 @@ const styles: {
   error: {
     background: "#fee2e2",
     color: "#991b1b",
-    border:
-      "1px solid #fca5a5",
     padding: "14px 18px",
     borderRadius: "12px",
     marginBottom: "20px",
@@ -1073,9 +1140,16 @@ const styles: {
     color: "#64748b",
   },
 
-  emptyIcon: {
+  noStudents: {
+    textAlign: "center",
+    padding: "45px 20px",
+    background: "#fff7ed",
+    borderRadius: "15px",
+    color: "#9a3412",
+  },
+
+  noStudentsIcon: {
     fontSize: "48px",
-    marginBottom: "10px",
   },
 
   loadingCard: {
@@ -1089,7 +1163,7 @@ const styles: {
       "0 10px 30px rgba(15,23,42,0.1)",
   },
 
-  spinner: {
+  loadingIcon: {
     fontSize: "40px",
     marginBottom: "15px",
   },

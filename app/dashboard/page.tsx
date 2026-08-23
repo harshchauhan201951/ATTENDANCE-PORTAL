@@ -1,523 +1,449 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase } from "@/lib/supabase";
 
-type Attendance = {
+type Student = {
   id: number;
-  attendance_date: string;
-  status: "Present" | "Absent";
+  student_name: string;
+  student_username: string;
 };
 
-export default function Dashboard() {
-  const [attendance, setAttendance] = useState<Attendance[]>([]);
-  const [username, setUsername] = useState("student01");
+type AttendanceRecord = {
+  student_id: number;
+  attendance_date: string;
+  status: string;
+};
+
+export default function DashboardPage() {
+  const [students, setStudents] = useState<Student[]>([]);
+  const [attendance, setAttendance] = useState<Record<number, string>>({});
+  const [selectedDate, setSelectedDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
-    loadAttendance();
+    loadStudents();
   }, []);
 
-  async function loadAttendance() {
-    try {
-      // Login ke baad saved student information
-      const savedStudentId = localStorage.getItem("student_id");
-      const savedUsername = localStorage.getItem("student_username");
-
-      // Agar student_id available hai to uske records load karo
-      if (savedStudentId) {
-        if (savedUsername) {
-          setUsername(savedUsername);
-        }
-
-        const { data, error } = await supabase
-          .from("attendance")
-          .select("id, attendance_date, status")
-          .eq("student_id", Number(savedStudentId))
-          .order("attendance_date", {
-            ascending: false,
-          });
-
-        if (error) {
-          console.error("Attendance error:", error);
-        } else {
-          setAttendance(data || []);
-        }
-
-        setLoading(false);
-        return;
-      }
-
-      // Agar localStorage mein ID nahi hai,
-      // students table se student01 find karo.
-      const { data: students, error: studentError } = await supabase
-        .from("students")
-        .select("id, student_username, student_name")
-        .eq("student_username", "student01")
-        .limit(1);
-
-      if (studentError) {
-        console.error("Student error:", studentError);
-        setLoading(false);
-        return;
-      }
-
-      const student = students?.[0];
-
-      if (!student) {
-        console.error("student01 not found");
-        setLoading(false);
-        return;
-      }
-
-      setUsername(student.student_username);
-
-      // Future page loads ke liye ID save kar do
-      localStorage.setItem(
-        "student_id",
-        String(student.id)
-      );
-
-      localStorage.setItem(
-        "student_username",
-        student.student_username
-      );
-
-      const { data, error } = await supabase
-        .from("attendance")
-        .select("id, attendance_date, status")
-        .eq("student_id", student.id)
-        .order("attendance_date", {
-          ascending: false,
-        });
-
-      if (error) {
-        console.error("Attendance error:", error);
-      } else {
-        setAttendance(data || []);
-      }
-    } catch (error) {
-      console.error("Dashboard error:", error);
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (students.length > 0) {
+      loadAttendance();
     }
+  }, [selectedDate, students]);
+
+  async function loadStudents() {
+    setLoading(true);
+    setMessage("");
+
+    const { data, error } = await supabase
+      .from("students")
+      .select("id, student_name, student_username")
+      .order("id", { ascending: true });
+
+    if (error) {
+      console.error("Students error:", error);
+      setMessage("Students load nahi ho rahe: " + error.message);
+      setLoading(false);
+      return;
+    }
+
+    setStudents(data || []);
+    setLoading(false);
   }
 
-  const totalClasses = attendance.length;
+  async function loadAttendance() {
+    const { data, error } = await supabase
+      .from("attendance")
+      .select("student_id, attendance_date, status")
+      .eq("attendance_date", selectedDate);
 
-  const present = attendance.filter(
-    (item) => item.status === "Present"
-  ).length;
+    if (error) {
+      console.error("Attendance error:", error);
+      return;
+    }
 
-  const absent = attendance.filter(
-    (item) => item.status === "Absent"
-  ).length;
+    const result: Record<number, string> = {};
 
-  const percentage =
-    totalClasses === 0
-      ? 0
-      : Math.round((present / totalClasses) * 100);
+    (data || []).forEach((item: AttendanceRecord) => {
+      result[item.student_id] = item.status;
+    });
 
-  function logout() {
-    localStorage.removeItem("student_id");
-    localStorage.removeItem("student_username");
-    window.location.href = "/";
+    setAttendance(result);
   }
 
-  if (loading) {
-    return (
-      <main className="loading">
-        <div>
-          <div className="loading-icon">📚</div>
-          <h2>Loading Dashboard...</h2>
-          <p>Please wait</p>
-        </div>
+  function markAttendance(studentId: number, status: string) {
+    setAttendance((prev) => ({
+      ...prev,
+      [studentId]: status,
+    }));
+  }
 
-        <style jsx>{`
-          .loading {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            background: #f1f5f9;
-            color: #0f172a;
-            font-family: Arial, Helvetica, sans-serif;
-          }
+  async function saveAttendance() {
+    if (students.length === 0) {
+      setMessage("Koi student nahi mila.");
+      return;
+    }
 
-          .loading-icon {
-            font-size: 45px;
-            margin-bottom: 15px;
-          }
+    setSaving(true);
+    setMessage("");
 
-          h2 {
-            margin: 0;
-          }
+    const rows = students
+      .filter((student) => attendance[student.id])
+      .map((student) => ({
+        student_id: student.id,
+        attendance_date: selectedDate,
+        status: attendance[student.id],
+      }));
 
-          p {
-            color: #64748b;
-          }
-        `}</style>
-      </main>
-    );
+    if (rows.length === 0) {
+      setMessage("Pehle Present ya Absent mark karo.");
+      setSaving(false);
+      return;
+    }
+
+    const { error } = await supabase
+      .from("attendance")
+      .upsert(rows, {
+        onConflict: "student_id,attendance_date",
+      });
+
+    if (error) {
+      console.error("Save attendance error:", error);
+      setMessage("Attendance save nahi hui: " + error.message);
+      setSaving(false);
+      return;
+    }
+
+    setMessage("✅ Attendance successfully save ho gayi!");
+
+    await loadAttendance();
+
+    setSaving(false);
+  }
+
+  function markAll(status: string) {
+    const result: Record<number, string> = {};
+
+    students.forEach((student) => {
+      result[student.id] = status;
+    });
+
+    setAttendance(result);
   }
 
   return (
-    <main className="page">
-      <div className="container">
+    <main
+      style={{
+        minHeight: "100vh",
+        background: "#f5f7fb",
+        padding: "20px",
+        fontFamily: "Arial, sans-serif",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: "1100px",
+          margin: "0 auto",
+        }}
+      >
+        {/* HEADER */}
+        <div
+          style={{
+            background: "white",
+            borderRadius: "16px",
+            padding: "22px",
+            marginBottom: "20px",
+            boxShadow: "0 4px 15px rgba(0,0,0,0.08)",
+          }}
+        >
+          <h1
+            style={{
+              margin: 0,
+              fontSize: "28px",
+              fontWeight: 700,
+            }}
+          >
+            📚 Attendance Portal
+          </h1>
 
-        <header className="header">
-          <div>
-            <p className="small-title">
-              ATTENDANCE PORTAL
-            </p>
+          <p
+            style={{
+              marginTop: "8px",
+              color: "#666",
+            }}
+          >
+            Student Attendance Management
+          </p>
+        </div>
 
-            <h1>Student Dashboard</h1>
+        {/* DATE */}
+        <div
+          style={{
+            background: "white",
+            borderRadius: "16px",
+            padding: "20px",
+            marginBottom: "20px",
+            boxShadow: "0 4px 15px rgba(0,0,0,0.08)",
+          }}
+        >
+          <label
+            style={{
+              display: "block",
+              fontWeight: 600,
+              marginBottom: "8px",
+            }}
+          >
+            Attendance Date
+          </label>
 
-            <p className="welcome">
-              Welcome back, <strong>{username}</strong> 👋
-            </p>
-          </div>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            style={{
+              padding: "11px 14px",
+              border: "1px solid #ccc",
+              borderRadius: "8px",
+              fontSize: "15px",
+            }}
+          />
+        </div>
+
+        {/* TOP BUTTONS */}
+        <div
+          style={{
+            display: "flex",
+            gap: "10px",
+            flexWrap: "wrap",
+            marginBottom: "20px",
+          }}
+        >
+          <button
+            onClick={() => markAll("Present")}
+            style={{
+              padding: "12px 18px",
+              border: "none",
+              borderRadius: "8px",
+              background: "#198754",
+              color: "white",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            ✓ Mark All Present
+          </button>
 
           <button
-            className="logout"
-            onClick={logout}
+            onClick={() => markAll("Absent")}
+            style={{
+              padding: "12px 18px",
+              border: "none",
+              borderRadius: "8px",
+              background: "#dc3545",
+              color: "white",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
           >
-            Logout
+            ✕ Mark All Absent
           </button>
-        </header>
 
-        <section className="cards">
+          <button
+            onClick={saveAttendance}
+            disabled={saving}
+            style={{
+              padding: "12px 22px",
+              border: "none",
+              borderRadius: "8px",
+              background: "#0d6efd",
+              color: "white",
+              fontWeight: 600,
+              cursor: saving ? "not-allowed" : "pointer",
+            }}
+          >
+            {saving ? "Saving..." : "💾 Save Attendance"}
+          </button>
+        </div>
 
-          <div className="card blue">
-            <div className="icon">📚</div>
-            <p>Total Classes</p>
-            <h2>{totalClasses}</h2>
+        {/* MESSAGE */}
+        {message && (
+          <div
+            style={{
+              background: "white",
+              padding: "15px",
+              borderRadius: "10px",
+              marginBottom: "20px",
+              fontWeight: 600,
+            }}
+          >
+            {message}
+          </div>
+        )}
+
+        {/* STUDENTS */}
+        <div
+          style={{
+            background: "white",
+            borderRadius: "16px",
+            padding: "20px",
+            boxShadow: "0 4px 15px rgba(0,0,0,0.08)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "20px",
+            }}
+          >
+            <h2 style={{ margin: 0 }}>
+              👨‍🎓 Students
+            </h2>
+
+            <span
+              style={{
+                background: "#eef3ff",
+                padding: "8px 12px",
+                borderRadius: "20px",
+                fontWeight: 600,
+              }}
+            >
+              Total: {students.length}
+            </span>
           </div>
 
-          <div className="card green">
-            <div className="icon">✓</div>
-            <p>Present</p>
-            <h2>{present}</h2>
-          </div>
-
-          <div className="card red">
-            <div className="icon">✕</div>
-            <p>Absent</p>
-            <h2>{absent}</h2>
-          </div>
-
-          <div className="card purple">
-            <div className="icon">%</div>
-            <p>Attendance</p>
-            <h2>{percentage}%</h2>
-          </div>
-
-        </section>
-
-        <section className="attendance-section">
-
-          <div className="section-header">
-            <div>
-              <h2>Attendance History</h2>
-              <p>
-                Your recent attendance records
-              </p>
-            </div>
-
-            <div className="percentage">
-              {percentage}%
-            </div>
-          </div>
-
-          {attendance.length === 0 ? (
-            <div className="empty">
-              No attendance records found.
+          {loading ? (
+            <p>Students loading...</p>
+          ) : students.length === 0 ? (
+            <div
+              style={{
+                padding: "25px",
+                textAlign: "center",
+                background: "#fff3cd",
+                borderRadius: "10px",
+              }}
+            >
+              ⚠️ Students table se koi student nahi mil raha.
             </div>
           ) : (
-            <div className="table">
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "12px",
+              }}
+            >
+              {students.map((student, index) => {
+                const status = attendance[student.id];
 
-              <div className="table-head">
-                <span>Date</span>
-                <span>Status</span>
-              </div>
-
-              {attendance.map((item) => (
-                <div
-                  className="table-row"
-                  key={item.id}
-                >
-                  <span>
-                    {new Date(
-                      item.attendance_date
-                    ).toLocaleDateString("en-IN", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </span>
-
-                  <span
-                    className={
-                      item.status === "Present"
-                        ? "status present"
-                        : "status absent"
-                    }
+                return (
+                  <div
+                    key={student.id}
+                    style={{
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "12px",
+                      padding: "15px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: "15px",
+                      flexWrap: "wrap",
+                    }}
                   >
-                    {item.status}
-                  </span>
-                </div>
-              ))}
+                    {/* STUDENT INFO */}
+                    <div>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          fontSize: "17px",
+                        }}
+                      >
+                        {index + 1}. {student.student_name || "Student"}
+                      </div>
 
+                      <div
+                        style={{
+                          color: "#777",
+                          fontSize: "14px",
+                          marginTop: "4px",
+                        }}
+                      >
+                        Username: {student.student_username}
+                      </div>
+                    </div>
+
+                    {/* ATTENDANCE BUTTONS */}
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "8px",
+                      }}
+                    >
+                      <button
+                        onClick={() =>
+                          markAttendance(student.id, "Present")
+                        }
+                        style={{
+                          padding: "9px 15px",
+                          borderRadius: "8px",
+                          border:
+                            status === "Present"
+                              ? "2px solid #198754"
+                              : "1px solid #ccc",
+                          background:
+                            status === "Present"
+                              ? "#198754"
+                              : "white",
+                          color:
+                            status === "Present"
+                              ? "white"
+                              : "#198754",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        ✓ Present
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          markAttendance(student.id, "Absent")
+                        }
+                        style={{
+                          padding: "9px 15px",
+                          borderRadius: "8px",
+                          border:
+                            status === "Absent"
+                              ? "2px solid #dc3545"
+                              : "1px solid #ccc",
+                          background:
+                            status === "Absent"
+                              ? "#dc3545"
+                              : "white",
+                          color:
+                            status === "Absent"
+                              ? "white"
+                              : "#dc3545",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        ✕ Absent
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
-
-        </section>
-
-        <footer>
-          Student Attendance Management System
-        </footer>
-
+        </div>
       </div>
-
-      <style jsx>{`
-        * {
-          box-sizing: border-box;
-        }
-
-        .page {
-          min-height: 100vh;
-          background: #f1f5f9;
-          color: #0f172a;
-          padding: 30px 20px;
-          font-family: Arial, Helvetica, sans-serif;
-        }
-
-        .container {
-          width: 100%;
-          max-width: 1100px;
-          margin: auto;
-        }
-
-        .header {
-          background: #0f172a;
-          color: white;
-          padding: 30px;
-          border-radius: 20px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 25px;
-        }
-
-        .small-title {
-          font-size: 12px;
-          letter-spacing: 2px;
-          opacity: 0.7;
-          margin: 0 0 8px;
-        }
-
-        h1 {
-          font-size: 32px;
-          margin: 0;
-        }
-
-        .welcome {
-          margin: 10px 0 0;
-          color: #cbd5e1;
-        }
-
-        .logout {
-          border: none;
-          background: white;
-          color: #0f172a;
-          padding: 11px 20px;
-          border-radius: 10px;
-          font-weight: bold;
-          cursor: pointer;
-        }
-
-        .cards {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 18px;
-          margin-bottom: 25px;
-        }
-
-        .card {
-          padding: 25px;
-          border-radius: 18px;
-          color: white;
-          min-height: 160px;
-          box-shadow: 0 8px 25px rgba(15, 23, 42, 0.12);
-        }
-
-        .blue {
-          background: #2563eb;
-        }
-
-        .green {
-          background: #16a34a;
-        }
-
-        .red {
-          background: #dc2626;
-        }
-
-        .purple {
-          background: #7c3aed;
-        }
-
-        .icon {
-          width: 42px;
-          height: 42px;
-          background: rgba(255, 255, 255, 0.2);
-          border-radius: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 20px;
-          margin-bottom: 18px;
-        }
-
-        .card p {
-          margin: 0;
-          font-size: 14px;
-          opacity: 0.9;
-        }
-
-        .card h2 {
-          font-size: 32px;
-          margin: 8px 0 0;
-        }
-
-        .attendance-section {
-          background: white;
-          border-radius: 20px;
-          padding: 30px;
-          box-shadow: 0 5px 25px rgba(15, 23, 42, 0.08);
-        }
-
-        .section-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 25px;
-        }
-
-        .section-header h2 {
-          margin: 0;
-          font-size: 24px;
-        }
-
-        .section-header p {
-          color: #64748b;
-          margin: 7px 0 0;
-        }
-
-        .percentage {
-          font-size: 24px;
-          font-weight: bold;
-          color: #2563eb;
-        }
-
-        .table {
-          border: 1px solid #e2e8f0;
-          border-radius: 12px;
-          overflow: hidden;
-        }
-
-        .table-head,
-        .table-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          padding: 18px 20px;
-        }
-
-        .table-head {
-          background: #f8fafc;
-          font-weight: bold;
-          color: #475569;
-        }
-
-        .table-row {
-          border-top: 1px solid #e2e8f0;
-          color: #1e293b;
-        }
-
-        .status {
-          font-weight: bold;
-        }
-
-        .present {
-          color: #16a34a;
-        }
-
-        .absent {
-          color: #dc2626;
-        }
-
-        .empty {
-          text-align: center;
-          padding: 40px;
-          color: #64748b;
-        }
-
-        footer {
-          text-align: center;
-          margin-top: 25px;
-          color: #64748b;
-          font-size: 13px;
-        }
-
-        @media (max-width: 800px) {
-          .cards {
-            grid-template-columns: repeat(2, 1fr);
-          }
-
-          .header {
-            padding: 22px;
-          }
-
-          h1 {
-            font-size: 26px;
-          }
-        }
-
-        @media (max-width: 520px) {
-          .page {
-            padding: 15px;
-          }
-
-          .header {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 20px;
-          }
-
-          .logout {
-            width: 100%;
-          }
-
-          .cards {
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-          }
-
-          .card {
-            padding: 18px;
-            min-height: 140px;
-          }
-
-          .card h2 {
-            font-size: 26px;
-          }
-
-          .attendance-section {
-            padding: 20px 15px;
-          }
-        }
-      `}</style>
     </main>
   );
 }
