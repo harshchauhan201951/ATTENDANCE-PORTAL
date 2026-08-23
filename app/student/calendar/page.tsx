@@ -3,746 +3,1215 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type EventType = "CLASS" | "EXAM" | "HOLIDAY" | "EVENT";
+type EventType = "TEST" | "HOLIDAY" | "EVENT";
 
 type CalendarEvent = {
-id: number;
-date: string;
-title: string;
-type: EventType;
-description: string;
+  id: number;
+  date: string;
+  title: string;
+  type: EventType;
+  description: string;
 };
 
-const events: CalendarEvent[] = [
-{
-id: 1,
-date: "2026-08-25",
-title: "Regular Classes",
-type: "CLASS",
-description: "Regular college classes",
-},
-{
-id: 2,
-date: "2026-08-29",
-title: "Saturday Holiday",
-type: "HOLIDAY",
-description: "Weekly holiday",
-},
-{
-id: 3,
-date: "2026-09-05",
-title: "Class Test",
-type: "EXAM",
-description: "Internal class test",
-},
-{
-id: 4,
-date: "2026-09-15",
-title: "College Event",
-type: "EVENT",
-description: "Important college event",
-},
+const specialEvents: CalendarEvent[] = [
+  {
+    id: 1,
+    date: "2026-08-15",
+    title: "Independence Day",
+    type: "HOLIDAY",
+    description: "Tuition holiday.",
+  },
+  {
+    id: 2,
+    date: "2026-08-27",
+    title: "Janmashtami",
+    type: "HOLIDAY",
+    description: "Tuition holiday.",
+  },
+  {
+    id: 3,
+    date: "2026-10-02",
+    title: "Gandhi Jayanti",
+    type: "HOLIDAY",
+    description: "Tuition holiday.",
+  },
+  {
+    id: 4,
+    date: "2026-10-20",
+    title: "Dussehra",
+    type: "HOLIDAY",
+    description: "Tuition holiday.",
+  },
+  {
+    id: 5,
+    date: "2026-11-08",
+    title: "Diwali",
+    type: "HOLIDAY",
+    description: "Tuition holiday.",
+  },
+  {
+    id: 6,
+    date: "2026-11-09",
+    title: "Diwali Holiday",
+    type: "HOLIDAY",
+    description: "Tuition classes closed.",
+  },
+  {
+    id: 7,
+    date: "2026-11-24",
+    title: "Guru Nanak Jayanti",
+    type: "HOLIDAY",
+    description: "Tuition holiday.",
+  },
+  {
+    id: 8,
+    date: "2026-12-25",
+    title: "Christmas Day",
+    type: "HOLIDAY",
+    description: "Tuition holiday.",
+  },
+  {
+    id: 9,
+    date: "2026-09-05",
+    title: "Teachers' Day",
+    type: "EVENT",
+    description: "Special tuition activity.",
+  },
+  {
+    id: 10,
+    date: "2026-11-14",
+    title: "Children's Day",
+    type: "EVENT",
+    description: "Special student activity.",
+  },
+  {
+    id: 11,
+    date: "2026-12-31",
+    title: "Year End Activity",
+    type: "EVENT",
+    description: "Special tuition activity.",
+  },
 ];
 
 const monthNames = [
-"January",
-"February",
-"March",
-"April",
-"May",
-"June",
-"July",
-"August",
-"September",
-"October",
-"November",
-"December",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
 const weekDays = [
-"Sun",
-"Mon",
-"Tue",
-"Wed",
-"Thu",
-"Fri",
-"Sat",
+  "Sun",
+  "Mon",
+  "Tue",
+  "Wed",
+  "Thu",
+  "Fri",
+  "Sat",
 ];
 
-export default function StudentCalendarPage() {
-const router = useRouter();
-
-const today = new Date();
-
-const [currentMonth, setCurrentMonth] = useState(
-new Date(today.getFullYear(), today.getMonth(), 1)
-);
-
-const year = currentMonth.getFullYear();
-const month = currentMonth.getMonth();
-
-const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-const firstDay = new Date(year, month, 1).getDay();
-
-const calendarDays = useMemo(() => {
-const days: Array<number | null> = [];
-
-for (let i = 0; i < firstDay; i++) {
-  days.push(null);
+function dateKey(year: number, month: number, day: number) {
+  return `${year}-${String(month + 1).padStart(2, "0")}-${String(
+    day
+  ).padStart(2, "0")}`;
 }
 
-for (let day = 1; day <= daysInMonth; day++) {
-  days.push(day);
-}
-
-return days;
-
-}, [firstDay, daysInMonth]);
-
-function previousMonth() {
-setCurrentMonth(new Date(year, month - 1, 1));
-}
-
-function nextMonth() {
-setCurrentMonth(new Date(year, month + 1, 1));
-}
-
-function goToday() {
-setCurrentMonth(
-new Date(today.getFullYear(), today.getMonth(), 1)
-);
-}
-
-function getDateString(day: number) {
-const monthString = String(month + 1).padStart(2, "0");
-const dayString = String(day).padStart(2, "0");
-
-return `${year}-${monthString}-${dayString}`;
-
-}
-
-function getDayEvents(day: number) {
-const date = getDateString(day);
-
-return events.filter((event) => event.date === date);
-
-}
-
-function isToday(day: number) {
-return (
-day === today.getDate() &&
-month === today.getMonth() &&
-year === today.getFullYear()
-);
+function getSpecialEvent(date: string) {
+  return specialEvents.find((event) => event.date === date);
 }
 
 function getEventColor(type: EventType) {
-switch (type) {
-case "CLASS":
-return "#2563eb";
-case "EXAM":
-return "#dc2626";
-case "HOLIDAY":
-return "#16a34a";
-case "EVENT":
-return "#7c3aed";
-default:
-return "#64748b";
-}
+  switch (type) {
+    case "TEST":
+      return "#2563eb";
+    case "HOLIDAY":
+      return "#16a34a";
+    case "EVENT":
+      return "#7c3aed";
+    default:
+      return "#64748b";
+  }
 }
 
 function getEventBackground(type: EventType) {
-switch (type) {
-case "CLASS":
-return "#eff6ff";
-case "EXAM":
-return "#fef2f2";
-case "HOLIDAY":
-return "#f0fdf4";
-case "EVENT":
-return "#f5f3ff";
-default:
-return "#f8fafc";
-}
+  switch (type) {
+    case "TEST":
+      return "#eff6ff";
+    case "HOLIDAY":
+      return "#f0fdf4";
+    case "EVENT":
+      return "#f5f3ff";
+    default:
+      return "#f8fafc";
+  }
 }
 
-return ( <main style={styles.page}> <div style={styles.container}> <header style={styles.header}> <div> <div style={styles.smallLabel}>STUDENT PORTAL</div>
+export default function StudentCalendarPage() {
+  const router = useRouter();
 
-        <h1 style={styles.title}>
-          🗓️ Student Calendar
-        </h1>
+  const today = new Date();
 
-        <p style={styles.subtitle}>
-          View your classes, exams, holidays and important dates
-        </p>
-      </div>
+  const [currentMonth, setCurrentMonth] = useState(
+    new Date(today.getFullYear(), today.getMonth(), 1)
+  );
 
-      <button
-        type="button"
-        onClick={() => router.push("/student/dashboard")}
-        style={styles.dashboardButton}
-      >
-        ← Student Dashboard
-      </button>
-    </header>
+  const [selectedEvent, setSelectedEvent] =
+    useState<CalendarEvent | null>(null);
 
-    <section style={styles.calendarCard}>
-      <div style={styles.calendarTop}>
-        <button
-          type="button"
-          onClick={previousMonth}
-          style={styles.navigationButton}
-          aria-label="Previous month"
-        >
-          ←
-        </button>
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
 
-        <h2 style={styles.monthTitle}>
-          {monthNames[month]} {year}
-        </h2>
+  const firstDay = new Date(year, month, 1).getDay();
 
-        <button
-          type="button"
-          onClick={nextMonth}
-          style={styles.navigationButton}
-          aria-label="Next month"
-        >
-          →
-        </button>
-      </div>
+  const daysInMonth = new Date(
+    year,
+    month + 1,
+    0
+  ).getDate();
 
-      <button
-        type="button"
-        onClick={goToday}
-        style={styles.todayButton}
-      >
-        📍 Today
-      </button>
+  const calendarDays = useMemo(() => {
+    const days: Array<number | null> = [];
 
-      <div style={styles.weekGrid}>
-        {weekDays.map((day) => (
-          <div key={day} style={styles.weekDay}>
-            {day}
+    for (let i = 0; i < firstDay; i++) {
+      days.push(null);
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      days.push(day);
+    }
+
+    return days;
+  }, [firstDay, daysInMonth]);
+
+  function previousMonth() {
+    setCurrentMonth(
+      new Date(year, month - 1, 1)
+    );
+  }
+
+  function nextMonth() {
+    setCurrentMonth(
+      new Date(year, month + 1, 1)
+    );
+  }
+
+  function goToday() {
+    setCurrentMonth(
+      new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        1
+      )
+    );
+  }
+
+  function isToday(day: number) {
+    return (
+      day === today.getDate() &&
+      month === today.getMonth() &&
+      year === today.getFullYear()
+    );
+  }
+
+  function getDayInfo(day: number) {
+    const date = new Date(year, month, day);
+    const dateString = dateKey(year, month, day);
+
+    const special = getSpecialEvent(dateString);
+
+    if (special) {
+      return {
+        type: special.type,
+        title: special.title,
+        description: special.description,
+        color: getEventColor(special.type),
+        background: getEventBackground(special.type),
+        event: special,
+      };
+    }
+
+    if (date.getDay() === 0) {
+      return {
+        type: "SUNDAY",
+        title: "Sunday OFF",
+        description:
+          "Tuition is closed every Sunday.",
+        color: "#dc2626",
+        background: "#fef2f2",
+        event: null,
+      };
+    }
+
+    if (date.getDay() === 6) {
+      const testEvent: CalendarEvent = {
+        id: Number(`${year}${month + 1}${day}`),
+        date: dateString,
+        title: "Weekly Test",
+        type: "TEST",
+        description:
+          "Weekly test for tuition students.",
+      };
+
+      return {
+        type: "TEST",
+        title: "Weekly Test",
+        description:
+          "Weekly test for tuition students.",
+        color: "#2563eb",
+        background: "#eff6ff",
+        event: testEvent,
+      };
+    }
+
+    return {
+      type: "CLASS",
+      title: "Tuition Class",
+      description: "Regular tuition class.",
+      color: "#475569",
+      background: "#f8fafc",
+      event: null,
+    };
+  }
+
+  const monthEvents = useMemo(() => {
+    const result: CalendarEvent[] = [];
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month, day);
+
+      if (date.getDay() === 6) {
+        result.push({
+          id: Number(`${year}${month + 1}${day}`),
+          date: dateKey(year, month, day),
+          title: "Weekly Test",
+          type: "TEST",
+          description:
+            "Weekly test for tuition students.",
+        });
+      }
+    }
+
+    specialEvents.forEach((event) => {
+      const eventDate = new Date(
+        `${event.date}T00:00:00`
+      );
+
+      if (
+        eventDate.getFullYear() === year &&
+        eventDate.getMonth() === month
+      ) {
+        result.push(event);
+      }
+    });
+
+    return result.sort((a, b) =>
+      a.date.localeCompare(b.date)
+    );
+  }, [year, month, daysInMonth]);
+
+  return (
+    <main style={styles.page}>
+      <div style={styles.container}>
+
+        <header style={styles.header}>
+          <div>
+            <div style={styles.smallLabel}>
+              STUDENT PORTAL
+            </div>
+
+            <h1 style={styles.title}>
+              📅 Tuition Calendar
+            </h1>
+
+            <p style={styles.subtitle}>
+              Classes, weekly tests and tuition holidays
+            </p>
           </div>
-        ))}
-      </div>
 
-      <div style={styles.calendarGrid}>
-        {calendarDays.map((day, index) => {
-          if (day === null) {
-            return (
-              <div
-                key={`empty-${index}`}
-                style={styles.emptyCell}
-              />
-            );
-          }
+          <button
+            type="button"
+            onClick={() =>
+              router.push("/student/dashboard")
+            }
+            style={styles.dashboardButton}
+          >
+            ← Dashboard
+          </button>
+        </header>
 
-          const dayEvents = getDayEvents(day);
+        <section style={styles.calendarCard}>
 
-          return (
-            <div
-              key={day}
-              style={{
-                ...styles.dayCell,
-                ...(isToday(day) ? styles.todayCell : {}),
-              }}
+          <div style={styles.calendarTop}>
+
+            <button
+              type="button"
+              onClick={previousMonth}
+              style={styles.navigationButton}
             >
+              ‹
+            </button>
+
+            <div style={styles.monthTitle}>
+              {monthNames[month]} {year}
+            </div>
+
+            <button
+              type="button"
+              onClick={nextMonth}
+              style={styles.navigationButton}
+            >
+              ›
+            </button>
+
+          </div>
+
+          <button
+            type="button"
+            onClick={goToday}
+            style={styles.todayButton}
+          >
+            Go to Today
+          </button>
+
+          <div style={styles.weekGrid}>
+            {weekDays.map((day) => (
               <div
+                key={day}
                 style={{
-                  ...styles.dayNumber,
-                  ...(isToday(day)
-                    ? styles.todayNumber
+                  ...styles.weekDay,
+                  ...(day === "Sun"
+                    ? styles.sundayHeader
+                    : {}),
+                  ...(day === "Sat"
+                    ? styles.saturdayHeader
                     : {}),
                 }}
               >
                 {day}
               </div>
+            ))}
+          </div>
 
-              <div style={styles.eventsContainer}>
-                {dayEvents.map((event) => (
+          <div style={styles.calendarGrid}>
+
+            {calendarDays.map((day, index) => {
+              if (day === null) {
+                return (
                   <div
-                    key={event.id}
-                    title={event.description}
+                    key={`empty-${index}`}
+                    style={styles.emptyCell}
+                  />
+                );
+              }
+
+              const info = getDayInfo(day);
+
+              return (
+                <button
+                  type="button"
+                  key={day}
+                  onClick={() => {
+                    if (info.event) {
+                      setSelectedEvent(info.event);
+                    }
+                  }}
+                  style={{
+                    ...styles.dayCell,
+                    ...(isToday(day)
+                      ? styles.todayCell
+                      : {}),
+                    ...(info.type === "SUNDAY"
+                      ? styles.sundayCell
+                      : {}),
+                    ...(info.type === "TEST"
+                      ? styles.testCell
+                      : {}),
+                  }}
+                >
+
+                  <div
                     style={{
-                      ...styles.eventBadge,
-                      color: getEventColor(event.type),
-                      background: getEventBackground(
-                        event.type
-                      ),
+                      ...styles.dayNumber,
+                      ...(isToday(day)
+                        ? styles.todayNumber
+                        : {}),
                     }}
                   >
-                    {event.title}
+                    {day}
                   </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </section>
 
-    <section style={styles.card}>
-      <h2 style={styles.sectionTitle}>
-        📌 Calendar Guide
-      </h2>
+                  <div
+                    style={{
+                      ...styles.dayStatus,
+                      color: info.color,
+                      background: info.background,
+                    }}
+                  >
+                    {info.type === "SUNDAY" && "OFF"}
+                    {info.type === "TEST" && "TEST"}
+                    {info.type === "HOLIDAY" &&
+                      "HOLIDAY"}
+                    {info.type === "EVENT" &&
+                      "EVENT"}
+                    {info.type === "CLASS" &&
+                      "CLASS"}
+                  </div>
 
-      <p style={styles.sectionSubtitle}>
-        Understand the different calendar entries
-      </p>
+                  <div style={styles.dayTitle}>
+                    {info.title}
+                  </div>
 
-      <div style={styles.legendGrid}>
-        <Legend
-          color="#2563eb"
-          background="#eff6ff"
-          title="Classes"
-          description="Regular classes and lectures"
-        />
+                </button>
+              );
+            })}
 
-        <Legend
-          color="#dc2626"
-          background="#fef2f2"
-          title="Exams"
-          description="Tests and examinations"
-        />
-
-        <Legend
-          color="#16a34a"
-          background="#f0fdf4"
-          title="Holidays"
-          description="College holidays"
-        />
-
-        <Legend
-          color="#7c3aed"
-          background="#f5f3ff"
-          title="Events"
-          description="Important college events"
-        />
-      </div>
-    </section>
-
-    <section style={styles.card}>
-      <h2 style={styles.sectionTitle}>
-        🔔 Upcoming Dates
-      </h2>
-
-      <p style={styles.sectionSubtitle}>
-        Important dates currently available in the calendar
-      </p>
-
-      <div style={styles.eventList}>
-        {events.map((event) => (
-          <div
-            key={event.id}
-            style={{
-              ...styles.eventCard,
-              borderLeft: `5px solid ${getEventColor(
-                event.type
-              )}`,
-            }}
-          >
-            <div style={styles.eventInfo}>
-              <div style={styles.eventDate}>
-                📅 {event.date}
-              </div>
-
-              <h3 style={styles.eventTitle}>
-                {event.title}
-              </h3>
-
-              <p style={styles.eventDescription}>
-                {event.description}
-              </p>
-            </div>
-
-            <span
-              style={{
-                ...styles.typeBadge,
-                color: getEventColor(event.type),
-                background: getEventBackground(event.type),
-              }}
-            >
-              {event.type}
-            </span>
           </div>
-        ))}
+
+        </section>
+
+        <section style={styles.card}>
+
+          <h2 style={styles.sectionTitle}>
+            📌 Calendar Guide
+          </h2>
+
+          <p style={styles.sectionSubtitle}>
+            Tuition schedule
+          </p>
+
+          <div style={styles.legendGrid}>
+
+            <Legend
+              icon="📚"
+              color="#475569"
+              background="#f8fafc"
+              title="Tuition Class"
+              description="Regular tuition classes"
+            />
+
+            <Legend
+              icon="📝"
+              color="#2563eb"
+              background="#eff6ff"
+              title="Weekly Test"
+              description="Every Saturday"
+            />
+
+            <Legend
+              icon="🔴"
+              color="#dc2626"
+              background="#fef2f2"
+              title="Sunday OFF"
+              description="Tuition remains closed"
+            />
+
+            <Legend
+              icon="🎉"
+              color="#16a34a"
+              background="#f0fdf4"
+              title="Holiday"
+              description="Tuition holiday"
+            />
+
+          </div>
+        </section>
+
+        <section style={styles.card}>
+
+          <h2 style={styles.sectionTitle}>
+            📋 {monthNames[month]} Schedule
+          </h2>
+
+          <p style={styles.sectionSubtitle}>
+            Weekly tests and special holidays
+          </p>
+
+          {monthEvents.length === 0 ? (
+            <div style={styles.noEvents}>
+              No special dates this month.
+            </div>
+          ) : (
+            <div style={styles.eventList}>
+
+              {monthEvents.map((event) => (
+                <button
+                  type="button"
+                  key={`${event.date}-${event.title}`}
+                  onClick={() =>
+                    setSelectedEvent(event)
+                  }
+                  style={{
+                    ...styles.eventCard,
+                    borderLeftWidth: "5px",
+                    borderLeftStyle: "solid",
+                    borderLeftColor:
+                      getEventColor(event.type),
+                  }}
+                >
+
+                  <div style={styles.eventInfo}>
+
+                    <div style={styles.eventDate}>
+                      📅 {event.date}
+                    </div>
+
+                    <div style={styles.eventTitle}>
+                      {event.type === "TEST"
+                        ? "📝 "
+                        : "🎉 "}
+                      {event.title}
+                    </div>
+
+                    <div
+                      style={
+                        styles.eventDescription
+                      }
+                    >
+                      {event.description}
+                    </div>
+
+                  </div>
+
+                  <span
+                    style={{
+                      ...styles.typeBadge,
+                      color:
+                        getEventColor(event.type),
+                      background:
+                        getEventBackground(
+                          event.type
+                        ),
+                    }}
+                  >
+                    {event.type}
+                  </span>
+
+                </button>
+              ))}
+
+            </div>
+          )}
+
+        </section>
+
+        {selectedEvent && (
+          <div
+            style={styles.modalOverlay}
+            onClick={() =>
+              setSelectedEvent(null)
+            }
+          >
+            <div
+              style={styles.modal}
+              onClick={(e) =>
+                e.stopPropagation()
+              }
+            >
+
+              <div style={styles.modalIcon}>
+                {selectedEvent.type === "TEST"
+                  ? "📝"
+                  : selectedEvent.type === "HOLIDAY"
+                  ? "🎉"
+                  : "📌"}
+              </div>
+
+              <h2 style={styles.modalTitle}>
+                {selectedEvent.title}
+              </h2>
+
+              <p style={styles.modalDate}>
+                📅 {selectedEvent.date}
+              </p>
+
+              <p style={styles.modalDescription}>
+                {selectedEvent.description}
+              </p>
+
+              <div
+                style={{
+                  ...styles.modalBadge,
+                  color:
+                    getEventColor(
+                      selectedEvent.type
+                    ),
+                  background:
+                    getEventBackground(
+                      selectedEvent.type
+                    ),
+                }}
+              >
+                {selectedEvent.type}
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setSelectedEvent(null)
+                }
+                style={styles.closeButton}
+              >
+                Close
+              </button>
+
+            </div>
+          </div>
+        )}
+
+        <footer style={styles.footer}>
+          Attendance Portal • Tuition Calendar • 2026
+        </footer>
+
       </div>
-    </section>
-
-    <footer style={styles.footer}>
-      Attendance Portal • Student Calendar • 2026
-    </footer>
-  </div>
-</main>
-
-);
+    </main>
+  );
 }
 
 function Legend({
-color,
-background,
-title,
-description,
+  icon,
+  color,
+  background,
+  title,
+  description,
 }: {
-color: string;
-background: string;
-title: string;
-description: string;
+  icon: string;
+  color: string;
+  background: string;
+  title: string;
+  description: string;
 }) {
-return ( <div style={styles.legendItem}>
-<div
-style={{
-...styles.legendIcon,
-color,
-background,
-}}
->
-● </div>
+  return (
+    <div style={styles.legendItem}>
 
-  <div>
-    <strong style={styles.legendTitle}>
-      {title}
-    </strong>
+      <div
+        style={{
+          ...styles.legendIcon,
+          color,
+          background,
+        }}
+      >
+        {icon}
+      </div>
 
-    <p style={styles.legendDescription}>
-      {description}
-    </p>
-  </div>
-</div>
+      <div>
+        <strong style={styles.legendTitle}>
+          {title}
+        </strong>
 
-);
+        <p style={styles.legendDescription}>
+          {description}
+        </p>
+      </div>
+
+    </div>
+  );
 }
 
 const styles: {
-[key: string]: React.CSSProperties;
+  [key: string]: React.CSSProperties;
 } = {
-page: {
-minHeight: "100vh",
-background:
-"linear-gradient(135deg,#eff6ff,#f8fafc,#eef2ff)",
-padding: "20px 15px",
-boxSizing: "border-box",
-fontFamily: "Arial, Helvetica, sans-serif",
-},
+  page: {
+    minHeight: "100vh",
+    background:
+      "linear-gradient(135deg,#eff6ff,#f8fafc,#eef2ff)",
+    padding: "16px",
+    boxSizing: "border-box",
+    fontFamily:
+      "Arial, Helvetica, sans-serif",
+  },
 
-container: {
-width: "100%",
-maxWidth: "1200px",
-margin: "0 auto",
-},
+  container: {
+    width: "100%",
+    maxWidth: "1100px",
+    margin: "0 auto",
+  },
 
-header: {
-background: "white",
-borderRadius: "20px",
-padding: "22px",
-display: "flex",
-alignItems: "center",
-justifyContent: "space-between",
-gap: "18px",
-flexWrap: "wrap",
-marginBottom: "20px",
-boxShadow:
-"0 8px 25px rgba(15,23,42,0.08)",
-},
+  header: {
+    background: "white",
+    borderRadius: "18px",
+    padding: "20px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "15px",
+    marginBottom: "16px",
+    boxShadow:
+      "0 6px 20px rgba(15,23,42,0.08)",
+  },
 
-smallLabel: {
-color: "#2563eb",
-fontSize: "11px",
-fontWeight: "800",
-letterSpacing: "2px",
-marginBottom: "6px",
-},
+  smallLabel: {
+    color: "#2563eb",
+    fontSize: "10px",
+    fontWeight: "800",
+    letterSpacing: "1.5px",
+    marginBottom: "6px",
+  },
 
-title: {
-margin: 0,
-color: "#172554",
-fontSize: "29px",
-fontWeight: "800",
-},
+  title: {
+    margin: 0,
+    color: "#172554",
+    fontSize: "27px",
+    fontWeight: "800",
+  },
 
-subtitle: {
-margin: "7px 0 0",
-color: "#64748b",
-fontSize: "14px",
-},
+  subtitle: {
+    margin: "6px 0 0",
+    color: "#64748b",
+    fontSize: "13px",
+  },
 
-dashboardButton: {
-border: "none",
-background: "#1e3a8a",
-color: "white",
-padding: "12px 18px",
-borderRadius: "10px",
-fontWeight: "700",
-cursor: "pointer",
-},
+  dashboardButton: {
+    border: "none",
+    background: "#1e3a8a",
+    color: "white",
+    padding: "10px 15px",
+    borderRadius: "9px",
+    fontWeight: "700",
+    cursor: "pointer",
+  },
 
-calendarCard: {
-background: "white",
-borderRadius: "20px",
-padding: "22px",
-boxShadow:
-"0 8px 25px rgba(15,23,42,0.08)",
-overflow: "hidden",
-},
+  calendarCard: {
+    background: "white",
+    borderRadius: "18px",
+    padding: "16px",
+    boxShadow:
+      "0 6px 20px rgba(15,23,42,0.08)",
+    overflow: "hidden",
+  },
 
-calendarTop: {
-display: "flex",
-alignItems: "center",
-justifyContent: "center",
-gap: "18px",
-},
+  calendarTop: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "15px",
+  },
 
-monthTitle: {
-minWidth: "200px",
-margin: 0,
-textAlign: "center",
-color: "#172554",
-fontSize: "25px",
-fontWeight: "800",
-},
+  monthTitle: {
+    minWidth: "180px",
+    textAlign: "center",
+    color: "#172554",
+    fontSize: "22px",
+    fontWeight: "800",
+  },
 
-navigationButton: {
-width: "43px",
-height: "43px",
-border: "none",
-borderRadius: "11px",
-background: "#eff6ff",
-color: "#1d4ed8",
-fontSize: "22px",
-fontWeight: "800",
-cursor: "pointer",
-},
+  navigationButton: {
+    width: "40px",
+    height: "40px",
+    border: "none",
+    borderRadius: "9px",
+    background: "#eff6ff",
+    color: "#1d4ed8",
+    fontSize: "25px",
+    fontWeight: "800",
+    cursor: "pointer",
+  },
 
-todayButton: {
-display: "block",
-margin: "18px auto",
-border: "none",
-background: "#2563eb",
-color: "white",
-padding: "10px 18px",
-borderRadius: "10px",
-fontWeight: "700",
-cursor: "pointer",
-},
+  todayButton: {
+    display: "block",
+    margin: "14px auto",
+    border: "none",
+    background: "#2563eb",
+    color: "white",
+    padding: "9px 16px",
+    borderRadius: "9px",
+    fontWeight: "700",
+    cursor: "pointer",
+  },
 
-weekGrid: {
-display: "grid",
-gridTemplateColumns:
-"repeat(7,minmax(0,1fr))",
-gap: "5px",
-},
+  weekGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(7,minmax(0,1fr))",
+    gap: "4px",
+  },
 
-weekDay: {
-textAlign: "center",
-padding: "12px 4px",
-background: "#eff6ff",
-color: "#1e3a8a",
-fontWeight: "800",
-fontSize: "13px",
-borderRadius: "8px",
-},
+  weekDay: {
+    textAlign: "center",
+    padding: "9px 3px",
+    background: "#eff6ff",
+    color: "#1e3a8a",
+    fontWeight: "800",
+    fontSize: "11px",
+    borderRadius: "7px",
+  },
 
-calendarGrid: {
-display: "grid",
-gridTemplateColumns:
-"repeat(7,minmax(0,1fr))",
-gap: "5px",
-marginTop: "5px",
-},
+  sundayHeader: {
+    background: "#fef2f2",
+    color: "#dc2626",
+  },
 
-emptyCell: {
-minHeight: "92px",
-background: "#f8fafc",
-borderRadius: "8px",
-},
+  saturdayHeader: {
+    background: "#eff6ff",
+    color: "#2563eb",
+  },
 
-dayCell: {
-minHeight: "92px",
-border: "1px solid #e2e8f0",
-borderRadius: "8px",
-padding: "7px",
-background: "white",
-boxSizing: "border-box",
-},
+  calendarGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(7,minmax(0,1fr))",
+    gap: "4px",
+    marginTop: "4px",
+  },
 
-todayCell: {
-border: "2px solid #2563eb",
-background: "#f8fbff",
-},
+  emptyCell: {
+    minHeight: "82px",
+    background: "#f8fafc",
+    borderRadius: "7px",
+  },
 
-dayNumber: {
-width: "28px",
-height: "28px",
-display: "flex",
-alignItems: "center",
-justifyContent: "center",
-borderRadius: "50%",
-color: "#334155",
-fontSize: "13px",
-fontWeight: "700",
-},
+  dayCell: {
+    minHeight: "82px",
+    borderWidth: "1px",
+    borderStyle: "solid",
+    borderColor: "#e2e8f0",
+    borderRadius: "7px",
+    padding: "6px",
+    background: "white",
+    boxSizing: "border-box",
+    textAlign: "left",
+    overflow: "hidden",
+  },
 
-todayNumber: {
-background: "#2563eb",
-color: "white",
-},
+  todayCell: {
+    borderWidth: "2px",
+    borderStyle: "solid",
+    borderColor: "#2563eb",
+    background: "#f8fbff",
+  },
 
-eventsContainer: {
-marginTop: "5px",
-display: "flex",
-flexDirection: "column",
-gap: "4px",
-},
+  sundayCell: {
+    borderColor: "#fecaca",
+    background: "#fffafa",
+  },
 
-eventBadge: {
-padding: "4px 5px",
-borderRadius: "5px",
-fontSize: "10px",
-fontWeight: "700",
-overflow: "hidden",
-textOverflow: "ellipsis",
-whiteSpace: "nowrap",
-},
+  testCell: {
+    borderColor: "#bfdbfe",
+    background: "#f8fbff",
+  },
 
-card: {
-background: "white",
-borderRadius: "20px",
-padding: "24px",
-marginTop: "20px",
-boxShadow:
-"0 8px 25px rgba(15,23,42,0.08)",
-},
+  dayNumber: {
+    color: "#334155",
+    fontSize: "13px",
+    fontWeight: "800",
+    marginBottom: "5px",
+  },
 
-sectionTitle: {
-margin: 0,
-color: "#172554",
-fontSize: "21px",
-fontWeight: "800",
-},
+  todayNumber: {
+    display: "inline-flex",
+    width: "25px",
+    height: "25px",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "50%",
+    background: "#2563eb",
+    color: "white",
+  },
 
-sectionSubtitle: {
-margin: "5px 0 0",
-color: "#64748b",
-fontSize: "13px",
-},
+  dayStatus: {
+    display: "inline-block",
+    padding: "3px 5px",
+    borderRadius: "5px",
+    fontSize: "8px",
+    fontWeight: "900",
+  },
 
-legendGrid: {
-display: "grid",
-gridTemplateColumns:
-"repeat(auto-fit,minmax(220px,1fr))",
-gap: "15px",
-marginTop: "18px",
-},
+  dayTitle: {
+    marginTop: "5px",
+    color: "#475569",
+    fontSize: "9px",
+    fontWeight: "700",
+    lineHeight: 1.2,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
 
-legendItem: {
-display: "flex",
-alignItems: "center",
-gap: "12px",
-padding: "14px",
-borderRadius: "12px",
-background: "#f8fafc",
-},
+  card: {
+    background: "white",
+    borderRadius: "18px",
+    padding: "20px",
+    marginTop: "16px",
+    boxShadow:
+      "0 6px 20px rgba(15,23,42,0.08)",
+  },
 
-legendIcon: {
-width: "40px",
-height: "40px",
-borderRadius: "10px",
-display: "flex",
-alignItems: "center",
-justifyContent: "center",
-fontSize: "18px",
-flexShrink: 0,
-},
+  sectionTitle: {
+    margin: 0,
+    color: "#172554",
+    fontSize: "19px",
+    fontWeight: "800",
+  },
 
-legendTitle: {
-color: "#172554",
-fontSize: "14px",
-},
+  sectionSubtitle: {
+    margin: "5px 0 0",
+    color: "#64748b",
+    fontSize: "12px",
+  },
 
-legendDescription: {
-margin: "3px 0 0",
-color: "#64748b",
-fontSize: "12px",
-},
+  legendGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit,minmax(200px,1fr))",
+    gap: "10px",
+    marginTop: "15px",
+  },
 
-eventList: {
-display: "grid",
-gap: "12px",
-marginTop: "18px",
-},
+  legendItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    padding: "11px",
+    borderRadius: "10px",
+    background: "#f8fafc",
+  },
 
-eventCard: {
-background: "#f8fafc",
-borderRadius: "12px",
-padding: "15px 17px",
-display: "flex",
-alignItems: "center",
-justifyContent: "space-between",
-gap: "15px",
-},
+  legendIcon: {
+    width: "36px",
+    height: "36px",
+    borderRadius: "9px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "17px",
+    flexShrink: 0,
+  },
 
-eventInfo: {
-minWidth: 0,
-},
+  legendTitle: {
+    color: "#172554",
+    fontSize: "13px",
+  },
 
-eventDate: {
-color: "#64748b",
-fontSize: "12px",
-fontWeight: "700",
-},
+  legendDescription: {
+    margin: "3px 0 0",
+    color: "#64748b",
+    fontSize: "11px",
+  },
 
-eventTitle: {
-margin: "5px 0 0",
-color: "#172554",
-fontSize: "16px",
-},
+  eventList: {
+    display: "grid",
+    gap: "9px",
+    marginTop: "15px",
+  },
 
-eventDescription: {
-margin: "4px 0 0",
-color: "#64748b",
-fontSize: "12px",
-},
+  eventCard: {
+    width: "100%",
+    borderWidth: "1px",
+    borderStyle: "solid",
+    borderColor: "#e2e8f0",
+    background: "#f8fafc",
+    borderRadius: "10px",
+    padding: "12px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "10px",
+    textAlign: "left",
+    cursor: "pointer",
+  },
 
-typeBadge: {
-padding: "7px 10px",
-borderRadius: "999px",
-fontSize: "10px",
-fontWeight: "800",
-flexShrink: 0,
-},
+  eventInfo: {
+    minWidth: 0,
+  },
 
-footer: {
-textAlign: "center",
-padding: "25px 10px 10px",
-color: "#64748b",
-fontSize: "12px",
-},
+  eventDate: {
+    color: "#64748b",
+    fontSize: "10px",
+    fontWeight: "700",
+  },
 
-"@media (max-width: 600px)": {
-title: {
-fontSize: "24px",
-},
+  eventTitle: {
+    marginTop: "4px",
+    color: "#172554",
+    fontSize: "14px",
+    fontWeight: "800",
+  },
 
-monthTitle: {
-  minWidth: "160px",
-  fontSize: "20px",
-},
+  eventDescription: {
+    marginTop: "3px",
+    color: "#64748b",
+    fontSize: "11px",
+  },
 
-dayCell: {
-  minHeight: "72px",
-  padding: "4px",
-},
+  typeBadge: {
+    padding: "6px 8px",
+    borderRadius: "999px",
+    fontSize: "8px",
+    fontWeight: "900",
+    flexShrink: 0,
+  },
 
-emptyCell: {
-  minHeight: "72px",
-},
+  noEvents: {
+    marginTop: "15px",
+    padding: "16px",
+    background: "#f8fafc",
+    borderRadius: "10px",
+    textAlign: "center",
+    color: "#64748b",
+    fontSize: "12px",
+  },
 
-eventBadge: {
-  fontSize: "8px",
-  padding: "3px",
-},
+  modalOverlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(15,23,42,0.55)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "15px",
+    zIndex: 1000,
+  },
 
-},
+  modal: {
+    width: "100%",
+    maxWidth: "400px",
+    background: "white",
+    borderRadius: "18px",
+    padding: "24px",
+    textAlign: "center",
+    boxShadow:
+      "0 20px 50px rgba(15,23,42,0.25)",
+  },
+
+  modalIcon: {
+    fontSize: "40px",
+    marginBottom: "7px",
+  },
+
+  modalTitle: {
+    margin: 0,
+    color: "#172554",
+    fontSize: "21px",
+  },
+
+  modalDate: {
+    color: "#64748b",
+    fontWeight: "700",
+    fontSize: "12px",
+    margin: "8px 0",
+  },
+
+  modalDescription: {
+    color: "#475569",
+    fontSize: "13px",
+    lineHeight: 1.5,
+  },
+
+  modalBadge: {
+    display: "inline-block",
+    padding: "7px 10px",
+    borderRadius: "999px",
+    fontSize: "9px",
+    fontWeight: "900",
+  },
+
+  closeButton: {
+    display: "block",
+    width: "100%",
+    marginTop: "18px",
+    border: "none",
+    background: "#1e3a8a",
+    color: "white",
+    padding: "10px",
+    borderRadius: "9px",
+    fontWeight: "800",
+    cursor: "pointer",
+  },
+
+  footer: {
+    textAlign: "center",
+    padding: "20px 10px 8px",
+    color: "#64748b",
+    fontSize: "11px",
+  },
+
+  "@media (max-width: 600px)": {
+    page: {
+      padding: "10px",
+    },
+
+    header: {
+      padding: "16px",
+    },
+
+    title: {
+      fontSize: "23px",
+    },
+
+    subtitle: {
+      fontSize: "12px",
+    },
+
+    dashboardButton: {
+      width: "100%",
+    },
+
+    calendarCard: {
+      padding: "8px",
+    },
+
+    monthTitle: {
+      minWidth: "150px",
+      fontSize: "18px",
+    },
+
+    navigationButton: {
+      width: "36px",
+      height: "36px",
+    },
+
+    weekDay: {
+      padding: "8px 2px",
+      fontSize: "9px",
+    },
+
+    dayCell: {
+      minHeight: "68px",
+      padding: "4px",
+    },
+
+    emptyCell: {
+      minHeight: "68px",
+    },
+
+    dayNumber: {
+      fontSize: "11px",
+    },
+
+    dayStatus: {
+      fontSize: "7px",
+      padding: "2px 3px",
+    },
+
+    dayTitle: {
+      fontSize: "7px",
+    },
+
+    card: {
+      padding: "15px",
+    },
+
+    eventCard: {
+      padding: "10px",
+    },
+
+    eventTitle: {
+      fontSize: "12px",
+    },
+
+    eventDescription: {
+      fontSize: "9px",
+    },
+
+    typeBadge: {
+      fontSize: "7px",
+      padding: "5px 6px",
+    },
+  },
 };
