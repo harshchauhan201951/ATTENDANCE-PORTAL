@@ -10,15 +10,17 @@ type Student = {
   admission_date: string;
 };
 
+type Status = "Present" | "Absent";
+
 export default function TeacherDashboard() {
   const [students, setStudents] = useState<Student[]>([]);
+  const [attendance, setAttendance] = useState<
+    Record<number, Status>
+  >({});
+
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0]
   );
-
-  const [attendance, setAttendance] = useState<
-    Record<number, "Present" | "Absent">
-  >({});
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -35,6 +37,8 @@ export default function TeacherDashboard() {
   }, [selectedDate, students]);
 
   async function loadStudents() {
+    setLoading(true);
+
     const { data, error } = await supabase
       .from("students")
       .select(
@@ -43,8 +47,8 @@ export default function TeacherDashboard() {
       .order("id", { ascending: true });
 
     if (error) {
-      console.error(error);
-      setMessage("Failed to load students");
+      console.error("STUDENTS ERROR:", error);
+      setMessage("❌ Failed to load students");
       setLoading(false);
       return;
     }
@@ -56,75 +60,65 @@ export default function TeacherDashboard() {
   async function loadAttendance() {
     const { data, error } = await supabase
       .from("attendance")
-      .select("student_id, status")
+      .select(
+        "id, student_id, attendance_date, status"
+      )
       .eq("attendance_date", selectedDate);
 
     if (error) {
-      console.error(error);
+      console.error("ATTENDANCE LOAD ERROR:", error);
       return;
     }
 
-    const result: Record<
-      number,
-      "Present" | "Absent"
-    > = {};
+    const result: Record<number, Status> = {};
 
     (data || []).forEach((item) => {
-      result[item.student_id] = item.status;
+      result[item.student_id] =
+        item.status as Status;
     });
 
     setAttendance(result);
   }
 
+  function markStudent(
+    studentId: number,
+    status: Status
+  ) {
+    setAttendance((previous) => ({
+      ...previous,
+      [studentId]: status,
+    }));
+  }
+
   function markAllPresent() {
-    const result: Record<
-      number,
-      "Present" | "Absent"
-    > = {};
+    const result: Record<number, Status> = {};
 
     students.forEach((student) => {
       result[student.id] = "Present";
     });
 
     setAttendance(result);
-    setMessage("All students marked Present 🟢");
-
-    setTimeout(() => {
-      setMessage("");
-    }, 2000);
+    setMessage("🟢 All students marked Present");
   }
 
   function markAllAbsent() {
-    const result: Record<
-      number,
-      "Present" | "Absent"
-    > = {};
+    const result: Record<number, Status> = {};
 
     students.forEach((student) => {
       result[student.id] = "Absent";
     });
 
     setAttendance(result);
-    setMessage("All students marked Absent 🔴");
-
-    setTimeout(() => {
-      setMessage("");
-    }, 2000);
-  }
-
-  function markStudent(
-    studentId: number,
-    status: "Present" | "Absent"
-  ) {
-    setAttendance((prev) => ({
-      ...prev,
-      [studentId]: status,
-    }));
+    setMessage("🔴 All students marked Absent");
   }
 
   async function saveAttendance() {
+    console.log("SAVE BUTTON CLICKED");
+
+    setMessage("");
+
     if (students.length === 0) {
-      setMessage("No students found.");
+      setMessage("❌ No students found.");
       return;
     }
 
@@ -134,13 +128,12 @@ export default function TeacherDashboard() {
 
     if (missingStudents.length > 0) {
       setMessage(
-        `${missingStudents.length} student(s) are not marked yet.`
+        `❌ ${missingStudents.length} student(s) are not marked yet.`
       );
       return;
     }
 
     setSaving(true);
-    setMessage("");
 
     const records = students.map((student) => ({
       student_id: student.id,
@@ -148,25 +141,44 @@ export default function TeacherDashboard() {
       status: attendance[student.id],
     }));
 
-    const { error } = await supabase
+    console.log("SAVING RECORDS:", records);
+
+    const { data, error } = await supabase
       .from("attendance")
       .upsert(records, {
-        onConflict: "student_id,attendance_date",
-      });
+        onConflict:
+          "student_id,attendance_date",
+      })
+      .select();
+
+    console.log("SUPABASE RESULT:", data);
+    console.log("SUPABASE ERROR:", error);
 
     if (error) {
-      console.error(error);
-      setMessage("Failed to save attendance ❌");
+      console.error(
+        "SAVE ATTENDANCE ERROR:",
+        error
+      );
+
+      setMessage(
+        `❌ Failed to save attendance: ${error.message}`
+      );
+
       setSaving(false);
       return;
     }
 
-    setMessage("Attendance saved successfully ✅");
+    setMessage(
+      "✅ Attendance saved successfully!"
+    );
+
     setSaving(false);
+
+    await loadAttendance();
 
     setTimeout(() => {
       setMessage("");
-    }, 3000);
+    }, 4000);
   }
 
   const presentCount = students.filter(
@@ -197,7 +209,6 @@ export default function TeacherDashboard() {
         <header className="header">
 
           <div>
-
             <p className="small-title">
               ATTENDANCE PORTAL
             </p>
@@ -209,7 +220,6 @@ export default function TeacherDashboard() {
             <p className="subtitle">
               Manage student attendance
             </p>
-
           </div>
 
           <button
@@ -225,7 +235,7 @@ export default function TeacherDashboard() {
         </header>
 
 
-        {/* DATE + SUMMARY */}
+        {/* DATE */}
 
         <section className="top-card">
 
@@ -239,51 +249,35 @@ export default function TeacherDashboard() {
               type="date"
               value={selectedDate}
               onChange={(e) =>
-                setSelectedDate(e.target.value)
+                setSelectedDate(
+                  e.target.value
+                )
               }
             />
 
           </div>
 
-
           <div className="summary">
 
             <div className="summary-box total">
-
-              <span>
-                Total
-              </span>
-
+              <span>Total</span>
               <strong>
                 {students.length}
               </strong>
-
             </div>
 
-
             <div className="summary-box present">
-
-              <span>
-                Present
-              </span>
-
+              <span>Present</span>
               <strong>
                 {presentCount}
               </strong>
-
             </div>
 
-
             <div className="summary-box absent">
-
-              <span>
-                Absent
-              </span>
-
+              <span>Absent</span>
               <strong>
                 {absentCount}
               </strong>
-
             </div>
 
           </div>
@@ -291,12 +285,11 @@ export default function TeacherDashboard() {
         </section>
 
 
-        {/* BULK BUTTONS */}
+        {/* QUICK ATTENDANCE */}
 
         <section className="bulk-card">
 
           <div>
-
             <h2>
               Quick Attendance
             </h2>
@@ -304,9 +297,7 @@ export default function TeacherDashboard() {
             <p>
               Mark all students at once
             </p>
-
           </div>
-
 
           <div className="bulk-buttons">
 
@@ -344,105 +335,102 @@ export default function TeacherDashboard() {
 
           <div className="section-title">
 
-            <div>
+            <h2>
+              Student List
+            </h2>
 
-              <h2>
-                Student List
-              </h2>
-
-              <p>
-                Mark individual attendance if required
-              </p>
-
-            </div>
+            <p>
+              Mark individual attendance
+            </p>
 
           </div>
 
 
           <div className="student-list">
 
-            {students.map((student, index) => (
+            {students.map(
+              (student, index) => (
 
-              <div
-                className="student-row"
-                key={student.id}
-              >
+                <div
+                  className="student-row"
+                  key={student.id}
+                >
 
-                {/* STUDENT */}
+                  <div className="student-info">
 
-                <div className="student-info">
+                    <div className="number">
+                      {index + 1}
+                    </div>
 
-                  <div className="number">
-                    {index + 1}
+                    <div className="details">
+
+                      <strong>
+                        {student.student_name}
+                      </strong>
+
+                      <span>
+                        Username:{" "}
+                        {student.student_username}
+                      </span>
+
+                      <span>
+                        Admission Date:{" "}
+                        {new Date(
+                          student.admission_date
+                        ).toLocaleDateString(
+                          "en-IN"
+                        )}
+                      </span>
+
+                    </div>
+
                   </div>
 
 
-                  <div className="details">
+                  <div className="actions">
 
-                    <strong>
-                      {student.student_name}
-                    </strong>
+                    <button
+                      className={
+                        attendance[
+                          student.id
+                        ] === "Present"
+                          ? "present active"
+                          : "present"
+                      }
+                      onClick={() =>
+                        markStudent(
+                          student.id,
+                          "Present"
+                        )
+                      }
+                    >
+                      ✓ Present
+                    </button>
 
-                    <span>
-                      Username: {student.student_username}
-                    </span>
-
-                    <span>
-                      Admission Date:{" "}
-                      {new Date(
-                        student.admission_date
-                      ).toLocaleDateString("en-IN")}
-                    </span>
+                    <button
+                      className={
+                        attendance[
+                          student.id
+                        ] === "Absent"
+                          ? "absent active"
+                          : "absent"
+                      }
+                      onClick={() =>
+                        markStudent(
+                          student.id,
+                          "Absent"
+                        )
+                      }
+                    >
+                      ✕ Absent
+                    </button>
 
                   </div>
 
                 </div>
 
-
-                {/* ATTENDANCE BUTTONS */}
-
-                <div className="actions">
-
-                  <button
-                    className={
-                      attendance[student.id] ===
-                      "Present"
-                        ? "present active"
-                        : "present"
-                    }
-                    onClick={() =>
-                      markStudent(
-                        student.id,
-                        "Present"
-                      )
-                    }
-                  >
-                    ✓ Present
-                  </button>
-
-
-                  <button
-                    className={
-                      attendance[student.id] ===
-                      "Absent"
-                        ? "absent active"
-                        : "absent"
-                    }
-                    onClick={() =>
-                      markStudent(
-                        student.id,
-                        "Absent"
-                      )
-                    }
-                  >
-                    ✕ Absent
-                  </button>
-
-                </div>
-
-              </div>
-
-            ))}
+              )
+            )}
 
           </div>
 
@@ -452,6 +440,7 @@ export default function TeacherDashboard() {
           <div className="save-area">
 
             <button
+              type="button"
               className="save-button"
               onClick={saveAttendance}
               disabled={saving}
@@ -467,7 +456,7 @@ export default function TeacherDashboard() {
 
 
         <footer>
-          Student Attendance Management System
+          Student Attendance Management System © 2026
         </footer>
 
       </div>
@@ -484,15 +473,13 @@ export default function TeacherDashboard() {
           background: #f1f5f9;
           color: #0f172a;
           padding: 30px 20px;
-          font-family: Arial, Helvetica, sans-serif;
+          font-family: Arial, sans-serif;
         }
 
         .container {
           max-width: 1150px;
           margin: auto;
         }
-
-        /* HEADER */
 
         .header {
           background: #0f172a;
@@ -508,7 +495,7 @@ export default function TeacherDashboard() {
         .small-title {
           font-size: 12px;
           letter-spacing: 2px;
-          opacity: 0.7;
+          opacity: .7;
           margin: 0 0 8px;
         }
 
@@ -532,9 +519,6 @@ export default function TeacherDashboard() {
           cursor: pointer;
         }
 
-
-        /* TOP CARD */
-
         .top-card {
           background: white;
           border-radius: 20px;
@@ -544,7 +528,9 @@ export default function TeacherDashboard() {
           justify-content: space-between;
           align-items: center;
           gap: 25px;
-          box-shadow: 0 5px 25px rgba(15, 23, 42, 0.08);
+          box-shadow:
+            0 5px 25px
+            rgba(15,23,42,.08);
         }
 
         .date-box h2 {
@@ -583,23 +569,20 @@ export default function TeacherDashboard() {
           font-size: 24px;
         }
 
-        .summary-box.total {
+        .total {
           background: #e0e7ff;
           color: #3730a3;
         }
 
-        .summary-box.present {
+        .present {
           background: #dcfce7;
           color: #15803d;
         }
 
-        .summary-box.absent {
+        .absent {
           background: #fee2e2;
           color: #dc2626;
         }
-
-
-        /* BULK */
 
         .bulk-card {
           background: white;
@@ -610,7 +593,9 @@ export default function TeacherDashboard() {
           justify-content: space-between;
           align-items: center;
           gap: 20px;
-          box-shadow: 0 5px 25px rgba(15, 23, 42, 0.08);
+          box-shadow:
+            0 5px 25px
+            rgba(15,23,42,.08);
         }
 
         .bulk-card h2 {
@@ -645,9 +630,6 @@ export default function TeacherDashboard() {
           color: white;
         }
 
-
-        /* MESSAGE */
-
         .message {
           background: #dcfce7;
           color: #166534;
@@ -657,14 +639,13 @@ export default function TeacherDashboard() {
           font-weight: bold;
         }
 
-
-        /* STUDENTS */
-
         .students-card {
           background: white;
           border-radius: 20px;
           padding: 25px;
-          box-shadow: 0 5px 25px rgba(15, 23, 42, 0.08);
+          box-shadow:
+            0 5px 25px
+            rgba(15,23,42,.08);
         }
 
         .section-title h2 {
@@ -673,7 +654,7 @@ export default function TeacherDashboard() {
 
         .section-title p {
           color: #64748b;
-          margin: 7px 0 0;
+          margin: 7px 0;
         }
 
         .student-list {
@@ -721,9 +702,6 @@ export default function TeacherDashboard() {
           margin-top: 4px;
         }
 
-
-        /* ACTIONS */
-
         .actions {
           display: flex;
           gap: 10px;
@@ -738,19 +716,14 @@ export default function TeacherDashboard() {
           cursor: pointer;
         }
 
-        .present {
-          background: #dcfce7;
-          color: #15803d;
-        }
-
         .present.active {
           background: #16a34a;
           color: white;
         }
 
-        .absent {
-          background: #fee2e2;
-          color: #dc2626;
+        .present:not(.active) {
+          background: #dcfce7;
+          color: #15803d;
         }
 
         .absent.active {
@@ -758,8 +731,10 @@ export default function TeacherDashboard() {
           color: white;
         }
 
-
-        /* SAVE */
+        .absent:not(.active) {
+          background: #fee2e2;
+          color: #dc2626;
+        }
 
         .save-area {
           margin-top: 25px;
@@ -780,17 +755,10 @@ export default function TeacherDashboard() {
           cursor: pointer;
         }
 
-        .save-button:hover {
-          background: #1d4ed8;
-        }
-
         .save-button:disabled {
           background: #93c5fd;
           cursor: not-allowed;
         }
-
-
-        /* FOOTER */
 
         footer {
           text-align: center;
@@ -799,27 +767,16 @@ export default function TeacherDashboard() {
           margin-top: 25px;
         }
 
-
-        /* LOADING */
-
         .loading {
           min-height: 100vh;
           display: flex;
           align-items: center;
           justify-content: center;
           background: #f1f5f9;
-          color: #0f172a;
           font-size: 20px;
         }
 
-
-        /* MOBILE */
-
         @media (max-width: 800px) {
-
-          .page {
-            padding: 15px;
-          }
 
           .header {
             flex-direction: column;
@@ -860,28 +817,14 @@ export default function TeacherDashboard() {
 
         }
 
-
         @media (max-width: 600px) {
+
+          .page {
+            padding: 15px;
+          }
 
           h1 {
             font-size: 26px;
-          }
-
-          .summary {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-          }
-
-          .summary-box {
-            padding: 10px 5px;
-          }
-
-          .summary-box strong {
-            font-size: 20px;
-          }
-
-          .bulk-buttons {
-            flex-direction: column;
           }
 
           .student-row {

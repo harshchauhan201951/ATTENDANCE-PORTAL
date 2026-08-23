@@ -2,101 +2,109 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-
-const students = [
-  { username: "STU1001", password: "Aditya02", name: "ADITYA" },
-  { username: "STU1002", password: "Anmol01", name: "ANMOL" },
-  { username: "STU1003", password: "Chirag06", name: "CHIRAG" },
-  { username: "STU1004", password: "Duggu10", name: "DUGGU" },
-  { username: "STU1005", password: "Duggu13", name: "DUGGU" },
-  { username: "STU1006", password: "Jaggu10", name: "JAGGU" },
-  { username: "STU1007", password: "Mannu13", name: "MANNU" },
-  { username: "STU1008", password: "Palak02", name: "PALAK" },
-  { username: "STU1009", password: "Piyush01", name: "PIYUSH" },
-  { username: "STU1010", password: "Prince04", name: "PRINCE" },
-  { username: "STU1011", password: "Raghav20", name: "RAGHAV" },
-  { username: "STU1012", password: "Sharvi04", name: "SHARVI" },
-];
+import { supabase } from "../lib/supabase";
 
 export default function StudentLogin() {
   const router = useRouter();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
 
-  const handleLogin = (e: React.FormEvent) => {
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleLogin(
+    e: React.FormEvent
+  ) {
     e.preventDefault();
+
     setError("");
 
-    const enteredUsername = username.trim().toUpperCase();
-    const enteredPassword = password.trim();
+    const enteredUsername =
+      username.trim().toUpperCase();
+
+    const enteredPassword =
+      password.trim();
 
     if (!enteredUsername || !enteredPassword) {
-      setError("Please enter username and password.");
+      setError(
+        "Please enter username and password."
+      );
       return;
     }
 
-    // Check if this username was changed earlier
-    const savedAccounts = JSON.parse(
-      localStorage.getItem("studentAccounts") || "{}"
+    setLoading(true);
+
+    const { data, error } =
+      await supabase.rpc("student_login", {
+        p_username: enteredUsername,
+        p_password: enteredPassword,
+      });
+
+    setLoading(false);
+
+    if (error) {
+      console.error(error);
+      setError(
+        "Invalid username or password."
+      );
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      setError(
+        "Invalid username or password."
+      );
+      return;
+    }
+
+    const student = data[0];
+
+    localStorage.setItem(
+      "studentLoggedIn",
+      "true"
     );
 
-    let student = null;
+    localStorage.setItem(
+      "studentId",
+      String(student.id)
+    );
 
-    // First check saved/changed accounts
-    for (const key of Object.keys(savedAccounts)) {
-      if (
-        savedAccounts[key].username.toUpperCase() === enteredUsername &&
-        savedAccounts[key].password === enteredPassword
-      ) {
-        student = savedAccounts[key];
-        break;
-      }
-    }
+    localStorage.setItem(
+      "studentUsername",
+      student.student_username
+    );
 
-    // If not found, check original accounts
-    if (!student) {
-      student = students.find(
-        (item) =>
-          item.username.toUpperCase() === enteredUsername &&
-          item.password === enteredPassword
-      );
-    }
-
-    if (!student) {
-      setError("Invalid username or password.");
-      return;
-    }
-
-    localStorage.setItem("studentLoggedIn", "true");
-    localStorage.setItem("studentUsername", student.username);
-    localStorage.setItem("studentName", student.name);
+    localStorage.setItem(
+      "studentName",
+      student.student_name
+    );
 
     router.push("/student/dashboard");
-  };
+  }
 
   return (
     <main
       style={{
         minHeight: "100vh",
         background:
-          "linear-gradient(135deg, #dbeafe 0%, #eef2ff 50%, #dcfce7 100%)",
+          "linear-gradient(135deg,#dbeafe,#eef2ff,#dcfce7)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         padding: "20px",
-        fontFamily: "Arial, sans-serif",
+        fontFamily: "Arial,sans-serif",
       }}
     >
       <div
         style={{
           width: "100%",
           maxWidth: "430px",
-          background: "#ffffff",
+          background: "white",
           borderRadius: "24px",
           padding: "35px 28px",
-          boxShadow: "0 20px 50px rgba(0,0,0,0.15)",
+          boxShadow:
+            "0 20px 50px rgba(0,0,0,0.15)",
         }}
       >
         <div
@@ -105,7 +113,8 @@ export default function StudentLogin() {
             height: "75px",
             margin: "0 auto 15px",
             borderRadius: "50%",
-            background: "linear-gradient(135deg, #2563eb, #4f46e5)",
+            background:
+              "linear-gradient(135deg,#2563eb,#4f46e5)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -151,13 +160,19 @@ export default function StudentLogin() {
           <input
             type="text"
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="Enter username"
+            onChange={(e) =>
+              setUsername(
+                e.target.value.toUpperCase()
+              )
+            }
+            placeholder="STU1001"
+            autoComplete="username"
             style={{
               width: "100%",
               boxSizing: "border-box",
               padding: "14px",
-              border: "1px solid #d1d5db",
+              border:
+                "1px solid #d1d5db",
               borderRadius: "11px",
               fontSize: "16px",
               marginBottom: "20px",
@@ -179,13 +194,17 @@ export default function StudentLogin() {
           <input
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) =>
+              setPassword(e.target.value)
+            }
             placeholder="Enter password"
+            autoComplete="current-password"
             style={{
               width: "100%",
               boxSizing: "border-box",
               padding: "14px",
-              border: "1px solid #d1d5db",
+              border:
+                "1px solid #d1d5db",
               borderRadius: "11px",
               fontSize: "16px",
               marginBottom: "20px",
@@ -210,20 +229,26 @@ export default function StudentLogin() {
 
           <button
             type="submit"
+            disabled={loading}
             style={{
               width: "100%",
               padding: "14px",
               border: "none",
               borderRadius: "11px",
               background:
-                "linear-gradient(135deg, #2563eb, #4f46e5)",
-              color: "#ffffff",
+                "linear-gradient(135deg,#2563eb,#4f46e5)",
+              color: "white",
               fontSize: "17px",
               fontWeight: "700",
-              cursor: "pointer",
+              cursor: loading
+                ? "not-allowed"
+                : "pointer",
+              opacity: loading ? 0.7 : 1,
             }}
           >
-            Login →
+            {loading
+              ? "Logging in..."
+              : "Login →"}
           </button>
         </form>
 
