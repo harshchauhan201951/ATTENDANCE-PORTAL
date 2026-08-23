@@ -21,10 +21,8 @@ type AttendanceRecord = {
 };
 
 type HistoryRow = {
+  record: AttendanceRecord;
   student: Student;
-  student_id: number;
-  attendance_date: string;
-  status: string;
 };
 
 export default function AttendanceHistoryPage() {
@@ -34,11 +32,14 @@ export default function AttendanceHistoryPage() {
   const [selectedDate, setSelectedDate] = useState("");
   const [search, setSearch] = useState("");
 
-  const [deletedRecords, setDeletedRecords] = useState<string[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
+  const [deletedRecords, setDeletedRecords] = useState<
+    AttendanceRecord[]
+  >([]);
+
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     loadData();
@@ -47,7 +48,6 @@ export default function AttendanceHistoryPage() {
   async function loadData() {
     setLoading(true);
     setErrorMessage("");
-    setSaveMessage("");
 
     const [studentsResult, attendanceResult] =
       await Promise.all([
@@ -71,31 +71,19 @@ export default function AttendanceHistoryPage() {
       ]);
 
     if (studentsResult.error) {
-      console.error(
-        "Students error:",
-        studentsResult.error
-      );
-
       setErrorMessage(
         "Students load nahi ho rahe: " +
           studentsResult.error.message
       );
-
       setLoading(false);
       return;
     }
 
     if (attendanceResult.error) {
-      console.error(
-        "Attendance error:",
-        attendanceResult.error
-      );
-
       setErrorMessage(
-        "Attendance history load nahi ho rahi: " +
+        "Attendance load nahi ho rahi: " +
           attendanceResult.error.message
       );
-
       setLoading(false);
       return;
     }
@@ -108,161 +96,111 @@ export default function AttendanceHistoryPage() {
       (attendanceResult.data || []) as AttendanceRecord[]
     );
 
-    setDeletedRecords([]);
     setLoading(false);
   }
 
-  /*
-   * Unique key for one student's attendance
-   * on one particular date.
-   */
-  function getRecordKey(
-    studentId: number,
-    attendanceDate: string
-  ) {
-    return `${studentId}__${attendanceDate}`;
-  }
-
-  /*
-   * TEMPORARY DELETE
-   *
-   * This does NOT delete from Supabase.
-   * It only hides the record until Save Changes.
-   */
-  function deleteAttendance(
-    studentId: number,
-    attendanceDate: string
-  ) {
-    const key = getRecordKey(
-      studentId,
-      attendanceDate
+  function markForDeletion(record: AttendanceRecord) {
+    const alreadyDeleted = deletedRecords.some(
+      (item) =>
+        item.student_id === record.student_id &&
+        item.attendance_date ===
+          record.attendance_date
     );
 
-    setDeletedRecords((previous) => {
-      if (previous.includes(key)) {
-        return previous;
-      }
+    if (alreadyDeleted) return;
 
-      return [...previous, key];
-    });
+    setDeletedRecords((previous) => [
+      ...previous,
+      record,
+    ]);
 
-    setSaveMessage("");
+    setMessage(
+      "Attendance deletion ke liye select ho gayi hai. Permanent delete karne ke liye Save Deleted Attendances dabayein."
+    );
+
     setErrorMessage("");
   }
 
-  /*
-   * UNDO TEMPORARY DELETE
-   */
-  function undoDelete(
-    studentId: number,
-    attendanceDate: string
-  ) {
-    const key = getRecordKey(
-      studentId,
-      attendanceDate
-    );
-
+  function undoDelete(record: AttendanceRecord) {
     setDeletedRecords((previous) =>
       previous.filter(
-        (item) => item !== key
+        (item) =>
+          !(
+            item.student_id ===
+              record.student_id &&
+            item.attendance_date ===
+              record.attendance_date
+          )
       )
     );
 
-    setSaveMessage("");
-    setErrorMessage("");
+    setMessage("");
   }
 
-  /*
-   * PERMANENT SAVE
-   *
-   * Deletes selected attendance records
-   * directly from Supabase.
-   */
-  async function saveChanges() {
+  async function saveDeletedAttendances() {
     if (deletedRecords.length === 0) {
-      setSaveMessage(
-        "Koi attendance delete ke liye selected nahi hai."
+      setMessage(
+        "Koi attendance delete ke liye select nahi hai."
       );
       return;
     }
 
     const confirmed = window.confirm(
-      `Aap ${deletedRecords.length} attendance record(s) permanently delete karne wale hain.\n\n` +
-        "Ye Student aur Teacher dono portals se remove ho jayenge.\n\n" +
-        "Kya aap continue karna chahte hain?"
+      `${deletedRecords.length} attendance record(s) permanently delete karne hain?\n\nYe action Teacher aur Student dono portals se record hata dega.`
     );
 
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
 
     setSaving(true);
-    setSaveMessage("");
     setErrorMessage("");
+    setMessage("");
 
     try {
-      /*
-       * Delete each selected record.
-       *
-       * student_id + attendance_date together
-       * identify the attendance record.
-       */
-      for (const key of deletedRecords) {
-        const separatorIndex =
-          key.indexOf("__");
-
-        const studentId = Number(
-          key.substring(0, separatorIndex)
-        );
-
-        const attendanceDate =
-          key.substring(
-            separatorIndex + 2
-          );
-
+      for (const record of deletedRecords) {
         const { error } = await supabase
           .from("attendance")
           .delete()
-          .eq(
-            "student_id",
-            studentId
-          )
+          .eq("student_id", record.student_id)
           .eq(
             "attendance_date",
-            attendanceDate
+            record.attendance_date
           );
 
         if (error) {
-          console.error(
-            "Delete attendance error:",
-            error
-          );
-
           throw new Error(
-            `Student ID ${studentId}, Date ${attendanceDate}: ${error.message}`
+            `Student ID ${record.student_id}, Date ${record.attendance_date}: ${error.message}`
           );
         }
       }
 
-      /*
-       * Successfully deleted from database.
-       * Reload fresh data from Supabase.
-       */
+      setRecords((previous) =>
+        previous.filter(
+          (record) =>
+            !deletedRecords.some(
+              (deleted) =>
+                deleted.student_id ===
+                  record.student_id &&
+                deleted.attendance_date ===
+                  record.attendance_date
+            )
+        )
+      );
+
       setDeletedRecords([]);
 
-      await loadData();
-
-      setSaveMessage(
-        "✅ Attendance changes saved successfully. Deleted records permanently remove ho gaye hain."
+      setMessage(
+        "✅ Attendance permanently delete ho gayi. Teacher aur Student dono portals se record remove ho gaya."
       );
     } catch (error) {
-      console.error(error);
+      console.error(
+        "Permanent attendance deletion error:",
+        error
+      );
 
       setErrorMessage(
-        "❌ Attendance delete save nahi hui. " +
-          (error instanceof Error
-            ? error.message
-            : "Unknown error")
+        error instanceof Error
+          ? error.message
+          : "Attendance delete nahi ho paayi."
       );
     } finally {
       setSaving(false);
@@ -270,16 +208,13 @@ export default function AttendanceHistoryPage() {
   }
 
   const availableDates = useMemo(() => {
-    const dates = Array.from(
+    return Array.from(
       new Set(
         records.map(
-          (record) =>
-            record.attendance_date
+          (record) => record.attendance_date
         )
       )
-    );
-
-    return dates.sort(
+    ).sort(
       (a, b) =>
         new Date(b).getTime() -
         new Date(a).getTime()
@@ -287,7 +222,7 @@ export default function AttendanceHistoryPage() {
   }, [records]);
 
   const filteredRecords = useMemo(() => {
-    let result = records;
+    let result = [...records];
 
     if (selectedDate) {
       result = result.filter(
@@ -298,27 +233,25 @@ export default function AttendanceHistoryPage() {
     }
 
     if (search.trim()) {
-      const searchText =
-        search.trim().toLowerCase();
+      const text = search
+        .trim()
+        .toLowerCase();
 
       result = result.filter((record) => {
         const student = students.find(
           (item) =>
-            item.id ===
-            record.student_id
+            item.id === record.student_id
         );
 
-        if (!student) {
-          return false;
-        }
+        if (!student) return false;
 
         return (
           student.student_name
             ?.toLowerCase()
-            .includes(searchText) ||
+            .includes(text) ||
           student.student_username
             ?.toLowerCase()
-            .includes(searchText)
+            .includes(text)
         );
       });
     }
@@ -336,63 +269,34 @@ export default function AttendanceHistoryPage() {
       .map((record) => {
         const student = students.find(
           (item) =>
-            item.id ===
-            record.student_id
+            item.id === record.student_id
         );
 
-        if (!student) {
-          return null;
-        }
+        if (!student) return null;
 
         return {
+          record,
           student,
-          student_id: record.student_id,
-          attendance_date:
-            record.attendance_date,
-          status: record.status,
         };
       })
       .filter(
-        (
-          item
-        ): item is HistoryRow =>
+        (item): item is HistoryRow =>
           item !== null
       );
 
-  const visibleRows =
-    historyRows.filter((row) => {
-      const key = getRecordKey(
-        row.student_id,
-        row.attendance_date
-      );
+  const presentCount = historyRows.filter(
+    (item) =>
+      item.record.status.toLowerCase() ===
+      "present"
+  ).length;
 
-      return !deletedRecords.includes(
-        key
-      );
-    });
-
-  const presentCount =
-    visibleRows.filter(
-      (item) =>
-        item.status.toLowerCase() ===
-        "present"
-    ).length;
-
-  const absentCount =
-    visibleRows.filter(
-      (item) =>
-        item.status.toLowerCase() ===
-        "absent"
-    ).length;
-
-  const totalCount =
-    visibleRows.length;
+  const absentCount = historyRows.filter(
+    (item) =>
+      item.record.status.toLowerCase() ===
+      "absent"
+  ).length;
 
   function formatDate(date: string) {
-    if (!date) {
-      return "";
-    }
-
     return new Date(
       `${date}T00:00:00`
     ).toLocaleDateString("en-IN", {
@@ -402,37 +306,25 @@ export default function AttendanceHistoryPage() {
     });
   }
 
+  function isMarkedForDeletion(
+    record: AttendanceRecord
+  ) {
+    return deletedRecords.some(
+      (item) =>
+        item.student_id === record.student_id &&
+        item.attendance_date ===
+          record.attendance_date
+    );
+  }
+
   function clearFilters() {
     setSelectedDate("");
     setSearch("");
   }
 
-  function cancelAllDeletes() {
-    if (
-      deletedRecords.length === 0
-    ) {
-      return;
-    }
-
-    const confirmed = window.confirm(
-      "Saare pending deletions cancel karke records wapas dikhaye jayen?"
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setDeletedRecords([]);
-    setSaveMessage("");
-    setErrorMessage("");
-  }
-
   return (
     <main style={styles.page}>
       <div style={styles.container}>
-
-        {/* HEADER */}
-
         <header style={styles.header}>
           <div>
             <div style={styles.badge}>
@@ -444,9 +336,8 @@ export default function AttendanceHistoryPage() {
             </h1>
 
             <p style={styles.subtitle}>
-              View, manage and permanently
-              delete previous student
-              attendance records
+              View, manage and permanently delete
+              previous attendance records
             </p>
           </div>
 
@@ -460,71 +351,12 @@ export default function AttendanceHistoryPage() {
           </button>
         </header>
 
-        {/* SAVE BAR */}
-
-        {deletedRecords.length > 0 && (
-          <section style={styles.saveCard}>
-            <div>
-              <div style={styles.saveTitle}>
-                ⚠️ Pending Attendance Deletions
-              </div>
-
-              <div style={styles.saveText}>
-                {deletedRecords.length} attendance
-                record(s) delete ke liye selected
-                hain.
-                <br />
-                <strong>
-                  Save Changes
-                </strong>{" "}
-                dabane par ye records
-                permanently database se delete
-                ho jayenge aur Student + Teacher
-                dono portals se remove ho jayenge.
-              </div>
-            </div>
-
-            <div style={styles.saveActions}>
-              <button
-                onClick={cancelAllDeletes}
-                disabled={saving}
-                style={
-                  styles.cancelDeleteButton
-                }
-              >
-                ↩ Cancel
-              </button>
-
-              <button
-                onClick={saveChanges}
-                disabled={saving}
-                style={styles.saveButton}
-              >
-                {saving
-                  ? "⏳ Saving..."
-                  : "💾 Save Changes"}
-              </button>
-            </div>
-          </section>
-        )}
-
-        {/* SUCCESS */}
-
-        {saveMessage && (
-          <div style={styles.successBox}>
-            {saveMessage}
-          </div>
-        )}
-
-        {/* FILTERS */}
-
         <section style={styles.filterCard}>
           <div style={styles.filterTitle}>
             🔎 Search Attendance
           </div>
 
           <div style={styles.filterGrid}>
-
             <div style={styles.inputGroup}>
               <label style={styles.label}>
                 Search Student
@@ -534,9 +366,7 @@ export default function AttendanceHistoryPage() {
                 type="text"
                 value={search}
                 onChange={(e) =>
-                  setSearch(
-                    e.target.value
-                  )
+                  setSearch(e.target.value)
                 }
                 placeholder="Name or username..."
                 style={styles.input}
@@ -551,9 +381,7 @@ export default function AttendanceHistoryPage() {
               <select
                 value={selectedDate}
                 onChange={(e) =>
-                  setSelectedDate(
-                    e.target.value
-                  )
+                  setSelectedDate(e.target.value)
                 }
                 style={styles.input}
               >
@@ -561,39 +389,39 @@ export default function AttendanceHistoryPage() {
                   All Dates
                 </option>
 
-                {availableDates.map(
-                  (date) => (
-                    <option
-                      key={date}
-                      value={date}
-                    >
-                      {formatDate(date)}
-                    </option>
-                  )
-                )}
+                {availableDates.map((date) => (
+                  <option
+                    key={date}
+                    value={date}
+                  >
+                    {formatDate(date)}
+                  </option>
+                ))}
               </select>
             </div>
 
-            <div
-              style={
-                styles.clearButtonWrapper
-              }
+            <button
+              onClick={clearFilters}
+              style={styles.clearButton}
             >
-              <button
-                onClick={clearFilters}
-                style={styles.clearButton}
-              >
-                ✕ Clear Filters
-              </button>
-            </div>
-
+              ✕ Clear Filters
+            </button>
           </div>
         </section>
 
-        {/* SUMMARY */}
+        {message && (
+          <div style={styles.successBox}>
+            {message}
+          </div>
+        )}
+
+        {errorMessage && (
+          <div style={styles.errorBox}>
+            ⚠️ {errorMessage}
+          </div>
+        )}
 
         <section style={styles.statsGrid}>
-
           <div style={styles.statCard}>
             <div
               style={{
@@ -610,11 +438,11 @@ export default function AttendanceHistoryPage() {
               </div>
 
               <div style={styles.statValue}>
-                {totalCount}
+                {historyRows.length}
               </div>
 
               <div style={styles.statText}>
-                Visible attendance records
+                Attendance records
               </div>
             </div>
           </div>
@@ -679,20 +507,38 @@ export default function AttendanceHistoryPage() {
             </div>
           </div>
 
+          <div style={styles.statCard}>
+            <div
+              style={{
+                ...styles.statIcon,
+                background: "#fef3c7",
+              }}
+            >
+              🗑️
+            </div>
+
+            <div>
+              <div style={styles.statLabel}>
+                Selected for Delete
+              </div>
+
+              <div
+                style={{
+                  ...styles.statValue,
+                  color: "#b45309",
+                }}
+              >
+                {deletedRecords.length}
+              </div>
+
+              <div style={styles.statText}>
+                Waiting for save
+              </div>
+            </div>
+          </div>
         </section>
 
-        {/* ERROR */}
-
-        {errorMessage && (
-          <div style={styles.errorBox}>
-            ⚠️ {errorMessage}
-          </div>
-        )}
-
-        {/* HISTORY */}
-
         <section style={styles.historyCard}>
-
           <div style={styles.historyHeader}>
             <div>
               <h2 style={styles.historyTitle}>
@@ -708,13 +554,40 @@ export default function AttendanceHistoryPage() {
               </p>
             </div>
 
-            <button
-              onClick={loadData}
-              disabled={saving}
-              style={styles.refreshButton}
-            >
-              🔄 Refresh
-            </button>
+            <div style={styles.actionArea}>
+              <button
+                onClick={loadData}
+                disabled={saving}
+                style={styles.refreshButton}
+              >
+                🔄 Refresh
+              </button>
+
+              <button
+                onClick={saveDeletedAttendances}
+                disabled={
+                  saving ||
+                  deletedRecords.length === 0
+                }
+                style={{
+                  ...styles.saveButton,
+                  opacity:
+                    saving ||
+                    deletedRecords.length === 0
+                      ? 0.5
+                      : 1,
+                  cursor:
+                    saving ||
+                    deletedRecords.length === 0
+                      ? "not-allowed"
+                      : "pointer",
+                }}
+              >
+                {saving
+                  ? "⏳ Saving..."
+                  : `💾 Save Deleted Attendances (${deletedRecords.length})`}
+              </button>
+            </div>
           </div>
 
           {loading ? (
@@ -728,11 +601,10 @@ export default function AttendanceHistoryPage() {
               </h3>
 
               <p style={styles.loadingText}>
-                Please wait while records
-                are being loaded.
+                Please wait.
               </p>
             </div>
-          ) : visibleRows.length === 0 ? (
+          ) : historyRows.length === 0 ? (
             <div style={styles.emptyBox}>
               <div style={styles.emptyIcon}>
                 📭
@@ -743,8 +615,8 @@ export default function AttendanceHistoryPage() {
               </h3>
 
               <p style={styles.emptyText}>
-                There are no attendance records
-                matching your current filters.
+                No records match your current
+                filters.
               </p>
 
               <button
@@ -786,17 +658,22 @@ export default function AttendanceHistoryPage() {
                 </thead>
 
                 <tbody>
-                  {visibleRows.map(
+                  {historyRows.map(
                     (row, index) => {
-                      const key =
-                        getRecordKey(
-                          row.student_id,
-                          row.attendance_date
+                      const marked =
+                        isMarkedForDeletion(
+                          row.record
                         );
 
                       return (
-                        <tr key={key}>
-
+                        <tr
+                          key={`${row.record.student_id}-${row.record.attendance_date}`}
+                          style={{
+                            background: marked
+                              ? "#fff7ed"
+                              : "#ffffff",
+                          }}
+                        >
                           <td style={styles.td}>
                             {index + 1}
                           </td>
@@ -812,11 +689,8 @@ export default function AttendanceHistoryPage() {
                                   styles.studentAvatar
                                 }
                               >
-                                {row.student
-                                  .student_name
-                                  ?.charAt(
-                                    0
-                                  )
+                                {row.student.student_name
+                                  ?.charAt(0)
                                   .toUpperCase() ||
                                   "S"}
                               </div>
@@ -848,12 +722,13 @@ export default function AttendanceHistoryPage() {
 
                           <td style={styles.td}>
                             {formatDate(
-                              row.attendance_date
+                              row.record
+                                .attendance_date
                             )}
                           </td>
 
                           <td style={styles.td}>
-                            {row.status
+                            {row.record.status
                               .toLowerCase() ===
                             "present" ? (
                               <span
@@ -875,22 +750,34 @@ export default function AttendanceHistoryPage() {
                           </td>
 
                           <td style={styles.td}>
-                            <button
-                              onClick={() =>
-                                deleteAttendance(
-                                  row.student_id,
-                                  row.attendance_date
-                                )
-                              }
-                              disabled={saving}
-                              style={
-                                styles.deleteButton
-                              }
-                            >
-                              🗑️ Delete
-                            </button>
+                            {marked ? (
+                              <button
+                                onClick={() =>
+                                  undoDelete(
+                                    row.record
+                                  )
+                                }
+                                style={
+                                  styles.undoButton
+                                }
+                              >
+                                ↩ Undo
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() =>
+                                  markForDeletion(
+                                    row.record
+                                  )
+                                }
+                                style={
+                                  styles.deleteButton
+                                }
+                              >
+                                🗑️ Delete
+                              </button>
+                            )}
                           </td>
-
                         </tr>
                       );
                     }
@@ -901,13 +788,10 @@ export default function AttendanceHistoryPage() {
           )}
         </section>
 
-        {/* FOOTER */}
-
         <footer style={styles.footer}>
           Attendance Portal • Teacher Attendance
           History • 2026
         </footer>
-
       </div>
     </main>
   );
@@ -916,15 +800,13 @@ export default function AttendanceHistoryPage() {
 const styles: {
   [key: string]: React.CSSProperties;
 } = {
-
   page: {
     minHeight: "100vh",
     background:
       "linear-gradient(135deg,#eef2ff,#f8fafc,#eff6ff)",
     padding: "25px 15px",
     boxSizing: "border-box",
-    fontFamily:
-      "Arial, Helvetica, sans-serif",
+    fontFamily: "Arial, Helvetica, sans-serif",
     color: "#0f172a",
   },
 
@@ -985,80 +867,6 @@ const styles: {
     fontSize: "14px",
   },
 
-  saveCard: {
-    background:
-      "linear-gradient(135deg,#fff7ed,#fffbeb)",
-    border:
-      "2px solid #f59e0b",
-    borderRadius: "18px",
-    padding: "20px",
-    marginBottom: "20px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "20px",
-    boxShadow:
-      "0 8px 25px rgba(245,158,11,0.12)",
-    flexWrap: "wrap",
-  },
-
-  saveTitle: {
-    color: "#92400e",
-    fontSize: "18px",
-    fontWeight: "900",
-    marginBottom: "7px",
-  },
-
-  saveText: {
-    color: "#78350f",
-    fontSize: "13px",
-    lineHeight: 1.6,
-    fontWeight: "600",
-  },
-
-  saveActions: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    flexWrap: "wrap",
-  },
-
-  saveButton: {
-    border: "none",
-    background: "#16a34a",
-    color: "#ffffff",
-    padding: "13px 20px",
-    borderRadius: "11px",
-    fontWeight: "900",
-    cursor: "pointer",
-    fontSize: "14px",
-    boxShadow:
-      "0 6px 15px rgba(22,163,74,0.25)",
-  },
-
-  cancelDeleteButton: {
-    border: "1px solid #cbd5e1",
-    background: "#ffffff",
-    color: "#334155",
-    padding: "13px 17px",
-    borderRadius: "11px",
-    fontWeight: "800",
-    cursor: "pointer",
-    fontSize: "14px",
-  },
-
-  successBox: {
-    background: "#dcfce7",
-    color: "#166534",
-    border:
-      "1px solid #86efac",
-    borderRadius: "12px",
-    padding: "14px 16px",
-    marginBottom: "20px",
-    fontWeight: "800",
-    fontSize: "13px",
-  },
-
   filterCard: {
     background: "#ffffff",
     borderRadius: "20px",
@@ -1099,19 +907,13 @@ const styles: {
     width: "100%",
     boxSizing: "border-box",
     padding: "12px 13px",
-    border:
-      "1px solid #cbd5e1",
+    border: "1px solid #cbd5e1",
     borderRadius: "10px",
     background: "#ffffff",
     color: "#0f172a",
     fontSize: "14px",
     fontWeight: "600",
     outline: "none",
-  },
-
-  clearButtonWrapper: {
-    display: "flex",
-    alignItems: "end",
   },
 
   clearButton: {
@@ -1176,11 +978,20 @@ const styles: {
     fontWeight: "600",
   },
 
+  successBox: {
+    background: "#dcfce7",
+    color: "#166534",
+    border: "1px solid #bbf7d0",
+    borderRadius: "12px",
+    padding: "15px",
+    marginBottom: "20px",
+    fontWeight: "700",
+  },
+
   errorBox: {
     background: "#fee2e2",
     color: "#991b1b",
-    border:
-      "1px solid #fecaca",
+    border: "1px solid #fecaca",
     borderRadius: "12px",
     padding: "15px",
     marginBottom: "20px",
@@ -1219,6 +1030,13 @@ const styles: {
     fontWeight: "600",
   },
 
+  actionArea: {
+    display: "flex",
+    gap: "10px",
+    alignItems: "center",
+    flexWrap: "wrap",
+  },
+
   refreshButton: {
     border: "none",
     background: "#2563eb",
@@ -1229,11 +1047,23 @@ const styles: {
     cursor: "pointer",
   },
 
+  saveButton: {
+    border: "none",
+    background:
+      "linear-gradient(135deg,#15803d,#16a34a)",
+    color: "#ffffff",
+    padding: "12px 17px",
+    borderRadius: "10px",
+    fontWeight: "900",
+    cursor: "pointer",
+    boxShadow:
+      "0 6px 15px rgba(22,163,74,0.22)",
+  },
+
   tableWrapper: {
     width: "100%",
     overflowX: "auto",
-    border:
-      "1px solid #e2e8f0",
+    border: "1px solid #e2e8f0",
     borderRadius: "14px",
   },
 
@@ -1321,9 +1151,20 @@ const styles: {
     border: "none",
     background: "#dc2626",
     color: "#ffffff",
-    padding: "9px 13px",
-    borderRadius: "9px",
-    fontWeight: "900",
+    padding: "8px 12px",
+    borderRadius: "8px",
+    fontWeight: "800",
+    cursor: "pointer",
+    fontSize: "12px",
+  },
+
+  undoButton: {
+    border: "none",
+    background: "#f59e0b",
+    color: "#ffffff",
+    padding: "8px 12px",
+    borderRadius: "8px",
+    fontWeight: "800",
     cursor: "pointer",
     fontSize: "12px",
   },
