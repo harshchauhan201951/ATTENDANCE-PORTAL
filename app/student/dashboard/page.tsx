@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 type AttendanceRecord = {
   id: number;
@@ -29,11 +29,11 @@ export default function StudentDashboard() {
   }, []);
 
   async function loadStudent() {
-    try {
-      setLoading(true);
-      setError("");
+    setLoading(true);
+    setError("");
 
-      // SAME KEYS AS STUDENT LOGIN PAGE
+    try {
+      // SAME STORAGE KEYS AS STUDENT LOGIN
       const savedUsername =
         localStorage.getItem("studentUsername") || "";
 
@@ -46,7 +46,7 @@ export default function StudentDashboard() {
       const loggedIn =
         localStorage.getItem("studentLoggedIn");
 
-      // If login information is missing, go back to login
+      // CHECK LOGIN
       if (
         loggedIn !== "true" ||
         !savedUsername ||
@@ -59,7 +59,7 @@ export default function StudentDashboard() {
       setUsername(savedUsername);
       setName(savedName);
 
-      // Get student
+      // GET STUDENT
       const { data: student, error: studentError } =
         await supabase
           .from("students")
@@ -79,17 +79,19 @@ export default function StudentDashboard() {
         return;
       }
 
-      setUsername(
-        student.student_username || savedUsername
-      );
+      const finalUsername =
+        student.student_username ||
+        savedUsername;
 
-      setName(
+      const finalName =
         student.student_name ||
-          savedName ||
-          savedUsername
-      );
+        savedName ||
+        savedUsername;
 
-      // Get attendance
+      setUsername(finalUsername);
+      setName(finalName);
+
+      // GET ATTENDANCE
       const {
         data: attendance,
         error: attendanceError,
@@ -111,7 +113,10 @@ export default function StudentDashboard() {
 
       setRecords(attendance || []);
     } catch (err) {
-      console.error(err);
+      console.error(
+        "Dashboard error:",
+        err
+      );
 
       setError(
         err instanceof Error
@@ -124,10 +129,21 @@ export default function StudentDashboard() {
   }
 
   function logout() {
-    localStorage.removeItem("studentLoggedIn");
-    localStorage.removeItem("studentId");
-    localStorage.removeItem("studentUsername");
-    localStorage.removeItem("studentName");
+    localStorage.removeItem(
+      "studentLoggedIn"
+    );
+
+    localStorage.removeItem(
+      "studentId"
+    );
+
+    localStorage.removeItem(
+      "studentUsername"
+    );
+
+    localStorage.removeItem(
+      "studentName"
+    );
 
     sessionStorage.clear();
 
@@ -135,13 +151,15 @@ export default function StudentDashboard() {
   }
 
   const presentCount = records.filter(
-    (r) =>
-      r.status?.toLowerCase() === "present"
+    (record) =>
+      record.status?.toLowerCase() ===
+      "present"
   ).length;
 
   const absentCount = records.filter(
-    (r) =>
-      r.status?.toLowerCase() === "absent"
+    (record) =>
+      record.status?.toLowerCase() ===
+      "absent"
   ).length;
 
   const totalCount = records.length;
@@ -159,9 +177,13 @@ export default function StudentDashboard() {
         <div style={styles.loadingCard}>
           <div style={styles.spinner}></div>
 
-          <h2>Loading Attendance...</h2>
+          <h2>
+            Loading Attendance...
+          </h2>
 
-          <p>Please wait.</p>
+          <p>
+            Please wait.
+          </p>
         </div>
       </main>
     );
@@ -170,6 +192,8 @@ export default function StudentDashboard() {
   return (
     <main style={styles.page}>
       <div style={styles.container}>
+
+        {/* HEADER */}
 
         <header style={styles.header}>
           <div>
@@ -190,10 +214,14 @@ export default function StudentDashboard() {
           </button>
         </header>
 
+        {/* PROFILE */}
+
         <section style={styles.profileCard}>
           <div style={styles.avatar}>
             {name
-              ? name.charAt(0).toUpperCase()
+              ? name
+                  .charAt(0)
+                  .toUpperCase()
               : "S"}
           </div>
 
@@ -204,16 +232,22 @@ export default function StudentDashboard() {
 
             <p style={styles.username}>
               Username:{" "}
-              <strong>{username}</strong>
+              <strong>
+                {username}
+              </strong>
             </p>
           </div>
         </section>
+
+        {/* ERROR */}
 
         {error && (
           <div style={styles.error}>
             ❌ {error}
           </div>
         )}
+
+        {/* STATS */}
 
         <section style={styles.statsGrid}>
 
@@ -251,6 +285,8 @@ export default function StudentDashboard() {
 
         </section>
 
+        {/* ATTENDANCE */}
+
         <section style={styles.attendanceCard}>
 
           <div style={styles.sectionHeader}>
@@ -274,41 +310,60 @@ export default function StudentDashboard() {
 
           {records.length === 0 ? (
             <div style={styles.empty}>
+
               <div style={styles.emptyIcon}>
                 📅
               </div>
 
-              <h3>No Attendance Found</h3>
+              <h3>
+                No Attendance Found
+              </h3>
 
               <p>
-                Your teacher has not marked any
-                attendance yet.
+                Your teacher has not marked
+                any attendance yet.
               </p>
+
             </div>
           ) : (
             <div style={styles.tableWrapper}>
+
               <table style={styles.table}>
+
                 <thead>
                   <tr>
-                    <th style={styles.th}>#</th>
-                    <th style={styles.th}>Date</th>
-                    <th style={styles.th}>Status</th>
+                    <th style={styles.th}>
+                      #
+                    </th>
+
+                    <th style={styles.th}>
+                      Date
+                    </th>
+
+                    <th style={styles.th}>
+                      Status
+                    </th>
                   </tr>
                 </thead>
 
                 <tbody>
+
                   {records.map(
                     (record, index) => {
+
                       const isPresent =
-                        record.status?.toLowerCase() ===
+                        record.status
+                          ?.toLowerCase() ===
                         "present";
 
                       return (
                         <tr
                           key={
-                            record.id || index
+                            record.id ||
+                            index
                           }
                         >
+
                           <td style={styles.td}>
                             {index + 1}
                           </td>
@@ -320,6 +375,7 @@ export default function StudentDashboard() {
                           </td>
 
                           <td style={styles.td}>
+
                             <span
                               style={
                                 isPresent
@@ -331,20 +387,28 @@ export default function StudentDashboard() {
                                 ? "✓ Present"
                                 : "✗ Absent"}
                             </span>
+
                           </td>
+
                         </tr>
                       );
                     }
                   )}
+
                 </tbody>
+
               </table>
+
             </div>
           )}
+
         </section>
 
+        {/* FOOTER */}
+
         <footer style={styles.footer}>
-          Student Attendance Management System ©
-          2026
+          Student Attendance Management System
+          © 2026
         </footer>
 
       </div>
@@ -372,6 +436,7 @@ function StatCard({
         background,
       }}
     >
+
       <div style={styles.statIcon}>
         {icon}
       </div>
@@ -387,16 +452,26 @@ function StatCard({
       <p style={styles.statText}>
         {text}
       </p>
+
     </div>
   );
 }
 
-function formatDate(dateString: string) {
-  if (!dateString) return "-";
+function formatDate(
+  dateString: string
+) {
+  if (!dateString) {
+    return "-";
+  }
 
-  const date = new Date(dateString);
+  const date =
+    new Date(dateString);
 
-  if (Number.isNaN(date.getTime())) {
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
     return dateString;
   }
 
@@ -413,6 +488,7 @@ function formatDate(dateString: string) {
 const styles: {
   [key: string]: React.CSSProperties;
 } = {
+
   page: {
     minHeight: "100vh",
     background:
@@ -435,7 +511,8 @@ const styles: {
     padding: "22px",
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     gap: "15px",
     boxShadow:
       "0 8px 25px rgba(15,23,42,0.08)",
@@ -450,7 +527,8 @@ const styles: {
   },
 
   subtitle: {
-    margin: "6px 0 0",
+    margin:
+      "6px 0 0",
     color: "#64748b",
     fontSize: "14px",
   },
@@ -459,7 +537,8 @@ const styles: {
     border: "none",
     background: "#dc2626",
     color: "white",
-    padding: "12px 20px",
+    padding:
+      "12px 20px",
     borderRadius: "10px",
     fontSize: "15px",
     fontWeight: "700",
@@ -500,13 +579,15 @@ const styles: {
   },
 
   username: {
-    margin: "7px 0 0",
+    margin:
+      "7px 0 0",
     color: "#64748b",
   },
 
   error: {
     background: "#fee2e2",
-    border: "2px solid #fca5a5",
+    border:
+      "2px solid #fca5a5",
     color: "#991b1b",
     padding: "14px",
     borderRadius: "12px",
@@ -535,7 +616,8 @@ const styles: {
   },
 
   statTitle: {
-    margin: "12px 0 5px",
+    margin:
+      "12px 0 5px",
     opacity: 0.9,
     fontSize: "14px",
   },
@@ -562,7 +644,8 @@ const styles: {
   sectionHeader: {
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     gap: "15px",
     marginBottom: "20px",
   },
@@ -574,7 +657,8 @@ const styles: {
   },
 
   sectionSubtitle: {
-    margin: "5px 0 0",
+    margin:
+      "5px 0 0",
     color: "#64748b",
     fontSize: "14px",
   },
@@ -583,7 +667,8 @@ const styles: {
     border: "none",
     background: "#2563eb",
     color: "white",
-    padding: "11px 17px",
+    padding:
+      "11px 17px",
     borderRadius: "10px",
     fontWeight: "700",
     cursor: "pointer",
@@ -596,7 +681,8 @@ const styles: {
 
   table: {
     width: "100%",
-    borderCollapse: "collapse",
+    borderCollapse:
+      "collapse",
     minWidth: "500px",
   },
 
@@ -622,7 +708,8 @@ const styles: {
     display: "inline-block",
     background: "#dcfce7",
     color: "#166534",
-    padding: "7px 12px",
+    padding:
+      "7px 12px",
     borderRadius: "999px",
     fontWeight: "700",
   },
@@ -631,14 +718,16 @@ const styles: {
     display: "inline-block",
     background: "#fee2e2",
     color: "#991b1b",
-    padding: "7px 12px",
+    padding:
+      "7px 12px",
     borderRadius: "999px",
     fontWeight: "700",
   },
 
   empty: {
     textAlign: "center",
-    padding: "50px 20px",
+    padding:
+      "50px 20px",
     color: "#64748b",
   },
 
@@ -649,7 +738,8 @@ const styles: {
 
   loadingCard: {
     maxWidth: "450px",
-    margin: "100px auto",
+    margin:
+      "100px auto",
     background: "white",
     padding: "40px",
     borderRadius: "20px",
@@ -666,7 +756,8 @@ const styles: {
     borderTop:
       "5px solid #2563eb",
     borderRadius: "50%",
-    margin: "0 auto 20px",
+    margin:
+      "0 auto 20px",
     animation:
       "spin 1s linear infinite",
   },
@@ -674,7 +765,8 @@ const styles: {
   footer: {
     textAlign: "center",
     color: "#64748b",
-    padding: "25px 10px",
+    padding:
+      "25px 10px",
     fontSize: "13px",
   },
 };
