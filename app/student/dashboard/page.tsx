@@ -2,486 +2,456 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-type AttendanceRecord = {
-  id: number;
-  attendance_date: string;
-  status: string;
+type MenuItem = {
+  icon: string;
+  title: string;
+  description: string;
+  path: string;
 };
+
+const menuItems: MenuItem[] = [
+  {
+    icon: "📝",
+    title: "My Attendance",
+    description: "View your current attendance",
+    path: "/student/attendance",
+  },
+  {
+    icon: "📅",
+    title: "Attendance History",
+    description: "View your complete attendance history",
+    path: "/student/attendance-history",
+  },
+  {
+    icon: "💰",
+    title: "My Fees",
+    description: "View paid, pending and refunded fees",
+    path: "/student/fees",
+  },
+  {
+    icon: "👨‍🎓",
+    title: "My Profile",
+    description: "View your student information",
+    path: "/student/profile",
+  },
+  {
+    icon: "🗓️",
+    title: "Calendar",
+    description: "View classes and important dates",
+    path: "/student/calendar",
+  },
+  {
+    icon: "📊",
+    title: "My Reports",
+    description: "View your attendance and fee reports",
+    path: "/student/reports",
+  },
+  {
+    icon: "⚙️",
+    title: "Settings",
+    description: "Manage your account settings",
+    path: "/student/settings",
+  },
+];
 
 export default function StudentDashboard() {
   const router = useRouter();
 
-  const [username, setUsername] = useState("");
-  const [name, setName] = useState("");
-  const [records, setRecords] = useState<AttendanceRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [studentName, setStudentName] = useState("Student");
+  const [studentUsername, setStudentUsername] = useState("");
+  const [time, setTime] = useState("");
 
   useEffect(() => {
-    loadStudent();
+    const savedName =
+      localStorage.getItem("studentName") ||
+      localStorage.getItem("student_name");
+
+    const savedUsername =
+      localStorage.getItem("studentUsername") ||
+      localStorage.getItem("student_username");
+
+    if (savedName) {
+      setStudentName(savedName);
+    }
+
+    if (savedUsername) {
+      setStudentUsername(savedUsername);
+    }
+
+    const updateTime = () => {
+      setTime(
+        new Date().toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        })
+      );
+    };
+
+    updateTime();
+
+    const interval = setInterval(updateTime, 1000);
+
+    return () => clearInterval(interval);
   }, []);
 
-  async function loadStudent() {
-    setLoading(true);
-    setError("");
-
-    try {
-      // SAME STORAGE KEYS AS STUDENT LOGIN
-      const savedUsername =
-        localStorage.getItem("studentUsername") || "";
-
-      const savedName =
-        localStorage.getItem("studentName") || "";
-
-      const savedId =
-        localStorage.getItem("studentId") || "";
-
-      const loggedIn =
-        localStorage.getItem("studentLoggedIn");
-
-      // CHECK LOGIN
-      if (
-        loggedIn !== "true" ||
-        !savedUsername ||
-        !savedId
-      ) {
-        router.replace("/student");
-        return;
-      }
-
-      setUsername(savedUsername);
-      setName(savedName);
-
-      // GET STUDENT
-      const { data: student, error: studentError } =
-        await supabase
-          .from("students")
-          .select(
-            "id, student_name, student_username"
-          )
-          .eq("id", Number(savedId))
-          .maybeSingle();
-
-      if (studentError) {
-        throw new Error(studentError.message);
-      }
-
-      if (!student) {
-        setError("Student account not found.");
-        setLoading(false);
-        return;
-      }
-
-      const finalUsername =
-        student.student_username ||
-        savedUsername;
-
-      const finalName =
-        student.student_name ||
-        savedName ||
-        savedUsername;
-
-      setUsername(finalUsername);
-      setName(finalName);
-
-      // GET ATTENDANCE
-      const {
-        data: attendance,
-        error: attendanceError,
-      } = await supabase
-        .from("attendance")
-        .select(
-          "id, attendance_date, status"
-        )
-        .eq("student_id", student.id)
-        .order("attendance_date", {
-          ascending: false,
-        });
-
-      if (attendanceError) {
-        throw new Error(
-          attendanceError.message
-        );
-      }
-
-      setRecords(attendance || []);
-    } catch (err) {
-      console.error(
-        "Dashboard error:",
-        err
-      );
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to load attendance."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
   function logout() {
-    localStorage.removeItem(
-      "studentLoggedIn"
-    );
-
-    localStorage.removeItem(
-      "studentId"
-    );
-
-    localStorage.removeItem(
-      "studentUsername"
-    );
-
-    localStorage.removeItem(
-      "studentName"
-    );
+    localStorage.removeItem("studentLoggedIn");
+    localStorage.removeItem("studentName");
+    localStorage.removeItem("student_name");
+    localStorage.removeItem("studentUsername");
+    localStorage.removeItem("student_username");
 
     sessionStorage.clear();
 
-    router.replace("/student");
+    router.push("/");
   }
 
-  const presentCount = records.filter(
-    (record) =>
-      record.status?.toLowerCase() ===
-      "present"
-  ).length;
-
-  const absentCount = records.filter(
-    (record) =>
-      record.status?.toLowerCase() ===
-      "absent"
-  ).length;
-
-  const totalCount = records.length;
-
-  const percentage =
-    totalCount > 0
-      ? Math.round(
-          (presentCount / totalCount) * 100
-        )
-      : 0;
-
-  if (loading) {
-    return (
-      <main style={styles.page}>
-        <div style={styles.loadingCard}>
-          <div style={styles.spinner}></div>
-
-          <h2>
-            Loading Attendance...
-          </h2>
-
-          <p>
-            Please wait.
-          </p>
-        </div>
-      </main>
-    );
+  function openPage(path: string) {
+    router.push(path);
   }
 
   return (
     <main style={styles.page}>
       <div style={styles.container}>
 
-        {/* HEADER */}
+        {/* TOP NAVBAR */}
 
-        <header style={styles.header}>
-          <div>
-            <h1 style={styles.title}>
-              Student Dashboard
-            </h1>
+        <header style={styles.navbar}>
 
-            <p style={styles.subtitle}>
-              Attendance Management System
-            </p>
-          </div>
+          <div style={styles.brandArea}>
 
-          <button
-            onClick={logout}
-            style={styles.logoutButton}
-          >
-            Logout
-          </button>
-        </header>
+            <div style={styles.logo}>
+              🎓
+            </div>
 
-        {/* PROFILE */}
-
-        <section style={styles.profileCard}>
-          <div style={styles.avatar}>
-            {name
-              ? name
-                  .charAt(0)
-                  .toUpperCase()
-              : "S"}
-          </div>
-
-          <div>
-            <h2 style={styles.studentName}>
-              {name || "Student"}
-            </h2>
-
-            <p style={styles.username}>
-              Username:{" "}
-              <strong>
-                {username}
-              </strong>
-            </p>
-          </div>
-        </section>
-
-        {/* ERROR */}
-
-        {error && (
-          <div style={styles.error}>
-            ❌ {error}
-          </div>
-        )}
-
-        {/* STATS */}
-
-        <section style={styles.statsGrid}>
-
-          <StatCard
-            icon="📚"
-            title="Total Classes"
-            value={String(totalCount)}
-            text="Attendance records"
-            background="linear-gradient(135deg,#2563eb,#1d4ed8)"
-          />
-
-          <StatCard
-            icon="✅"
-            title="Present"
-            value={String(presentCount)}
-            text="Classes attended"
-            background="linear-gradient(135deg,#16a34a,#15803d)"
-          />
-
-          <StatCard
-            icon="❌"
-            title="Absent"
-            value={String(absentCount)}
-            text="Classes missed"
-            background="linear-gradient(135deg,#dc2626,#b91c1c)"
-          />
-
-          <StatCard
-            icon="📊"
-            title="Attendance"
-            value={`${percentage}%`}
-            text="Overall attendance"
-            background="linear-gradient(135deg,#7c3aed,#6d28d9)"
-          />
-
-        </section>
-
-        {/* ATTENDANCE */}
-
-        <section style={styles.attendanceCard}>
-
-          <div style={styles.sectionHeader}>
             <div>
-              <h2 style={styles.sectionTitle}>
-                Attendance History
-              </h2>
+              <h1 style={styles.brandTitle}>
+                Attendance Portal
+              </h1>
 
-              <p style={styles.sectionSubtitle}>
-                Your attendance records
+              <p style={styles.brandSubtitle}>
+                Student Dashboard
               </p>
+            </div>
+
+          </div>
+
+          <div style={styles.navRight}>
+
+            <div style={styles.clock}>
+              🕐 {time}
             </div>
 
             <button
-              onClick={loadStudent}
-              style={styles.refreshButton}
+              onClick={logout}
+              style={styles.logoutButton}
             >
-              🔄 Refresh
+              🚪 Logout
             </button>
+
           </div>
 
-          {records.length === 0 ? (
-            <div style={styles.empty}>
+        </header>
 
-              <div style={styles.emptyIcon}>
-                📅
+        {/* HERO */}
+
+        <section style={styles.hero}>
+
+          <div style={styles.heroContent}>
+
+            <div style={styles.welcomeSmall}>
+              STUDENT PORTAL
+            </div>
+
+            <h2 style={styles.heroTitle}>
+              Welcome back, {studentName} 👋
+            </h2>
+
+            <p style={styles.heroText}>
+              Check your attendance, fees, reports,
+              class calendar and personal account
+              information from one place.
+            </p>
+
+            {studentUsername && (
+              <div style={styles.usernameBadge}>
+                👤 {studentUsername}
               </div>
+            )}
 
-              <h3>
-                No Attendance Found
+          </div>
+
+          <div style={styles.heroIcon}>
+            👨‍🎓
+          </div>
+
+        </section>
+
+        {/* QUICK STATS */}
+
+        <section style={styles.statsGrid}>
+
+          <div style={styles.statCard}>
+
+            <div style={styles.statIcon}>
+              📊
+            </div>
+
+            <div>
+              <p style={styles.statLabel}>
+                Attendance
+              </p>
+
+              <h3 style={styles.statValue}>
+                View
               </h3>
 
-              <p>
-                Your teacher has not marked
-                any attendance yet.
+              <p style={styles.statDescription}>
+                Check your attendance
+              </p>
+            </div>
+
+          </div>
+
+          <div style={styles.statCard}>
+
+            <div style={styles.statIcon}>
+              💰
+            </div>
+
+            <div>
+              <p style={styles.statLabel}>
+                Fees
+              </p>
+
+              <h3 style={styles.statValue}>
+                View
+              </h3>
+
+              <p style={styles.statDescription}>
+                Check your fee status
+              </p>
+            </div>
+
+          </div>
+
+          <div style={styles.statCard}>
+
+            <div style={styles.statIcon}>
+              🗓️
+            </div>
+
+            <div>
+              <p style={styles.statLabel}>
+                Calendar
+              </p>
+
+              <h3 style={styles.statValue}>
+                View
+              </h3>
+
+              <p style={styles.statDescription}>
+                Classes & important dates
+              </p>
+            </div>
+
+          </div>
+
+          <div style={styles.statCard}>
+
+            <div style={styles.statIcon}>
+              👤
+            </div>
+
+            <div>
+              <p style={styles.statLabel}>
+                Profile
+              </p>
+
+              <h3 style={styles.statValue}>
+                View
+              </h3>
+
+              <p style={styles.statDescription}>
+                Your student information
+              </p>
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* MAIN MENU */}
+
+        <section>
+
+          <div style={styles.sectionHeading}>
+
+            <div>
+
+              <h2 style={styles.sectionTitle}>
+                Student Control Center
+              </h2>
+
+              <p style={styles.sectionSubtitle}>
+                Choose what you want to view
               </p>
 
             </div>
-          ) : (
-            <div style={styles.tableWrapper}>
 
-              <table style={styles.table}>
+          </div>
 
-                <thead>
-                  <tr>
-                    <th style={styles.th}>
-                      #
-                    </th>
+          <div style={styles.menuGrid}>
 
-                    <th style={styles.th}>
-                      Date
-                    </th>
+            {menuItems.map((item) => (
 
-                    <th style={styles.th}>
-                      Status
-                    </th>
-                  </tr>
-                </thead>
+              <button
+                key={item.title}
+                onClick={() => openPage(item.path)}
+                style={styles.menuCard}
 
-                <tbody>
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform =
+                    "translateY(-5px)";
 
-                  {records.map(
-                    (record, index) => {
+                  e.currentTarget.style.boxShadow =
+                    "0 18px 35px rgba(15,23,42,0.14)";
+                }}
 
-                      const isPresent =
-                        record.status
-                          ?.toLowerCase() ===
-                        "present";
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform =
+                    "translateY(0)";
 
-                      return (
-                        <tr
-                          key={
-                            record.id ||
-                            index
-                          }
-                        >
+                  e.currentTarget.style.boxShadow =
+                    "0 8px 25px rgba(15,23,42,0.07)";
+                }}
+              >
 
-                          <td style={styles.td}>
-                            {index + 1}
-                          </td>
+                <div style={styles.menuIcon}>
+                  {item.icon}
+                </div>
 
-                          <td style={styles.td}>
-                            {formatDate(
-                              record.attendance_date
-                            )}
-                          </td>
+                <div style={styles.menuContent}>
 
-                          <td style={styles.td}>
+                  <h3 style={styles.menuTitle}>
+                    {item.title}
+                  </h3>
 
-                            <span
-                              style={
-                                isPresent
-                                  ? styles.present
-                                  : styles.absent
-                              }
-                            >
-                              {isPresent
-                                ? "✓ Present"
-                                : "✗ Absent"}
-                            </span>
+                  <p style={styles.menuDescription}>
+                    {item.description}
+                  </p>
 
-                          </td>
+                </div>
 
-                        </tr>
-                      );
-                    }
-                  )}
+                <div style={styles.arrow}>
+                  →
+                </div>
 
-                </tbody>
+              </button>
 
-              </table>
+            ))}
 
-            </div>
-          )}
+          </div>
+
+        </section>
+
+        {/* QUICK ACTIONS */}
+
+        <section style={styles.quickSection}>
+
+          <h2 style={styles.sectionTitle}>
+            ⚡ Quick Actions
+          </h2>
+
+          <p style={styles.sectionSubtitle}>
+            Frequently used student options
+          </p>
+
+          <div style={styles.quickGrid}>
+
+            <button
+              onClick={() =>
+                router.push("/student/attendance")
+              }
+              style={styles.quickButton}
+            >
+              <span>📝</span>
+              <span>
+                My Attendance
+              </span>
+            </button>
+
+            <button
+              onClick={() =>
+                router.push("/student/fees")
+              }
+              style={styles.quickButton}
+            >
+              <span>💰</span>
+              <span>
+                My Fees
+              </span>
+            </button>
+
+            <button
+              onClick={() =>
+                router.push("/student/reports")
+              }
+              style={styles.quickButton}
+            >
+              <span>📊</span>
+              <span>
+                My Reports
+              </span>
+            </button>
+
+          </div>
+
+        </section>
+
+        {/* INFORMATION */}
+
+        <section style={styles.infoCard}>
+
+          <div style={styles.infoIcon}>
+            💡
+          </div>
+
+          <div>
+
+            <h3 style={styles.infoTitle}>
+              Student Dashboard
+            </h3>
+
+            <p style={styles.infoText}>
+              This is your personal student control
+              panel. You can check your attendance,
+              fees, reports, calendar, profile and
+              account settings from here.
+            </p>
+
+          </div>
 
         </section>
 
         {/* FOOTER */}
 
         <footer style={styles.footer}>
-          Student Attendance Management System
-          © 2026
+
+          <strong>
+            Attendance Portal
+          </strong>
+
+          <span>
+            Student Dashboard • 2026
+          </span>
+
         </footer>
 
       </div>
     </main>
-  );
-}
-
-function StatCard({
-  icon,
-  title,
-  value,
-  text,
-  background,
-}: {
-  icon: string;
-  title: string;
-  value: string;
-  text: string;
-  background: string;
-}) {
-  return (
-    <div
-      style={{
-        ...styles.statCard,
-        background,
-      }}
-    >
-
-      <div style={styles.statIcon}>
-        {icon}
-      </div>
-
-      <p style={styles.statTitle}>
-        {title}
-      </p>
-
-      <h2 style={styles.statValue}>
-        {value}
-      </h2>
-
-      <p style={styles.statText}>
-        {text}
-      </p>
-
-    </div>
-  );
-}
-
-function formatDate(
-  dateString: string
-) {
-  if (!dateString) {
-    return "-";
-  }
-
-  const date =
-    new Date(dateString);
-
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
-    return dateString;
-  }
-
-  return date.toLocaleDateString(
-    "en-IN",
-    {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }
   );
 }
 
@@ -492,8 +462,8 @@ const styles: {
   page: {
     minHeight: "100vh",
     background:
-      "linear-gradient(135deg,#eff6ff,#f8fafc)",
-    padding: "25px 15px",
+      "linear-gradient(135deg,#eef2ff,#f8fafc,#eff6ff)",
+    padding: "20px",
     boxSizing: "border-box",
     fontFamily:
       "Arial, Helvetica, sans-serif",
@@ -501,272 +471,341 @@ const styles: {
 
   container: {
     width: "100%",
-    maxWidth: "1100px",
+    maxWidth: "1200px",
     margin: "0 auto",
   },
 
-  header: {
+  navbar: {
     background: "white",
     borderRadius: "18px",
-    padding: "22px",
+    padding: "16px 20px",
     display: "flex",
     alignItems: "center",
-    justifyContent:
-      "space-between",
-    gap: "15px",
+    justifyContent: "space-between",
+    gap: "20px",
     boxShadow:
       "0 8px 25px rgba(15,23,42,0.08)",
     marginBottom: "20px",
+    flexWrap: "wrap",
   },
 
-  title: {
+  brandArea: {
+    display: "flex",
+    alignItems: "center",
+    gap: "13px",
+  },
+
+  logo: {
+    width: "52px",
+    height: "52px",
+    borderRadius: "15px",
+    background:
+      "linear-gradient(135deg,#2563eb,#7c3aed)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "27px",
+  },
+
+  brandTitle: {
     margin: 0,
-    color: "#1e3a8a",
-    fontSize: "30px",
+    fontSize: "20px",
+    color: "#172554",
     fontWeight: "800",
   },
 
-  subtitle: {
-    margin:
-      "6px 0 0",
+  brandSubtitle: {
+    margin: "4px 0 0",
     color: "#64748b",
-    fontSize: "14px",
+    fontSize: "12px",
+  },
+
+  navRight: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    flexWrap: "wrap",
+  },
+
+  clock: {
+    background: "#f1f5f9",
+    color: "#334155",
+    padding: "10px 14px",
+    borderRadius: "10px",
+    fontWeight: "700",
+    fontSize: "13px",
   },
 
   logoutButton: {
     border: "none",
     background: "#dc2626",
     color: "white",
-    padding:
-      "12px 20px",
+    padding: "11px 17px",
     borderRadius: "10px",
-    fontSize: "15px",
     fontWeight: "700",
     cursor: "pointer",
   },
 
-  profileCard: {
-    background: "white",
-    borderRadius: "18px",
-    padding: "25px",
+  hero: {
+    background:
+      "linear-gradient(135deg,#1d4ed8,#4338ca,#7c3aed)",
+    color: "white",
+    borderRadius: "24px",
+    padding: "35px",
     display: "flex",
     alignItems: "center",
-    gap: "18px",
-    boxShadow:
-      "0 8px 25px rgba(15,23,42,0.08)",
+    justifyContent: "space-between",
+    gap: "20px",
     marginBottom: "20px",
+    boxShadow:
+      "0 15px 35px rgba(37,99,235,0.22)",
   },
 
-  avatar: {
-    width: "70px",
-    height: "70px",
-    borderRadius: "50%",
+  heroContent: {
+    flex: 1,
+  },
+
+  welcomeSmall: {
+    fontSize: "12px",
+    fontWeight: "800",
+    letterSpacing: "2px",
+    opacity: 0.8,
+    marginBottom: "8px",
+  },
+
+  heroTitle: {
+    margin: 0,
+    fontSize: "32px",
+    fontWeight: "800",
+  },
+
+  heroText: {
+    margin: "12px 0 0",
+    maxWidth: "650px",
+    lineHeight: 1.6,
+    opacity: 0.9,
+    fontSize: "15px",
+  },
+
+  usernameBadge: {
+    display: "inline-block",
+    marginTop: "15px",
+    background: "rgba(255,255,255,0.16)",
+    border: "1px solid rgba(255,255,255,0.25)",
+    padding: "8px 13px",
+    borderRadius: "999px",
+    fontSize: "13px",
+    fontWeight: "700",
+  },
+
+  heroIcon: {
+    width: "100px",
+    height: "100px",
+    borderRadius: "28px",
     background:
-      "linear-gradient(135deg,#2563eb,#4f46e5)",
-    color: "white",
+      "rgba(255,255,255,0.15)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "30px",
-    fontWeight: "800",
+    fontSize: "55px",
     flexShrink: 0,
-  },
-
-  studentName: {
-    margin: 0,
-    color: "#172554",
-    fontSize: "24px",
-  },
-
-  username: {
-    margin:
-      "7px 0 0",
-    color: "#64748b",
-  },
-
-  error: {
-    background: "#fee2e2",
-    border:
-      "2px solid #fca5a5",
-    color: "#991b1b",
-    padding: "14px",
-    borderRadius: "12px",
-    marginBottom: "20px",
-    fontWeight: "600",
   },
 
   statsGrid: {
     display: "grid",
     gridTemplateColumns:
-      "repeat(auto-fit,minmax(210px,1fr))",
-    gap: "18px",
-    marginBottom: "20px",
+      "repeat(auto-fit,minmax(220px,1fr))",
+    gap: "16px",
+    marginBottom: "30px",
   },
 
   statCard: {
-    color: "white",
-    padding: "24px",
+    background: "white",
     borderRadius: "18px",
+    padding: "20px",
+    display: "flex",
+    alignItems: "center",
+    gap: "15px",
     boxShadow:
-      "0 10px 25px rgba(15,23,42,0.12)",
+      "0 8px 25px rgba(15,23,42,0.07)",
   },
 
   statIcon: {
-    fontSize: "30px",
+    width: "55px",
+    height: "55px",
+    borderRadius: "15px",
+    background: "#eff6ff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "27px",
+    flexShrink: 0,
   },
 
-  statTitle: {
-    margin:
-      "12px 0 5px",
-    opacity: 0.9,
-    fontSize: "14px",
+  statLabel: {
+    margin: 0,
+    color: "#64748b",
+    fontSize: "12px",
+    fontWeight: "700",
   },
 
   statValue: {
-    fontSize: "32px",
+    margin: "3px 0",
+    color: "#172554",
+    fontSize: "23px",
+  },
+
+  statDescription: {
     margin: 0,
+    color: "#94a3b8",
+    fontSize: "11px",
   },
 
-  statText: {
-    fontSize: "13px",
-    opacity: 0.85,
-    marginBottom: 0,
-  },
-
-  attendanceCard: {
-    background: "white",
-    borderRadius: "18px",
-    padding: "25px",
-    boxShadow:
-      "0 8px 25px rgba(15,23,42,0.08)",
-  },
-
-  sectionHeader: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent:
-      "space-between",
-    gap: "15px",
-    marginBottom: "20px",
+  sectionHeading: {
+    marginBottom: "15px",
   },
 
   sectionTitle: {
     margin: 0,
     color: "#172554",
-    fontSize: "22px",
+    fontSize: "23px",
+    fontWeight: "800",
   },
 
   sectionSubtitle: {
-    margin:
-      "5px 0 0",
+    margin: "5px 0 0",
     color: "#64748b",
-    fontSize: "14px",
+    fontSize: "13px",
   },
 
-  refreshButton: {
+  menuGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit,minmax(260px,1fr))",
+    gap: "16px",
+  },
+
+  menuCard: {
     border: "none",
-    background: "#2563eb",
-    color: "white",
-    padding:
-      "11px 17px",
-    borderRadius: "10px",
+    background: "white",
+    borderRadius: "18px",
+    padding: "21px",
+    display: "flex",
+    alignItems: "center",
+    gap: "15px",
+    textAlign: "left",
+    cursor: "pointer",
+    boxShadow:
+      "0 8px 25px rgba(15,23,42,0.07)",
+    transition:
+      "transform 0.2s ease, box-shadow 0.2s ease",
+  },
+
+  menuIcon: {
+    width: "58px",
+    height: "58px",
+    borderRadius: "16px",
+    background: "#f1f5f9",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "29px",
+    flexShrink: 0,
+  },
+
+  menuContent: {
+    flex: 1,
+  },
+
+  menuTitle: {
+    margin: 0,
+    color: "#172554",
+    fontSize: "17px",
+    fontWeight: "800",
+  },
+
+  menuDescription: {
+    margin: "5px 0 0",
+    color: "#64748b",
+    fontSize: "12px",
+    lineHeight: 1.4,
+  },
+
+  arrow: {
+    color: "#2563eb",
+    fontSize: "24px",
+    fontWeight: "800",
+  },
+
+  quickSection: {
+    background: "white",
+    borderRadius: "20px",
+    padding: "25px",
+    marginTop: "30px",
+    boxShadow:
+      "0 8px 25px rgba(15,23,42,0.07)",
+  },
+
+  quickGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit,minmax(200px,1fr))",
+    gap: "12px",
+    marginTop: "18px",
+  },
+
+  quickButton: {
+    border: "1px solid #e2e8f0",
+    background: "#f8fafc",
+    borderRadius: "12px",
+    padding: "14px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "9px",
+    color: "#1e3a8a",
     fontWeight: "700",
     cursor: "pointer",
+    fontSize: "14px",
   },
 
-  tableWrapper: {
-    width: "100%",
-    overflowX: "auto",
+  infoCard: {
+    marginTop: "20px",
+    background:
+      "linear-gradient(135deg,#eff6ff,#eef2ff)",
+    border: "1px solid #dbeafe",
+    borderRadius: "18px",
+    padding: "22px",
+    display: "flex",
+    gap: "15px",
+    alignItems: "flex-start",
   },
 
-  table: {
-    width: "100%",
-    borderCollapse:
-      "collapse",
-    minWidth: "500px",
+  infoIcon: {
+    fontSize: "28px",
   },
 
-  th: {
-    padding: "14px",
-    textAlign: "left",
+  infoTitle: {
+    margin: 0,
     color: "#1e3a8a",
-    background: "#eff6ff",
-    fontSize: "14px",
-    borderBottom:
-      "2px solid #dbeafe",
+    fontSize: "17px",
   },
 
-  td: {
-    padding: "14px",
-    color: "#334155",
-    fontSize: "14px",
-    borderBottom:
-      "1px solid #e2e8f0",
-  },
-
-  present: {
-    display: "inline-block",
-    background: "#dcfce7",
-    color: "#166534",
-    padding:
-      "7px 12px",
-    borderRadius: "999px",
-    fontWeight: "700",
-  },
-
-  absent: {
-    display: "inline-block",
-    background: "#fee2e2",
-    color: "#991b1b",
-    padding:
-      "7px 12px",
-    borderRadius: "999px",
-    fontWeight: "700",
-  },
-
-  empty: {
-    textAlign: "center",
-    padding:
-      "50px 20px",
-    color: "#64748b",
-  },
-
-  emptyIcon: {
-    fontSize: "50px",
-    marginBottom: "10px",
-  },
-
-  loadingCard: {
-    maxWidth: "450px",
-    margin:
-      "100px auto",
-    background: "white",
-    padding: "40px",
-    borderRadius: "20px",
-    textAlign: "center",
-    boxShadow:
-      "0 10px 30px rgba(15,23,42,0.1)",
-  },
-
-  spinner: {
-    width: "45px",
-    height: "45px",
-    border:
-      "5px solid #dbeafe",
-    borderTop:
-      "5px solid #2563eb",
-    borderRadius: "50%",
-    margin:
-      "0 auto 20px",
-    animation:
-      "spin 1s linear infinite",
+  infoText: {
+    margin: "7px 0 0",
+    color: "#475569",
+    fontSize: "13px",
+    lineHeight: 1.6,
   },
 
   footer: {
+    padding: "28px 10px 10px",
     textAlign: "center",
+    display: "flex",
+    justifyContent: "center",
+    gap: "8px",
+    flexWrap: "wrap",
     color: "#64748b",
-    padding:
-      "25px 10px",
-    fontSize: "13px",
+    fontSize: "12px",
   },
 };
