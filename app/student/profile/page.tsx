@@ -1,22 +1,33 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 type Student = {
   id: number;
   student_name: string | null;
   student_username: string;
   admission_date: string | null;
+  date_of_birth: string | null;
+  father_name: string | null;
+  mother_name: string | null;
+  father_phone: string | null;
+  mother_phone: string | null;
+  address: string | null;
+  city: string | null;
+  class_name: string | null;
+  blood_group: string | null;
 };
 
 export default function StudentProfilePage() {
-  const router = useRouter();
-
   const [student, setStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     loadStudent();
@@ -24,146 +35,136 @@ export default function StudentProfilePage() {
 
   async function loadStudent() {
     setLoading(true);
-    setError("");
+    setErrorMessage("");
 
     try {
       const username =
         localStorage.getItem("student_username") ||
+        localStorage.getItem("username") ||
         localStorage.getItem("studentUsername");
 
       if (!username) {
-        setError("Student login information not found.");
+        setErrorMessage(
+          "Student login information nahi mili. Please logout karke dobara login karein."
+        );
         setLoading(false);
         return;
       }
 
-      const supabaseUrl =
-        process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const { data, error } = await supabase
+        .from("students")
+        .select(`
+          id,
+          student_name,
+          student_username,
+          admission_date,
+          date_of_birth,
+          father_name,
+          mother_name,
+          father_phone,
+          mother_phone,
+          address,
+          city,
+          class_name,
+          blood_group
+        `)
+        .eq("student_username", username)
+        .maybeSingle();
 
-      const supabaseAnonKey =
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-      if (!supabaseUrl || !supabaseAnonKey) {
-        throw new Error(
-          "Supabase environment variables are missing."
+      if (error) {
+        console.error(error);
+        setErrorMessage(
+          "Profile load nahi ho rahi: " + error.message
         );
-      }
-
-      const supabase = createClient(
-        supabaseUrl,
-        supabaseAnonKey
-      );
-
-      const { data, error: studentError } =
-        await supabase
-          .from("students")
-          .select(
-            "id, student_name, student_username, admission_date"
-          )
-          .eq("student_username", username)
-          .maybeSingle();
-
-      if (studentError) {
-        throw new Error(studentError.message);
+        setStudent(null);
+        return;
       }
 
       if (!data) {
-        setError("Student profile not found.");
-        setLoading(false);
+        setErrorMessage(
+          "Student profile nahi mili."
+        );
+        setStudent(null);
         return;
       }
 
-      setStudent(data);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to load student profile."
+      setStudent(data as Student);
+    } catch (error: any) {
+      console.error(error);
+
+      setErrorMessage(
+        error?.message ||
+          "Profile load karte waqt problem hui."
       );
     } finally {
       setLoading(false);
     }
   }
 
-  function logout() {
-    localStorage.removeItem("studentLoggedIn");
-    localStorage.removeItem("student_username");
-    localStorage.removeItem("studentUsername");
-    localStorage.removeItem("studentName");
-    localStorage.removeItem("student_name");
-
-    sessionStorage.clear();
-
-    router.push("/");
-  }
-
   function formatDate(date: string | null) {
-    if (!date) return "Not available";
+    if (!date) return "Not Added";
 
-    const formatted = new Date(date);
-
-    if (Number.isNaN(formatted.getTime())) {
-      return date;
-    }
-
-    return formatted.toLocaleDateString("en-IN", {
+    return new Date(
+      `${date}T00:00:00`
+    ).toLocaleDateString("en-IN", {
       day: "2-digit",
       month: "long",
       year: "numeric",
     });
   }
 
+  function value(value: string | null) {
+    return value && value.trim()
+      ? value
+      : "Not Added";
+  }
+
   if (loading) {
     return (
       <main style={styles.page}>
-        <div style={styles.loading}>
-          <div style={styles.loadingIcon}>👨‍🎓</div>
+        <div style={styles.loadingCard}>
+          <div style={styles.loadingIcon}>⏳</div>
           <h2 style={styles.loadingTitle}>
             Loading Profile...
           </h2>
           <p style={styles.loadingText}>
-            Please wait while we load your information.
+            Please wait.
           </p>
         </div>
       </main>
     );
   }
 
-  if (error) {
+  if (!student) {
     return (
       <main style={styles.page}>
         <div style={styles.errorCard}>
           <div style={styles.errorIcon}>⚠️</div>
 
           <h2 style={styles.errorTitle}>
-            Unable to Load Profile
+            Profile Not Available
           </h2>
 
           <p style={styles.errorText}>
-            {error}
+            {errorMessage ||
+              "Student profile load nahi ho saki."}
           </p>
 
-          <div style={styles.errorActions}>
-            <button
-              onClick={loadStudent}
-              style={styles.primaryButton}
-            >
-              🔄 Try Again
-            </button>
-
-            <button
-              onClick={() =>
-                router.push("/student/dashboard")
-              }
-              style={styles.secondaryButton}
-            >
-              ← Dashboard
-            </button>
-          </div>
+          <button
+            onClick={loadStudent}
+            style={styles.retryButton}
+          >
+            🔄 Try Again
+          </button>
         </div>
       </main>
     );
   }
+
+  const firstLetter =
+    (student.student_name || "S")
+      .charAt(0)
+      .toUpperCase();
 
   return (
     <main style={styles.page}>
@@ -172,382 +173,221 @@ export default function StudentProfilePage() {
         {/* HEADER */}
 
         <header style={styles.header}>
-
-          <div style={styles.headerLeft}>
-
-            <div style={styles.logo}>
-              👨‍🎓
+          <div>
+            <div style={styles.badge}>
+              STUDENT PORTAL
             </div>
 
-            <div>
-              <h1 style={styles.title}>
-                My Profile
-              </h1>
+            <h1 style={styles.title}>
+              👤 My Profile
+            </h1>
 
-              <p style={styles.subtitle}>
-                View your student information
-              </p>
-            </div>
-
+            <p style={styles.subtitle}>
+              Your complete student information
+            </p>
           </div>
 
           <button
             onClick={() =>
-              router.push("/student/dashboard")
+              window.history.back()
             }
-            style={styles.dashboardButton}
+            style={styles.backButton}
           >
-            ← Student Dashboard
+            ← Back
           </button>
-
         </header>
 
         {/* PROFILE HERO */}
 
         <section style={styles.profileHero}>
-
           <div style={styles.avatar}>
-            {student?.student_name
-              ? student.student_name
-                  .charAt(0)
-                  .toUpperCase()
-              : "S"}
+            {firstLetter}
           </div>
 
-          <div style={styles.profileHeroContent}>
-
-            <p style={styles.profileSmall}>
-              STUDENT PROFILE
-            </p>
-
-            <h2 style={styles.profileName}>
-              {student?.student_name ||
-                "Student"}
+          <div style={styles.heroInfo}>
+            <h2 style={styles.studentName}>
+              {value(student.student_name)}
             </h2>
 
-            <p style={styles.profileUsername}>
-              @{student?.student_username}
+            <div style={styles.usernameBadge}>
+              {student.student_username}
+            </div>
+
+            <p style={styles.heroText}>
+              {student.class_name
+                ? `Class: ${student.class_name}`
+                : "Class not added"}
             </p>
+          </div>
+        </section>
 
+        {/* PERSONAL DETAILS */}
+
+        <section style={styles.card}>
+          <div style={styles.cardHeader}>
+            <div style={styles.cardIcon}>
+              👨‍🎓
+            </div>
+
+            <div>
+              <h2 style={styles.cardTitle}>
+                Personal Details
+              </h2>
+
+              <p style={styles.cardSubtitle}>
+                Your basic student information
+              </p>
+            </div>
           </div>
 
-          <div style={styles.profileBadge}>
-            ✓ Active Student
+          <div style={styles.detailsGrid}>
+
+            <Detail
+              label="Student Name"
+              value={value(student.student_name)}
+            />
+
+            <Detail
+              label="Username"
+              value={student.student_username}
+            />
+
+            <Detail
+              label="Date of Birth"
+              value={formatDate(student.date_of_birth)}
+            />
+
+            <Detail
+              label="Admission Date"
+              value={formatDate(student.admission_date)}
+            />
+
+            <Detail
+              label="Class"
+              value={value(student.class_name)}
+            />
+
+            <Detail
+              label="Blood Group"
+              value={value(student.blood_group)}
+            />
+
+          </div>
+        </section>
+
+        {/* PARENTS DETAILS */}
+
+        <section style={styles.card}>
+          <div style={styles.cardHeader}>
+            <div style={styles.cardIcon}>
+              👨‍👩‍👦
+            </div>
+
+            <div>
+              <h2 style={styles.cardTitle}>
+                Parents / Guardian Details
+              </h2>
+
+              <p style={styles.cardSubtitle}>
+                Information provided by the teacher
+              </p>
+            </div>
           </div>
 
+          <div style={styles.detailsGrid}>
+
+            <Detail
+              label="Father's Name"
+              value={value(student.father_name)}
+            />
+
+            <Detail
+              label="Father's Phone"
+              value={value(student.father_phone)}
+            />
+
+            <Detail
+              label="Mother's Name"
+              value={value(student.mother_name)}
+            />
+
+            <Detail
+              label="Mother's Phone"
+              value={value(student.mother_phone)}
+            />
+
+          </div>
+        </section>
+
+        {/* ADDRESS */}
+
+        <section style={styles.card}>
+          <div style={styles.cardHeader}>
+            <div style={styles.cardIcon}>
+              🏠
+            </div>
+
+            <div>
+              <h2 style={styles.cardTitle}>
+                Address Details
+              </h2>
+
+              <p style={styles.cardSubtitle}>
+                Your residential information
+              </p>
+            </div>
+          </div>
+
+          <div style={styles.detailsGrid}>
+
+            <Detail
+              label="City"
+              value={value(student.city)}
+            />
+
+            <div style={styles.detailBox}>
+              <div style={styles.detailLabel}>
+                Complete Address
+              </div>
+
+              <div style={styles.addressValue}>
+                {value(student.address)}
+              </div>
+            </div>
+
+          </div>
         </section>
 
         {/* INFORMATION */}
 
-        <section style={styles.card}>
-
-          <div style={styles.cardHeader}>
-
-            <div style={styles.cardIcon}>
-              📋
-            </div>
-
-            <div>
-              <h2 style={styles.cardTitle}>
-                Personal Information
-              </h2>
-
-              <p style={styles.cardSubtitle}>
-                Your registered student details
-              </p>
-            </div>
-
+        <div style={styles.infoBox}>
+          <div style={styles.infoIcon}>
+            ℹ️
           </div>
-
-          <div style={styles.infoGrid}>
-
-            <InfoBox
-              icon="👤"
-              label="Student Name"
-              value={
-                student?.student_name ||
-                "Not available"
-              }
-            />
-
-            <InfoBox
-              icon="🔑"
-              label="Username"
-              value={
-                student?.student_username ||
-                "Not available"
-              }
-            />
-
-            <InfoBox
-              icon="🆔"
-              label="Student ID"
-              value={
-                student?.id
-                  ? String(student.id)
-                  : "Not available"
-              }
-            />
-
-            <InfoBox
-              icon="📅"
-              label="Admission Date"
-              value={formatDate(
-                student?.admission_date || null
-              )}
-            />
-
-          </div>
-
-        </section>
-
-        {/* ACCOUNT STATUS */}
-
-        <section style={styles.card}>
-
-          <div style={styles.cardHeader}>
-
-            <div style={styles.cardIcon}>
-              🛡️
-            </div>
-
-            <div>
-              <h2 style={styles.cardTitle}>
-                Account Status
-              </h2>
-
-              <p style={styles.cardSubtitle}>
-                Current status of your student account
-              </p>
-            </div>
-
-          </div>
-
-          <div style={styles.statusBox}>
-
-            <div style={styles.statusLeft}>
-
-              <div style={styles.statusCircle}>
-                ✓
-              </div>
-
-              <div>
-                <strong style={styles.statusTitle}>
-                  Account Active
-                </strong>
-
-                <p style={styles.statusText}>
-                  Your student account is currently
-                  active and available for use.
-                </p>
-              </div>
-
-            </div>
-
-            <span style={styles.activeBadge}>
-              ACTIVE
-            </span>
-
-          </div>
-
-        </section>
-
-        {/* QUICK ACTIONS */}
-
-        <section style={styles.card}>
-
-          <div style={styles.cardHeader}>
-
-            <div style={styles.cardIcon}>
-              ⚡
-            </div>
-
-            <div>
-              <h2 style={styles.cardTitle}>
-                Quick Actions
-              </h2>
-
-              <p style={styles.cardSubtitle}>
-                Quickly access your student portal
-              </p>
-            </div>
-
-          </div>
-
-          <div style={styles.actionGrid}>
-
-            <button
-              onClick={() =>
-                router.push("/student/attendance")
-              }
-              style={styles.actionButton}
-            >
-              <span style={styles.actionIcon}>
-                📝
-              </span>
-
-              <span>
-                <strong>
-                  Attendance
-                </strong>
-
-                <small>
-                  View attendance
-                </small>
-              </span>
-
-              <span style={styles.actionArrow}>
-                →
-              </span>
-            </button>
-
-            <button
-              onClick={() =>
-                router.push("/student/fees")
-              }
-              style={styles.actionButton}
-            >
-              <span style={styles.actionIcon}>
-                💰
-              </span>
-
-              <span>
-                <strong>
-                  Fees
-                </strong>
-
-                <small>
-                  View fee details
-                </small>
-              </span>
-
-              <span style={styles.actionArrow}>
-                →
-              </span>
-            </button>
-
-            <button
-              onClick={() =>
-                router.push("/student/calendar")
-              }
-              style={styles.actionButton}
-            >
-              <span style={styles.actionIcon}>
-                🗓️
-              </span>
-
-              <span>
-                <strong>
-                  Calendar
-                </strong>
-
-                <small>
-                  Classes & dates
-                </small>
-              </span>
-
-              <span style={styles.actionArrow}>
-                →
-              </span>
-            </button>
-
-            <button
-              onClick={() =>
-                router.push("/student/settings")
-              }
-              style={styles.actionButton}
-            >
-              <span style={styles.actionIcon}>
-                ⚙️
-              </span>
-
-              <span>
-                <strong>
-                  Settings
-                </strong>
-
-                <small>
-                  Account settings
-                </small>
-              </span>
-
-              <span style={styles.actionArrow}>
-                →
-              </span>
-            </button>
-
-          </div>
-
-        </section>
-
-        {/* SECURITY */}
-
-        <section style={styles.securityCard}>
-
-          <div style={styles.securityIcon}>
-            🔐
-          </div>
-
-          <div style={styles.securityContent}>
-
-            <h3 style={styles.securityTitle}>
-              Keep Your Account Secure
-            </h3>
-
-            <p style={styles.securityText}>
-              Never share your username or password
-              with anyone. You can change your password
-              anytime from Student Settings.
-            </p>
-
-            <button
-              onClick={() =>
-                router.push("/student/settings")
-              }
-              style={styles.securityButton}
-            >
-              Change Password →
-            </button>
-
-          </div>
-
-        </section>
-
-        {/* LOGOUT */}
-
-        <section style={styles.logoutCard}>
 
           <div>
-            <h3 style={styles.logoutTitle}>
-              🚪 Logout
-            </h3>
+            <strong style={styles.infoTitle}>
+              Profile Information
+            </strong>
 
-            <p style={styles.logoutText}>
-              Sign out from your student account.
+            <p style={styles.infoText}>
+              Your profile details are managed by
+              the teacher. Whenever your details are
+              updated by the teacher, the updated
+              information will appear here automatically.
             </p>
           </div>
+        </div>
 
-          <button
-            onClick={logout}
-            style={styles.logoutButton}
-          >
-            Logout
-          </button>
-
-        </section>
-
-        {/* FOOTER */}
+        <button
+          onClick={loadStudent}
+          style={styles.refreshButton}
+        >
+          🔄 Refresh Profile
+        </button>
 
         <footer style={styles.footer}>
-
-          <strong>
-            Attendance Portal
-          </strong>
-
-          <span>
-            Student Profile • 2026
-          </span>
-
+          Attendance Portal • Student Profile • 2026
         </footer>
 
       </div>
@@ -555,32 +395,22 @@ export default function StudentProfilePage() {
   );
 }
 
-function InfoBox({
-  icon,
+function Detail({
   label,
   value,
 }: {
-  icon: string;
   label: string;
   value: string;
 }) {
   return (
-    <div style={styles.infoBox}>
-
-      <div style={styles.infoIcon}>
-        {icon}
+    <div style={styles.detailBox}>
+      <div style={styles.detailLabel}>
+        {label}
       </div>
 
-      <div>
-        <p style={styles.infoLabel}>
-          {label}
-        </p>
-
-        <p style={styles.infoValue}>
-          {value}
-        </p>
+      <div style={styles.detailValue}>
+        {value}
       </div>
-
     </div>
   );
 }
@@ -588,439 +418,292 @@ function InfoBox({
 const styles: {
   [key: string]: React.CSSProperties;
 } = {
-
   page: {
     minHeight: "100vh",
     background:
       "linear-gradient(135deg,#eef2ff,#f8fafc,#eff6ff)",
-    padding: "20px 15px",
+    padding: "25px 15px",
     boxSizing: "border-box",
     fontFamily:
       "Arial, Helvetica, sans-serif",
+    color: "#0f172a",
   },
 
   container: {
     width: "100%",
-    maxWidth: "1050px",
+    maxWidth: "1100px",
     margin: "0 auto",
   },
 
   header: {
-    background: "white",
-    borderRadius: "20px",
-    padding: "20px",
+    background: "#ffffff",
+    borderRadius: "22px",
+    padding: "25px",
     display: "flex",
-    alignItems: "center",
     justifyContent: "space-between",
+    alignItems: "center",
     gap: "15px",
-    flexWrap: "wrap",
-    marginBottom: "20px",
+    marginBottom: "18px",
     boxShadow:
-      "0 8px 25px rgba(15,23,42,0.08)",
+      "0 10px 30px rgba(15,23,42,0.08)",
+    flexWrap: "wrap",
   },
 
-  headerLeft: {
-    display: "flex",
-    alignItems: "center",
-    gap: "13px",
-  },
-
-  logo: {
-    width: "55px",
-    height: "55px",
-    borderRadius: "16px",
-    background:
-      "linear-gradient(135deg,#2563eb,#7c3aed)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "28px",
+  badge: {
+    display: "inline-block",
+    background: "#dbeafe",
+    color: "#1d4ed8",
+    padding: "7px 12px",
+    borderRadius: "999px",
+    fontSize: "11px",
+    fontWeight: "900",
+    letterSpacing: "1px",
+    marginBottom: "9px",
   },
 
   title: {
     margin: 0,
-    color: "#172554",
-    fontSize: "25px",
-    fontWeight: "800",
+    fontSize: "30px",
+    fontWeight: "900",
+    color: "#0f172a",
   },
 
   subtitle: {
-    margin: "5px 0 0",
+    margin: "7px 0 0",
     color: "#64748b",
-    fontSize: "13px",
+    fontSize: "14px",
+    fontWeight: "600",
   },
 
-  dashboardButton: {
+  backButton: {
     border: "none",
-    background: "#1e3a8a",
-    color: "white",
-    padding: "11px 17px",
+    background: "#475569",
+    color: "#ffffff",
+    padding: "11px 18px",
     borderRadius: "10px",
-    fontWeight: "700",
+    fontWeight: "900",
     cursor: "pointer",
   },
 
   profileHero: {
     background:
-      "linear-gradient(135deg,#1d4ed8,#4338ca,#7c3aed)",
-    color: "white",
+      "linear-gradient(135deg,#2563eb,#7c3aed)",
     borderRadius: "22px",
-    padding: "28px",
+    padding: "30px",
     display: "flex",
     alignItems: "center",
-    gap: "18px",
-    marginBottom: "20px",
+    gap: "20px",
+    marginBottom: "18px",
     boxShadow:
-      "0 15px 35px rgba(37,99,235,0.20)",
+      "0 12px 35px rgba(37,99,235,0.22)",
   },
 
   avatar: {
-    width: "82px",
-    height: "82px",
-    borderRadius: "24px",
-    background: "rgba(255,255,255,0.18)",
-    border: "2px solid rgba(255,255,255,0.3)",
+    width: "90px",
+    height: "90px",
+    minWidth: "90px",
+    borderRadius: "50%",
+    background: "#ffffff",
+    color: "#2563eb",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "38px",
-    fontWeight: "800",
-    flexShrink: 0,
+    fontSize: "40px",
+    fontWeight: "900",
+    boxShadow:
+      "0 8px 25px rgba(0,0,0,0.15)",
   },
 
-  profileHeroContent: {
-    flex: 1,
+  heroInfo: {
+    minWidth: 0,
   },
 
-  profileSmall: {
+  studentName: {
     margin: 0,
-    fontSize: "11px",
-    fontWeight: "800",
-    letterSpacing: "2px",
-    opacity: 0.8,
+    color: "#ffffff",
+    fontSize: "28px",
+    fontWeight: "900",
+    wordBreak: "break-word",
   },
 
-  profileName: {
-    margin: "5px 0",
-    fontSize: "29px",
-    fontWeight: "800",
-  },
-
-  profileUsername: {
-    margin: 0,
-    fontSize: "14px",
-    opacity: 0.85,
-  },
-
-  profileBadge: {
-    background: "rgba(255,255,255,0.16)",
-    border:
-      "1px solid rgba(255,255,255,0.25)",
-    padding: "9px 13px",
-    borderRadius: "999px",
+  usernameBadge: {
+    display: "inline-block",
+    marginTop: "8px",
+    background: "rgba(255,255,255,0.18)",
+    border: "1px solid rgba(255,255,255,0.3)",
+    color: "#ffffff",
+    padding: "6px 10px",
+    borderRadius: "8px",
     fontSize: "12px",
+    fontWeight: "900",
+  },
+
+  heroText: {
+    margin: "8px 0 0",
+    color: "#dbeafe",
+    fontSize: "13px",
     fontWeight: "700",
-    whiteSpace: "nowrap",
   },
 
   card: {
-    background: "white",
-    borderRadius: "20px",
-    padding: "25px",
-    marginBottom: "20px",
+    background: "#ffffff",
+    borderRadius: "22px",
+    padding: "24px",
+    marginBottom: "18px",
     boxShadow:
-      "0 8px 25px rgba(15,23,42,0.07)",
+      "0 9px 28px rgba(15,23,42,0.07)",
   },
 
   cardHeader: {
     display: "flex",
     alignItems: "center",
-    gap: "13px",
-    marginBottom: "22px",
+    gap: "12px",
+    marginBottom: "20px",
   },
 
   cardIcon: {
-    width: "48px",
-    height: "48px",
-    borderRadius: "14px",
-    background: "#eff6ff",
+    width: "45px",
+    height: "45px",
+    borderRadius: "12px",
+    background: "#dbeafe",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "24px",
+    fontSize: "22px",
+    flexShrink: 0,
   },
 
   cardTitle: {
     margin: 0,
     color: "#172554",
     fontSize: "20px",
-    fontWeight: "800",
+    fontWeight: "900",
   },
 
   cardSubtitle: {
     margin: "4px 0 0",
     color: "#64748b",
-    fontSize: "13px",
+    fontSize: "12px",
+    fontWeight: "600",
   },
 
-  infoGrid: {
+  detailsGrid: {
     display: "grid",
     gridTemplateColumns:
-      "repeat(auto-fit,minmax(240px,1fr))",
-    gap: "15px",
+      "repeat(2,minmax(0,1fr))",
+    gap: "14px",
+  },
+
+  detailBox: {
+    background: "#f8fafc",
+    border: "1px solid #e2e8f0",
+    borderRadius: "13px",
+    padding: "15px",
+    minWidth: 0,
+  },
+
+  detailLabel: {
+    color: "#64748b",
+    fontSize: "11px",
+    fontWeight: "900",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+    marginBottom: "7px",
+  },
+
+  detailValue: {
+    color: "#0f172a",
+    fontSize: "15px",
+    fontWeight: "800",
+    wordBreak: "break-word",
+  },
+
+  addressValue: {
+    color: "#0f172a",
+    fontSize: "14px",
+    fontWeight: "700",
+    lineHeight: 1.6,
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
   },
 
   infoBox: {
-    border: "1px solid #e2e8f0",
-    background: "#f8fafc",
-    borderRadius: "14px",
-    padding: "17px",
+    background: "#eff6ff",
+    border: "1px solid #bfdbfe",
+    borderRadius: "15px",
+    padding: "16px",
     display: "flex",
-    alignItems: "center",
-    gap: "13px",
+    gap: "12px",
+    alignItems: "flex-start",
+    marginBottom: "15px",
   },
 
   infoIcon: {
-    width: "43px",
-    height: "43px",
-    borderRadius: "12px",
-    background: "white",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "21px",
+    fontSize: "20px",
     flexShrink: 0,
   },
 
-  infoLabel: {
-    margin: 0,
-    color: "#64748b",
-    fontSize: "11px",
-    fontWeight: "700",
-  },
-
-  infoValue: {
-    margin: "4px 0 0",
-    color: "#172554",
-    fontSize: "15px",
-    fontWeight: "800",
-  },
-
-  statusBox: {
-    border:
-      "1px solid #bbf7d0",
-    background: "#f0fdf4",
-    borderRadius: "15px",
-    padding: "17px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "15px",
-    flexWrap: "wrap",
-  },
-
-  statusLeft: {
-    display: "flex",
-    alignItems: "center",
-    gap: "13px",
-  },
-
-  statusCircle: {
-    width: "45px",
-    height: "45px",
-    borderRadius: "50%",
-    background: "#16a34a",
-    color: "white",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontWeight: "800",
-    fontSize: "20px",
-  },
-
-  statusTitle: {
-    color: "#166534",
-    fontSize: "15px",
-  },
-
-  statusText: {
-    margin: "4px 0 0",
-    color: "#4d7c5b",
-    fontSize: "12px",
-  },
-
-  activeBadge: {
-    background: "#16a34a",
-    color: "white",
-    padding: "8px 12px",
-    borderRadius: "999px",
-    fontSize: "11px",
-    fontWeight: "800",
-  },
-
-  actionGrid: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(auto-fit,minmax(220px,1fr))",
-    gap: "12px",
-  },
-
-  actionButton: {
-    border: "1px solid #e2e8f0",
-    background: "#f8fafc",
-    borderRadius: "14px",
-    padding: "14px",
-    display: "flex",
-    alignItems: "center",
-    gap: "11px",
-    textAlign: "left",
-    cursor: "pointer",
-    color: "#172554",
-  },
-
-  actionIcon: {
-    width: "42px",
-    height: "42px",
-    borderRadius: "12px",
-    background: "white",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "21px",
-    flexShrink: 0,
-  },
-
-  actionArrow: {
-    marginLeft: "auto",
-    color: "#2563eb",
-    fontSize: "20px",
-    fontWeight: "800",
-  },
-
-  securityCard: {
-    background:
-      "linear-gradient(135deg,#eff6ff,#eef2ff)",
-    border: "1px solid #dbeafe",
-    borderRadius: "20px",
-    padding: "22px",
-    display: "flex",
-    alignItems: "flex-start",
-    gap: "15px",
-    marginBottom: "20px",
-  },
-
-  securityIcon: {
-    fontSize: "30px",
-  },
-
-  securityContent: {
-    flex: 1,
-  },
-
-  securityTitle: {
-    margin: 0,
+  infoTitle: {
     color: "#1e3a8a",
-    fontSize: "17px",
+    fontSize: "14px",
   },
 
-  securityText: {
-    margin: "7px 0 12px",
+  infoText: {
+    margin: "5px 0 0",
     color: "#475569",
-    fontSize: "13px",
-    lineHeight: 1.5,
+    fontSize: "12px",
+    lineHeight: 1.6,
+    fontWeight: "600",
   },
 
-  securityButton: {
+  refreshButton: {
+    display: "block",
+    margin: "0 auto",
     border: "none",
     background: "#2563eb",
-    color: "white",
-    padding: "10px 15px",
-    borderRadius: "9px",
-    fontWeight: "700",
-    cursor: "pointer",
-  },
-
-  logoutCard: {
-    background: "white",
-    borderRadius: "18px",
-    padding: "20px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "15px",
-    flexWrap: "wrap",
-    boxShadow:
-      "0 8px 25px rgba(15,23,42,0.07)",
-  },
-
-  logoutTitle: {
-    margin: 0,
-    color: "#334155",
-    fontSize: "16px",
-  },
-
-  logoutText: {
-    margin: "5px 0 0",
-    color: "#64748b",
-    fontSize: "12px",
-  },
-
-  logoutButton: {
-    border: "none",
-    background: "#dc2626",
-    color: "white",
-    padding: "11px 20px",
+    color: "#ffffff",
+    padding: "12px 20px",
     borderRadius: "10px",
-    fontWeight: "700",
+    fontWeight: "900",
     cursor: "pointer",
   },
 
-  footer: {
-    padding: "25px 10px 10px",
-    textAlign: "center",
-    color: "#64748b",
-    fontSize: "12px",
-    display: "flex",
-    justifyContent: "center",
-    gap: "8px",
-    flexWrap: "wrap",
-  },
-
-  loading: {
-    background: "white",
-    maxWidth: "450px",
-    margin: "100px auto",
-    padding: "40px",
-    borderRadius: "20px",
+  loadingCard: {
+    maxWidth: "500px",
+    margin: "80px auto",
+    background: "#ffffff",
+    borderRadius: "22px",
+    padding: "45px 25px",
     textAlign: "center",
     boxShadow:
-      "0 8px 25px rgba(15,23,42,0.08)",
+      "0 10px 30px rgba(15,23,42,0.08)",
   },
 
   loadingIcon: {
-    fontSize: "50px",
+    fontSize: "40px",
   },
 
   loadingTitle: {
-    color: "#172554",
     margin: "15px 0 5px",
+    color: "#172554",
+    fontWeight: "900",
   },
 
   loadingText: {
-    color: "#64748b",
     margin: 0,
+    color: "#64748b",
     fontSize: "13px",
   },
 
   errorCard: {
-    background: "white",
-    maxWidth: "500px",
+    maxWidth: "550px",
     margin: "80px auto",
-    padding: "35px",
-    borderRadius: "20px",
+    background: "#ffffff",
+    borderRadius: "22px",
+    padding: "40px 25px",
     textAlign: "center",
     boxShadow:
-      "0 8px 25px rgba(15,23,42,0.08)",
+      "0 10px 30px rgba(15,23,42,0.08)",
   },
 
   errorIcon: {
@@ -1028,41 +711,32 @@ const styles: {
   },
 
   errorTitle: {
+    margin: "15px 0 8px",
     color: "#991b1b",
-    margin: "12px 0 7px",
+    fontWeight: "900",
   },
 
   errorText: {
     color: "#64748b",
     fontSize: "13px",
-    lineHeight: 1.5,
+    lineHeight: 1.6,
   },
 
-  errorActions: {
-    display: "flex",
-    justifyContent: "center",
-    gap: "10px",
-    flexWrap: "wrap",
-    marginTop: "20px",
-  },
-
-  primaryButton: {
+  retryButton: {
     border: "none",
     background: "#2563eb",
-    color: "white",
-    padding: "11px 18px",
+    color: "#ffffff",
+    padding: "11px 20px",
     borderRadius: "10px",
-    fontWeight: "700",
+    fontWeight: "900",
     cursor: "pointer",
   },
 
-  secondaryButton: {
-    border: "none",
-    background: "#e2e8f0",
-    color: "#334155",
-    padding: "11px 18px",
-    borderRadius: "10px",
+  footer: {
+    textAlign: "center",
+    padding: "25px 10px",
+    color: "#64748b",
+    fontSize: "12px",
     fontWeight: "700",
-    cursor: "pointer",
   },
 };

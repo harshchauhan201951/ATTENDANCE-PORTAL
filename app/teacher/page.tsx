@@ -1,386 +1,346 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
 
-type MenuItem = {
-  icon: string;
-  title: string;
-  description: string;
-  path: string;
-};
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
-const menuItems: MenuItem[] = [
-  {
-    icon: "📝",
-    title: "Mark Attendance",
-    description: "Mark today's student attendance",
-    path: "/dashboard",
-  },
-  {
-    icon: "📅",
-    title: "Attendance History",
-    description: "View previous attendance records",
-    path: "/teacher/attendance-history",
-  },
-  {
-    icon: "💰",
-    title: "Fees Management",
-    description: "Manage paid, pending and refunded fees",
-    path: "/teacher/fees",
-  },
-  {
-    icon: "👨‍🎓",
-    title: "Students",
-    description: "View and manage all students",
-    path: "/teacher/students",
-  },
-  {
-    icon: "🗓️",
-    title: "Calendar",
-    description: "View classes and important dates",
-    path: "/academic-calendar",
-  },
-  {
-    icon: "📊",
-    title: "Reports",
-    description: "View attendance and fee reports",
-    path: "/teacher/reports",
-  },
-  {
-    icon: "⚙️",
-    title: "Settings",
-    description: "Manage teacher dashboard settings",
-    path: "/teacher/settings",
-  },
-];
-
-export default function TeacherDashboard() {
+export default function LoginPage() {
   const router = useRouter();
 
-  const [teacherName, setTeacherName] = useState("Teacher");
-  const [time, setTime] = useState("");
+  const [loginType, setLoginType] = useState<"student" | "teacher">(
+    "student"
+  );
 
-  useEffect(() => {
-    const savedName =
-      localStorage.getItem("teacherName") ||
-      localStorage.getItem("teacher_name");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
 
-    if (savedName) {
-      setTeacherName(savedName);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
+
+    setError("");
+
+    const cleanUsername = username.trim();
+    const cleanPassword = password.trim();
+
+    if (!cleanUsername || !cleanPassword) {
+      setError("Username aur password dono enter karein.");
+      return;
     }
 
-    const updateTime = () => {
-      setTime(
-        new Date().toLocaleTimeString("en-IN", {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        })
+    setLoading(true);
+
+    try {
+      /*
+       * =========================================================
+       * STUDENT LOGIN
+       * =========================================================
+       */
+
+      if (loginType === "student") {
+        const { data, error } = await supabase.rpc("student_login", {
+          p_username: cleanUsername,
+          p_password: cleanPassword,
+        });
+
+        if (error) {
+          console.error("Student login error:", error);
+          setError("Invalid student username or password.");
+          return;
+        }
+
+        if (!data || (Array.isArray(data) && data.length === 0)) {
+          setError("Invalid student username or password.");
+          return;
+        }
+
+        const student = Array.isArray(data) ? data[0] : data;
+
+        /*
+         * IMPORTANT:
+         * Student login ke liye sirf student session save hoga.
+         * Teacher session kabhi save nahi hoga.
+         */
+
+        localStorage.removeItem("teacherLoggedIn");
+        localStorage.removeItem("teacherName");
+        localStorage.removeItem("teacher_name");
+        localStorage.removeItem("teacher_username");
+
+        localStorage.setItem("studentLoggedIn", "true");
+        localStorage.setItem(
+          "student_username",
+          student?.student_username || cleanUsername
+        );
+
+        localStorage.setItem(
+          "student_name",
+          student?.student_name || cleanUsername
+        );
+
+        if (student?.id !== undefined && student?.id !== null) {
+          localStorage.setItem(
+            "student_id",
+            String(student.id)
+          );
+        }
+
+        sessionStorage.removeItem("teacherLoggedIn");
+        sessionStorage.removeItem("teacher_username");
+        sessionStorage.removeItem("teacherName");
+
+        sessionStorage.setItem("studentLoggedIn", "true");
+        sessionStorage.setItem(
+          "student_username",
+          student?.student_username || cleanUsername
+        );
+
+        sessionStorage.setItem(
+          "student_name",
+          student?.student_name || cleanUsername
+        );
+
+        if (student?.id !== undefined && student?.id !== null) {
+          sessionStorage.setItem(
+            "student_id",
+            String(student.id)
+          );
+        }
+
+        router.replace("/student/dashboard");
+        return;
+      }
+
+      /*
+       * =========================================================
+       * TEACHER LOGIN
+       * =========================================================
+       */
+
+      const { data, error } = await supabase.rpc("teacher_login", {
+        p_username: cleanUsername,
+        p_password: cleanPassword,
+      });
+
+      if (error) {
+        console.error("Teacher login error:", error);
+        setError("Invalid teacher username or password.");
+        return;
+      }
+
+      if (!data || (Array.isArray(data) && data.length === 0)) {
+        setError("Invalid teacher username or password.");
+        return;
+      }
+
+      const teacher = Array.isArray(data) ? data[0] : data;
+
+      /*
+       * IMPORTANT:
+       * Teacher login ke liye student session remove hoga.
+       */
+
+      localStorage.removeItem("studentLoggedIn");
+      localStorage.removeItem("student_username");
+      localStorage.removeItem("student_name");
+      localStorage.removeItem("student_id");
+
+      localStorage.setItem("teacherLoggedIn", "true");
+
+      localStorage.setItem(
+        "teacher_username",
+        teacher?.teacher_username || cleanUsername
       );
-    };
 
-    updateTime();
+      localStorage.setItem(
+        "teacherName",
+        teacher?.teacher_name ||
+          teacher?.name ||
+          cleanUsername
+      );
 
-    const interval = setInterval(updateTime, 1000);
+      localStorage.setItem(
+        "teacher_name",
+        teacher?.teacher_name ||
+          teacher?.name ||
+          cleanUsername
+      );
 
-    return () => clearInterval(interval);
-  }, []);
+      sessionStorage.removeItem("studentLoggedIn");
+      sessionStorage.removeItem("student_username");
+      sessionStorage.removeItem("student_name");
+      sessionStorage.removeItem("student_id");
 
-  function logout() {
-    localStorage.removeItem("teacherLoggedIn");
-    localStorage.removeItem("teacherName");
-    localStorage.removeItem("teacher_name");
-    localStorage.removeItem("teacher_username");
+      sessionStorage.setItem("teacherLoggedIn", "true");
 
-    sessionStorage.clear();
+      sessionStorage.setItem(
+        "teacher_username",
+        teacher?.teacher_username || cleanUsername
+      );
 
-    router.push("/");
-  }
+      sessionStorage.setItem(
+        "teacherName",
+        teacher?.teacher_name ||
+          teacher?.name ||
+          cleanUsername
+      );
 
-  function openPage(path: string) {
-    router.push(path);
+      router.replace("/dashboard");
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("Login failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <main style={styles.page}>
-      <div style={styles.container}>
+      <div style={styles.card}>
 
-        {/* NAVBAR */}
-        <header style={styles.navbar}>
-          <div style={styles.brandArea}>
-            <div style={styles.logo}>🎓</div>
+        {/* LOGO */}
+        <div style={styles.logo}>
+          🎓
+        </div>
 
-            <div>
-              <h1 style={styles.brandTitle}>
-                Attendance Portal
-              </h1>
+        <h1 style={styles.title}>
+          Attendance Portal
+        </h1>
 
-              <p style={styles.brandSubtitle}>
-                Teacher Control Center
-              </p>
-            </div>
+        <p style={styles.subtitle}>
+          Login to continue
+        </p>
+
+        {/* LOGIN TYPE */}
+        <div style={styles.tabs}>
+          <button
+            type="button"
+            onClick={() => {
+              setLoginType("student");
+              setError("");
+              setUsername("");
+              setPassword("");
+            }}
+            style={{
+              ...styles.tab,
+              ...(loginType === "student"
+                ? styles.activeTab
+                : {}),
+            }}
+          >
+            👨‍🎓 Student
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setLoginType("teacher");
+              setError("");
+              setUsername("");
+              setPassword("");
+            }}
+            style={{
+              ...styles.tab,
+              ...(loginType === "teacher"
+                ? styles.activeTab
+                : {}),
+            }}
+          >
+            👨‍🏫 Teacher
+          </button>
+        </div>
+
+        {/* ERROR */}
+        {error && (
+          <div style={styles.error}>
+            ⚠️ {error}
           </div>
+        )}
 
-          <div style={styles.navRight}>
-            <div style={styles.clock}>
-              🕐 {time}
-            </div>
+        {/* LOGIN FORM */}
+        <form onSubmit={handleLogin}>
 
-            <button
-              onClick={logout}
-              style={styles.logoutButton}
-            >
-              🚪 Logout
-            </button>
-          </div>
-        </header>
+          <label style={styles.label}>
+            Username
+          </label>
 
-        {/* HERO */}
-        <section style={styles.hero}>
-          <div>
-            <div style={styles.welcomeSmall}>
-              TEACHER PORTAL
-            </div>
+          <input
+            type="text"
+            value={username}
+            onChange={(e) =>
+              setUsername(e.target.value)
+            }
+            placeholder={
+              loginType === "student"
+                ? "Enter student username"
+                : "Enter teacher username"
+            }
+            autoComplete="username"
+            style={styles.input}
+          />
 
-            <h2 style={styles.heroTitle}>
-              Welcome back, {teacherName} 👋
-            </h2>
+          <label style={styles.label}>
+            Password
+          </label>
 
-            <p style={styles.heroText}>
-              Manage attendance, fees, students,
-              reports and your complete class activity
-              from one place.
-            </p>
-          </div>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) =>
+              setPassword(e.target.value)
+            }
+            placeholder="Enter password"
+            autoComplete="current-password"
+            style={styles.input}
+          />
 
-          <div style={styles.heroIcon}>
-            👨‍🏫
-          </div>
-        </section>
-
-        {/* QUICK STATS */}
-        <section style={styles.statsGrid}>
-
-          <div style={styles.statCard}>
-            <div style={styles.statIcon}>👨‍🎓</div>
-
-            <div>
-              <p style={styles.statLabel}>
-                Students
-              </p>
-
-              <h3 style={styles.statValue}>
-                12
-              </h3>
-
-              <p style={styles.statDescription}>
-                Registered students
-              </p>
-            </div>
-          </div>
-
-          <div style={styles.statCard}>
-            <div style={styles.statIcon}>📝</div>
-
-            <div>
-              <p style={styles.statLabel}>
-                Attendance
-              </p>
-
-              <h3 style={styles.statValue}>
-                Today
-              </h3>
-
-              <p style={styles.statDescription}>
-                Mark today's attendance
-              </p>
-            </div>
-          </div>
-
-          <div style={styles.statCard}>
-            <div style={styles.statIcon}>💰</div>
-
-            <div>
-              <p style={styles.statLabel}>
-                Monthly Fee
-              </p>
-
-              <h3 style={styles.statValue}>
-                ₹200
-              </h3>
-
-              <p style={styles.statDescription}>
-                Per student
-              </p>
-            </div>
-          </div>
-
-          <div style={styles.statCard}>
-            <div style={styles.statIcon}>📊</div>
-
-            <div>
-              <p style={styles.statLabel}>
-                Reports
-              </p>
-
-              <h3 style={styles.statValue}>
-                View
-              </h3>
-
-              <p style={styles.statDescription}>
-                Attendance & fees
-              </p>
-            </div>
-          </div>
-
-        </section>
-
-        {/* MAIN MENU */}
-        <section>
-
-          <div style={styles.sectionHeading}>
-            <h2 style={styles.sectionTitle}>
-              Teacher Control Center
-            </h2>
-
-            <p style={styles.sectionSubtitle}>
-              Choose what you want to manage
-            </p>
-          </div>
-
-          <div style={styles.menuGrid}>
-
-            {menuItems.map((item) => (
-              <button
-                key={item.title}
-                onClick={() => openPage(item.path)}
-                style={styles.menuCard}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform =
-                    "translateY(-5px)";
-
-                  e.currentTarget.style.boxShadow =
-                    "0 18px 35px rgba(15,23,42,0.14)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform =
-                    "translateY(0)";
-
-                  e.currentTarget.style.boxShadow =
-                    "0 8px 25px rgba(15,23,42,0.07)";
-                }}
-              >
-                <div style={styles.menuIcon}>
-                  {item.icon}
-                </div>
-
-                <div style={styles.menuContent}>
-                  <h3 style={styles.menuTitle}>
-                    {item.title}
-                  </h3>
-
-                  <p style={styles.menuDescription}>
-                    {item.description}
-                  </p>
-                </div>
-
-                <div style={styles.arrow}>
-                  →
-                </div>
-              </button>
-            ))}
-
-          </div>
-        </section>
-
-        {/* QUICK ACTIONS */}
-        <section style={styles.quickSection}>
-
-          <h2 style={styles.sectionTitle}>
-            ⚡ Quick Actions
-          </h2>
-
-          <p style={styles.sectionSubtitle}>
-            Frequently used teacher actions
-          </p>
-
-          <div style={styles.quickGrid}>
-
-            <button
-              onClick={() =>
-                router.push("/dashboard")
-              }
-              style={styles.quickButton}
-            >
-              <span>📝</span>
-              <span>
-                Mark Attendance
-              </span>
-            </button>
-
-            <button
-              onClick={() =>
-                router.push("/teacher/fees")
-              }
-              style={styles.quickButton}
-            >
-              <span>💰</span>
-              <span>
-                Manage Fees
-              </span>
-            </button>
-
-            <button
-              onClick={() =>
-                router.push(
-                  "/teacher/attendance-history"
-                )
-              }
-              style={styles.quickButton}
-            >
-              <span>📅</span>
-              <span>
-                Attendance History
-              </span>
-            </button>
-
-          </div>
-        </section>
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              ...styles.loginButton,
+              opacity: loading ? 0.7 : 1,
+            }}
+          >
+            {loading
+              ? "⏳ Logging in..."
+              : loginType === "student"
+              ? "🎓 Student Login"
+              : "👨‍🏫 Teacher Login"}
+          </button>
+        </form>
 
         {/* INFORMATION */}
-        <section style={styles.infoCard}>
+        <div style={styles.info}>
+          {loginType === "student" ? (
+            <>
+              <strong>Student Portal</strong>
+              <span>
+                View your attendance, profile,
+                reports, fees and calendar.
+              </span>
+            </>
+          ) : (
+            <>
+              <strong>Teacher Portal</strong>
+              <span>
+                Manage students, attendance,
+                fees, reports and settings.
+              </span>
+            </>
+          )}
+        </div>
 
-          <div style={styles.infoIcon}>
-            💡
-          </div>
-
-          <div>
-            <h3 style={styles.infoTitle}>
-              Teacher Dashboard
-            </h3>
-
-            <p style={styles.infoText}>
-              This is your central control panel.
-              From here you can manage attendance,
-              fees, students, attendance history,
-              calendar, reports and settings.
-            </p>
-          </div>
-
-        </section>
-
-        {/* FOOTER */}
         <footer style={styles.footer}>
-          <strong>
-            Attendance Portal
-          </strong>
-
-          <span>
-            Teacher Control Center • 2026
-          </span>
+          Student Attendance Management System
         </footer>
-
       </div>
     </main>
   );
@@ -389,347 +349,152 @@ export default function TeacherDashboard() {
 const styles: {
   [key: string]: React.CSSProperties;
 } = {
-
   page: {
     minHeight: "100vh",
-    background:
-      "linear-gradient(135deg,#eef2ff,#f8fafc,#eff6ff)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
     padding: "20px",
     boxSizing: "border-box",
+    background:
+      "linear-gradient(135deg,#eef2ff,#f8fafc,#eff6ff)",
     fontFamily:
       "Arial, Helvetica, sans-serif",
-    color: "#172554",
   },
 
-  container: {
+  card: {
     width: "100%",
-    maxWidth: "1200px",
-    margin: "0 auto",
-  },
-
-  navbar: {
+    maxWidth: "430px",
     background: "#ffffff",
-    borderRadius: "18px",
-    padding: "16px 20px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "20px",
+    borderRadius: "24px",
+    padding: "32px",
+    boxSizing: "border-box",
     boxShadow:
-      "0 8px 25px rgba(15,23,42,0.08)",
-    marginBottom: "20px",
-    flexWrap: "wrap",
-  },
-
-  brandArea: {
-    display: "flex",
-    alignItems: "center",
-    gap: "13px",
+      "0 20px 50px rgba(15,23,42,0.12)",
   },
 
   logo: {
-    width: "52px",
-    height: "52px",
-    borderRadius: "15px",
+    width: "72px",
+    height: "72px",
+    borderRadius: "20px",
+    margin: "0 auto 16px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "38px",
     background:
       "linear-gradient(135deg,#2563eb,#7c3aed)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "27px",
   },
 
-  brandTitle: {
+  title: {
     margin: 0,
-    fontSize: "20px",
+    textAlign: "center",
     color: "#172554",
-    fontWeight: "800",
-  },
-
-  brandSubtitle: {
-    margin: "4px 0 0",
-    color: "#475569",
-    fontSize: "12px",
-    fontWeight: "600",
-  },
-
-  navRight: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-  },
-
-  clock: {
-    background: "#f1f5f9",
-    color: "#334155",
-    padding: "10px 14px",
-    borderRadius: "10px",
-    fontWeight: "700",
-    fontSize: "13px",
-  },
-
-  logoutButton: {
-    border: "none",
-    background: "#dc2626",
-    color: "white",
-    padding: "11px 17px",
-    borderRadius: "10px",
-    fontWeight: "700",
-    cursor: "pointer",
-  },
-
-  hero: {
-    background:
-      "linear-gradient(135deg,#1d4ed8,#4338ca,#7c3aed)",
-    color: "white",
-    borderRadius: "24px",
-    padding: "35px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "20px",
-    marginBottom: "20px",
-    boxShadow:
-      "0 15px 35px rgba(37,99,235,0.22)",
-  },
-
-  welcomeSmall: {
-    fontSize: "12px",
-    fontWeight: "800",
-    letterSpacing: "2px",
-    opacity: 0.9,
-    marginBottom: "8px",
-  },
-
-  heroTitle: {
-    margin: 0,
-    fontSize: "32px",
-    fontWeight: "800",
-  },
-
-  heroText: {
-    margin: "12px 0 0",
-    maxWidth: "650px",
-    lineHeight: 1.6,
-    opacity: 0.95,
-    fontSize: "15px",
-  },
-
-  heroIcon: {
-    width: "100px",
-    height: "100px",
-    borderRadius: "28px",
-    background:
-      "rgba(255,255,255,0.15)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "55px",
-    flexShrink: 0,
-  },
-
-  statsGrid: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(auto-fit,minmax(220px,1fr))",
-    gap: "16px",
-    marginBottom: "30px",
-  },
-
-  statCard: {
-    background: "#ffffff",
-    borderRadius: "18px",
-    padding: "20px",
-    display: "flex",
-    alignItems: "center",
-    gap: "15px",
-    boxShadow:
-      "0 8px 25px rgba(15,23,42,0.07)",
-  },
-
-  statIcon: {
-    width: "55px",
-    height: "55px",
-    borderRadius: "15px",
-    background: "#eff6ff",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "27px",
-    flexShrink: 0,
-  },
-
-  statLabel: {
-    margin: 0,
-    color: "#475569",
-    fontSize: "12px",
-    fontWeight: "700",
-  },
-
-  statValue: {
-    margin: "3px 0",
-    color: "#172554",
-    fontSize: "23px",
-    fontWeight: "800",
-  },
-
-  statDescription: {
-    margin: 0,
-    color: "#64748b",
-    fontSize: "11px",
-    fontWeight: "600",
-  },
-
-  sectionHeading: {
-    marginBottom: "15px",
-  },
-
-  sectionTitle: {
-    margin: 0,
-    color: "#172554",
-    fontSize: "23px",
-    fontWeight: "800",
-  },
-
-  sectionSubtitle: {
-    margin: "5px 0 0",
-    color: "#475569",
-    fontSize: "13px",
-    fontWeight: "600",
-  },
-
-  menuGrid: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(auto-fit,minmax(260px,1fr))",
-    gap: "16px",
-  },
-
-  menuCard: {
-    border: "none",
-    background: "#ffffff",
-    borderRadius: "18px",
-    padding: "21px",
-    display: "flex",
-    alignItems: "center",
-    gap: "15px",
-    textAlign: "left",
-    cursor: "pointer",
-    boxShadow:
-      "0 8px 25px rgba(15,23,42,0.07)",
-    transition:
-      "transform 0.2s ease, box-shadow 0.2s ease",
-    color: "#172554",
-  },
-
-  menuIcon: {
-    width: "58px",
-    height: "58px",
-    borderRadius: "16px",
-    background: "#f1f5f9",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "29px",
-    flexShrink: 0,
-  },
-
-  menuContent: {
-    flex: 1,
-  },
-
-  menuTitle: {
-    margin: 0,
-    color: "#172554",
-    fontSize: "17px",
-    fontWeight: "800",
-  },
-
-  menuDescription: {
-    margin: "5px 0 0",
-    color: "#475569",
-    fontSize: "12px",
-    lineHeight: 1.4,
-    fontWeight: "600",
-  },
-
-  arrow: {
-    color: "#2563eb",
-    fontSize: "24px",
-    fontWeight: "800",
-  },
-
-  quickSection: {
-    background: "#ffffff",
-    borderRadius: "20px",
-    padding: "25px",
-    marginTop: "30px",
-    boxShadow:
-      "0 8px 25px rgba(15,23,42,0.07)",
-  },
-
-  quickGrid: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(auto-fit,minmax(200px,1fr))",
-    gap: "12px",
-    marginTop: "18px",
-  },
-
-  quickButton: {
-    border: "1px solid #cbd5e1",
-    background: "#f8fafc",
-    borderRadius: "12px",
-    padding: "14px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "9px",
-    color: "#1e3a8a",
-    fontWeight: "700",
-    cursor: "pointer",
-    fontSize: "14px",
-  },
-
-  infoCard: {
-    marginTop: "20px",
-    background:
-      "linear-gradient(135deg,#eff6ff,#eef2ff)",
-    border: "1px solid #bfdbfe",
-    borderRadius: "18px",
-    padding: "22px",
-    display: "flex",
-    gap: "15px",
-    alignItems: "flex-start",
-  },
-
-  infoIcon: {
     fontSize: "28px",
+    fontWeight: "900",
   },
 
-  infoTitle: {
-    margin: 0,
-    color: "#1e3a8a",
-    fontSize: "17px",
+  subtitle: {
+    margin: "7px 0 24px",
+    textAlign: "center",
+    color: "#64748b",
+    fontSize: "14px",
+    fontWeight: "600",
+  },
+
+  tabs: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "8px",
+    padding: "5px",
+    background: "#f1f5f9",
+    borderRadius: "12px",
+    marginBottom: "20px",
+  },
+
+  tab: {
+    border: "none",
+    background: "transparent",
+    color: "#475569",
+    padding: "12px 8px",
+    borderRadius: "9px",
+    fontWeight: "800",
+    cursor: "pointer",
+    fontSize: "13px",
+  },
+
+  activeTab: {
+    background: "#ffffff",
+    color: "#1d4ed8",
+    boxShadow:
+      "0 3px 10px rgba(15,23,42,0.08)",
+  },
+
+  error: {
+    background: "#fee2e2",
+    border: "1px solid #fecaca",
+    color: "#991b1b",
+    borderRadius: "10px",
+    padding: "11px",
+    marginBottom: "16px",
+    fontSize: "13px",
+    fontWeight: "700",
+  },
+
+  label: {
+    display: "block",
+    marginBottom: "7px",
+    marginTop: "14px",
+    color: "#334155",
+    fontSize: "13px",
     fontWeight: "800",
   },
 
-  infoText: {
-    margin: "7px 0 0",
-    color: "#334155",
-    fontSize: "13px",
-    lineHeight: 1.6,
-    fontWeight: "600",
+  input: {
+    width: "100%",
+    boxSizing: "border-box",
+    border: "1px solid #cbd5e1",
+    background: "#ffffff",
+    color: "#0f172a",
+    borderRadius: "10px",
+    padding: "13px 14px",
+    fontSize: "14px",
+    outline: "none",
+  },
+
+  loginButton: {
+    width: "100%",
+    border: "none",
+    marginTop: "22px",
+    background:
+      "linear-gradient(135deg,#2563eb,#4f46e5)",
+    color: "#ffffff",
+    padding: "14px",
+    borderRadius: "11px",
+    fontWeight: "900",
+    fontSize: "14px",
+    cursor: "pointer",
+  },
+
+  info: {
+    marginTop: "20px",
+    padding: "14px",
+    borderRadius: "12px",
+    background: "#eff6ff",
+    border: "1px solid #dbeafe",
+    display: "flex",
+    flexDirection: "column",
+    gap: "4px",
+    color: "#1e3a8a",
+    fontSize: "12px",
+    lineHeight: 1.5,
   },
 
   footer: {
-    padding: "28px 10px 10px",
     textAlign: "center",
-    display: "flex",
-    justifyContent: "center",
-    gap: "8px",
-    flexWrap: "wrap",
-    color: "#475569",
-    fontSize: "12px",
+    marginTop: "22px",
+    color: "#94a3b8",
+    fontSize: "11px",
+    fontWeight: "600",
   },
 };
