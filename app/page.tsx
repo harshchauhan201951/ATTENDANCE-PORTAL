@@ -2,6 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function Home() {
   const router = useRouter();
@@ -10,91 +16,222 @@ export default function Home() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const students = [
-    { username: "STU1001", password: "Aditya02", name: "ADITYA" },
-    { username: "STU1002", password: "Anmol01", name: "ANMOL" },
-    { username: "STU1003", password: "Chirag06", name: "CHIRAG" },
-    { username: "STU1004", password: "Duggu10", name: "DUGGU" },
-    { username: "STU1005", password: "Duggu13", name: "DUGGU" },
-    { username: "STU1006", password: "Jaggu10", name: "JAGGU" },
-    { username: "STU1007", password: "Mannu13", name: "MANNU" },
-    { username: "STU1008", password: "Palak02", name: "PALAK" },
-    { username: "STU1009", password: "Piyush01", name: "PIYUSH" },
-    { username: "STU1010", password: "Prince04", name: "PRINCE" },
-    { username: "STU1011", password: "Raghav20", name: "RAGHAV" },
-    { username: "STU1012", password: "Sharvi04", name: "SHARVI" },
-  ];
-
-  function handleLogin(e: React.FormEvent<HTMLFormElement>) {
+  async function handleLogin(
+    e: React.FormEvent<HTMLFormElement>
+  ) {
     e.preventDefault();
 
     setError("");
+    setLoading(true);
 
-    const enteredUsername = username.trim().toUpperCase();
+    const enteredUsername = username.trim();
     const enteredPassword = password.trim();
 
-    /* =========================
-       TEACHER LOGIN
-       ========================= */
-
-    if (
-      role === "Teacher" &&
-      enteredUsername === "HARSH201951" &&
-      enteredPassword === "201951"
-    ) {
-      localStorage.setItem("teacher", "true");
-      router.push("/teacher");
+    if (!enteredUsername || !enteredPassword) {
+      setError("❌ Username aur password dono enter karein.");
+      setLoading(false);
       return;
     }
 
-    /* =========================
-       STUDENT LOGIN
-       ========================= */
+    /* =====================================================
+       TEACHER LOGIN
+       ===================================================== */
 
-    if (role === "Student") {
-      const savedAccounts = JSON.parse(
-        localStorage.getItem("studentAccounts") || "{}"
-      );
+    if (role === "Teacher") {
+      if (
+        enteredUsername.toUpperCase() === "HARSH201951" &&
+        enteredPassword === "201951"
+      ) {
+        // Clear any old student session
+        localStorage.removeItem("studentLoggedIn");
+        localStorage.removeItem("studentUsername");
+        localStorage.removeItem("studentName");
 
-      const savedStudent = Object.values(savedAccounts).find(
-        (account: any) =>
-          account?.username?.toUpperCase() === enteredUsername &&
-          account?.password === enteredPassword
-      ) as any;
-
-      const originalStudent = students.find(
-        (student) =>
-          student.username.toUpperCase() === enteredUsername &&
-          student.password === enteredPassword
-      );
-
-      const student = savedStudent || originalStudent;
-
-      if (student) {
-        localStorage.setItem("studentLoggedIn", "true");
-
+        // Teacher session
+        localStorage.setItem("teacherLoggedIn", "true");
+        localStorage.setItem("teacher", "true");
         localStorage.setItem(
-          "studentUsername",
-          student.username
+          "teacherUsername",
+          enteredUsername.toUpperCase()
+        );
+        localStorage.setItem(
+          "teacherName",
+          "Harsh"
         );
 
-        localStorage.setItem(
-          "studentName",
-          student.name || "Student"
-        );
+        // Teacher dashboard only
+        router.replace("/teacher");
 
-        router.push("/student/dashboard");
         return;
       }
+
+      setError("❌ Invalid teacher username or password.");
+      setLoading(false);
+      return;
     }
 
-    setError("❌ Invalid username or password.");
+    /* =====================================================
+       STUDENT LOGIN
+       ===================================================== */
+
+    try {
+      // IMPORTANT:
+      // Student login is checked ONLY against students table.
+      // It can NEVER redirect to teacher dashboard.
+
+      const { data: student, error: studentError } =
+        await supabase
+          .from("students")
+          .select(
+            `
+            id,
+            student_name,
+            student_username,
+            password_hash
+            `
+          )
+          .eq(
+            "student_username",
+            enteredUsername.toUpperCase()
+          )
+          .maybeSingle();
+
+      if (studentError) {
+        console.error(
+          "Student login error:",
+          studentError
+        );
+
+        setError(
+          "❌ Student login database error: " +
+            studentError.message
+        );
+
+        setLoading(false);
+        return;
+      }
+
+      if (!student) {
+        setError(
+          "❌ Student username not found."
+        );
+
+        setLoading(false);
+        return;
+      }
+
+      /*
+       * Existing project stores password in password_hash.
+       *
+       * We first support the current plain-text student
+       * passwords if they are stored that way.
+       *
+       * If password_hash contains a Supabase/Postgres
+       * crypt hash, use the student_login RPC below.
+       */
+
+      let validPassword = false;
+
+      // Try existing student_login RPC first.
+      const { data: rpcStudent, error: rpcError } =
+        await supabase.rpc("student_login", {
+          p_username:
+            enteredUsername.toUpperCase(),
+          p_password: enteredPassword,
+        });
+
+      if (!rpcError && rpcStudent) {
+        if (Array.isArray(rpcStudent)) {
+          validPassword = rpcStudent.length > 0;
+        } else {
+          validPassword = true;
+        }
+      }
+
+      /*
+       * Fallback for projects where password_hash currently
+       * contains the actual password.
+       */
+      if (!validPassword) {
+        if (
+          student.password_hash ===
+          enteredPassword
+        ) {
+          validPassword = true;
+        }
+      }
+
+      if (!validPassword) {
+        setError(
+          "❌ Invalid student username or password."
+        );
+
+        setLoading(false);
+        return;
+      }
+
+      /* ===================================================
+         STUDENT SESSION
+         =================================================== */
+
+      // Remove any old teacher session
+      localStorage.removeItem("teacherLoggedIn");
+      localStorage.removeItem("teacher");
+      localStorage.removeItem("teacherUsername");
+      localStorage.removeItem("teacherName");
+
+      // Create student session
+      localStorage.setItem(
+        "studentLoggedIn",
+        "true"
+      );
+
+      localStorage.setItem(
+        "studentUsername",
+        student.student_username
+      );
+
+      localStorage.setItem(
+        "studentName",
+        student.student_name ||
+          "Student"
+      );
+
+      localStorage.setItem(
+        "studentId",
+        String(student.id)
+      );
+
+      // Student dashboard ONLY
+      router.replace("/student/dashboard");
+    } catch (err: any) {
+      console.error(
+        "Login error:",
+        err
+      );
+
+      setError(
+        err?.message ||
+          "❌ Login failed. Please try again."
+      );
+
+      setLoading(false);
+    }
+  }
+
+  function selectRole(
+    selectedRole: "Student" | "Teacher"
+  ) {
+    setRole(selectedRole);
+    setError("");
+    setUsername("");
+    setPassword("");
   }
 
   return (
     <main className="page">
-
       <div className="login-card">
 
         {/* ICON */}
@@ -124,12 +261,9 @@ export default function Home() {
                 ? "role-button student-active"
                 : "role-button"
             }
-            onClick={() => {
-              setRole("Student");
-              setError("");
-              setUsername("");
-              setPassword("");
-            }}
+            onClick={() =>
+              selectRole("Student")
+            }
           >
             👨‍🎓 Student
           </button>
@@ -141,12 +275,9 @@ export default function Home() {
                 ? "role-button teacher-active"
                 : "role-button"
             }
-            onClick={() => {
-              setRole("Teacher");
-              setError("");
-              setUsername("");
-              setPassword("");
-            }}
+            onClick={() =>
+              selectRole("Teacher")
+            }
           >
             👨‍🏫 Teacher
           </button>
@@ -156,8 +287,6 @@ export default function Home() {
         {/* LOGIN FORM */}
 
         <form onSubmit={handleLogin}>
-
-          {/* USERNAME */}
 
           <label>
             Username
@@ -169,11 +298,14 @@ export default function Home() {
             onChange={(e) =>
               setUsername(e.target.value)
             }
-            placeholder="Username"
+            placeholder={
+              role === "Student"
+                ? "STU1001"
+                : "HARSH201951"
+            }
             autoComplete="username"
+            disabled={loading}
           />
-
-          {/* PASSWORD */}
 
           <label>
             Password
@@ -187,17 +319,14 @@ export default function Home() {
             }
             placeholder="Enter Password"
             autoComplete="current-password"
+            disabled={loading}
           />
-
-          {/* ERROR */}
 
           {error && (
             <div className="error">
               {error}
             </div>
           )}
-
-          {/* LOGIN */}
 
           <button
             type="submit"
@@ -206,20 +335,20 @@ export default function Home() {
                 ? "login-button teacher-login"
                 : "login-button student-login"
             }
+            disabled={loading}
           >
-            Login →
+            {loading
+              ? "⏳ Checking..."
+              : "Login →"}
           </button>
 
         </form>
-
-        {/* FOOTER */}
 
         <p className="footer">
           Student Attendance Management System
         </p>
 
       </div>
-
 
       <style jsx>{`
 
@@ -229,9 +358,11 @@ export default function Home() {
 
         .page {
           min-height: 100vh;
+
           display: flex;
           align-items: center;
           justify-content: center;
+
           padding: 20px;
 
           background:
@@ -248,7 +379,6 @@ export default function Home() {
             sans-serif;
         }
 
-
         .login-card {
           width: 100%;
           max-width: 430px;
@@ -263,7 +393,6 @@ export default function Home() {
             0 25px 60px
             rgba(0, 0, 0, 0.15);
         }
-
 
         .logo {
           width: 75px;
@@ -287,7 +416,6 @@ export default function Home() {
           font-size: 40px;
         }
 
-
         h1 {
           text-align: center;
 
@@ -298,16 +426,13 @@ export default function Home() {
           font-size: 30px;
         }
 
-
         .subtitle {
           text-align: center;
 
           color: #64748b;
 
-          margin:
-            0 0 25px;
+          margin: 0 0 25px;
         }
-
 
         .role-buttons {
           display: grid;
@@ -319,7 +444,6 @@ export default function Home() {
 
           margin-bottom: 22px;
         }
-
 
         .role-button {
           border: none;
@@ -341,20 +465,17 @@ export default function Home() {
           transition: 0.2s;
         }
 
-
         .student-active {
           background: #2563eb;
 
           color: white;
         }
 
-
         .teacher-active {
           background: #7c3aed;
 
           color: white;
         }
-
 
         label {
           display: block;
@@ -367,7 +488,6 @@ export default function Home() {
 
           font-size: 14px;
         }
-
 
         input {
           width: 100%;
@@ -390,7 +510,6 @@ export default function Home() {
           outline: none;
         }
 
-
         input:focus {
           border-color: #2563eb;
 
@@ -399,11 +518,15 @@ export default function Home() {
             rgba(37, 99, 235, 0.1);
         }
 
-
         input::placeholder {
           color: #94a3b8;
         }
 
+        input:disabled {
+          background: #f8fafc;
+
+          cursor: not-allowed;
+        }
 
         .error {
           background: #fee2e2;
@@ -419,8 +542,9 @@ export default function Home() {
           font-weight: 600;
 
           text-align: center;
-        }
 
+          font-size: 13px;
+        }
 
         .login-button {
           width: 100%;
@@ -442,7 +566,6 @@ export default function Home() {
           transition: 0.2s;
         }
 
-
         .student-login {
           background:
             linear-gradient(
@@ -451,7 +574,6 @@ export default function Home() {
               #1d4ed8
             );
         }
-
 
         .teacher-login {
           background:
@@ -462,7 +584,6 @@ export default function Home() {
             );
         }
 
-
         .login-button:hover {
           transform: translateY(-1px);
 
@@ -471,6 +592,13 @@ export default function Home() {
             rgba(0, 0, 0, 0.15);
         }
 
+        .login-button:disabled {
+          opacity: 0.7;
+
+          cursor: not-allowed;
+
+          transform: none;
+        }
 
         .footer {
           text-align: center;
@@ -483,9 +611,6 @@ export default function Home() {
 
           margin-bottom: 0;
         }
-
-
-        /* MOBILE */
 
         @media (max-width: 500px) {
 
@@ -513,7 +638,6 @@ export default function Home() {
         }
 
       `}</style>
-
     </main>
   );
 }
