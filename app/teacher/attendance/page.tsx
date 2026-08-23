@@ -58,8 +58,12 @@ export default function TeacherAttendancePage() {
       const { data: attendanceData, error: attendanceError } =
         await supabase
           .from("attendance")
-          .select("id, student_id, attendance_date, status")
-          .order("attendance_date", { ascending: false });
+          .select(
+            "id, student_id, attendance_date, status"
+          )
+          .order("attendance_date", {
+            ascending: false,
+          });
 
       if (attendanceError) {
         throw new Error(attendanceError.message);
@@ -131,7 +135,9 @@ export default function TeacherAttendancePage() {
       if (existing) {
         const { data, error } = await supabase
           .from("attendance")
-          .update({ status })
+          .update({
+            status,
+          })
           .eq("id", existing.id)
           .select()
           .single();
@@ -142,7 +148,9 @@ export default function TeacherAttendancePage() {
 
         setAttendance((current) =>
           current.map((item) =>
-            item.id === existing.id ? data : item
+            item.id === existing.id
+              ? data
+              : item
           )
         );
       } else {
@@ -167,61 +175,17 @@ export default function TeacherAttendancePage() {
       }
 
       setMessage(
-        "Attendance saved successfully."
+        `Attendance marked ${
+          status === "present"
+            ? "Present"
+            : "Absent"
+        } successfully.`
       );
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
           : "Unable to save attendance."
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function markAll(
-    status: "present" | "absent"
-  ) {
-    if (students.length === 0) {
-      setMessage("No students found.");
-      return;
-    }
-
-    setSaving(true);
-    setMessage("");
-
-    try {
-      const rows = students.map((student) => ({
-        student_id: student.id,
-        attendance_date: selectedDate,
-        status,
-      }));
-
-      const { data, error } = await supabase
-        .from("attendance")
-        .upsert(rows, {
-          onConflict:
-            "student_id,attendance_date",
-        })
-        .select();
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      await loadData();
-
-      setMessage(
-        status === "present"
-          ? "All students marked Present."
-          : "All students marked Absent."
-      );
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to mark all students."
       );
     } finally {
       setSaving(false);
@@ -305,15 +269,16 @@ export default function TeacherAttendancePage() {
       <main style={styles.page}>
         <div style={styles.loadingCard}>
           <div style={styles.loadingIcon}>
-            📚
+            ⏳
           </div>
 
           <h2 style={styles.loadingTitle}>
-            Loading Attendance
+            Loading Attendance...
           </h2>
 
           <p style={styles.loadingText}>
-            Student records are loading...
+            Please wait while student records
+            are loaded.
           </p>
         </div>
       </main>
@@ -324,7 +289,7 @@ export default function TeacherAttendancePage() {
     <main style={styles.page}>
       <div style={styles.container}>
 
-        {/* TOP HEADER */}
+        {/* HEADER */}
 
         <header style={styles.header}>
           <div style={styles.headerLeft}>
@@ -337,13 +302,12 @@ export default function TeacherAttendancePage() {
             </h1>
 
             <p style={styles.subtitle}>
-              Manage all students, daily attendance
-              and complete attendance history.
+              Manage all students and mark their
+              daily attendance.
             </p>
           </div>
 
           <button
-            type="button"
             onClick={loadData}
             style={styles.refreshButton}
           >
@@ -367,8 +331,8 @@ export default function TeacherAttendancePage() {
               {message
                 .toLowerCase()
                 .includes("success")
-                ? "✓ "
-                : "⚠ "}
+                ? "✅ "
+                : "❌ "}
             </strong>
 
             {message}
@@ -378,6 +342,7 @@ export default function TeacherAttendancePage() {
         {/* STATISTICS */}
 
         <section style={styles.statsGrid}>
+
           <Stat
             icon="👨‍🎓"
             title="Total Students"
@@ -386,14 +351,14 @@ export default function TeacherAttendancePage() {
           />
 
           <Stat
-            icon="✓"
+            icon="✅"
             title="Present Today"
             value={String(presentToday)}
             background="linear-gradient(135deg,#16a34a,#166534)"
           />
 
           <Stat
-            icon="✕"
+            icon="❌"
             title="Absent Today"
             value={String(absentToday)}
             background="linear-gradient(135deg,#dc2626,#991b1b)"
@@ -405,11 +370,13 @@ export default function TeacherAttendancePage() {
             value={String(pendingToday)}
             background="linear-gradient(135deg,#f59e0b,#b45309)"
           />
+
         </section>
 
         {/* CONTROLS */}
 
         <section style={styles.controlCard}>
+
           <div style={styles.controlBox}>
             <label style={styles.label}>
               📅 Attendance Date
@@ -418,10 +385,8 @@ export default function TeacherAttendancePage() {
             <input
               type="date"
               value={selectedDate}
-              onChange={(event) =>
-                setSelectedDate(
-                  event.target.value
-                )
+              onChange={(e) =>
+                setSelectedDate(e.target.value)
               }
               style={styles.input}
             />
@@ -435,78 +400,36 @@ export default function TeacherAttendancePage() {
             <input
               type="text"
               value={search}
-              onChange={(event) =>
-                setSearch(event.target.value)
+              onChange={(e) =>
+                setSearch(e.target.value)
               }
-              placeholder="Search by student name or username"
+              placeholder="Search name or username..."
               style={styles.input}
             />
           </div>
+
         </section>
 
-        {/* QUICK ACTIONS */}
-
-        <section style={styles.quickCard}>
-          <div>
-            <h2 style={styles.quickTitle}>
-              ⚡ Quick Attendance
-            </h2>
-
-            <p style={styles.quickText}>
-              Quickly mark attendance for all
-              {totalStudents} students.
-            </p>
-          </div>
-
-          <div style={styles.quickButtons}>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() =>
-                markAll("present")
-              }
-              style={styles.allPresentButton}
-            >
-              ✓ Mark All Present
-            </button>
-
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() =>
-                markAll("absent")
-              }
-              style={styles.allAbsentButton}
-            >
-              ✕ Mark All Absent
-            </button>
-          </div>
-        </section>
-
-        {/* STUDENT LIST */}
+        {/* STUDENT ATTENDANCE */}
 
         <section style={styles.card}>
+
           <div style={styles.sectionHeader}>
             <div>
-              <div style={styles.sectionTag}>
-                STUDENT REGISTER
-              </div>
-
               <h2 style={styles.sectionTitle}>
                 👨‍🎓 Students Attendance
               </h2>
 
               <p style={styles.sectionSubtitle}>
                 Mark attendance for{" "}
-                <strong>
+                <strong style={styles.darkText}>
                   {formatDate(selectedDate)}
                 </strong>
               </p>
             </div>
 
             <div style={styles.countBadge}>
-              {filteredStudents.length} /{" "}
-              {totalStudents} Students
+              {filteredStudents.length} Students
             </div>
           </div>
 
@@ -521,12 +444,12 @@ export default function TeacherAttendancePage() {
               </h3>
 
               <p style={styles.emptyText}>
-                Try another student name or
-                username.
+                No student matches your search.
               </p>
             </div>
           ) : (
             <div style={styles.studentList}>
+
               {filteredStudents.map(
                 (student, index) => {
                   const status =
@@ -537,40 +460,39 @@ export default function TeacherAttendancePage() {
                       student.id
                     );
 
-                  const displayName =
-                    student.student_name?.trim() ||
-                    "Student";
-
-                  const isPresent =
-                    status === "present";
-
-                  const isAbsent =
-                    status === "absent";
-
                   return (
                     <div
                       key={student.id}
                       style={{
                         ...styles.studentRow,
-                        borderLeft: isPresent
-                          ? "5px solid #16a34a"
-                          : isAbsent
-                          ? "5px solid #dc2626"
-                          : "5px solid #2563eb",
+                        border:
+                          status === "present"
+                            ? "2px solid #22c55e"
+                            : status === "absent"
+                            ? "2px solid #ef4444"
+                            : "2px solid #cbd5e1",
+                        background:
+                          status === "present"
+                            ? "#f0fdf4"
+                            : status === "absent"
+                            ? "#fef2f2"
+                            : "#ffffff",
                       }}
                     >
+
                       {/* NUMBER */}
 
                       <div style={styles.number}>
-                        {String(
-                          index + 1
-                        ).padStart(2, "0")}
+                        {index + 1}
                       </div>
 
                       {/* AVATAR */}
 
                       <div style={styles.avatar}>
-                        {displayName
+                        {(
+                          student.student_name ||
+                          student.student_username
+                        )
                           .charAt(0)
                           .toUpperCase()}
                       </div>
@@ -578,65 +500,67 @@ export default function TeacherAttendancePage() {
                       {/* STUDENT DETAILS */}
 
                       <div style={styles.studentInfo}>
-                        <h3 style={styles.studentName}>
-                          {displayName}
+
+                        <h3
+                          style={
+                            styles.studentName
+                          }
+                        >
+                          {student.student_name ||
+                            "Student"}
                         </h3>
 
-                        <div style={styles.usernameBox}>
+                        <p
+                          style={
+                            styles.username
+                          }
+                        >
+                          Username:{" "}
+                          <strong>
+                            {
+                              student.student_username
+                            }
+                          </strong>
+                        </p>
+
+                        <div
+                          style={
+                            styles.miniStats
+                          }
+                        >
                           <span
                             style={
-                              styles.usernameLabel
+                              styles.statText
                             }
                           >
-                            USERNAME
+                            📚 {stats.total} Classes
                           </span>
 
                           <span
                             style={
-                              styles.username
+                              styles.presentText
                             }
                           >
-                            {student.student_username}
+                            ✅ {stats.present} Present
+                          </span>
+
+                          <span
+                            style={
+                              styles.absentText
+                            }
+                          >
+                            ❌ {stats.absent} Absent
+                          </span>
+
+                          <span
+                            style={
+                              styles.percentText
+                            }
+                          >
+                            📊 {stats.percentage}%
                           </span>
                         </div>
 
-                        <div style={styles.miniStats}>
-                          <span
-                            style={
-                              styles.classStat
-                            }
-                          >
-                            📚{" "}
-                            {stats.total} Classes
-                          </span>
-
-                          <span
-                            style={
-                              styles.presentStat
-                            }
-                          >
-                            ✓{" "}
-                            {stats.present} Present
-                          </span>
-
-                          <span
-                            style={
-                              styles.absentStat
-                            }
-                          >
-                            ✕{" "}
-                            {stats.absent} Absent
-                          </span>
-
-                          <span
-                            style={
-                              styles.percentStat
-                            }
-                          >
-                            📊{" "}
-                            {stats.percentage}%
-                          </span>
-                        </div>
                       </div>
 
                       {/* ATTENDANCE */}
@@ -646,43 +570,28 @@ export default function TeacherAttendancePage() {
                           styles.attendanceActions
                         }
                       >
-                        <div
-                          style={
-                            styles.currentStatus
-                          }
-                        >
-                          {isPresent ? (
-                            <span
-                              style={
-                                styles.presentBadge
-                              }
-                            >
-                              ✓ PRESENT
-                            </span>
-                          ) : isAbsent ? (
-                            <span
-                              style={
-                                styles.absentBadge
-                              }
-                            >
-                              ✕ ABSENT
-                            </span>
-                          ) : (
-                            <span
-                              style={
-                                styles.pendingBadge
-                              }
-                            >
-                              ⏳ NOT MARKED
-                            </span>
-                          )}
-                        </div>
+
+                        {status && (
+                          <div
+                            style={
+                              status ===
+                              "present"
+                                ? styles.presentBadge
+                                : styles.absentBadge
+                            }
+                          >
+                            {status ===
+                            "present"
+                              ? "✓ PRESENT"
+                              : "✕ ABSENT"}
+                          </div>
+                        )}
 
                         <div
                           style={styles.buttons}
                         >
+
                           <button
-                            type="button"
                             disabled={saving}
                             onClick={() =>
                               markAttendance(
@@ -692,19 +601,24 @@ export default function TeacherAttendancePage() {
                             }
                             style={{
                               ...styles.presentButton,
-                              ...(isPresent
-                                ? styles.presentButtonActive
-                                : {}),
-                              opacity: saving
-                                ? 0.6
-                                : 1,
+                              background:
+                                status ===
+                                "present"
+                                  ? "#15803d"
+                                  : "#ffffff",
+                              color:
+                                status ===
+                                "present"
+                                  ? "#ffffff"
+                                  : "#15803d",
+                              border:
+                                "2px solid #15803d",
                             }}
                           >
                             ✓ Present
                           </button>
 
                           <button
-                            type="button"
                             disabled={saving}
                             onClick={() =>
                               markAttendance(
@@ -714,57 +628,67 @@ export default function TeacherAttendancePage() {
                             }
                             style={{
                               ...styles.absentButton,
-                              ...(isAbsent
-                                ? styles.absentButtonActive
-                                : {}),
-                              opacity: saving
-                                ? 0.6
-                                : 1,
+                              background:
+                                status ===
+                                "absent"
+                                  ? "#b91c1c"
+                                  : "#ffffff",
+                              color:
+                                status ===
+                                "absent"
+                                  ? "#ffffff"
+                                  : "#b91c1c",
+                              border:
+                                "2px solid #b91c1c",
                             }}
                           >
                             ✕ Absent
                           </button>
+
                         </div>
+
                       </div>
+
                     </div>
                   );
                 }
               )}
+
             </div>
           )}
+
         </section>
 
         {/* HISTORY */}
 
         <section style={styles.card}>
-          <div style={styles.sectionHeader}>
-            <div>
-              <div style={styles.sectionTag}>
-                RECORDS
-              </div>
 
+          <div style={styles.sectionHeader}>
+
+            <div>
               <h2 style={styles.sectionTitle}>
                 📜 Attendance History
               </h2>
 
               <p style={styles.sectionSubtitle}>
-                Complete date-wise attendance
-                records.
+                Complete attendance records.
               </p>
             </div>
 
             <input
               type="month"
               value={month}
-              onChange={(event) =>
-                setMonth(event.target.value)
+              onChange={(e) =>
+                setMonth(e.target.value)
               }
               style={styles.monthInput}
             />
+
           </div>
 
           {history.length === 0 ? (
             <div style={styles.empty}>
+
               <div style={styles.emptyIcon}>
                 📅
               </div>
@@ -777,10 +701,13 @@ export default function TeacherAttendancePage() {
                 Attendance records will appear
                 here after marking attendance.
               </p>
+
             </div>
           ) : (
             <div style={styles.tableWrapper}>
+
               <table style={styles.table}>
+
                 <thead>
                   <tr>
                     <th style={styles.th}>
@@ -788,26 +715,28 @@ export default function TeacherAttendancePage() {
                     </th>
 
                     <th style={styles.th}>
-                      DATE
+                      Date
                     </th>
 
                     <th style={styles.th}>
-                      STUDENT
+                      Student
                     </th>
 
                     <th style={styles.th}>
-                      USERNAME
+                      Username
                     </th>
 
                     <th style={styles.th}>
-                      STATUS
+                      Status
                     </th>
                   </tr>
                 </thead>
 
                 <tbody>
+
                   {history.map(
                     (record, index) => {
+
                       const student =
                         students.find(
                           (item) =>
@@ -821,41 +750,40 @@ export default function TeacherAttendancePage() {
                         "present";
 
                       return (
-                        <tr
-                          key={record.id}
-                          style={
-                            styles.tableRow
-                          }
-                        >
+                        <tr key={record.id}>
+
                           <td style={styles.td}>
                             {index + 1}
                           </td>
 
-                          <td style={styles.dateTd}>
-                            {formatDate(
-                              record.attendance_date
-                            )}
-                          </td>
-
-                          <td
-                            style={
-                              styles.historyStudent
-                            }
-                          >
-                            {student?.student_name ||
-                              "Unknown Student"}
-                          </td>
-
-                          <td
-                            style={
-                              styles.historyUsername
-                            }
-                          >
-                            {student?.student_username ||
-                              "-"}
+                          <td style={styles.td}>
+                            <strong>
+                              {formatDate(
+                                record.attendance_date
+                              )}
+                            </strong>
                           </td>
 
                           <td style={styles.td}>
+                            <strong
+                              style={
+                                styles.historyName
+                              }
+                            >
+                              {student?.student_name ||
+                                "Unknown Student"}
+                            </strong>
+                          </td>
+
+                          <td style={styles.td}>
+                            <strong>
+                              {student?.student_username ||
+                                "-"}
+                            </strong>
+                          </td>
+
+                          <td style={styles.td}>
+
                             <span
                               style={
                                 isPresent
@@ -867,15 +795,21 @@ export default function TeacherAttendancePage() {
                                 ? "✓ PRESENT"
                                 : "✕ ABSENT"}
                             </span>
+
                           </td>
+
                         </tr>
                       );
                     }
                   )}
+
                 </tbody>
+
               </table>
+
             </div>
           )}
+
         </section>
 
         <footer style={styles.footer}>
@@ -884,10 +818,13 @@ export default function TeacherAttendancePage() {
           </strong>{" "}
           • Teacher Management Center • 2026
         </footer>
+
       </div>
     </main>
   );
 }
+
+/* STAT COMPONENT */
 
 function Stat({
   icon,
@@ -922,6 +859,8 @@ function Stat({
   );
 }
 
+/* DATE FORMAT */
+
 function formatDate(value: string) {
   if (!value) {
     return "-";
@@ -943,14 +882,16 @@ function formatDate(value: string) {
   );
 }
 
+/* STYLES */
+
 const styles: {
   [key: string]: React.CSSProperties;
 } = {
   page: {
     minHeight: "100vh",
     background:
-      "linear-gradient(135deg,#eaf2ff 0%,#f8fafc 48%,#eef2ff 100%)",
-    padding: "24px 14px",
+      "linear-gradient(135deg,#e0f2fe 0%,#f8fafc 45%,#ede9fe 100%)",
+    padding: "24px 16px",
     boxSizing: "border-box",
     fontFamily:
       "Arial, Helvetica, sans-serif",
@@ -959,23 +900,21 @@ const styles: {
 
   container: {
     width: "100%",
-    maxWidth: "1240px",
+    maxWidth: "1250px",
     margin: "0 auto",
   },
 
   header: {
-    background:
-      "linear-gradient(135deg,#ffffff,#f8fbff)",
-    border:
-      "1px solid #dbeafe",
-    borderRadius: "24px",
-    padding: "30px",
+    background: "#ffffff",
+    border: "2px solid #dbeafe",
+    borderRadius: "22px",
+    padding: "28px",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     gap: "20px",
     boxShadow:
-      "0 15px 40px rgba(15,23,42,0.10)",
+      "0 10px 30px rgba(15,23,42,0.10)",
     marginBottom: "20px",
   },
 
@@ -985,65 +924,64 @@ const styles: {
 
   badge: {
     display: "inline-block",
-    background: "#dbeafe",
-    color: "#1e40af",
+    background: "#1d4ed8",
+    color: "#ffffff",
     padding: "7px 12px",
     borderRadius: "999px",
     fontSize: "11px",
     fontWeight: "900",
-    letterSpacing: "0.8px",
+    letterSpacing: "0.6px",
     marginBottom: "10px",
   },
 
   title: {
     margin: 0,
-    color: "#020617",
-    fontSize: "34px",
-    lineHeight: "1.2",
+    color: "#0f172a",
+    fontSize: "32px",
     fontWeight: "900",
+    lineHeight: 1.2,
   },
 
   subtitle: {
     margin: "9px 0 0",
-    color: "#475569",
-    fontSize: "14px",
+    color: "#334155",
+    fontSize: "15px",
     fontWeight: "600",
   },
 
   refreshButton: {
     border: "none",
-    background:
-      "linear-gradient(135deg,#2563eb,#1d4ed8)",
+    background: "#1d4ed8",
     color: "#ffffff",
     padding: "13px 20px",
     borderRadius: "12px",
-    fontWeight: "900",
+    fontWeight: "800",
+    fontSize: "14px",
     cursor: "pointer",
     boxShadow:
-      "0 7px 18px rgba(37,99,235,0.25)",
-    whiteSpace: "nowrap",
+      "0 5px 15px rgba(29,78,216,0.25)",
   },
 
   success: {
     background: "#dcfce7",
     color: "#14532d",
-    border:
-      "1px solid #86efac",
+    border: "2px solid #4ade80",
     padding: "15px 18px",
-    borderRadius: "13px",
+    borderRadius: "12px",
     marginBottom: "20px",
     fontWeight: "800",
+    fontSize: "14px",
   },
 
   error: {
     background: "#fee2e2",
     color: "#7f1d1d",
-    border:
-      "1px solid #fca5a5",
+    border: "2px solid #f87171",
     padding: "15px 18px",
-    borderRadius: "13px",
+    borderRadius: "12px",
     marginBottom: "20px",
     fontWeight: "800",
+    fontSize: "14px",
   },
 
   statsGrid: {
@@ -1056,51 +994,50 @@ const styles: {
 
   stat: {
     color: "#ffffff",
-    padding: "25px",
-    borderRadius: "21px",
+    padding: "24px",
+    borderRadius: "20px",
+    minHeight: "150px",
+    boxSizing: "border-box",
     boxShadow:
-      "0 12px 28px rgba(15,23,42,0.14)",
+      "0 10px 25px rgba(15,23,42,0.15)",
   },
 
   statIcon: {
-    fontSize: "31px",
-    fontWeight: "900",
+    fontSize: "30px",
   },
 
   statTitle: {
     marginTop: "12px",
-    marginBottom: "5px",
-    color: "#ffffff",
     fontSize: "14px",
-    fontWeight: "700",
+    fontWeight: "800",
+    color: "#ffffff",
   },
 
   statValue: {
-    color: "#ffffff",
+    marginTop: "5px",
     fontSize: "36px",
-    lineHeight: "1",
     fontWeight: "900",
+    color: "#ffffff",
   },
 
   controlCard: {
     background: "#ffffff",
     padding: "22px",
-    borderRadius: "19px",
+    borderRadius: "18px",
     display: "grid",
     gridTemplateColumns:
-      "repeat(auto-fit,minmax(250px,1fr))",
+      "repeat(auto-fit,minmax(280px,1fr))",
     gap: "18px",
+    border: "2px solid #e2e8f0",
     boxShadow:
       "0 8px 25px rgba(15,23,42,0.08)",
-    marginBottom: "18px",
-    border:
-      "1px solid #e2e8f0",
+    marginBottom: "20px",
   },
 
   controlBox: {
     display: "flex",
     flexDirection: "column",
-    gap: "8px",
+    gap: "9px",
   },
 
   label: {
@@ -1113,80 +1050,23 @@ const styles: {
     width: "100%",
     boxSizing: "border-box",
     padding: "13px",
-    border:
-      "2px solid #cbd5e1",
-    borderRadius: "11px",
+    border: "2px solid #94a3b8",
+    borderRadius: "10px",
     fontSize: "15px",
-    color: "#020617",
+    color: "#0f172a",
     background: "#ffffff",
     outline: "none",
     fontWeight: "600",
   },
 
-  quickCard: {
-    background:
-      "linear-gradient(135deg,#172554,#1e3a8a)",
-    borderRadius: "20px",
-    padding: "22px 24px",
-    marginBottom: "20px",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "20px",
-    flexWrap: "wrap",
-    boxShadow:
-      "0 12px 30px rgba(30,64,175,0.20)",
-  },
-
-  quickTitle: {
-    margin: 0,
-    color: "#ffffff",
-    fontSize: "20px",
-    fontWeight: "900",
-  },
-
-  quickText: {
-    margin: "6px 0 0",
-    color: "#dbeafe",
-    fontSize: "13px",
-    fontWeight: "500",
-  },
-
-  quickButtons: {
-    display: "flex",
-    gap: "9px",
-    flexWrap: "wrap",
-  },
-
-  allPresentButton: {
-    border: "none",
-    background: "#22c55e",
-    color: "#ffffff",
-    padding: "11px 15px",
-    borderRadius: "10px",
-    fontWeight: "900",
-    cursor: "pointer",
-  },
-
-  allAbsentButton: {
-    border: "none",
-    background: "#ef4444",
-    color: "#ffffff",
-    padding: "11px 15px",
-    borderRadius: "10px",
-    fontWeight: "900",
-    cursor: "pointer",
-  },
-
   card: {
     background: "#ffffff",
-    borderRadius: "22px",
-    padding: "25px",
+    borderRadius: "20px",
+    padding: "24px",
+    border: "2px solid #e2e8f0",
     boxShadow:
-      "0 9px 28px rgba(15,23,42,0.08)",
+      "0 8px 25px rgba(15,23,42,0.08)",
     marginBottom: "20px",
-    border:
-      "1px solid #e2e8f0",
   },
 
   sectionHeader: {
@@ -1198,87 +1078,75 @@ const styles: {
     flexWrap: "wrap",
   },
 
-  sectionTag: {
-    color: "#2563eb",
-    fontSize: "10px",
-    fontWeight: "900",
-    letterSpacing: "1px",
-    marginBottom: "5px",
-  },
-
   sectionTitle: {
     margin: 0,
-    color: "#020617",
+    color: "#0f172a",
     fontSize: "23px",
     fontWeight: "900",
   },
 
   sectionSubtitle: {
-    margin: "6px 0 0",
+    margin: "7px 0 0",
     color: "#475569",
     fontSize: "14px",
     fontWeight: "600",
   },
 
+  darkText: {
+    color: "#0f172a",
+    fontWeight: "900",
+  },
+
   countBadge: {
     background: "#dbeafe",
-    color: "#1e40af",
-    padding: "10px 15px",
+    color: "#1e3a8a",
+    border: "2px solid #93c5fd",
+    padding: "9px 14px",
     borderRadius: "999px",
     fontWeight: "900",
     fontSize: "13px",
-    border:
-      "1px solid #bfdbfe",
   },
 
   studentList: {
     display: "flex",
     flexDirection: "column",
-    gap: "12px",
+    gap: "13px",
   },
 
   studentRow: {
-    borderTop:
-      "1px solid #e2e8f0",
-    borderRight:
-      "1px solid #e2e8f0",
-    borderBottom:
-      "1px solid #e2e8f0",
-    borderRadius: "15px",
+    borderRadius: "16px",
     padding: "17px",
     display: "flex",
     alignItems: "center",
     gap: "15px",
-    background: "#ffffff",
+    boxSizing: "border-box",
     boxShadow:
-      "0 4px 13px rgba(15,23,42,0.05)",
-    minWidth: 0,
+      "0 4px 12px rgba(15,23,42,0.06)",
   },
 
   number: {
     width: "32px",
+    minWidth: "32px",
     textAlign: "center",
-    color: "#1e293b",
+    color: "#0f172a",
     fontWeight: "900",
-    fontSize: "14px",
-    flexShrink: 0,
+    fontSize: "16px",
   },
 
   avatar: {
     width: "54px",
     height: "54px",
+    minWidth: "54px",
     borderRadius: "50%",
     background:
-      "linear-gradient(135deg,#2563eb,#4338ca)",
+      "linear-gradient(135deg,#1d4ed8,#4f46e5)",
     color: "#ffffff",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     fontSize: "21px",
     fontWeight: "900",
-    flexShrink: 0,
-    boxShadow:
-      "0 5px 13px rgba(37,99,235,0.25)",
+    border: "3px solid #bfdbfe",
   },
 
   studentInfo: {
@@ -1288,74 +1156,47 @@ const styles: {
 
   studentName: {
     margin: 0,
-    color: "#000000",
+    color: "#020617",
     fontSize: "19px",
     fontWeight: "900",
-    lineHeight: "1.25",
-    letterSpacing: "0.2px",
-  },
-
-  usernameBox: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    marginTop: "6px",
-    flexWrap: "wrap",
-  },
-
-  usernameLabel: {
-    color: "#64748b",
-    fontSize: "9px",
-    fontWeight: "900",
-    letterSpacing: "0.8px",
+    lineHeight: 1.25,
   },
 
   username: {
+    margin: "5px 0 0",
     color: "#334155",
     fontSize: "13px",
-    fontWeight: "800",
+    fontWeight: "600",
   },
 
   miniStats: {
     display: "flex",
-    gap: "8px",
+    gap: "12px",
     flexWrap: "wrap",
     marginTop: "9px",
   },
 
-  classStat: {
+  statText: {
     color: "#334155",
-    background: "#f1f5f9",
-    padding: "5px 8px",
-    borderRadius: "7px",
-    fontSize: "10px",
+    fontSize: "12px",
     fontWeight: "800",
   },
 
-  presentStat: {
-    color: "#166534",
-    background: "#dcfce7",
-    padding: "5px 8px",
-    borderRadius: "7px",
-    fontSize: "10px",
+  presentText: {
+    color: "#15803d",
+    fontSize: "12px",
     fontWeight: "900",
   },
 
-  absentStat: {
-    color: "#991b1b",
-    background: "#fee2e2",
-    padding: "5px 8px",
-    borderRadius: "7px",
-    fontSize: "10px",
+  absentText: {
+    color: "#b91c1c",
+    fontSize: "12px",
     fontWeight: "900",
   },
 
-  percentStat: {
-    color: "#1e40af",
-    background: "#dbeafe",
-    padding: "5px 8px",
-    borderRadius: "7px",
-    fontSize: "10px",
+  percentText: {
+    color: "#1d4ed8",
+    fontSize: "12px",
     fontWeight: "900",
   },
 
@@ -1364,11 +1205,7 @@ const styles: {
     flexDirection: "column",
     alignItems: "flex-end",
     gap: "9px",
-    flexShrink: 0,
-  },
-
-  currentStatus: {
-    minHeight: "25px",
+    minWidth: "205px",
   },
 
   buttons: {
@@ -1377,81 +1214,46 @@ const styles: {
   },
 
   presentButton: {
-    border:
-      "2px solid #16a34a",
-    background: "#ffffff",
-    color: "#15803d",
     padding: "10px 14px",
     borderRadius: "9px",
     fontWeight: "900",
+    fontSize: "13px",
     cursor: "pointer",
-  },
-
-  presentButtonActive: {
-    background: "#16a34a",
-    color: "#ffffff",
-    boxShadow:
-      "0 4px 12px rgba(22,163,74,0.25)",
   },
 
   absentButton: {
-    border:
-      "2px solid #dc2626",
-    background: "#ffffff",
-    color: "#b91c1c",
     padding: "10px 14px",
     borderRadius: "9px",
     fontWeight: "900",
+    fontSize: "13px",
     cursor: "pointer",
-  },
-
-  absentButtonActive: {
-    background: "#dc2626",
-    color: "#ffffff",
-    boxShadow:
-      "0 4px 12px rgba(220,38,38,0.25)",
   },
 
   presentBadge: {
     display: "inline-block",
-    background: "#dcfce7",
-    color: "#166534",
-    border:
-      "1px solid #86efac",
-    padding: "6px 10px",
+    background: "#16a34a",
+    color: "#ffffff",
+    padding: "7px 12px",
     borderRadius: "999px",
     fontWeight: "900",
-    fontSize: "11px",
+    fontSize: "12px",
+    border: "2px solid #166534",
   },
 
   absentBadge: {
     display: "inline-block",
-    background: "#fee2e2",
-    color: "#991b1b",
-    border:
-      "1px solid #fca5a5",
-    padding: "6px 10px",
+    background: "#dc2626",
+    color: "#ffffff",
+    padding: "7px 12px",
     borderRadius: "999px",
     fontWeight: "900",
-    fontSize: "11px",
-  },
-
-  pendingBadge: {
-    display: "inline-block",
-    background: "#fef3c7",
-    color: "#92400e",
-    border:
-      "1px solid #fcd34d",
-    padding: "6px 10px",
-    borderRadius: "999px",
-    fontWeight: "900",
-    fontSize: "11px",
+    fontSize: "12px",
+    border: "2px solid #991b1b",
   },
 
   monthInput: {
     padding: "11px",
-    border:
-      "2px solid #cbd5e1",
+    border: "2px solid #94a3b8",
     borderRadius: "10px",
     color: "#0f172a",
     background: "#ffffff",
@@ -1467,68 +1269,37 @@ const styles: {
     width: "100%",
     borderCollapse: "collapse",
     minWidth: "720px",
-  },
-
-  tableRow: {
     background: "#ffffff",
   },
 
   th: {
     padding: "14px",
     textAlign: "left",
-    background: "#eff6ff",
-    color: "#1e3a8a",
-    borderBottom:
-      "2px solid #bfdbfe",
-    fontSize: "12px",
+    background: "#dbeafe",
+    color: "#172554",
+    borderBottom: "2px solid #93c5fd",
+    fontSize: "13px",
     fontWeight: "900",
-    letterSpacing: "0.3px",
   },
 
   td: {
     padding: "14px",
-    borderBottom:
-      "1px solid #e2e8f0",
-    color: "#334155",
+    borderBottom: "1px solid #cbd5e1",
+    color: "#0f172a",
     fontSize: "13px",
     fontWeight: "600",
+    background: "#ffffff",
   },
 
-  dateTd: {
-    padding: "14px",
-    borderBottom:
-      "1px solid #e2e8f0",
-    color: "#1e293b",
-    fontSize: "13px",
-    fontWeight: "800",
-  },
-
-  historyStudent: {
-    padding: "14px",
-    borderBottom:
-      "1px solid #e2e8f0",
-    color: "#000000",
-    fontSize: "14px",
+  historyName: {
+    color: "#020617",
     fontWeight: "900",
-  },
-
-  historyUsername: {
-    padding: "14px",
-    borderBottom:
-      "1px solid #e2e8f0",
-    color: "#334155",
-    fontSize: "13px",
-    fontWeight: "800",
   },
 
   empty: {
     textAlign: "center",
     padding: "50px 20px",
-    color: "#475569",
-    background: "#f8fafc",
-    borderRadius: "15px",
-    border:
-      "1px dashed #cbd5e1",
+    color: "#334155",
   },
 
   emptyIcon: {
@@ -1537,14 +1308,13 @@ const styles: {
   },
 
   emptyTitle: {
-    margin: "5px 0",
     color: "#0f172a",
     fontWeight: "900",
+    fontSize: "20px",
   },
 
   emptyText: {
-    margin: 0,
-    color: "#64748b",
+    color: "#475569",
     fontWeight: "600",
   },
 
@@ -1555,13 +1325,13 @@ const styles: {
     padding: "40px",
     borderRadius: "20px",
     textAlign: "center",
+    border: "2px solid #dbeafe",
     boxShadow:
-      "0 10px 30px rgba(15,23,42,0.10)",
+      "0 10px 30px rgba(15,23,42,0.12)",
   },
 
   loadingIcon: {
     fontSize: "42px",
-    marginBottom: "15px",
   },
 
   loadingTitle: {
@@ -1576,7 +1346,7 @@ const styles: {
 
   footer: {
     textAlign: "center",
-    color: "#475569",
+    color: "#334155",
     padding: "25px",
     fontSize: "13px",
     fontWeight: "600",
