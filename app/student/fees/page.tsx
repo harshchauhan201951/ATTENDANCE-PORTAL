@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { supabase } from "../../lib/supabase";
 
 type Fee = {
   id: number;
+  student_id: number;
   month: number;
   year: number;
   amount: number;
@@ -12,349 +13,321 @@ type Fee = {
   payment_date: string | null;
   transaction_id: string | null;
   remarks: string | null;
+  created_at: string;
 };
 
-export default function StudentFeesPage() {
-  const router = useRouter();
+const months = [
+  "",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
 
+export default function StudentFeesPage() {
   const [fees, setFees] = useState<Fee[]>([]);
+  const [studentName, setStudentName] = useState("");
+  const [studentUsername, setStudentUsername] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [studentName, setStudentName] = useState("Student");
-  const [studentId, setStudentId] = useState("");
-
   useEffect(() => {
-    const name =
-      localStorage.getItem("studentName") ||
-      localStorage.getItem("student_name") ||
-      "Student";
-
-    const username =
-      localStorage.getItem("studentUsername") ||
-      localStorage.getItem("student_username") ||
-      "";
-
-    setStudentName(name);
-    setStudentId(username);
-
-    loadFees(username);
+    loadFees();
   }, []);
 
-  async function loadFees(username: string) {
+  async function loadFees() {
     try {
       setLoading(true);
       setError("");
 
       /*
-       * This page intentionally does not use hard-coded fee data.
-       * The database/API can be connected here.
-       *
-       * For now, an empty list is shown instead of fake fee records.
+       * We use username first.
+       * This avoids depending only on localStorage studentId.
        */
+      const username =
+        localStorage.getItem("studentUsername") ||
+        localStorage.getItem("student_username");
 
       if (!username) {
-        setFees([]);
+        setError(
+          "Student login information not found. Please login again."
+        );
+        setLoading(false);
         return;
       }
 
-      setFees([]);
+      const cleanUsername =
+        username.trim().toUpperCase();
+
+      /*
+       * Find the actual student record.
+       */
+      const {
+        data: student,
+        error: studentError,
+      } = await supabase
+        .from("students")
+        .select(
+          "id, student_name, student_username"
+        )
+        .eq(
+          "student_username",
+          cleanUsername
+        )
+        .maybeSingle();
+
+      if (studentError) {
+        console.error(
+          "Student lookup error:",
+          studentError
+        );
+
+        setError(
+          "Unable to find student account."
+        );
+        setLoading(false);
+        return;
+      }
+
+      if (!student) {
+        setError(
+          "Student account not found."
+        );
+        setLoading(false);
+        return;
+      }
+
+      setStudentName(
+        student.student_name ||
+          "Student"
+      );
+
+      setStudentUsername(
+        student.student_username
+      );
+
+      /*
+       * IMPORTANT:
+       * fees.student_id is linked to students.id.
+       */
+      const {
+        data: feeData,
+        error: feeError,
+      } = await supabase
+        .from("fees")
+        .select(
+          "id, student_id, month, year, amount, status, payment_date, transaction_id, remarks, created_at"
+        )
+        .eq(
+          "student_id",
+          student.id
+        )
+        .order("year", {
+          ascending: false,
+        })
+        .order("month", {
+          ascending: false,
+        });
+
+      if (feeError) {
+        console.error(
+          "Fee loading error:",
+          feeError
+        );
+
+        setError(
+          "Unable to load fee information."
+        );
+
+        setFees([]);
+        setLoading(false);
+        return;
+      }
+
+      setFees(feeData || []);
     } catch (err) {
-      console.error(err);
-      setError("Unable to load fee information.");
+      console.error(
+        "Unexpected fee error:",
+        err
+      );
+
+      setError(
+        "Something went wrong while loading fees."
+      );
+
+      setFees([]);
     } finally {
       setLoading(false);
     }
   }
 
-  function formatMoney(amount: number) {
-    const value = Number(amount || 0).toLocaleString("en-IN");
-    return "Rs. " + value;
-  }
-
-  function formatDate(date: string | null) {
-    if (!date) return "-";
-
-    const d = new Date(date);
-
-    if (Number.isNaN(d.getTime())) {
-      return date;
-    }
-
-    return d.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  }
-
-  function getStatusLabel(status: string) {
-    switch (status.toUpperCase()) {
-      case "SUBMITTED":
-        return "SUBMITTED";
-
-      case "PENDING":
-        return "PENDING";
-
-      case "REFUNDED":
-        return "REFUNDED";
-
-      case "CANCELLED":
-        return "CANCELLED";
-
-      default:
-        return status.toUpperCase();
-    }
-  }
-
-  function getStatusStyle(status: string) {
-    const value = status.toUpperCase();
-
-    if (value === "SUBMITTED") {
-      return {
-        background: "#dcfce7",
-        color: "#166534",
-      };
-    }
-
-    if (value === "PENDING") {
-      return {
-        background: "#fef3c7",
-        color: "#92400e",
-      };
-    }
-
-    if (value === "REFUNDED") {
-      return {
-        background: "#dbeafe",
-        color: "#1e40af",
-      };
-    }
-
-    if (value === "CANCELLED") {
-      return {
-        background: "#fee2e2",
-        color: "#991b1b",
-      };
-    }
-
-    return {
-      background: "#f1f5f9",
-      color: "#475569",
-    };
-  }
-
   const totalFees = fees.reduce(
-    (sum, fee) => sum + Number(fee.amount || 0),
+    (sum, fee) =>
+      sum + Number(fee.amount || 0),
     0
   );
 
   const submittedFees = fees
     .filter(
-      (fee) => fee.status.toUpperCase() === "SUBMITTED"
+      (fee) =>
+        String(fee.status).toUpperCase() ===
+        "SUBMITTED"
     )
     .reduce(
-      (sum, fee) => sum + Number(fee.amount || 0),
+      (sum, fee) =>
+        sum + Number(fee.amount || 0),
       0
     );
 
   const pendingFees = fees
     .filter(
-      (fee) => fee.status.toUpperCase() === "PENDING"
+      (fee) =>
+        String(fee.status).toUpperCase() ===
+        "PENDING"
     )
     .reduce(
-      (sum, fee) => sum + Number(fee.amount || 0),
+      (sum, fee) =>
+        sum + Number(fee.amount || 0),
       0
     );
+
+  if (loading) {
+    return (
+      <main style={styles.loadingPage}>
+        <div style={styles.loadingBox}>
+          💳
+          <h2>Loading Fees...</h2>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main style={styles.page}>
       <div style={styles.container}>
 
-        <header style={styles.header}>
+        <div style={styles.header}>
           <div>
-            <div style={styles.badge}>
-              STUDENT PORTAL
-            </div>
-
             <h1 style={styles.title}>
-              My Fees
+              💳 My Fees
             </h1>
 
             <p style={styles.subtitle}>
-              View your fee records and payment status
+              {studentName}
+              {studentUsername
+                ? ` • ${studentUsername}`
+                : ""}
             </p>
-
-            {studentId && (
-              <p style={styles.username}>
-                Student: {studentName} • {studentId}
-              </p>
-            )}
           </div>
 
           <button
-            onClick={() => router.push("/student/dashboard")}
-            style={styles.backButton}
+            type="button"
+            onClick={loadFees}
+            style={styles.refreshButton}
           >
-            ← Student Dashboard
+            🔄 Refresh
           </button>
-        </header>
+        </div>
 
-        <section style={styles.statsGrid}>
+        {error && (
+          <div style={styles.error}>
+            ⚠️ {error}
+          </div>
+        )}
 
-          <div style={styles.statCard}>
-            <div style={styles.statIcon}>
+        <div style={styles.summaryGrid}>
+
+          <div style={styles.summaryCard}>
+            <div style={styles.icon}>
               💰
             </div>
 
             <div>
-              <p style={styles.statLabel}>
+              <p style={styles.label}>
                 Total Fees
               </p>
 
-              <h2 style={styles.statValue}>
-                {formatMoney(totalFees)}
+              <h2 style={styles.amount}>
+                ₹
+                {totalFees.toLocaleString(
+                  "en-IN"
+                )}
               </h2>
-
-              <p style={styles.statText}>
-                Total fee amount
-              </p>
             </div>
           </div>
 
-          <div style={styles.statCard}>
-            <div style={styles.statIcon}>
+          <div style={styles.summaryCard}>
+            <div style={styles.icon}>
               ✅
             </div>
 
             <div>
-              <p style={styles.statLabel}>
+              <p style={styles.label}>
                 Submitted
               </p>
 
-              <h2 style={styles.statValue}>
-                {formatMoney(submittedFees)}
+              <h2 style={styles.amount}>
+                ₹
+                {submittedFees.toLocaleString(
+                  "en-IN"
+                )}
               </h2>
-
-              <p style={styles.statText}>
-                Submitted amount
-              </p>
             </div>
           </div>
 
-          <div style={styles.statCard}>
-            <div style={styles.statIcon}>
-              ⚠️
+          <div style={styles.summaryCard}>
+            <div style={styles.icon}>
+              ⏳
             </div>
 
             <div>
-              <p style={styles.statLabel}>
+              <p style={styles.label}>
                 Pending
               </p>
 
-              <h2 style={styles.statValue}>
-                {formatMoney(pendingFees)}
+              <h2 style={styles.amount}>
+                ₹
+                {pendingFees.toLocaleString(
+                  "en-IN"
+                )}
               </h2>
-
-              <p style={styles.statText}>
-                Amount pending
-              </p>
             </div>
           </div>
 
-          <div style={styles.statCard}>
-            <div style={styles.statIcon}>
-              📊
-            </div>
-
-            <div>
-              <p style={styles.statLabel}>
-                Fee Records
-              </p>
-
-              <h2 style={styles.statValue}>
-                {fees.length}
-              </h2>
-
-              <p style={styles.statText}>
-                Total fee records
-              </p>
-            </div>
-          </div>
-
-        </section>
+        </div>
 
         <section style={styles.card}>
 
-          <div style={styles.sectionHeader}>
-            <div>
-              <h2 style={styles.sectionTitle}>
-                📋 Fee Details
-              </h2>
+          <h2 style={styles.sectionTitle}>
+            📋 Fee Details
+          </h2>
 
-              <p style={styles.sectionSubtitle}>
-                Complete details of your fees
-              </p>
-            </div>
+          <p style={styles.sectionSubtitle}>
+            Fees assigned by your teacher
+          </p>
 
-            <button
-              onClick={() => loadFees(studentId)}
-              style={styles.refreshButton}
-            >
-              🔄 Refresh
-            </button>
-          </div>
-
-          {loading && (
-            <div style={styles.messageBox}>
-              <div style={styles.messageIcon}>
-                ⏳
-              </div>
-
-              <h3 style={styles.messageTitle}>
-                Loading fee information...
-              </h3>
-
-              <p style={styles.messageText}>
-                Please wait.
-              </p>
-            </div>
-          )}
-
-          {!loading && error && (
-            <div style={styles.errorBox}>
-              <div style={styles.messageIcon}>
-                ❌
-              </div>
-
-              <h3 style={styles.messageTitle}>
-                Unable to load fees
-              </h3>
-
-              <p style={styles.messageText}>
-                {error}
-              </p>
-            </div>
-          )}
-
-          {!loading && !error && fees.length === 0 && (
-            <div style={styles.emptyBox}>
+          {fees.length === 0 ? (
+            <div style={styles.empty}>
               <div style={styles.emptyIcon}>
-                💰
+                💳
               </div>
 
-              <h3 style={styles.messageTitle}>
-                No fee records found
-              </h3>
+              <h3>No Fees Assigned</h3>
 
-              <p style={styles.messageText}>
-                No fee records are currently available for
-                this student.
+              <p>
+                Your teacher has not assigned
+                any fees yet.
               </p>
             </div>
-          )}
-
-          {!loading && !error && fees.length > 0 && (
+          ) : (
             <div style={styles.tableWrapper}>
               <table style={styles.table}>
                 <thead>
@@ -364,15 +337,7 @@ export default function StudentFeesPage() {
                     </th>
 
                     <th style={styles.th}>
-                      Year
-                    </th>
-
-                    <th style={styles.th}>
                       Amount
-                    </th>
-
-                    <th style={styles.th}>
-                      Payment Date
                     </th>
 
                     <th style={styles.th}>
@@ -380,74 +345,111 @@ export default function StudentFeesPage() {
                     </th>
 
                     <th style={styles.th}>
+                      Payment Date
+                    </th>
+
+                    <th style={styles.th}>
                       Transaction ID
+                    </th>
+
+                    <th style={styles.th}>
+                      Remarks
                     </th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {fees.map((fee) => (
-                    <tr key={fee.id}>
+                  {fees.map((fee) => {
+                    const status =
+                      String(
+                        fee.status || ""
+                      ).toUpperCase();
 
-                      <td style={styles.td}>
-                        {fee.month}
-                      </td>
+                    return (
+                      <tr key={fee.id}>
 
-                      <td style={styles.td}>
-                        {fee.year}
-                      </td>
+                        <td style={styles.td}>
+                          <strong>
+                            {months[fee.month] ||
+                              `Month ${fee.month}`}
+                          </strong>{" "}
+                          {fee.year}
+                        </td>
 
-                      <td style={styles.amountCell}>
-                        {formatMoney(Number(fee.amount))}
-                      </td>
+                        <td style={styles.td}>
+                          <strong>
+                            ₹
+                            {Number(
+                              fee.amount || 0
+                            ).toLocaleString(
+                              "en-IN"
+                            )}
+                          </strong>
+                        </td>
 
-                      <td style={styles.td}>
-                        {formatDate(fee.payment_date)}
-                      </td>
+                        <td style={styles.td}>
+                          <span
+                            style={{
+                              ...styles.status,
+                              background:
+                                status ===
+                                "SUBMITTED"
+                                  ? "#dcfce7"
+                                  : status ===
+                                    "PENDING"
+                                  ? "#fef3c7"
+                                  : "#e5e7eb",
+                              color:
+                                status ===
+                                "SUBMITTED"
+                                  ? "#166534"
+                                  : status ===
+                                    "PENDING"
+                                  ? "#92400e"
+                                  : "#374151",
+                            }}
+                          >
+                            {status ===
+                            "SUBMITTED"
+                              ? "✓ SUBMITTED"
+                              : status}
+                          </span>
+                        </td>
 
-                      <td style={styles.td}>
-                        <span
-                          style={{
-                            ...styles.statusBadge,
-                            ...getStatusStyle(fee.status),
-                          }}
-                        >
-                          {getStatusLabel(fee.status)}
-                        </span>
-                      </td>
+                        <td style={styles.td}>
+                          {fee.payment_date ||
+                            "—"}
+                        </td>
 
-                      <td style={styles.td}>
-                        {fee.transaction_id || "-"}
-                      </td>
+                        <td style={styles.td}>
+                          {fee.transaction_id ||
+                            "—"}
+                        </td>
 
-                    </tr>
-                  ))}
+                        <td style={styles.td}>
+                          {fee.remarks || "—"}
+                        </td>
+
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
-
         </section>
 
-        <section style={styles.infoCard}>
+        <div style={styles.info}>
+          <strong>
+            💡 Fee Information
+          </strong>
 
-          <div style={styles.infoIcon}>
-            💡
-          </div>
-
-          <div>
-            <h3 style={styles.infoTitle}>
-              Fee Information
-            </h3>
-
-            <p style={styles.infoText}>
-              Your fee records are shown according to
-              the information available for your student
-              account.
-            </p>
-          </div>
-
-        </section>
+          <p>
+            Fees are assigned and managed by
+            your teacher. You can only view
+            fees assigned to your account.
+          </p>
+        </div>
 
         <footer style={styles.footer}>
           Attendance Portal • Student Fees • 2026
@@ -458,16 +460,36 @@ export default function StudentFeesPage() {
   );
 }
 
-const styles: {
-  [key: string]: React.CSSProperties;
-} = {
+const styles: Record<
+  string,
+  React.CSSProperties
+> = {
+  loadingPage: {
+    minHeight: "100vh",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "#f5f7fb",
+    fontFamily: "Arial, sans-serif",
+  },
+
+  loadingBox: {
+    background: "white",
+    padding: "40px",
+    borderRadius: "18px",
+    textAlign: "center",
+    boxShadow:
+      "0 8px 25px rgba(0,0,0,0.08)",
+    fontSize: "40px",
+  },
+
   page: {
     minHeight: "100vh",
-    background:
-      "linear-gradient(135deg,#eff6ff,#f8fafc,#eef2ff)",
-    padding: "20px 15px",
+    background: "#f5f7fb",
+    padding: "24px",
+    fontFamily:
+      "Arial, Helvetica, sans-serif",
     boxSizing: "border-box",
-    fontFamily: "Arial, Helvetica, sans-serif",
   },
 
   container: {
@@ -477,148 +499,99 @@ const styles: {
   },
 
   header: {
-    background: "white",
-    borderRadius: "20px",
-    padding: "25px",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: "20px",
+    gap: "15px",
+    marginBottom: "25px",
     flexWrap: "wrap",
-    boxShadow:
-      "0 8px 25px rgba(15,23,42,0.08)",
-    marginBottom: "20px",
-  },
-
-  badge: {
-    display: "inline-block",
-    background: "#dbeafe",
-    color: "#1d4ed8",
-    padding: "6px 10px",
-    borderRadius: "999px",
-    fontSize: "10px",
-    fontWeight: "800",
-    letterSpacing: "1px",
   },
 
   title: {
-    margin: "8px 0 0",
-    color: "#172554",
-    fontSize: "30px",
-    fontWeight: "800",
+    margin: 0,
+    color: "#111827",
+    fontSize: "32px",
+    fontWeight: 800,
   },
 
   subtitle: {
-    margin: "6px 0 0",
-    color: "#64748b",
-    fontSize: "14px",
+    margin: "7px 0 0",
+    color: "#6b7280",
+    fontSize: "15px",
   },
 
-  username: {
-    margin: "8px 0 0",
-    color: "#475569",
-    fontSize: "12px",
-    fontWeight: "700",
-  },
-
-  backButton: {
+  refreshButton: {
     border: "none",
-    background: "#1e3a8a",
+    background: "#111827",
     color: "white",
-    padding: "12px 18px",
-    borderRadius: "10px",
-    fontWeight: "700",
+    padding: "11px 17px",
+    borderRadius: "9px",
     cursor: "pointer",
+    fontWeight: 700,
   },
 
-  statsGrid: {
+  error: {
+    background: "#fee2e2",
+    color: "#991b1b",
+    padding: "14px",
+    borderRadius: "10px",
+    marginBottom: "20px",
+    fontWeight: 600,
+  },
+
+  summaryGrid: {
     display: "grid",
     gridTemplateColumns:
       "repeat(auto-fit,minmax(220px,1fr))",
-    gap: "15px",
-    marginBottom: "20px",
+    gap: "16px",
+    marginBottom: "25px",
   },
 
-  statCard: {
+  summaryCard: {
     background: "white",
-    borderRadius: "18px",
+    borderRadius: "15px",
     padding: "20px",
     display: "flex",
     alignItems: "center",
-    gap: "14px",
+    gap: "15px",
     boxShadow:
-      "0 8px 25px rgba(15,23,42,0.07)",
+      "0 4px 14px rgba(0,0,0,0.06)",
   },
 
-  statIcon: {
-    width: "52px",
-    height: "52px",
-    borderRadius: "14px",
-    background: "#eff6ff",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+  icon: {
+    fontSize: "30px",
+  },
+
+  label: {
+    margin: 0,
+    color: "#6b7280",
+    fontSize: "14px",
+  },
+
+  amount: {
+    margin: "5px 0 0",
+    color: "#111827",
     fontSize: "25px",
-    flexShrink: 0,
-  },
-
-  statLabel: {
-    margin: 0,
-    color: "#64748b",
-    fontSize: "12px",
-    fontWeight: "700",
-  },
-
-  statValue: {
-    margin: "4px 0",
-    color: "#172554",
-    fontSize: "22px",
-  },
-
-  statText: {
-    margin: 0,
-    color: "#94a3b8",
-    fontSize: "11px",
   },
 
   card: {
     background: "white",
-    borderRadius: "20px",
-    padding: "24px",
+    borderRadius: "15px",
+    padding: "25px",
     boxShadow:
-      "0 8px 25px rgba(15,23,42,0.08)",
-  },
-
-  sectionHeader: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "15px",
-    flexWrap: "wrap",
-    marginBottom: "20px",
+      "0 4px 14px rgba(0,0,0,0.06)",
   },
 
   sectionTitle: {
     margin: 0,
-    color: "#172554",
-    fontSize: "21px",
-    fontWeight: "800",
+    color: "#111827",
+    fontSize: "23px",
   },
 
   sectionSubtitle: {
-    margin: "5px 0 0",
-    color: "#64748b",
-    fontSize: "13px",
-  },
-
-  refreshButton: {
-    border: "1px solid #bfdbfe",
-    background: "#eff6ff",
-    color: "#1d4ed8",
-    padding: "9px 14px",
-    borderRadius: "9px",
-    fontWeight: "700",
-    cursor: "pointer",
+    color: "#6b7280",
+    marginTop: "7px",
+    marginBottom: "20px",
   },
 
   tableWrapper: {
@@ -628,118 +601,59 @@ const styles: {
 
   table: {
     width: "100%",
+    minWidth: "800px",
     borderCollapse: "collapse",
-    minWidth: "750px",
   },
 
   th: {
-    background: "#eff6ff",
-    color: "#1e3a8a",
-    padding: "13px 10px",
+    background: "#f9fafb",
+    color: "#374151",
+    padding: "13px",
     textAlign: "left",
-    fontSize: "12px",
-    fontWeight: "800",
-    borderBottom: "1px solid #dbeafe",
+    borderBottom:
+      "1px solid #e5e7eb",
+    fontSize: "13px",
   },
 
   td: {
-    padding: "14px 10px",
-    color: "#475569",
-    fontSize: "12px",
-    borderBottom: "1px solid #e2e8f0",
+    padding: "14px 13px",
+    borderBottom:
+      "1px solid #e5e7eb",
+    color: "#374151",
+    fontSize: "14px",
   },
 
-  amountCell: {
-    padding: "14px 10px",
-    color: "#172554",
-    fontSize: "13px",
-    fontWeight: "800",
-    borderBottom: "1px solid #e2e8f0",
-  },
-
-  statusBadge: {
+  status: {
     display: "inline-block",
-    padding: "6px 9px",
+    padding: "6px 10px",
     borderRadius: "999px",
-    fontSize: "10px",
-    fontWeight: "800",
+    fontSize: "12px",
+    fontWeight: 700,
+    whiteSpace: "nowrap",
   },
 
-  messageBox: {
+  empty: {
     textAlign: "center",
-    padding: "45px 20px",
-    background: "#f8fafc",
-    borderRadius: "15px",
-  },
-
-  emptyBox: {
-    textAlign: "center",
-    padding: "45px 20px",
-    background: "#f8fafc",
-    borderRadius: "15px",
-  },
-
-  errorBox: {
-    textAlign: "center",
-    padding: "45px 20px",
-    background: "#fef2f2",
-    borderRadius: "15px",
+    padding: "50px 10px",
+    color: "#6b7280",
   },
 
   emptyIcon: {
-    fontSize: "45px",
-    marginBottom: "10px",
+    fontSize: "50px",
   },
 
-  messageIcon: {
-    fontSize: "35px",
-    marginBottom: "10px",
-  },
-
-  messageTitle: {
-    margin: 0,
-    color: "#172554",
-    fontSize: "17px",
-  },
-
-  messageText: {
-    margin: "7px 0 0",
-    color: "#64748b",
-    fontSize: "13px",
-  },
-
-  infoCard: {
+  info: {
     marginTop: "20px",
     background: "#eff6ff",
-    border: "1px solid #dbeafe",
-    borderRadius: "18px",
-    padding: "20px",
-    display: "flex",
-    gap: "14px",
-    alignItems: "flex-start",
-  },
-
-  infoIcon: {
-    fontSize: "27px",
-  },
-
-  infoTitle: {
-    margin: 0,
-    color: "#1e3a8a",
-    fontSize: "16px",
-  },
-
-  infoText: {
-    margin: "6px 0 0",
-    color: "#475569",
-    fontSize: "13px",
-    lineHeight: 1.5,
+    color: "#1e40af",
+    padding: "18px",
+    borderRadius: "12px",
   },
 
   footer: {
     textAlign: "center",
-    padding: "25px 10px 10px",
-    color: "#64748b",
-    fontSize: "12px",
+    color: "#9ca3af",
+    marginTop: "25px",
+    fontSize: "13px",
   },
 };
