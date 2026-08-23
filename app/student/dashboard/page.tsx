@@ -2,12 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { supabase } from "../../../lib/supabase";
 
 type AttendanceRecord = {
   id: number;
@@ -33,29 +28,48 @@ export default function StudentDashboard() {
     setError("");
 
     try {
+      /*
+       * LOGIN PAGE SAVES THESE KEYS:
+       * studentLoggedIn
+       * studentId
+       * studentUsername
+       * studentName
+       */
+
+      const loggedIn =
+        localStorage.getItem("studentLoggedIn") === "true";
+
       const savedUsername =
+        localStorage.getItem("studentUsername") ||
+        sessionStorage.getItem("studentUsername") ||
         localStorage.getItem("student_username") ||
         sessionStorage.getItem("student_username") ||
         "";
 
       const savedName =
+        localStorage.getItem("studentName") ||
+        sessionStorage.getItem("studentName") ||
         localStorage.getItem("student_name") ||
         sessionStorage.getItem("student_name") ||
         "";
 
-      if (!savedUsername) {
-        router.push("/student");
+      if (!loggedIn || !savedUsername) {
+        router.replace("/student");
         return;
       }
 
       setUsername(savedUsername);
       setName(savedName);
 
-      const { data: student, error: studentError } = await supabase
-        .from("students")
-        .select("id, student_name, student_username")
-        .ilike("student_username", savedUsername.trim())
-        .maybeSingle();
+      const { data: student, error: studentError } =
+        await supabase
+          .from("students")
+          .select("id, student_name, student_username")
+          .ilike(
+            "student_username",
+            savedUsername.trim()
+          )
+          .maybeSingle();
 
       if (studentError) {
         throw new Error(studentError.message);
@@ -67,20 +81,64 @@ export default function StudentDashboard() {
         return;
       }
 
-      setName(student.student_name || savedName || savedUsername);
+      const actualName =
+        student.student_name ||
+        savedName ||
+        savedUsername;
 
-      const { data: attendance, error: attendanceError } = await supabase
+      const actualUsername =
+        student.student_username ||
+        savedUsername;
+
+      setName(actualName);
+      setUsername(actualUsername);
+
+      /*
+       * Keep login information synchronized.
+       */
+      localStorage.setItem(
+        "studentLoggedIn",
+        "true"
+      );
+
+      localStorage.setItem(
+        "studentId",
+        String(student.id)
+      );
+
+      localStorage.setItem(
+        "studentUsername",
+        actualUsername
+      );
+
+      localStorage.setItem(
+        "studentName",
+        actualName
+      );
+
+      const {
+        data: attendance,
+        error: attendanceError,
+      } = await supabase
         .from("attendance")
-        .select("id, attendance_date, status")
+        .select(
+          "id, attendance_date, status"
+        )
         .eq("student_id", student.id)
-        .order("attendance_date", { ascending: false });
+        .order("attendance_date", {
+          ascending: false,
+        });
 
       if (attendanceError) {
-        throw new Error(attendanceError.message);
+        throw new Error(
+          attendanceError.message
+        );
       }
 
       setRecords(attendance || []);
     } catch (err) {
+      console.error(err);
+
       setError(
         err instanceof Error
           ? err.message
@@ -92,28 +150,66 @@ export default function StudentDashboard() {
   }
 
   function logout() {
-    localStorage.removeItem("student_username");
-    localStorage.removeItem("student_name");
+    localStorage.removeItem(
+      "studentLoggedIn"
+    );
 
-    sessionStorage.removeItem("student_username");
-    sessionStorage.removeItem("student_name");
+    localStorage.removeItem("studentId");
 
-    router.push("/student");
+    localStorage.removeItem(
+      "studentUsername"
+    );
+
+    localStorage.removeItem(
+      "studentName"
+    );
+
+    localStorage.removeItem(
+      "student_username"
+    );
+
+    localStorage.removeItem(
+      "student_name"
+    );
+
+    sessionStorage.removeItem(
+      "studentUsername"
+    );
+
+    sessionStorage.removeItem(
+      "studentName"
+    );
+
+    sessionStorage.removeItem(
+      "student_username"
+    );
+
+    sessionStorage.removeItem(
+      "student_name"
+    );
+
+    router.replace("/student");
   }
 
   const presentCount = records.filter(
-    (r) => r.status?.toLowerCase() === "present"
+    (r) =>
+      r.status?.toLowerCase() ===
+      "present"
   ).length;
 
   const absentCount = records.filter(
-    (r) => r.status?.toLowerCase() === "absent"
+    (r) =>
+      r.status?.toLowerCase() ===
+      "absent"
   ).length;
 
   const totalCount = records.length;
 
   const percentage =
     totalCount > 0
-      ? Math.round((presentCount / totalCount) * 100)
+      ? Math.round(
+          (presentCount / totalCount) * 100
+        )
       : 0;
 
   if (loading) {
@@ -121,8 +217,23 @@ export default function StudentDashboard() {
       <main style={styles.page}>
         <div style={styles.loadingCard}>
           <div style={styles.spinner}></div>
-          <h2>Loading Attendance...</h2>
-          <p>Please wait.</p>
+
+          <h2
+            style={{
+              color: "#172554",
+              marginBottom: "8px",
+            }}
+          >
+            Loading Attendance...
+          </h2>
+
+          <p
+            style={{
+              color: "#64748b",
+            }}
+          >
+            Please wait.
+          </p>
         </div>
       </main>
     );
@@ -132,9 +243,13 @@ export default function StudentDashboard() {
     <main style={styles.page}>
       <div style={styles.container}>
 
+        {/* HEADER */}
+
         <header style={styles.header}>
           <div>
-            <h1 style={styles.title}>Student Dashboard</h1>
+            <h1 style={styles.title}>
+              Student Dashboard
+            </h1>
 
             <p style={styles.subtitle}>
               Attendance Management System
@@ -149,10 +264,14 @@ export default function StudentDashboard() {
           </button>
         </header>
 
+        {/* PROFILE */}
+
         <section style={styles.profileCard}>
           <div style={styles.avatar}>
             {name
-              ? name.charAt(0).toUpperCase()
+              ? name
+                  .charAt(0)
+                  .toUpperCase()
               : "S"}
           </div>
 
@@ -162,16 +281,23 @@ export default function StudentDashboard() {
             </h2>
 
             <p style={styles.username}>
-              Username: <strong>{username}</strong>
+              Username:{" "}
+              <strong>
+                {username}
+              </strong>
             </p>
           </div>
         </section>
+
+        {/* ERROR */}
 
         {error && (
           <div style={styles.error}>
             ❌ {error}
           </div>
         )}
+
+        {/* STATISTICS */}
 
         <section style={styles.statsGrid}>
 
@@ -209,16 +335,19 @@ export default function StudentDashboard() {
 
         </section>
 
+        {/* ATTENDANCE */}
+
         <section style={styles.attendanceCard}>
 
           <div style={styles.sectionHeader}>
+
             <div>
               <h2 style={styles.sectionTitle}>
                 Attendance History
               </h2>
 
               <p style={styles.sectionSubtitle}>
-                Your attendance records from Supabase
+                Your attendance records
               </p>
             </div>
 
@@ -228,74 +357,120 @@ export default function StudentDashboard() {
             >
               🔄 Refresh
             </button>
+
           </div>
 
           {records.length === 0 ? (
-            <div style={styles.empty}>
-              <div style={styles.emptyIcon}>📅</div>
 
-              <h3>No Attendance Found</h3>
+            <div style={styles.empty}>
+
+              <div style={styles.emptyIcon}>
+                📅
+              </div>
+
+              <h3
+                style={{
+                  color: "#172554",
+                  marginBottom: "8px",
+                }}
+              >
+                No Attendance Found
+              </h3>
 
               <p>
-                Your teacher has not marked any attendance yet.
+                Your teacher has not marked
+                any attendance yet.
               </p>
+
             </div>
+
           ) : (
+
             <div style={styles.tableWrapper}>
+
               <table style={styles.table}>
+
                 <thead>
                   <tr>
-                    <th style={styles.th}>#</th>
-                    <th style={styles.th}>Date</th>
-                    <th style={styles.th}>Status</th>
+                    <th style={styles.th}>
+                      #
+                    </th>
+
+                    <th style={styles.th}>
+                      Date
+                    </th>
+
+                    <th style={styles.th}>
+                      Status
+                    </th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {records.map((record, index) => {
-                    const isPresent =
-                      record.status?.toLowerCase() ===
-                      "present";
 
-                    return (
-                      <tr key={record.id || index}>
+                  {records.map(
+                    (record, index) => {
 
-                        <td style={styles.td}>
-                          {index + 1}
-                        </td>
+                      const isPresent =
+                        record.status
+                          ?.toLowerCase() ===
+                        "present";
 
-                        <td style={styles.td}>
-                          {formatDate(
-                            record.attendance_date
-                          )}
-                        </td>
+                      return (
+                        <tr
+                          key={
+                            record.id ||
+                            index
+                          }
+                        >
 
-                        <td style={styles.td}>
-                          <span
-                            style={
-                              isPresent
-                                ? styles.present
-                                : styles.absent
-                            }
+                          <td
+                            style={styles.td}
                           >
-                            {isPresent
-                              ? "✓ Present"
-                              : "✗ Absent"}
-                          </span>
-                        </td>
+                            {index + 1}
+                          </td>
 
-                      </tr>
-                    );
-                  })}
+                          <td
+                            style={styles.td}
+                          >
+                            {formatDate(
+                              record.attendance_date
+                            )}
+                          </td>
+
+                          <td
+                            style={styles.td}
+                          >
+                            <span
+                              style={
+                                isPresent
+                                  ? styles.present
+                                  : styles.absent
+                              }
+                            >
+                              {isPresent
+                                ? "✓ Present"
+                                : "✗ Absent"}
+                            </span>
+                          </td>
+
+                        </tr>
+                      );
+                    }
+                  )}
+
                 </tbody>
+
               </table>
+
             </div>
           )}
 
         </section>
 
         <footer style={styles.footer}>
-          Student Attendance Management System © 2026
+          Student Attendance Management System
+          © 2026
         </footer>
 
       </div>
@@ -342,25 +517,36 @@ function StatCard({
   );
 }
 
-function formatDate(dateString: string) {
+function formatDate(
+  dateString: string
+) {
   if (!dateString) return "-";
 
-  const date = new Date(dateString);
+  const date =
+    new Date(dateString);
 
-  if (Number.isNaN(date.getTime())) {
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
     return dateString;
   }
 
-  return date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  return date.toLocaleDateString(
+    "en-IN",
+    {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }
+  );
 }
 
 const styles: {
   [key: string]: React.CSSProperties;
 } = {
+
   page: {
     minHeight: "100vh",
     background:
@@ -383,7 +569,8 @@ const styles: {
     padding: "22px",
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     gap: "15px",
     boxShadow:
       "0 8px 25px rgba(15,23,42,0.08)",
@@ -454,7 +641,8 @@ const styles: {
 
   error: {
     background: "#fee2e2",
-    border: "2px solid #fca5a5",
+    border:
+      "2px solid #fca5a5",
     color: "#991b1b",
     padding: "14px",
     borderRadius: "12px",
@@ -510,7 +698,8 @@ const styles: {
   sectionHeader: {
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     gap: "15px",
     marginBottom: "20px",
   },
@@ -544,7 +733,8 @@ const styles: {
 
   table: {
     width: "100%",
-    borderCollapse: "collapse",
+    borderCollapse:
+      "collapse",
     minWidth: "500px",
   },
 
@@ -614,7 +804,8 @@ const styles: {
     borderTop:
       "5px solid #2563eb",
     borderRadius: "50%",
-    margin: "0 auto 20px",
+    margin:
+      "0 auto 20px",
     animation:
       "spin 1s linear infinite",
   },
