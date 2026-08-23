@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 type Student = {
   id: number;
@@ -47,7 +52,9 @@ export default function DashboardPage() {
 
     if (error) {
       console.error("Students error:", error);
-      setMessage("Students load nahi ho rahe: " + error.message);
+      setMessage(
+        "Students load nahi ho rahe: " + error.message
+      );
       setLoading(false);
       return;
     }
@@ -69,14 +76,19 @@ export default function DashboardPage() {
 
     const result: Record<number, string> = {};
 
-    (data || []).forEach((item: AttendanceRecord) => {
-      result[item.student_id] = item.status;
-    });
+    (data || []).forEach(
+      (item: AttendanceRecord) => {
+        result[item.student_id] = item.status;
+      }
+    );
 
     setAttendance(result);
   }
 
-  function markAttendance(studentId: number, status: string) {
+  function markAttendance(
+    studentId: number,
+    status: string
+  ) {
     setAttendance((prev) => ({
       ...prev,
       [studentId]: status,
@@ -101,7 +113,9 @@ export default function DashboardPage() {
       }));
 
     if (rows.length === 0) {
-      setMessage("Pehle Present ya Absent mark karo.");
+      setMessage(
+        "Pehle Present ya Absent mark karo."
+      );
       setSaving(false);
       return;
     }
@@ -109,17 +123,28 @@ export default function DashboardPage() {
     const { error } = await supabase
       .from("attendance")
       .upsert(rows, {
-        onConflict: "student_id,attendance_date",
+        onConflict:
+          "student_id,attendance_date",
       });
 
     if (error) {
-      console.error("Save attendance error:", error);
-      setMessage("Attendance save nahi hui: " + error.message);
+      console.error(
+        "Save attendance error:",
+        error
+      );
+
+      setMessage(
+        "Attendance save nahi hui: " +
+          error.message
+      );
+
       setSaving(false);
       return;
     }
 
-    setMessage("✅ Attendance successfully save ho gayi!");
+    setMessage(
+      "✅ Attendance successfully save ho gayi!"
+    );
 
     await loadAttendance();
 
@@ -152,13 +177,15 @@ export default function DashboardPage() {
         }}
       >
         {/* HEADER */}
+
         <div
           style={{
             background: "white",
             borderRadius: "16px",
             padding: "22px",
             marginBottom: "20px",
-            boxShadow: "0 4px 15px rgba(0,0,0,0.08)",
+            boxShadow:
+              "0 4px 15px rgba(0,0,0,0.08)",
           }}
         >
           <h1
@@ -182,13 +209,15 @@ export default function DashboardPage() {
         </div>
 
         {/* DATE */}
+
         <div
           style={{
             background: "white",
             borderRadius: "16px",
             padding: "20px",
             marginBottom: "20px",
-            boxShadow: "0 4px 15px rgba(0,0,0,0.08)",
+            boxShadow:
+              "0 4px 15px rgba(0,0,0,0.08)",
           }}
         >
           <label
@@ -204,7 +233,9 @@ export default function DashboardPage() {
           <input
             type="date"
             value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
+            onChange={(e) =>
+              setSelectedDate(e.target.value)
+            }
             style={{
               padding: "11px 14px",
               border: "1px solid #ccc",
@@ -214,7 +245,8 @@ export default function DashboardPage() {
           />
         </div>
 
-        {/* TOP BUTTONS */}
+        {/* BUTTONS */}
+
         <div
           style={{
             display: "flex",
@@ -224,7 +256,9 @@ export default function DashboardPage() {
           }}
         >
           <button
-            onClick={() => markAll("Present")}
+            onClick={() =>
+              markAll("Present")
+            }
             style={{
               padding: "12px 18px",
               border: "none",
@@ -239,7 +273,9 @@ export default function DashboardPage() {
           </button>
 
           <button
-            onClick={() => markAll("Absent")}
+            onClick={() =>
+              markAll("Absent")
+            }
             style={{
               padding: "12px 18px",
               border: "none",
@@ -263,14 +299,19 @@ export default function DashboardPage() {
               background: "#0d6efd",
               color: "white",
               fontWeight: 600,
-              cursor: saving ? "not-allowed" : "pointer",
+              cursor: saving
+                ? "not-allowed"
+                : "pointer",
             }}
           >
-            {saving ? "Saving..." : "💾 Save Attendance"}
+            {saving
+              ? "Saving..."
+              : "💾 Save Attendance"}
           </button>
         </div>
 
         {/* MESSAGE */}
+
         {message && (
           <div
             style={{
@@ -286,12 +327,14 @@ export default function DashboardPage() {
         )}
 
         {/* STUDENTS */}
+
         <div
           style={{
             background: "white",
             borderRadius: "16px",
             padding: "20px",
-            boxShadow: "0 4px 15px rgba(0,0,0,0.08)",
+            boxShadow:
+              "0 4px 15px rgba(0,0,0,0.08)",
           }}
         >
           <div
@@ -329,7 +372,8 @@ export default function DashboardPage() {
                 borderRadius: "10px",
               }}
             >
-              ⚠️ Students table se koi student nahi mil raha.
+              ⚠️ Students table se koi student
+              nahi mil raha.
             </div>
           ) : (
             <div
@@ -339,107 +383,137 @@ export default function DashboardPage() {
                 gap: "12px",
               }}
             >
-              {students.map((student, index) => {
-                const status = attendance[student.id];
+              {students.map(
+                (student, index) => {
+                  const status =
+                    attendance[student.id];
 
-                return (
-                  <div
-                    key={student.id}
-                    style={{
-                      border: "1px solid #e5e7eb",
-                      borderRadius: "12px",
-                      padding: "15px",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      gap: "15px",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    {/* STUDENT INFO */}
-                    <div>
-                      <div
-                        style={{
-                          fontWeight: 700,
-                          fontSize: "17px",
-                        }}
-                      >
-                        {index + 1}. {student.student_name || "Student"}
-                      </div>
-
-                      <div
-                        style={{
-                          color: "#777",
-                          fontSize: "14px",
-                          marginTop: "4px",
-                        }}
-                      >
-                        Username: {student.student_username}
-                      </div>
-                    </div>
-
-                    {/* ATTENDANCE BUTTONS */}
+                  return (
                     <div
+                      key={student.id}
                       style={{
+                        border:
+                          "1px solid #e5e7eb",
+                        borderRadius: "12px",
+                        padding: "15px",
                         display: "flex",
-                        gap: "8px",
+                        justifyContent:
+                          "space-between",
+                        alignItems: "center",
+                        gap: "15px",
+                        flexWrap: "wrap",
                       }}
                     >
-                      <button
-                        onClick={() =>
-                          markAttendance(student.id, "Present")
-                        }
-                        style={{
-                          padding: "9px 15px",
-                          borderRadius: "8px",
-                          border:
-                            status === "Present"
-                              ? "2px solid #198754"
-                              : "1px solid #ccc",
-                          background:
-                            status === "Present"
-                              ? "#198754"
-                              : "white",
-                          color:
-                            status === "Present"
-                              ? "white"
-                              : "#198754",
-                          fontWeight: 600,
-                          cursor: "pointer",
-                        }}
-                      >
-                        ✓ Present
-                      </button>
+                      {/* STUDENT */}
 
-                      <button
-                        onClick={() =>
-                          markAttendance(student.id, "Absent")
-                        }
+                      <div>
+                        <div
+                          style={{
+                            fontWeight: 700,
+                            fontSize: "17px",
+                          }}
+                        >
+                          {index + 1}.{" "}
+                          {student.student_name ||
+                            "Student"}
+                        </div>
+
+                        <div
+                          style={{
+                            color: "#777",
+                            fontSize: "14px",
+                            marginTop: "4px",
+                          }}
+                        >
+                          Username:{" "}
+                          {
+                            student.student_username
+                          }
+                        </div>
+                      </div>
+
+                      {/* ATTENDANCE */}
+
+                      <div
                         style={{
-                          padding: "9px 15px",
-                          borderRadius: "8px",
-                          border:
-                            status === "Absent"
-                              ? "2px solid #dc3545"
-                              : "1px solid #ccc",
-                          background:
-                            status === "Absent"
-                              ? "#dc3545"
-                              : "white",
-                          color:
-                            status === "Absent"
-                              ? "white"
-                              : "#dc3545",
-                          fontWeight: 600,
-                          cursor: "pointer",
+                          display: "flex",
+                          gap: "8px",
                         }}
                       >
-                        ✕ Absent
-                      </button>
+                        <button
+                          onClick={() =>
+                            markAttendance(
+                              student.id,
+                              "Present"
+                            )
+                          }
+                          style={{
+                            padding:
+                              "9px 15px",
+                            borderRadius:
+                              "8px",
+                            border:
+                              status ===
+                              "Present"
+                                ? "2px solid #198754"
+                                : "1px solid #ccc",
+                            background:
+                              status ===
+                              "Present"
+                                ? "#198754"
+                                : "white",
+                            color:
+                              status ===
+                              "Present"
+                                ? "white"
+                                : "#198754",
+                            fontWeight: 600,
+                            cursor:
+                              "pointer",
+                          }}
+                        >
+                          ✓ Present
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            markAttendance(
+                              student.id,
+                              "Absent"
+                            )
+                          }
+                          style={{
+                            padding:
+                              "9px 15px",
+                            borderRadius:
+                              "8px",
+                            border:
+                              status ===
+                              "Absent"
+                                ? "2px solid #dc3545"
+                                : "1px solid #ccc",
+                            background:
+                              status ===
+                              "Absent"
+                                ? "#dc3545"
+                                : "white",
+                            color:
+                              status ===
+                              "Absent"
+                                ? "white"
+                                : "#dc3545",
+                            fontWeight: 600,
+                            cursor:
+                              "pointer",
+                          }}
+                        >
+                          ✕ Absent
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                }
+              )}
             </div>
           )}
         </div>
