@@ -13,6 +13,11 @@ type CalendarEvent = {
   description: string;
 };
 
+/* =========================================================
+   TUITION HOLIDAYS / SPECIAL EVENTS
+   Sundays and Saturdays are handled automatically below.
+   ========================================================= */
+
 const specialEvents: CalendarEvent[] = [
   {
     id: 1,
@@ -128,32 +133,6 @@ function getSpecialEvent(date: string) {
   return specialEvents.find((event) => event.date === date);
 }
 
-function getEventColor(type: EventType) {
-  switch (type) {
-    case "TEST":
-      return "#2563eb";
-    case "HOLIDAY":
-      return "#16a34a";
-    case "EVENT":
-      return "#7c3aed";
-    default:
-      return "#64748b";
-  }
-}
-
-function getEventBackground(type: EventType) {
-  switch (type) {
-    case "TEST":
-      return "#eff6ff";
-    case "HOLIDAY":
-      return "#f0fdf4";
-    case "EVENT":
-      return "#f5f3ff";
-    default:
-      return "#f8fafc";
-  }
-}
-
 export default function StudentCalendarPage() {
   const router = useRouter();
 
@@ -242,8 +221,7 @@ export default function StudentCalendarPage() {
       return {
         type: "SUNDAY",
         title: "Sunday OFF",
-        description:
-          "Tuition is closed every Sunday.",
+        description: "Tuition is closed every Sunday.",
         color: "#dc2626",
         background: "#fef2f2",
         event: null,
@@ -256,15 +234,13 @@ export default function StudentCalendarPage() {
         date: dateString,
         title: "Weekly Test",
         type: "TEST",
-        description:
-          "Weekly test for tuition students.",
+        description: "Weekly test for tuition students.",
       };
 
       return {
         type: "TEST",
         title: "Weekly Test",
-        description:
-          "Weekly test for tuition students.",
+        description: "Weekly test for tuition students.",
         color: "#2563eb",
         background: "#eff6ff",
         event: testEvent,
@@ -321,6 +297,7 @@ export default function StudentCalendarPage() {
     <main style={styles.page}>
       <div style={styles.container}>
 
+        {/* HEADER */}
         <header style={styles.header}>
           <div>
             <div style={styles.smallLabel}>
@@ -347,6 +324,7 @@ export default function StudentCalendarPage() {
           </button>
         </header>
 
+        {/* CALENDAR */}
         <section style={styles.calendarCard}>
 
           <div style={styles.calendarTop}>
@@ -403,6 +381,7 @@ export default function StudentCalendarPage() {
           <div style={styles.calendarGrid}>
 
             {calendarDays.map((day, index) => {
+
               if (day === null) {
                 return (
                   <div
@@ -434,6 +413,9 @@ export default function StudentCalendarPage() {
                     ...(info.type === "TEST"
                       ? styles.testCell
                       : {}),
+                    cursor: info.event
+                      ? "pointer"
+                      : "default",
                   }}
                 >
 
@@ -477,6 +459,7 @@ export default function StudentCalendarPage() {
 
         </section>
 
+        {/* LEGEND */}
         <section style={styles.card}>
 
           <h2 style={styles.sectionTitle}>
@@ -524,6 +507,7 @@ export default function StudentCalendarPage() {
           </div>
         </section>
 
+        {/* MONTH EVENTS */}
         <section style={styles.card}>
 
           <h2 style={styles.sectionTitle}>
@@ -550,10 +534,10 @@ export default function StudentCalendarPage() {
                   }
                   style={{
                     ...styles.eventCard,
-                    borderLeftWidth: "5px",
-                    borderLeftStyle: "solid",
-                    borderLeftColor:
-                      getEventColor(event.type),
+                    borderLeft:
+                      `5px solid ${
+                        getEventColor(event.type)
+                      }`,
                   }}
                 >
 
@@ -602,6 +586,7 @@ export default function StudentCalendarPage() {
 
         </section>
 
+        {/* MODAL */}
         {selectedEvent && (
           <div
             style={styles.modalOverlay}
@@ -673,6 +658,38 @@ export default function StudentCalendarPage() {
       </div>
     </main>
   );
+}
+
+function getEventColor(type: EventType) {
+  switch (type) {
+    case "TEST":
+      return "#2563eb";
+
+    case "HOLIDAY":
+      return "#16a34a";
+
+    case "EVENT":
+      return "#7c3aed";
+
+    default:
+      return "#64748b";
+  }
+}
+
+function getEventBackground(type: EventType) {
+  switch (type) {
+    case "TEST":
+      return "#eff6ff";
+
+    case "HOLIDAY":
+      return "#f0fdf4";
+
+    case "EVENT":
+      return "#f5f3ff";
+
+    default:
+      return "#f8fafc";
+  }
 }
 
 function Legend({
@@ -869,9 +886,7 @@ const styles: {
 
   dayCell: {
     minHeight: "82px",
-    borderWidth: "1px",
-    borderStyle: "solid",
-    borderColor: "#e2e8f0",
+    border: "1px solid #e2e8f0",
     borderRadius: "7px",
     padding: "6px",
     background: "white",
@@ -881,20 +896,18 @@ const styles: {
   },
 
   todayCell: {
-    borderWidth: "2px",
-    borderStyle: "solid",
-    borderColor: "#2563eb",
+    border: "2px solid #2563eb",
     background: "#f8fbff",
   },
 
   sundayCell: {
-    borderColor: "#fecaca",
     background: "#fffafa",
+    borderColor: "#fecaca",
   },
 
   testCell: {
-    borderColor: "#bfdbfe",
     background: "#f8fbff",
+    borderColor: "#bfdbfe",
   },
 
   dayNumber: {
@@ -1002,9 +1015,7 @@ const styles: {
 
   eventCard: {
     width: "100%",
-    borderWidth: "1px",
-    borderStyle: "solid",
-    borderColor: "#e2e8f0",
+    border: "1px solid #e2e8f0",
     background: "#f8fafc",
     borderRadius: "10px",
     padding: "12px",
@@ -1129,89 +1140,5 @@ const styles: {
     padding: "20px 10px 8px",
     color: "#64748b",
     fontSize: "11px",
-  },
-
-  "@media (max-width: 600px)": {
-    page: {
-      padding: "10px",
-    },
-
-    header: {
-      padding: "16px",
-    },
-
-    title: {
-      fontSize: "23px",
-    },
-
-    subtitle: {
-      fontSize: "12px",
-    },
-
-    dashboardButton: {
-      width: "100%",
-    },
-
-    calendarCard: {
-      padding: "8px",
-    },
-
-    monthTitle: {
-      minWidth: "150px",
-      fontSize: "18px",
-    },
-
-    navigationButton: {
-      width: "36px",
-      height: "36px",
-    },
-
-    weekDay: {
-      padding: "8px 2px",
-      fontSize: "9px",
-    },
-
-    dayCell: {
-      minHeight: "68px",
-      padding: "4px",
-    },
-
-    emptyCell: {
-      minHeight: "68px",
-    },
-
-    dayNumber: {
-      fontSize: "11px",
-    },
-
-    dayStatus: {
-      fontSize: "7px",
-      padding: "2px 3px",
-    },
-
-    dayTitle: {
-      fontSize: "7px",
-    },
-
-    card: {
-      padding: "15px",
-    },
-
-    eventCard: {
-      padding: "10px",
-    },
-
-    eventTitle: {
-      fontSize: "12px",
-    },
-
-    eventDescription: {
-      fontSize: "9px",
-    },
-
-    typeBadge: {
-      fontSize: "7px",
-      padding: "5px 6px",
-    },
   },
 };
