@@ -88,7 +88,6 @@ const firstDay = new Date(year, month, 1).getDay();
 const calendarDays = useMemo(() => {
 const days: Array<number | null> = [];
 
-```
 for (let i = 0; i < firstDay; i++) {
   days.push(null);
 }
@@ -98,7 +97,6 @@ for (let day = 1; day <= daysInMonth; day++) {
 }
 
 return days;
-```
 
 }, [firstDay, daysInMonth]);
 
@@ -120,18 +118,14 @@ function getDateString(day: number) {
 const monthString = String(month + 1).padStart(2, "0");
 const dayString = String(day).padStart(2, "0");
 
-```
 return `${year}-${monthString}-${dayString}`;
-```
 
 }
 
 function getDayEvents(day: number) {
 const date = getDateString(day);
 
-```
 return events.filter((event) => event.date === date);
-```
 
 }
 
@@ -175,7 +169,6 @@ return "#f8fafc";
 
 return ( <main style={styles.page}> <div style={styles.container}> <header style={styles.header}> <div> <div style={styles.smallLabel}>STUDENT PORTAL</div>
 
-```
         <h1 style={styles.title}>
           🗓️ Student Calendar
         </h1>
@@ -383,7 +376,6 @@ return ( <main style={styles.page}> <div style={styles.container}> <header style
     </footer>
   </div>
 </main>
-```
 
 );
 }
@@ -409,7 +401,6 @@ background,
 >
 ● </div>
 
-```
   <div>
     <strong style={styles.legendTitle}>
       {title}
@@ -420,7 +411,6 @@ background,
     </p>
   </div>
 </div>
-```
 
 );
 }
@@ -735,7 +725,6 @@ title: {
 fontSize: "24px",
 },
 
-```
 monthTitle: {
   minWidth: "160px",
   fontSize: "20px",
@@ -754,7 +743,6 @@ eventBadge: {
   fontSize: "8px",
   padding: "3px",
 },
-```
 
 },
 };
