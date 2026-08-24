@@ -9,265 +9,357 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-export default function LoginPage() {
+type StudentAccount = {
+  username: string;
+  password: string;
+  name: string;
+};
+
+const students: StudentAccount[] = [
+  {
+    username: "STU1001",
+    password: "Aditya02",
+    name: "ADITYA",
+  },
+  {
+    username: "STU1002",
+    password: "Anmol01",
+    name: "ANMOL",
+  },
+  {
+    username: "STU1003",
+    password: "Chirag06",
+    name: "CHIRAG",
+  },
+  {
+    username: "STU1004",
+    password: "Duggu10",
+    name: "DUGGU",
+  },
+  {
+    username: "STU1005",
+    password: "Duggu13",
+    name: "DUGGU",
+  },
+  {
+    username: "STU1006",
+    password: "Jaggu10",
+    name: "JAGGU",
+  },
+  {
+    username: "STU1007",
+    password: "Mannu13",
+    name: "MANNU",
+  },
+  {
+    username: "STU1008",
+    password: "Palak02",
+    name: "PALAK",
+  },
+  {
+    username: "STU1009",
+    password: "Piyush01",
+    name: "PIYUSH",
+  },
+  {
+    username: "STU1010",
+    password: "Prince04",
+    name: "PRINCE",
+  },
+  {
+    username: "STU1011",
+    password: "Raghav20",
+    name: "RAGHAV",
+  },
+  {
+    username: "STU1012",
+    password: "Sharvi04",
+    name: "SHARVI",
+  },
+];
+
+export default function Home() {
   const router = useRouter();
 
-  const [loginType, setLoginType] = useState<"student" | "teacher">(
-    "student"
+  const [role, setRole] = useState<"Student" | "Teacher">(
+    "Student"
   );
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  async function handleLogin(e: React.FormEvent) {
+  function clearSessions() {
+    localStorage.removeItem("studentLoggedIn");
+    localStorage.removeItem("studentUsername");
+    localStorage.removeItem("studentName");
+    localStorage.removeItem("studentId");
+
+    localStorage.removeItem("teacherLoggedIn");
+    localStorage.removeItem("teacher");
+    localStorage.removeItem("teacherUsername");
+    localStorage.removeItem("teacherName");
+
+    sessionStorage.clear();
+  }
+
+  async function handleLogin(
+    e: React.FormEvent<HTMLFormElement>
+  ) {
     e.preventDefault();
+
+    if (loading) return;
 
     setError("");
 
-    const cleanUsername = username.trim();
-    const cleanPassword = password.trim();
+    const enteredUsername = username
+      .trim()
+      .toUpperCase();
 
-    if (!cleanUsername || !cleanPassword) {
-      setError("Username aur password dono enter karein.");
+    const enteredPassword = password.trim();
+
+    if (!enteredUsername || !enteredPassword) {
+      setError(
+        "❌ Username aur password dono enter karein."
+      );
       return;
     }
 
     setLoading(true);
 
+    /* =====================================================
+       TEACHER LOGIN
+       ===================================================== */
+
+    if (role === "Teacher") {
+      if (
+        enteredUsername === "HARSH201951" &&
+        enteredPassword === "201951"
+      ) {
+        clearSessions();
+
+        localStorage.setItem(
+          "teacherLoggedIn",
+          "true"
+        );
+
+        localStorage.setItem(
+          "teacher",
+          "true"
+        );
+
+        localStorage.setItem(
+          "teacherUsername",
+          "HARSH201951"
+        );
+
+        localStorage.setItem(
+          "teacherName",
+          "Harsh"
+        );
+
+        router.replace("/teacher");
+
+        return;
+      }
+
+      setError(
+        "❌ Invalid teacher username or password."
+      );
+
+      setLoading(false);
+      return;
+    }
+
+    /* =====================================================
+       STUDENT LOGIN
+       ===================================================== */
+
+    const student = students.find(
+      (item) =>
+        item.username.toUpperCase() ===
+          enteredUsername &&
+        item.password === enteredPassword
+    );
+
+    if (!student) {
+      setError(
+        "❌ Invalid student username or password."
+      );
+
+      setLoading(false);
+      return;
+    }
+
+    /*
+     * Student credentials are checked above.
+     * Now find the actual student ID from Supabase.
+     */
+
     try {
-      /*
-       * =========================================================
-       * STUDENT LOGIN
-       * =========================================================
-       */
+      const { data, error: dbError } =
+        await supabase
+          .from("students")
+          .select(
+            "id, student_name, student_username"
+          )
+          .eq(
+            "student_username",
+            enteredUsername
+          )
+          .maybeSingle();
 
-      if (loginType === "student") {
-        const { data, error } = await supabase.rpc("student_login", {
-          p_username: cleanUsername,
-          p_password: cleanPassword,
-        });
-
-        if (error) {
-          console.error("Student login error:", error);
-          setError("Invalid student username or password.");
-          return;
-        }
-
-        if (!data || (Array.isArray(data) && data.length === 0)) {
-          setError("Invalid student username or password.");
-          return;
-        }
-
-        const student = Array.isArray(data) ? data[0] : data;
-
-        /*
-         * IMPORTANT:
-         * Student login ke liye sirf student session save hoga.
-         * Teacher session kabhi save nahi hoga.
-         */
-
-        localStorage.removeItem("teacherLoggedIn");
-        localStorage.removeItem("teacherName");
-        localStorage.removeItem("teacher_name");
-        localStorage.removeItem("teacher_username");
-
-        localStorage.setItem("studentLoggedIn", "true");
-        localStorage.setItem(
-          "student_username",
-          student?.student_username || cleanUsername
+      if (dbError) {
+        console.error(
+          "Student database error:",
+          dbError
         );
 
-        localStorage.setItem(
-          "student_name",
-          student?.student_name || cleanUsername
+        setError(
+          "❌ Student database error: " +
+            dbError.message
         );
 
-        if (student?.id !== undefined && student?.id !== null) {
-          localStorage.setItem(
-            "student_id",
-            String(student.id)
-          );
-        }
-
-        sessionStorage.removeItem("teacherLoggedIn");
-        sessionStorage.removeItem("teacher_username");
-        sessionStorage.removeItem("teacherName");
-
-        sessionStorage.setItem("studentLoggedIn", "true");
-        sessionStorage.setItem(
-          "student_username",
-          student?.student_username || cleanUsername
-        );
-
-        sessionStorage.setItem(
-          "student_name",
-          student?.student_name || cleanUsername
-        );
-
-        if (student?.id !== undefined && student?.id !== null) {
-          sessionStorage.setItem(
-            "student_id",
-            String(student.id)
-          );
-        }
-
-        router.replace("/student/dashboard");
+        setLoading(false);
         return;
       }
 
       /*
-       * =========================================================
-       * TEACHER LOGIN
-       * =========================================================
+       * Student exists in login list but database
+       * record is missing.
        */
 
-      const { data, error } = await supabase.rpc("teacher_login", {
-        p_username: cleanUsername,
-        p_password: cleanPassword,
-      });
+      if (!data) {
+        setError(
+          "❌ Student account database mein nahi mila."
+        );
 
-      if (error) {
-        console.error("Teacher login error:", error);
-        setError("Invalid teacher username or password.");
+        setLoading(false);
         return;
       }
 
-      if (!data || (Array.isArray(data) && data.length === 0)) {
-        setError("Invalid teacher username or password.");
-        return;
-      }
+      /* ================================================
+         CLEAR OLD LOGIN
+         ================================================ */
 
-      const teacher = Array.isArray(data) ? data[0] : data;
+      clearSessions();
+
+      /* ================================================
+         CREATE STUDENT SESSION
+         ================================================ */
+
+      localStorage.setItem(
+        "studentLoggedIn",
+        "true"
+      );
+
+      localStorage.setItem(
+        "studentUsername",
+        data.student_username ||
+          student.username
+      );
+
+      localStorage.setItem(
+        "studentName",
+        data.student_name ||
+          student.name
+      );
+
+      localStorage.setItem(
+        "studentId",
+        String(data.id)
+      );
 
       /*
        * IMPORTANT:
-       * Teacher login ke liye student session remove hoga.
+       * Student can ONLY go to student dashboard.
        */
 
-      localStorage.removeItem("studentLoggedIn");
-      localStorage.removeItem("student_username");
-      localStorage.removeItem("student_name");
-      localStorage.removeItem("student_id");
+      router.replace("/student/dashboard");
 
-      localStorage.setItem("teacherLoggedIn", "true");
-
-      localStorage.setItem(
-        "teacher_username",
-        teacher?.teacher_username || cleanUsername
+    } catch (err: any) {
+      console.error(
+        "Student login error:",
+        err
       );
 
-      localStorage.setItem(
-        "teacherName",
-        teacher?.teacher_name ||
-          teacher?.name ||
-          cleanUsername
+      setError(
+        err?.message ||
+          "❌ Student login failed."
       );
 
-      localStorage.setItem(
-        "teacher_name",
-        teacher?.teacher_name ||
-          teacher?.name ||
-          cleanUsername
-      );
-
-      sessionStorage.removeItem("studentLoggedIn");
-      sessionStorage.removeItem("student_username");
-      sessionStorage.removeItem("student_name");
-      sessionStorage.removeItem("student_id");
-
-      sessionStorage.setItem("teacherLoggedIn", "true");
-
-      sessionStorage.setItem(
-        "teacher_username",
-        teacher?.teacher_username || cleanUsername
-      );
-
-      sessionStorage.setItem(
-        "teacherName",
-        teacher?.teacher_name ||
-          teacher?.name ||
-          cleanUsername
-      );
-
-      router.replace("/dashboard");
-    } catch (err) {
-      console.error("Login error:", err);
-      setError("Login failed. Please try again.");
-    } finally {
       setLoading(false);
     }
   }
 
-  return (
-    <main style={styles.page}>
-      <div style={styles.card}>
+  function selectRole(
+    selectedRole: "Student" | "Teacher"
+  ) {
+    setRole(selectedRole);
+    setUsername("");
+    setPassword("");
+    setError("");
+  }
 
-        {/* LOGO */}
-        <div style={styles.logo}>
+  return (
+    <main className="page">
+      <div className="login-card">
+
+        <div className="logo">
           🎓
         </div>
 
-        <h1 style={styles.title}>
+        <h1>
           Attendance Portal
         </h1>
 
-        <p style={styles.subtitle}>
+        <p className="subtitle">
           Login to continue
         </p>
 
-        {/* LOGIN TYPE */}
-        <div style={styles.tabs}>
+        {/* ROLE */}
+
+        <div className="role-buttons">
+
           <button
             type="button"
-            onClick={() => {
-              setLoginType("student");
-              setError("");
-              setUsername("");
-              setPassword("");
-            }}
-            style={{
-              ...styles.tab,
-              ...(loginType === "student"
-                ? styles.activeTab
-                : {}),
-            }}
+            className={
+              role === "Student"
+                ? "role-button student-active"
+                : "role-button"
+            }
+            onClick={() =>
+              selectRole("Student")
+            }
+            disabled={loading}
           >
             👨‍🎓 Student
           </button>
 
           <button
             type="button"
-            onClick={() => {
-              setLoginType("teacher");
-              setError("");
-              setUsername("");
-              setPassword("");
-            }}
-            style={{
-              ...styles.tab,
-              ...(loginType === "teacher"
-                ? styles.activeTab
-                : {}),
-            }}
+            className={
+              role === "Teacher"
+                ? "role-button teacher-active"
+                : "role-button"
+            }
+            onClick={() =>
+              selectRole("Teacher")
+            }
+            disabled={loading}
           >
             👨‍🏫 Teacher
           </button>
+
         </div>
 
-        {/* ERROR */}
-        {error && (
-          <div style={styles.error}>
-            ⚠️ {error}
-          </div>
-        )}
+        {/* FORM */}
 
-        {/* LOGIN FORM */}
         <form onSubmit={handleLogin}>
 
-          <label style={styles.label}>
+          <label>
             Username
           </label>
 
@@ -278,15 +370,15 @@ export default function LoginPage() {
               setUsername(e.target.value)
             }
             placeholder={
-              loginType === "student"
-                ? "Enter student username"
-                : "Enter teacher username"
+              role === "Student"
+                ? "STU1001"
+                : "HARSH201951"
             }
             autoComplete="username"
-            style={styles.input}
+            disabled={loading}
           />
 
-          <label style={styles.label}>
+          <label>
             Password
           </label>
 
@@ -296,205 +388,311 @@ export default function LoginPage() {
             onChange={(e) =>
               setPassword(e.target.value)
             }
-            placeholder="Enter password"
+            placeholder="Enter Password"
             autoComplete="current-password"
-            style={styles.input}
+            disabled={loading}
           />
+
+          {error && (
+            <div className="error">
+              {error}
+            </div>
+          )}
 
           <button
             type="submit"
+            className={
+              role === "Teacher"
+                ? "login-button teacher-login"
+                : "login-button student-login"
+            }
             disabled={loading}
-            style={{
-              ...styles.loginButton,
-              opacity: loading ? 0.7 : 1,
-            }}
           >
             {loading
-              ? "⏳ Logging in..."
-              : loginType === "student"
-              ? "🎓 Student Login"
-              : "👨‍🏫 Teacher Login"}
+              ? "⏳ Checking..."
+              : "Login →"}
           </button>
+
         </form>
 
-        {/* INFORMATION */}
-        <div style={styles.info}>
-          {loginType === "student" ? (
-            <>
-              <strong>Student Portal</strong>
-              <span>
-                View your attendance, profile,
-                reports, fees and calendar.
-              </span>
-            </>
-          ) : (
-            <>
-              <strong>Teacher Portal</strong>
-              <span>
-                Manage students, attendance,
-                fees, reports and settings.
-              </span>
-            </>
-          )}
-        </div>
-
-        <footer style={styles.footer}>
+        <p className="footer">
           Student Attendance Management System
-        </footer>
+        </p>
+
       </div>
+
+      <style jsx>{`
+
+        * {
+          box-sizing: border-box;
+        }
+
+        .page {
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+
+          background:
+            linear-gradient(
+              135deg,
+              #dbeafe 0%,
+              #eef2ff 50%,
+              #dcfce7 100%
+            );
+
+          font-family:
+            Arial,
+            Helvetica,
+            sans-serif;
+        }
+
+        .login-card {
+          width: 100%;
+          max-width: 430px;
+
+          background: white;
+
+          padding: 35px;
+
+          border-radius: 25px;
+
+          box-shadow:
+            0 25px 60px
+            rgba(0, 0, 0, 0.15);
+        }
+
+        .logo {
+          width: 75px;
+          height: 75px;
+
+          margin: 0 auto 15px;
+
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
+          border-radius: 20px;
+
+          background:
+            linear-gradient(
+              135deg,
+              #dbeafe,
+              #e0e7ff
+            );
+
+          font-size: 40px;
+        }
+
+        h1 {
+          text-align: center;
+
+          margin: 10px 0;
+
+          color: #111827;
+
+          font-size: 30px;
+        }
+
+        .subtitle {
+          text-align: center;
+
+          color: #64748b;
+
+          margin: 0 0 25px;
+        }
+
+        .role-buttons {
+          display: grid;
+
+          grid-template-columns:
+            1fr 1fr;
+
+          gap: 10px;
+
+          margin-bottom: 22px;
+        }
+
+        .role-button {
+          border: none;
+
+          padding: 13px;
+
+          border-radius: 10px;
+
+          background: #e2e8f0;
+
+          color: #334155;
+
+          font-weight: bold;
+
+          font-size: 15px;
+
+          cursor: pointer;
+        }
+
+        .role-button:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .student-active {
+          background: #2563eb;
+          color: white;
+        }
+
+        .teacher-active {
+          background: #7c3aed;
+          color: white;
+        }
+
+        label {
+          display: block;
+
+          margin-bottom: 7px;
+
+          color: #111827;
+
+          font-weight: bold;
+
+          font-size: 14px;
+        }
+
+        input {
+          width: 100%;
+
+          padding: 14px;
+
+          margin-bottom: 18px;
+
+          border:
+            2px solid #bfdbfe;
+
+          border-radius: 10px;
+
+          background: white;
+
+          color: #111827;
+
+          font-size: 16px;
+
+          outline: none;
+        }
+
+        input:focus {
+          border-color: #2563eb;
+
+          box-shadow:
+            0 0 0 3px
+            rgba(37, 99, 235, 0.1);
+        }
+
+        input::placeholder {
+          color: #94a3b8;
+        }
+
+        input:disabled {
+          background: #f1f5f9;
+        }
+
+        .error {
+          background: #fee2e2;
+
+          color: #991b1b;
+
+          padding: 12px;
+
+          border-radius: 10px;
+
+          margin-bottom: 15px;
+
+          font-weight: 600;
+
+          text-align: center;
+
+          font-size: 14px;
+        }
+
+        .login-button {
+          width: 100%;
+
+          padding: 15px;
+
+          border: none;
+
+          border-radius: 11px;
+
+          color: white;
+
+          font-size: 17px;
+
+          font-weight: bold;
+
+          cursor: pointer;
+        }
+
+        .login-button:disabled {
+          opacity: 0.7;
+          cursor: wait;
+        }
+
+        .student-login {
+          background:
+            linear-gradient(
+              135deg,
+              #2563eb,
+              #1d4ed8
+            );
+        }
+
+        .teacher-login {
+          background:
+            linear-gradient(
+              135deg,
+              #7c3aed,
+              #4f46e5
+            );
+        }
+
+        .footer {
+          text-align: center;
+
+          color: #94a3b8;
+
+          font-size: 12px;
+
+          margin-top: 25px;
+
+          margin-bottom: 0;
+        }
+
+        @media (max-width: 500px) {
+
+          .page {
+            padding: 15px;
+          }
+
+          .login-card {
+            padding: 25px 20px;
+
+            border-radius: 20px;
+          }
+
+          h1 {
+            font-size: 26px;
+          }
+
+          .logo {
+            width: 65px;
+            height: 65px;
+
+            font-size: 34px;
+          }
+
+        }
+
+      `}</style>
     </main>
   );
 }
-
-const styles: {
-  [key: string]: React.CSSProperties;
-} = {
-  page: {
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "20px",
-    boxSizing: "border-box",
-    background:
-      "linear-gradient(135deg,#eef2ff,#f8fafc,#eff6ff)",
-    fontFamily:
-      "Arial, Helvetica, sans-serif",
-  },
-
-  card: {
-    width: "100%",
-    maxWidth: "430px",
-    background: "#ffffff",
-    borderRadius: "24px",
-    padding: "32px",
-    boxSizing: "border-box",
-    boxShadow:
-      "0 20px 50px rgba(15,23,42,0.12)",
-  },
-
-  logo: {
-    width: "72px",
-    height: "72px",
-    borderRadius: "20px",
-    margin: "0 auto 16px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "38px",
-    background:
-      "linear-gradient(135deg,#2563eb,#7c3aed)",
-  },
-
-  title: {
-    margin: 0,
-    textAlign: "center",
-    color: "#172554",
-    fontSize: "28px",
-    fontWeight: "900",
-  },
-
-  subtitle: {
-    margin: "7px 0 24px",
-    textAlign: "center",
-    color: "#64748b",
-    fontSize: "14px",
-    fontWeight: "600",
-  },
-
-  tabs: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: "8px",
-    padding: "5px",
-    background: "#f1f5f9",
-    borderRadius: "12px",
-    marginBottom: "20px",
-  },
-
-  tab: {
-    border: "none",
-    background: "transparent",
-    color: "#475569",
-    padding: "12px 8px",
-    borderRadius: "9px",
-    fontWeight: "800",
-    cursor: "pointer",
-    fontSize: "13px",
-  },
-
-  activeTab: {
-    background: "#ffffff",
-    color: "#1d4ed8",
-    boxShadow:
-      "0 3px 10px rgba(15,23,42,0.08)",
-  },
-
-  error: {
-    background: "#fee2e2",
-    border: "1px solid #fecaca",
-    color: "#991b1b",
-    borderRadius: "10px",
-    padding: "11px",
-    marginBottom: "16px",
-    fontSize: "13px",
-    fontWeight: "700",
-  },
-
-  label: {
-    display: "block",
-    marginBottom: "7px",
-    marginTop: "14px",
-    color: "#334155",
-    fontSize: "13px",
-    fontWeight: "800",
-  },
-
-  input: {
-    width: "100%",
-    boxSizing: "border-box",
-    border: "1px solid #cbd5e1",
-    background: "#ffffff",
-    color: "#0f172a",
-    borderRadius: "10px",
-    padding: "13px 14px",
-    fontSize: "14px",
-    outline: "none",
-  },
-
-  loginButton: {
-    width: "100%",
-    border: "none",
-    marginTop: "22px",
-    background:
-      "linear-gradient(135deg,#2563eb,#4f46e5)",
-    color: "#ffffff",
-    padding: "14px",
-    borderRadius: "11px",
-    fontWeight: "900",
-    fontSize: "14px",
-    cursor: "pointer",
-  },
-
-  info: {
-    marginTop: "20px",
-    padding: "14px",
-    borderRadius: "12px",
-    background: "#eff6ff",
-    border: "1px solid #dbeafe",
-    display: "flex",
-    flexDirection: "column",
-    gap: "4px",
-    color: "#1e3a8a",
-    fontSize: "12px",
-    lineHeight: 1.5,
-  },
-
-  footer: {
-    textAlign: "center",
-    marginTop: "22px",
-    color: "#94a3b8",
-    fontSize: "11px",
-    fontWeight: "600",
-  },
-};
