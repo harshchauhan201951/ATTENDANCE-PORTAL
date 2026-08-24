@@ -1,389 +1,277 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-type Student = {
-  id: number;
-  student_name: string;
-  student_username: string;
+type AttendanceRecord = {
+  id?: number;
+  student_id: number;
+  attendance_date: string;
+  status: string;
 };
 
-type AttendanceStatus = "Present" | "Absent";
-
-export default function TeacherAttendancePage() {
+export default function StudentDashboard() {
   const router = useRouter();
 
-  const [students, setStudents] = useState<Student[]>([]);
-  const [attendance, setAttendance] = useState<
-    Record<number, AttendanceStatus>
-  >({});
+  const [studentName, setStudentName] =
+    useState("Student");
 
-  const [selectedDate, setSelectedDate] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [studentUsername, setStudentUsername] =
+    useState("");
 
-  const [message, setMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
+  const [studentId, setStudentId] =
+    useState<number | null>(null);
 
-  const today = useMemo(() => {
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
+  const [attendance, setAttendance] =
+    useState<AttendanceRecord[]>([]);
 
-    return `${year}-${month}-${day}`;
-  }, []);
+  const [loading, setLoading] =
+    useState(true);
 
   useEffect(() => {
-    setSelectedDate(today);
-  }, [today]);
-
-  useEffect(() => {
-    if (selectedDate) {
-      loadAttendancePage();
-    }
-  }, [selectedDate]);
-
-  async function loadAttendancePage() {
-    setLoading(true);
-    setErrorMessage("");
-    setMessage("");
-
-    const { data, error } = await supabase
-      .from("students")
-      .select("id, student_name, student_username")
-      .order("id", { ascending: true });
-
-    if (error) {
-      console.error("Students error:", error);
-
-      setErrorMessage(
-        "Students load nahi ho rahe: " + error.message
+    const loggedIn =
+      localStorage.getItem(
+        "studentLoggedIn"
       );
 
-      setLoading(false);
+    const savedId =
+      localStorage.getItem("studentId");
+
+    const savedName =
+      localStorage.getItem("studentName");
+
+    const savedUsername =
+      localStorage.getItem(
+        "studentUsername"
+      );
+
+    /*
+     * STUDENT ONLY
+     *
+     * If there is no student session,
+     * send user back to login.
+     */
+
+    if (
+      loggedIn !== "true" ||
+      !savedId
+    ) {
+      router.replace("/");
       return;
     }
 
-    const studentList = (data || []) as Student[];
+    /*
+     * IMPORTANT:
+     * If a teacher session exists,
+     * NEVER allow teacher session here.
+     */
 
-    setStudents(studentList);
+    if (
+      localStorage.getItem(
+        "teacherLoggedIn"
+      ) === "true"
+    ) {
+      localStorage.removeItem(
+        "teacherLoggedIn"
+      );
 
-    const { data: attendanceData, error: attendanceError } =
+      localStorage.removeItem(
+        "teacher"
+      );
+
+      localStorage.removeItem(
+        "teacherUsername"
+      );
+
+      localStorage.removeItem(
+        "teacherName"
+      );
+    }
+
+    setStudentId(Number(savedId));
+
+    setStudentName(
+      savedName || "Student"
+    );
+
+    setStudentUsername(
+      savedUsername || ""
+    );
+
+    loadAttendance(Number(savedId));
+  }, [router]);
+
+  async function loadAttendance(
+    id: number
+  ) {
+    setLoading(true);
+
+    const { data, error } =
       await supabase
         .from("attendance")
-        .select("student_id, attendance_date, status")
-        .eq("attendance_date", selectedDate);
-
-    if (attendanceError) {
-      console.error(
-        "Attendance load error:",
-        attendanceError
-      );
-
-      setErrorMessage(
-        "Attendance load nahi ho rahi: " +
-          attendanceError.message
-      );
-
-      setAttendance({});
-      setLoading(false);
-      return;
-    }
-
-    const existingAttendance: Record<
-      number,
-      AttendanceStatus
-    > = {};
-
-    (attendanceData || []).forEach((record) => {
-      const status =
-        String(record.status).toLowerCase() ===
-        "present"
-          ? "Present"
-          : "Absent";
-
-      existingAttendance[Number(record.student_id)] =
-        status;
-    });
-
-    setAttendance(existingAttendance);
-    setLoading(false);
-  }
-
-  function markStudent(
-    studentId: number,
-    status: AttendanceStatus
-  ) {
-    setAttendance((previous) => ({
-      ...previous,
-      [studentId]: status,
-    }));
-
-    setMessage("");
-    setErrorMessage("");
-  }
-
-  function markAll(status: AttendanceStatus) {
-    const newAttendance: Record<
-      number,
-      AttendanceStatus
-    > = {};
-
-    students.forEach((student) => {
-      newAttendance[student.id] = status;
-    });
-
-    setAttendance(newAttendance);
-
-    setMessage("");
-    setErrorMessage("");
-  }
-
-  async function saveAttendance() {
-    if (!selectedDate) {
-      setErrorMessage("Please select attendance date.");
-      return;
-    }
-
-    if (students.length === 0) {
-      setErrorMessage("No students found.");
-      return;
-    }
-
-    const incompleteStudents = students.filter(
-      (student) => !attendance[student.id]
-    );
-
-    if (incompleteStudents.length > 0) {
-      setErrorMessage(
-        `Please mark attendance for all students. ${incompleteStudents.length} student(s) are still unmarked.`
-      );
-      return;
-    }
-
-    setSaving(true);
-    setMessage("");
-    setErrorMessage("");
-
-    const rows = students.map((student) => ({
-      student_id: student.id,
-      attendance_date: selectedDate,
-      status: attendance[student.id],
-    }));
-
-    const { error } = await supabase
-      .from("attendance")
-      .upsert(rows, {
-        onConflict: "student_id,attendance_date",
-      });
-
-    if (error) {
-      console.error("Save attendance error:", error);
-
-      setErrorMessage(
-        "Attendance save nahi hui: " + error.message
-      );
-
-      setSaving(false);
-      return;
-    }
-
-    setMessage(
-      `✅ Attendance saved successfully for ${formatDate(
-        selectedDate
-      )}.`
-    );
-
-    setSaving(false);
-
-    await loadAttendancePage();
-  }
-
-  async function deleteAttendance() {
-    if (!selectedDate) {
-      setErrorMessage("Please select a date.");
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Are you sure you want to DELETE attendance for ${formatDate(
-        selectedDate
-      )}?\n\nThis will remove the attendance for ALL students on this date.\n\nStudents will also no longer see this attendance.`
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setDeleting(true);
-    setMessage("");
-    setErrorMessage("");
-
-    const { error } = await supabase
-      .from("attendance")
-      .delete()
-      .eq("attendance_date", selectedDate);
+        .select(
+          "id, student_id, attendance_date, status"
+        )
+        .eq("student_id", id)
+        .order(
+          "attendance_date",
+          {
+            ascending: false,
+          }
+        );
 
     if (error) {
       console.error(
-        "Delete attendance error:",
+        "Student attendance error:",
         error
       );
 
-      setErrorMessage(
-        "Attendance delete nahi hui: " +
-          error.message
-      );
-
-      setDeleting(false);
+      setAttendance([]);
+      setLoading(false);
       return;
     }
 
-    setAttendance({});
-
-    setMessage(
-      `🗑️ Attendance for ${formatDate(
-        selectedDate
-      )} has been deleted successfully. Students will no longer see this attendance.`
+    setAttendance(
+      (data || []) as AttendanceRecord[]
     );
 
-    setDeleting(false);
-
-    await loadAttendancePage();
+    setLoading(false);
   }
 
-  function formatDate(date: string) {
-    if (!date) return "";
+  function logout() {
+    localStorage.removeItem(
+      "studentLoggedIn"
+    );
 
-    return new Date(
-      `${date}T00:00:00`
-    ).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    });
+    localStorage.removeItem(
+      "studentUsername"
+    );
+
+    localStorage.removeItem(
+      "studentName"
+    );
+
+    localStorage.removeItem(
+      "studentId"
+    );
+
+    router.replace("/");
   }
 
-  const presentCount = students.filter(
-    (student) =>
-      attendance[student.id] === "Present"
+  const present = attendance.filter(
+    (item) =>
+      String(item.status).toLowerCase() ===
+      "present"
   ).length;
 
-  const absentCount = students.filter(
-    (student) =>
-      attendance[student.id] === "Absent"
+  const absent = attendance.filter(
+    (item) =>
+      String(item.status).toLowerCase() ===
+      "absent"
   ).length;
 
-  const unmarkedCount =
-    students.length -
-    presentCount -
-    absentCount;
+  const total = attendance.length;
+
+  const percentage =
+    total > 0
+      ? Math.round(
+          (present / total) * 100
+        )
+      : 0;
 
   return (
     <main style={styles.page}>
       <div style={styles.container}>
+
         {/* HEADER */}
 
         <header style={styles.header}>
-          <div>
-            <div style={styles.badge}>
-              TEACHER PORTAL
-            </div>
 
-            <h1 style={styles.title}>
-              📝 Mark Attendance
-            </h1>
-
-            <p style={styles.subtitle}>
-              Mark and manage student attendance
-            </p>
-          </div>
-
-          <button
-            onClick={() =>
-              router.push("/teacher")
-            }
-            style={styles.backButton}
-          >
-            ← Teacher Dashboard
-          </button>
-        </header>
-
-        {/* DATE + ACTIONS */}
-
-        <section style={styles.controlCard}>
-          <div style={styles.dateSection}>
-            <label style={styles.label}>
-              Attendance Date
-            </label>
-
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) =>
-                setSelectedDate(e.target.value)
-              }
-              style={styles.dateInput}
-            />
-          </div>
-
-          <div style={styles.actionSection}>
-            <button
-              onClick={() =>
-                markAll("Present")
-              }
-              disabled={loading || students.length === 0}
-              style={styles.allPresentButton}
-            >
-              ✓ Mark All Present
-            </button>
-
-            <button
-              onClick={() =>
-                markAll("Absent")
-              }
-              disabled={loading || students.length === 0}
-              style={styles.allAbsentButton}
-            >
-              ✕ Mark All Absent
-            </button>
-          </div>
-        </section>
-
-        {/* SUMMARY */}
-
-        <section style={styles.statsGrid}>
-          <div style={styles.statCard}>
-            <div
-              style={{
-                ...styles.statIcon,
-                background: "#dbeafe",
-              }}
-            >
-              👨‍🎓
+          <div style={styles.brand}>
+            <div style={styles.logo}>
+              🎓
             </div>
 
             <div>
-              <div style={styles.statLabel}>
-                Students
-              </div>
+              <h1 style={styles.brandTitle}>
+                Attendance Portal
+              </h1>
 
-              <div style={styles.statValue}>
-                {students.length}
-              </div>
+              <p style={styles.brandSubtitle}>
+                Student Dashboard
+              </p>
             </div>
           </div>
 
+          <button
+            onClick={logout}
+            style={styles.logout}
+          >
+            🚪 Logout
+          </button>
+
+        </header>
+
+        {/* WELCOME */}
+
+        <section style={styles.hero}>
+
+          <div>
+
+            <div style={styles.smallText}>
+              STUDENT PORTAL
+            </div>
+
+            <h2 style={styles.heroTitle}>
+              Welcome back,{" "}
+              {studentName} 👋
+            </h2>
+
+            <p style={styles.heroText}>
+              Username:{" "}
+              <strong>
+                {studentUsername}
+              </strong>
+            </p>
+
+          </div>
+
+          <div style={styles.heroIcon}>
+            👨‍🎓
+          </div>
+
+        </section>
+
+        {/* STATS */}
+
+        <section style={styles.stats}>
+
           <div style={styles.statCard}>
+
+            <div style={styles.statIcon}>
+              📚
+            </div>
+
+            <div>
+              <p style={styles.statLabel}>
+                Total Classes
+              </p>
+
+              <h3 style={styles.statValue}>
+                {total}
+              </h3>
+            </div>
+
+          </div>
+
+          <div style={styles.statCard}>
+
             <div
               style={{
                 ...styles.statIcon,
@@ -394,22 +282,24 @@ export default function TeacherAttendancePage() {
             </div>
 
             <div>
-              <div style={styles.statLabel}>
+              <p style={styles.statLabel}>
                 Present
-              </div>
+              </p>
 
-              <div
+              <h3
                 style={{
                   ...styles.statValue,
                   color: "#15803d",
                 }}
               >
-                {presentCount}
-              </div>
+                {present}
+              </h3>
             </div>
+
           </div>
 
           <div style={styles.statCard}>
+
             <div
               style={{
                 ...styles.statIcon,
@@ -420,321 +310,385 @@ export default function TeacherAttendancePage() {
             </div>
 
             <div>
-              <div style={styles.statLabel}>
+              <p style={styles.statLabel}>
                 Absent
-              </div>
+              </p>
 
-              <div
+              <h3
                 style={{
                   ...styles.statValue,
                   color: "#dc2626",
                 }}
               >
-                {absentCount}
-              </div>
+                {absent}
+              </h3>
             </div>
+
           </div>
 
           <div style={styles.statCard}>
+
             <div
               style={{
                 ...styles.statIcon,
                 background: "#fef3c7",
               }}
             >
-              ⏳
+              📊
             </div>
 
             <div>
-              <div style={styles.statLabel}>
-                Unmarked
-              </div>
+              <p style={styles.statLabel}>
+                Attendance
+              </p>
 
-              <div
+              <h3
                 style={{
                   ...styles.statValue,
                   color: "#b45309",
                 }}
               >
-                {unmarkedCount}
-              </div>
+                {percentage}%
+              </h3>
             </div>
+
           </div>
+
         </section>
 
-        {/* MESSAGE */}
+        {/* QUICK MENU */}
 
-        {message && (
-          <div style={styles.successBox}>
-            {message}
+        <section style={styles.menuSection}>
+
+          <h2 style={styles.sectionTitle}>
+            Student Control Center
+          </h2>
+
+          <p style={styles.sectionSubtitle}>
+            View your attendance and student
+            information
+          </p>
+
+          <div style={styles.menuGrid}>
+
+            <button
+              onClick={() =>
+                router.push(
+                  "/student/attendance"
+                )
+              }
+              style={styles.menuCard}
+            >
+              <span style={styles.menuIcon}>
+                📝
+              </span>
+
+              <span>
+                <strong>
+                  Attendance
+                </strong>
+
+                <small>
+                  View attendance
+                </small>
+              </span>
+
+              <span style={styles.arrow}>
+                →
+              </span>
+            </button>
+
+            <button
+              onClick={() =>
+                router.push(
+                  "/student/attendance-history"
+                )
+              }
+              style={styles.menuCard}
+            >
+              <span style={styles.menuIcon}>
+                📅
+              </span>
+
+              <span>
+                <strong>
+                  Attendance History
+                </strong>
+
+                <small>
+                  View previous records
+                </small>
+              </span>
+
+              <span style={styles.arrow}>
+                →
+              </span>
+            </button>
+
+            <button
+              onClick={() =>
+                router.push(
+                  "/student/calendar"
+                )
+              }
+              style={styles.menuCard}
+            >
+              <span style={styles.menuIcon}>
+                🗓️
+              </span>
+
+              <span>
+                <strong>
+                  Calendar
+                </strong>
+
+                <small>
+                  View important dates
+                </small>
+              </span>
+
+              <span style={styles.arrow}>
+                →
+              </span>
+            </button>
+
+            <button
+              onClick={() =>
+                router.push(
+                  "/student/fees"
+                )
+              }
+              style={styles.menuCard}
+            >
+              <span style={styles.menuIcon}>
+                💰
+              </span>
+
+              <span>
+                <strong>
+                  Fees
+                </strong>
+
+                <small>
+                  View fee information
+                </small>
+              </span>
+
+              <span style={styles.arrow}>
+                →
+              </span>
+            </button>
+
+            <button
+              onClick={() =>
+                router.push(
+                  "/student/profile"
+                )
+              }
+              style={styles.menuCard}
+            >
+              <span style={styles.menuIcon}>
+                👤
+              </span>
+
+              <span>
+                <strong>
+                  Profile
+                </strong>
+
+                <small>
+                  View your profile
+                </small>
+              </span>
+
+              <span style={styles.arrow}>
+                →
+              </span>
+            </button>
+
+            <button
+              onClick={() =>
+                router.push(
+                  "/student/settings"
+                )
+              }
+              style={styles.menuCard}
+            >
+              <span style={styles.menuIcon}>
+                ⚙️
+              </span>
+
+              <span>
+                <strong>
+                  Settings
+                </strong>
+
+                <small>
+                  Manage account
+                </small>
+              </span>
+
+              <span style={styles.arrow}>
+                →
+              </span>
+            </button>
+
           </div>
-        )}
 
-        {errorMessage && (
-          <div style={styles.errorBox}>
-            ⚠️ {errorMessage}
-          </div>
-        )}
+        </section>
 
-        {/* STUDENT LIST */}
+        {/* RECENT ATTENDANCE */}
 
-        <section style={styles.attendanceCard}>
-          <div style={styles.cardHeader}>
+        <section style={styles.attendanceSection}>
+
+          <div style={styles.sectionHeader}>
+
             <div>
-              <h2 style={styles.cardTitle}>
-                👨‍🎓 Student Attendance
+              <h2 style={styles.sectionTitle}>
+                📋 Recent Attendance
               </h2>
 
-              <p style={styles.cardSubtitle}>
-                {selectedDate
-                  ? formatDate(selectedDate)
-                  : "Select a date"}
+              <p style={styles.sectionSubtitle}>
+                Your latest attendance records
               </p>
             </div>
 
             <button
-              onClick={loadAttendancePage}
-              disabled={loading}
-              style={styles.refreshButton}
+              onClick={() => {
+                if (studentId) {
+                  loadAttendance(
+                    studentId
+                  );
+                }
+              }}
+              style={styles.refresh}
             >
               🔄 Refresh
             </button>
+
           </div>
 
           {loading ? (
-            <div style={styles.loadingBox}>
-              <div style={styles.loadingIcon}>
-                ⏳
-              </div>
-
-              <h3 style={styles.loadingTitle}>
-                Loading students...
-              </h3>
+            <div style={styles.empty}>
+              ⏳ Loading attendance...
             </div>
-          ) : students.length === 0 ? (
-            <div style={styles.emptyBox}>
-              <div style={styles.emptyIcon}>
-                📭
-              </div>
-
-              <h3 style={styles.emptyTitle}>
-                No students found
-              </h3>
+          ) : attendance.length === 0 ? (
+            <div style={styles.empty}>
+              📭 No attendance records found.
             </div>
           ) : (
             <div style={styles.tableWrapper}>
+
               <table style={styles.table}>
+
                 <thead>
                   <tr>
-                    <th style={styles.th}>#</th>
-
                     <th style={styles.th}>
-                      Student
+                      Date
                     </th>
 
                     <th style={styles.th}>
-                      Username
-                    </th>
-
-                    <th style={styles.th}>
-                      Attendance
+                      Status
                     </th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {students.map(
-                    (student, index) => {
-                      const currentStatus =
-                        attendance[
-                          student.id
-                        ];
+
+                  {attendance
+                    .slice(0, 10)
+                    .map((record) => {
+
+                      const isPresent =
+                        String(
+                          record.status
+                        ).toLowerCase() ===
+                        "present";
 
                       return (
                         <tr
-                          key={student.id}
+                          key={
+                            record.id ||
+                            record.attendance_date
+                          }
                         >
+
                           <td style={styles.td}>
-                            {index + 1}
+                            {formatDate(
+                              record.attendance_date
+                            )}
                           </td>
 
                           <td style={styles.td}>
-                            <div
-                              style={
-                                styles.studentCell
-                              }
-                            >
-                              <div
-                                style={
-                                  styles.avatar
-                                }
-                              >
-                                {student.student_name
-                                  ?.charAt(
-                                    0
-                                  )
-                                  .toUpperCase() ||
-                                  "S"}
-                              </div>
 
-                              <strong
-                                style={
-                                  styles.studentName
-                                }
-                              >
-                                {student.student_name ||
-                                  "Student"}
-                              </strong>
-                            </div>
-                          </td>
-
-                          <td style={styles.td}>
                             <span
                               style={
-                                styles.username
+                                isPresent
+                                  ? styles.present
+                                  : styles.absent
                               }
                             >
-                              {
-                                student.student_username
-                              }
+                              {isPresent
+                                ? "✓ Present"
+                                : "✕ Absent"}
                             </span>
+
                           </td>
 
-                          <td style={styles.td}>
-                            <div
-                              style={
-                                styles.attendanceButtons
-                              }
-                            >
-                              <button
-                                onClick={() =>
-                                  markStudent(
-                                    student.id,
-                                    "Present"
-                                  )
-                                }
-                                style={{
-                                  ...styles.presentButton,
-                                  ...(currentStatus ===
-                                  "Present"
-                                    ? styles.presentSelected
-                                    : {}),
-                                }}
-                              >
-                                ✓ Present
-                              </button>
-
-                              <button
-                                onClick={() =>
-                                  markStudent(
-                                    student.id,
-                                    "Absent"
-                                  )
-                                }
-                                style={{
-                                  ...styles.absentButton,
-                                  ...(currentStatus ===
-                                  "Absent"
-                                    ? styles.absentSelected
-                                    : {}),
-                                }}
-                              >
-                                ✕ Absent
-                              </button>
-                            </div>
-                          </td>
                         </tr>
                       );
-                    }
-                  )}
+                    })}
+
                 </tbody>
+
               </table>
+
             </div>
           )}
 
-          {/* SAVE + DELETE */}
-
-          {!loading &&
-            students.length > 0 && (
-              <div style={styles.bottomActions}>
-                <button
-                  onClick={saveAttendance}
-                  disabled={saving || deleting}
-                  style={styles.saveButton}
-                >
-                  {saving
-                    ? "⏳ Saving..."
-                    : "💾 Save Attendance"}
-                </button>
-
-                <button
-                  onClick={deleteAttendance}
-                  disabled={
-                    deleting ||
-                    saving ||
-                    presentCount === 0 &&
-                      absentCount === 0
-                  }
-                  style={styles.deleteButton}
-                >
-                  {deleting
-                    ? "⏳ Deleting..."
-                    : "🗑️ Delete Attendance for This Date"}
-                </button>
-              </div>
-            )}
         </section>
 
-        {/* WARNING */}
-
-        <section style={styles.warningCard}>
-          <div style={styles.warningIcon}>
-            ⚠️
-          </div>
-
-          <div>
-            <h3 style={styles.warningTitle}>
-              Attendance Management
-            </h3>
-
-            <p style={styles.warningText}>
-              Attendance is saved only when you
-              click <strong>Save Attendance</strong>.
-              If attendance was accidentally marked
-              on Sunday, a holiday, or any wrong
-              date, select that date and click
-              <strong>
-                {" "}
-                Delete Attendance for This Date
-              </strong>
-              . The records will be removed from the
-              database and students will no longer
-              see those records.
-            </p>
-          </div>
-        </section>
+        {/* FOOTER */}
 
         <footer style={styles.footer}>
-          Attendance Portal • Teacher Attendance •
+          Attendance Portal • Student Dashboard •
           2026
         </footer>
+
       </div>
     </main>
+  );
+}
+
+function formatDate(
+  date: string
+) {
+  if (!date) return "";
+
+  return new Date(
+    `${date}T00:00:00`
+  ).toLocaleDateString(
+    "en-IN",
+    {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    }
   );
 }
 
 const styles: {
   [key: string]: React.CSSProperties;
 } = {
+
   page: {
     minHeight: "100vh",
     background:
       "linear-gradient(135deg,#eef2ff,#f8fafc,#eff6ff)",
-    padding: "25px 15px",
-    boxSizing: "border-box",
+    padding: "20px",
     fontFamily:
       "Arial, Helvetica, sans-serif",
-    color: "#0f172a",
+    color: "#172554",
   },
 
   container: {
@@ -745,123 +699,110 @@ const styles: {
 
   header: {
     background: "#ffffff",
-    borderRadius: "22px",
-    padding: "28px",
+    borderRadius: "18px",
+    padding: "16px 20px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "15px",
+    marginBottom: "20px",
+    boxShadow:
+      "0 8px 25px rgba(15,23,42,0.08)",
+  },
+
+  brand: {
+    display: "flex",
+    alignItems: "center",
+    gap: "13px",
+  },
+
+  logo: {
+    width: "52px",
+    height: "52px",
+    borderRadius: "15px",
+    background:
+      "linear-gradient(135deg,#2563eb,#7c3aed)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "27px",
+  },
+
+  brandTitle: {
+    margin: 0,
+    fontSize: "20px",
+    fontWeight: "800",
+  },
+
+  brandSubtitle: {
+    margin: "4px 0 0",
+    color: "#64748b",
+    fontSize: "12px",
+    fontWeight: "600",
+  },
+
+  logout: {
+    border: "none",
+    background: "#dc2626",
+    color: "#ffffff",
+    padding: "11px 17px",
+    borderRadius: "10px",
+    fontWeight: "700",
+    cursor: "pointer",
+  },
+
+  hero: {
+    background:
+      "linear-gradient(135deg,#2563eb,#4338ca,#7c3aed)",
+    color: "#ffffff",
+    borderRadius: "24px",
+    padding: "35px",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     gap: "20px",
     marginBottom: "20px",
     boxShadow:
-      "0 10px 30px rgba(15,23,42,0.08)",
-    flexWrap: "wrap",
+      "0 15px 35px rgba(37,99,235,0.22)",
   },
 
-  badge: {
-    display: "inline-block",
-    background: "#dbeafe",
-    color: "#1d4ed8",
-    padding: "7px 12px",
-    borderRadius: "999px",
-    fontSize: "11px",
-    fontWeight: "900",
-    letterSpacing: "1px",
-    marginBottom: "10px",
-  },
-
-  title: {
-    margin: 0,
-    fontSize: "32px",
-    fontWeight: "900",
-    color: "#0f172a",
-  },
-
-  subtitle: {
-    margin: "8px 0 0",
-    color: "#475569",
-    fontSize: "14px",
-    fontWeight: "600",
-  },
-
-  backButton: {
-    border: "none",
-    background: "#1d4ed8",
-    color: "#ffffff",
-    padding: "12px 18px",
-    borderRadius: "10px",
-    fontWeight: "800",
-    cursor: "pointer",
-    fontSize: "14px",
-  },
-
-  controlCard: {
-    background: "#ffffff",
-    borderRadius: "20px",
-    padding: "22px",
-    marginBottom: "20px",
-    boxShadow:
-      "0 8px 25px rgba(15,23,42,0.07)",
-    display: "flex",
-    alignItems: "end",
-    justifyContent: "space-between",
-    gap: "20px",
-    flexWrap: "wrap",
-  },
-
-  dateSection: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
-  },
-
-  label: {
-    color: "#334155",
+  smallText: {
     fontSize: "12px",
     fontWeight: "800",
+    letterSpacing: "2px",
+    marginBottom: "8px",
   },
 
-  dateInput: {
-    padding: "12px 14px",
-    border: "1px solid #cbd5e1",
-    borderRadius: "10px",
-    background: "#ffffff",
-    color: "#0f172a",
-    fontSize: "14px",
-    fontWeight: "700",
+  heroTitle: {
+    margin: 0,
+    fontSize: "32px",
+    fontWeight: "800",
   },
 
-  actionSection: {
+  heroText: {
+    margin: "12px 0 0",
+    fontSize: "15px",
+  },
+
+  heroIcon: {
+    width: "100px",
+    height: "100px",
+    borderRadius: "28px",
+    background:
+      "rgba(255,255,255,0.15)",
     display: "flex",
-    gap: "10px",
-    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "55px",
+    flexShrink: 0,
   },
 
-  allPresentButton: {
-    border: "none",
-    background: "#16a34a",
-    color: "#ffffff",
-    padding: "12px 16px",
-    borderRadius: "10px",
-    fontWeight: "800",
-    cursor: "pointer",
-  },
-
-  allAbsentButton: {
-    border: "none",
-    background: "#dc2626",
-    color: "#ffffff",
-    padding: "12px 16px",
-    borderRadius: "10px",
-    fontWeight: "800",
-    cursor: "pointer",
-  },
-
-  statsGrid: {
+  stats: {
     display: "grid",
     gridTemplateColumns:
-      "repeat(auto-fit,minmax(210px,1fr))",
-    gap: "15px",
-    marginBottom: "20px",
+      "repeat(auto-fit,minmax(220px,1fr))",
+    gap: "16px",
+    marginBottom: "30px",
   },
 
   statCard: {
@@ -879,304 +820,170 @@ const styles: {
     width: "55px",
     height: "55px",
     borderRadius: "15px",
+    background: "#dbeafe",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "26px",
-    fontWeight: "900",
+    fontSize: "27px",
     flexShrink: 0,
   },
 
   statLabel: {
-    color: "#475569",
+    margin: 0,
+    color: "#64748b",
     fontSize: "12px",
-    fontWeight: "800",
+    fontWeight: "700",
   },
 
   statValue: {
+    margin: "3px 0 0",
     color: "#172554",
-    fontSize: "25px",
-    fontWeight: "900",
-    marginTop: "2px",
+    fontSize: "23px",
+    fontWeight: "800",
   },
 
-  successBox: {
-    background: "#dcfce7",
-    color: "#166534",
-    border: "1px solid #bbf7d0",
-    borderRadius: "12px",
-    padding: "15px",
-    marginBottom: "20px",
-    fontWeight: "700",
-  },
-
-  errorBox: {
-    background: "#fee2e2",
-    color: "#991b1b",
-    border: "1px solid #fecaca",
-    borderRadius: "12px",
-    padding: "15px",
-    marginBottom: "20px",
-    fontWeight: "700",
-  },
-
-  attendanceCard: {
+  menuSection: {
     background: "#ffffff",
-    borderRadius: "22px",
-    padding: "22px",
+    borderRadius: "20px",
+    padding: "25px",
+    marginBottom: "20px",
     boxShadow:
-      "0 10px 30px rgba(15,23,42,0.08)",
-    overflow: "hidden",
+      "0 8px 25px rgba(15,23,42,0.07)",
   },
 
-  cardHeader: {
+  sectionTitle: {
+    margin: 0,
+    color: "#172554",
+    fontSize: "23px",
+    fontWeight: "800",
+  },
+
+  sectionSubtitle: {
+    margin: "5px 0 18px",
+    color: "#64748b",
+    fontSize: "13px",
+    fontWeight: "600",
+  },
+
+  menuGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit,minmax(280px,1fr))",
+    gap: "15px",
+  },
+
+  menuCard: {
+    border: "1px solid #e2e8f0",
+    background: "#f8fafc",
+    borderRadius: "16px",
+    padding: "18px",
+    display: "flex",
+    alignItems: "center",
+    gap: "14px",
+    textAlign: "left",
+    cursor: "pointer",
+    color: "#172554",
+  },
+
+  menuIcon: {
+    width: "52px",
+    height: "52px",
+    borderRadius: "14px",
+    background: "#eff6ff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "25px",
+    flexShrink: 0,
+  },
+
+  arrow: {
+    marginLeft: "auto",
+    color: "#2563eb",
+    fontSize: "22px",
+    fontWeight: "800",
+  },
+
+  attendanceSection: {
+    background: "#ffffff",
+    borderRadius: "20px",
+    padding: "25px",
+    boxShadow:
+      "0 8px 25px rgba(15,23,42,0.07)",
+  },
+
+  sectionHeader: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     gap: "15px",
-    marginBottom: "20px",
-    flexWrap: "wrap",
+    marginBottom: "15px",
   },
 
-  cardTitle: {
-    margin: 0,
-    fontSize: "22px",
-    color: "#172554",
-    fontWeight: "900",
-  },
-
-  cardSubtitle: {
-    margin: "5px 0 0",
-    color: "#64748b",
-    fontSize: "12px",
-    fontWeight: "600",
-  },
-
-  refreshButton: {
-    border: "none",
-    background: "#2563eb",
-    color: "#ffffff",
-    padding: "11px 16px",
+  refresh: {
+    border: "1px solid #cbd5e1",
+    background: "#f8fafc",
+    padding: "10px 14px",
     borderRadius: "10px",
-    fontWeight: "800",
+    fontWeight: "700",
     cursor: "pointer",
+  },
+
+  empty: {
+    padding: "35px",
+    textAlign: "center",
+    color: "#64748b",
+    background: "#f8fafc",
+    borderRadius: "12px",
   },
 
   tableWrapper: {
     width: "100%",
     overflowX: "auto",
-    border: "1px solid #e2e8f0",
-    borderRadius: "14px",
   },
 
   table: {
     width: "100%",
-    minWidth: "800px",
     borderCollapse: "collapse",
-    background: "#ffffff",
   },
 
   th: {
-    background: "#172554",
-    color: "#ffffff",
-    padding: "14px 12px",
     textAlign: "left",
-    fontSize: "12px",
-    fontWeight: "900",
-    whiteSpace: "nowrap",
+    padding: "13px",
+    background: "#f1f5f9",
+    color: "#334155",
+    fontSize: "13px",
   },
 
   td: {
-    padding: "14px 12px",
+    padding: "13px",
     borderBottom:
       "1px solid #e2e8f0",
-    color: "#334155",
     fontSize: "13px",
-    fontWeight: "600",
-    whiteSpace: "nowrap",
   },
 
-  studentCell: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-  },
-
-  avatar: {
-    width: "38px",
-    height: "38px",
-    borderRadius: "50%",
-    background: "#dbeafe",
-    color: "#1d4ed8",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontWeight: "900",
-    fontSize: "15px",
-  },
-
-  studentName: {
-    color: "#0f172a",
-    fontSize: "14px",
-  },
-
-  username: {
-    background: "#f1f5f9",
-    color: "#334155",
-    padding: "6px 9px",
-    borderRadius: "7px",
-    fontSize: "12px",
-    fontWeight: "800",
-  },
-
-  attendanceButtons: {
-    display: "flex",
-    gap: "8px",
-    flexWrap: "wrap",
-  },
-
-  presentButton: {
-    border: "1px solid #86efac",
-    background: "#f0fdf4",
+  present: {
+    display: "inline-block",
+    padding: "7px 11px",
+    borderRadius: "8px",
+    background: "#dcfce7",
     color: "#15803d",
-    padding: "9px 13px",
-    borderRadius: "9px",
-    fontWeight: "800",
-    cursor: "pointer",
+    fontWeight: "700",
   },
 
-  presentSelected: {
-    background: "#16a34a",
-    color: "#ffffff",
-    border: "1px solid #16a34a",
-  },
-
-  absentButton: {
-    border: "1px solid #fca5a5",
-    background: "#fef2f2",
+  absent: {
+    display: "inline-block",
+    padding: "7px 11px",
+    borderRadius: "8px",
+    background: "#fee2e2",
     color: "#dc2626",
-    padding: "9px 13px",
-    borderRadius: "9px",
-    fontWeight: "800",
-    cursor: "pointer",
-  },
-
-  absentSelected: {
-    background: "#dc2626",
-    color: "#ffffff",
-    border: "1px solid #dc2626",
-  },
-
-  bottomActions: {
-    display: "flex",
-    justifyContent: "center",
-    gap: "12px",
-    marginTop: "22px",
-    paddingTop: "20px",
-    borderTop: "1px solid #e2e8f0",
-    flexWrap: "wrap",
-  },
-
-  saveButton: {
-    border: "none",
-    background:
-      "linear-gradient(135deg,#16a34a,#15803d)",
-    color: "#ffffff",
-    padding: "14px 25px",
-    borderRadius: "11px",
-    fontWeight: "900",
-    cursor: "pointer",
-    fontSize: "14px",
-    boxShadow:
-      "0 8px 18px rgba(22,163,74,0.22)",
-  },
-
-  deleteButton: {
-    border: "none",
-    background:
-      "linear-gradient(135deg,#dc2626,#b91c1c)",
-    color: "#ffffff",
-    padding: "14px 25px",
-    borderRadius: "11px",
-    fontWeight: "900",
-    cursor: "pointer",
-    fontSize: "14px",
-    boxShadow:
-      "0 8px 18px rgba(220,38,38,0.20)",
-  },
-
-  loadingBox: {
-    textAlign: "center",
-    padding: "60px 20px",
-    background: "#f8fafc",
-    borderRadius: "14px",
-  },
-
-  loadingIcon: {
-    fontSize: "40px",
-  },
-
-  loadingTitle: {
-    margin: "12px 0 0",
-    color: "#172554",
-    fontSize: "18px",
-    fontWeight: "900",
-  },
-
-  emptyBox: {
-    textAlign: "center",
-    padding: "55px 20px",
-    background: "#f8fafc",
-    borderRadius: "14px",
-  },
-
-  emptyIcon: {
-    fontSize: "48px",
-  },
-
-  emptyTitle: {
-    margin: "12px 0 0",
-    color: "#172554",
-    fontSize: "19px",
-    fontWeight: "900",
-  },
-
-  warningCard: {
-    marginTop: "20px",
-    background:
-      "linear-gradient(135deg,#fffbeb,#fef3c7)",
-    border: "1px solid #fde68a",
-    borderRadius: "18px",
-    padding: "20px",
-    display: "flex",
-    gap: "14px",
-    alignItems: "flex-start",
-  },
-
-  warningIcon: {
-    fontSize: "28px",
-  },
-
-  warningTitle: {
-    margin: 0,
-    color: "#92400e",
-    fontSize: "17px",
-    fontWeight: "900",
-  },
-
-  warningText: {
-    margin: "7px 0 0",
-    color: "#78350f",
-    fontSize: "13px",
-    lineHeight: 1.6,
-    fontWeight: "600",
+    fontWeight: "700",
   },
 
   footer: {
     textAlign: "center",
-    padding: "25px 10px",
+    padding: "25px 10px 10px",
     color: "#64748b",
     fontSize: "12px",
-    fontWeight: "700",
   },
 };

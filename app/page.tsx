@@ -18,6 +18,20 @@ export default function Home() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  function clearSessions() {
+    localStorage.removeItem("studentLoggedIn");
+    localStorage.removeItem("studentUsername");
+    localStorage.removeItem("studentName");
+    localStorage.removeItem("studentId");
+
+    localStorage.removeItem("teacherLoggedIn");
+    localStorage.removeItem("teacher");
+    localStorage.removeItem("teacherUsername");
+    localStorage.removeItem("teacherName");
+
+    sessionStorage.clear();
+  }
+
   async function handleLogin(
     e: React.FormEvent<HTMLFormElement>
   ) {
@@ -26,7 +40,7 @@ export default function Home() {
     setError("");
     setLoading(true);
 
-    const enteredUsername = username.trim();
+    const enteredUsername = username.trim().toUpperCase();
     const enteredPassword = password.trim();
 
     if (!enteredUsername || !enteredPassword) {
@@ -35,72 +49,69 @@ export default function Home() {
       return;
     }
 
-    /* =====================================================
+    /* ==============================
        TEACHER LOGIN
-       ===================================================== */
+       ============================== */
 
     if (role === "Teacher") {
       if (
-        enteredUsername.toUpperCase() === "HARSH201951" &&
+        enteredUsername === "HARSH201951" &&
         enteredPassword === "201951"
       ) {
-        // Clear any old student session
-        localStorage.removeItem("studentLoggedIn");
-        localStorage.removeItem("studentUsername");
-        localStorage.removeItem("studentName");
+        clearSessions();
 
-        // Teacher session
-        localStorage.setItem("teacherLoggedIn", "true");
-        localStorage.setItem("teacher", "true");
+        localStorage.setItem(
+          "teacherLoggedIn",
+          "true"
+        );
+
+        localStorage.setItem(
+          "teacher",
+          "true"
+        );
+
         localStorage.setItem(
           "teacherUsername",
-          enteredUsername.toUpperCase()
+          "HARSH201951"
         );
+
         localStorage.setItem(
           "teacherName",
           "Harsh"
         );
 
-        // Teacher dashboard only
         router.replace("/teacher");
-
         return;
       }
 
-      setError("❌ Invalid teacher username or password.");
+      setError(
+        "❌ Invalid teacher username or password."
+      );
+
       setLoading(false);
       return;
     }
 
-    /* =====================================================
+    /* ==============================
        STUDENT LOGIN
-       ===================================================== */
+       ============================== */
 
     try {
-      // IMPORTANT:
-      // Student login is checked ONLY against students table.
-      // It can NEVER redirect to teacher dashboard.
-
       const { data: student, error: studentError } =
         await supabase
           .from("students")
           .select(
-            `
-            id,
-            student_name,
-            student_username,
-            password_hash
-            `
+            "id, student_name, student_username, password_hash"
           )
           .eq(
             "student_username",
-            enteredUsername.toUpperCase()
+            enteredUsername
           )
           .maybeSingle();
 
       if (studentError) {
         console.error(
-          "Student login error:",
+          "Student database error:",
           studentError
         );
 
@@ -122,41 +133,33 @@ export default function Home() {
         return;
       }
 
-      /*
-       * Existing project stores password in password_hash.
-       *
-       * We first support the current plain-text student
-       * passwords if they are stored that way.
-       *
-       * If password_hash contains a Supabase/Postgres
-       * crypt hash, use the student_login RPC below.
-       */
-
       let validPassword = false;
 
-      // Try existing student_login RPC first.
-      const { data: rpcStudent, error: rpcError } =
+      /* ==============================
+         TRY RPC LOGIN
+         ============================== */
+
+      const { data: rpcData, error: rpcError } =
         await supabase.rpc("student_login", {
-          p_username:
-            enteredUsername.toUpperCase(),
+          p_username: enteredUsername,
           p_password: enteredPassword,
         });
 
-      if (!rpcError && rpcStudent) {
-        if (Array.isArray(rpcStudent)) {
-          validPassword = rpcStudent.length > 0;
+      if (!rpcError && rpcData) {
+        if (Array.isArray(rpcData)) {
+          validPassword = rpcData.length > 0;
         } else {
           validPassword = true;
         }
       }
 
-      /*
-       * Fallback for projects where password_hash currently
-       * contains the actual password.
-       */
+      /* ==============================
+         FALLBACK PASSWORD CHECK
+         ============================== */
+
       if (!validPassword) {
         if (
-          student.password_hash ===
+          String(student.password_hash) ===
           enteredPassword
         ) {
           validPassword = true;
@@ -172,17 +175,12 @@ export default function Home() {
         return;
       }
 
-      /* ===================================================
-         STUDENT SESSION
-         =================================================== */
+      /* ==============================
+         STUDENT SESSION ONLY
+         ============================== */
 
-      // Remove any old teacher session
-      localStorage.removeItem("teacherLoggedIn");
-      localStorage.removeItem("teacher");
-      localStorage.removeItem("teacherUsername");
-      localStorage.removeItem("teacherName");
+      clearSessions();
 
-      // Create student session
       localStorage.setItem(
         "studentLoggedIn",
         "true"
@@ -195,8 +193,7 @@ export default function Home() {
 
       localStorage.setItem(
         "studentName",
-        student.student_name ||
-          "Student"
+        student.student_name || "Student"
       );
 
       localStorage.setItem(
@@ -204,13 +201,9 @@ export default function Home() {
         String(student.id)
       );
 
-      // Student dashboard ONLY
       router.replace("/student/dashboard");
     } catch (err: any) {
-      console.error(
-        "Login error:",
-        err
-      );
+      console.error("Login error:", err);
 
       setError(
         err?.message ||
@@ -225,32 +218,24 @@ export default function Home() {
     selectedRole: "Student" | "Teacher"
   ) {
     setRole(selectedRole);
-    setError("");
     setUsername("");
     setPassword("");
+    setError("");
   }
 
   return (
     <main className="page">
       <div className="login-card">
 
-        {/* ICON */}
-
         <div className="logo">
           🎓
         </div>
 
-        {/* TITLE */}
-
-        <h1>
-          Attendance Portal
-        </h1>
+        <h1>Attendance Portal</h1>
 
         <p className="subtitle">
           Login to continue
         </p>
-
-        {/* ROLE BUTTONS */}
 
         <div className="role-buttons">
 
@@ -284,13 +269,9 @@ export default function Home() {
 
         </div>
 
-        {/* LOGIN FORM */}
-
         <form onSubmit={handleLogin}>
 
-          <label>
-            Username
-          </label>
+          <label>Username</label>
 
           <input
             type="text"
@@ -307,9 +288,7 @@ export default function Home() {
             disabled={loading}
           />
 
-          <label>
-            Password
-          </label>
+          <label>Password</label>
 
           <input
             type="password"
@@ -351,20 +330,16 @@ export default function Home() {
       </div>
 
       <style jsx>{`
-
         * {
           box-sizing: border-box;
         }
 
         .page {
           min-height: 100vh;
-
           display: flex;
           align-items: center;
           justify-content: center;
-
           padding: 20px;
-
           background:
             linear-gradient(
               135deg,
@@ -372,7 +347,6 @@ export default function Home() {
               #eef2ff 50%,
               #dcfce7 100%
             );
-
           font-family:
             Arial,
             Helvetica,
@@ -382,13 +356,9 @@ export default function Home() {
         .login-card {
           width: 100%;
           max-width: 430px;
-
           background: white;
-
           padding: 35px;
-
           border-radius: 25px;
-
           box-shadow:
             0 25px 60px
             rgba(0, 0, 0, 0.15);
@@ -397,173 +367,107 @@ export default function Home() {
         .logo {
           width: 75px;
           height: 75px;
-
           margin: 0 auto 15px;
-
           display: flex;
           align-items: center;
           justify-content: center;
-
           border-radius: 20px;
-
           background:
             linear-gradient(
               135deg,
               #dbeafe,
               #e0e7ff
             );
-
           font-size: 40px;
         }
 
         h1 {
           text-align: center;
-
           margin: 10px 0;
-
           color: #111827;
-
           font-size: 30px;
         }
 
         .subtitle {
           text-align: center;
-
           color: #64748b;
-
           margin: 0 0 25px;
         }
 
         .role-buttons {
           display: grid;
-
-          grid-template-columns:
-            1fr 1fr;
-
+          grid-template-columns: 1fr 1fr;
           gap: 10px;
-
           margin-bottom: 22px;
         }
 
         .role-button {
           border: none;
-
           padding: 13px;
-
           border-radius: 10px;
-
           background: #e2e8f0;
-
           color: #334155;
-
           font-weight: bold;
-
           font-size: 15px;
-
           cursor: pointer;
-
-          transition: 0.2s;
         }
 
         .student-active {
           background: #2563eb;
-
           color: white;
         }
 
         .teacher-active {
           background: #7c3aed;
-
           color: white;
         }
 
         label {
           display: block;
-
           margin-bottom: 7px;
-
           color: #111827;
-
           font-weight: bold;
-
           font-size: 14px;
         }
 
         input {
           width: 100%;
-
           padding: 14px;
-
           margin-bottom: 18px;
-
-          border:
-            2px solid #bfdbfe;
-
+          border: 2px solid #bfdbfe;
           border-radius: 10px;
-
           background: white;
-
           color: #111827;
-
           font-size: 16px;
-
           outline: none;
         }
 
         input:focus {
           border-color: #2563eb;
-
           box-shadow:
             0 0 0 3px
             rgba(37, 99, 235, 0.1);
         }
 
-        input::placeholder {
-          color: #94a3b8;
-        }
-
-        input:disabled {
-          background: #f8fafc;
-
-          cursor: not-allowed;
-        }
-
         .error {
           background: #fee2e2;
-
           color: #991b1b;
-
           padding: 12px;
-
           border-radius: 10px;
-
           margin-bottom: 15px;
-
           font-weight: 600;
-
           text-align: center;
-
-          font-size: 13px;
         }
 
         .login-button {
           width: 100%;
-
           padding: 15px;
-
           border: none;
-
           border-radius: 11px;
-
           color: white;
-
           font-size: 17px;
-
           font-weight: bold;
-
           cursor: pointer;
-
-          transition: 0.2s;
         }
 
         .student-login {
@@ -584,43 +488,21 @@ export default function Home() {
             );
         }
 
-        .login-button:hover {
-          transform: translateY(-1px);
-
-          box-shadow:
-            0 8px 20px
-            rgba(0, 0, 0, 0.15);
-        }
-
-        .login-button:disabled {
-          opacity: 0.7;
-
-          cursor: not-allowed;
-
-          transform: none;
-        }
-
         .footer {
           text-align: center;
-
           color: #94a3b8;
-
           font-size: 12px;
-
           margin-top: 25px;
-
           margin-bottom: 0;
         }
 
         @media (max-width: 500px) {
-
           .page {
             padding: 15px;
           }
 
           .login-card {
             padding: 25px 20px;
-
             border-radius: 20px;
           }
 
@@ -631,12 +513,9 @@ export default function Home() {
           .logo {
             width: 65px;
             height: 65px;
-
             font-size: 34px;
           }
-
         }
-
       `}</style>
     </main>
   );
