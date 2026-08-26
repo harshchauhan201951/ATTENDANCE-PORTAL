@@ -1,43 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
 
-export default function TeacherDashboard() {
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+type Role = "Student" | "Teacher";
+
+export default function Home() {
   const router = useRouter();
 
-  const [teacherName, setTeacherName] = useState("Teacher");
-  const [loggingOut, setLoggingOut] = useState(false);
+  const [role, setRole] = useState<Role>("Student");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
 
-  useEffect(() => {
-    const savedTeacherName =
-      localStorage.getItem("teacherName") ||
-      localStorage.getItem("teacher_name") ||
-      localStorage.getItem("teacherUsername") ||
-      localStorage.getItem("teacher_username") ||
-      "Teacher";
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-    setTeacherName(savedTeacherName);
-  }, []);
-
-  async function handleLogout() {
-    if (loggingOut) {
-      return;
-    }
-
-    setLoggingOut(true);
-
-    const authKeys = [
+  function clearSessions() {
+    const localKeys = [
       "attendance_role",
       "attendance_username",
       "attendance_teacher_id",
-
-      "teacherLoggedIn",
-      "teacher",
-      "teacherUsername",
-      "teacher_username",
-      "teacherName",
-      "teacher_name",
 
       "studentLoggedIn",
       "studentId",
@@ -45,263 +33,634 @@ export default function TeacherDashboard() {
       "student_username",
       "studentName",
       "student_name",
+
+      "teacherLoggedIn",
+      "teacher",
+      "teacherUsername",
+      "teacher_username",
+      "teacherName",
+      "teacher_name",
     ];
 
-    authKeys.forEach((key) => {
+    localKeys.forEach((key) => {
       localStorage.removeItem(key);
     });
 
-    authKeys.forEach((key) => {
-      sessionStorage.removeItem(key);
-    });
-
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    router.replace("/");
-    router.refresh();
+    sessionStorage.clear();
   }
 
-  const menuItems = [
-    {
-      title: "Mark Attendance",
-      description: "Mark today's student attendance",
-      icon: "📝",
-      path: "/teacher/attendance",
-    },
-    {
-      title: "Attendance History",
-      description: "Check previous attendance records",
-      icon: "📊",
-      path: "/teacher/attendance-history",
-    },
-    {
-      title: "Calendar",
-      description: "View academic and attendance calendar",
-      icon: "📅",
-      path: "/teacher/calendar",
-    },
-    {
-      title: "Reports",
-      description: "View attendance reports",
-      icon: "📈",
-      path: "/teacher/reports",
-    },
-    {
-      title: "Fees",
-      description: "Manage student fee information",
-      icon: "💰",
-      path: "/teacher/fees",
-    },
-    {
-      title: "Settings",
-      description: "Manage teacher account settings",
-      icon: "⚙️",
-      path: "/teacher/settings",
-    },
-  ];
+  function selectRole(selectedRole: Role) {
+    setRole(selectedRole);
+    setUsername("");
+    setPassword("");
+    setError("");
+  }
+
+  async function handleLogin(
+    e: React.FormEvent<HTMLFormElement>
+  ) {
+    e.preventDefault();
+
+    if (loading) {
+      return;
+    }
+
+    setError("");
+
+    const enteredUsername =
+      username.trim().toUpperCase();
+
+    const enteredPassword =
+      password.trim();
+
+    if (!enteredUsername || !enteredPassword) {
+      setError(
+        "Username aur password dono enter karein."
+      );
+      return;
+    }
+
+    setLoading(true);
+
+    /*
+     * ========================================
+     * TEACHER LOGIN
+     * ========================================
+     */
+
+    if (role === "Teacher") {
+      if (
+        enteredUsername === "HARSH201951" &&
+        enteredPassword === "201951"
+      ) {
+        clearSessions();
+
+        /*
+         * New teacher session
+         */
+        localStorage.setItem(
+          "attendance_role",
+          "Teacher"
+        );
+
+        localStorage.setItem(
+          "attendance_username",
+          "HARSH201951"
+        );
+
+        localStorage.setItem(
+          "attendance_teacher_id",
+          "HARSH201951"
+        );
+
+        /*
+         * Compatibility with existing
+         * teacher pages
+         */
+        localStorage.setItem(
+          "teacherLoggedIn",
+          "true"
+        );
+
+        localStorage.setItem(
+          "teacher",
+          "true"
+        );
+
+        localStorage.setItem(
+          "teacherUsername",
+          "HARSH201951"
+        );
+
+        localStorage.setItem(
+          "teacher_username",
+          "HARSH201951"
+        );
+
+        localStorage.setItem(
+          "teacherName",
+          "Harsh"
+        );
+
+        localStorage.setItem(
+          "teacher_name",
+          "Harsh"
+        );
+
+        router.replace("/teacher");
+        return;
+      }
+
+      setError(
+        "Invalid teacher username or password."
+      );
+
+      setLoading(false);
+      return;
+    }
+
+    /*
+     * ========================================
+     * STUDENT LOGIN
+     * ========================================
+     */
+
+    try {
+      /*
+       * First find the student account.
+       */
+      const {
+        data: student,
+        error: studentError,
+      } = await supabase
+        .from("students")
+        .select(
+          "id, student_name, student_username, password_hash"
+        )
+        .eq(
+          "student_username",
+          enteredUsername
+        )
+        .maybeSingle();
+
+      if (studentError) {
+        console.error(
+          "Student database error:",
+          studentError
+        );
+
+        setError(
+          "Student login database error: " +
+            studentError.message
+        );
+
+        setLoading(false);
+        return;
+      }
+
+      if (!student) {
+        setError(
+          "Student username not found."
+        );
+
+        setLoading(false);
+        return;
+      }
+
+      let validPassword = false;
+
+      /*
+       * Try the existing student_login
+       * PostgreSQL function first.
+       */
+      const {
+        data: rpcData,
+        error: rpcError,
+      } = await supabase.rpc(
+        "student_login",
+        {
+          p_username: enteredUsername,
+          p_password: enteredPassword,
+        }
+      );
+
+      if (!rpcError && rpcData) {
+        if (Array.isArray(rpcData)) {
+          validPassword =
+            rpcData.length > 0;
+        } else {
+          validPassword = true;
+        }
+      }
+
+      /*
+       * Fallback for accounts where the
+       * password_hash column contains the
+       * password directly.
+       */
+      if (!validPassword) {
+        if (
+          String(student.password_hash) ===
+          enteredPassword
+        ) {
+          validPassword = true;
+        }
+      }
+
+      if (!validPassword) {
+        setError(
+          "Invalid student username or password."
+        );
+
+        setLoading(false);
+        return;
+      }
+
+      /*
+       * ========================================
+       * STUDENT SESSION
+       * ========================================
+       */
+
+      clearSessions();
+
+      localStorage.setItem(
+        "studentLoggedIn",
+        "true"
+      );
+
+      localStorage.setItem(
+        "studentId",
+        String(student.id)
+      );
+
+      localStorage.setItem(
+        "studentUsername",
+        student.student_username
+      );
+
+      localStorage.setItem(
+        "student_username",
+        student.student_username
+      );
+
+      localStorage.setItem(
+        "studentName",
+        student.student_name ||
+          "Student"
+      );
+
+      localStorage.setItem(
+        "student_name",
+        student.student_name ||
+          "Student"
+      );
+
+      sessionStorage.setItem(
+        "student_username",
+        student.student_username
+      );
+
+      sessionStorage.setItem(
+        "student_name",
+        student.student_name ||
+          "Student"
+      );
+
+      router.replace(
+        "/student/dashboard"
+      );
+    } catch (err) {
+      console.error(
+        "Login error:",
+        err
+      );
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Login failed. Please try again."
+      );
+
+      setLoading(false);
+    }
+  }
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background:
-          "linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #f8fafc 100%)",
-        padding: "24px",
-        fontFamily: "Arial, Helvetica, sans-serif",
-        boxSizing: "border-box",
-      }}
-    >
-      <div
-        style={{
-          maxWidth: "1200px",
-          margin: "0 auto",
-        }}
-      >
-        <header
-          style={{
-            background: "#ffffff",
-            borderRadius: "20px",
-            padding: "24px",
-            marginBottom: "24px",
-            boxShadow: "0 8px 30px rgba(0,0,0,0.08)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: "16px",
-            flexWrap: "wrap",
-          }}
-        >
-          <div>
-            <div
-              style={{
-                fontSize: "14px",
-                color: "#64748b",
-                marginBottom: "6px",
-              }}
-            >
-              Teacher Control Center
-            </div>
+    <main className="page">
+      <div className="login-card">
 
-            <h1
-              style={{
-                margin: 0,
-                fontSize: "30px",
-                fontWeight: 800,
-                color: "#0f172a",
-              }}
-            >
-              Welcome, {teacherName} 👋
-            </h1>
+        <div className="logo">
+          🎓
+        </div>
 
-            <p
-              style={{
-                margin: "8px 0 0",
-                color: "#64748b",
-                fontSize: "15px",
-              }}
-            >
-              Manage attendance, students, reports and more.
-            </p>
-          </div>
+        <h1>
+          Attendance Portal
+        </h1>
+
+        <p className="subtitle">
+          Login to continue
+        </p>
+
+        <div className="role-buttons">
 
           <button
             type="button"
-            onClick={handleLogout}
-            disabled={loggingOut}
-            style={{
-              border: "none",
-              background: loggingOut ? "#9ca3af" : "#ef4444",
-              color: "#ffffff",
-              padding: "12px 20px",
-              borderRadius: "12px",
-              fontWeight: 700,
-              cursor: loggingOut ? "not-allowed" : "pointer",
-              fontSize: "14px",
-              minWidth: "110px",
-            }}
+            className={
+              role === "Student"
+                ? "role-button student-active"
+                : "role-button"
+            }
+            onClick={() =>
+              selectRole("Student")
+            }
+            disabled={loading}
           >
-            {loggingOut ? "Logging out..." : "Logout"}
+            👨‍🎓 Student Login
           </button>
-        </header>
 
-        <section
-          style={{
-            marginBottom: "18px",
-          }}
-        >
-          <h2
-            style={{
-              margin: 0,
-              color: "#0f172a",
-              fontSize: "22px",
-              fontWeight: 800,
-            }}
+          <button
+            type="button"
+            className={
+              role === "Teacher"
+                ? "role-button teacher-active"
+                : "role-button"
+            }
+            onClick={() =>
+              selectRole("Teacher")
+            }
+            disabled={loading}
           >
-            Teacher Dashboard
-          </h2>
+            👨‍🏫 Teacher Login
+          </button>
 
-          <p
-            style={{
-              margin: "6px 0 0",
-              color: "#64748b",
-            }}
+        </div>
+
+        <div className="selected-role">
+          {role === "Student"
+            ? "Student Login"
+            : "Teacher Login"}
+        </div>
+
+        <form
+          onSubmit={handleLogin}
+          className="login-form"
+        >
+
+          <label>
+            Username
+          </label>
+
+          <input
+            type="text"
+            value={username}
+            onChange={(e) =>
+              setUsername(e.target.value)
+            }
+            placeholder={
+              role === "Teacher"
+                ? "Enter teacher username"
+                : "Enter student username"
+            }
+            autoComplete="username"
+            disabled={loading}
+          />
+
+          <label>
+            Password
+          </label>
+
+          <input
+            type="password"
+            value={password}
+            onChange={(e) =>
+              setPassword(e.target.value)
+            }
+            placeholder="Enter password"
+            autoComplete="current-password"
+            disabled={loading}
+          />
+
+          {error && (
+            <div className="error">
+              ❌ {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            className="login-button"
+            disabled={loading}
           >
-            Select an option to continue.
-          </p>
-        </section>
+            {loading
+              ? "Logging in..."
+              : `Login as ${role}`}
+          </button>
 
-        <section
-          style={{
-            display: "grid",
-            gridTemplateColumns:
-              "repeat(auto-fit, minmax(240px, 1fr))",
-            gap: "18px",
-          }}
-        >
-          {menuItems.map((item) => (
-            <button
-              type="button"
-              key={item.path}
-              onClick={() => router.push(item.path)}
-              style={{
-                border: "none",
-                background: "#ffffff",
-                borderRadius: "18px",
-                padding: "24px",
-                textAlign: "left",
-                cursor: "pointer",
-                boxShadow: "0 6px 22px rgba(0,0,0,0.07)",
-                transition:
-                  "transform 0.2s ease, box-shadow 0.2s ease",
-                width: "100%",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-4px)";
-                e.currentTarget.style.boxShadow =
-                  "0 12px 30px rgba(0,0,0,0.12)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow =
-                  "0 6px 22px rgba(0,0,0,0.07)";
-              }}
-            >
-              <div
-                style={{
-                  fontSize: "36px",
-                  marginBottom: "14px",
-                }}
-              >
-                {item.icon}
-              </div>
+        </form>
 
-              <h3
-                style={{
-                  margin: "0 0 8px",
-                  color: "#0f172a",
-                  fontSize: "19px",
-                  fontWeight: 800,
-                }}
-              >
-                {item.title}
-              </h3>
+        <div className="footer">
+          Attendance Portal • Secure Login
+        </div>
 
-              <p
-                style={{
-                  margin: 0,
-                  color: "#64748b",
-                  fontSize: "14px",
-                  lineHeight: 1.5,
-                }}
-              >
-                {item.description}
-              </p>
-
-              <div
-                style={{
-                  marginTop: "18px",
-                  color: "#4f46e5",
-                  fontWeight: 700,
-                  fontSize: "14px",
-                }}
-              >
-                Open →
-              </div>
-            </button>
-          ))}
-        </section>
-
-        <footer
-          style={{
-            textAlign: "center",
-            marginTop: "32px",
-            color: "#94a3b8",
-            fontSize: "13px",
-          }}
-        >
-          Attendance Portal • Teacher Dashboard
-        </footer>
       </div>
+
+      <style jsx>{`
+        * {
+          box-sizing: border-box;
+        }
+
+        .page {
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 24px;
+          background:
+            linear-gradient(
+              135deg,
+              #eef2ff 0%,
+              #f8fafc 50%,
+              #ecfdf5 100%
+            );
+          font-family:
+            Arial,
+            Helvetica,
+            sans-serif;
+        }
+
+        .login-card {
+          width: 100%;
+          max-width: 460px;
+          background: #ffffff;
+          border-radius: 24px;
+          padding: 34px;
+          box-shadow:
+            0 20px 50px
+            rgba(15, 23, 42, 0.12);
+        }
+
+        .logo {
+          width: 72px;
+          height: 72px;
+          margin: 0 auto 18px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 20px;
+          background:
+            linear-gradient(
+              135deg,
+              #4f46e5,
+              #2563eb
+            );
+          font-size: 38px;
+        }
+
+        h1 {
+          margin: 0;
+          text-align: center;
+          color: #0f172a;
+          font-size: 30px;
+          font-weight: 900;
+        }
+
+        .subtitle {
+          margin: 8px 0 24px;
+          text-align: center;
+          color: #64748b;
+          font-size: 15px;
+        }
+
+        .role-buttons {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+          margin-bottom: 18px;
+        }
+
+        .role-button {
+          border: 2px solid #cbd5e1;
+          background: #ffffff;
+          color: #334155;
+          padding: 13px 10px;
+          border-radius: 12px;
+          font-size: 14px;
+          font-weight: 800;
+          cursor: pointer;
+          transition: 0.2s ease;
+        }
+
+        .role-button:hover:not(:disabled) {
+          transform: translateY(-2px);
+        }
+
+        .role-button:disabled {
+          opacity: 0.65;
+          cursor: not-allowed;
+        }
+
+        .student-active {
+          background: #eff6ff;
+          border-color: #2563eb;
+          color: #1d4ed8;
+        }
+
+        .teacher-active {
+          background: #ecfdf5;
+          border-color: #16a34a;
+          color: #15803d;
+        }
+
+        .selected-role {
+          text-align: center;
+          margin-bottom: 20px;
+          color: #0f172a;
+          font-size: 18px;
+          font-weight: 900;
+        }
+
+        .login-form {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        label {
+          color: #334155;
+          font-size: 14px;
+          font-weight: 800;
+          margin-top: 4px;
+        }
+
+        input {
+          width: 100%;
+          padding: 14px;
+          border: 2px solid #cbd5e1;
+          border-radius: 12px;
+          outline: none;
+          background: #ffffff;
+          color: #0f172a;
+          font-size: 15px;
+          font-weight: 600;
+        }
+
+        input:focus {
+          border-color: #4f46e5;
+          box-shadow:
+            0 0 0 3px
+            rgba(79, 70, 229, 0.1);
+        }
+
+        input:disabled {
+          background: #f8fafc;
+        }
+
+        .error {
+          margin-top: 6px;
+          padding: 12px;
+          border-radius: 10px;
+          background: #fef2f2;
+          border: 1px solid #fecaca;
+          color: #b91c1c;
+          font-size: 14px;
+          font-weight: 700;
+        }
+
+        .login-button {
+          width: 100%;
+          margin-top: 10px;
+          padding: 15px;
+          border: none;
+          border-radius: 12px;
+          background:
+            linear-gradient(
+              135deg,
+              #4f46e5,
+              #2563eb
+            );
+          color: #ffffff;
+          font-size: 16px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .login-button:hover:not(:disabled) {
+          transform: translateY(-1px);
+        }
+
+        .login-button:disabled {
+          opacity: 0.65;
+          cursor: not-allowed;
+        }
+
+        .footer {
+          margin-top: 24px;
+          text-align: center;
+          color: #94a3b8;
+          font-size: 12px;
+          font-weight: 600;
+        }
+
+        @media (max-width: 480px) {
+          .page {
+            padding: 14px;
+          }
+
+          .login-card {
+            padding: 24px 18px;
+            border-radius: 20px;
+          }
+
+          h1 {
+            font-size: 25px;
+          }
+
+          .role-buttons {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
     </main>
   );
 }
