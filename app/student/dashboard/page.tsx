@@ -67,9 +67,37 @@ export default function StudentDashboardPage() {
     {
       icon: "📊",
       title: "My Attendance",
-      description: "View your attendance records and attendance percentage.",
+      description: "View your current attendance and attendance percentage.",
       path: "/student/attendance",
       className: "blue",
+    },
+    {
+      icon: "📜",
+      title: "Attendance History",
+      description: "Check your previous attendance records and details.",
+      path: "/student/attendance-history",
+      className: "purple",
+    },
+    {
+      icon: "📅",
+      title: "Academic Calendar",
+      description: "View important academic dates and calendar information.",
+      path: "/student/calendar",
+      className: "green",
+    },
+    {
+      icon: "📈",
+      title: "Reports",
+      description: "View your attendance reports and performance details.",
+      path: "/student/reports",
+      className: "orange",
+    },
+    {
+      icon: "💰",
+      title: "Fees",
+      description: "Check your student fee information and payment details.",
+      path: "/student/fees",
+      className: "pink",
     },
     {
       icon: "⚙️",
@@ -86,8 +114,11 @@ export default function StudentDashboardPage() {
 
         {/* TOP NAVIGATION */}
         <nav style={styles.navbar}>
+
           <div style={styles.brandArea}>
-            <div style={styles.brandIcon}>🎓</div>
+            <div style={styles.brandIcon}>
+              🎓
+            </div>
 
             <div>
               <div style={styles.brandName}>
@@ -101,6 +132,7 @@ export default function StudentDashboardPage() {
           </div>
 
           <div style={styles.navRight}>
+
             <div style={styles.clock}>
               🕒 {time}
             </div>
@@ -111,32 +143,36 @@ export default function StudentDashboardPage() {
             >
               Logout
             </button>
+
           </div>
+
         </nav>
 
         {/* HERO */}
         <section style={styles.hero}>
+
           <div style={styles.heroGlowOne} />
           <div style={styles.heroGlowTwo} />
 
           <div style={styles.heroContent}>
+
             <div style={styles.avatar}>
               {firstLetter}
             </div>
 
             <div style={styles.welcomeArea}>
+
               <div style={styles.smallGreeting}>
-                WELCOME BACK
+                STUDENT DASHBOARD
               </div>
 
               <h1 style={styles.welcomeTitle}>
-                Hello, {studentName} 👋
+                Welcome, {studentName}
               </h1>
 
               <p style={styles.welcomeText}>
-                Welcome to your student attendance center.
-                Check your attendance and manage your profile
-                from here.
+                Manage your attendance, academic information,
+                reports, fees and account settings from one place.
               </p>
 
               {username && (
@@ -144,46 +180,54 @@ export default function StudentDashboardPage() {
                   Username: {username}
                 </div>
               )}
+
             </div>
+
           </div>
 
           <div style={styles.heroSide}>
+
             <div style={styles.statusDot} />
 
             <div>
               <div style={styles.onlineText}>
-                STUDENT ACCOUNT
+                ACCOUNT ACTIVE
               </div>
 
               <div style={styles.onlineSub}>
-                Active & Secure
+                Student Portal
               </div>
             </div>
+
           </div>
+
         </section>
 
         {/* NOTICE */}
         <section style={styles.notice}>
+
           <div style={styles.noticeIcon}>
-            📢
+            ℹ️
           </div>
 
           <div>
             <div style={styles.noticeTitle}>
-              Attendance Information
+              Student Information Center
             </div>
 
             <p style={styles.noticeText}>
-              Your attendance can be viewed from the
-              My Attendance section. Attendance is marked
-              by your teacher.
+              Use the options below to check your attendance,
+              academic calendar, reports, fees and account settings.
             </p>
           </div>
+
         </section>
 
         {/* SERVICES */}
         <section>
+
           <div style={styles.sectionHeading}>
+
             <div>
               <div style={styles.sectionEyebrow}>
                 STUDENT SERVICES
@@ -197,9 +241,11 @@ export default function StudentDashboardPage() {
             <div style={styles.serviceCount}>
               {cards.length} OPTIONS
             </div>
+
           </div>
 
           <div style={styles.cardGrid}>
+
             {cards.map((card) => (
               <button
                 key={card.path}
@@ -207,14 +253,18 @@ export default function StudentDashboardPage() {
                 onClick={() => router.push(card.path)}
                 style={styles.serviceCard}
               >
+
                 <div
                   style={{
                     ...styles.cardTop,
-                    ...(card.className === "blue"
-                      ? styles.cardBlue
-                      : styles.cardCyan),
+                    ...(styles[
+                      `card${card.className
+                        .charAt(0)
+                        .toUpperCase()}${card.className.slice(1)}`
+                    ] || {}),
                   }}
                 >
+
                   <div style={styles.cardIcon}>
                     {card.icon}
                   </div>
@@ -222,9 +272,11 @@ export default function StudentDashboardPage() {
                   <div style={styles.arrow}>
                     →
                   </div>
+
                 </div>
 
                 <div style={styles.cardBody}>
+
                   <h3 style={styles.cardTitle}>
                     {card.title}
                   </h3>
@@ -237,27 +289,34 @@ export default function StudentDashboardPage() {
                     <span>Open</span>
                     <span>→</span>
                   </div>
+
                 </div>
+
               </button>
             ))}
+
           </div>
+
         </section>
 
-        {/* BOTTOM PANEL */}
+        {/* PROFILE PANEL */}
         <section style={styles.bottomPanel}>
+
           <div style={styles.bottomIcon}>
             👤
           </div>
 
           <div style={styles.bottomText}>
+
             <h3 style={styles.bottomTitle}>
               Keep your profile updated
             </h3>
 
             <p style={styles.bottomDescription}>
-              Your personal information is managed
-              through your student profile.
+              Your personal information is managed through
+              your student profile.
             </p>
+
           </div>
 
           <button
@@ -267,10 +326,12 @@ export default function StudentDashboardPage() {
           >
             View Profile →
           </button>
+
         </section>
 
         {/* FOOTER */}
         <footer style={styles.footer}>
+
           <div style={styles.footerBrand}>
             🎓 Attendance Portal
           </div>
@@ -278,6 +339,7 @@ export default function StudentDashboardPage() {
           <div>
             Student Portal • 2026
           </div>
+
         </footer>
 
       </div>
@@ -288,13 +350,15 @@ export default function StudentDashboardPage() {
 const styles: {
   [key: string]: React.CSSProperties;
 } = {
+
   page: {
     minHeight: "100vh",
     background:
       "linear-gradient(135deg,#f8fafc 0%,#eef2ff 50%,#f0f9ff 100%)",
     padding: "18px",
     boxSizing: "border-box",
-    fontFamily: "Arial, Helvetica, sans-serif",
+    fontFamily:
+      "Arial, Helvetica, sans-serif",
     color: "#0f172a",
   },
 
@@ -314,7 +378,8 @@ const styles: {
     justifyContent: "space-between",
     gap: "15px",
     marginBottom: "18px",
-    boxShadow: "0 8px 25px rgba(15,23,42,0.06)",
+    boxShadow:
+      "0 8px 25px rgba(15,23,42,0.06)",
     flexWrap: "wrap",
   },
 
@@ -338,7 +403,7 @@ const styles: {
 
   brandName: {
     fontSize: "13px",
-    fontWeight: "900",
+    fontWeight: "1000",
     letterSpacing: "1px",
     color: "#172554",
   },
@@ -436,7 +501,7 @@ const styles: {
     alignItems: "center",
     justifyContent: "center",
     fontSize: "38px",
-    fontWeight: "900",
+    fontWeight: "1000",
     boxShadow:
       "0 12px 30px rgba(0,0,0,0.18)",
   },
@@ -448,7 +513,7 @@ const styles: {
   smallGreeting: {
     color: "#bfdbfe",
     fontSize: "10px",
-    fontWeight: "900",
+    fontWeight: "1000",
     letterSpacing: "2px",
     marginBottom: "8px",
   },
@@ -458,7 +523,7 @@ const styles: {
     color: "#ffffff",
     fontSize: "30px",
     lineHeight: 1.2,
-    fontWeight: "900",
+    fontWeight: "1000",
     wordBreak: "break-word",
   },
 
@@ -510,7 +575,7 @@ const styles: {
   onlineText: {
     color: "#ffffff",
     fontSize: "10px",
-    fontWeight: "900",
+    fontWeight: "1000",
     letterSpacing: "1px",
   },
 
@@ -571,7 +636,7 @@ const styles: {
   sectionEyebrow: {
     color: "#2563eb",
     fontSize: "9px",
-    fontWeight: "900",
+    fontWeight: "1000",
     letterSpacing: "2px",
     marginBottom: "3px",
   },
@@ -579,7 +644,7 @@ const styles: {
   sectionTitle: {
     margin: 0,
     fontSize: "24px",
-    fontWeight: "900",
+    fontWeight: "1000",
     color: "#172554",
   },
 
@@ -596,7 +661,7 @@ const styles: {
   cardGrid: {
     display: "grid",
     gridTemplateColumns:
-      "repeat(2,minmax(0,1fr))",
+      "repeat(3,minmax(0,1fr))",
     gap: "15px",
   },
 
@@ -624,6 +689,26 @@ const styles: {
       "linear-gradient(135deg,#dbeafe,#bfdbfe)",
   },
 
+  cardPurple: {
+    background:
+      "linear-gradient(135deg,#ede9fe,#ddd6fe)",
+  },
+
+  cardGreen: {
+    background:
+      "linear-gradient(135deg,#dcfce7,#bbf7d0)",
+  },
+
+  cardOrange: {
+    background:
+      "linear-gradient(135deg,#ffedd5,#fed7aa)",
+  },
+
+  cardPink: {
+    background:
+      "linear-gradient(135deg,#fce7f3,#fbcfe8)",
+  },
+
   cardCyan: {
     background:
       "linear-gradient(135deg,#cffafe,#a5f3fc)",
@@ -649,7 +734,7 @@ const styles: {
     alignItems: "center",
     justifyContent: "center",
     color: "#172554",
-    fontWeight: "900",
+    fontWeight: "1000",
   },
 
   cardBody: {
@@ -660,7 +745,7 @@ const styles: {
     margin: 0,
     color: "#172554",
     fontSize: "17px",
-    fontWeight: "900",
+    fontWeight: "1000",
   },
 
   cardDescription: {
@@ -676,7 +761,7 @@ const styles: {
     marginTop: "13px",
     color: "#2563eb",
     fontSize: "11px",
-    fontWeight: "900",
+    fontWeight: "1000",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
@@ -717,7 +802,7 @@ const styles: {
     margin: 0,
     color: "#172554",
     fontSize: "14px",
-    fontWeight: "900",
+    fontWeight: "1000",
   },
 
   bottomDescription: {
