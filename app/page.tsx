@@ -1,1245 +1,1041 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+type LoginType = "student" | "teacher";
 
-type Role = "Student" | "Teacher";
+const slides = [
+  {
+    title: "LEARN. GROW. RACE AHEAD.",
+    subtitle: "Welcome to Racer Academy",
+    icon: "🏁",
+  },
+  {
+    title: "YOUR ATTENDANCE. YOUR PROGRESS.",
+    subtitle: "Track your academic journey with ease.",
+    icon: "📊",
+  },
+  {
+    title: "SMART ACADEMY. SMART FUTURE.",
+    subtitle: "Everything you need in one place.",
+    icon: "🚀",
+  },
+  {
+    title: "DISCIPLINE CREATES SUCCESS.",
+    subtitle: "Stay consistent. Keep moving forward.",
+    icon: "⚡",
+  },
+];
 
-export default function Home() {
+export default function HomePage() {
   const router = useRouter();
 
-  const [role, setRole] = useState<Role>("Student");
+  const [slide, setSlide] = useState(0);
+  const [loginType, setLoginType] = useState<LoginType>("student");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-
-  const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  function clearSessions() {
-    const localKeys = [
-      "attendance_role",
-      "attendance_username",
-      "attendance_teacher_id",
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSlide((prev) => (prev + 1) % slides.length);
+    }, 4500);
 
-      "studentLoggedIn",
-      "studentId",
-      "studentUsername",
-      "student_username",
-      "studentName",
-      "student_name",
+    return () => clearInterval(timer);
+  }, []);
 
-      "teacherLoggedIn",
-      "teacher",
-      "teacherUsername",
-      "teacher_username",
-      "teacherName",
-      "teacher_name",
-    ];
-
-    localKeys.forEach((key) => {
-      localStorage.removeItem(key);
-    });
-
-    sessionStorage.clear();
-  }
-
-  function selectRole(selectedRole: Role) {
-    setRole(selectedRole);
-    setUsername("");
-    setPassword("");
-    setError("");
-  }
-
-  async function handleLogin(
-    e: React.FormEvent<HTMLFormElement>
-  ) {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (loading) return;
-
     setError("");
 
-    const enteredUsername = username.trim().toUpperCase();
-    const enteredPassword = password.trim();
-
-    if (!enteredUsername || !enteredPassword) {
-      setError("Username aur password dono enter karein.");
+    if (!username.trim() || !password.trim()) {
+      setError("Please enter username and password.");
       return;
     }
 
     setLoading(true);
 
-    /*
-     * ================================
-     * TEACHER LOGIN
-     * ================================
-     */
-
-    if (role === "Teacher") {
-      if (
-        enteredUsername === "HARSH201951" &&
-        enteredPassword === "201951"
-      ) {
-        clearSessions();
-
-        localStorage.setItem(
-          "attendance_role",
-          "Teacher"
-        );
-
-        localStorage.setItem(
-          "attendance_username",
-          "HARSH201951"
-        );
-
-        localStorage.setItem(
-          "attendance_teacher_id",
-          "HARSH201951"
-        );
-
-        localStorage.setItem(
-          "teacherLoggedIn",
-          "true"
-        );
-
-        localStorage.setItem(
-          "teacher",
-          "true"
-        );
-
-        localStorage.setItem(
-          "teacherUsername",
-          "HARSH201951"
-        );
-
-        localStorage.setItem(
-          "teacher_username",
-          "HARSH201951"
-        );
-
-        localStorage.setItem(
-          "teacherName",
-          "Harsh"
-        );
-
-        localStorage.setItem(
-          "teacher_name",
-          "Harsh"
-        );
-
-        router.replace("/teacher");
-        return;
-      }
-
-      setError(
-        "Invalid teacher username or password."
-      );
-
-      setLoading(false);
-      return;
-    }
-
-    /*
-     * ================================
-     * STUDENT LOGIN
-     * ================================
-     */
-
     try {
-      const {
-        data: student,
-        error: studentError,
-      } = await supabase
-        .from("students")
-        .select(
-          "id, student_name, student_username, password_hash"
-        )
-        .eq(
-          "student_username",
-          enteredUsername
-        )
-        .maybeSingle();
+      if (loginType === "student") {
+        const response = await fetch("/api/student-login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            username: username.trim(),
+            password,
+          }),
+        });
 
-      if (studentError) {
-        console.error(
-          "Student database error:",
-          studentError
-        );
-
-        setError(
-          "Student login database error: " +
-            studentError.message
-        );
-
-        setLoading(false);
-        return;
-      }
-
-      if (!student) {
-        setError(
-          "Student username not found."
-        );
-
-        setLoading(false);
-        return;
-      }
-
-      let validPassword = false;
-
-      /*
-       * Existing PostgreSQL login function
-       */
-
-      const {
-        data: rpcData,
-        error: rpcError,
-      } = await supabase.rpc(
-        "student_login",
-        {
-          p_username: enteredUsername,
-          p_password: enteredPassword,
+        if (!response.ok) {
+          throw new Error("Invalid username or password.");
         }
-      );
 
-      if (!rpcError && rpcData) {
-        if (Array.isArray(rpcData)) {
-          validPassword = rpcData.length > 0;
-        } else {
-          validPassword = true;
+        router.push("/students");
+      } else {
+        const response = await fetch("/api/teacher-login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            username: username.trim(),
+            password,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Invalid username or password.");
         }
+
+        router.push("/teacher");
       }
-
-      /*
-       * Fallback for direct password storage
-       */
-
-      if (!validPassword) {
-        if (
-          String(student.password_hash) ===
-          enteredPassword
-        ) {
-          validPassword = true;
-        }
-      }
-
-      if (!validPassword) {
-        setError(
-          "Invalid student username or password."
-        );
-
-        setLoading(false);
-        return;
-      }
-
-      /*
-       * ================================
-       * STUDENT SESSION
-       * ================================
-       */
-
-      clearSessions();
-
-      localStorage.setItem(
-        "studentLoggedIn",
-        "true"
-      );
-
-      localStorage.setItem(
-        "studentId",
-        String(student.id)
-      );
-
-      localStorage.setItem(
-        "studentUsername",
-        student.student_username
-      );
-
-      localStorage.setItem(
-        "student_username",
-        student.student_username
-      );
-
-      localStorage.setItem(
-        "studentName",
-        student.student_name || "Student"
-      );
-
-      localStorage.setItem(
-        "student_name",
-        student.student_name || "Student"
-      );
-
-      sessionStorage.setItem(
-        "student_username",
-        student.student_username
-      );
-
-      sessionStorage.setItem(
-        "student_name",
-        student.student_name || "Student"
-      );
-
-      router.replace("/student/dashboard");
     } catch (err) {
-      console.error(
-        "Login error:",
-        err
-      );
-
       setError(
         err instanceof Error
           ? err.message
           : "Login failed. Please try again."
       );
-
+    } finally {
       setLoading(false);
     }
-  }
+  };
 
   return (
-    <main className="page">
+    <main className="login-page">
       <div className="background-grid" />
-      <div className="glow glow-one" />
-      <div className="glow glow-two" />
 
-      <div className="login-wrapper">
+      <div className="floating-orb orb-one" />
+      <div className="floating-orb orb-two" />
+      <div className="floating-orb orb-three" />
 
-        {/* BRAND */}
-        <div className="brand">
+      <section className="login-wrapper">
+        {/* LEFT SIDE */}
+        <div className="showcase">
+          <div className="showcase-top">
+            {/* UNIQUE RC LOGO */}
+            <div className="academy-logo">
+              <div className="logo-ring">
+                <div className="logo-cut" />
+                <span className="logo-r">R</span>
+                <span className="logo-c">C</span>
+              </div>
 
-          <div className="brand-logo">
-            <span>R</span>
+              <div className="logo-speed-line line-one" />
+              <div className="logo-speed-line line-two" />
+            </div>
+
+            <div>
+              <div className="academy-name">RACER ACADEMY</div>
+              <div className="academy-tag">
+                EDUCATION • DISCIPLINE • SUCCESS
+              </div>
+            </div>
           </div>
 
-          <div className="brand-text">
-            <h1>RACER ACADEMY</h1>
-            <p>ACADEMIC MANAGEMENT SYSTEM</p>
+          <div className="hero-content">
+            <div className="slide-number">
+              0{slide + 1} / 0{slides.length}
+            </div>
+
+            <div className="hero-icon" key={slide}>
+              {slides[slide].icon}
+            </div>
+
+            <h1 key={`title-${slide}`}>{slides[slide].title}</h1>
+
+            <p key={`subtitle-${slide}`}>{slides[slide].subtitle}</p>
+
+            <div className="race-line">
+              <span />
+              <span />
+              <span />
+            </div>
           </div>
 
+          <div className="slider-controls">
+            <button
+              className="arrow-btn"
+              onClick={() =>
+                setSlide((prev) => (prev - 1 + slides.length) % slides.length)
+              }
+              aria-label="Previous slide"
+            >
+              ←
+            </button>
+
+            <div className="dots">
+              {slides.map((_, index) => (
+                <button
+                  key={index}
+                  aria-label={`Go to slide ${index + 1}`}
+                  className={`dot ${slide === index ? "active" : ""}`}
+                  onClick={() => setSlide(index)}
+                />
+              ))}
+            </div>
+
+            <button
+              className="arrow-btn"
+              onClick={() => setSlide((prev) => (prev + 1) % slides.length)}
+              aria-label="Next slide"
+            >
+              →
+            </button>
+          </div>
+
+          <div className="showcase-footer">
+            <span>RACER ACADEMY</span>
+            <span>•</span>
+            <span>2026</span>
+          </div>
         </div>
 
-        {/* LOGIN CARD */}
-        <section className="login-card">
+        {/* RIGHT SIDE */}
+        <div className="login-panel">
+          <div className="mobile-logo">
+            {/* UNIQUE RC LOGO */}
+            <div className="academy-logo small-logo">
+              <div className="logo-ring">
+                <div className="logo-cut" />
+                <span className="logo-r">R</span>
+                <span className="logo-c">C</span>
+              </div>
 
-          <div className="card-top-line" />
+              <div className="logo-speed-line line-one" />
+              <div className="logo-speed-line line-two" />
+            </div>
 
-          <div className="academy-icon">
-            <div className="icon-ring">
-              <span>R</span>
+            <div>
+              <strong>RACER ACADEMY</strong>
+              <small>SMART LEARNING PORTAL</small>
             </div>
           </div>
 
-          <div className="heading">
-
-            <div className="mini-label">
-              SECURE ACCESS
-            </div>
-
-            <h2>
-              Welcome Back
-            </h2>
-
-            <p>
-              Login to continue
-            </p>
-
+          <div className="login-heading">
+            <span className="welcome">WELCOME BACK</span>
+            <h2>Sign in to continue</h2>
+            <p>Access your academy dashboard</p>
           </div>
 
-          {/* ROLE SWITCH */}
-          <div className="role-switch">
-
+          {/* LOGIN TYPE */}
+          <div className="login-switch">
             <button
               type="button"
-              className={
-                role === "Student"
-                  ? "role-button active"
-                  : "role-button"
-              }
-              onClick={() =>
-                selectRole("Student")
-              }
-              disabled={loading}
+              className={loginType === "student" ? "selected" : ""}
+              onClick={() => {
+                setLoginType("student");
+                setError("");
+              }}
             >
-              <span className="role-icon">
-                👨‍🎓
-              </span>
-
+              <span className="switch-icon">🎓</span>
               <span>
-                Student Login
+                <strong>Student</strong>
+                <small>Student Portal</small>
               </span>
             </button>
 
             <button
               type="button"
-              className={
-                role === "Teacher"
-                  ? "role-button active teacher"
-                  : "role-button"
-              }
-              onClick={() =>
-                selectRole("Teacher")
-              }
-              disabled={loading}
+              className={loginType === "teacher" ? "selected" : ""}
+              onClick={() => {
+                setLoginType("teacher");
+                setError("");
+              }}
             >
-              <span className="role-icon">
-                👨‍🏫
-              </span>
-
+              <span className="switch-icon">👨‍🏫</span>
               <span>
-                Teacher Login
+                <strong>Teacher</strong>
+                <small>Teacher Portal</small>
               </span>
             </button>
-
           </div>
 
-          {/* SELECTED ROLE */}
-          <div className="selected-role">
-
-            <span className="status-dot" />
-
-            {role === "Student"
-              ? "Student Login"
-              : "Teacher Login"}
-
-          </div>
-
-          {/* FORM */}
-          <form
-            onSubmit={handleLogin}
-            className="login-form"
-          >
-
+          <form onSubmit={handleLogin} className="login-form">
             <div className="input-group">
-
-              <label>
-                Username
-              </label>
+              <label>USERNAME</label>
 
               <div className="input-wrapper">
-
-                <span className="input-icon">
-                  ◉
-                </span>
+                <span className="input-icon">👤</span>
 
                 <input
                   type="text"
-                  value={username}
-                  onChange={(e) =>
-                    setUsername(e.target.value)
-                  }
                   placeholder={
-                    role === "Teacher"
-                      ? "Enter teacher username"
-                      : "Enter student username"
+                    loginType === "student"
+                      ? "Enter your username"
+                      : "Enter teacher username"
                   }
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   autoComplete="username"
-                  disabled={loading}
                 />
-
               </div>
-
             </div>
 
             <div className="input-group">
-
-              <label>
-                Password
-              </label>
+              <label>PASSWORD</label>
 
               <div className="input-wrapper">
-
-                <span className="input-icon">
-                  ◆
-                </span>
+                <span className="input-icon">🔒</span>
 
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter your password"
                   value={password}
-                  onChange={(e) =>
-                    setPassword(e.target.value)
-                  }
-                  placeholder="Enter password"
+                  onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
-                  disabled={loading}
                 />
 
+                <button
+                  type="button"
+                  className="eye-button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label="Toggle password visibility"
+                >
+                  {showPassword ? "🙈" : "👁️"}
+                </button>
               </div>
-
             </div>
 
             {error && (
-              <div className="error">
-
+              <div className="error-message">
                 <span>!</span>
-
-                <p>{error}</p>
-
+                {error}
               </div>
             )}
 
-            <button
-              type="submit"
-              className="login-button"
-              disabled={loading}
-            >
+            <button type="submit" className="login-button" disabled={loading}>
+              <span>{loading ? "SIGNING IN..." : "SIGN IN"}</span>
 
-              {loading ? (
-                <>
-                  <span className="spinner" />
-                  Signing in...
-                </>
-              ) : (
-                <>
-                  <span>
-                    Login as{" "}
-                    {role === "Student"
-                      ? "Student"
-                      : "Teacher"}
-                  </span>
-
-                  <strong>
-                    →
-                  </strong>
-                </>
-              )}
-
+              {!loading && <strong>→</strong>}
             </button>
-
           </form>
 
-          {/* SECURITY */}
-          <div className="security">
-
-            <span className="security-icon">
-              🔒
-            </span>
-
-            <span>
-              Secure Login
-            </span>
-
-            <i />
-
-            <span>
-              Private Access
-            </span>
-
+          <div className="security-note">
+            <span>🔐</span>
+            <div>
+              <strong>Secure Login</strong>
+              <small>Your account information is protected.</small>
+            </div>
           </div>
 
-        </section>
-
-        {/* FOOTER */}
-        <footer>
-
-          <div>
-            RACER ACADEMY
+          <div className="login-footer">
+            <span>© 2026 Racer Academy</span>
+            <span>•</span>
+            <span>All Rights Reserved</span>
           </div>
-
-          <span>
-            •
-          </span>
-
-          <div>
-            Secure Academic Portal
-          </div>
-
-          <span>
-            •
-          </span>
-
-          <div>
-            © 2026
-          </div>
-
-        </footer>
-
-      </div>
+        </div>
+      </section>
 
       <style jsx>{`
-
         * {
           box-sizing: border-box;
         }
 
-        .page {
+        .login-page {
           min-height: 100vh;
           position: relative;
           overflow: hidden;
-
           display: flex;
-          justify-content: center;
           align-items: center;
-
+          justify-content: center;
+          padding: 30px;
           background:
             radial-gradient(
-              circle at 15% 15%,
-              rgba(99, 102, 241, 0.16),
+              circle at 10% 20%,
+              rgba(37, 99, 235, 0.2),
               transparent 30%
             ),
             radial-gradient(
-              circle at 85% 85%,
-              rgba(14, 165, 233, 0.13),
+              circle at 90% 80%,
+              rgba(124, 58, 237, 0.18),
               transparent 30%
             ),
-            linear-gradient(
-              135deg,
-              #050814,
-              #0b1020 50%,
-              #050812
-            );
-
-          color: #f8fafc;
-
+            #050816;
+          color: white;
           font-family:
-            Inter,
-            ui-sans-serif,
-            system-ui,
-            -apple-system,
-            BlinkMacSystemFont,
-            "Segoe UI",
-            sans-serif;
-
-          padding: 30px 20px;
+            Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+            "Segoe UI", sans-serif;
         }
 
         .background-grid {
-          position: fixed;
+          position: absolute;
           inset: 0;
-
-          pointer-events: none;
-
-          opacity: 0.25;
-
+          opacity: 0.18;
           background-image:
             linear-gradient(
-              rgba(148, 163, 184, 0.035) 1px,
+              rgba(255, 255, 255, 0.06) 1px,
               transparent 1px
             ),
             linear-gradient(
               90deg,
-              rgba(148, 163, 184, 0.035) 1px,
+              rgba(255, 255, 255, 0.06) 1px,
               transparent 1px
             );
-
-          background-size: 42px 42px;
-
-          mask-image:
-            linear-gradient(
-              to bottom,
-              black,
-              transparent
-            );
+          background-size: 45px 45px;
+          mask-image: linear-gradient(to bottom, black, transparent);
         }
 
-        .glow {
-          position: fixed;
-
-          width: 330px;
-          height: 330px;
-
+        .floating-orb {
+          position: absolute;
           border-radius: 50%;
-
-          filter: blur(100px);
-
-          opacity: 0.13;
-
+          filter: blur(2px);
+          animation: float 8s ease-in-out infinite;
           pointer-events: none;
         }
 
-        .glow-one {
-          background: #6366f1;
-          top: -180px;
-          left: -140px;
+        .orb-one {
+          width: 280px;
+          height: 280px;
+          background: rgba(37, 99, 235, 0.08);
+          top: -100px;
+          left: -80px;
         }
 
-        .glow-two {
-          background: #06b6d4;
-          bottom: -180px;
-          right: -120px;
+        .orb-two {
+          width: 220px;
+          height: 220px;
+          background: rgba(168, 85, 247, 0.08);
+          right: 5%;
+          top: 10%;
+          animation-delay: 2s;
+        }
+
+        .orb-three {
+          width: 180px;
+          height: 180px;
+          background: rgba(14, 165, 233, 0.08);
+          bottom: -70px;
+          left: 30%;
+          animation-delay: 4s;
+        }
+
+        @keyframes float {
+          0%,
+          100% {
+            transform: translateY(0) translateX(0);
+          }
+
+          50% {
+            transform: translateY(-25px) translateX(15px);
+          }
         }
 
         .login-wrapper {
-          width: min(100%, 470px);
-
           position: relative;
           z-index: 2;
+          width: min(1180px, 100%);
+          min-height: 690px;
+          display: grid;
+          grid-template-columns: 1.05fr 0.95fr;
+          overflow: hidden;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 30px;
+          background: rgba(10, 15, 32, 0.82);
+          box-shadow:
+            0 40px 100px rgba(0, 0, 0, 0.5),
+            inset 0 1px 0 rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(25px);
         }
 
-        /* BRAND */
+        .showcase {
+          position: relative;
+          min-height: 690px;
+          padding: 42px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          overflow: hidden;
+          background:
+            linear-gradient(
+              135deg,
+              rgba(37, 99, 235, 0.2),
+              rgba(15, 23, 42, 0.3)
+            ),
+            radial-gradient(
+              circle at 70% 45%,
+              rgba(59, 130, 246, 0.22),
+              transparent 35%
+            );
+          border-right: 1px solid rgba(255, 255, 255, 0.08);
+        }
 
-        .brand {
+        .showcase::before {
+          content: "";
+          position: absolute;
+          width: 500px;
+          height: 500px;
+          right: -250px;
+          bottom: -200px;
+          border: 1px solid rgba(96, 165, 250, 0.16);
+          border-radius: 50%;
+          box-shadow:
+            0 0 0 60px rgba(96, 165, 250, 0.03),
+            0 0 0 120px rgba(96, 165, 250, 0.02);
+        }
+
+        .showcase::after {
+          content: "";
+          position: absolute;
+          left: -20%;
+          bottom: 100px;
+          width: 140%;
+          height: 1px;
+          background: linear-gradient(
+            90deg,
+            transparent,
+            rgba(96, 165, 250, 0.3),
+            transparent
+          );
+          transform: rotate(-15deg);
+        }
+
+        /* =====================================================
+           RACER ACADEMY — RC MONOGRAM LOGO
+           ===================================================== */
+
+        .academy-logo {
+          position: relative;
+          width: 62px;
+          height: 62px;
+          flex-shrink: 0;
+          display: grid;
+          place-items: center;
+          isolation: isolate;
+          animation: logoFloat 4s ease-in-out infinite;
+        }
+
+        .logo-ring {
+          position: relative;
+          width: 58px;
+          height: 58px;
+          display: grid;
+          place-items: center;
+          overflow: hidden;
+          border-radius: 18px;
+          transform: skewX(-5deg) rotate(-3deg);
+          background:
+            linear-gradient(145deg, #3b82f6 0%, #2563eb 42%, #4f46e5 100%);
+          border: 1px solid rgba(255, 255, 255, 0.3);
+          box-shadow:
+            0 12px 35px rgba(37, 99, 235, 0.45),
+            0 0 35px rgba(79, 70, 229, 0.22),
+            inset 0 1px 0 rgba(255, 255, 255, 0.45);
+        }
+
+        .logo-ring::before {
+          content: "";
+          position: absolute;
+          inset: 4px;
+          border: 1px solid rgba(255, 255, 255, 0.22);
+          border-radius: 14px;
+        }
+
+        .logo-ring::after {
+          content: "";
+          position: absolute;
+          width: 85px;
+          height: 15px;
+          top: -28px;
+          left: -35px;
+          transform: rotate(-35deg);
+          background: linear-gradient(
+            90deg,
+            transparent,
+            rgba(255, 255, 255, 0.55),
+            transparent
+          );
+          animation: logoShine 3.8s ease-in-out infinite;
+        }
+
+        .logo-r,
+        .logo-c {
+          position: absolute;
+          z-index: 3;
+          color: white;
+          font-family:
+            Arial Black, Impact, Inter, sans-serif;
+          font-weight: 950;
+          line-height: 1;
+          letter-spacing: -7px;
+          text-shadow:
+            0 2px 0 rgba(0, 0, 0, 0.18),
+            0 5px 15px rgba(0, 0, 0, 0.22);
+        }
+
+        .logo-r {
+          font-size: 31px;
+          left: 12px;
+          top: 14px;
+          transform: skewX(5deg);
+        }
+
+        .logo-c {
+          font-size: 31px;
+          right: 7px;
+          top: 13px;
+          opacity: 0.82;
+          transform: skewX(5deg);
+        }
+
+        .logo-cut {
+          position: absolute;
+          z-index: 4;
+          width: 48px;
+          height: 5px;
+          right: -7px;
+          bottom: 12px;
+          transform: rotate(-18deg);
+          background: #050816;
+          box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+        }
+
+        .logo-speed-line {
+          position: absolute;
+          right: -17px;
+          height: 3px;
+          border-radius: 99px;
+          background: linear-gradient(
+            90deg,
+            rgba(96, 165, 250, 0),
+            #60a5fa
+          );
+          animation: speedPulse 2s ease-in-out infinite;
+        }
+
+        .line-one {
+          width: 25px;
+          top: 17px;
+        }
+
+        .line-two {
+          width: 17px;
+          top: 25px;
+          opacity: 0.55;
+          animation-delay: 0.2s;
+        }
+
+        @keyframes logoFloat {
+          0%,
+          100% {
+            transform: translateY(0) rotate(0deg);
+          }
+
+          50% {
+            transform: translateY(-3px) rotate(1deg);
+          }
+        }
+
+        @keyframes logoShine {
+          0%,
+          55% {
+            transform: translateX(-60px) rotate(-35deg);
+          }
+
+          75%,
+          100% {
+            transform: translateX(115px) rotate(-35deg);
+          }
+        }
+
+        @keyframes speedPulse {
+          0%,
+          100% {
+            opacity: 0.25;
+            transform: translateX(0);
+          }
+
+          50% {
+            opacity: 1;
+            transform: translateX(4px);
+          }
+        }
+
+        .showcase-top {
+          position: relative;
+          z-index: 2;
           display: flex;
           align-items: center;
+          gap: 15px;
+        }
+
+        .academy-name {
+          font-size: 18px;
+          font-weight: 900;
+          letter-spacing: 3px;
+        }
+
+        .academy-tag {
+          margin-top: 4px;
+          font-size: 9px;
+          letter-spacing: 2px;
+          color: #93c5fd;
+          font-weight: 700;
+        }
+
+        .hero-content {
+          position: relative;
+          z-index: 2;
+          max-width: 560px;
+        }
+
+        .slide-number {
+          margin-bottom: 18px;
+          color: #60a5fa;
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: 4px;
+        }
+
+        .hero-icon {
+          font-size: 68px;
+          margin-bottom: 18px;
+          animation: iconIn 0.6s ease;
+          filter: drop-shadow(0 15px 25px rgba(59, 130, 246, 0.2));
+        }
+
+        @keyframes iconIn {
+          from {
+            opacity: 0;
+            transform: translateY(20px) scale(0.8);
+          }
+
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        .hero-content h1 {
+          margin: 0;
+          max-width: 600px;
+          font-size: clamp(38px, 4vw, 62px);
+          line-height: 0.98;
+          letter-spacing: -3px;
+          font-weight: 950;
+          animation: textIn 0.65s ease;
+        }
+
+        .hero-content p {
+          margin: 24px 0 0;
+          color: #94a3b8;
+          font-size: 17px;
+          line-height: 1.6;
+          animation: textIn 0.8s ease;
+        }
+
+        @keyframes textIn {
+          from {
+            opacity: 0;
+            transform: translateY(15px);
+          }
+
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .race-line {
+          display: flex;
+          gap: 6px;
+          margin-top: 30px;
+        }
+
+        .race-line span {
+          height: 3px;
+          border-radius: 99px;
+          background: #3b82f6;
+        }
+
+        .race-line span:nth-child(1) {
+          width: 55px;
+        }
+
+        .race-line span:nth-child(2) {
+          width: 20px;
+          opacity: 0.5;
+        }
+
+        .race-line span:nth-child(3) {
+          width: 8px;
+          opacity: 0.25;
+        }
+
+        .slider-controls {
+          position: relative;
+          z-index: 5;
+          display: flex;
+          align-items: center;
+          gap: 18px;
+        }
+
+        .arrow-btn {
+          width: 38px;
+          height: 38px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.04);
+          color: white;
+          cursor: pointer;
+          transition: 0.25s;
+          font-size: 18px;
+        }
+
+        .arrow-btn:hover {
+          background: rgba(59, 130, 246, 0.2);
+          border-color: rgba(96, 165, 250, 0.4);
+          transform: scale(1.08);
+        }
+
+        .dots {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+        }
+
+        .dot {
+          width: 7px;
+          height: 7px;
+          padding: 0;
+          border: 0;
+          border-radius: 50%;
+          background: #475569;
+          cursor: pointer;
+          transition: 0.3s;
+        }
+
+        .dot.active {
+          width: 27px;
+          border-radius: 20px;
+          background: #60a5fa;
+        }
+
+        .showcase-footer {
+          position: relative;
+          z-index: 2;
+          display: flex;
+          gap: 10px;
+          color: #64748b;
+          font-size: 9px;
+          font-weight: 800;
+          letter-spacing: 2px;
+        }
+
+        /* LOGIN PANEL */
+
+        .login-panel {
+          display: flex;
+          flex-direction: column;
           justify-content: center;
+          padding: 55px 58px;
+          background: rgba(5, 8, 22, 0.55);
+        }
 
-          gap: 13px;
+        .mobile-logo {
+          display: none;
+        }
 
+        .login-heading {
           margin-bottom: 28px;
         }
 
-        .brand-logo {
-          width: 48px;
-          height: 48px;
-
-          border-radius: 15px;
-
-          padding: 1px;
-
-          display: grid;
-          place-items: center;
-
-          background:
-            linear-gradient(
-              135deg,
-              #818cf8,
-              #38bdf8
-            );
-
-          box-shadow:
-            0 12px 35px
-              rgba(99, 102, 241, 0.25);
+        .welcome {
+          color: #60a5fa;
+          font-size: 10px;
+          font-weight: 900;
+          letter-spacing: 3px;
         }
 
-        .brand-logo span {
-          width: 100%;
-          height: 100%;
-
-          display: grid;
-          place-items: center;
-
-          border-radius: 14px;
-
-          background: #0a1020;
-
-          font-size: 22px;
-          font-weight: 950;
-
-          letter-spacing: -1px;
+        .login-heading h2 {
+          margin: 8px 0 7px;
+          font-size: 34px;
+          letter-spacing: -1.5px;
+          font-weight: 900;
         }
 
-        .brand-text {
-          text-align: left;
-        }
-
-        .brand-text h1 {
+        .login-heading p {
           margin: 0;
-
-          font-size: 20px;
-
-          font-weight: 950;
-
-          letter-spacing: 2.2px;
-
-          background:
-            linear-gradient(
-              90deg,
-              #ffffff,
-              #a5b4fc,
-              #67e8f9
-            );
-
-          -webkit-background-clip: text;
-          background-clip: text;
-
-          color: transparent;
-        }
-
-        .brand-text p {
-          margin: 4px 0 0;
-
           color: #64748b;
-
-          font-size: 7px;
-
-          letter-spacing: 2px;
-
-          font-weight: 800;
+          font-size: 14px;
         }
 
-        /* CARD */
-
-        .login-card {
-          position: relative;
-
-          padding: 36px 34px 30px;
-
-          border-radius: 28px;
-
-          border: 1px solid
-            rgba(148, 163, 184, 0.13);
-
-          background:
-            linear-gradient(
-              145deg,
-              rgba(20, 28, 52, 0.95),
-              rgba(8, 14, 29, 0.96)
-            );
-
-          backdrop-filter: blur(25px);
-
-          box-shadow:
-            0 35px 100px
-              rgba(0, 0, 0, 0.4),
-            inset 0 1px 0
-              rgba(255, 255, 255, 0.04);
-        }
-
-        .card-top-line {
-          position: absolute;
-
-          top: 0;
-          left: 15%;
-
-          width: 70%;
-          height: 1px;
-
-          background:
-            linear-gradient(
-              90deg,
-              transparent,
-              #818cf8,
-              #38bdf8,
-              transparent
-            );
-
-          opacity: 0.8;
-        }
-
-        .academy-icon {
-          display: flex;
-          justify-content: center;
-
-          margin-bottom: 18px;
-        }
-
-        .icon-ring {
-          width: 72px;
-          height: 72px;
-
-          border-radius: 23px;
-
+        .login-switch {
           display: grid;
-          place-items: center;
-
-          position: relative;
-
-          background:
-            linear-gradient(
-              145deg,
-              rgba(99, 102, 241, 0.25),
-              rgba(14, 165, 233, 0.1)
-            );
-
-          border: 1px solid
-            rgba(129, 140, 248, 0.28);
-
-          box-shadow:
-            0 0 45px
-              rgba(99, 102, 241, 0.14);
-        }
-
-        .icon-ring::before {
-          content: "";
-
-          position: absolute;
-
-          inset: 7px;
-
-          border-radius: 18px;
-
-          border: 1px dashed
-            rgba(129, 140, 248, 0.35);
-
-          animation: rotate 12s linear infinite;
-        }
-
-        .icon-ring span {
-          font-size: 27px;
-
-          font-weight: 950;
-
-          background:
-            linear-gradient(
-              135deg,
-              #ffffff,
-              #818cf8,
-              #67e8f9
-            );
-
-          -webkit-background-clip: text;
-          background-clip: text;
-
-          color: transparent;
-        }
-
-        /* HEADING */
-
-        .heading {
-          text-align: center;
-
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
           margin-bottom: 25px;
         }
 
-        .mini-label {
-          color: #818cf8;
-
-          font-size: 8px;
-
-          font-weight: 900;
-
-          letter-spacing: 2.4px;
-
-          margin-bottom: 8px;
-        }
-
-        .heading h2 {
-          margin: 0;
-
-          font-size: 31px;
-
-          letter-spacing: -1.3px;
-
-          font-weight: 850;
-        }
-
-        .heading p {
-          margin: 7px 0 0;
-
-          color: #718096;
-
-          font-size: 12px;
-        }
-
-        /* ROLE */
-
-        .role-switch {
-          display: grid;
-
-          grid-template-columns: 1fr 1fr;
-
-          gap: 9px;
-
-          padding: 5px;
-
-          border-radius: 16px;
-
-          background: rgba(2, 6, 23, 0.55);
-
-          border: 1px solid
-            rgba(148, 163, 184, 0.08);
-
-          margin-bottom: 13px;
-        }
-
-        .role-button {
-          border: 0;
-
-          min-height: 53px;
-
-          border-radius: 12px;
-
-          background: transparent;
-
-          color: #64748b;
-
+        .login-switch button {
+          min-height: 72px;
           display: flex;
-
           align-items: center;
-
-          justify-content: center;
-
-          gap: 8px;
-
-          font-size: 11px;
-
-          font-weight: 800;
-
+          gap: 11px;
+          text-align: left;
+          padding: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 15px;
+          background: rgba(255, 255, 255, 0.025);
+          color: white;
           cursor: pointer;
-
-          transition: 0.25s ease;
+          transition: all 0.25s ease;
         }
 
-        .role-button:hover {
-          color: #cbd5e1;
-
-          background:
-            rgba(255, 255, 255, 0.035);
+        .login-switch button:hover {
+          border-color: rgba(96, 165, 250, 0.3);
+          background: rgba(59, 130, 246, 0.06);
         }
 
-        .role-button.active {
-          color: #ffffff;
-
-          background:
-            linear-gradient(
-              135deg,
-              rgba(99, 102, 241, 0.25),
-              rgba(56, 189, 248, 0.1)
-            );
-
-          border: 1px solid
-            rgba(129, 140, 248, 0.2);
-
-          box-shadow:
-            0 8px 25px
-              rgba(99, 102, 241, 0.08);
+        .login-switch button.selected {
+          border-color: rgba(96, 165, 250, 0.55);
+          background: linear-gradient(
+            135deg,
+            rgba(37, 99, 235, 0.16),
+            rgba(124, 58, 237, 0.08)
+          );
+          box-shadow: inset 0 0 25px rgba(37, 99, 235, 0.05);
         }
 
-        .role-button:disabled {
-          opacity: 0.6;
-
-          cursor: not-allowed;
+        .switch-icon {
+          width: 38px;
+          height: 38px;
+          display: grid;
+          place-items: center;
+          border-radius: 11px;
+          background: rgba(255, 255, 255, 0.06);
+          font-size: 18px;
         }
 
-        .role-icon {
-          font-size: 17px;
+        .login-switch strong,
+        .login-switch small {
+          display: block;
         }
 
-        /* SELECTED */
-
-        .selected-role {
-          display: flex;
-
-          justify-content: center;
-
-          align-items: center;
-
-          gap: 7px;
-
-          color: #94a3b8;
-
-          font-size: 9px;
-
+        .login-switch strong {
+          font-size: 12px;
           font-weight: 800;
-
-          letter-spacing: 0.8px;
-
-          margin-bottom: 23px;
         }
 
-        .status-dot {
-          width: 6px;
-          height: 6px;
-
-          border-radius: 50%;
-
-          background: #22c55e;
-
-          box-shadow:
-            0 0 12px
-              rgba(34, 197, 94, 0.8);
+        .login-switch small {
+          margin-top: 3px;
+          color: #64748b;
+          font-size: 9px;
         }
-
-        /* FORM */
 
         .login-form {
           display: flex;
-
           flex-direction: column;
-
-          gap: 17px;
-        }
-
-        .input-group {
-          display: flex;
-
-          flex-direction: column;
-
-          gap: 7px;
+          gap: 18px;
         }
 
         .input-group label {
+          display: block;
+          margin-bottom: 8px;
           color: #94a3b8;
-
           font-size: 9px;
-
-          font-weight: 850;
-
-          letter-spacing: 1.2px;
-
-          text-transform: uppercase;
+          font-weight: 900;
+          letter-spacing: 2px;
         }
 
         .input-wrapper {
-          position: relative;
+          height: 54px;
+          display: flex;
+          align-items: center;
+          gap: 11px;
+          padding: 0 14px;
+          border: 1px solid rgba(255, 255, 255, 0.09);
+          border-radius: 13px;
+          background: rgba(255, 255, 255, 0.025);
+          transition: 0.25s;
+        }
+
+        .input-wrapper:focus-within {
+          border-color: rgba(96, 165, 250, 0.7);
+          box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.07);
+          background: rgba(59, 130, 246, 0.035);
         }
 
         .input-icon {
-          position: absolute;
-
-          left: 15px;
-          top: 50%;
-
-          transform: translateY(-50%);
-
-          color: #6366f1;
-
-          font-size: 12px;
-
-          z-index: 2;
+          opacity: 0.6;
+          font-size: 15px;
         }
 
         .input-wrapper input {
           width: 100%;
-
-          height: 52px;
-
-          border-radius: 13px;
-
-          border: 1px solid
-            rgba(148, 163, 184, 0.12);
-
+          height: 100%;
           outline: none;
-
-          background:
-            rgba(2, 6, 23, 0.58);
-
-          color: #f8fafc;
-
-          padding:
-            0 15px 0 42px;
-
-          font-size: 13px;
-
-          transition: 0.25s ease;
+          border: none;
+          background: transparent;
+          color: white;
+          font-size: 14px;
         }
 
         .input-wrapper input::placeholder {
           color: #475569;
         }
 
-        .input-wrapper input:focus {
-          border-color:
-            rgba(129, 140, 248, 0.55);
-
-          background:
-            rgba(15, 23, 42, 0.72);
-
-          box-shadow:
-            0 0 0 3px
-              rgba(99, 102, 241, 0.08);
-        }
-
-        .input-wrapper input:disabled {
+        .eye-button {
+          flex-shrink: 0;
+          border: none;
+          background: transparent;
+          cursor: pointer;
+          font-size: 15px;
           opacity: 0.65;
-
-          cursor: not-allowed;
         }
 
-        /* ERROR */
+        .eye-button:hover {
+          opacity: 1;
+        }
 
-        .error {
+        .error-message {
           display: flex;
-
           align-items: center;
-
           gap: 9px;
-
           padding: 11px 13px;
-
-          border-radius: 11px;
-
-          border: 1px solid
-            rgba(248, 113, 113, 0.2);
-
-          background:
-            rgba(127, 29, 29, 0.15);
-
+          border: 1px solid rgba(248, 113, 113, 0.2);
+          border-radius: 10px;
+          background: rgba(239, 68, 68, 0.08);
           color: #fca5a5;
-
-          font-size: 10px;
-
-          line-height: 1.4;
+          font-size: 12px;
         }
 
-        .error span {
+        .error-message span {
           width: 20px;
           height: 20px;
-
           display: grid;
           place-items: center;
-
           border-radius: 50%;
-
-          background:
-            rgba(248, 113, 113, 0.15);
-
+          background: rgba(239, 68, 68, 0.2);
           font-weight: 900;
         }
 
-        .error p {
-          margin: 0;
-        }
-
-        /* LOGIN BUTTON */
-
         .login-button {
-          height: 54px;
-
-          border: 0;
-
-          border-radius: 14px;
-
+          height: 56px;
           display: flex;
-
           align-items: center;
-
           justify-content: space-between;
-
-          padding: 0 18px 0 20px;
-
+          padding: 0 20px;
+          border: none;
+          border-radius: 14px;
+          background: linear-gradient(100deg, #2563eb, #4f46e5);
           color: white;
-
           font-size: 12px;
-
-          font-weight: 850;
-
+          font-weight: 900;
+          letter-spacing: 2px;
           cursor: pointer;
-
-          background:
-            linear-gradient(
-              100deg,
-              #4f46e5,
-              #6366f1 48%,
-              #0891b2
-            );
-
-          box-shadow:
-            0 14px 35px
-              rgba(79, 70, 229, 0.23);
-
-          transition:
-            transform 0.25s ease,
-            box-shadow 0.25s ease,
-            opacity 0.25s ease;
-        }
-
-        .login-button strong {
-          width: 30px;
-          height: 30px;
-
-          display: grid;
-          place-items: center;
-
-          border-radius: 9px;
-
-          background:
-            rgba(255, 255, 255, 0.12);
-
-          font-size: 17px;
+          box-shadow: 0 15px 30px rgba(37, 99, 235, 0.2);
+          transition: 0.25s;
         }
 
         .login-button:hover:not(:disabled) {
           transform: translateY(-2px);
-
-          box-shadow:
-            0 18px 45px
-              rgba(79, 70, 229, 0.32);
+          box-shadow: 0 18px 38px rgba(37, 99, 235, 0.3);
         }
 
         .login-button:active:not(:disabled) {
@@ -1248,187 +1044,173 @@ export default function Home() {
 
         .login-button:disabled {
           opacity: 0.65;
-
           cursor: not-allowed;
         }
 
-        .spinner {
-          width: 17px;
-          height: 17px;
-
-          border-radius: 50%;
-
-          border:
-            2px solid
-            rgba(255, 255, 255, 0.3);
-
-          border-top-color: white;
-
-          animation:
-            spin 0.8s linear infinite;
+        .login-button strong {
+          font-size: 20px;
+          font-weight: 400;
         }
 
-        /* SECURITY */
-
-        .security {
+        .security-note {
           display: flex;
-
           align-items: center;
-
-          justify-content: center;
-
-          gap: 8px;
-
-          margin-top: 22px;
-
-          color: #475569;
-
-          font-size: 8px;
-
-          font-weight: 750;
-
-          letter-spacing: 0.7px;
+          gap: 10px;
+          margin-top: 25px;
+          padding: 12px 14px;
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          border-radius: 12px;
+          background: rgba(255, 255, 255, 0.02);
         }
 
-        .security-icon {
+        .security-note > span {
+          font-size: 16px;
+        }
+
+        .security-note strong,
+        .security-note small {
+          display: block;
+        }
+
+        .security-note strong {
           font-size: 10px;
+          color: #cbd5e1;
         }
 
-        .security i {
-          width: 3px;
-          height: 3px;
-
-          border-radius: 50%;
-
-          background: #334155;
+        .security-note small {
+          margin-top: 2px;
+          color: #475569;
+          font-size: 9px;
         }
 
-        /* FOOTER */
-
-        footer {
+        .login-footer {
           display: flex;
-
           justify-content: center;
-
-          align-items: center;
-
-          flex-wrap: wrap;
-
-          gap: 9px;
-
-          margin-top: 22px;
-
+          gap: 8px;
+          margin-top: 27px;
           color: #334155;
-
-          font-size: 8px;
-
-          font-weight: 700;
-
-          letter-spacing: 0.5px;
+          font-size: 9px;
         }
 
-        footer span {
-          color: #4f46e5;
-        }
+        @media (max-width: 900px) {
+          .login-page {
+            padding: 15px;
+          }
 
-        /* ANIMATIONS */
+          .login-wrapper {
+            grid-template-columns: 1fr;
+            min-height: auto;
+            max-width: 520px;
+          }
 
-        @keyframes spin {
-          to {
-            transform: rotate(360deg);
+          .showcase {
+            display: none;
+          }
+
+          .login-panel {
+            min-height: 680px;
+            padding: 38px 28px;
+          }
+
+          .mobile-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 55px;
+          }
+
+          .mobile-logo strong,
+          .mobile-logo small {
+            display: block;
+          }
+
+          .mobile-logo strong {
+            font-size: 15px;
+            letter-spacing: 2px;
+          }
+
+          .mobile-logo small {
+            margin-top: 3px;
+            color: #60a5fa;
+            font-size: 8px;
+            letter-spacing: 1px;
+          }
+
+          .academy-logo.small-logo {
+            width: 49px;
+            height: 49px;
+          }
+
+          .academy-logo.small-logo .logo-ring {
+            width: 46px;
+            height: 46px;
+            border-radius: 14px;
+          }
+
+          .academy-logo.small-logo .logo-r,
+          .academy-logo.small-logo .logo-c {
+            font-size: 25px;
+          }
+
+          .academy-logo.small-logo .logo-r {
+            left: 9px;
+            top: 11px;
+          }
+
+          .academy-logo.small-logo .logo-c {
+            right: 5px;
+            top: 10px;
           }
         }
 
-        @keyframes rotate {
-          from {
-            transform: rotate(0deg);
+        @media (max-width: 430px) {
+          .login-page {
+            padding: 0;
           }
 
-          to {
-            transform: rotate(360deg);
-          }
-        }
-
-        /* MOBILE */
-
-        @media (max-width: 520px) {
-
-          .page {
-            padding: 20px 13px;
+          .login-wrapper {
+            width: 100%;
+            min-height: 100vh;
+            border: none;
+            border-radius: 0;
           }
 
-          .brand {
-            margin-bottom: 22px;
+          .login-panel {
+            min-height: 100vh;
+            padding: 28px 20px;
           }
 
-          .brand-logo {
-            width: 42px;
-            height: 42px;
-            border-radius: 13px;
+          .mobile-logo {
+            margin-bottom: 45px;
           }
 
-          .brand-logo span {
-            border-radius: 12px;
-            font-size: 19px;
+          .login-heading h2 {
+            font-size: 29px;
           }
 
-          .brand-text h1 {
-            font-size: 16px;
-            letter-spacing: 1.7px;
+          .login-switch {
+            gap: 7px;
           }
 
-          .brand-text p {
-            font-size: 6px;
-            letter-spacing: 1.4px;
+          .login-switch button {
+            min-height: 67px;
+            padding: 9px;
           }
 
-          .login-card {
-            padding: 29px 20px 24px;
-            border-radius: 23px;
-          }
-
-          .heading h2 {
-            font-size: 27px;
-          }
-
-          .role-button {
-            min-height: 50px;
-            font-size: 10px;
-          }
-
-          .role-icon {
+          .switch-icon {
+            width: 34px;
+            height: 34px;
             font-size: 15px;
           }
 
-          .input-wrapper input {
-            height: 50px;
+          .login-switch strong {
+            font-size: 11px;
           }
 
-          footer {
-            font-size: 7px;
-          }
-        }
-
-        @media (max-width: 370px) {
-
-          .brand-text h1 {
-            font-size: 14px;
-          }
-
-          .login-card {
-            padding-left: 16px;
-            padding-right: 16px;
-          }
-
-          .role-switch {
-            gap: 4px;
-          }
-
-          .role-button {
-            font-size: 9px;
+          .login-switch small {
+            font-size: 8px;
           }
         }
-
       `}</style>
     </main>
   );
