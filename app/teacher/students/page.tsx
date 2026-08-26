@@ -27,6 +27,7 @@ type Student = {
 type FormData = {
   student_name: string;
   student_username: string;
+  password: string;
   admission_date: string;
   date_of_birth: string;
   father_name: string;
@@ -42,6 +43,7 @@ type FormData = {
 const emptyForm: FormData = {
   student_name: "",
   student_username: "",
+  password: "",
   admission_date: "",
   date_of_birth: "",
   father_name: "",
@@ -64,6 +66,7 @@ export default function TeacherStudentsPage() {
 
   const [form, setForm] = useState<FormData>(emptyForm);
   const [search, setSearch] = useState("");
+
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -98,9 +101,11 @@ export default function TeacherStudentsPage() {
 
     if (error) {
       console.error(error);
+
       setErrorMessage(
         "Students load nahi ho rahe: " + error.message
       );
+
       setStudents([]);
     } else {
       setStudents((data || []) as Student[]);
@@ -133,6 +138,7 @@ export default function TeacherStudentsPage() {
     setForm({
       student_name: student.student_name || "",
       student_username: student.student_username || "",
+      password: "",
       admission_date: student.admission_date || "",
       date_of_birth: student.date_of_birth || "",
       father_name: student.father_name || "",
@@ -164,44 +170,117 @@ export default function TeacherStudentsPage() {
     setMessage("");
     setErrorMessage("");
 
-    if (!form.student_name.trim()) {
+    const studentName = form.student_name.trim();
+    const username = form.student_username.trim().toUpperCase();
+    const password = form.password.trim();
+
+    if (!studentName) {
       setErrorMessage("Student name zaroori hai.");
       return;
     }
 
-    if (!form.student_username.trim()) {
+    if (!username) {
       setErrorMessage("Student username zaroori hai.");
+      return;
+    }
+
+    /*
+     * Password is required only while adding
+     * a new student.
+     *
+     * While editing, blank password means:
+     * keep existing password.
+     */
+    if (editingId === null && !password) {
+      setErrorMessage(
+        "New student ke liye password zaroori hai."
+      );
+      return;
+    }
+
+    if (username.length < 3) {
+      setErrorMessage(
+        "Username kam se kam 3 characters ka hona chahiye."
+      );
+      return;
+    }
+
+    if (password && password.length < 4) {
+      setErrorMessage(
+        "Password kam se kam 4 characters ka hona chahiye."
+      );
       return;
     }
 
     setSaving(true);
 
-    const studentData = {
-      student_name: form.student_name.trim(),
-      student_username: form.student_username.trim(),
-      admission_date:
-        form.admission_date || null,
-      date_of_birth:
-        form.date_of_birth || null,
-      father_name:
-        form.father_name.trim() || null,
-      mother_name:
-        form.mother_name.trim() || null,
-      father_phone:
-        form.father_phone.trim() || null,
-      mother_phone:
-        form.mother_phone.trim() || null,
-      address:
-        form.address.trim() || null,
-      city:
-        form.city.trim() || null,
-      class_name:
-        form.class_name.trim() || null,
-      blood_group:
-        form.blood_group.trim() || null,
-    };
-
     try {
+      /*
+       * ========================================
+       * DUPLICATE USERNAME CHECK
+       * ========================================
+       */
+
+      const { data: existingStudent, error: usernameCheckError } =
+        await supabase
+          .from("students")
+          .select("id, student_username")
+          .eq("student_username", username)
+          .maybeSingle();
+
+      if (usernameCheckError) {
+        throw usernameCheckError;
+      }
+
+      if (
+        existingStudent &&
+        existingStudent.id !== editingId
+      ) {
+        setErrorMessage(
+          `Username "${username}" already exists. Please use a different username.`
+        );
+
+        setSaving(false);
+        return;
+      }
+
+      /*
+       * ========================================
+       * COMMON STUDENT DATA
+       * ========================================
+       */
+
+      const studentData = {
+        student_name: studentName,
+        student_username: username,
+        admission_date:
+          form.admission_date || null,
+        date_of_birth:
+          form.date_of_birth || null,
+        father_name:
+          form.father_name.trim() || null,
+        mother_name:
+          form.mother_name.trim() || null,
+        father_phone:
+          form.father_phone.trim() || null,
+        mother_phone:
+          form.mother_phone.trim() || null,
+        address:
+          form.address.trim() || null,
+        city:
+          form.city.trim() || null,
+        class_name:
+          form.class_name.trim() || null,
+        blood_group:
+          form.blood_group.trim() || null,
+      };
+
+      /*
+       * ========================================
+       * EDIT STUDENT
+       * ========================================
+       */
+
       if (editingId !== null) {
         const { error } = await supabase
           .from("students")
@@ -212,20 +291,80 @@ export default function TeacherStudentsPage() {
           throw error;
         }
 
+        /*
+         * If a new password was entered while
+         * editing, update password separately.
+         *
+         * This expects the Supabase function:
+         * update_student_password
+         */
+        if (password) {
+          const { error: passwordError } =
+            await supabase.rpc(
+              "update_student_password",
+              {
+                p_student_id: editingId,
+                p_password: password,
+              }
+            );
+
+          if (passwordError) {
+            throw new Error(
+              "Student details updated, but password update failed: " +
+                passwordError.message
+            );
+          }
+        }
+
         setMessage(
           "✅ Student details successfully updated."
         );
       } else {
-        const { error } = await supabase
-          .from("students")
-          .insert(studentData);
+        /*
+         * ========================================
+         * ADD NEW STUDENT
+         * ========================================
+         *
+         * Use RPC so PostgreSQL can hash the password
+         * using crypt() + gen_salt().
+         */
 
-        if (error) {
-          throw error;
+        const { error: addError } =
+          await supabase.rpc(
+            "create_student",
+            {
+              p_student_name: studentName,
+              p_student_username: username,
+              p_password: password,
+              p_admission_date:
+                form.admission_date || null,
+              p_date_of_birth:
+                form.date_of_birth || null,
+              p_father_name:
+                form.father_name.trim() || null,
+              p_mother_name:
+                form.mother_name.trim() || null,
+              p_father_phone:
+                form.father_phone.trim() || null,
+              p_mother_phone:
+                form.mother_phone.trim() || null,
+              p_address:
+                form.address.trim() || null,
+              p_city:
+                form.city.trim() || null,
+              p_class_name:
+                form.class_name.trim() || null,
+              p_blood_group:
+                form.blood_group.trim() || null,
+            }
+          );
+
+        if (addError) {
+          throw addError;
         }
 
         setMessage(
-          "✅ New student successfully added."
+          "✅ New student successfully added. Student can now login."
         );
       }
 
@@ -236,9 +375,9 @@ export default function TeacherStudentsPage() {
         setEditingId(null);
         setForm(emptyForm);
         setMessage("");
-      }, 800);
+      }, 1200);
     } catch (error: any) {
-      console.error(error);
+      console.error("Student save error:", error);
 
       setErrorMessage(
         error?.message ||
@@ -266,10 +405,12 @@ export default function TeacherStudentsPage() {
 
     if (error) {
       console.error(error);
+
       setErrorMessage(
         "Student delete nahi hua: " +
           error.message
       );
+
       return;
     }
 
@@ -428,6 +569,8 @@ export default function TeacherStudentsPage() {
 
             <div style={styles.formGrid}>
 
+              {/* STUDENT NAME */}
+
               <div style={styles.field}>
                 <label style={styles.label}>
                   Student Name *
@@ -446,6 +589,8 @@ export default function TeacherStudentsPage() {
                 />
               </div>
 
+              {/* USERNAME */}
+
               <div style={styles.field}>
                 <label style={styles.label}>
                   Username *
@@ -456,13 +601,49 @@ export default function TeacherStudentsPage() {
                   onChange={(e) =>
                     updateField(
                       "student_username",
-                      e.target.value
+                      e.target.value.toUpperCase()
                     )
                   }
                   placeholder="STU1001"
                   style={styles.input}
+                  autoComplete="off"
                 />
               </div>
+
+              {/* PASSWORD */}
+
+              <div style={styles.field}>
+                <label style={styles.label}>
+                  Password{" "}
+                  {editingId === null ? "*" : ""}
+                </label>
+
+                <input
+                  type="password"
+                  value={form.password}
+                  onChange={(e) =>
+                    updateField(
+                      "password",
+                      e.target.value
+                    )
+                  }
+                  placeholder={
+                    editingId !== null
+                      ? "Leave blank to keep current password"
+                      : "Enter student password"
+                  }
+                  style={styles.input}
+                  autoComplete="new-password"
+                />
+
+                <small style={styles.passwordHelp}>
+                  {editingId !== null
+                    ? "✏️ Enter a password only if you want to change it."
+                    : "🔐 This password will be securely hashed before saving."}
+                </small>
+              </div>
+
+              {/* DOB */}
 
               <div style={styles.field}>
                 <label style={styles.label}>
@@ -482,6 +663,8 @@ export default function TeacherStudentsPage() {
                 />
               </div>
 
+              {/* ADMISSION DATE */}
+
               <div style={styles.field}>
                 <label style={styles.label}>
                   Admission Date
@@ -499,6 +682,8 @@ export default function TeacherStudentsPage() {
                   style={styles.input}
                 />
               </div>
+
+              {/* FATHER */}
 
               <div style={styles.field}>
                 <label style={styles.label}>
@@ -518,6 +703,8 @@ export default function TeacherStudentsPage() {
                 />
               </div>
 
+              {/* MOTHER */}
+
               <div style={styles.field}>
                 <label style={styles.label}>
                   Mother's Name
@@ -535,6 +722,8 @@ export default function TeacherStudentsPage() {
                   style={styles.input}
                 />
               </div>
+
+              {/* FATHER PHONE */}
 
               <div style={styles.field}>
                 <label style={styles.label}>
@@ -555,6 +744,8 @@ export default function TeacherStudentsPage() {
                 />
               </div>
 
+              {/* MOTHER PHONE */}
+
               <div style={styles.field}>
                 <label style={styles.label}>
                   Mother's Phone
@@ -574,6 +765,8 @@ export default function TeacherStudentsPage() {
                 />
               </div>
 
+              {/* CLASS */}
+
               <div style={styles.field}>
                 <label style={styles.label}>
                   Class
@@ -591,6 +784,8 @@ export default function TeacherStudentsPage() {
                   style={styles.input}
                 />
               </div>
+
+              {/* BLOOD */}
 
               <div style={styles.field}>
                 <label style={styles.label}>
@@ -610,6 +805,7 @@ export default function TeacherStudentsPage() {
                   <option value="">
                     Select Blood Group
                   </option>
+
                   <option value="A+">A+</option>
                   <option value="A-">A-</option>
                   <option value="B+">B+</option>
@@ -620,6 +816,8 @@ export default function TeacherStudentsPage() {
                   <option value="O-">O-</option>
                 </select>
               </div>
+
+              {/* CITY */}
 
               <div style={styles.field}>
                 <label style={styles.label}>
@@ -639,11 +837,12 @@ export default function TeacherStudentsPage() {
                 />
               </div>
 
+              {/* ADDRESS */}
+
               <div
                 style={{
                   ...styles.field,
-                  gridColumn:
-                    "span 2",
+                  gridColumn: "span 2",
                 }}
               >
                 <label style={styles.label}>
@@ -667,6 +866,8 @@ export default function TeacherStudentsPage() {
                 />
               </div>
             </div>
+
+            {/* FORM ACTIONS */}
 
             <div style={styles.formActions}>
               <button
@@ -727,9 +928,7 @@ export default function TeacherStudentsPage() {
               <table style={styles.table}>
                 <thead>
                   <tr>
-                    <th style={styles.th}>
-                      #
-                    </th>
+                    <th style={styles.th}>#</th>
 
                     <th style={styles.th}>
                       Student
@@ -773,6 +972,7 @@ export default function TeacherStudentsPage() {
                   {filteredStudents.map(
                     (student, index) => (
                       <tr key={student.id}>
+
                         <td style={styles.td}>
                           {index + 1}
                         </td>
@@ -1155,6 +1355,12 @@ const styles: {
     fontSize: "14px",
     fontWeight: "600",
     outline: "none",
+  },
+
+  passwordHelp: {
+    color: "#64748b",
+    fontSize: "11px",
+    lineHeight: 1.4,
   },
 
   formActions: {
