@@ -60,6 +60,12 @@ export default function HomePage() {
     setLoading(true);
 
     try {
+      /*
+       * IMPORTANT:
+       * Replace these routes only if your existing project
+       * uses different dashboard routes.
+       */
+
       if (loginType === "student") {
         const response = await fetch("/api/student-login", {
           method: "POST",
@@ -118,23 +124,13 @@ export default function HomePage() {
         {/* LEFT SIDE */}
         <div className="showcase">
           <div className="showcase-top">
-            {/* UNIQUE RC LOGO */}
-            <div className="academy-logo">
-              <div className="logo-ring">
-                <div className="logo-cut" />
-                <span className="logo-r">R</span>
-                <span className="logo-c">C</span>
-              </div>
-
-              <div className="logo-speed-line line-one" />
-              <div className="logo-speed-line line-two" />
+            <div className="academy-mark">
+              <span>RA</span>
             </div>
 
             <div>
               <div className="academy-name">RACER ACADEMY</div>
-              <div className="academy-tag">
-                EDUCATION • DISCIPLINE • SUCCESS
-              </div>
+              <div className="academy-tag">EDUCATION • DISCIPLINE • SUCCESS</div>
             </div>
           </div>
 
@@ -199,18 +195,9 @@ export default function HomePage() {
         {/* RIGHT SIDE */}
         <div className="login-panel">
           <div className="mobile-logo">
-            {/* UNIQUE RC LOGO */}
-            <div className="academy-logo small-logo">
-              <div className="logo-ring">
-                <div className="logo-cut" />
-                <span className="logo-r">R</span>
-                <span className="logo-c">C</span>
-              </div>
-
-              <div className="logo-speed-line line-one" />
-              <div className="logo-speed-line line-two" />
+            <div className="academy-mark small">
+              <span>RA</span>
             </div>
-
             <div>
               <strong>RACER ACADEMY</strong>
               <small>SMART LEARNING PORTAL</small>
@@ -310,7 +297,9 @@ export default function HomePage() {
             )}
 
             <button type="submit" className="login-button" disabled={loading}>
-              <span>{loading ? "SIGNING IN..." : "SIGN IN"}</span>
+              <span>
+                {loading ? "SIGNING IN..." : "SIGN IN"}
+              </span>
 
               {!loading && <strong>→</strong>}
             </button>
@@ -443,6 +432,8 @@ export default function HomePage() {
           backdrop-filter: blur(25px);
         }
 
+        /* SHOWCASE */
+
         .showcase {
           position: relative;
           min-height: 690px;
@@ -495,173 +486,32 @@ export default function HomePage() {
           transform: rotate(-15deg);
         }
 
-        /* =====================================================
-           RACER ACADEMY — RC MONOGRAM LOGO
-           ===================================================== */
-
-        .academy-logo {
-          position: relative;
-          width: 62px;
-          height: 62px;
-          flex-shrink: 0;
-          display: grid;
-          place-items: center;
-          isolation: isolate;
-          animation: logoFloat 4s ease-in-out infinite;
-        }
-
-        .logo-ring {
-          position: relative;
-          width: 58px;
-          height: 58px;
-          display: grid;
-          place-items: center;
-          overflow: hidden;
-          border-radius: 18px;
-          transform: skewX(-5deg) rotate(-3deg);
-          background:
-            linear-gradient(145deg, #3b82f6 0%, #2563eb 42%, #4f46e5 100%);
-          border: 1px solid rgba(255, 255, 255, 0.3);
-          box-shadow:
-            0 12px 35px rgba(37, 99, 235, 0.45),
-            0 0 35px rgba(79, 70, 229, 0.22),
-            inset 0 1px 0 rgba(255, 255, 255, 0.45);
-        }
-
-        .logo-ring::before {
-          content: "";
-          position: absolute;
-          inset: 4px;
-          border: 1px solid rgba(255, 255, 255, 0.22);
-          border-radius: 14px;
-        }
-
-        .logo-ring::after {
-          content: "";
-          position: absolute;
-          width: 85px;
-          height: 15px;
-          top: -28px;
-          left: -35px;
-          transform: rotate(-35deg);
-          background: linear-gradient(
-            90deg,
-            transparent,
-            rgba(255, 255, 255, 0.55),
-            transparent
-          );
-          animation: logoShine 3.8s ease-in-out infinite;
-        }
-
-        .logo-r,
-        .logo-c {
-          position: absolute;
-          z-index: 3;
-          color: white;
-          font-family:
-            Arial Black, Impact, Inter, sans-serif;
-          font-weight: 950;
-          line-height: 1;
-          letter-spacing: -7px;
-          text-shadow:
-            0 2px 0 rgba(0, 0, 0, 0.18),
-            0 5px 15px rgba(0, 0, 0, 0.22);
-        }
-
-        .logo-r {
-          font-size: 31px;
-          left: 12px;
-          top: 14px;
-          transform: skewX(5deg);
-        }
-
-        .logo-c {
-          font-size: 31px;
-          right: 7px;
-          top: 13px;
-          opacity: 0.82;
-          transform: skewX(5deg);
-        }
-
-        .logo-cut {
-          position: absolute;
-          z-index: 4;
-          width: 48px;
-          height: 5px;
-          right: -7px;
-          bottom: 12px;
-          transform: rotate(-18deg);
-          background: #050816;
-          box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
-        }
-
-        .logo-speed-line {
-          position: absolute;
-          right: -17px;
-          height: 3px;
-          border-radius: 99px;
-          background: linear-gradient(
-            90deg,
-            rgba(96, 165, 250, 0),
-            #60a5fa
-          );
-          animation: speedPulse 2s ease-in-out infinite;
-        }
-
-        .line-one {
-          width: 25px;
-          top: 17px;
-        }
-
-        .line-two {
-          width: 17px;
-          top: 25px;
-          opacity: 0.55;
-          animation-delay: 0.2s;
-        }
-
-        @keyframes logoFloat {
-          0%,
-          100% {
-            transform: translateY(0) rotate(0deg);
-          }
-
-          50% {
-            transform: translateY(-3px) rotate(1deg);
-          }
-        }
-
-        @keyframes logoShine {
-          0%,
-          55% {
-            transform: translateX(-60px) rotate(-35deg);
-          }
-
-          75%,
-          100% {
-            transform: translateX(115px) rotate(-35deg);
-          }
-        }
-
-        @keyframes speedPulse {
-          0%,
-          100% {
-            opacity: 0.25;
-            transform: translateX(0);
-          }
-
-          50% {
-            opacity: 1;
-            transform: translateX(4px);
-          }
-        }
-
         .showcase-top {
           position: relative;
           z-index: 2;
           display: flex;
           align-items: center;
           gap: 15px;
+        }
+
+        .academy-mark {
+          width: 54px;
+          height: 54px;
+          display: grid;
+          place-items: center;
+          border-radius: 16px;
+          background: linear-gradient(135deg, #2563eb, #7c3aed);
+          box-shadow:
+            0 10px 30px rgba(37, 99, 235, 0.3),
+            inset 0 1px 0 rgba(255, 255, 255, 0.25);
+          transform: rotate(-3deg);
+        }
+
+        .academy-mark span {
+          font-weight: 950;
+          font-size: 18px;
+          letter-spacing: -1px;
+          transform: rotate(3deg);
         }
 
         .academy-name {
@@ -1136,30 +986,10 @@ export default function HomePage() {
             letter-spacing: 1px;
           }
 
-          .academy-logo.small-logo {
-            width: 49px;
-            height: 49px;
-          }
-
-          .academy-logo.small-logo .logo-ring {
-            width: 46px;
-            height: 46px;
-            border-radius: 14px;
-          }
-
-          .academy-logo.small-logo .logo-r,
-          .academy-logo.small-logo .logo-c {
-            font-size: 25px;
-          }
-
-          .academy-logo.small-logo .logo-r {
-            left: 9px;
-            top: 11px;
-          }
-
-          .academy-logo.small-logo .logo-c {
-            right: 5px;
-            top: 10px;
+          .academy-mark.small {
+            width: 45px;
+            height: 45px;
+            border-radius: 13px;
           }
         }
 
