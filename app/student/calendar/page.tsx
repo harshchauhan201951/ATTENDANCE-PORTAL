@@ -1,100 +1,625 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-
-type EventType = "TEST" | "HOLIDAY" | "EVENT";
 
 type CalendarEvent = {
-  id: number;
   date: string;
   title: string;
-  type: EventType;
+  type: "holiday" | "test" | "info";
   description: string;
 };
 
-/* =========================================================
-   TUITION HOLIDAYS / SPECIAL EVENTS
-   Sundays and Saturdays are handled automatically below.
-   ========================================================= */
-
-const specialEvents: CalendarEvent[] = [
+const holidays: CalendarEvent[] = [
+  // =========================
+  // 2025
+  // =========================
   {
-    id: 1,
+    date: "2025-01-01",
+    title: "New Year's Day",
+    type: "holiday",
+    description: "Tuition holiday.",
+  },
+  {
+    date: "2025-01-26",
+    title: "Republic Day",
+    type: "holiday",
+    description: "Tuition holiday.",
+  },
+  {
+    date: "2025-02-26",
+    title: "Maha Shivratri",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2025-03-14",
+    title: "Holi",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2025-03-30",
+    title: "Ugadi / Gudi Padwa",
+    type: "holiday",
+    description: "Hindu New Year festival holiday.",
+  },
+  {
+    date: "2025-04-06",
+    title: "Ram Navami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2025-04-14",
+    title: "Hindu New Year",
+    type: "holiday",
+    description: "Traditional Hindu New Year holiday.",
+  },
+  {
+    date: "2025-05-12",
+    title: "Buddha Purnima",
+    type: "holiday",
+    description: "Festival holiday.",
+  },
+  {
+    date: "2025-08-09",
+    title: "Raksha Bandhan",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2025-08-15",
+    title: "Independence Day",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2025-08-16",
+    title: "Janmashtami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2025-10-02",
+    title: "Gandhi Jayanti / Dussehra",
+    type: "holiday",
+    description: "National and Hindu festival holiday.",
+  },
+  {
+    date: "2025-10-20",
+    title: "Diwali",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2025-10-22",
+    title: "Govardhan Puja",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2025-10-23",
+    title: "Bhai Dooj",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2025-11-05",
+    title: "Guru Nanak Jayanti",
+    type: "holiday",
+    description: "Festival holiday.",
+  },
+  {
+    date: "2025-12-25",
+    title: "Christmas Day",
+    type: "holiday",
+    description: "Christmas holiday.",
+  },
+
+  // =========================
+  // 2026
+  // =========================
+  {
+    date: "2026-01-01",
+    title: "New Year's Day",
+    type: "holiday",
+    description: "Tuition holiday.",
+  },
+  {
+    date: "2026-01-26",
+    title: "Republic Day",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2026-03-04",
+    title: "Holi",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2026-03-26",
+    title: "Ram Navami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2026-03-31",
+    title: "Mahavir Jayanti",
+    type: "holiday",
+    description: "Festival holiday.",
+  },
+  {
+    date: "2026-05-01",
+    title: "Buddha Purnima",
+    type: "holiday",
+    description: "Festival holiday.",
+  },
+  {
     date: "2026-08-15",
     title: "Independence Day",
-    type: "HOLIDAY",
-    description: "Tuition holiday.",
+    type: "holiday",
+    description: "National holiday.",
   },
   {
-    id: 2,
-    date: "2026-08-27",
+    date: "2026-09-04",
     title: "Janmashtami",
-    type: "HOLIDAY",
-    description: "Tuition holiday.",
+    type: "holiday",
+    description: "Hindu festival holiday.",
   },
   {
-    id: 3,
+    date: "2026-09-14",
+    title: "Ganesh Chaturthi",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
     date: "2026-10-02",
     title: "Gandhi Jayanti",
-    type: "HOLIDAY",
-    description: "Tuition holiday.",
+    type: "holiday",
+    description: "National holiday.",
   },
   {
-    id: 4,
     date: "2026-10-20",
     title: "Dussehra",
-    type: "HOLIDAY",
-    description: "Tuition holiday.",
+    type: "holiday",
+    description: "Hindu festival holiday.",
   },
   {
-    id: 5,
     date: "2026-11-08",
     title: "Diwali",
-    type: "HOLIDAY",
-    description: "Tuition holiday.",
+    type: "holiday",
+    description: "Hindu festival holiday.",
   },
   {
-    id: 6,
     date: "2026-11-09",
-    title: "Diwali Holiday",
-    type: "HOLIDAY",
-    description: "Tuition classes closed.",
+    title: "Govardhan Puja",
+    type: "holiday",
+    description: "Hindu festival holiday.",
   },
   {
-    id: 7,
+    date: "2026-11-11",
+    title: "Bhai Dooj",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
     date: "2026-11-24",
     title: "Guru Nanak Jayanti",
-    type: "HOLIDAY",
-    description: "Tuition holiday.",
+    type: "holiday",
+    description: "Festival holiday.",
   },
   {
-    id: 8,
     date: "2026-12-25",
     title: "Christmas Day",
-    type: "HOLIDAY",
+    type: "holiday",
+    description: "Christmas holiday.",
+  },
+
+  // =========================
+  // 2027
+  // =========================
+  {
+    date: "2027-01-01",
+    title: "New Year's Day",
+    type: "holiday",
     description: "Tuition holiday.",
   },
   {
-    id: 9,
-    date: "2026-09-05",
-    title: "Teachers' Day",
-    type: "EVENT",
-    description: "Special tuition activity.",
+    date: "2027-01-26",
+    title: "Republic Day",
+    type: "holiday",
+    description: "National holiday.",
   },
   {
-    id: 10,
-    date: "2026-11-14",
-    title: "Children's Day",
-    type: "EVENT",
-    description: "Special student activity.",
+    date: "2027-02-15",
+    title: "Maha Shivratri",
+    type: "holiday",
+    description: "Hindu festival holiday.",
   },
   {
-    id: 11,
-    date: "2026-12-31",
-    title: "Year End Activity",
-    type: "EVENT",
-    description: "Special tuition activity.",
+    date: "2027-03-04",
+    title: "Holi",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2027-03-26",
+    title: "Ram Navami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2027-04-14",
+    title: "Ambedkar Jayanti",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2027-05-01",
+    title: "Buddha Purnima",
+    type: "holiday",
+    description: "Festival holiday.",
+  },
+  {
+    date: "2027-08-15",
+    title: "Independence Day",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2027-08-17",
+    title: "Raksha Bandhan",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2027-08-25",
+    title: "Janmashtami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2027-09-04",
+    title: "Ganesh Chaturthi",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2027-10-02",
+    title: "Gandhi Jayanti",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2027-10-09",
+    title: "Dussehra",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2027-10-29",
+    title: "Diwali",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2027-10-31",
+    title: "Bhai Dooj",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2027-11-04",
+    title: "Chhath Puja",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2027-11-24",
+    title: "Guru Nanak Jayanti",
+    type: "holiday",
+    description: "Festival holiday.",
+  },
+  {
+    date: "2027-12-25",
+    title: "Christmas Day",
+    type: "holiday",
+    description: "Christmas holiday.",
+  },
+
+  // =========================
+  // 2028
+  // =========================
+  {
+    date: "2028-01-01",
+    title: "New Year's Day",
+    type: "holiday",
+    description: "Tuition holiday.",
+  },
+  {
+    date: "2028-01-26",
+    title: "Republic Day",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2028-02-23",
+    title: "Maha Shivratri",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2028-03-11",
+    title: "Holi",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2028-03-27",
+    title: "Ugadi / Gudi Padwa",
+    type: "holiday",
+    description: "Hindu New Year festival holiday.",
+  },
+  {
+    date: "2028-04-14",
+    title: "Ambedkar Jayanti",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2028-08-05",
+    title: "Raksha Bandhan",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2028-08-13",
+    title: "Janmashtami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2028-08-15",
+    title: "Independence Day",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2028-08-23",
+    title: "Ganesh Chaturthi",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2028-09-27",
+    title: "Dussehra",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2028-10-02",
+    title: "Gandhi Jayanti",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2028-10-17",
+    title: "Diwali",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2028-10-19",
+    title: "Bhai Dooj",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2028-10-23",
+    title: "Chhath Puja",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2028-12-25",
+    title: "Christmas Day",
+    type: "holiday",
+    description: "Christmas holiday.",
+  },
+
+  // =========================
+  // 2029
+  // =========================
+  {
+    date: "2029-01-01",
+    title: "New Year's Day",
+    type: "holiday",
+    description: "Tuition holiday.",
+  },
+  {
+    date: "2029-01-26",
+    title: "Republic Day",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2029-02-11",
+    title: "Maha Shivratri",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2029-03-01",
+    title: "Holi",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2029-04-13",
+    title: "Ram Navami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2029-04-14",
+    title: "Ambedkar Jayanti",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2029-08-15",
+    title: "Independence Day",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2029-08-23",
+    title: "Raksha Bandhan",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2029-09-01",
+    title: "Janmashtami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2029-09-12",
+    title: "Ganesh Chaturthi",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2029-10-02",
+    title: "Gandhi Jayanti",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2029-10-16",
+    title: "Dussehra",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2029-11-05",
+    title: "Diwali",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2029-11-07",
+    title: "Bhai Dooj",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2029-11-14",
+    title: "Chhath Puja",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2029-12-25",
+    title: "Christmas Day",
+    type: "holiday",
+    description: "Christmas holiday.",
+  },
+
+  // =========================
+  // 2030
+  // =========================
+  {
+    date: "2030-01-01",
+    title: "New Year's Day",
+    type: "holiday",
+    description: "Tuition holiday.",
+  },
+  {
+    date: "2030-01-26",
+    title: "Republic Day",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2030-03-01",
+    title: "Maha Shivratri",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2030-03-22",
+    title: "Holi",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2030-04-14",
+    title: "Ambedkar Jayanti",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2030-08-13",
+    title: "Raksha Bandhan",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2030-08-15",
+    title: "Independence Day",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2030-08-21",
+    title: "Janmashtami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2030-09-03",
+    title: "Ganesh Chaturthi",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2030-10-02",
+    title: "Gandhi Jayanti",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2030-10-06",
+    title: "Dussehra",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2030-10-26",
+    title: "Diwali",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2030-10-28",
+    title: "Bhai Dooj",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2030-11-03",
+    title: "Chhath Puja",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2030-12-25",
+    title: "Christmas Day",
+    type: "holiday",
+    description: "Christmas holiday.",
   },
 ];
 
@@ -113,33 +638,45 @@ const monthNames = [
   "December",
 ];
 
-const weekDays = [
-  "Sun",
-  "Mon",
-  "Tue",
-  "Wed",
-  "Thu",
-  "Fri",
-  "Sat",
-];
-
-function dateKey(year: number, month: number, day: number) {
-  return `${year}-${String(month + 1).padStart(2, "0")}-${String(
-    day
-  ).padStart(2, "0")}`;
+function dateKey(date: Date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
 }
 
-function getSpecialEvent(date: string) {
-  return specialEvents.find((event) => event.date === date);
+function formatDate(date: Date) {
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function getHoliday(date: Date) {
+  return holidays.find(
+    (event) => event.date === dateKey(date)
+  );
+}
+
+function isSunday(date: Date) {
+  return date.getDay() === 0;
+}
+
+function isSaturday(date: Date) {
+  return date.getDay() === 6;
 }
 
 export default function StudentCalendarPage() {
-  const router = useRouter();
-
   const today = new Date();
 
   const [currentMonth, setCurrentMonth] = useState(
-    new Date(today.getFullYear(), today.getMonth(), 1)
+    new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      1
+    )
   );
 
   const [selectedEvent, setSelectedEvent] =
@@ -148,7 +685,11 @@ export default function StudentCalendarPage() {
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
 
-  const firstDay = new Date(year, month, 1).getDay();
+  const firstDay = new Date(
+    year,
+    month,
+    1
+  ).getDay();
 
   const daysInMonth = new Date(
     year,
@@ -157,18 +698,25 @@ export default function StudentCalendarPage() {
   ).getDate();
 
   const calendarDays = useMemo(() => {
-    const days: Array<number | null> = [];
+    const days: (Date | null)[] = [];
 
     for (let i = 0; i < firstDay; i++) {
       days.push(null);
     }
 
     for (let day = 1; day <= daysInMonth; day++) {
-      days.push(day);
+      days.push(
+        new Date(year, month, day)
+      );
     }
 
     return days;
-  }, [firstDay, daysInMonth]);
+  }, [
+    year,
+    month,
+    firstDay,
+    daysInMonth,
+  ]);
 
   function previousMonth() {
     setCurrentMonth(
@@ -192,139 +740,106 @@ export default function StudentCalendarPage() {
     );
   }
 
-  function isToday(day: number) {
-    return (
-      day === today.getDate() &&
-      month === today.getMonth() &&
-      year === today.getFullYear()
-    );
-  }
+  function getDayInfo(date: Date) {
+    // IMPORTANT:
+    // Holiday is checked FIRST.
+    // Therefore if Saturday is a holiday,
+    // it will show ONLY as Holiday, not Test.
 
-  function getDayInfo(day: number) {
-    const date = new Date(year, month, day);
-    const dateString = dateKey(year, month, day);
+    const holiday = getHoliday(date);
 
-    const special = getSpecialEvent(dateString);
+    if (holiday) {
+      return holiday;
+    }
 
-    if (special) {
+    if (isSunday(date)) {
       return {
-        type: special.type,
-        title: special.title,
-        description: special.description,
-        color: getEventColor(special.type),
-        background: getEventBackground(special.type),
-        event: special,
+        date: dateKey(date),
+        title: "Sunday Off",
+        type: "holiday" as const,
+        description:
+          "Sunday is the weekly tuition holiday.",
       };
     }
 
-    if (date.getDay() === 0) {
+    if (isSaturday(date)) {
       return {
-        type: "SUNDAY",
-        title: "Sunday OFF",
-        description: "Tuition is closed every Sunday.",
-        color: "#dc2626",
-        background: "#fef2f2",
-        event: null,
-      };
-    }
-
-    if (date.getDay() === 6) {
-      const testEvent: CalendarEvent = {
-        id: Number(`${year}${month + 1}${day}`),
-        date: dateString,
+        date: dateKey(date),
         title: "Weekly Test",
-        type: "TEST",
-        description: "Weekly test for tuition students.",
-      };
-
-      return {
-        type: "TEST",
-        title: "Weekly Test",
-        description: "Weekly test for tuition students.",
-        color: "#2563eb",
-        background: "#eff6ff",
-        event: testEvent,
+        type: "test" as const,
+        description:
+          "Weekly test for tuition students.",
       };
     }
 
-    return {
-      type: "CLASS",
-      title: "Tuition Class",
-      description: "Regular tuition class.",
-      color: "#475569",
-      background: "#f8fafc",
-      event: null,
-    };
+    return null;
   }
-
-  const monthEvents = useMemo(() => {
-    const result: CalendarEvent[] = [];
-
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(year, month, day);
-
-      if (date.getDay() === 6) {
-        result.push({
-          id: Number(`${year}${month + 1}${day}`),
-          date: dateKey(year, month, day),
-          title: "Weekly Test",
-          type: "TEST",
-          description:
-            "Weekly test for tuition students.",
-        });
-      }
-    }
-
-    specialEvents.forEach((event) => {
-      const eventDate = new Date(
-        `${event.date}T00:00:00`
-      );
-
-      if (
-        eventDate.getFullYear() === year &&
-        eventDate.getMonth() === month
-      ) {
-        result.push(event);
-      }
-    });
-
-    return result.sort((a, b) =>
-      a.date.localeCompare(b.date)
-    );
-  }, [year, month, daysInMonth]);
 
   return (
     <main style={styles.page}>
       <div style={styles.container}>
 
         {/* HEADER */}
+
         <header style={styles.header}>
           <div>
-            <div style={styles.smallLabel}>
+            <div style={styles.badge}>
               STUDENT PORTAL
             </div>
 
             <h1 style={styles.title}>
-              📅 Tuition Calendar
+              📅 Student Calendar
             </h1>
 
             <p style={styles.subtitle}>
-              Classes, weekly tests and tuition holidays
+              Classes, weekly tests, Sundays and holidays
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() =>
-              router.push("/student/dashboard")
-            }
-            style={styles.dashboardButton}
+          <a
+            href="/student"
+            style={styles.backButton}
           >
-            ← Dashboard
-          </button>
+            ← Student Dashboard
+          </a>
         </header>
 
+        {/* LEGEND */}
+
+        <section style={styles.legendCard}>
+
+          <Legend
+            icon="📚"
+            title="Regular Tuition Class"
+            color="#2563eb"
+            background="#eff6ff"
+          />
+
+          <Legend
+            icon="📝"
+            title="Every Saturday - Weekly Test"
+            color="#7c3aed"
+            background="#f5f3ff"
+          />
+
+          <Legend
+            icon="🔴"
+            title="Every Sunday - OFF"
+            color="#dc2626"
+            background="#fef2f2"
+          />
+
+          <Legend
+            icon="🎉"
+            title="Holiday"
+            color="#ea580c"
+            background="#fff7ed"
+          />
+
+        </section>
+
         {/* CALENDAR */}
+
         <section style={styles.calendarCard}>
 
           <div style={styles.calendarTop}>
@@ -332,9 +847,9 @@ export default function StudentCalendarPage() {
             <button
               type="button"
               onClick={previousMonth}
-              style={styles.navigationButton}
+              style={styles.navButton}
             >
-              ‹
+              ←
             </button>
 
             <div style={styles.monthTitle}>
@@ -344,9 +859,9 @@ export default function StudentCalendarPage() {
             <button
               type="button"
               onClick={nextMonth}
-              style={styles.navigationButton}
+              style={styles.navButton}
             >
-              ›
+              →
             </button>
 
           </div>
@@ -356,11 +871,19 @@ export default function StudentCalendarPage() {
             onClick={goToday}
             style={styles.todayButton}
           >
-            Go to Today
+            Today
           </button>
 
           <div style={styles.weekGrid}>
-            {weekDays.map((day) => (
+            {[
+              "Sun",
+              "Mon",
+              "Tue",
+              "Wed",
+              "Thu",
+              "Fri",
+              "Sat",
+            ].map((day) => (
               <div
                 key={day}
                 style={{
@@ -380,213 +903,257 @@ export default function StudentCalendarPage() {
 
           <div style={styles.calendarGrid}>
 
-            {calendarDays.map((day, index) => {
+            {calendarDays.map(
+              (date, index) => {
 
-              if (day === null) {
+                if (!date) {
+                  return (
+                    <div
+                      key={`empty-${index}`}
+                      style={styles.emptyDay}
+                    />
+                  );
+                }
+
+                const info =
+                  getDayInfo(date);
+
+                const sunday =
+                  isSunday(date);
+
+                const saturday =
+                  isSaturday(date);
+
+                const holiday =
+                  getHoliday(date);
+
+                const todayDate =
+                  dateKey(date) ===
+                  dateKey(today);
+
                 return (
-                  <div
-                    key={`empty-${index}`}
-                    style={styles.emptyCell}
-                  />
-                );
-              }
-
-              const info = getDayInfo(day);
-
-              return (
-                <button
-                  type="button"
-                  key={day}
-                  onClick={() => {
-                    if (info.event) {
-                      setSelectedEvent(info.event);
-                    }
-                  }}
-                  style={{
-                    ...styles.dayCell,
-                    ...(isToday(day)
-                      ? styles.todayCell
-                      : {}),
-                    ...(info.type === "SUNDAY"
-                      ? styles.sundayCell
-                      : {}),
-                    ...(info.type === "TEST"
-                      ? styles.testCell
-                      : {}),
-                    cursor: info.event
-                      ? "pointer"
-                      : "default",
-                  }}
-                >
-
-                  <div
+                  <button
+                    type="button"
+                    key={dateKey(date)}
+                    onClick={() => {
+                      if (info) {
+                        setSelectedEvent(info);
+                      }
+                    }}
                     style={{
-                      ...styles.dayNumber,
-                      ...(isToday(day)
-                        ? styles.todayNumber
+                      ...styles.day,
+                      ...(todayDate
+                        ? styles.today
+                        : {}),
+                      ...(sunday
+                        ? styles.sunday
+                        : {}),
+                      ...(saturday
+                        ? styles.saturday
+                        : {}),
+                      ...(holiday
+                        ? styles.holiday
                         : {}),
                     }}
                   >
-                    {day}
-                  </div>
 
-                  <div
-                    style={{
-                      ...styles.dayStatus,
-                      color: info.color,
-                      background: info.background,
-                    }}
-                  >
-                    {info.type === "SUNDAY" && "OFF"}
-                    {info.type === "TEST" && "TEST"}
-                    {info.type === "HOLIDAY" &&
-                      "HOLIDAY"}
-                    {info.type === "EVENT" &&
-                      "EVENT"}
-                    {info.type === "CLASS" &&
-                      "CLASS"}
-                  </div>
+                    <div
+                      style={{
+                        ...styles.dayNumber,
+                        ...(todayDate
+                          ? styles.todayNumber
+                          : {}),
+                      }}
+                    >
+                      {date.getDate()}
+                    </div>
 
-                  <div style={styles.dayTitle}>
-                    {info.title}
-                  </div>
+                    {holiday ? (
+                      <>
+                        <div
+                          style={styles.holidayLabel}
+                        >
+                          🎉 HOLIDAY
+                        </div>
 
-                </button>
-              );
-            })}
+                        <div
+                          style={styles.eventName}
+                        >
+                          {holiday.title}
+                        </div>
+                      </>
+                    ) : sunday ? (
+                      <>
+                        <div
+                          style={styles.offLabel}
+                        >
+                          🔴 OFF
+                        </div>
+
+                        <div
+                          style={styles.smallText}
+                        >
+                          Sunday
+                        </div>
+                      </>
+                    ) : saturday ? (
+                      <>
+                        <div
+                          style={styles.testLabel}
+                        >
+                          📝 TEST
+                        </div>
+
+                        <div
+                          style={styles.smallText}
+                        >
+                          Weekly Test
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div
+                          style={styles.classLabel}
+                        >
+                          📚 CLASS
+                        </div>
+
+                        <div
+                          style={styles.smallText}
+                        >
+                          Tuition
+                        </div>
+                      </>
+                    )}
+
+                  </button>
+                );
+              }
+            )}
 
           </div>
 
         </section>
 
-        {/* LEGEND */}
-        <section style={styles.card}>
+        {/* MONTH INFORMATION */}
 
-          <h2 style={styles.sectionTitle}>
-            📌 Calendar Guide
-          </h2>
-
-          <p style={styles.sectionSubtitle}>
-            Tuition schedule
-          </p>
-
-          <div style={styles.legendGrid}>
-
-            <Legend
-              icon="📚"
-              color="#475569"
-              background="#f8fafc"
-              title="Tuition Class"
-              description="Regular tuition classes"
-            />
-
-            <Legend
-              icon="📝"
-              color="#2563eb"
-              background="#eff6ff"
-              title="Weekly Test"
-              description="Every Saturday"
-            />
-
-            <Legend
-              icon="🔴"
-              color="#dc2626"
-              background="#fef2f2"
-              title="Sunday OFF"
-              description="Tuition remains closed"
-            />
-
-            <Legend
-              icon="🎉"
-              color="#16a34a"
-              background="#f0fdf4"
-              title="Holiday"
-              description="Tuition holiday"
-            />
-
-          </div>
-        </section>
-
-        {/* MONTH EVENTS */}
-        <section style={styles.card}>
+        <section style={styles.infoCard}>
 
           <h2 style={styles.sectionTitle}>
             📋 {monthNames[month]} Schedule
           </h2>
 
-          <p style={styles.sectionSubtitle}>
-            Weekly tests and special holidays
-          </p>
+          <div style={styles.infoGrid}>
 
-          {monthEvents.length === 0 ? (
-            <div style={styles.noEvents}>
-              No special dates this month.
+            <div style={styles.infoItem}>
+              <div style={styles.infoIcon}>
+                📚
+              </div>
+
+              <div>
+                <strong>
+                  Monday - Friday
+                </strong>
+
+                <p>
+                  Regular Tuition Classes
+                </p>
+              </div>
             </div>
-          ) : (
-            <div style={styles.eventList}>
 
-              {monthEvents.map((event) => (
-                <button
-                  type="button"
-                  key={`${event.date}-${event.title}`}
-                  onClick={() =>
-                    setSelectedEvent(event)
-                  }
-                  style={{
-                    ...styles.eventCard,
-                    borderLeft:
-                      `5px solid ${
-                        getEventColor(event.type)
-                      }`,
-                  }}
-                >
+            <div style={styles.infoItem}>
+              <div style={styles.infoIcon}>
+                📝
+              </div>
 
-                  <div style={styles.eventInfo}>
+              <div>
+                <strong>
+                  Every Saturday
+                </strong>
 
-                    <div style={styles.eventDate}>
-                      📅 {event.date}
-                    </div>
-
-                    <div style={styles.eventTitle}>
-                      {event.type === "TEST"
-                        ? "📝 "
-                        : "🎉 "}
-                      {event.title}
-                    </div>
-
-                    <div
-                      style={
-                        styles.eventDescription
-                      }
-                    >
-                      {event.description}
-                    </div>
-
-                  </div>
-
-                  <span
-                    style={{
-                      ...styles.typeBadge,
-                      color:
-                        getEventColor(event.type),
-                      background:
-                        getEventBackground(
-                          event.type
-                        ),
-                    }}
-                  >
-                    {event.type}
-                  </span>
-
-                </button>
-              ))}
-
+                <p>
+                  Weekly Test
+                </p>
+              </div>
             </div>
-          )}
+
+            <div style={styles.infoItem}>
+              <div style={styles.infoIcon}>
+                🔴
+              </div>
+
+              <div>
+                <strong>
+                  Every Sunday
+                </strong>
+
+                <p>
+                  Tuition Closed
+                </p>
+              </div>
+            </div>
+
+            <div style={styles.infoItem}>
+              <div style={styles.infoIcon}>
+                🎉
+              </div>
+
+              <div>
+                <strong>
+                  Listed Holidays
+                </strong>
+
+                <p>
+                  Tuition Closed
+                </p>
+              </div>
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* HOLIDAY LIST */}
+
+        <section style={styles.holidayCard}>
+
+          <h2 style={styles.sectionTitle}>
+            🎉 Tuition Holidays
+          </h2>
+
+          <div style={styles.holidayList}>
+
+            {holidays.map((holiday) => (
+              <button
+                type="button"
+                key={holiday.date}
+                onClick={() =>
+                  setSelectedEvent(holiday)
+                }
+                style={styles.holidayRow}
+              >
+
+                <strong>
+                  {formatDate(
+                    new Date(
+                      `${holiday.date}T00:00:00`
+                    )
+                  )}
+                </strong>
+
+                <span>
+                  🎉 {holiday.title}
+                </span>
+
+              </button>
+            ))}
+
+          </div>
 
         </section>
 
         {/* MODAL */}
+
         {selectedEvent && (
           <div
             style={styles.modalOverlay}
@@ -594,6 +1161,7 @@ export default function StudentCalendarPage() {
               setSelectedEvent(null)
             }
           >
+
             <div
               style={styles.modal}
               onClick={(e) =>
@@ -602,11 +1170,10 @@ export default function StudentCalendarPage() {
             >
 
               <div style={styles.modalIcon}>
-                {selectedEvent.type === "TEST"
+                {selectedEvent.type ===
+                "test"
                   ? "📝"
-                  : selectedEvent.type === "HOLIDAY"
-                  ? "🎉"
-                  : "📌"}
+                  : "🎉"}
               </div>
 
               <h2 style={styles.modalTitle}>
@@ -614,28 +1181,17 @@ export default function StudentCalendarPage() {
               </h2>
 
               <p style={styles.modalDate}>
-                📅 {selectedEvent.date}
+                📅{" "}
+                {formatDate(
+                  new Date(
+                    `${selectedEvent.date}T00:00:00`
+                  )
+                )}
               </p>
 
               <p style={styles.modalDescription}>
                 {selectedEvent.description}
               </p>
-
-              <div
-                style={{
-                  ...styles.modalBadge,
-                  color:
-                    getEventColor(
-                      selectedEvent.type
-                    ),
-                  background:
-                    getEventBackground(
-                      selectedEvent.type
-                    ),
-                }}
-              >
-                {selectedEvent.type}
-              </div>
 
               <button
                 type="button"
@@ -648,11 +1204,12 @@ export default function StudentCalendarPage() {
               </button>
 
             </div>
+
           </div>
         )}
 
         <footer style={styles.footer}>
-          Attendance Portal • Tuition Calendar • 2026
+          Attendance Portal • Student Calendar • 2025–2030
         </footer>
 
       </div>
@@ -660,50 +1217,16 @@ export default function StudentCalendarPage() {
   );
 }
 
-function getEventColor(type: EventType) {
-  switch (type) {
-    case "TEST":
-      return "#2563eb";
-
-    case "HOLIDAY":
-      return "#16a34a";
-
-    case "EVENT":
-      return "#7c3aed";
-
-    default:
-      return "#64748b";
-  }
-}
-
-function getEventBackground(type: EventType) {
-  switch (type) {
-    case "TEST":
-      return "#eff6ff";
-
-    case "HOLIDAY":
-      return "#f0fdf4";
-
-    case "EVENT":
-      return "#f5f3ff";
-
-    default:
-      return "#f8fafc";
-  }
-}
-
 function Legend({
   icon,
+  title,
   color,
   background,
-  title,
-  description,
 }: {
   icon: string;
+  title: string;
   color: string;
   background: string;
-  title: string;
-  description: string;
 }) {
   return (
     <div style={styles.legendItem}>
@@ -718,15 +1241,9 @@ function Legend({
         {icon}
       </div>
 
-      <div>
-        <strong style={styles.legendTitle}>
-          {title}
-        </strong>
-
-        <p style={styles.legendDescription}>
-          {description}
-        </p>
-      </div>
+      <strong style={styles.legendText}>
+        {title}
+      </strong>
 
     </div>
   );
@@ -735,11 +1252,11 @@ function Legend({
 const styles: {
   [key: string]: React.CSSProperties;
 } = {
+
   page: {
     minHeight: "100vh",
-    background:
-      "linear-gradient(135deg,#eff6ff,#f8fafc,#eef2ff)",
-    padding: "16px",
+    background: "#f5f7fb",
+    padding: "20px",
     boxSizing: "border-box",
     fontFamily:
       "Arial, Helvetica, sans-serif",
@@ -747,61 +1264,103 @@ const styles: {
 
   container: {
     width: "100%",
-    maxWidth: "1100px",
+    maxWidth: "1200px",
     margin: "0 auto",
   },
 
   header: {
     background: "white",
-    borderRadius: "18px",
-    padding: "20px",
+    borderRadius: "16px",
+    padding: "22px",
+    marginBottom: "18px",
     display: "flex",
-    alignItems: "center",
     justifyContent: "space-between",
+    alignItems: "center",
     gap: "15px",
-    marginBottom: "16px",
+    flexWrap: "wrap",
     boxShadow:
-      "0 6px 20px rgba(15,23,42,0.08)",
+      "0 4px 15px rgba(15,23,42,0.07)",
   },
 
-  smallLabel: {
-    color: "#2563eb",
+  badge: {
+    display: "inline-block",
+    background: "#eff6ff",
+    color: "#1d4ed8",
+    padding: "6px 10px",
+    borderRadius: "999px",
     fontSize: "10px",
     fontWeight: "800",
-    letterSpacing: "1.5px",
-    marginBottom: "6px",
+    marginBottom: "8px",
   },
 
   title: {
     margin: 0,
-    color: "#172554",
-    fontSize: "27px",
+    color: "#111827",
+    fontSize: "28px",
     fontWeight: "800",
   },
 
   subtitle: {
     margin: "6px 0 0",
-    color: "#64748b",
+    color: "#6b7280",
+    fontSize: "14px",
+  },
+
+  backButton: {
+    textDecoration: "none",
+    background: "#111827",
+    color: "white",
+    padding: "11px 15px",
+    borderRadius: "9px",
+    fontWeight: "700",
     fontSize: "13px",
   },
 
-  dashboardButton: {
-    border: "none",
-    background: "#1e3a8a",
-    color: "white",
-    padding: "10px 15px",
+  legendCard: {
+    background: "white",
+    borderRadius: "16px",
+    padding: "15px",
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit,minmax(190px,1fr))",
+    gap: "10px",
+    marginBottom: "18px",
+    boxShadow:
+      "0 4px 15px rgba(15,23,42,0.06)",
+  },
+
+  legendItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: "9px",
+    padding: "9px",
+    background: "#f8fafc",
     borderRadius: "9px",
-    fontWeight: "700",
-    cursor: "pointer",
+  },
+
+  legendIcon: {
+    width: "34px",
+    height: "34px",
+    borderRadius: "8px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "17px",
+    flexShrink: 0,
+  },
+
+  legendText: {
+    color: "#374151",
+    fontSize: "12px",
   },
 
   calendarCard: {
     background: "white",
-    borderRadius: "18px",
-    padding: "16px",
+    borderRadius: "16px",
+    padding: "18px",
     boxShadow:
-      "0 6px 20px rgba(15,23,42,0.08)",
-    overflow: "hidden",
+      "0 4px 15px rgba(15,23,42,0.07)",
+    overflowX: "auto",
   },
 
   calendarTop: {
@@ -812,32 +1371,32 @@ const styles: {
   },
 
   monthTitle: {
-    minWidth: "180px",
+    minWidth: "190px",
     textAlign: "center",
-    color: "#172554",
-    fontSize: "22px",
+    color: "#111827",
+    fontSize: "23px",
     fontWeight: "800",
   },
 
-  navigationButton: {
-    width: "40px",
-    height: "40px",
+  navButton: {
+    width: "42px",
+    height: "42px",
     border: "none",
     borderRadius: "9px",
     background: "#eff6ff",
     color: "#1d4ed8",
-    fontSize: "25px",
+    fontSize: "20px",
     fontWeight: "800",
     cursor: "pointer",
   },
 
   todayButton: {
     display: "block",
-    margin: "14px auto",
+    margin: "15px auto",
     border: "none",
     background: "#2563eb",
     color: "white",
-    padding: "9px 16px",
+    padding: "9px 17px",
     borderRadius: "9px",
     fontWeight: "700",
     cursor: "pointer",
@@ -846,17 +1405,18 @@ const styles: {
   weekGrid: {
     display: "grid",
     gridTemplateColumns:
-      "repeat(7,minmax(0,1fr))",
-    gap: "4px",
+      "repeat(7,minmax(80px,1fr))",
+    gap: "5px",
+    minWidth: "620px",
   },
 
   weekDay: {
     textAlign: "center",
-    padding: "9px 3px",
-    background: "#eff6ff",
-    color: "#1e3a8a",
+    padding: "10px 4px",
+    background: "#f1f5f9",
+    color: "#334155",
     fontWeight: "800",
-    fontSize: "11px",
+    fontSize: "12px",
     borderRadius: "7px",
   },
 
@@ -866,206 +1426,186 @@ const styles: {
   },
 
   saturdayHeader: {
-    background: "#eff6ff",
-    color: "#2563eb",
+    background: "#f5f3ff",
+    color: "#7c3aed",
   },
 
   calendarGrid: {
     display: "grid",
     gridTemplateColumns:
-      "repeat(7,minmax(0,1fr))",
-    gap: "4px",
-    marginTop: "4px",
+      "repeat(7,minmax(80px,1fr))",
+    gap: "5px",
+    marginTop: "5px",
+    minWidth: "620px",
   },
 
-  emptyCell: {
-    minHeight: "82px",
+  emptyDay: {
+    minHeight: "100px",
     background: "#f8fafc",
-    borderRadius: "7px",
+    borderRadius: "8px",
   },
 
-  dayCell: {
-    minHeight: "82px",
-    border: "1px solid #e2e8f0",
-    borderRadius: "7px",
-    padding: "6px",
+  day: {
+    minHeight: "100px",
+    border: "1px solid #e5e7eb",
+    borderRadius: "8px",
+    padding: "8px",
     background: "white",
-    boxSizing: "border-box",
     textAlign: "left",
+    boxSizing: "border-box",
     overflow: "hidden",
+    cursor: "pointer",
   },
 
-  todayCell: {
+  today: {
     border: "2px solid #2563eb",
-    background: "#f8fbff",
   },
 
-  sundayCell: {
-    background: "#fffafa",
+  sunday: {
+    background: "#fff7f7",
     borderColor: "#fecaca",
   },
 
-  testCell: {
-    background: "#f8fbff",
-    borderColor: "#bfdbfe",
+  saturday: {
+    background: "#faf8ff",
+    borderColor: "#ddd6fe",
+  },
+
+  holiday: {
+    background: "#fffaf5",
+    borderColor: "#fed7aa",
   },
 
   dayNumber: {
-    color: "#334155",
-    fontSize: "13px",
+    color: "#374151",
+    fontSize: "14px",
     fontWeight: "800",
-    marginBottom: "5px",
+    marginBottom: "12px",
   },
 
   todayNumber: {
-    display: "inline-flex",
-    width: "25px",
-    height: "25px",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: "50%",
-    background: "#2563eb",
-    color: "white",
+    color: "#2563eb",
   },
 
-  dayStatus: {
+  classLabel: {
     display: "inline-block",
-    padding: "3px 5px",
-    borderRadius: "5px",
-    fontSize: "8px",
+    background: "#eff6ff",
+    color: "#2563eb",
+    padding: "5px 6px",
+    borderRadius: "6px",
+    fontSize: "9px",
     fontWeight: "900",
   },
 
-  dayTitle: {
-    marginTop: "5px",
-    color: "#475569",
+  testLabel: {
+    display: "inline-block",
+    background: "#f5f3ff",
+    color: "#7c3aed",
+    padding: "5px 6px",
+    borderRadius: "6px",
     fontSize: "9px",
-    fontWeight: "700",
-    lineHeight: 1.2,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
+    fontWeight: "900",
   },
 
-  card: {
+  offLabel: {
+    display: "inline-block",
+    background: "#fef2f2",
+    color: "#dc2626",
+    padding: "5px 6px",
+    borderRadius: "6px",
+    fontSize: "9px",
+    fontWeight: "900",
+  },
+
+  holidayLabel: {
+    display: "inline-block",
+    background: "#fff7ed",
+    color: "#ea580c",
+    padding: "5px 6px",
+    borderRadius: "6px",
+    fontSize: "9px",
+    fontWeight: "900",
+  },
+
+  eventName: {
+    marginTop: "6px",
+    color: "#9a3412",
+    fontSize: "9px",
+    fontWeight: "700",
+    lineHeight: 1.3,
+  },
+
+  smallText: {
+    marginTop: "6px",
+    color: "#6b7280",
+    fontSize: "9px",
+    fontWeight: "700",
+  },
+
+  infoCard: {
     background: "white",
-    borderRadius: "18px",
+    borderRadius: "16px",
     padding: "20px",
-    marginTop: "16px",
+    marginTop: "18px",
     boxShadow:
-      "0 6px 20px rgba(15,23,42,0.08)",
+      "0 4px 15px rgba(15,23,42,0.06)",
   },
 
   sectionTitle: {
     margin: 0,
-    color: "#172554",
-    fontSize: "19px",
+    color: "#111827",
+    fontSize: "20px",
     fontWeight: "800",
   },
 
-  sectionSubtitle: {
-    margin: "5px 0 0",
-    color: "#64748b",
-    fontSize: "12px",
-  },
-
-  legendGrid: {
+  infoGrid: {
     display: "grid",
     gridTemplateColumns:
-      "repeat(auto-fit,minmax(200px,1fr))",
+      "repeat(auto-fit,minmax(220px,1fr))",
     gap: "10px",
     marginTop: "15px",
   },
 
-  legendItem: {
+  infoItem: {
     display: "flex",
     alignItems: "center",
-    gap: "10px",
-    padding: "11px",
-    borderRadius: "10px",
+    gap: "12px",
+    padding: "13px",
     background: "#f8fafc",
+    borderRadius: "10px",
   },
 
-  legendIcon: {
-    width: "36px",
-    height: "36px",
+  infoIcon: {
+    fontSize: "25px",
+  },
+
+  holidayCard: {
+    background: "white",
+    borderRadius: "16px",
+    padding: "20px",
+    marginTop: "18px",
+    boxShadow:
+      "0 4px 15px rgba(15,23,42,0.06)",
+  },
+
+  holidayList: {
+    display: "grid",
+    gap: "8px",
+    marginTop: "15px",
+  },
+
+  holidayRow: {
+    border: "1px solid #fed7aa",
+    background: "#fffaf5",
+    padding: "12px",
     borderRadius: "9px",
     display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "17px",
-    flexShrink: 0,
-  },
-
-  legendTitle: {
-    color: "#172554",
-    fontSize: "13px",
-  },
-
-  legendDescription: {
-    margin: "3px 0 0",
-    color: "#64748b",
-    fontSize: "11px",
-  },
-
-  eventList: {
-    display: "grid",
-    gap: "9px",
-    marginTop: "15px",
-  },
-
-  eventCard: {
-    width: "100%",
-    border: "1px solid #e2e8f0",
-    background: "#f8fafc",
-    borderRadius: "10px",
-    padding: "12px",
-    display: "flex",
-    alignItems: "center",
     justifyContent: "space-between",
+    alignItems: "center",
     gap: "10px",
-    textAlign: "left",
     cursor: "pointer",
-  },
-
-  eventInfo: {
-    minWidth: 0,
-  },
-
-  eventDate: {
-    color: "#64748b",
-    fontSize: "10px",
-    fontWeight: "700",
-  },
-
-  eventTitle: {
-    marginTop: "4px",
-    color: "#172554",
-    fontSize: "14px",
-    fontWeight: "800",
-  },
-
-  eventDescription: {
-    marginTop: "3px",
-    color: "#64748b",
-    fontSize: "11px",
-  },
-
-  typeBadge: {
-    padding: "6px 8px",
-    borderRadius: "999px",
-    fontSize: "8px",
-    fontWeight: "900",
-    flexShrink: 0,
-  },
-
-  noEvents: {
-    marginTop: "15px",
-    padding: "16px",
-    background: "#f8fafc",
-    borderRadius: "10px",
-    textAlign: "center",
-    color: "#64748b",
-    fontSize: "12px",
+    color: "#9a3412",
+    textAlign: "left",
   },
 
   modalOverlay: {
@@ -1075,70 +1615,60 @@ const styles: {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: "15px",
+    padding: "20px",
     zIndex: 1000,
   },
 
   modal: {
     width: "100%",
-    maxWidth: "400px",
+    maxWidth: "420px",
     background: "white",
     borderRadius: "18px",
-    padding: "24px",
+    padding: "25px",
     textAlign: "center",
     boxShadow:
-      "0 20px 50px rgba(15,23,42,0.25)",
+      "0 20px 50px rgba(15,23,42,0.2)",
   },
 
   modalIcon: {
-    fontSize: "40px",
-    marginBottom: "7px",
+    fontSize: "42px",
+    marginBottom: "8px",
   },
 
   modalTitle: {
     margin: 0,
-    color: "#172554",
-    fontSize: "21px",
+    color: "#111827",
+    fontSize: "22px",
   },
 
   modalDate: {
-    color: "#64748b",
+    color: "#6b7280",
     fontWeight: "700",
-    fontSize: "12px",
-    margin: "8px 0",
+    fontSize: "13px",
   },
 
   modalDescription: {
-    color: "#475569",
-    fontSize: "13px",
+    color: "#4b5563",
+    fontSize: "14px",
     lineHeight: 1.5,
   },
 
-  modalBadge: {
-    display: "inline-block",
-    padding: "7px 10px",
-    borderRadius: "999px",
-    fontSize: "9px",
-    fontWeight: "900",
-  },
-
   closeButton: {
-    display: "block",
     width: "100%",
-    marginTop: "18px",
+    marginTop: "15px",
     border: "none",
-    background: "#1e3a8a",
+    background: "#111827",
     color: "white",
-    padding: "10px",
+    padding: "11px",
     borderRadius: "9px",
-    fontWeight: "800",
+    fontWeight: "700",
     cursor: "pointer",
   },
 
   footer: {
     textAlign: "center",
-    padding: "20px 10px 8px",
-    color: "#64748b",
-    fontSize: "11px",
+    padding: "22px 10px 5px",
+    color: "#9ca3af",
+    fontSize: "12px",
   },
 };
