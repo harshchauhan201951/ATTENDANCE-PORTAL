@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RACER ACADEMY</string>
+    <string name="title_activity_main">RACER ACADEMY</string>
+    <string name="package_name">com.raceracademy.app</string>
+    <string name="custom_url_scheme">com.raceracademy.app</string>
+</resources>
