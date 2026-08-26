@@ -23,7 +23,7 @@ const menuItems: MenuItem[] = [
     title: "Attendance History",
     subtitle: "Check previous attendance records",
     icon: "◷",
-    route: "/teacher/history",
+    route: "/teacher/attendance-history",
     accent: "history",
   },
   {
