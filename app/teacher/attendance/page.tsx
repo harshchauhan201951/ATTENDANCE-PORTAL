@@ -8,6 +8,8 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+type AttendanceStatus = "Present" | "Absent";
+
 type Student = {
   id: number;
   student_name: string | null;
@@ -18,7 +20,7 @@ type AttendanceRecord = {
   id: number;
   student_id: number;
   attendance_date: string;
-  status: string;
+  status: AttendanceStatus;
 };
 
 export default function TeacherAttendancePage() {
@@ -33,7 +35,7 @@ export default function TeacherAttendancePage() {
   const [month, setMonth] = useState("");
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [savingStudentId, setSavingStudentId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -45,14 +47,15 @@ export default function TeacherAttendancePage() {
     setMessage("");
 
     try {
-      const { data: studentData, error: studentError } =
-        await supabase
-          .from("students")
-          .select("id, student_name, student_username")
-          .order("id", { ascending: true });
+      const { data: studentData, error: studentError } = await supabase
+        .from("students")
+        .select("id, student_name, student_username")
+        .order("id", { ascending: true });
 
       if (studentError) {
-        throw new Error(studentError.message);
+        throw new Error(
+          `Students load failed: ${studentError.message}`
+        );
       }
 
       const { data: attendanceData, error: attendanceError } =
@@ -66,11 +69,13 @@ export default function TeacherAttendancePage() {
           });
 
       if (attendanceError) {
-        throw new Error(attendanceError.message);
+        throw new Error(
+          `Attendance load failed: ${attendanceError.message}`
+        );
       }
 
-      setStudents(studentData || []);
-      setAttendance(attendanceData || []);
+      setStudents((studentData || []) as Student[]);
+      setAttendance((attendanceData || []) as AttendanceRecord[]);
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -110,19 +115,31 @@ export default function TeacherAttendancePage() {
     );
   }, [attendance, selectedDate]);
 
-  function getStatus(studentId: number) {
+  function getStatus(studentId: number): AttendanceStatus | "" {
     const record = selectedDateRecords.find(
       (item) => item.student_id === studentId
     );
 
-    return record?.status?.toLowerCase() || "";
+    if (!record) {
+      return "";
+    }
+
+    if (record.status === "Present") {
+      return "Present";
+    }
+
+    if (record.status === "Absent") {
+      return "Absent";
+    }
+
+    return "";
   }
 
   async function markAttendance(
     studentId: number,
-    status: "present" | "absent"
+    status: AttendanceStatus
   ) {
-    setSaving(true);
+    setSavingStudentId(studentId);
     setMessage("");
 
     try {
@@ -136,20 +153,24 @@ export default function TeacherAttendancePage() {
         const { data, error } = await supabase
           .from("attendance")
           .update({
-            status,
+            status: status,
           })
           .eq("id", existing.id)
-          .select()
+          .select(
+            "id, student_id, attendance_date, status"
+          )
           .single();
 
         if (error) {
-          throw new Error(error.message);
+          throw new Error(
+            `Attendance update failed: ${error.message}`
+          );
         }
 
         setAttendance((current) =>
           current.map((item) =>
             item.id === existing.id
-              ? data
+              ? (data as AttendanceRecord)
               : item
           )
         );
@@ -159,27 +180,27 @@ export default function TeacherAttendancePage() {
           .insert({
             student_id: studentId,
             attendance_date: selectedDate,
-            status,
+            status: status,
           })
-          .select()
+          .select(
+            "id, student_id, attendance_date, status"
+          )
           .single();
 
         if (error) {
-          throw new Error(error.message);
+          throw new Error(
+            `Attendance insert failed: ${error.message}`
+          );
         }
 
         setAttendance((current) => [
-          data,
+          data as AttendanceRecord,
           ...current,
         ]);
       }
 
       setMessage(
-        `Attendance marked ${
-          status === "present"
-            ? "Present"
-            : "Absent"
-        } successfully.`
+        `${status} attendance marked successfully.`
       );
     } catch (error) {
       setMessage(
@@ -188,7 +209,7 @@ export default function TeacherAttendancePage() {
           : "Unable to save attendance."
       );
     } finally {
-      setSaving(false);
+      setSavingStudentId(null);
     }
   }
 
@@ -199,15 +220,11 @@ export default function TeacherAttendancePage() {
     );
 
     const present = records.filter(
-      (record) =>
-        record.status?.toLowerCase() ===
-        "present"
+      (record) => record.status === "Present"
     ).length;
 
     const absent = records.filter(
-      (record) =>
-        record.status?.toLowerCase() ===
-        "absent"
+      (record) => record.status === "Absent"
     ).length;
 
     const total = records.length;
@@ -229,16 +246,12 @@ export default function TeacherAttendancePage() {
 
   const presentToday =
     selectedDateRecords.filter(
-      (record) =>
-        record.status?.toLowerCase() ===
-        "present"
+      (record) => record.status === "Present"
     ).length;
 
   const absentToday =
     selectedDateRecords.filter(
-      (record) =>
-        record.status?.toLowerCase() ===
-        "absent"
+      (record) => record.status === "Absent"
     ).length;
 
   const pendingToday = Math.max(
@@ -251,9 +264,7 @@ export default function TeacherAttendancePage() {
   const history = useMemo(() => {
     const filtered = month
       ? attendance.filter((record) =>
-          record.attendance_date.startsWith(
-            month
-          )
+          record.attendance_date.startsWith(month)
         )
       : attendance;
 
@@ -322,7 +333,7 @@ export default function TeacherAttendancePage() {
             style={
               message
                 .toLowerCase()
-                .includes("success")
+                .includes("successfully")
                 ? styles.success
                 : styles.error
             }
@@ -330,7 +341,7 @@ export default function TeacherAttendancePage() {
             <strong>
               {message
                 .toLowerCase()
-                .includes("success")
+                .includes("successfully")
                 ? "✅ "
                 : "❌ "}
             </strong>
@@ -342,7 +353,6 @@ export default function TeacherAttendancePage() {
         {/* STATISTICS */}
 
         <section style={styles.statsGrid}>
-
           <Stat
             icon="👨‍🎓"
             title="Total Students"
@@ -370,13 +380,11 @@ export default function TeacherAttendancePage() {
             value={String(pendingToday)}
             background="linear-gradient(135deg,#f59e0b,#b45309)"
           />
-
         </section>
 
         {/* CONTROLS */}
 
         <section style={styles.controlCard}>
-
           <div style={styles.controlBox}>
             <label style={styles.label}>
               📅 Attendance Date
@@ -407,13 +415,11 @@ export default function TeacherAttendancePage() {
               style={styles.input}
             />
           </div>
-
         </section>
 
         {/* STUDENT ATTENDANCE */}
 
         <section style={styles.card}>
-
           <div style={styles.sectionHeader}>
             <div>
               <h2 style={styles.sectionTitle}>
@@ -449,7 +455,6 @@ export default function TeacherAttendancePage() {
             </div>
           ) : (
             <div style={styles.studentList}>
-
               {filteredStudents.map(
                 (student, index) => {
                   const status =
@@ -460,26 +465,29 @@ export default function TeacherAttendancePage() {
                       student.id
                     );
 
+                  const isSaving =
+                    savingStudentId ===
+                    student.id;
+
                   return (
                     <div
                       key={student.id}
                       style={{
                         ...styles.studentRow,
                         border:
-                          status === "present"
+                          status === "Present"
                             ? "2px solid #22c55e"
-                            : status === "absent"
+                            : status === "Absent"
                             ? "2px solid #ef4444"
                             : "2px solid #cbd5e1",
                         background:
-                          status === "present"
+                          status === "Present"
                             ? "#f0fdf4"
-                            : status === "absent"
+                            : status === "Absent"
                             ? "#fef2f2"
                             : "#ffffff",
                       }}
                     >
-
                       {/* NUMBER */}
 
                       <div style={styles.number}>
@@ -500,7 +508,6 @@ export default function TeacherAttendancePage() {
                       {/* STUDENT DETAILS */}
 
                       <div style={styles.studentInfo}>
-
                         <h3
                           style={
                             styles.studentName
@@ -560,7 +567,6 @@ export default function TeacherAttendancePage() {
                             📊 {stats.percentage}%
                           </span>
                         </div>
-
                       </div>
 
                       {/* ATTENDANCE */}
@@ -570,18 +576,25 @@ export default function TeacherAttendancePage() {
                           styles.attendanceActions
                         }
                       >
-
-                        {status && (
+                        {isSaving && (
                           <div
                             style={
-                              status ===
-                              "present"
+                              styles.savingText
+                            }
+                          >
+                            ⏳ Saving...
+                          </div>
+                        )}
+
+                        {status && !isSaving && (
+                          <div
+                            style={
+                              status === "Present"
                                 ? styles.presentBadge
                                 : styles.absentBadge
                             }
                           >
-                            {status ===
-                            "present"
+                            {status === "Present"
                               ? "✓ PRESENT"
                               : "✕ ABSENT"}
                           </div>
@@ -590,81 +603,85 @@ export default function TeacherAttendancePage() {
                         <div
                           style={styles.buttons}
                         >
-
                           <button
-                            disabled={saving}
+                            disabled={
+                              savingStudentId !==
+                              null
+                            }
                             onClick={() =>
                               markAttendance(
                                 student.id,
-                                "present"
+                                "Present"
                               )
                             }
                             style={{
                               ...styles.presentButton,
                               background:
-                                status ===
-                                "present"
+                                status === "Present"
                                   ? "#15803d"
                                   : "#ffffff",
                               color:
-                                status ===
-                                "present"
+                                status === "Present"
                                   ? "#ffffff"
                                   : "#15803d",
                               border:
                                 "2px solid #15803d",
+                              opacity:
+                                savingStudentId !==
+                                null
+                                  ? 0.6
+                                  : 1,
                             }}
                           >
                             ✓ Present
                           </button>
 
                           <button
-                            disabled={saving}
+                            disabled={
+                              savingStudentId !==
+                              null
+                            }
                             onClick={() =>
                               markAttendance(
                                 student.id,
-                                "absent"
+                                "Absent"
                               )
                             }
                             style={{
                               ...styles.absentButton,
                               background:
-                                status ===
-                                "absent"
+                                status === "Absent"
                                   ? "#b91c1c"
                                   : "#ffffff",
                               color:
-                                status ===
-                                "absent"
+                                status === "Absent"
                                   ? "#ffffff"
                                   : "#b91c1c",
                               border:
                                 "2px solid #b91c1c",
+                              opacity:
+                                savingStudentId !==
+                                null
+                                  ? 0.6
+                                  : 1,
                             }}
                           >
                             ✕ Absent
                           </button>
-
                         </div>
-
                       </div>
-
                     </div>
                   );
                 }
               )}
-
             </div>
           )}
-
         </section>
 
         {/* HISTORY */}
 
         <section style={styles.card}>
-
           <div style={styles.sectionHeader}>
-
             <div>
               <h2 style={styles.sectionTitle}>
                 📜 Attendance History
@@ -683,12 +700,10 @@ export default function TeacherAttendancePage() {
               }
               style={styles.monthInput}
             />
-
           </div>
 
           {history.length === 0 ? (
             <div style={styles.empty}>
-
               <div style={styles.emptyIcon}>
                 📅
               </div>
@@ -701,13 +716,10 @@ export default function TeacherAttendancePage() {
                 Attendance records will appear
                 here after marking attendance.
               </p>
-
             </div>
           ) : (
             <div style={styles.tableWrapper}>
-
               <table style={styles.table}>
-
                 <thead>
                   <tr>
                     <th style={styles.th}>
@@ -733,10 +745,8 @@ export default function TeacherAttendancePage() {
                 </thead>
 
                 <tbody>
-
                   {history.map(
                     (record, index) => {
-
                       const student =
                         students.find(
                           (item) =>
@@ -745,13 +755,11 @@ export default function TeacherAttendancePage() {
                         );
 
                       const isPresent =
-                        record.status
-                          ?.toLowerCase() ===
-                        "present";
+                        record.status ===
+                        "Present";
 
                       return (
                         <tr key={record.id}>
-
                           <td style={styles.td}>
                             {index + 1}
                           </td>
@@ -783,7 +791,6 @@ export default function TeacherAttendancePage() {
                           </td>
 
                           <td style={styles.td}>
-
                             <span
                               style={
                                 isPresent
@@ -795,21 +802,15 @@ export default function TeacherAttendancePage() {
                                 ? "✓ PRESENT"
                                 : "✕ ABSENT"}
                             </span>
-
                           </td>
-
                         </tr>
                       );
                     }
                   )}
-
                 </tbody>
-
               </table>
-
             </div>
           )}
-
         </section>
 
         <footer style={styles.footer}>
@@ -818,7 +819,6 @@ export default function TeacherAttendancePage() {
           </strong>{" "}
           • Teacher Management Center • 2026
         </footer>
-
       </div>
     </main>
   );
@@ -1206,6 +1206,12 @@ const styles: {
     alignItems: "flex-end",
     gap: "9px",
     minWidth: "205px",
+  },
+
+  savingText: {
+    color: "#1d4ed8",
+    fontSize: "12px",
+    fontWeight: "900",
   },
 
   buttons: {
