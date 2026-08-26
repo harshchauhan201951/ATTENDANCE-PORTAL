@@ -9,54 +9,625 @@ type CalendarEvent = {
   description: string;
 };
 
+/*
+  ============================================================
+  TEACHER TUITION CALENDAR
+  YEARS: 2025 - 2030
+
+  RULES:
+  1. Sunday = OFF
+  2. Saturday = Weekly Test
+  3. Holiday has priority over Saturday/Sunday
+  4. Muslim holidays are intentionally NOT included
+  5. Includes major Hindu, Indian national, New Year & Christmas
+  ============================================================
+*/
+
 const holidays: CalendarEvent[] = [
+  // ==========================================================
+  // 2025
+  // ==========================================================
+
+  {
+    date: "2025-01-01",
+    title: "New Year's Day",
+    type: "holiday",
+    description: "New Year holiday.",
+  },
+  {
+    date: "2025-01-14",
+    title: "Makar Sankranti",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2025-01-26",
+    title: "Republic Day",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2025-02-26",
+    title: "Maha Shivratri",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2025-03-14",
+    title: "Holi",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2025-04-06",
+    title: "Ram Navami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2025-04-12",
+    title: "Hanuman Jayanti",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2025-08-09",
+    title: "Raksha Bandhan",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2025-08-15",
+    title: "Independence Day",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2025-08-16",
+    title: "Janmashtami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2025-08-27",
+    title: "Ganesh Chaturthi",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2025-10-02",
+    title: "Gandhi Jayanti",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2025-10-02",
+    title: "Dussehra",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2025-10-20",
+    title: "Diwali",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2025-10-23",
+    title: "Bhai Dooj",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2025-12-25",
+    title: "Christmas Day",
+    type: "holiday",
+    description: "Christmas holiday.",
+  },
+
+  // ==========================================================
+  // 2026
+  // ==========================================================
+
+  {
+    date: "2026-01-01",
+    title: "New Year's Day",
+    type: "holiday",
+    description: "New Year holiday.",
+  },
+  {
+    date: "2026-01-14",
+    title: "Makar Sankranti",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2026-01-26",
+    title: "Republic Day",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2026-02-15",
+    title: "Maha Shivratri",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2026-03-04",
+    title: "Holi",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2026-03-26",
+    title: "Ram Navami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2026-04-02",
+    title: "Hanuman Jayanti",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
   {
     date: "2026-08-15",
     title: "Independence Day",
     type: "holiday",
-    description: "Tuition holiday.",
+    description: "National holiday.",
   },
   {
-    date: "2026-08-27",
+    date: "2026-08-28",
+    title: "Raksha Bandhan",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2026-09-04",
     title: "Janmashtami",
     type: "holiday",
-    description: "Tuition holiday.",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2026-09-14",
+    title: "Ganesh Chaturthi",
+    type: "holiday",
+    description: "Hindu festival holiday.",
   },
   {
     date: "2026-10-02",
     title: "Gandhi Jayanti",
     type: "holiday",
-    description: "Tuition holiday.",
+    description: "National holiday.",
   },
   {
     date: "2026-10-20",
     title: "Dussehra",
     type: "holiday",
-    description: "Tuition holiday.",
+    description: "Hindu festival holiday.",
   },
   {
     date: "2026-11-08",
     title: "Diwali",
     type: "holiday",
-    description: "Tuition holiday.",
+    description: "Hindu festival holiday.",
   },
   {
-    date: "2026-11-09",
-    title: "Diwali Holiday",
+    date: "2026-11-11",
+    title: "Bhai Dooj",
     type: "holiday",
-    description: "Tuition holiday.",
-  },
-  {
-    date: "2026-11-24",
-    title: "Guru Nanak Jayanti",
-    type: "holiday",
-    description: "Tuition holiday.",
+    description: "Hindu festival holiday.",
   },
   {
     date: "2026-12-25",
     title: "Christmas Day",
     type: "holiday",
-    description: "Tuition holiday.",
+    description: "Christmas holiday.",
+  },
+
+  // ==========================================================
+  // 2027
+  // ==========================================================
+
+  {
+    date: "2027-01-01",
+    title: "New Year's Day",
+    type: "holiday",
+    description: "New Year holiday.",
+  },
+  {
+    date: "2027-01-15",
+    title: "Makar Sankranti",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2027-01-26",
+    title: "Republic Day",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2027-03-06",
+    title: "Maha Shivratri",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2027-03-22",
+    title: "Holi",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2027-03-26",
+    title: "Ram Navami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2027-04-22",
+    title: "Hanuman Jayanti",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2027-08-15",
+    title: "Independence Day",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2027-08-17",
+    title: "Raksha Bandhan",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2027-08-25",
+    title: "Janmashtami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2027-09-04",
+    title: "Ganesh Chaturthi",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2027-10-02",
+    title: "Gandhi Jayanti",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2027-10-09",
+    title: "Dussehra",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2027-10-29",
+    title: "Diwali",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2027-11-01",
+    title: "Bhai Dooj",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2027-12-25",
+    title: "Christmas Day",
+    type: "holiday",
+    description: "Christmas holiday.",
+  },
+
+  // ==========================================================
+  // 2028
+  // ==========================================================
+
+  {
+    date: "2028-01-01",
+    title: "New Year's Day",
+    type: "holiday",
+    description: "New Year holiday.",
+  },
+  {
+    date: "2028-01-15",
+    title: "Makar Sankranti",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2028-01-26",
+    title: "Republic Day",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2028-02-23",
+    title: "Maha Shivratri",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2028-03-11",
+    title: "Holi",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2028-04-02",
+    title: "Ram Navami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2028-04-11",
+    title: "Hanuman Jayanti",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2028-08-05",
+    title: "Raksha Bandhan",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2028-08-13",
+    title: "Janmashtami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2028-08-15",
+    title: "Independence Day",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2028-08-23",
+    title: "Ganesh Chaturthi",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2028-09-27",
+    title: "Dussehra",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2028-10-02",
+    title: "Gandhi Jayanti",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2028-10-17",
+    title: "Diwali",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2028-10-19",
+    title: "Bhai Dooj",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2028-12-25",
+    title: "Christmas Day",
+    type: "holiday",
+    description: "Christmas holiday.",
+  },
+
+  // ==========================================================
+  // 2029
+  // ==========================================================
+
+  {
+    date: "2029-01-01",
+    title: "New Year's Day",
+    type: "holiday",
+    description: "New Year holiday.",
+  },
+  {
+    date: "2029-01-14",
+    title: "Makar Sankranti",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2029-01-26",
+    title: "Republic Day",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2029-02-09",
+    title: "Maha Shivratri",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2029-03-01",
+    title: "Holi",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2029-04-20",
+    title: "Ram Navami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2029-04-28",
+    title: "Hanuman Jayanti",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2029-08-15",
+    title: "Independence Day",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2029-08-23",
+    title: "Raksha Bandhan",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2029-09-01",
+    title: "Janmashtami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2029-09-11",
+    title: "Ganesh Chaturthi",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2029-10-02",
+    title: "Gandhi Jayanti",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2029-10-16",
+    title: "Dussehra",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2029-11-05",
+    title: "Diwali",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2029-11-07",
+    title: "Bhai Dooj",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2029-12-25",
+    title: "Christmas Day",
+    type: "holiday",
+    description: "Christmas holiday.",
+  },
+
+  // ==========================================================
+  // 2030
+  // ==========================================================
+
+  {
+    date: "2030-01-01",
+    title: "New Year's Day",
+    type: "holiday",
+    description: "New Year holiday.",
+  },
+  {
+    date: "2030-01-14",
+    title: "Makar Sankranti",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2030-01-26",
+    title: "Republic Day",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2030-03-02",
+    title: "Maha Shivratri",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2030-03-20",
+    title: "Holi",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2030-04-12",
+    title: "Ram Navami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2030-04-18",
+    title: "Hanuman Jayanti",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2030-08-13",
+    title: "Raksha Bandhan",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2030-08-15",
+    title: "Independence Day",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2030-08-21",
+    title: "Janmashtami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2030-09-01",
+    title: "Ganesh Chaturthi",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2030-10-02",
+    title: "Gandhi Jayanti",
+    type: "holiday",
+    description: "National holiday.",
+  },
+  {
+    date: "2030-10-06",
+    title: "Dussehra",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2030-10-26",
+    title: "Diwali",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2030-10-28",
+    title: "Bhai Dooj",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2030-12-25",
+    title: "Christmas Day",
+    type: "holiday",
+    description: "Christmas holiday.",
   },
 ];
 
@@ -110,8 +681,15 @@ export default function TeacherCalendarPage() {
 
   const [currentMonth, setCurrentMonth] = useState(
     new Date(
-      today.getFullYear(),
-      today.getMonth(),
+      today.getFullYear() < 2025
+        ? 2025
+        : today.getFullYear() > 2030
+        ? 2030
+        : today.getFullYear(),
+      today.getFullYear() >= 2025 &&
+        today.getFullYear() <= 2030
+        ? today.getMonth()
+        : 0,
       1
     )
   );
@@ -156,28 +734,54 @@ export default function TeacherCalendarPage() {
   ]);
 
   function previousMonth() {
+    if (year === 2025 && month === 0) {
+      return;
+    }
+
     setCurrentMonth(
       new Date(year, month - 1, 1)
     );
   }
 
   function nextMonth() {
+    if (year === 2030 && month === 11) {
+      return;
+    }
+
     setCurrentMonth(
       new Date(year, month + 1, 1)
     );
   }
 
   function goToday() {
-    setCurrentMonth(
-      new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        1
-      )
-    );
+    const todayYear = today.getFullYear();
+
+    if (
+      todayYear >= 2025 &&
+      todayYear <= 2030
+    ) {
+      setCurrentMonth(
+        new Date(
+          todayYear,
+          today.getMonth(),
+          1
+        )
+      );
+    } else {
+      setCurrentMonth(
+        new Date(2025, 0, 1)
+      );
+    }
   }
 
   function getDayInfo(date: Date) {
+    /*
+      IMPORTANT:
+      Holiday has highest priority.
+      Therefore if Saturday/Sunday is a holiday,
+      only HOLIDAY will be shown.
+    */
+
     const holiday = getHoliday(date);
 
     if (holiday) {
@@ -216,7 +820,7 @@ export default function TeacherCalendarPage() {
         <header style={styles.header}>
           <div>
             <div style={styles.badge}>
-              TEACHER PORTAL
+              TEACHER PORTAL • 2025 — 2030
             </div>
 
             <h1 style={styles.title}>
@@ -224,8 +828,8 @@ export default function TeacherCalendarPage() {
             </h1>
 
             <p style={styles.subtitle}>
-              Simple tuition schedule, weekly tests,
-              Sundays and holidays
+              Classes • Weekly Tests • Sundays •
+              Hindu & National Holidays
             </p>
           </div>
 
@@ -243,21 +847,21 @@ export default function TeacherCalendarPage() {
 
           <Legend
             icon="📚"
-            title="Tuition Class"
+            title="Monday - Friday • Class"
             color="#2563eb"
             background="#eff6ff"
           />
 
           <Legend
             icon="📝"
-            title="Every Saturday - Weekly Test"
+            title="Saturday • Weekly Test"
             color="#7c3aed"
             background="#f5f3ff"
           />
 
           <Legend
             icon="🔴"
-            title="Every Sunday - OFF"
+            title="Sunday • OFF"
             color="#dc2626"
             background="#fef2f2"
           />
@@ -271,6 +875,27 @@ export default function TeacherCalendarPage() {
 
         </section>
 
+        {/* YEAR RANGE */}
+
+        <section style={styles.rangeCard}>
+          <div>
+            <strong style={styles.rangeTitle}>
+              📆 Academic Calendar Range
+            </strong>
+
+            <p style={styles.rangeText}>
+              Holidays are configured from
+              <strong> 2025 </strong>
+              to
+              <strong> 2030 </strong>.
+            </p>
+          </div>
+
+          <div style={styles.rangeBadge}>
+            2025 → 2030
+          </div>
+        </section>
+
         {/* CALENDAR */}
 
         <section style={styles.calendarCard}>
@@ -280,7 +905,18 @@ export default function TeacherCalendarPage() {
             <button
               type="button"
               onClick={previousMonth}
-              style={styles.navButton}
+              disabled={
+                year === 2025 &&
+                month === 0
+              }
+              style={{
+                ...styles.navButton,
+                opacity:
+                  year === 2025 &&
+                  month === 0
+                    ? 0.4
+                    : 1,
+              }}
             >
               ←
             </button>
@@ -292,7 +928,18 @@ export default function TeacherCalendarPage() {
             <button
               type="button"
               onClick={nextMonth}
-              style={styles.navButton}
+              disabled={
+                year === 2030 &&
+                month === 11
+              }
+              style={{
+                ...styles.navButton,
+                opacity:
+                  year === 2030 &&
+                  month === 11
+                    ? 0.4
+                    : 1,
+              }}
             >
               →
             </button>
@@ -473,7 +1120,7 @@ export default function TeacherCalendarPage() {
         <section style={styles.infoCard}>
 
           <h2 style={styles.sectionTitle}>
-            📋 {monthNames[month]} Schedule
+            📋 {monthNames[month]} {year} Schedule
           </h2>
 
           <div style={styles.infoGrid}>
@@ -550,32 +1197,59 @@ export default function TeacherCalendarPage() {
 
         <section style={styles.holidayCard}>
 
-          <h2 style={styles.sectionTitle}>
-            🎉 Tuition Holidays
-          </h2>
+          <div style={styles.holidayHeader}>
+            <div>
+              <h2 style={styles.sectionTitle}>
+                🎉 Tuition Holidays
+              </h2>
+
+              <p style={styles.holidaySubtitle}>
+                2025 — 2030 holiday schedule
+              </p>
+            </div>
+
+            <div style={styles.holidayCount}>
+              {holidays.length} Holidays
+            </div>
+          </div>
 
           <div style={styles.holidayList}>
 
             {holidays.map((holiday) => (
               <button
                 type="button"
-                key={holiday.date}
+                key={`${holiday.date}-${holiday.title}`}
                 onClick={() =>
                   setSelectedEvent(holiday)
                 }
                 style={styles.holidayRow}
               >
-                <strong>
-                  {formatDate(
-                    new Date(
+
+                <div>
+                  <strong>
+                    {formatDate(
+                      new Date(
+                        `${holiday.date}T00:00:00`
+                      )
+                    )}
+                  </strong>
+
+                  <div style={styles.holidayDay}>
+                    {new Date(
                       `${holiday.date}T00:00:00`
-                    )
-                  )}
-                </strong>
+                    ).toLocaleDateString(
+                      "en-IN",
+                      {
+                        weekday: "long",
+                      }
+                    )}
+                  </div>
+                </div>
 
                 <span>
                   🎉 {holiday.title}
                 </span>
+
               </button>
             ))}
 
@@ -604,6 +1278,13 @@ export default function TeacherCalendarPage() {
                 "test"
                   ? "📝"
                   : "🎉"}
+              </div>
+
+              <div style={styles.modalBadge}>
+                {selectedEvent.type ===
+                "test"
+                  ? "WEEKLY TEST"
+                  : "HOLIDAY"}
               </div>
 
               <h2 style={styles.modalTitle}>
@@ -638,7 +1319,8 @@ export default function TeacherCalendarPage() {
         )}
 
         <footer style={styles.footer}>
-          Attendance Portal • Tuition Calendar • 2026
+          Attendance Portal • Teacher Tuition Calendar •
+          2025 — 2030
         </footer>
 
       </div>
@@ -682,7 +1364,8 @@ const styles: {
 
   page: {
     minHeight: "100vh",
-    background: "#f5f7fb",
+    background:
+      "linear-gradient(135deg,#f8fafc 0%,#eef2ff 50%,#f8fafc 100%)",
     padding: "20px",
     boxSizing: "border-box",
     fontFamily:
@@ -697,8 +1380,8 @@ const styles: {
 
   header: {
     background: "white",
-    borderRadius: "16px",
-    padding: "22px",
+    borderRadius: "20px",
+    padding: "24px",
     marginBottom: "18px",
     display: "flex",
     justifyContent: "space-between",
@@ -706,30 +1389,33 @@ const styles: {
     gap: "15px",
     flexWrap: "wrap",
     boxShadow:
-      "0 4px 15px rgba(15,23,42,0.07)",
+      "0 8px 30px rgba(15,23,42,0.08)",
+    border:
+      "1px solid rgba(148,163,184,0.18)",
   },
 
   badge: {
     display: "inline-block",
     background: "#eff6ff",
     color: "#1d4ed8",
-    padding: "6px 10px",
+    padding: "7px 11px",
     borderRadius: "999px",
     fontSize: "10px",
-    fontWeight: "800",
-    marginBottom: "8px",
+    fontWeight: "900",
+    marginBottom: "9px",
+    letterSpacing: "0.5px",
   },
 
   title: {
     margin: 0,
     color: "#111827",
-    fontSize: "28px",
-    fontWeight: "800",
+    fontSize: "30px",
+    fontWeight: "900",
   },
 
   subtitle: {
-    margin: "6px 0 0",
-    color: "#6b7280",
+    margin: "7px 0 0",
+    color: "#64748b",
     fontSize: "14px",
   },
 
@@ -737,15 +1423,15 @@ const styles: {
     textDecoration: "none",
     background: "#111827",
     color: "white",
-    padding: "11px 15px",
-    borderRadius: "9px",
-    fontWeight: "700",
+    padding: "12px 16px",
+    borderRadius: "10px",
+    fontWeight: "800",
     fontSize: "13px",
   },
 
   legendCard: {
     background: "white",
-    borderRadius: "16px",
+    borderRadius: "18px",
     padding: "15px",
     display: "grid",
     gridTemplateColumns:
@@ -753,22 +1439,22 @@ const styles: {
     gap: "10px",
     marginBottom: "18px",
     boxShadow:
-      "0 4px 15px rgba(15,23,42,0.06)",
+      "0 6px 22px rgba(15,23,42,0.06)",
   },
 
   legendItem: {
     display: "flex",
     alignItems: "center",
     gap: "9px",
-    padding: "9px",
+    padding: "10px",
     background: "#f8fafc",
-    borderRadius: "9px",
+    borderRadius: "10px",
   },
 
   legendIcon: {
-    width: "34px",
-    height: "34px",
-    borderRadius: "8px",
+    width: "36px",
+    height: "36px",
+    borderRadius: "9px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -781,12 +1467,48 @@ const styles: {
     fontSize: "12px",
   },
 
+  rangeCard: {
+    background:
+      "linear-gradient(135deg,#111827,#1e3a8a)",
+    color: "white",
+    borderRadius: "18px",
+    padding: "17px 20px",
+    marginBottom: "18px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "15px",
+    flexWrap: "wrap",
+    boxShadow:
+      "0 10px 30px rgba(30,58,138,0.18)",
+  },
+
+  rangeTitle: {
+    fontSize: "15px",
+  },
+
+  rangeText: {
+    margin: "5px 0 0",
+    color: "#dbeafe",
+    fontSize: "12px",
+  },
+
+  rangeBadge: {
+    background: "rgba(255,255,255,0.14)",
+    border:
+      "1px solid rgba(255,255,255,0.18)",
+    padding: "9px 13px",
+    borderRadius: "999px",
+    fontWeight: "900",
+    fontSize: "12px",
+  },
+
   calendarCard: {
     background: "white",
-    borderRadius: "16px",
+    borderRadius: "18px",
     padding: "18px",
     boxShadow:
-      "0 4px 15px rgba(15,23,42,0.07)",
+      "0 8px 28px rgba(15,23,42,0.08)",
     overflowX: "auto",
   },
 
@@ -798,22 +1520,22 @@ const styles: {
   },
 
   monthTitle: {
-    minWidth: "190px",
+    minWidth: "210px",
     textAlign: "center",
     color: "#111827",
-    fontSize: "23px",
-    fontWeight: "800",
+    fontSize: "24px",
+    fontWeight: "900",
   },
 
   navButton: {
     width: "42px",
     height: "42px",
     border: "none",
-    borderRadius: "9px",
+    borderRadius: "10px",
     background: "#eff6ff",
     color: "#1d4ed8",
     fontSize: "20px",
-    fontWeight: "800",
+    fontWeight: "900",
     cursor: "pointer",
   },
 
@@ -823,9 +1545,9 @@ const styles: {
     border: "none",
     background: "#2563eb",
     color: "white",
-    padding: "9px 17px",
+    padding: "9px 18px",
     borderRadius: "9px",
-    fontWeight: "700",
+    fontWeight: "800",
     cursor: "pointer",
   },
 
@@ -842,7 +1564,7 @@ const styles: {
     padding: "10px 4px",
     background: "#f1f5f9",
     color: "#334155",
-    fontWeight: "800",
+    fontWeight: "900",
     fontSize: "12px",
     borderRadius: "7px",
   },
@@ -867,15 +1589,15 @@ const styles: {
   },
 
   emptyDay: {
-    minHeight: "100px",
+    minHeight: "105px",
     background: "#f8fafc",
     borderRadius: "8px",
   },
 
   day: {
-    minHeight: "100px",
+    minHeight: "105px",
     border: "1px solid #e5e7eb",
-    borderRadius: "8px",
+    borderRadius: "9px",
     padding: "8px",
     background: "white",
     textAlign: "left",
@@ -886,6 +1608,8 @@ const styles: {
 
   today: {
     border: "2px solid #2563eb",
+    boxShadow:
+      "0 0 0 3px rgba(37,99,235,0.08)",
   },
 
   sunday: {
@@ -906,7 +1630,7 @@ const styles: {
   dayNumber: {
     color: "#374151",
     fontSize: "14px",
-    fontWeight: "800",
+    fontWeight: "900",
     marginBottom: "12px",
   },
 
@@ -958,7 +1682,7 @@ const styles: {
     marginTop: "6px",
     color: "#9a3412",
     fontSize: "9px",
-    fontWeight: "700",
+    fontWeight: "800",
     lineHeight: 1.3,
   },
 
@@ -971,18 +1695,18 @@ const styles: {
 
   infoCard: {
     background: "white",
-    borderRadius: "16px",
+    borderRadius: "18px",
     padding: "20px",
     marginTop: "18px",
     boxShadow:
-      "0 4px 15px rgba(15,23,42,0.06)",
+      "0 6px 22px rgba(15,23,42,0.06)",
   },
 
   sectionTitle: {
     margin: 0,
     color: "#111827",
     fontSize: "20px",
-    fontWeight: "800",
+    fontWeight: "900",
   },
 
   infoGrid: {
@@ -1006,13 +1730,41 @@ const styles: {
     fontSize: "25px",
   },
 
+  infoItemText: {
+    color: "#64748b",
+    fontSize: "12px",
+  },
+
   holidayCard: {
     background: "white",
-    borderRadius: "16px",
+    borderRadius: "18px",
     padding: "20px",
     marginTop: "18px",
     boxShadow:
-      "0 4px 15px rgba(15,23,42,0.06)",
+      "0 6px 22px rgba(15,23,42,0.06)",
+  },
+
+  holidayHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "12px",
+    flexWrap: "wrap",
+  },
+
+  holidaySubtitle: {
+    margin: "5px 0 0",
+    color: "#94a3b8",
+    fontSize: "12px",
+  },
+
+  holidayCount: {
+    background: "#fff7ed",
+    color: "#c2410c",
+    padding: "8px 11px",
+    borderRadius: "999px",
+    fontSize: "11px",
+    fontWeight: "900",
   },
 
   holidayList: {
@@ -1035,10 +1787,16 @@ const styles: {
     textAlign: "left",
   },
 
+  holidayDay: {
+    color: "#9ca3af",
+    fontSize: "10px",
+    marginTop: "3px",
+  },
+
   modalOverlay: {
     position: "fixed",
     inset: 0,
-    background: "rgba(15,23,42,0.55)",
+    background: "rgba(15,23,42,0.58)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -1050,15 +1808,26 @@ const styles: {
     width: "100%",
     maxWidth: "420px",
     background: "white",
-    borderRadius: "18px",
+    borderRadius: "20px",
     padding: "25px",
     textAlign: "center",
     boxShadow:
-      "0 20px 50px rgba(15,23,42,0.2)",
+      "0 25px 60px rgba(15,23,42,0.25)",
   },
 
   modalIcon: {
     fontSize: "42px",
+    marginBottom: "6px",
+  },
+
+  modalBadge: {
+    display: "inline-block",
+    background: "#fff7ed",
+    color: "#ea580c",
+    padding: "6px 9px",
+    borderRadius: "999px",
+    fontSize: "9px",
+    fontWeight: "900",
     marginBottom: "8px",
   },
 
@@ -1070,7 +1839,7 @@ const styles: {
 
   modalDate: {
     color: "#6b7280",
-    fontWeight: "700",
+    fontWeight: "800",
     fontSize: "13px",
   },
 
@@ -1088,7 +1857,7 @@ const styles: {
     color: "white",
     padding: "11px",
     borderRadius: "9px",
-    fontWeight: "700",
+    fontWeight: "800",
     cursor: "pointer",
   },
 
