@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -24,33 +24,97 @@ type Student = {
   blood_group: string | null;
 };
 
+type FormData = {
+  student_name: string;
+  date_of_birth: string;
+  father_name: string;
+  mother_name: string;
+  father_phone: string;
+  mother_phone: string;
+  address: string;
+  city: string;
+  class_name: string;
+  blood_group: string;
+};
+
+const emptyForm: FormData = {
+  student_name: "",
+  date_of_birth: "",
+  father_name: "",
+  mother_name: "",
+  father_phone: "",
+  mother_phone: "",
+  address: "",
+  city: "",
+  class_name: "",
+  blood_group: "",
+};
+
 export default function StudentProfilePage() {
   const [student, setStudent] = useState<Student | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [lastUpdated, setLastUpdated] = useState("");
 
-  const loadStudent = useCallback(async () => {
+  const [form, setForm] =
+    useState<FormData>(emptyForm);
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(false);
+
+  const [errorMessage, setErrorMessage] =
+    useState("");
+
+  const [successMessage, setSuccessMessage] =
+    useState("");
+
+  const [lastUpdated, setLastUpdated] =
+    useState("");
+
+  useEffect(() => {
+    loadStudent();
+  }, []);
+
+  function getUsername() {
+    return (
+      localStorage.getItem("student_username") ||
+      localStorage.getItem("studentUsername") ||
+      localStorage.getItem("username") ||
+      ""
+    )
+      .trim()
+      .toUpperCase();
+  }
+
+  function studentToForm(data: Student): FormData {
+    return {
+      student_name: data.student_name || "",
+      date_of_birth: data.date_of_birth || "",
+      father_name: data.father_name || "",
+      mother_name: data.mother_name || "",
+      father_phone: data.father_phone || "",
+      mother_phone: data.mother_phone || "",
+      address: data.address || "",
+      city: data.city || "",
+      class_name: data.class_name || "",
+      blood_group: data.blood_group || "",
+    };
+  }
+
+  async function loadStudent() {
+    setLoading(true);
     setErrorMessage("");
 
     try {
-      const username =
-        localStorage.getItem("student_username") ||
-        localStorage.getItem("studentUsername");
+      const username = getUsername();
 
-      const studentId =
-        localStorage.getItem("studentId");
-
-      if (!username && !studentId) {
+      if (!username) {
         setStudent(null);
         setErrorMessage(
-          "Student login information nahi mili. Please logout karke dobara login karein."
+          "Student login information nahi mili. Please login again."
         );
         return;
       }
 
-      let query = supabase
+      const { data, error } = await supabase
         .from("students")
         .select(`
           id,
@@ -66,32 +130,22 @@ export default function StudentProfilePage() {
           city,
           class_name,
           blood_group
-        `);
-
-      if (studentId) {
-        query = query.eq("id", Number(studentId));
-      } else {
-        query = query.eq(
-          "student_username",
-          username
-        );
-      }
-
-      const { data, error } =
-        await query.maybeSingle();
+        `)
+        .eq("student_username", username)
+        .maybeSingle();
 
       if (error) {
         console.error(
-          "Student profile error:",
+          "Student profile load error:",
           error
         );
 
-        setStudent(null);
         setErrorMessage(
           "Profile load nahi ho rahi: " +
             error.message
         );
 
+        setStudent(null);
         return;
       }
 
@@ -100,19 +154,25 @@ export default function StudentProfilePage() {
         setErrorMessage(
           "Student profile nahi mili."
         );
-
         return;
       }
 
-      /*
-       * IMPORTANT:
-       * Always use the latest data directly
-       * from Supabase.
-       *
-       * Teacher ke Students Management mein
-       * jo bhi update hoga, wahi yahan show hoga.
-       */
-      setStudent(data as Student);
+      const loadedStudent = data as Student;
+
+      setStudent(loadedStudent);
+      setForm(studentToForm(loadedStudent));
+
+      if (loadedStudent.student_name) {
+        localStorage.setItem(
+          "studentName",
+          loadedStudent.student_name
+        );
+
+        localStorage.setItem(
+          "student_name",
+          loadedStudent.student_name
+        );
+      }
 
       setLastUpdated(
         new Date().toLocaleTimeString("en-IN", {
@@ -121,80 +181,225 @@ export default function StudentProfilePage() {
           second: "2-digit",
         })
       );
-    } catch (error: any) {
-      console.error(
-        "Unexpected profile error:",
-        error
-      );
+    } catch (error) {
+      console.error(error);
 
-      setStudent(null);
       setErrorMessage(
-        error?.message ||
-          "Profile load karte waqt problem hui."
+        error instanceof Error
+          ? error.message
+          : "Profile load karte waqt problem hui."
       );
+    } finally {
+      setLoading(false);
     }
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function firstLoad() {
-      if (!mounted) return;
-
-      setLoading(true);
-      await loadStudent();
-
-      if (mounted) {
-        setLoading(false);
-      }
-    }
-
-    firstLoad();
-
-    return () => {
-      mounted = false;
-    };
-  }, [loadStudent]);
-
-  async function refreshProfile() {
-    if (refreshing) return;
-
-    setRefreshing(true);
-    await loadStudent();
-    setRefreshing(false);
   }
 
-  function formatDate(date: string | null) {
-    if (!date) {
-      return "Not Added";
-    }
-
-    const parsedDate = new Date(
-      `${date}T00:00:00`
-    );
-
-    if (Number.isNaN(parsedDate.getTime())) {
-      return date;
-    }
-
-    return parsedDate.toLocaleDateString(
-      "en-IN",
-      {
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-      }
-    );
-  }
-
-  function value(
-    text: string | null | undefined
+  function updateField(
+    field: keyof FormData,
+    value: string
   ) {
-    if (!text || !text.trim()) {
+    setForm((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
+  }
+
+  function startEditing() {
+    if (!student) return;
+
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    setForm(studentToForm(student));
+    setEditing(true);
+  }
+
+  function cancelEditing() {
+    if (saving) return;
+
+    if (student) {
+      setForm(studentToForm(student));
+    }
+
+    setEditing(false);
+    setErrorMessage("");
+    setSuccessMessage("");
+  }
+
+  async function saveProfile() {
+    if (!student) return;
+
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    const studentName =
+      form.student_name.trim();
+
+    if (!studentName) {
+      setErrorMessage(
+        "Student Name zaroori hai."
+      );
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      /*
+       * IMPORTANT:
+       * Username and admission date are NOT
+       * changed by the student.
+       *
+       * Only student-editable profile fields
+       * are updated here.
+       */
+
+      const updateData = {
+        student_name: studentName,
+
+        date_of_birth:
+          form.date_of_birth || null,
+
+        father_name:
+          form.father_name.trim() || null,
+
+        mother_name:
+          form.mother_name.trim() || null,
+
+        father_phone:
+          form.father_phone.trim() || null,
+
+        mother_phone:
+          form.mother_phone.trim() || null,
+
+        address:
+          form.address.trim() || null,
+
+        city:
+          form.city.trim() || null,
+
+        class_name:
+          form.class_name.trim() || null,
+
+        blood_group:
+          form.blood_group || null,
+      };
+
+      const { data, error } = await supabase
+        .from("students")
+        .update(updateData)
+        .eq("id", student.id)
+        .select(`
+          id,
+          student_name,
+          student_username,
+          admission_date,
+          date_of_birth,
+          father_name,
+          mother_name,
+          father_phone,
+          mother_phone,
+          address,
+          city,
+          class_name,
+          blood_group
+        `)
+        .maybeSingle();
+
+      if (error) {
+        console.error(
+          "Profile update error:",
+          error
+        );
+
+        throw new Error(
+          "Profile save nahi hui: " +
+            error.message
+        );
+      }
+
+      if (!data) {
+        throw new Error(
+          "Profile save nahi hui. Database ne updated record return nahi kiya."
+        );
+      }
+
+      const updatedStudent =
+        data as Student;
+
+      setStudent(updatedStudent);
+      setForm(studentToForm(updatedStudent));
+
+      localStorage.setItem(
+        "studentName",
+        updatedStudent.student_name ||
+          "Student"
+      );
+
+      localStorage.setItem(
+        "student_name",
+        updatedStudent.student_name ||
+          "Student"
+      );
+
+      localStorage.setItem(
+        "studentUsername",
+        updatedStudent.student_username
+      );
+
+      localStorage.setItem(
+        "student_username",
+        updatedStudent.student_username
+      );
+
+      setEditing(false);
+
+      setSuccessMessage(
+        "✅ Profile successfully updated."
+      );
+
+      setLastUpdated(
+        new Date().toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        })
+      );
+    } catch (error) {
+      console.error(error);
+
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Profile save nahi ho saki."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function formatDate(
+    date: string | null
+  ) {
+    if (!date) return "Not Added";
+
+    return new Date(
+      `${date}T00:00:00`
+    ).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+  }
+
+  function displayValue(
+    value: string | null
+  ) {
+    if (!value || !value.trim()) {
       return "Not Added";
     }
 
-    return text;
+    return value;
   }
 
   if (loading) {
@@ -210,7 +415,8 @@ export default function StudentProfilePage() {
           </h2>
 
           <p style={styles.loadingText}>
-            Please wait.
+            Please wait while we load your
+            profile.
           </p>
         </div>
       </main>
@@ -235,8 +441,7 @@ export default function StudentProfilePage() {
           </p>
 
           <button
-            type="button"
-            onClick={refreshProfile}
+            onClick={loadStudent}
             style={styles.retryButton}
           >
             🔄 Try Again
@@ -247,7 +452,10 @@ export default function StudentProfilePage() {
   }
 
   const firstLetter =
-    (student.student_name || "S")
+    (
+      student.student_name ||
+      "S"
+    )
       .charAt(0)
       .toUpperCase();
 
@@ -268,18 +476,53 @@ export default function StudentProfilePage() {
             </h1>
 
             <p style={styles.subtitle}>
-              Your complete student information
+              View and manage your personal
+              information
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => window.history.back()}
-            style={styles.backButton}
-          >
-            ← Back
-          </button>
+          <div style={styles.headerButtons}>
+            <button
+              onClick={() =>
+                window.history.back()
+              }
+              style={styles.backButton}
+            >
+              ← Back
+            </button>
+
+            {!editing ? (
+              <button
+                onClick={startEditing}
+                style={styles.editProfileButton}
+              >
+                ✏️ Edit Profile
+              </button>
+            ) : (
+              <button
+                onClick={cancelEditing}
+                disabled={saving}
+                style={styles.cancelTopButton}
+              >
+                ✕ Cancel
+              </button>
+            )}
+          </div>
         </header>
+
+        {/* MESSAGES */}
+
+        {successMessage && (
+          <div style={styles.successBox}>
+            {successMessage}
+          </div>
+        )}
+
+        {errorMessage && (
+          <div style={styles.errorBox}>
+            ⚠️ {errorMessage}
+          </div>
+        )}
 
         {/* PROFILE HERO */}
 
@@ -290,7 +533,9 @@ export default function StudentProfilePage() {
 
           <div style={styles.heroInfo}>
             <h2 style={styles.studentName}>
-              {value(student.student_name)}
+              {displayValue(
+                student.student_name
+              )}
             </h2>
 
             <div style={styles.usernameBadge}>
@@ -298,10 +543,323 @@ export default function StudentProfilePage() {
             </div>
 
             <p style={styles.heroText}>
-              Your profile is managed by your teacher.
+              Your profile can be updated by
+              you and your teacher.
             </p>
           </div>
         </section>
+
+        {/* EDIT FORM */}
+
+        {editing && (
+          <section style={styles.editCard}>
+            <div style={styles.editHeader}>
+              <div>
+                <h2 style={styles.editTitle}>
+                  ✏️ Edit My Profile
+                </h2>
+
+                <p style={styles.editSubtitle}>
+                  Fill in your details and save
+                  your changes.
+                </p>
+              </div>
+            </div>
+
+            <div style={styles.notice}>
+              <span style={styles.noticeIcon}>
+                🔒
+              </span>
+
+              <div>
+                <strong style={styles.noticeTitle}>
+                  Account Information
+                </strong>
+
+                <p style={styles.noticeText}>
+                  Username and Admission Date
+                  are managed by your teacher.
+                  Other profile details can be
+                  updated by you.
+                </p>
+              </div>
+            </div>
+
+            <div style={styles.formGrid}>
+
+              {/* STUDENT NAME */}
+
+              <Field
+                label="Student Name *"
+                value={form.student_name}
+                onChange={(value) =>
+                  updateField(
+                    "student_name",
+                    value
+                  )
+                }
+              />
+
+              {/* USERNAME LOCKED */}
+
+              <div style={styles.field}>
+                <label style={styles.label}>
+                  Username
+                </label>
+
+                <input
+                  type="text"
+                  value={
+                    student.student_username
+                  }
+                  readOnly
+                  style={styles.lockedInput}
+                />
+
+                <span style={styles.helpText}>
+                  🔒 Managed by teacher
+                </span>
+              </div>
+
+              {/* DOB */}
+
+              <div style={styles.field}>
+                <label style={styles.label}>
+                  Date of Birth
+                </label>
+
+                <input
+                  type="date"
+                  value={
+                    form.date_of_birth
+                  }
+                  onChange={(e) =>
+                    updateField(
+                      "date_of_birth",
+                      e.target.value
+                    )
+                  }
+                  style={styles.input}
+                />
+              </div>
+
+              {/* ADMISSION DATE LOCKED */}
+
+              <div style={styles.field}>
+                <label style={styles.label}>
+                  Admission Date
+                </label>
+
+                <input
+                  type="date"
+                  value={
+                    student.admission_date ||
+                    ""
+                  }
+                  readOnly
+                  style={styles.lockedInput}
+                />
+
+                <span style={styles.helpText}>
+                  🔒 Managed by teacher
+                </span>
+              </div>
+
+              {/* CLASS */}
+
+              <Field
+                label="Class"
+                value={form.class_name}
+                onChange={(value) =>
+                  updateField(
+                    "class_name",
+                    value
+                  )
+                }
+              />
+
+              {/* BLOOD GROUP */}
+
+              <div style={styles.field}>
+                <label style={styles.label}>
+                  Blood Group
+                </label>
+
+                <select
+                  value={form.blood_group}
+                  onChange={(e) =>
+                    updateField(
+                      "blood_group",
+                      e.target.value
+                    )
+                  }
+                  style={styles.input}
+                >
+                  <option value="">
+                    Select Blood Group
+                  </option>
+
+                  <option value="A+">
+                    A+
+                  </option>
+
+                  <option value="A-">
+                    A-
+                  </option>
+
+                  <option value="B+">
+                    B+
+                  </option>
+
+                  <option value="B-">
+                    B-
+                  </option>
+
+                  <option value="AB+">
+                    AB+
+                  </option>
+
+                  <option value="AB-">
+                    AB-
+                  </option>
+
+                  <option value="O+">
+                    O+
+                  </option>
+
+                  <option value="O-">
+                    O-
+                  </option>
+                </select>
+              </div>
+
+              {/* FATHER */}
+
+              <Field
+                label="Father's Name"
+                value={form.father_name}
+                onChange={(value) =>
+                  updateField(
+                    "father_name",
+                    value
+                  )
+                }
+              />
+
+              {/* MOTHER */}
+
+              <Field
+                label="Mother's Name"
+                value={form.mother_name}
+                onChange={(value) =>
+                  updateField(
+                    "mother_name",
+                    value
+                  )
+                }
+              />
+
+              {/* FATHER PHONE */}
+
+              <Field
+                label="Father's Phone"
+                value={form.father_phone}
+                onChange={(value) =>
+                  updateField(
+                    "father_phone",
+                    value
+                  )
+                }
+                type="tel"
+              />
+
+              {/* MOTHER PHONE */}
+
+              <Field
+                label="Mother's Phone"
+                value={form.mother_phone}
+                onChange={(value) =>
+                  updateField(
+                    "mother_phone",
+                    value
+                  )
+                }
+                type="tel"
+              />
+
+              {/* CITY */}
+
+              <Field
+                label="City"
+                value={form.city}
+                onChange={(value) =>
+                  updateField(
+                    "city",
+                    value
+                  )
+                }
+              />
+
+              {/* ADDRESS */}
+
+              <div
+                style={{
+                  ...styles.field,
+                  gridColumn:
+                    "span 2",
+                }}
+              >
+                <label style={styles.label}>
+                  Complete Address
+                </label>
+
+                <textarea
+                  value={form.address}
+                  onChange={(e) =>
+                    updateField(
+                      "address",
+                      e.target.value
+                    )
+                  }
+                  rows={4}
+                  placeholder="Enter your complete residential address"
+                  style={{
+                    ...styles.input,
+                    resize: "vertical",
+                    minHeight: "100px",
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* ACTION BUTTONS */}
+
+            <div style={styles.formActions}>
+              <button
+                onClick={cancelEditing}
+                disabled={saving}
+                style={styles.cancelButton}
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={saveProfile}
+                disabled={saving}
+                style={{
+                  ...styles.saveButton,
+                  opacity: saving
+                    ? 0.7
+                    : 1,
+                }}
+              >
+                {saving
+                  ? "⏳ Saving..."
+                  : "💾 Save Changes"}
+              </button>
+            </div>
+          </section>
+        )}
 
         {/* PERSONAL DETAILS */}
 
@@ -325,7 +883,9 @@ export default function StudentProfilePage() {
           <div style={styles.detailsGrid}>
             <Detail
               label="Student Name"
-              value={value(student.student_name)}
+              value={displayValue(
+                student.student_name
+              )}
             />
 
             <Detail
@@ -335,27 +895,35 @@ export default function StudentProfilePage() {
 
             <Detail
               label="Date of Birth"
-              value={formatDate(student.date_of_birth)}
+              value={formatDate(
+                student.date_of_birth
+              )}
             />
 
             <Detail
               label="Admission Date"
-              value={formatDate(student.admission_date)}
+              value={formatDate(
+                student.admission_date
+              )}
             />
 
             <Detail
               label="Class"
-              value={value(student.class_name)}
+              value={displayValue(
+                student.class_name
+              )}
             />
 
             <Detail
               label="Blood Group"
-              value={value(student.blood_group)}
+              value={displayValue(
+                student.blood_group
+              )}
             />
           </div>
         </section>
 
-        {/* PARENTS DETAILS */}
+        {/* PARENTS */}
 
         <section style={styles.card}>
           <div style={styles.cardHeader}>
@@ -369,7 +937,8 @@ export default function StudentProfilePage() {
               </h2>
 
               <p style={styles.cardSubtitle}>
-                Information provided by the teacher
+                Information provided by you or
+                your teacher
               </p>
             </div>
           </div>
@@ -377,22 +946,30 @@ export default function StudentProfilePage() {
           <div style={styles.detailsGrid}>
             <Detail
               label="Father's Name"
-              value={value(student.father_name)}
+              value={displayValue(
+                student.father_name
+              )}
             />
 
             <Detail
               label="Father's Phone"
-              value={value(student.father_phone)}
+              value={displayValue(
+                student.father_phone
+              )}
             />
 
             <Detail
               label="Mother's Name"
-              value={value(student.mother_name)}
+              value={displayValue(
+                student.mother_name
+              )}
             />
 
             <Detail
               label="Mother's Phone"
-              value={value(student.mother_phone)}
+              value={displayValue(
+                student.mother_phone
+              )}
             />
           </div>
         </section>
@@ -419,7 +996,9 @@ export default function StudentProfilePage() {
           <div style={styles.detailsGrid}>
             <Detail
               label="City"
-              value={value(student.city)}
+              value={displayValue(
+                student.city
+              )}
             />
 
             <div style={styles.detailBox}>
@@ -428,7 +1007,9 @@ export default function StudentProfilePage() {
               </div>
 
               <div style={styles.addressValue}>
-                {value(student.address)}
+                {displayValue(
+                  student.address
+                )}
               </div>
             </div>
           </div>
@@ -447,10 +1028,11 @@ export default function StudentProfilePage() {
             </strong>
 
             <p style={styles.infoText}>
-              Your profile details are managed by
-              the teacher. Whenever your details are
-              updated by the teacher, the updated
-              information will appear here automatically.
+              Students can update their
+              personal and family information
+              using Edit Profile. Username and
+              Admission Date remain managed by
+              the teacher.
             </p>
           </div>
         </div>
@@ -458,35 +1040,65 @@ export default function StudentProfilePage() {
         {/* REFRESH */}
 
         <button
-          type="button"
-          onClick={refreshProfile}
-          disabled={refreshing}
-          style={{
-            ...styles.refreshButton,
-            opacity: refreshing ? 0.7 : 1,
-            cursor: refreshing
-              ? "not-allowed"
-              : "pointer",
-          }}
+          onClick={loadStudent}
+          style={styles.refreshButton}
+          disabled={loading || saving}
         >
-          {refreshing
-            ? "🔄 Updating..."
-            : "🔄 Refresh Profile"}
+          🔄 Refresh Profile
         </button>
 
         {lastUpdated && (
-          <p style={styles.updatedText}>
-            Latest profile data loaded at {lastUpdated}
-          </p>
+          <div style={styles.updatedText}>
+            Latest profile data loaded at{" "}
+            {lastUpdated}
+          </div>
         )}
 
         <footer style={styles.footer}>
-          Attendance Portal • Student Profile • 2026
+          Attendance Portal • Student Profile •
+          2026
         </footer>
       </div>
     </main>
   );
 }
+
+/* =========================================================
+   FIELD COMPONENT
+========================================================= */
+
+function Field({
+  label,
+  value,
+  onChange,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+}) {
+  return (
+    <div style={styles.field}>
+      <label style={styles.label}>
+        {label}
+      </label>
+
+      <input
+        type={type}
+        value={value}
+        onChange={(e) =>
+          onChange(e.target.value)
+        }
+        style={styles.input}
+      />
+    </div>
+  );
+}
+
+/* =========================================================
+   DETAIL COMPONENT
+========================================================= */
 
 function Detail({
   label,
@@ -507,6 +1119,10 @@ function Detail({
     </div>
   );
 }
+
+/* =========================================================
+   STYLES
+========================================================= */
 
 const styles: {
   [key: string]: React.CSSProperties;
@@ -539,6 +1155,12 @@ const styles: {
     marginBottom: "18px",
     boxShadow:
       "0 10px 30px rgba(15,23,42,0.08)",
+    flexWrap: "wrap",
+  },
+
+  headerButtons: {
+    display: "flex",
+    gap: "10px",
     flexWrap: "wrap",
   },
 
@@ -576,6 +1198,49 @@ const styles: {
     borderRadius: "10px",
     fontWeight: "900",
     cursor: "pointer",
+  },
+
+  editProfileButton: {
+    border: "none",
+    background:
+      "linear-gradient(135deg,#2563eb,#7c3aed)",
+    color: "#ffffff",
+    padding: "11px 18px",
+    borderRadius: "10px",
+    fontWeight: "900",
+    cursor: "pointer",
+  },
+
+  cancelTopButton: {
+    border: "none",
+    background: "#fee2e2",
+    color: "#991b1b",
+    padding: "11px 18px",
+    borderRadius: "10px",
+    fontWeight: "900",
+    cursor: "pointer",
+  },
+
+  successBox: {
+    background: "#dcfce7",
+    color: "#166534",
+    border:
+      "1px solid #bbf7d0",
+    borderRadius: "12px",
+    padding: "14px",
+    marginBottom: "18px",
+    fontWeight: "800",
+  },
+
+  errorBox: {
+    background: "#fee2e2",
+    color: "#991b1b",
+    border:
+      "1px solid #fecaca",
+    borderRadius: "12px",
+    padding: "14px",
+    marginBottom: "18px",
+    fontWeight: "800",
   },
 
   profileHero: {
@@ -640,6 +1305,148 @@ const styles: {
     fontWeight: "700",
   },
 
+  editCard: {
+    background: "#ffffff",
+    borderRadius: "22px",
+    padding: "25px",
+    marginBottom: "18px",
+    boxShadow:
+      "0 10px 30px rgba(15,23,42,0.09)",
+    border:
+      "2px solid #bfdbfe",
+  },
+
+  editHeader: {
+    marginBottom: "18px",
+  },
+
+  editTitle: {
+    margin: 0,
+    color: "#172554",
+    fontSize: "23px",
+    fontWeight: "900",
+  },
+
+  editSubtitle: {
+    margin: "5px 0 0",
+    color: "#64748b",
+    fontSize: "13px",
+    fontWeight: "600",
+  },
+
+  notice: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "12px",
+    background: "#f8fafc",
+    border:
+      "1px solid #e2e8f0",
+    borderRadius: "13px",
+    padding: "14px",
+    marginBottom: "20px",
+  },
+
+  noticeIcon: {
+    fontSize: "20px",
+  },
+
+  noticeTitle: {
+    color: "#334155",
+    fontSize: "13px",
+  },
+
+  noticeText: {
+    margin: "4px 0 0",
+    color: "#64748b",
+    fontSize: "12px",
+    lineHeight: 1.5,
+  },
+
+  formGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(2,minmax(0,1fr))",
+    gap: "16px",
+  },
+
+  field: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "7px",
+    minWidth: 0,
+  },
+
+  label: {
+    fontSize: "12px",
+    fontWeight: "900",
+    color: "#334155",
+  },
+
+  input: {
+    width: "100%",
+    boxSizing: "border-box",
+    padding: "12px 13px",
+    border:
+      "1px solid #cbd5e1",
+    borderRadius: "10px",
+    background: "#ffffff",
+    color: "#0f172a",
+    fontSize: "14px",
+    fontWeight: "600",
+    outline: "none",
+  },
+
+  lockedInput: {
+    width: "100%",
+    boxSizing: "border-box",
+    padding: "12px 13px",
+    border:
+      "1px solid #cbd5e1",
+    borderRadius: "10px",
+    background: "#f1f5f9",
+    color: "#64748b",
+    fontSize: "14px",
+    fontWeight: "700",
+    outline: "none",
+    cursor: "not-allowed",
+  },
+
+  helpText: {
+    color: "#64748b",
+    fontSize: "10px",
+    fontWeight: "700",
+  },
+
+  formActions: {
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: "10px",
+    marginTop: "22px",
+    flexWrap: "wrap",
+  },
+
+  cancelButton: {
+    border:
+      "1px solid #cbd5e1",
+    background: "#f8fafc",
+    color: "#334155",
+    padding: "12px 20px",
+    borderRadius: "10px",
+    fontWeight: "800",
+    cursor: "pointer",
+  },
+
+  saveButton: {
+    border: "none",
+    background:
+      "linear-gradient(135deg,#16a34a,#15803d)",
+    color: "#ffffff",
+    padding: "12px 22px",
+    borderRadius: "10px",
+    fontWeight: "900",
+    cursor: "pointer",
+  },
+
   card: {
     background: "#ffffff",
     borderRadius: "22px",
@@ -691,7 +1498,8 @@ const styles: {
 
   detailBox: {
     background: "#f8fafc",
-    border: "1px solid #e2e8f0",
+    border:
+      "1px solid #e2e8f0",
     borderRadius: "13px",
     padding: "15px",
     minWidth: 0,
@@ -724,7 +1532,8 @@ const styles: {
 
   infoBox: {
     background: "#eff6ff",
-    border: "1px solid #bfdbfe",
+    border:
+      "1px solid #bfdbfe",
     borderRadius: "15px",
     padding: "16px",
     display: "flex",
@@ -760,6 +1569,7 @@ const styles: {
     padding: "12px 20px",
     borderRadius: "10px",
     fontWeight: "900",
+    cursor: "pointer",
   },
 
   updatedText: {
@@ -767,7 +1577,7 @@ const styles: {
     marginTop: "10px",
     color: "#64748b",
     fontSize: "11px",
-    fontWeight: "600",
+    fontWeight: "700",
   },
 
   loadingCard: {
