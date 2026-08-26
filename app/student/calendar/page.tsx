@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 type CalendarEvent = {
   date: string;
   title: string;
-  type: "holiday" | "test" | "info";
+  type: "holiday" | "test";
   description: string;
 };
 
@@ -20,10 +20,22 @@ const holidays: CalendarEvent[] = [
     description: "Tuition holiday.",
   },
   {
+    date: "2025-01-14",
+    title: "Makar Sankranti",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
     date: "2025-01-26",
     title: "Republic Day",
     type: "holiday",
-    description: "Tuition holiday.",
+    description: "National holiday.",
+  },
+  {
+    date: "2025-02-02",
+    title: "Basant Panchami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
   },
   {
     date: "2025-02-26",
@@ -38,22 +50,16 @@ const holidays: CalendarEvent[] = [
     description: "Hindu festival holiday.",
   },
   {
-    date: "2025-03-30",
-    title: "Ugadi / Gudi Padwa",
-    type: "holiday",
-    description: "Hindu New Year festival holiday.",
-  },
-  {
     date: "2025-04-06",
     title: "Ram Navami",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
   {
-    date: "2025-04-14",
-    title: "Hindu New Year",
+    date: "2025-04-10",
+    title: "Mahavir Jayanti",
     type: "holiday",
-    description: "Traditional Hindu New Year holiday.",
+    description: "Festival holiday.",
   },
   {
     date: "2025-05-12",
@@ -76,6 +82,12 @@ const holidays: CalendarEvent[] = [
   {
     date: "2025-08-16",
     title: "Janmashtami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2025-08-27",
+    title: "Ganesh Chaturthi",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
@@ -132,6 +144,18 @@ const holidays: CalendarEvent[] = [
     description: "National holiday.",
   },
   {
+    date: "2026-01-23",
+    title: "Basant Panchami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2026-02-15",
+    title: "Maha Shivratri",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
     date: "2026-03-04",
     title: "Holi",
     type: "holiday",
@@ -144,12 +168,6 @@ const holidays: CalendarEvent[] = [
     description: "Hindu festival holiday.",
   },
   {
-    date: "2026-03-31",
-    title: "Mahavir Jayanti",
-    type: "holiday",
-    description: "Festival holiday.",
-  },
-  {
     date: "2026-05-01",
     title: "Buddha Purnima",
     type: "holiday",
@@ -160,6 +178,12 @@ const holidays: CalendarEvent[] = [
     title: "Independence Day",
     type: "holiday",
     description: "National holiday.",
+  },
+  {
+    date: "2026-08-28",
+    title: "Raksha Bandhan",
+    type: "holiday",
+    description: "Hindu festival holiday.",
   },
   {
     date: "2026-09-04",
@@ -232,34 +256,28 @@ const holidays: CalendarEvent[] = [
     description: "National holiday.",
   },
   {
-    date: "2027-02-15",
+    date: "2027-02-06",
+    title: "Basant Panchami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2027-03-06",
     title: "Maha Shivratri",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
   {
-    date: "2027-03-04",
+    date: "2027-03-22",
     title: "Holi",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
   {
-    date: "2027-03-26",
+    date: "2027-04-15",
     title: "Ram Navami",
     type: "holiday",
     description: "Hindu festival holiday.",
-  },
-  {
-    date: "2027-04-14",
-    title: "Ambedkar Jayanti",
-    type: "holiday",
-    description: "National holiday.",
-  },
-  {
-    date: "2027-05-01",
-    title: "Buddha Purnima",
-    type: "holiday",
-    description: "Festival holiday.",
   },
   {
     date: "2027-08-15",
@@ -304,19 +322,19 @@ const holidays: CalendarEvent[] = [
     description: "Hindu festival holiday.",
   },
   {
+    date: "2027-10-30",
+    title: "Govardhan Puja",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
     date: "2027-10-31",
     title: "Bhai Dooj",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
   {
-    date: "2027-11-04",
-    title: "Chhath Puja",
-    type: "holiday",
-    description: "Hindu festival holiday.",
-  },
-  {
-    date: "2027-11-24",
+    date: "2027-11-14",
     title: "Guru Nanak Jayanti",
     type: "holiday",
     description: "Festival holiday.",
@@ -344,7 +362,7 @@ const holidays: CalendarEvent[] = [
     description: "National holiday.",
   },
   {
-    date: "2028-02-23",
+    date: "2028-02-26",
     title: "Maha Shivratri",
     type: "holiday",
     description: "Hindu festival holiday.",
@@ -356,26 +374,14 @@ const holidays: CalendarEvent[] = [
     description: "Hindu festival holiday.",
   },
   {
-    date: "2028-03-27",
-    title: "Ugadi / Gudi Padwa",
-    type: "holiday",
-    description: "Hindu New Year festival holiday.",
-  },
-  {
-    date: "2028-04-14",
-    title: "Ambedkar Jayanti",
-    type: "holiday",
-    description: "National holiday.",
-  },
-  {
-    date: "2028-08-05",
-    title: "Raksha Bandhan",
+    date: "2028-04-03",
+    title: "Ram Navami",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
   {
-    date: "2028-08-13",
-    title: "Janmashtami",
+    date: "2028-08-05",
+    title: "Raksha Bandhan",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
@@ -386,14 +392,14 @@ const holidays: CalendarEvent[] = [
     description: "National holiday.",
   },
   {
-    date: "2028-08-23",
-    title: "Ganesh Chaturthi",
+    date: "2028-08-13",
+    title: "Janmashtami",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
   {
-    date: "2028-09-27",
-    title: "Dussehra",
+    date: "2028-08-25",
+    title: "Ganesh Chaturthi",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
@@ -404,22 +410,34 @@ const holidays: CalendarEvent[] = [
     description: "National holiday.",
   },
   {
-    date: "2028-10-17",
+    date: "2028-09-30",
+    title: "Dussehra",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2028-11-17",
     title: "Diwali",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
   {
-    date: "2028-10-19",
+    date: "2028-11-18",
+    title: "Govardhan Puja",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2028-11-19",
     title: "Bhai Dooj",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
   {
-    date: "2028-10-23",
-    title: "Chhath Puja",
+    date: "2028-11-03",
+    title: "Guru Nanak Jayanti",
     type: "holiday",
-    description: "Hindu festival holiday.",
+    description: "Festival holiday.",
   },
   {
     date: "2028-12-25",
@@ -444,28 +462,22 @@ const holidays: CalendarEvent[] = [
     description: "National holiday.",
   },
   {
-    date: "2029-02-11",
+    date: "2029-02-13",
     title: "Maha Shivratri",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
   {
-    date: "2029-03-01",
+    date: "2029-03-02",
     title: "Holi",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
   {
-    date: "2029-04-13",
+    date: "2029-03-24",
     title: "Ram Navami",
     type: "holiday",
     description: "Hindu festival holiday.",
-  },
-  {
-    date: "2029-04-14",
-    title: "Ambedkar Jayanti",
-    type: "holiday",
-    description: "National holiday.",
   },
   {
     date: "2029-08-15",
@@ -498,7 +510,7 @@ const holidays: CalendarEvent[] = [
     description: "National holiday.",
   },
   {
-    date: "2029-10-16",
+    date: "2029-10-17",
     title: "Dussehra",
     type: "holiday",
     description: "Hindu festival holiday.",
@@ -510,16 +522,22 @@ const holidays: CalendarEvent[] = [
     description: "Hindu festival holiday.",
   },
   {
+    date: "2029-11-06",
+    title: "Govardhan Puja",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
     date: "2029-11-07",
     title: "Bhai Dooj",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
   {
-    date: "2029-11-14",
-    title: "Chhath Puja",
+    date: "2029-11-22",
+    title: "Guru Nanak Jayanti",
     type: "holiday",
-    description: "Hindu festival holiday.",
+    description: "Festival holiday.",
   },
   {
     date: "2029-12-25",
@@ -544,7 +562,13 @@ const holidays: CalendarEvent[] = [
     description: "National holiday.",
   },
   {
-    date: "2030-03-01",
+    date: "2030-02-03",
+    title: "Basant Panchami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2030-03-04",
     title: "Maha Shivratri",
     type: "holiday",
     description: "Hindu festival holiday.",
@@ -556,10 +580,10 @@ const holidays: CalendarEvent[] = [
     description: "Hindu festival holiday.",
   },
   {
-    date: "2030-04-14",
-    title: "Ambedkar Jayanti",
+    date: "2030-04-13",
+    title: "Ram Navami",
     type: "holiday",
-    description: "National holiday.",
+    description: "Hindu festival holiday.",
   },
   {
     date: "2030-08-13",
@@ -592,7 +616,7 @@ const holidays: CalendarEvent[] = [
     description: "National holiday.",
   },
   {
-    date: "2030-10-06",
+    date: "2030-10-07",
     title: "Dussehra",
     type: "holiday",
     description: "Hindu festival holiday.",
@@ -604,16 +628,22 @@ const holidays: CalendarEvent[] = [
     description: "Hindu festival holiday.",
   },
   {
+    date: "2030-10-27",
+    title: "Govardhan Puja",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
     date: "2030-10-28",
     title: "Bhai Dooj",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
   {
-    date: "2030-11-03",
-    title: "Chhath Puja",
+    date: "2030-11-12",
+    title: "Guru Nanak Jayanti",
     type: "holiday",
-    description: "Hindu festival holiday.",
+    description: "Festival holiday.",
   },
   {
     date: "2030-12-25",
@@ -741,13 +771,11 @@ export default function StudentCalendarPage() {
   }
 
   function getDayInfo(date: Date) {
-    // IMPORTANT:
-    // Holiday is checked FIRST.
-    // Therefore if Saturday is a holiday,
-    // it will show ONLY as Holiday, not Test.
-
     const holiday = getHoliday(date);
 
+    // Holiday always gets priority.
+    // If a holiday is on Saturday, it remains HOLIDAY,
+    // not Weekly Test.
     if (holiday) {
       return holiday;
     }
@@ -758,7 +786,7 @@ export default function StudentCalendarPage() {
         title: "Sunday Off",
         type: "holiday" as const,
         description:
-          "Sunday is the weekly tuition holiday.",
+          "Sunday is a weekly tuition holiday.",
       };
     }
 
@@ -779,8 +807,6 @@ export default function StudentCalendarPage() {
     <main style={styles.page}>
       <div style={styles.container}>
 
-        {/* HEADER */}
-
         <header style={styles.header}>
           <div>
             <div style={styles.badge}>
@@ -788,11 +814,11 @@ export default function StudentCalendarPage() {
             </div>
 
             <h1 style={styles.title}>
-              📅 Student Calendar
+              📅 Academic Calendar
             </h1>
 
             <p style={styles.subtitle}>
-              Classes, weekly tests, Sundays and holidays
+              Classes • Weekly Tests • Sundays • Holidays
             </p>
           </div>
 
@@ -804,13 +830,10 @@ export default function StudentCalendarPage() {
           </a>
         </header>
 
-        {/* LEGEND */}
-
         <section style={styles.legendCard}>
-
           <Legend
             icon="📚"
-            title="Regular Tuition Class"
+            title="Regular Class"
             color="#2563eb"
             background="#eff6ff"
           />
@@ -835,15 +858,11 @@ export default function StudentCalendarPage() {
             color="#ea580c"
             background="#fff7ed"
           />
-
         </section>
-
-        {/* CALENDAR */}
 
         <section style={styles.calendarCard}>
 
           <div style={styles.calendarTop}>
-
             <button
               type="button"
               onClick={previousMonth}
@@ -863,7 +882,6 @@ export default function StudentCalendarPage() {
             >
               →
             </button>
-
           </div>
 
           <button
@@ -902,10 +920,8 @@ export default function StudentCalendarPage() {
           </div>
 
           <div style={styles.calendarGrid}>
-
             {calendarDays.map(
               (date, index) => {
-
                 if (!date) {
                   return (
                     <div
@@ -956,7 +972,6 @@ export default function StudentCalendarPage() {
                         : {}),
                     }}
                   >
-
                     <div
                       style={{
                         ...styles.dayNumber,
@@ -971,13 +986,17 @@ export default function StudentCalendarPage() {
                     {holiday ? (
                       <>
                         <div
-                          style={styles.holidayLabel}
+                          style={
+                            styles.holidayLabel
+                          }
                         >
                           🎉 HOLIDAY
                         </div>
 
                         <div
-                          style={styles.eventName}
+                          style={
+                            styles.eventName
+                          }
                         >
                           {holiday.title}
                         </div>
@@ -999,7 +1018,9 @@ export default function StudentCalendarPage() {
                     ) : saturday ? (
                       <>
                         <div
-                          style={styles.testLabel}
+                          style={
+                            styles.testLabel
+                          }
                         >
                           📝 TEST
                         </div>
@@ -1013,7 +1034,9 @@ export default function StudentCalendarPage() {
                     ) : (
                       <>
                         <div
-                          style={styles.classLabel}
+                          style={
+                            styles.classLabel
+                          }
                         >
                           📚 CLASS
                         </div>
@@ -1025,26 +1048,19 @@ export default function StudentCalendarPage() {
                         </div>
                       </>
                     )}
-
                   </button>
                 );
               }
             )}
-
           </div>
-
         </section>
 
-        {/* MONTH INFORMATION */}
-
         <section style={styles.infoCard}>
-
           <h2 style={styles.sectionTitle}>
             📋 {monthNames[month]} Schedule
           </h2>
 
           <div style={styles.infoGrid}>
-
             <div style={styles.infoItem}>
               <div style={styles.infoIcon}>
                 📚
@@ -1100,7 +1116,7 @@ export default function StudentCalendarPage() {
 
               <div>
                 <strong>
-                  Listed Holidays
+                  Holidays
                 </strong>
 
                 <p>
@@ -1108,51 +1124,60 @@ export default function StudentCalendarPage() {
                 </p>
               </div>
             </div>
-
           </div>
-
         </section>
 
-        {/* HOLIDAY LIST */}
-
         <section style={styles.holidayCard}>
-
           <h2 style={styles.sectionTitle}>
             🎉 Tuition Holidays
           </h2>
 
           <div style={styles.holidayList}>
-
-            {holidays.map((holiday) => (
-              <button
-                type="button"
-                key={holiday.date}
-                onClick={() =>
-                  setSelectedEvent(holiday)
-                }
-                style={styles.holidayRow}
-              >
-
-                <strong>
-                  {formatDate(
-                    new Date(
-                      `${holiday.date}T00:00:00`
+            {holidays
+              .filter(
+                (holiday) =>
+                  holiday.date.startsWith(
+                    String(year)
+                  )
+              )
+              .map((holiday) => (
+                <button
+                  type="button"
+                  key={holiday.date}
+                  onClick={() =>
+                    setSelectedEvent(
+                      holiday
                     )
-                  )}
-                </strong>
+                  }
+                  style={styles.holidayRow}
+                >
+                  <strong>
+                    {formatDate(
+                      new Date(
+                        `${holiday.date}T00:00:00`
+                      )
+                    )}
+                  </strong>
 
-                <span>
-                  🎉 {holiday.title}
-                </span>
+                  <span>
+                    🎉 {holiday.title}
+                  </span>
+                </button>
+              ))}
 
-              </button>
-            ))}
-
+            {holidays.filter(
+              (holiday) =>
+                holiday.date.startsWith(
+                  String(year)
+                )
+            ).length === 0 && (
+              <div style={styles.noHoliday}>
+                No special holidays added for
+                this year.
+              </div>
+            )}
           </div>
-
         </section>
-
-        {/* MODAL */}
 
         {selectedEvent && (
           <div
@@ -1161,14 +1186,12 @@ export default function StudentCalendarPage() {
               setSelectedEvent(null)
             }
           >
-
             <div
               style={styles.modal}
               onClick={(e) =>
                 e.stopPropagation()
               }
             >
-
               <div style={styles.modalIcon}>
                 {selectedEvent.type ===
                 "test"
@@ -1189,7 +1212,11 @@ export default function StudentCalendarPage() {
                 )}
               </p>
 
-              <p style={styles.modalDescription}>
+              <p
+                style={
+                  styles.modalDescription
+                }
+              >
                 {selectedEvent.description}
               </p>
 
@@ -1202,16 +1229,14 @@ export default function StudentCalendarPage() {
               >
                 Close
               </button>
-
             </div>
-
           </div>
         )}
 
         <footer style={styles.footer}>
-          Attendance Portal • Student Calendar • 2025–2030
+          Attendance Portal • Student Calendar •
+          2025–2030
         </footer>
-
       </div>
     </main>
   );
@@ -1230,7 +1255,6 @@ function Legend({
 }) {
   return (
     <div style={styles.legendItem}>
-
       <div
         style={{
           ...styles.legendIcon,
@@ -1244,7 +1268,6 @@ function Legend({
       <strong style={styles.legendText}>
         {title}
       </strong>
-
     </div>
   );
 }
@@ -1252,7 +1275,6 @@ function Legend({
 const styles: {
   [key: string]: React.CSSProperties;
 } = {
-
   page: {
     minHeight: "100vh",
     background: "#f5f7fb",
@@ -1270,7 +1292,7 @@ const styles: {
 
   header: {
     background: "white",
-    borderRadius: "16px",
+    borderRadius: "18px",
     padding: "22px",
     marginBottom: "18px",
     display: "flex",
@@ -1606,6 +1628,15 @@ const styles: {
     cursor: "pointer",
     color: "#9a3412",
     textAlign: "left",
+  },
+
+  noHoliday: {
+    padding: "15px",
+    background: "#f8fafc",
+    borderRadius: "10px",
+    color: "#6b7280",
+    textAlign: "center",
+    fontSize: "13px",
   },
 
   modalOverlay: {
