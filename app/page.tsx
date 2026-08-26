@@ -130,7 +130,9 @@ export default function HomePage() {
 
             <div>
               <div className="academy-name">RACER ACADEMY</div>
-              <div className="academy-tag">EDUCATION • DISCIPLINE • SUCCESS</div>
+              <div className="academy-tag">
+                EDUCATION • DISCIPLINE • SUCCESS
+              </div>
             </div>
           </div>
 
@@ -158,7 +160,9 @@ export default function HomePage() {
             <button
               className="arrow-btn"
               onClick={() =>
-                setSlide((prev) => (prev - 1 + slides.length) % slides.length)
+                setSlide(
+                  (prev) => (prev - 1 + slides.length) % slides.length
+                )
               }
               aria-label="Previous slide"
             >
@@ -178,7 +182,9 @@ export default function HomePage() {
 
             <button
               className="arrow-btn"
-              onClick={() => setSlide((prev) => (prev + 1) % slides.length)}
+              onClick={() =>
+                setSlide((prev) => (prev + 1) % slides.length)
+              }
               aria-label="Next slide"
             >
               →
@@ -198,6 +204,7 @@ export default function HomePage() {
             <div className="academy-mark small">
               <span>RA</span>
             </div>
+
             <div>
               <strong>RACER ACADEMY</strong>
               <small>SMART LEARNING PORTAL</small>
@@ -206,7 +213,9 @@ export default function HomePage() {
 
           <div className="login-heading">
             <span className="welcome">WELCOME BACK</span>
+
             <h2>Sign in to continue</h2>
+
             <p>Access your academy dashboard</p>
           </div>
 
@@ -221,6 +230,7 @@ export default function HomePage() {
               }}
             >
               <span className="switch-icon">🎓</span>
+
               <span>
                 <strong>Student</strong>
                 <small>Student Portal</small>
@@ -236,6 +246,7 @@ export default function HomePage() {
               }}
             >
               <span className="switch-icon">👨‍🏫</span>
+
               <span>
                 <strong>Teacher</strong>
                 <small>Teacher Portal</small>
@@ -296,10 +307,12 @@ export default function HomePage() {
               </div>
             )}
 
-            <button type="submit" className="login-button" disabled={loading}>
-              <span>
-                {loading ? "SIGNING IN..." : "SIGN IN"}
-              </span>
+            <button
+              type="submit"
+              className="login-button"
+              disabled={loading}
+            >
+              <span>{loading ? "SIGNING IN..." : "SIGN IN"}</span>
 
               {!loading && <strong>→</strong>}
             </button>
@@ -307,6 +320,7 @@ export default function HomePage() {
 
           <div className="security-note">
             <span>🔐</span>
+
             <div>
               <strong>Secure Login</strong>
               <small>Your account information is protected.</small>
@@ -348,8 +362,13 @@ export default function HomePage() {
             #050816;
           color: white;
           font-family:
-            Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-            "Segoe UI", sans-serif;
+            Inter,
+            ui-sans-serif,
+            system-ui,
+            -apple-system,
+            BlinkMacSystemFont,
+            "Segoe UI",
+            sans-serif;
         }
 
         .background-grid {
@@ -546,7 +565,9 @@ export default function HomePage() {
           font-size: 68px;
           margin-bottom: 18px;
           animation: iconIn 0.6s ease;
-          filter: drop-shadow(0 15px 25px rgba(59, 130, 246, 0.2));
+          filter: drop-shadow(
+            0 15px 25px rgba(59, 130, 246, 0.2)
+          );
         }
 
         @keyframes iconIn {
