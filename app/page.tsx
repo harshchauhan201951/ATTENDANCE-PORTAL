@@ -2,8 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
 
-type LoginType = "student" | "teacher";
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+type Role = "Student" | "Teacher";
 
 const slides = [
   {
@@ -28,13 +34,15 @@ const slides = [
   },
 ];
 
-export default function HomePage() {
+export default function Home() {
   const router = useRouter();
 
   const [slide, setSlide] = useState(0);
-  const [loginType, setLoginType] = useState<LoginType>("student");
+  const [role, setRole] = useState<Role>("Student");
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -47,70 +55,314 @@ export default function HomePage() {
     return () => clearInterval(timer);
   }, []);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  function clearSessions() {
+    const keys = [
+      "attendance_role",
+      "attendance_username",
+      "attendance_teacher_id",
+
+      "studentLoggedIn",
+      "studentId",
+      "studentUsername",
+      "student_username",
+      "studentName",
+      "student_name",
+
+      "teacherLoggedIn",
+      "teacher",
+      "teacherUsername",
+      "teacher_username",
+      "teacherName",
+      "teacher_name",
+    ];
+
+    keys.forEach((key) => {
+      localStorage.removeItem(key);
+    });
+
+    sessionStorage.removeItem("student_username");
+    sessionStorage.removeItem("student_name");
+    sessionStorage.removeItem("teacherUsername");
+    sessionStorage.removeItem("teacher_username");
+    sessionStorage.removeItem("teacherName");
+    sessionStorage.removeItem("teacher_name");
+  }
+
+  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
     setError("");
 
-    if (!username.trim() || !password.trim()) {
-      setError("Please enter username and password.");
+    const enteredUsername = username.trim().toUpperCase();
+    const enteredPassword = password.trim();
+
+    if (!enteredUsername || !enteredPassword) {
+      setError("Username aur password dono enter karein.");
       return;
     }
 
     setLoading(true);
 
+    /*
+     * ========================================
+     * TEACHER LOGIN
+     * ========================================
+     *
+     * Original working Racer Academy login.
+     *
+     * Teacher:
+     * Username: HARSH201951
+     * Password: 201951
+     */
+    if (role === "Teacher") {
+      if (
+        enteredUsername === "HARSH201951" &&
+        enteredPassword === "201951"
+      ) {
+        clearSessions();
+
+        localStorage.setItem(
+          "attendance_role",
+          "Teacher"
+        );
+
+        localStorage.setItem(
+          "attendance_username",
+          "HARSH201951"
+        );
+
+        localStorage.setItem(
+          "attendance_teacher_id",
+          "HARSH201951"
+        );
+
+        localStorage.setItem(
+          "teacherLoggedIn",
+          "true"
+        );
+
+        localStorage.setItem(
+          "teacher",
+          "true"
+        );
+
+        localStorage.setItem(
+          "teacherUsername",
+          "HARSH201951"
+        );
+
+        localStorage.setItem(
+          "teacher_username",
+          "HARSH201951"
+        );
+
+        localStorage.setItem(
+          "teacherName",
+          "Harsh"
+        );
+
+        localStorage.setItem(
+          "teacher_name",
+          "Harsh"
+        );
+
+        sessionStorage.setItem(
+          "teacherUsername",
+          "HARSH201951"
+        );
+
+        sessionStorage.setItem(
+          "teacher_username",
+          "HARSH201951"
+        );
+
+        sessionStorage.setItem(
+          "teacherName",
+          "Harsh"
+        );
+
+        sessionStorage.setItem(
+          "teacher_name",
+          "Harsh"
+        );
+
+        router.replace("/teacher");
+        return;
+      }
+
+      setError(
+        "Invalid teacher username or password."
+      );
+
+      setLoading(false);
+      return;
+    }
+
+    /*
+     * ========================================
+     * STUDENT LOGIN
+     * ========================================
+     */
+
     try {
       /*
-       * IMPORTANT:
-       * Replace these routes only if your existing project
-       * uses different dashboard routes.
+       * Find student account.
+       */
+      const {
+        data: student,
+        error: studentError,
+      } = await supabase
+        .from("students")
+        .select(
+          "id, student_name, student_username, password_hash"
+        )
+        .eq(
+          "student_username",
+          enteredUsername
+        )
+        .maybeSingle();
+
+      if (studentError) {
+        console.error(
+          "Student database error:",
+          studentError
+        );
+
+        setError(
+          "Student login database error: " +
+            studentError.message
+        );
+
+        setLoading(false);
+        return;
+      }
+
+      if (!student) {
+        setError(
+          "Student username not found."
+        );
+
+        setLoading(false);
+        return;
+      }
+
+      let validPassword = false;
+
+      /*
+       * Try existing student_login RPC.
+       */
+      const {
+        data: rpcData,
+        error: rpcError,
+      } = await supabase.rpc(
+        "student_login",
+        {
+          p_username: enteredUsername,
+          p_password: enteredPassword,
+        }
+      );
+
+      if (!rpcError && rpcData) {
+        if (Array.isArray(rpcData)) {
+          validPassword =
+            rpcData.length > 0;
+        } else {
+          validPassword = true;
+        }
+      }
+
+      /*
+       * Fallback:
+       * If password_hash contains the
+       * password directly.
+       */
+      if (!validPassword) {
+        if (
+          String(student.password_hash) ===
+          enteredPassword
+        ) {
+          validPassword = true;
+        }
+      }
+
+      if (!validPassword) {
+        setError(
+          "Invalid student username or password."
+        );
+
+        setLoading(false);
+        return;
+      }
+
+      /*
+       * ========================================
+       * STUDENT SESSION
+       * ========================================
        */
 
-      if (loginType === "student") {
-        const response = await fetch("/api/student-login", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            username: username.trim(),
-            password,
-          }),
-        });
+      clearSessions();
 
-        if (!response.ok) {
-          throw new Error("Invalid username or password.");
-        }
+      localStorage.setItem(
+        "studentLoggedIn",
+        "true"
+      );
 
-        router.push("/students");
-      } else {
-        const response = await fetch("/api/teacher-login", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            username: username.trim(),
-            password,
-          }),
-        });
+      localStorage.setItem(
+        "studentId",
+        String(student.id)
+      );
 
-        if (!response.ok) {
-          throw new Error("Invalid username or password.");
-        }
+      localStorage.setItem(
+        "studentUsername",
+        student.student_username
+      );
 
-        router.push("/teacher");
-      }
+      localStorage.setItem(
+        "student_username",
+        student.student_username
+      );
+
+      localStorage.setItem(
+        "studentName",
+        student.student_name ||
+          "Student"
+      );
+
+      localStorage.setItem(
+        "student_name",
+        student.student_name ||
+          "Student"
+      );
+
+      sessionStorage.setItem(
+        "student_username",
+        student.student_username
+      );
+
+      sessionStorage.setItem(
+        "student_name",
+        student.student_name ||
+          "Student"
+      );
+
+      router.replace(
+        "/student/dashboard"
+      );
     } catch (err) {
+      console.error(
+        "Login error:",
+        err
+      );
+
       setError(
         err instanceof Error
           ? err.message
-          : "Login failed. Please try again."
+          : "Unable to login. Please try again."
       );
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   return (
     <main className="login-page">
@@ -121,50 +373,72 @@ export default function HomePage() {
       <div className="floating-orb orb-three" />
 
       <section className="login-wrapper">
-        {/* LEFT SIDE */}
+
+        {/* =====================================
+            LEFT SHOWCASE
+        ====================================== */}
+
         <div className="showcase">
+
           <div className="showcase-top">
+
             <div className="academy-mark">
-              <span>RA</span>
+              <span>RC</span>
             </div>
 
             <div>
-              <div className="academy-name">RACER ACADEMY</div>
+              <div className="academy-name">
+                RACER ACADEMY
+              </div>
+
               <div className="academy-tag">
                 EDUCATION • DISCIPLINE • SUCCESS
               </div>
             </div>
+
           </div>
 
           <div className="hero-content">
+
             <div className="slide-number">
               0{slide + 1} / 0{slides.length}
             </div>
 
-            <div className="hero-icon" key={slide}>
+            <div
+              className="hero-icon"
+              key={slide}
+            >
               {slides[slide].icon}
             </div>
 
-            <h1 key={`title-${slide}`}>{slides[slide].title}</h1>
+            <h1 key={`title-${slide}`}>
+              {slides[slide].title}
+            </h1>
 
-            <p key={`subtitle-${slide}`}>{slides[slide].subtitle}</p>
+            <p key={`subtitle-${slide}`}>
+              {slides[slide].subtitle}
+            </p>
 
             <div className="race-line">
               <span />
               <span />
               <span />
             </div>
+
           </div>
 
           <div className="slider-controls">
+
             <button
+              type="button"
               className="arrow-btn"
               onClick={() =>
                 setSlide(
-                  (prev) => (prev - 1 + slides.length) % slides.length
+                  (prev) =>
+                    (prev - 1 + slides.length) %
+                    slides.length
                 )
               }
-              aria-label="Previous slide"
             >
               ←
             </button>
@@ -172,23 +446,37 @@ export default function HomePage() {
             <div className="dots">
               {slides.map((_, index) => (
                 <button
+                  type="button"
                   key={index}
-                  aria-label={`Go to slide ${index + 1}`}
-                  className={`dot ${slide === index ? "active" : ""}`}
-                  onClick={() => setSlide(index)}
+                  aria-label={`Go to slide ${
+                    index + 1
+                  }`}
+                  className={`dot ${
+                    slide === index
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={() =>
+                    setSlide(index)
+                  }
                 />
               ))}
             </div>
 
             <button
+              type="button"
               className="arrow-btn"
               onClick={() =>
-                setSlide((prev) => (prev + 1) % slides.length)
+                setSlide(
+                  (prev) =>
+                    (prev + 1) %
+                    slides.length
+                )
               }
-              aria-label="Next slide"
             >
               →
             </button>
+
           </div>
 
           <div className="showcase-footer">
@@ -196,108 +484,213 @@ export default function HomePage() {
             <span>•</span>
             <span>2026</span>
           </div>
+
         </div>
 
-        {/* RIGHT SIDE */}
+        {/* =====================================
+            RIGHT LOGIN PANEL
+        ====================================== */}
+
         <div className="login-panel">
+
           <div className="mobile-logo">
+
             <div className="academy-mark small">
-              <span>RA</span>
+              <span>RC</span>
             </div>
 
             <div>
-              <strong>RACER ACADEMY</strong>
-              <small>SMART LEARNING PORTAL</small>
+              <strong>
+                RACER ACADEMY
+              </strong>
+
+              <small>
+                SMART LEARNING PORTAL
+              </small>
             </div>
+
           </div>
 
           <div className="login-heading">
-            <span className="welcome">WELCOME BACK</span>
 
-            <h2>Sign in to continue</h2>
+            <span className="welcome">
+              WELCOME BACK
+            </span>
 
-            <p>Access your academy dashboard</p>
+            <h2>
+              {role === "Student"
+                ? "Student Login"
+                : "Teacher Login"}
+            </h2>
+
+            <p>
+              Access your academy dashboard
+            </p>
+
           </div>
 
           {/* LOGIN TYPE */}
+
           <div className="login-switch">
+
             <button
               type="button"
-              className={loginType === "student" ? "selected" : ""}
+              className={
+                role === "Student"
+                  ? "selected"
+                  : ""
+              }
               onClick={() => {
-                setLoginType("student");
+                setRole("Student");
                 setError("");
+                setUsername("");
+                setPassword("");
               }}
             >
-              <span className="switch-icon">🎓</span>
+
+              <span className="switch-icon">
+                🎓
+              </span>
 
               <span>
-                <strong>Student</strong>
-                <small>Student Portal</small>
+                <strong>
+                  Student
+                </strong>
+
+                <small>
+                  Student Portal
+                </small>
               </span>
+
             </button>
 
             <button
               type="button"
-              className={loginType === "teacher" ? "selected" : ""}
+              className={
+                role === "Teacher"
+                  ? "selected"
+                  : ""
+              }
               onClick={() => {
-                setLoginType("teacher");
+                setRole("Teacher");
                 setError("");
+                setUsername("");
+                setPassword("");
               }}
             >
-              <span className="switch-icon">👨‍🏫</span>
+
+              <span className="switch-icon">
+                👨‍🏫
+              </span>
 
               <span>
-                <strong>Teacher</strong>
-                <small>Teacher Portal</small>
+                <strong>
+                  Teacher
+                </strong>
+
+                <small>
+                  Teacher Portal
+                </small>
               </span>
+
             </button>
+
           </div>
 
-          <form onSubmit={handleLogin} className="login-form">
+          {/* FORM */}
+
+          <form
+            onSubmit={handleLogin}
+            className="login-form"
+          >
+
             <div className="input-group">
-              <label>USERNAME</label>
+
+              <label>
+                USERNAME
+              </label>
 
               <div className="input-wrapper">
-                <span className="input-icon">👤</span>
+
+                <span className="input-icon">
+                  👤
+                </span>
 
                 <input
                   type="text"
                   placeholder={
-                    loginType === "student"
-                      ? "Enter your username"
+                    role === "Student"
+                      ? "Enter student username"
                       : "Enter teacher username"
                   }
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  onChange={(e) => {
+                    setUsername(
+                      e.target.value.toUpperCase()
+                    );
+
+                    if (error) {
+                      setError("");
+                    }
+                  }}
                   autoComplete="username"
+                  disabled={loading}
                 />
+
               </div>
+
             </div>
 
             <div className="input-group">
-              <label>PASSWORD</label>
+
+              <label>
+                PASSWORD
+              </label>
 
               <div className="input-wrapper">
-                <span className="input-icon">🔒</span>
+
+                <span className="input-icon">
+                  🔒
+                </span>
 
                 <input
-                  type={showPassword ? "text" : "password"}
+                  type={
+                    showPassword
+                      ? "text"
+                      : "password"
+                  }
                   placeholder="Enter your password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(
+                      e.target.value
+                    );
+
+                    if (error) {
+                      setError("");
+                    }
+                  }}
                   autoComplete="current-password"
+                  disabled={loading}
                 />
 
                 <button
                   type="button"
                   className="eye-button"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() =>
+                    setShowPassword(
+                      !showPassword
+                    )
+                  }
                   aria-label="Toggle password visibility"
                 >
-                  {showPassword ? "🙈" : "👁️"}
+                  {showPassword
+                    ? "🙈"
+                    : "👁️"}
                 </button>
+
               </div>
+
             </div>
 
             {error && (
@@ -312,27 +705,55 @@ export default function HomePage() {
               className="login-button"
               disabled={loading}
             >
-              <span>{loading ? "SIGNING IN..." : "SIGN IN"}</span>
 
-              {!loading && <strong>→</strong>}
+              <span>
+                {loading
+                  ? "SIGNING IN..."
+                  : "SIGN IN"}
+              </span>
+
+              {!loading && (
+                <strong>→</strong>
+              )}
+
             </button>
+
           </form>
 
           <div className="security-note">
-            <span>🔐</span>
+
+            <span>
+              🔐
+            </span>
 
             <div>
-              <strong>Secure Login</strong>
-              <small>Your account information is protected.</small>
+
+              <strong>
+                Secure Login
+              </strong>
+
+              <small>
+                Your account information is protected.
+              </small>
+
             </div>
+
           </div>
 
           <div className="login-footer">
-            <span>© 2026 Racer Academy</span>
+            <span>
+              © 2026 Racer Academy
+            </span>
+
             <span>•</span>
-            <span>All Rights Reserved</span>
+
+            <span>
+              All Rights Reserved
+            </span>
           </div>
+
         </div>
+
       </section>
 
       <style jsx>{`
@@ -386,21 +807,28 @@ export default function HomePage() {
               transparent 1px
             );
           background-size: 45px 45px;
-          mask-image: linear-gradient(to bottom, black, transparent);
+          mask-image:
+            linear-gradient(
+              to bottom,
+              black,
+              transparent
+            );
         }
 
         .floating-orb {
           position: absolute;
           border-radius: 50%;
           filter: blur(2px);
-          animation: float 8s ease-in-out infinite;
+          animation:
+            float 8s ease-in-out infinite;
           pointer-events: none;
         }
 
         .orb-one {
           width: 280px;
           height: 280px;
-          background: rgba(37, 99, 235, 0.08);
+          background:
+            rgba(37, 99, 235, 0.08);
           top: -100px;
           left: -80px;
         }
@@ -408,7 +836,8 @@ export default function HomePage() {
         .orb-two {
           width: 220px;
           height: 220px;
-          background: rgba(168, 85, 247, 0.08);
+          background:
+            rgba(168, 85, 247, 0.08);
           right: 5%;
           top: 10%;
           animation-delay: 2s;
@@ -417,7 +846,8 @@ export default function HomePage() {
         .orb-three {
           width: 180px;
           height: 180px;
-          background: rgba(14, 165, 233, 0.08);
+          background:
+            rgba(14, 165, 233, 0.08);
           bottom: -70px;
           left: 30%;
           animation-delay: 4s;
@@ -426,32 +856,42 @@ export default function HomePage() {
         @keyframes float {
           0%,
           100% {
-            transform: translateY(0) translateX(0);
+            transform:
+              translateY(0)
+              translateX(0);
           }
 
           50% {
-            transform: translateY(-25px) translateX(15px);
+            transform:
+              translateY(-25px)
+              translateX(15px);
           }
         }
 
         .login-wrapper {
           position: relative;
           z-index: 2;
-          width: min(1180px, 100%);
+          width:
+            min(1180px, 100%);
           min-height: 690px;
           display: grid;
-          grid-template-columns: 1.05fr 0.95fr;
+          grid-template-columns:
+            1.05fr 0.95fr;
           overflow: hidden;
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          border:
+            1px solid
+            rgba(255, 255, 255, 0.1);
           border-radius: 30px;
-          background: rgba(10, 15, 32, 0.82);
+          background:
+            rgba(10, 15, 32, 0.82);
           box-shadow:
-            0 40px 100px rgba(0, 0, 0, 0.5),
-            inset 0 1px 0 rgba(255, 255, 255, 0.05);
-          backdrop-filter: blur(25px);
+            0 40px 100px
+              rgba(0, 0, 0, 0.5),
+            inset 0 1px 0
+              rgba(255, 255, 255, 0.05);
+          backdrop-filter:
+            blur(25px);
         }
-
-        /* SHOWCASE */
 
         .showcase {
           position: relative;
@@ -472,7 +912,9 @@ export default function HomePage() {
               rgba(59, 130, 246, 0.22),
               transparent 35%
             );
-          border-right: 1px solid rgba(255, 255, 255, 0.08);
+          border-right:
+            1px solid
+            rgba(255, 255, 255, 0.08);
         }
 
         .showcase::before {
@@ -482,11 +924,15 @@ export default function HomePage() {
           height: 500px;
           right: -250px;
           bottom: -200px;
-          border: 1px solid rgba(96, 165, 250, 0.16);
+          border:
+            1px solid
+            rgba(96, 165, 250, 0.16);
           border-radius: 50%;
           box-shadow:
-            0 0 0 60px rgba(96, 165, 250, 0.03),
-            0 0 0 120px rgba(96, 165, 250, 0.02);
+            0 0 0 60px
+              rgba(96, 165, 250, 0.03),
+            0 0 0 120px
+              rgba(96, 165, 250, 0.02);
         }
 
         .showcase::after {
@@ -496,13 +942,15 @@ export default function HomePage() {
           bottom: 100px;
           width: 140%;
           height: 1px;
-          background: linear-gradient(
-            90deg,
-            transparent,
-            rgba(96, 165, 250, 0.3),
-            transparent
-          );
-          transform: rotate(-15deg);
+          background:
+            linear-gradient(
+              90deg,
+              transparent,
+              rgba(96, 165, 250, 0.3),
+              transparent
+            );
+          transform:
+            rotate(-15deg);
         }
 
         .showcase-top {
@@ -514,23 +962,57 @@ export default function HomePage() {
         }
 
         .academy-mark {
-          width: 54px;
-          height: 54px;
+          width: 58px;
+          height: 58px;
           display: grid;
           place-items: center;
-          border-radius: 16px;
-          background: linear-gradient(135deg, #2563eb, #7c3aed);
+          border-radius: 17px;
+          background:
+            linear-gradient(
+              135deg,
+              #2563eb,
+              #7c3aed
+            );
           box-shadow:
-            0 10px 30px rgba(37, 99, 235, 0.3),
-            inset 0 1px 0 rgba(255, 255, 255, 0.25);
-          transform: rotate(-3deg);
+            0 10px 30px
+              rgba(37, 99, 235, 0.35),
+            inset 0 1px 0
+              rgba(255, 255, 255, 0.3);
+          transform:
+            rotate(-4deg);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .academy-mark::before {
+          content: "";
+          position: absolute;
+          inset: 4px;
+          border:
+            1px solid
+            rgba(255, 255, 255, 0.3);
+          border-radius: 13px;
+        }
+
+        .academy-mark::after {
+          content: "";
+          position: absolute;
+          width: 75px;
+          height: 10px;
+          background:
+            rgba(255, 255, 255, 0.16);
+          transform:
+            rotate(-45deg);
         }
 
         .academy-mark span {
+          position: relative;
+          z-index: 2;
           font-weight: 950;
-          font-size: 18px;
-          letter-spacing: -1px;
-          transform: rotate(3deg);
+          font-size: 20px;
+          letter-spacing: -2px;
+          transform:
+            rotate(4deg);
         }
 
         .academy-name {
@@ -564,32 +1046,41 @@ export default function HomePage() {
         .hero-icon {
           font-size: 68px;
           margin-bottom: 18px;
-          animation: iconIn 0.6s ease;
-          filter: drop-shadow(
-            0 15px 25px rgba(59, 130, 246, 0.2)
-          );
+          animation:
+            iconIn 0.6s ease;
+          filter:
+            drop-shadow(
+              0 15px 25px
+              rgba(59, 130, 246, 0.2)
+            );
         }
 
         @keyframes iconIn {
           from {
             opacity: 0;
-            transform: translateY(20px) scale(0.8);
+            transform:
+              translateY(20px)
+              scale(0.8);
           }
 
           to {
             opacity: 1;
-            transform: translateY(0) scale(1);
+            transform:
+              translateY(0)
+              scale(1);
           }
         }
 
         .hero-content h1 {
           margin: 0;
           max-width: 600px;
-          font-size: clamp(38px, 4vw, 62px);
+          font-size:
+            clamp(38px, 4vw, 62px);
           line-height: 0.98;
           letter-spacing: -3px;
           font-weight: 950;
-          animation: textIn 0.65s ease;
+          animation:
+            textIn 0.65s ease;
         }
 
         .hero-content p {
@@ -597,18 +1088,21 @@ export default function HomePage() {
           color: #94a3b8;
           font-size: 17px;
           line-height: 1.6;
-          animation: textIn 0.8s ease;
+          animation:
+            textIn 0.8s ease;
         }
 
         @keyframes textIn {
           from {
             opacity: 0;
-            transform: translateY(15px);
+            transform:
+              translateY(15px);
           }
 
           to {
             opacity: 1;
-            transform: translateY(0);
+            transform:
+              translateY(0);
           }
         }
 
@@ -649,9 +1143,12 @@ export default function HomePage() {
         .arrow-btn {
           width: 38px;
           height: 38px;
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          border:
+            1px solid
+            rgba(255, 255, 255, 0.1);
           border-radius: 50%;
-          background: rgba(255, 255, 255, 0.04);
+          background:
+            rgba(255, 255, 255, 0.04);
           color: white;
           cursor: pointer;
           transition: 0.25s;
@@ -659,9 +1156,12 @@ export default function HomePage() {
         }
 
         .arrow-btn:hover {
-          background: rgba(59, 130, 246, 0.2);
-          border-color: rgba(96, 165, 250, 0.4);
-          transform: scale(1.08);
+          background:
+            rgba(59, 130, 246, 0.2);
+          border-color:
+            rgba(96, 165, 250, 0.4);
+          transform:
+            scale(1.08);
         }
 
         .dots {
@@ -698,14 +1198,13 @@ export default function HomePage() {
           letter-spacing: 2px;
         }
 
-        /* LOGIN PANEL */
-
         .login-panel {
           display: flex;
           flex-direction: column;
           justify-content: center;
           padding: 55px 58px;
-          background: rgba(5, 8, 22, 0.55);
+          background:
+            rgba(5, 8, 22, 0.55);
         }
 
         .mobile-logo {
@@ -724,7 +1223,8 @@ export default function HomePage() {
         }
 
         .login-heading h2 {
-          margin: 8px 0 7px;
+          margin:
+            8px 0 7px;
           font-size: 34px;
           letter-spacing: -1.5px;
           font-weight: 900;
@@ -738,7 +1238,8 @@ export default function HomePage() {
 
         .login-switch {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns:
+            1fr 1fr;
           gap: 10px;
           margin-bottom: 25px;
         }
@@ -750,27 +1251,38 @@ export default function HomePage() {
           gap: 11px;
           text-align: left;
           padding: 12px;
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          border:
+            1px solid
+            rgba(255, 255, 255, 0.08);
           border-radius: 15px;
-          background: rgba(255, 255, 255, 0.025);
+          background:
+            rgba(255, 255, 255, 0.025);
           color: white;
           cursor: pointer;
-          transition: all 0.25s ease;
+          transition:
+            all 0.25s ease;
         }
 
         .login-switch button:hover {
-          border-color: rgba(96, 165, 250, 0.3);
-          background: rgba(59, 130, 246, 0.06);
+          border-color:
+            rgba(96, 165, 250, 0.3);
+          background:
+            rgba(59, 130, 246, 0.06);
         }
 
-        .login-switch button.selected {
-          border-color: rgba(96, 165, 250, 0.55);
-          background: linear-gradient(
-            135deg,
-            rgba(37, 99, 235, 0.16),
-            rgba(124, 58, 237, 0.08)
-          );
-          box-shadow: inset 0 0 25px rgba(37, 99, 235, 0.05);
+        .login-switch
+          button.selected {
+          border-color:
+            rgba(96, 165, 250, 0.55);
+          background:
+            linear-gradient(
+              135deg,
+              rgba(37, 99, 235, 0.16),
+              rgba(124, 58, 237, 0.08)
+            );
+          box-shadow:
+            inset 0 0 25px
+            rgba(37, 99, 235, 0.05);
         }
 
         .switch-icon {
@@ -779,7 +1291,8 @@ export default function HomePage() {
           display: grid;
           place-items: center;
           border-radius: 11px;
-          background: rgba(255, 255, 255, 0.06);
+          background:
+            rgba(255, 255, 255, 0.06);
           font-size: 18px;
         }
 
@@ -820,16 +1333,23 @@ export default function HomePage() {
           align-items: center;
           gap: 11px;
           padding: 0 14px;
-          border: 1px solid rgba(255, 255, 255, 0.09);
+          border:
+            1px solid
+            rgba(255, 255, 255, 0.09);
           border-radius: 13px;
-          background: rgba(255, 255, 255, 0.025);
+          background:
+            rgba(255, 255, 255, 0.025);
           transition: 0.25s;
         }
 
         .input-wrapper:focus-within {
-          border-color: rgba(96, 165, 250, 0.7);
-          box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.07);
-          background: rgba(59, 130, 246, 0.035);
+          border-color:
+            rgba(96, 165, 250, 0.7);
+          box-shadow:
+            0 0 0 4px
+            rgba(59, 130, 246, 0.07);
+          background:
+            rgba(59, 130, 246, 0.035);
         }
 
         .input-icon {
@@ -869,9 +1389,12 @@ export default function HomePage() {
           align-items: center;
           gap: 9px;
           padding: 11px 13px;
-          border: 1px solid rgba(248, 113, 113, 0.2);
+          border:
+            1px solid
+            rgba(248, 113, 113, 0.2);
           border-radius: 10px;
-          background: rgba(239, 68, 68, 0.08);
+          background:
+            rgba(239, 68, 68, 0.08);
           color: #fca5a5;
           font-size: 12px;
         }
@@ -882,7 +1405,8 @@ export default function HomePage() {
           display: grid;
           place-items: center;
           border-radius: 50%;
-          background: rgba(239, 68, 68, 0.2);
+          background:
+            rgba(239, 68, 68, 0.2);
           font-weight: 900;
         }
 
@@ -894,23 +1418,34 @@ export default function HomePage() {
           padding: 0 20px;
           border: none;
           border-radius: 14px;
-          background: linear-gradient(100deg, #2563eb, #4f46e5);
+          background:
+            linear-gradient(
+              100deg,
+              #2563eb,
+              #4f46e5
+            );
           color: white;
           font-size: 12px;
           font-weight: 900;
           letter-spacing: 2px;
           cursor: pointer;
-          box-shadow: 0 15px 30px rgba(37, 99, 235, 0.2);
+          box-shadow:
+            0 15px 30px
+            rgba(37, 99, 235, 0.2);
           transition: 0.25s;
         }
 
         .login-button:hover:not(:disabled) {
-          transform: translateY(-2px);
-          box-shadow: 0 18px 38px rgba(37, 99, 235, 0.3);
+          transform:
+            translateY(-2px);
+          box-shadow:
+            0 18px 38px
+            rgba(37, 99, 235, 0.3);
         }
 
         .login-button:active:not(:disabled) {
-          transform: translateY(0);
+          transform:
+            translateY(0);
         }
 
         .login-button:disabled {
@@ -929,9 +1464,12 @@ export default function HomePage() {
           gap: 10px;
           margin-top: 25px;
           padding: 12px 14px;
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          border:
+            1px solid
+            rgba(255, 255, 255, 0.05);
           border-radius: 12px;
-          background: rgba(255, 255, 255, 0.02);
+          background:
+            rgba(255, 255, 255, 0.02);
         }
 
         .security-note > span {
