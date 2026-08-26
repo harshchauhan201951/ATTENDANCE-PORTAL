@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -27,31 +27,30 @@ type Student = {
 export default function StudentProfilePage() {
   const [student, setStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [lastUpdated, setLastUpdated] = useState("");
 
-  useEffect(() => {
-    loadStudent();
-  }, []);
-
-  async function loadStudent() {
-    setLoading(true);
+  const loadStudent = useCallback(async () => {
     setErrorMessage("");
 
     try {
       const username =
         localStorage.getItem("student_username") ||
-        localStorage.getItem("username") ||
         localStorage.getItem("studentUsername");
 
-      if (!username) {
+      const studentId =
+        localStorage.getItem("studentId");
+
+      if (!username && !studentId) {
+        setStudent(null);
         setErrorMessage(
           "Student login information nahi mili. Please logout karke dobara login karein."
         );
-        setLoading(false);
         return;
       }
 
-      const { data, error } = await supabase
+      let query = supabase
         .from("students")
         .select(`
           id,
@@ -67,66 +66,149 @@ export default function StudentProfilePage() {
           city,
           class_name,
           blood_group
-        `)
-        .eq("student_username", username)
-        .maybeSingle();
+        `);
+
+      if (studentId) {
+        query = query.eq("id", Number(studentId));
+      } else {
+        query = query.eq(
+          "student_username",
+          username
+        );
+      }
+
+      const { data, error } =
+        await query.maybeSingle();
 
       if (error) {
-        console.error(error);
-        setErrorMessage(
-          "Profile load nahi ho rahi: " + error.message
+        console.error(
+          "Student profile error:",
+          error
         );
+
         setStudent(null);
+        setErrorMessage(
+          "Profile load nahi ho rahi: " +
+            error.message
+        );
+
         return;
       }
 
       if (!data) {
+        setStudent(null);
         setErrorMessage(
           "Student profile nahi mili."
         );
-        setStudent(null);
+
         return;
       }
 
+      /*
+       * IMPORTANT:
+       * Always use the latest data directly
+       * from Supabase.
+       *
+       * Teacher ke Students Management mein
+       * jo bhi update hoga, wahi yahan show hoga.
+       */
       setStudent(data as Student);
-    } catch (error: any) {
-      console.error(error);
 
+      setLastUpdated(
+        new Date().toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        })
+      );
+    } catch (error: any) {
+      console.error(
+        "Unexpected profile error:",
+        error
+      );
+
+      setStudent(null);
       setErrorMessage(
         error?.message ||
           "Profile load karte waqt problem hui."
       );
-    } finally {
-      setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function firstLoad() {
+      if (!mounted) return;
+
+      setLoading(true);
+      await loadStudent();
+
+      if (mounted) {
+        setLoading(false);
+      }
+    }
+
+    firstLoad();
+
+    return () => {
+      mounted = false;
+    };
+  }, [loadStudent]);
+
+  async function refreshProfile() {
+    if (refreshing) return;
+
+    setRefreshing(true);
+    await loadStudent();
+    setRefreshing(false);
   }
 
   function formatDate(date: string | null) {
-    if (!date) return "Not Added";
+    if (!date) {
+      return "Not Added";
+    }
 
-    return new Date(
+    const parsedDate = new Date(
       `${date}T00:00:00`
-    ).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    });
+    );
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return date;
+    }
+
+    return parsedDate.toLocaleDateString(
+      "en-IN",
+      {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      }
+    );
   }
 
-  function value(value: string | null) {
-    return value && value.trim()
-      ? value
-      : "Not Added";
+  function value(
+    text: string | null | undefined
+  ) {
+    if (!text || !text.trim()) {
+      return "Not Added";
+    }
+
+    return text;
   }
 
   if (loading) {
     return (
       <main style={styles.page}>
         <div style={styles.loadingCard}>
-          <div style={styles.loadingIcon}>⏳</div>
+          <div style={styles.loadingIcon}>
+            ⏳
+          </div>
+
           <h2 style={styles.loadingTitle}>
             Loading Profile...
           </h2>
+
           <p style={styles.loadingText}>
             Please wait.
           </p>
@@ -139,7 +221,9 @@ export default function StudentProfilePage() {
     return (
       <main style={styles.page}>
         <div style={styles.errorCard}>
-          <div style={styles.errorIcon}>⚠️</div>
+          <div style={styles.errorIcon}>
+            ⚠️
+          </div>
 
           <h2 style={styles.errorTitle}>
             Profile Not Available
@@ -151,7 +235,8 @@ export default function StudentProfilePage() {
           </p>
 
           <button
-            onClick={loadStudent}
+            type="button"
+            onClick={refreshProfile}
             style={styles.retryButton}
           >
             🔄 Try Again
@@ -188,9 +273,8 @@ export default function StudentProfilePage() {
           </div>
 
           <button
-            onClick={() =>
-              window.history.back()
-            }
+            type="button"
+            onClick={() => window.history.back()}
             style={styles.backButton}
           >
             ← Back
@@ -214,9 +298,7 @@ export default function StudentProfilePage() {
             </div>
 
             <p style={styles.heroText}>
-              {student.class_name
-                ? `Class: ${student.class_name}`
-                : "Class not added"}
+              Your profile is managed by your teacher.
             </p>
           </div>
         </section>
@@ -226,7 +308,7 @@ export default function StudentProfilePage() {
         <section style={styles.card}>
           <div style={styles.cardHeader}>
             <div style={styles.cardIcon}>
-              👨‍🎓
+              👤
             </div>
 
             <div>
@@ -241,7 +323,6 @@ export default function StudentProfilePage() {
           </div>
 
           <div style={styles.detailsGrid}>
-
             <Detail
               label="Student Name"
               value={value(student.student_name)}
@@ -271,7 +352,6 @@ export default function StudentProfilePage() {
               label="Blood Group"
               value={value(student.blood_group)}
             />
-
           </div>
         </section>
 
@@ -295,7 +375,6 @@ export default function StudentProfilePage() {
           </div>
 
           <div style={styles.detailsGrid}>
-
             <Detail
               label="Father's Name"
               value={value(student.father_name)}
@@ -315,7 +394,6 @@ export default function StudentProfilePage() {
               label="Mother's Phone"
               value={value(student.mother_phone)}
             />
-
           </div>
         </section>
 
@@ -339,7 +417,6 @@ export default function StudentProfilePage() {
           </div>
 
           <div style={styles.detailsGrid}>
-
             <Detail
               label="City"
               value={value(student.city)}
@@ -354,7 +431,6 @@ export default function StudentProfilePage() {
                 {value(student.address)}
               </div>
             </div>
-
           </div>
         </section>
 
@@ -379,17 +455,34 @@ export default function StudentProfilePage() {
           </div>
         </div>
 
+        {/* REFRESH */}
+
         <button
-          onClick={loadStudent}
-          style={styles.refreshButton}
+          type="button"
+          onClick={refreshProfile}
+          disabled={refreshing}
+          style={{
+            ...styles.refreshButton,
+            opacity: refreshing ? 0.7 : 1,
+            cursor: refreshing
+              ? "not-allowed"
+              : "pointer",
+          }}
         >
-          🔄 Refresh Profile
+          {refreshing
+            ? "🔄 Updating..."
+            : "🔄 Refresh Profile"}
         </button>
+
+        {lastUpdated && (
+          <p style={styles.updatedText}>
+            Latest profile data loaded at {lastUpdated}
+          </p>
+        )}
 
         <footer style={styles.footer}>
           Attendance Portal • Student Profile • 2026
         </footer>
-
       </div>
     </main>
   );
@@ -529,8 +622,10 @@ const styles: {
   usernameBadge: {
     display: "inline-block",
     marginTop: "8px",
-    background: "rgba(255,255,255,0.18)",
-    border: "1px solid rgba(255,255,255,0.3)",
+    background:
+      "rgba(255,255,255,0.18)",
+    border:
+      "1px solid rgba(255,255,255,0.3)",
     color: "#ffffff",
     padding: "6px 10px",
     borderRadius: "8px",
@@ -665,7 +760,14 @@ const styles: {
     padding: "12px 20px",
     borderRadius: "10px",
     fontWeight: "900",
-    cursor: "pointer",
+  },
+
+  updatedText: {
+    textAlign: "center",
+    marginTop: "10px",
+    color: "#64748b",
+    fontSize: "11px",
+    fontWeight: "600",
   },
 
   loadingCard: {
