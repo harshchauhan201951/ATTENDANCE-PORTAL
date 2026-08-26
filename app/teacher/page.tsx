@@ -1,445 +1,404 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-type StudentAccount = {
-  username: string;
-  password: string;
-  name: string;
-};
-
-const students: StudentAccount[] = [
-  {
-    username: "STU1001",
-    password: "Aditya02",
-    name: "ADITYA",
-  },
-  {
-    username: "STU1002",
-    password: "Anmol01",
-    name: "ANMOL",
-  },
-  {
-    username: "STU1003",
-    password: "Chirag06",
-    name: "CHIRAG",
-  },
-  {
-    username: "STU1004",
-    password: "Duggu10",
-    name: "DUGGU",
-  },
-  {
-    username: "STU1005",
-    password: "Duggu13",
-    name: "DUGGU",
-  },
-  {
-    username: "STU1006",
-    password: "Jaggu10",
-    name: "JAGGU",
-  },
-  {
-    username: "STU1007",
-    password: "Mannu13",
-    name: "MANNU",
-  },
-  {
-    username: "STU1008",
-    password: "Palak02",
-    name: "PALAK",
-  },
-  {
-    username: "STU1009",
-    password: "Piyush01",
-    name: "PIYUSH",
-  },
-  {
-    username: "STU1010",
-    password: "Prince04",
-    name: "PRINCE",
-  },
-  {
-    username: "STU1011",
-    password: "Raghav20",
-    name: "RAGHAV",
-  },
-  {
-    username: "STU1012",
-    password: "Sharvi04",
-    name: "SHARVI",
-  },
-];
-
-export default function Home() {
+export default function TeacherControlCenter() {
   const router = useRouter();
 
-  const [role, setRole] = useState<"Student" | "Teacher">(
-    "Student"
-  );
+  const [teacherName, setTeacherName] =
+    useState("Teacher");
 
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [checkingLogin, setCheckingLogin] =
+    useState(true);
 
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    const newRole =
+      localStorage.getItem("attendance_role");
 
-  function clearSessions() {
-    localStorage.removeItem("studentLoggedIn");
-    localStorage.removeItem("studentUsername");
-    localStorage.removeItem("studentName");
-    localStorage.removeItem("studentId");
+    const newUsername =
+      localStorage.getItem("attendance_username");
 
-    localStorage.removeItem("teacherLoggedIn");
-    localStorage.removeItem("teacher");
-    localStorage.removeItem("teacherUsername");
-    localStorage.removeItem("teacherName");
+    const oldLoggedIn =
+      localStorage.getItem("teacherLoggedIn");
 
-    sessionStorage.clear();
-  }
+    const oldTeacherName =
+      localStorage.getItem("teacherName");
 
-  async function handleLogin(
-    e: React.FormEvent<HTMLFormElement>
-  ) {
-    e.preventDefault();
+    const oldTeacherUsername =
+      localStorage.getItem("teacherUsername");
 
-    if (loading) return;
+    const newTeacherLogin =
+      newRole === "Teacher" &&
+      !!newUsername;
 
-    setError("");
+    const oldTeacherLogin =
+      oldLoggedIn === "true";
 
-    const enteredUsername = username
-      .trim()
-      .toUpperCase();
-
-    const enteredPassword = password.trim();
-
-    if (!enteredUsername || !enteredPassword) {
-      setError(
-        "❌ Username aur password dono enter karein."
-      );
+    if (
+      !newTeacherLogin &&
+      !oldTeacherLogin
+    ) {
+      router.replace("/");
       return;
     }
 
-    setLoading(true);
+    const name =
+      oldTeacherName ||
+      oldTeacherUsername ||
+      newUsername ||
+      "Teacher";
 
-    /* =====================================================
-       TEACHER LOGIN
-       ===================================================== */
-
-    if (role === "Teacher") {
-      if (
-        enteredUsername === "HARSH201951" &&
-        enteredPassword === "201951"
-      ) {
-        clearSessions();
-
-        localStorage.setItem(
-          "teacherLoggedIn",
-          "true"
-        );
-
-        localStorage.setItem(
-          "teacher",
-          "true"
-        );
-
-        localStorage.setItem(
-          "teacherUsername",
-          "HARSH201951"
-        );
-
-        localStorage.setItem(
-          "teacherName",
-          "Harsh"
-        );
-
-        router.replace("/teacher");
-
-        return;
-      }
-
-      setError(
-        "❌ Invalid teacher username or password."
-      );
-
-      setLoading(false);
-      return;
-    }
-
-    /* =====================================================
-       STUDENT LOGIN
-       ===================================================== */
-
-    const student = students.find(
-      (item) =>
-        item.username.toUpperCase() ===
-          enteredUsername &&
-        item.password === enteredPassword
-    );
-
-    if (!student) {
-      setError(
-        "❌ Invalid student username or password."
-      );
-
-      setLoading(false);
-      return;
-    }
+    setTeacherName(name);
 
     /*
-     * Student credentials are checked above.
-     * Now find the actual student ID from Supabase.
+     * Keep compatibility with existing
+     * teacher pages.
      */
+    localStorage.setItem(
+      "teacherLoggedIn",
+      "true"
+    );
 
-    try {
-      const { data, error: dbError } =
-        await supabase
-          .from("students")
-          .select(
-            "id, student_name, student_username"
-          )
-          .eq(
-            "student_username",
-            enteredUsername
-          )
-          .maybeSingle();
+    localStorage.setItem(
+      "teacherUsername",
+      newUsername ||
+        oldTeacherUsername ||
+        ""
+    );
 
-      if (dbError) {
-        console.error(
-          "Student database error:",
-          dbError
-        );
+    localStorage.setItem(
+      "teacherName",
+      name
+    );
 
-        setError(
-          "❌ Student database error: " +
-            dbError.message
-        );
+    localStorage.setItem(
+      "teacher",
+      name
+    );
 
-        setLoading(false);
-        return;
-      }
+    /*
+     * Remove student session.
+     */
+    localStorage.removeItem(
+      "studentLoggedIn"
+    );
 
-      /*
-       * Student exists in login list but database
-       * record is missing.
-       */
+    localStorage.removeItem(
+      "studentUsername"
+    );
 
-      if (!data) {
-        setError(
-          "❌ Student account database mein nahi mila."
-        );
+    localStorage.removeItem(
+      "studentName"
+    );
 
-        setLoading(false);
-        return;
-      }
+    localStorage.removeItem(
+      "studentId"
+    );
 
-      /* ================================================
-         CLEAR OLD LOGIN
-         ================================================ */
+    setCheckingLogin(false);
+  }, [router]);
 
-      clearSessions();
+  function logout() {
+    /*
+     * New login session
+     */
+    localStorage.removeItem(
+      "attendance_role"
+    );
 
-      /* ================================================
-         CREATE STUDENT SESSION
-         ================================================ */
+    localStorage.removeItem(
+      "attendance_username"
+    );
 
-      localStorage.setItem(
-        "studentLoggedIn",
-        "true"
-      );
+    localStorage.removeItem(
+      "attendance_teacher_id"
+    );
 
-      localStorage.setItem(
-        "studentUsername",
-        data.student_username ||
-          student.username
-      );
+    /*
+     * Old login session
+     */
+    localStorage.removeItem(
+      "teacherLoggedIn"
+    );
 
-      localStorage.setItem(
-        "studentName",
-        data.student_name ||
-          student.name
-      );
+    localStorage.removeItem(
+      "teacher"
+    );
 
-      localStorage.setItem(
-        "studentId",
-        String(data.id)
-      );
+    localStorage.removeItem(
+      "teacherUsername"
+    );
 
-      /*
-       * IMPORTANT:
-       * Student can ONLY go to student dashboard.
-       */
+    localStorage.removeItem(
+      "teacherName"
+    );
 
-      router.replace("/student/dashboard");
-
-    } catch (err: any) {
-      console.error(
-        "Student login error:",
-        err
-      );
-
-      setError(
-        err?.message ||
-          "❌ Student login failed."
-      );
-
-      setLoading(false);
-    }
+    router.replace("/");
   }
 
-  function selectRole(
-    selectedRole: "Student" | "Teacher"
-  ) {
-    setRole(selectedRole);
-    setUsername("");
-    setPassword("");
-    setError("");
+  const options = [
+    {
+      title: "Dashboard",
+      icon: "📊",
+      description:
+        "View attendance overview",
+      path: "/teacher/dashboard",
+    },
+    {
+      title: "Students",
+      icon: "👨‍🎓",
+      description:
+        "View and manage students",
+      path: "/teacher/students",
+    },
+    {
+      title: "Attendance",
+      icon: "✅",
+      description:
+        "Mark today's attendance",
+      path: "/teacher/attendance",
+    },
+    {
+      title: "Attendance History",
+      icon: "📋",
+      description:
+        "View previous attendance",
+      path: "/teacher/attendance-history",
+    },
+    {
+      title: "Calendar",
+      icon: "📅",
+      description:
+        "View attendance calendar",
+      path: "/teacher/calendar",
+    },
+    {
+      title: "Fees",
+      icon: "💰",
+      description:
+        "Manage student fees",
+      path: "/teacher/fees",
+    },
+    {
+      title: "Reports",
+      icon: "📈",
+      description:
+        "View attendance reports",
+      path: "/teacher/reports",
+    },
+    {
+      title: "Settings",
+      icon: "⚙️",
+      description:
+        "Manage teacher settings",
+      path: "/teacher/settings",
+    },
+  ];
+
+  if (checkingLogin) {
+    return (
+      <main className="loading-page">
+        <div className="loading-box">
+          <div className="loading-icon">
+            👨‍🏫
+          </div>
+
+          <h2>
+            Loading Teacher Control Center...
+          </h2>
+
+          <p>
+            Please wait...
+          </p>
+        </div>
+
+        <style jsx>{`
+          .loading-page {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+
+            background:
+              linear-gradient(
+                135deg,
+                #eef2ff 0%,
+                #f8fafc 50%,
+                #ecfdf5 100%
+              );
+
+            font-family:
+              Arial,
+              Helvetica,
+              sans-serif;
+          }
+
+          .loading-box {
+            width: 100%;
+            max-width: 420px;
+
+            padding: 35px 25px;
+
+            background: white;
+
+            border-radius: 22px;
+
+            text-align: center;
+
+            box-shadow:
+              0 15px 40px
+              rgba(0, 0, 0, 0.08);
+          }
+
+          .loading-icon {
+            font-size: 50px;
+            margin-bottom: 15px;
+          }
+
+          h2 {
+            margin: 0;
+            color: #111827;
+            font-size: 20px;
+          }
+
+          p {
+            margin: 8px 0 0;
+            color: #64748b;
+            font-size: 14px;
+          }
+        `}</style>
+      </main>
+    );
   }
 
   return (
     <main className="page">
-      <div className="login-card">
+      <div className="container">
 
-        <div className="logo">
-          🎓
-        </div>
+        {/* HEADER */}
 
-        <h1>
-          Attendance Portal
-        </h1>
-
-        <p className="subtitle">
-          Login to continue
-        </p>
-
-        {/* ROLE */}
-
-        <div className="role-buttons">
-
-          <button
-            type="button"
-            className={
-              role === "Student"
-                ? "role-button student-active"
-                : "role-button"
-            }
-            onClick={() =>
-              selectRole("Student")
-            }
-            disabled={loading}
-          >
-            👨‍🎓 Student
-          </button>
-
-          <button
-            type="button"
-            className={
-              role === "Teacher"
-                ? "role-button teacher-active"
-                : "role-button"
-            }
-            onClick={() =>
-              selectRole("Teacher")
-            }
-            disabled={loading}
-          >
-            👨‍🏫 Teacher
-          </button>
-
-        </div>
-
-        {/* FORM */}
-
-        <form onSubmit={handleLogin}>
-
-          <label>
-            Username
-          </label>
-
-          <input
-            type="text"
-            value={username}
-            onChange={(e) =>
-              setUsername(e.target.value)
-            }
-            placeholder={
-              role === "Student"
-                ? "STU1001"
-                : "HARSH201951"
-            }
-            autoComplete="username"
-            disabled={loading}
-          />
-
-          <label>
-            Password
-          </label>
-
-          <input
-            type="password"
-            value={password}
-            onChange={(e) =>
-              setPassword(e.target.value)
-            }
-            placeholder="Enter Password"
-            autoComplete="current-password"
-            disabled={loading}
-          />
-
-          {error && (
-            <div className="error">
-              {error}
+        <header className="header">
+          <div>
+            <div className="brand">
+              📚 Attendance Portal
             </div>
-          )}
+
+            <h1>
+              Teacher Control Center
+            </h1>
+
+            <p className="welcome">
+              Welcome back,{" "}
+              <strong>
+                {teacherName}
+              </strong>{" "}
+              👋
+            </p>
+          </div>
 
           <button
-            type="submit"
-            className={
-              role === "Teacher"
-                ? "login-button teacher-login"
-                : "login-button student-login"
-            }
-            disabled={loading}
+            className="logout-button"
+            onClick={logout}
           >
-            {loading
-              ? "⏳ Checking..."
-              : "Login →"}
+            🚪 Logout
           </button>
+        </header>
 
-        </form>
+        {/* CONTROL CENTER */}
 
-        <p className="footer">
-          Student Attendance Management System
-        </p>
+        <section className="control-section">
+
+          <div className="section-heading">
+            <div>
+              <h2>
+                🛠️ Teacher Options
+              </h2>
+
+              <p>
+                Select an option to continue
+              </p>
+            </div>
+          </div>
+
+          <div className="grid">
+            {options.map((option) => (
+              <button
+                key={option.path}
+                className="card"
+                onClick={() =>
+                  router.push(option.path)
+                }
+              >
+                <div className="icon">
+                  {option.icon}
+                </div>
+
+                <div className="card-content">
+                  <h2>
+                    {option.title}
+                  </h2>
+
+                  <p>
+                    {option.description}
+                  </p>
+                </div>
+
+                <div className="arrow">
+                  →
+                </div>
+              </button>
+            ))}
+          </div>
+
+        </section>
+
+        {/* INFO */}
+
+        <div className="info-box">
+          <span className="info-icon">
+            💡
+          </span>
+
+          <div>
+            <strong>
+              Teacher Control Center
+            </strong>
+
+            <p>
+              Login ke baad yahan se aap
+              apni zarurat ke according
+              koi bhi option open kar sakte hain.
+            </p>
+          </div>
+        </div>
+
+        {/* FOOTER */}
+
+        <footer>
+          Teacher Attendance Management System
+        </footer>
 
       </div>
 
       <style jsx>{`
-
         * {
           box-sizing: border-box;
         }
 
         .page {
           min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 20px;
+
+          padding:
+            25px 20px 40px;
 
           background:
             linear-gradient(
               135deg,
-              #dbeafe 0%,
-              #eef2ff 50%,
-              #dcfce7 100%
+              #eef2ff 0%,
+              #f8fafc 45%,
+              #ecfdf5 100%
             );
 
           font-family:
@@ -448,250 +407,322 @@ export default function Home() {
             sans-serif;
         }
 
-        .login-card {
+        .container {
           width: 100%;
-          max-width: 430px;
+
+          max-width: 1100px;
+
+          margin: 0 auto;
+        }
+
+        .header {
+          display: flex;
+
+          align-items: center;
+
+          justify-content: space-between;
+
+          gap: 20px;
+
+          margin-bottom: 25px;
+
+          padding: 25px;
 
           background: white;
 
-          padding: 35px;
-
-          border-radius: 25px;
+          border-radius: 22px;
 
           box-shadow:
-            0 25px 60px
-            rgba(0, 0, 0, 0.15);
+            0 15px 40px
+            rgba(0, 0, 0, 0.08);
         }
 
-        .logo {
-          width: 75px;
-          height: 75px;
+        .brand {
+          color: #4f46e5;
 
-          margin: 0 auto 15px;
+          font-size: 18px;
 
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          font-weight: 800;
 
-          border-radius: 20px;
-
-          background:
-            linear-gradient(
-              135deg,
-              #dbeafe,
-              #e0e7ff
-            );
-
-          font-size: 40px;
+          margin-bottom: 8px;
         }
 
         h1 {
-          text-align: center;
-
-          margin: 10px 0;
+          margin: 0;
 
           color: #111827;
 
-          font-size: 30px;
+          font-size: 32px;
         }
 
-        .subtitle {
-          text-align: center;
+        .welcome {
+          margin:
+            8px 0 0;
 
           color: #64748b;
 
-          margin: 0 0 25px;
+          font-size: 15px;
         }
 
-        .role-buttons {
-          display: grid;
-
-          grid-template-columns:
-            1fr 1fr;
-
-          gap: 10px;
-
-          margin-bottom: 22px;
+        .welcome strong {
+          color: #111827;
         }
 
-        .role-button {
+        .logout-button {
           border: none;
 
-          padding: 13px;
-
-          border-radius: 10px;
-
-          background: #e2e8f0;
-
-          color: #334155;
-
-          font-weight: bold;
-
-          font-size: 15px;
-
-          cursor: pointer;
-        }
-
-        .role-button:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .student-active {
-          background: #2563eb;
-          color: white;
-        }
-
-        .teacher-active {
-          background: #7c3aed;
-          color: white;
-        }
-
-        label {
-          display: block;
-
-          margin-bottom: 7px;
-
-          color: #111827;
-
-          font-weight: bold;
-
-          font-size: 14px;
-        }
-
-        input {
-          width: 100%;
-
-          padding: 14px;
-
-          margin-bottom: 18px;
-
-          border:
-            2px solid #bfdbfe;
-
-          border-radius: 10px;
-
-          background: white;
-
-          color: #111827;
-
-          font-size: 16px;
-
-          outline: none;
-        }
-
-        input:focus {
-          border-color: #2563eb;
-
-          box-shadow:
-            0 0 0 3px
-            rgba(37, 99, 235, 0.1);
-        }
-
-        input::placeholder {
-          color: #94a3b8;
-        }
-
-        input:disabled {
-          background: #f1f5f9;
-        }
-
-        .error {
           background: #fee2e2;
 
-          color: #991b1b;
+          color: #b91c1c;
 
-          padding: 12px;
-
-          border-radius: 10px;
-
-          margin-bottom: 15px;
-
-          font-weight: 600;
-
-          text-align: center;
-
-          font-size: 14px;
-        }
-
-        .login-button {
-          width: 100%;
-
-          padding: 15px;
-
-          border: none;
+          padding:
+            12px 18px;
 
           border-radius: 11px;
 
-          color: white;
+          font-size: 14px;
 
-          font-size: 17px;
-
-          font-weight: bold;
+          font-weight: 700;
 
           cursor: pointer;
+
+          white-space: nowrap;
         }
 
-        .login-button:disabled {
-          opacity: 0.7;
-          cursor: wait;
+        .logout-button:hover {
+          background: #fecaca;
         }
 
-        .student-login {
-          background:
-            linear-gradient(
-              135deg,
-              #2563eb,
-              #1d4ed8
-            );
+        .control-section {
+          background: white;
+
+          border-radius: 22px;
+
+          padding: 25px;
+
+          box-shadow:
+            0 10px 30px
+            rgba(0, 0, 0, 0.06);
         }
 
-        .teacher-login {
-          background:
-            linear-gradient(
-              135deg,
-              #7c3aed,
-              #4f46e5
-            );
+        .section-heading {
+          margin-bottom: 22px;
         }
 
-        .footer {
+        .section-heading h2 {
+          margin: 0;
+
+          color: #111827;
+
+          font-size: 23px;
+        }
+
+        .section-heading p {
+          margin:
+            6px 0 0;
+
+          color: #64748b;
+
+          font-size: 14px;
+        }
+
+        .grid {
+          display: grid;
+
+          grid-template-columns:
+            repeat(4, 1fr);
+
+          gap: 18px;
+        }
+
+        .card {
+          position: relative;
+
+          min-height: 175px;
+
+          padding: 22px;
+
+          border:
+            2px solid #e5e7eb;
+
+          border-radius: 18px;
+
+          background: white;
+
+          text-align: left;
+
+          cursor: pointer;
+
+          transition:
+            transform 0.2s ease,
+            box-shadow 0.2s ease,
+            border-color 0.2s ease;
+
+          box-shadow:
+            0 8px 25px
+            rgba(0, 0, 0, 0.05);
+        }
+
+        .card:hover {
+          transform:
+            translateY(-4px);
+
+          border-color:
+            #c7d2fe;
+
+          box-shadow:
+            0 15px 35px
+            rgba(0, 0, 0, 0.10);
+        }
+
+        .icon {
+          width: 55px;
+
+          height: 55px;
+
+          display: flex;
+
+          align-items: center;
+
+          justify-content: center;
+
+          margin-bottom: 18px;
+
+          border-radius: 15px;
+
+          background: #eef2ff;
+
+          font-size: 28px;
+        }
+
+        .card-content h2 {
+          margin:
+            0 0 7px;
+
+          color: #111827;
+
+          font-size: 18px;
+        }
+
+        .card-content p {
+          margin: 0;
+
+          color: #64748b;
+
+          font-size: 13px;
+
+          line-height: 1.5;
+        }
+
+        .arrow {
+          position: absolute;
+
+          right: 18px;
+
+          bottom: 18px;
+
+          color: #6366f1;
+
+          font-size: 22px;
+
+          font-weight: bold;
+        }
+
+        .info-box {
+          display: flex;
+
+          align-items: center;
+
+          gap: 15px;
+
+          margin-top: 22px;
+
+          padding: 18px 20px;
+
+          background: white;
+
+          border:
+            1px solid #e2e8f0;
+
+          border-radius: 16px;
+
+          color: #334155;
+        }
+
+        .info-icon {
+          font-size: 28px;
+        }
+
+        .info-box strong {
+          color: #111827;
+
+          font-size: 14px;
+        }
+
+        .info-box p {
+          margin:
+            5px 0 0;
+
+          color: #64748b;
+
+          font-size: 12px;
+
+          line-height: 1.5;
+        }
+
+        footer {
           text-align: center;
+
+          margin-top: 30px;
 
           color: #94a3b8;
 
           font-size: 12px;
-
-          margin-top: 25px;
-
-          margin-bottom: 0;
         }
 
-        @media (max-width: 500px) {
+        @media (max-width: 900px) {
+          .grid {
+            grid-template-columns:
+              repeat(2, 1fr);
+          }
+        }
 
+        @media (max-width: 600px) {
           .page {
-            padding: 15px;
+            padding:
+              15px 12px 30px;
           }
 
-          .login-card {
-            padding: 25px 20px;
+          .header {
+            padding: 20px;
 
-            border-radius: 20px;
+            flex-direction: column;
+
+            align-items: flex-start;
           }
 
           h1 {
-            font-size: 26px;
+            font-size: 27px;
           }
 
-          .logo {
-            width: 65px;
-            height: 65px;
-
-            font-size: 34px;
+          .logout-button {
+            width: 100%;
           }
 
+          .grid {
+            grid-template-columns: 1fr;
+
+            gap: 14px;
+          }
+
+          .card {
+            min-height: 140px;
+          }
+
+          .info-box {
+            align-items: flex-start;
+          }
         }
-
       `}</style>
     </main>
   );

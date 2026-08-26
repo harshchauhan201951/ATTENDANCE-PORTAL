@@ -9,514 +9,295 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+type Role = "Student" | "Teacher";
+
 export default function Home() {
   const router = useRouter();
 
-  const [role, setRole] = useState<"Student" | "Teacher">("Student");
+  const [role, setRole] = useState<Role>("Student");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  function clearSessions() {
-    localStorage.removeItem("studentLoggedIn");
-    localStorage.removeItem("studentUsername");
-    localStorage.removeItem("studentName");
-    localStorage.removeItem("studentId");
-
-    localStorage.removeItem("teacherLoggedIn");
-    localStorage.removeItem("teacher");
-    localStorage.removeItem("teacherUsername");
-    localStorage.removeItem("teacherName");
-
-    sessionStorage.clear();
-  }
-
-  async function handleLogin(
-    e: React.FormEvent<HTMLFormElement>
-  ) {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (loading) return;
+
     setError("");
+
+    const cleanUsername = username.trim();
+
+    if (!cleanUsername || !password) {
+      setError("Please enter username and password.");
+      return;
+    }
+
     setLoading(true);
 
-    const enteredUsername = username.trim().toUpperCase();
-    const enteredPassword = password.trim();
-
-    if (!enteredUsername || !enteredPassword) {
-      setError("❌ Username aur password dono enter karein.");
-      setLoading(false);
-      return;
-    }
-
-    /* ==============================
-       TEACHER LOGIN
-       ============================== */
-
-    if (role === "Teacher") {
-      if (
-        enteredUsername === "HARSH201951" &&
-        enteredPassword === "201951"
-      ) {
-        clearSessions();
-
-        localStorage.setItem(
-          "teacherLoggedIn",
-          "true"
-        );
-
-        localStorage.setItem(
-          "teacher",
-          "true"
-        );
-
-        localStorage.setItem(
-          "teacherUsername",
-          "HARSH201951"
-        );
-
-        localStorage.setItem(
-          "teacherName",
-          "Harsh"
-        );
-
-        router.replace("/teacher");
-        return;
-      }
-
-      setError(
-        "❌ Invalid teacher username or password."
-      );
-
-      setLoading(false);
-      return;
-    }
-
-    /* ==============================
-       STUDENT LOGIN
-       ============================== */
-
     try {
-      const { data: student, error: studentError } =
-        await supabase
-          .from("students")
-          .select(
-            "id, student_name, student_username, password_hash"
-          )
-          .eq(
-            "student_username",
-            enteredUsername
-          )
-          .maybeSingle();
+      let result: any = null;
+      let loginError: any = null;
 
-      if (studentError) {
-        console.error(
-          "Student database error:",
-          studentError
-        );
-
-        setError(
-          "❌ Student login database error: " +
-            studentError.message
-        );
-
-        setLoading(false);
-        return;
-      }
-
-      if (!student) {
-        setError(
-          "❌ Student username not found."
-        );
-
-        setLoading(false);
-        return;
-      }
-
-      let validPassword = false;
-
-      /* ==============================
-         TRY RPC LOGIN
-         ============================== */
-
-      const { data: rpcData, error: rpcError } =
-        await supabase.rpc("student_login", {
-          p_username: enteredUsername,
-          p_password: enteredPassword,
+      if (role === "Student") {
+        const response = await supabase.rpc("student_login", {
+          p_username: cleanUsername,
+          p_password: password,
         });
 
-      if (!rpcError && rpcData) {
-        if (Array.isArray(rpcData)) {
-          validPassword = rpcData.length > 0;
-        } else {
-          validPassword = true;
-        }
+        result = response.data;
+        loginError = response.error;
+      } else {
+        const response = await supabase.rpc("teacher_login", {
+          p_username: cleanUsername,
+          p_password: password,
+        });
+
+        result = response.data;
+        loginError = response.error;
       }
 
-      /* ==============================
-         FALLBACK PASSWORD CHECK
-         ============================== */
+      console.log("LOGIN RESULT:", result);
+      console.log("LOGIN ERROR:", loginError);
 
-      if (!validPassword) {
-        if (
-          String(student.password_hash) ===
-          enteredPassword
-        ) {
-          validPassword = true;
-        }
-      }
-
-      if (!validPassword) {
+      if (loginError) {
+        console.error("Supabase login error:", loginError);
         setError(
-          "❌ Invalid student username or password."
+          loginError.message || "Unable to login. Please try again."
         );
-
-        setLoading(false);
         return;
       }
 
-      /* ==============================
-         STUDENT SESSION ONLY
-         ============================== */
+      let userData: any = result;
 
-      clearSessions();
+      if (Array.isArray(result)) {
+        userData = result.length > 0 ? result[0] : null;
+      }
 
+      if (!userData) {
+        setError("Invalid username or password.");
+        return;
+      }
+
+      if (
+        userData.success === false ||
+        userData.logged_in === false ||
+        userData.authenticated === false
+      ) {
+        setError("Invalid username or password.");
+        return;
+      }
+
+      /* =========================
+         STUDENT LOGIN
+         ========================= */
+
+      if (role === "Student") {
+        localStorage.setItem("attendance_role", "Student");
+        localStorage.setItem(
+          "attendance_username",
+          cleanUsername
+        );
+
+        if (userData.student_id) {
+          localStorage.setItem(
+            "attendance_student_id",
+            String(userData.student_id)
+          );
+        }
+
+        if (userData.student_name) {
+          localStorage.setItem(
+            "attendance_student_name",
+            String(userData.student_name)
+          );
+        }
+
+        /*
+         * IMPORTANT:
+         * Student goes directly to dashboard.
+         * NOT /student
+         */
+        router.push("/student/dashboard");
+        return;
+      }
+
+      /* =========================
+         TEACHER LOGIN
+         ========================= */
+
+      localStorage.setItem("attendance_role", "Teacher");
       localStorage.setItem(
-        "studentLoggedIn",
-        "true"
+        "attendance_username",
+        cleanUsername
       );
 
-      localStorage.setItem(
-        "studentUsername",
-        student.student_username
-      );
+      if (userData.teacher_id) {
+        localStorage.setItem(
+          "attendance_teacher_id",
+          String(userData.teacher_id)
+        );
+      }
 
-      localStorage.setItem(
-        "studentName",
-        student.student_name || "Student"
-      );
-
-      localStorage.setItem(
-        "studentId",
-        String(student.id)
-      );
-
-      router.replace("/student/dashboard");
+      /*
+       * Teacher goes to teacher dashboard.
+       */
+      router.push("/teacher");
     } catch (err: any) {
-      console.error("Login error:", err);
+      console.error("LOGIN EXCEPTION:", err);
 
       setError(
-        err?.message ||
-          "❌ Login failed. Please try again."
+        err?.message || "Something went wrong while logging in."
       );
-
+    } finally {
       setLoading(false);
     }
-  }
-
-  function selectRole(
-    selectedRole: "Student" | "Teacher"
-  ) {
-    setRole(selectedRole);
-    setUsername("");
-    setPassword("");
-    setError("");
-  }
+  };
 
   return (
-    <main className="page">
-      <div className="login-card">
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-100 flex items-center justify-center px-4 py-8">
+      <div className="w-full max-w-md">
+        <div className="bg-white rounded-3xl shadow-2xl p-6 sm:p-8 border border-gray-100">
 
-        <div className="logo">
-          🎓
-        </div>
-
-        <h1>Attendance Portal</h1>
-
-        <p className="subtitle">
-          Login to continue
-        </p>
-
-        <div className="role-buttons">
-
-          <button
-            type="button"
-            className={
-              role === "Student"
-                ? "role-button student-active"
-                : "role-button"
-            }
-            onClick={() =>
-              selectRole("Student")
-            }
-          >
-            👨‍🎓 Student
-          </button>
-
-          <button
-            type="button"
-            className={
-              role === "Teacher"
-                ? "role-button teacher-active"
-                : "role-button"
-            }
-            onClick={() =>
-              selectRole("Teacher")
-            }
-          >
-            👨‍🏫 Teacher
-          </button>
-
-        </div>
-
-        <form onSubmit={handleLogin}>
-
-          <label>Username</label>
-
-          <input
-            type="text"
-            value={username}
-            onChange={(e) =>
-              setUsername(e.target.value)
-            }
-            placeholder={
-              role === "Student"
-                ? "STU1001"
-                : "HARSH201951"
-            }
-            autoComplete="username"
-            disabled={loading}
-          />
-
-          <label>Password</label>
-
-          <input
-            type="password"
-            value={password}
-            onChange={(e) =>
-              setPassword(e.target.value)
-            }
-            placeholder="Enter Password"
-            autoComplete="current-password"
-            disabled={loading}
-          />
-
-          {error && (
-            <div className="error">
-              {error}
+          {/* Header */}
+          <div className="text-center mb-7">
+            <div className="text-5xl mb-3">
+              📚
             </div>
-          )}
 
-          <button
-            type="submit"
-            className={
-              role === "Teacher"
-                ? "login-button teacher-login"
-                : "login-button student-login"
-            }
-            disabled={loading}
+            <h1 className="text-3xl font-bold text-gray-800">
+              Attendance Portal
+            </h1>
+
+            <p className="text-gray-500 mt-2">
+              Login to continue
+            </p>
+          </div>
+
+          {/* Role Buttons */}
+          <div className="grid grid-cols-2 gap-3 mb-6">
+
+            <button
+              type="button"
+              onClick={() => {
+                setRole("Student");
+                setError("");
+              }}
+              className={`rounded-xl py-3 px-3 font-semibold transition-all ${
+                role === "Student"
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              👨‍🎓 Student
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setRole("Teacher");
+                setError("");
+              }}
+              className={`rounded-xl py-3 px-3 font-semibold transition-all ${
+                role === "Teacher"
+                  ? "bg-indigo-600 text-white shadow-lg"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              👨‍🏫 Teacher
+            </button>
+
+          </div>
+
+          {/* Login Form */}
+          <form
+            onSubmit={handleLogin}
+            className="space-y-5"
           >
-            {loading
-              ? "⏳ Checking..."
-              : "Login →"}
-          </button>
 
-        </form>
+            {/* Username */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Username
+              </label>
 
-        <p className="footer">
-          Student Attendance Management System
-        </p>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => {
+                  setUsername(e.target.value);
+                  setError("");
+                }}
+                placeholder={
+                  role === "Student"
+                    ? "Enter student username"
+                    : "Enter teacher username"
+                }
+                autoComplete="username"
+                disabled={loading}
+                className="w-full rounded-xl border border-gray-300 px-4 py-3 text-gray-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
+              />
+            </div>
 
+            {/* Password */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Password
+              </label>
+
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setError("");
+                }}
+                placeholder="Enter password"
+                autoComplete="current-password"
+                disabled={loading}
+                className="w-full rounded-xl border border-gray-300 px-4 py-3 text-gray-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
+              />
+            </div>
+
+            {/* Error */}
+            {error && (
+              <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3">
+                <p className="text-sm font-medium text-red-700">
+                  ❌ {error}
+                </p>
+              </div>
+            )}
+
+            {/* Login */}
+            <button
+              type="submit"
+              disabled={loading}
+              className={`w-full rounded-xl py-3.5 font-bold text-white transition-all ${
+                loading
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : role === "Student"
+                  ? "bg-blue-600 hover:bg-blue-700 active:scale-[0.98]"
+                  : "bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98]"
+              }`}
+            >
+              {loading
+                ? "⏳ Checking..."
+                : "Login →"}
+            </button>
+
+          </form>
+
+          {/* Footer */}
+          <div className="text-center mt-6">
+            <p className="text-xs text-gray-400">
+              Student Attendance Management System
+            </p>
+          </div>
+
+        </div>
       </div>
-
-      <style jsx>{`
-        * {
-          box-sizing: border-box;
-        }
-
-        .page {
-          min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 20px;
-          background:
-            linear-gradient(
-              135deg,
-              #dbeafe 0%,
-              #eef2ff 50%,
-              #dcfce7 100%
-            );
-          font-family:
-            Arial,
-            Helvetica,
-            sans-serif;
-        }
-
-        .login-card {
-          width: 100%;
-          max-width: 430px;
-          background: white;
-          padding: 35px;
-          border-radius: 25px;
-          box-shadow:
-            0 25px 60px
-            rgba(0, 0, 0, 0.15);
-        }
-
-        .logo {
-          width: 75px;
-          height: 75px;
-          margin: 0 auto 15px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 20px;
-          background:
-            linear-gradient(
-              135deg,
-              #dbeafe,
-              #e0e7ff
-            );
-          font-size: 40px;
-        }
-
-        h1 {
-          text-align: center;
-          margin: 10px 0;
-          color: #111827;
-          font-size: 30px;
-        }
-
-        .subtitle {
-          text-align: center;
-          color: #64748b;
-          margin: 0 0 25px;
-        }
-
-        .role-buttons {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 10px;
-          margin-bottom: 22px;
-        }
-
-        .role-button {
-          border: none;
-          padding: 13px;
-          border-radius: 10px;
-          background: #e2e8f0;
-          color: #334155;
-          font-weight: bold;
-          font-size: 15px;
-          cursor: pointer;
-        }
-
-        .student-active {
-          background: #2563eb;
-          color: white;
-        }
-
-        .teacher-active {
-          background: #7c3aed;
-          color: white;
-        }
-
-        label {
-          display: block;
-          margin-bottom: 7px;
-          color: #111827;
-          font-weight: bold;
-          font-size: 14px;
-        }
-
-        input {
-          width: 100%;
-          padding: 14px;
-          margin-bottom: 18px;
-          border: 2px solid #bfdbfe;
-          border-radius: 10px;
-          background: white;
-          color: #111827;
-          font-size: 16px;
-          outline: none;
-        }
-
-        input:focus {
-          border-color: #2563eb;
-          box-shadow:
-            0 0 0 3px
-            rgba(37, 99, 235, 0.1);
-        }
-
-        .error {
-          background: #fee2e2;
-          color: #991b1b;
-          padding: 12px;
-          border-radius: 10px;
-          margin-bottom: 15px;
-          font-weight: 600;
-          text-align: center;
-        }
-
-        .login-button {
-          width: 100%;
-          padding: 15px;
-          border: none;
-          border-radius: 11px;
-          color: white;
-          font-size: 17px;
-          font-weight: bold;
-          cursor: pointer;
-        }
-
-        .student-login {
-          background:
-            linear-gradient(
-              135deg,
-              #2563eb,
-              #1d4ed8
-            );
-        }
-
-        .teacher-login {
-          background:
-            linear-gradient(
-              135deg,
-              #7c3aed,
-              #4f46e5
-            );
-        }
-
-        .footer {
-          text-align: center;
-          color: #94a3b8;
-          font-size: 12px;
-          margin-top: 25px;
-          margin-bottom: 0;
-        }
-
-        @media (max-width: 500px) {
-          .page {
-            padding: 15px;
-          }
-
-          .login-card {
-            padding: 25px 20px;
-            border-radius: 20px;
-          }
-
-          h1 {
-            font-size: 26px;
-          }
-
-          .logo {
-            width: 65px;
-            height: 65px;
-            font-size: 34px;
-          }
-        }
-      `}</style>
     </main>
   );
 }

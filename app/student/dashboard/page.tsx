@@ -19,106 +19,258 @@ type AttendanceRecord = {
 export default function StudentDashboard() {
   const router = useRouter();
 
-  const [studentName, setStudentName] =
-    useState("Student");
+  const [studentName, setStudentName] = useState("Student");
+  const [studentUsername, setStudentUsername] = useState("");
+  const [studentId, setStudentId] = useState<number | null>(null);
 
-  const [studentUsername, setStudentUsername] =
-    useState("");
-
-  const [studentId, setStudentId] =
-    useState<number | null>(null);
-
-  const [attendance, setAttendance] =
-    useState<AttendanceRecord[]>([]);
-
-  const [loading, setLoading] =
-    useState(true);
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loggedIn =
-      localStorage.getItem(
-        "studentLoggedIn"
-      );
+    async function initializeStudent() {
+      try {
+        /*
+         * NEW LOGIN SYSTEM
+         */
+        const newUsername =
+          localStorage.getItem("attendance_username");
 
-    const savedId =
-      localStorage.getItem("studentId");
+        const newStudentId =
+          localStorage.getItem("attendance_student_id");
 
-    const savedName =
-      localStorage.getItem("studentName");
+        const newStudentName =
+          localStorage.getItem("attendance_student_name");
 
-    const savedUsername =
-      localStorage.getItem(
-        "studentUsername"
-      );
+        const newRole =
+          localStorage.getItem("attendance_role");
 
-    /*
-     * STUDENT ONLY
-     *
-     * If there is no student session,
-     * send user back to login.
-     */
+        /*
+         * OLD LOGIN SYSTEM
+         * Kept for compatibility with existing pages.
+         */
+        const oldUsername =
+          localStorage.getItem("studentUsername");
 
-    if (
-      loggedIn !== "true" ||
-      !savedId
-    ) {
-      router.replace("/");
-      return;
+        const oldStudentId =
+          localStorage.getItem("studentId");
+
+        const oldStudentName =
+          localStorage.getItem("studentName");
+
+        const oldLoggedIn =
+          localStorage.getItem("studentLoggedIn");
+
+        /*
+         * Use new system first.
+         */
+        let username =
+          newUsername || oldUsername || "";
+
+        let idValue =
+          newStudentId || oldStudentId || "";
+
+        let name =
+          newStudentName || oldStudentName || "Student";
+
+        /*
+         * If role exists and is not Student,
+         * don't allow access.
+         */
+        if (
+          newRole &&
+          newRole !== "Student"
+        ) {
+          router.replace("/");
+          return;
+        }
+
+        /*
+         * If old login exists, allow it.
+         */
+        if (
+          !newUsername &&
+          oldLoggedIn !== "true"
+        ) {
+          /*
+           * No valid login information.
+           */
+          router.replace("/");
+          return;
+        }
+
+        /*
+         * If we have username but no ID,
+         * find the student ID from Supabase.
+         */
+        let id =
+          idValue
+            ? Number(idValue)
+            : null;
+
+        if (
+          (!id || Number.isNaN(id)) &&
+          username
+        ) {
+          const { data, error } =
+            await supabase
+              .from("students")
+              .select(
+                "id, student_username, student_name"
+              )
+              .eq(
+                "student_username",
+                username
+              )
+              .maybeSingle();
+
+          if (error) {
+            console.error(
+              "Student lookup error:",
+              error
+            );
+          }
+
+          if (data) {
+            id = Number(data.id);
+
+            if (data.student_name) {
+              name =
+                data.student_name;
+            }
+
+            /*
+             * Save ID for all existing pages.
+             */
+            localStorage.setItem(
+              "attendance_student_id",
+              String(id)
+            );
+
+            localStorage.setItem(
+              "studentId",
+              String(id)
+            );
+          }
+        }
+
+        /*
+         * Still no student ID?
+         */
+        if (!id || Number.isNaN(id)) {
+          console.error(
+            "Student ID not found."
+          );
+
+          router.replace("/");
+          return;
+        }
+
+        /*
+         * SAVE BOTH NEW AND OLD SESSION KEYS
+         *
+         * This makes all existing student pages
+         * compatible with the new login system.
+         */
+
+        localStorage.setItem(
+          "attendance_role",
+          "Student"
+        );
+
+        localStorage.setItem(
+          "attendance_username",
+          username
+        );
+
+        localStorage.setItem(
+          "attendance_student_id",
+          String(id)
+        );
+
+        localStorage.setItem(
+          "attendance_student_name",
+          name
+        );
+
+        localStorage.setItem(
+          "studentLoggedIn",
+          "true"
+        );
+
+        localStorage.setItem(
+          "studentUsername",
+          username
+        );
+
+        localStorage.setItem(
+          "studentName",
+          name
+        );
+
+        localStorage.setItem(
+          "studentId",
+          String(id)
+        );
+
+        /*
+         * Remove teacher session.
+         */
+        localStorage.removeItem(
+          "teacherLoggedIn"
+        );
+
+        localStorage.removeItem(
+          "teacher"
+        );
+
+        localStorage.removeItem(
+          "teacherUsername"
+        );
+
+        localStorage.removeItem(
+          "teacherName"
+        );
+
+        /*
+         * Set state.
+         */
+        setStudentId(id);
+        setStudentName(name);
+        setStudentUsername(username);
+
+        /*
+         * Load attendance.
+         */
+        await loadAttendance(id);
+      } catch (error) {
+        console.error(
+          "Student initialization error:",
+          error
+        );
+
+        router.replace("/");
+      }
     }
 
-    /*
-     * IMPORTANT:
-     * If a teacher session exists,
-     * NEVER allow teacher session here.
-     */
-
-    if (
-      localStorage.getItem(
-        "teacherLoggedIn"
-      ) === "true"
-    ) {
-      localStorage.removeItem(
-        "teacherLoggedIn"
-      );
-
-      localStorage.removeItem(
-        "teacher"
-      );
-
-      localStorage.removeItem(
-        "teacherUsername"
-      );
-
-      localStorage.removeItem(
-        "teacherName"
-      );
-    }
-
-    setStudentId(Number(savedId));
-
-    setStudentName(
-      savedName || "Student"
-    );
-
-    setStudentUsername(
-      savedUsername || ""
-    );
-
-    loadAttendance(Number(savedId));
+    initializeStudent();
   }, [router]);
 
-  async function loadAttendance(
-    id: number
-  ) {
+  async function loadAttendance(id: number) {
     setLoading(true);
 
-    const { data, error } =
-      await supabase
+    try {
+      const {
+        data,
+        error,
+      } = await supabase
         .from("attendance")
         .select(
           "id, student_id, attendance_date, status"
         )
-        .eq("student_id", id)
+        .eq(
+          "student_id",
+          id
+        )
         .order(
           "attendance_date",
           {
@@ -126,25 +278,55 @@ export default function StudentDashboard() {
           }
         );
 
-    if (error) {
+      if (error) {
+        console.error(
+          "Student attendance error:",
+          error
+        );
+
+        setAttendance([]);
+        setLoading(false);
+        return;
+      }
+
+      setAttendance(
+        (data || []) as AttendanceRecord[]
+      );
+    } catch (error) {
       console.error(
-        "Student attendance error:",
+        "Attendance loading error:",
         error
       );
 
       setAttendance([]);
-      setLoading(false);
-      return;
     }
-
-    setAttendance(
-      (data || []) as AttendanceRecord[]
-    );
 
     setLoading(false);
   }
 
   function logout() {
+    /*
+     * Remove new session.
+     */
+    localStorage.removeItem(
+      "attendance_role"
+    );
+
+    localStorage.removeItem(
+      "attendance_username"
+    );
+
+    localStorage.removeItem(
+      "attendance_student_id"
+    );
+
+    localStorage.removeItem(
+      "attendance_student_name"
+    );
+
+    /*
+     * Remove old session.
+     */
     localStorage.removeItem(
       "studentLoggedIn"
     );
@@ -164,19 +346,22 @@ export default function StudentDashboard() {
     router.replace("/");
   }
 
-  const present = attendance.filter(
-    (item) =>
-      String(item.status).toLowerCase() ===
-      "present"
-  ).length;
+  const present =
+    attendance.filter(
+      (item) =>
+        String(item.status).toLowerCase() ===
+        "present"
+    ).length;
 
-  const absent = attendance.filter(
-    (item) =>
-      String(item.status).toLowerCase() ===
-      "absent"
-  ).length;
+  const absent =
+    attendance.filter(
+      (item) =>
+        String(item.status).toLowerCase() ===
+        "absent"
+    ).length;
 
-  const total = attendance.length;
+  const total =
+    attendance.length;
 
   const percentage =
     total > 0
@@ -192,7 +377,6 @@ export default function StudentDashboard() {
         {/* HEADER */}
 
         <header style={styles.header}>
-
           <div style={styles.brand}>
             <div style={styles.logo}>
               🎓
@@ -215,22 +399,18 @@ export default function StudentDashboard() {
           >
             🚪 Logout
           </button>
-
         </header>
 
         {/* WELCOME */}
 
         <section style={styles.hero}>
-
           <div>
-
             <div style={styles.smallText}>
               STUDENT PORTAL
             </div>
 
             <h2 style={styles.heroTitle}>
-              Welcome back,{" "}
-              {studentName} 👋
+              Welcome back, {studentName} 👋
             </h2>
 
             <p style={styles.heroText}>
@@ -239,13 +419,11 @@ export default function StudentDashboard() {
                 {studentUsername}
               </strong>
             </p>
-
           </div>
 
           <div style={styles.heroIcon}>
             👨‍🎓
           </div>
-
         </section>
 
         {/* STATS */}
@@ -253,7 +431,6 @@ export default function StudentDashboard() {
         <section style={styles.stats}>
 
           <div style={styles.statCard}>
-
             <div style={styles.statIcon}>
               📚
             </div>
@@ -267,11 +444,9 @@ export default function StudentDashboard() {
                 {total}
               </h3>
             </div>
-
           </div>
 
           <div style={styles.statCard}>
-
             <div
               style={{
                 ...styles.statIcon,
@@ -295,11 +470,9 @@ export default function StudentDashboard() {
                 {present}
               </h3>
             </div>
-
           </div>
 
           <div style={styles.statCard}>
-
             <div
               style={{
                 ...styles.statIcon,
@@ -323,11 +496,9 @@ export default function StudentDashboard() {
                 {absent}
               </h3>
             </div>
-
           </div>
 
           <div style={styles.statCard}>
-
             <div
               style={{
                 ...styles.statIcon,
@@ -351,7 +522,6 @@ export default function StudentDashboard() {
                 {percentage}%
               </h3>
             </div>
-
           </div>
 
         </section>
@@ -359,14 +529,12 @@ export default function StudentDashboard() {
         {/* QUICK MENU */}
 
         <section style={styles.menuSection}>
-
           <h2 style={styles.sectionTitle}>
             Student Control Center
           </h2>
 
           <p style={styles.sectionSubtitle}>
-            View your attendance and student
-            information
+            View your attendance and student information
           </p>
 
           <div style={styles.menuGrid}>
@@ -380,7 +548,7 @@ export default function StudentDashboard() {
               style={styles.menuCard}
             >
               <span style={styles.menuIcon}>
-                📝
+                📋
               </span>
 
               <span>
@@ -389,34 +557,7 @@ export default function StudentDashboard() {
                 </strong>
 
                 <small>
-                  View attendance
-                </small>
-              </span>
-
-              <span style={styles.arrow}>
-                →
-              </span>
-            </button>
-
-            <button
-              onClick={() =>
-                router.push(
-                  "/student/attendance-history"
-                )
-              }
-              style={styles.menuCard}
-            >
-              <span style={styles.menuIcon}>
-                📅
-              </span>
-
-              <span>
-                <strong>
-                  Attendance History
-                </strong>
-
-                <small>
-                  View previous records
+                  View your attendance
                 </small>
               </span>
 
@@ -434,7 +575,7 @@ export default function StudentDashboard() {
               style={styles.menuCard}
             >
               <span style={styles.menuIcon}>
-                🗓️
+                📅
               </span>
 
               <span>
@@ -534,7 +675,6 @@ export default function StudentDashboard() {
             </button>
 
           </div>
-
         </section>
 
         {/* RECENT ATTENDANCE */}
@@ -542,7 +682,6 @@ export default function StudentDashboard() {
         <section style={styles.attendanceSection}>
 
           <div style={styles.sectionHeader}>
-
             <div>
               <h2 style={styles.sectionTitle}>
                 📋 Recent Attendance
@@ -565,7 +704,6 @@ export default function StudentDashboard() {
             >
               🔄 Refresh
             </button>
-
           </div>
 
           {loading ? (
@@ -574,13 +712,11 @@ export default function StudentDashboard() {
             </div>
           ) : attendance.length === 0 ? (
             <div style={styles.empty}>
-              📭 No attendance records found.
+              📋 No attendance records found.
             </div>
           ) : (
             <div style={styles.tableWrapper}>
-
               <table style={styles.table}>
-
                 <thead>
                   <tr>
                     <th style={styles.th}>
@@ -594,11 +730,9 @@ export default function StudentDashboard() {
                 </thead>
 
                 <tbody>
-
                   {attendance
                     .slice(0, 10)
                     .map((record) => {
-
                       const isPresent =
                         String(
                           record.status
@@ -608,11 +742,10 @@ export default function StudentDashboard() {
                       return (
                         <tr
                           key={
-                            record.id ||
+                            record.id ??
                             record.attendance_date
                           }
                         >
-
                           <td style={styles.td}>
                             {formatDate(
                               record.attendance_date
@@ -620,7 +753,6 @@ export default function StudentDashboard() {
                           </td>
 
                           <td style={styles.td}>
-
                             <span
                               style={
                                 isPresent
@@ -632,27 +764,19 @@ export default function StudentDashboard() {
                                 ? "✓ Present"
                                 : "✕ Absent"}
                             </span>
-
                           </td>
-
                         </tr>
                       );
                     })}
-
                 </tbody>
-
               </table>
-
             </div>
           )}
 
         </section>
 
-        {/* FOOTER */}
-
         <footer style={styles.footer}>
-          Attendance Portal • Student Dashboard •
-          2026
+          Attendance Portal • Student Dashboard • 2026
         </footer>
 
       </div>
@@ -660,9 +784,7 @@ export default function StudentDashboard() {
   );
 }
 
-function formatDate(
-  date: string
-) {
+function formatDate(date: string) {
   if (!date) return "";
 
   return new Date(
@@ -680,7 +802,6 @@ function formatDate(
 const styles: {
   [key: string]: React.CSSProperties;
 } = {
-
   page: {
     minHeight: "100vh",
     background:
@@ -964,7 +1085,7 @@ const styles: {
 
   present: {
     display: "inline-block",
-    padding: "7px 11px",
+    padding: "6px 10px",
     borderRadius: "8px",
     background: "#dcfce7",
     color: "#15803d",
@@ -973,7 +1094,7 @@ const styles: {
 
   absent: {
     display: "inline-block",
-    padding: "7px 11px",
+    padding: "6px 10px",
     borderRadius: "8px",
     background: "#fee2e2",
     color: "#dc2626",
@@ -982,7 +1103,7 @@ const styles: {
 
   footer: {
     textAlign: "center",
-    padding: "25px 10px 10px",
+    padding: "25px 10px",
     color: "#64748b",
     fontSize: "12px",
   },

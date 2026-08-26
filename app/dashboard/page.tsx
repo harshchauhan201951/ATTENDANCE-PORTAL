@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -21,19 +22,43 @@ type AttendanceRecord = {
 };
 
 export default function DashboardPage() {
-  const [students, setStudents] = useState<Student[]>([]);
-  const [attendance, setAttendance] = useState<Record<number, string>>({});
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const router = useRouter();
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
+  const [students, setStudents] =
+    useState<Student[]>([]);
+
+  const [attendance, setAttendance] =
+    useState<Record<number, string>>({});
+
+  const [selectedDate, setSelectedDate] =
+    useState(
+      new Date()
+        .toISOString()
+        .split("T")[0]
+    );
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [saving, setSaving] =
+    useState(false);
+
+  const [message, setMessage] =
+    useState("");
 
   useEffect(() => {
+    const teacherLoggedIn =
+      localStorage.getItem(
+        "teacherLoggedIn"
+      );
+
+    if (teacherLoggedIn !== "true") {
+      router.replace("/");
+      return;
+    }
+
     loadStudents();
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (students.length > 0) {
@@ -45,16 +70,27 @@ export default function DashboardPage() {
     setLoading(true);
     setMessage("");
 
-    const { data, error } = await supabase
-      .from("students")
-      .select("id, student_name, student_username")
-      .order("id", { ascending: true });
+    const { data, error } =
+      await supabase
+        .from("students")
+        .select(
+          "id, student_name, student_username"
+        )
+        .order("id", {
+          ascending: true,
+        });
 
     if (error) {
-      console.error("Students error:", error);
-      setMessage(
-        "Students load nahi ho rahe: " + error.message
+      console.error(
+        "Students error:",
+        error
       );
+
+      setMessage(
+        "Students load nahi ho rahe: " +
+          error.message
+      );
+
       setLoading(false);
       return;
     }
@@ -64,21 +100,34 @@ export default function DashboardPage() {
   }
 
   async function loadAttendance() {
-    const { data, error } = await supabase
-      .from("attendance")
-      .select("student_id, attendance_date, status")
-      .eq("attendance_date", selectedDate);
+    const { data, error } =
+      await supabase
+        .from("attendance")
+        .select(
+          "student_id, attendance_date, status"
+        )
+        .eq(
+          "attendance_date",
+          selectedDate
+        );
 
     if (error) {
-      console.error("Attendance error:", error);
+      console.error(
+        "Attendance error:",
+        error
+      );
       return;
     }
 
-    const result: Record<number, string> = {};
+    const result: Record<
+      number,
+      string
+    > = {};
 
     (data || []).forEach(
       (item: AttendanceRecord) => {
-        result[item.student_id] = item.status;
+        result[item.student_id] =
+          item.status;
       }
     );
 
@@ -95,9 +144,24 @@ export default function DashboardPage() {
     }));
   }
 
+  function markAll(status: string) {
+    const result: Record<
+      number,
+      string
+    > = {};
+
+    students.forEach((student) => {
+      result[student.id] = status;
+    });
+
+    setAttendance(result);
+  }
+
   async function saveAttendance() {
     if (students.length === 0) {
-      setMessage("Koi student nahi mila.");
+      setMessage(
+        "Koi student nahi mila."
+      );
       return;
     }
 
@@ -105,27 +169,34 @@ export default function DashboardPage() {
     setMessage("");
 
     const rows = students
-      .filter((student) => attendance[student.id])
+      .filter(
+        (student) =>
+          attendance[student.id]
+      )
       .map((student) => ({
         student_id: student.id,
-        attendance_date: selectedDate,
-        status: attendance[student.id],
+        attendance_date:
+          selectedDate,
+        status:
+          attendance[student.id],
       }));
 
     if (rows.length === 0) {
       setMessage(
         "Pehle Present ya Absent mark karo."
       );
+
       setSaving(false);
       return;
     }
 
-    const { error } = await supabase
-      .from("attendance")
-      .upsert(rows, {
-        onConflict:
-          "student_id,attendance_date",
-      });
+    const { error } =
+      await supabase
+        .from("attendance")
+        .upsert(rows, {
+          onConflict:
+            "student_id,attendance_date",
+        });
 
     if (error) {
       console.error(
@@ -151,14 +222,24 @@ export default function DashboardPage() {
     setSaving(false);
   }
 
-  function markAll(status: string) {
-    const result: Record<number, string> = {};
+  function logout() {
+    localStorage.removeItem(
+      "teacherLoggedIn"
+    );
 
-    students.forEach((student) => {
-      result[student.id] = status;
-    });
+    localStorage.removeItem(
+      "teacher"
+    );
 
-    setAttendance(result);
+    localStorage.removeItem(
+      "teacherUsername"
+    );
+
+    localStorage.removeItem(
+      "teacherName"
+    );
+
+    router.replace("/");
   }
 
   return (
@@ -167,7 +248,8 @@ export default function DashboardPage() {
         minHeight: "100vh",
         background: "#f5f7fb",
         padding: "20px",
-        fontFamily: "Arial, sans-serif",
+        fontFamily:
+          "Arial, sans-serif",
       }}
     >
       <div
@@ -186,26 +268,50 @@ export default function DashboardPage() {
             marginBottom: "20px",
             boxShadow:
               "0 4px 15px rgba(0,0,0,0.08)",
+            display: "flex",
+            justifyContent:
+              "space-between",
+            alignItems: "center",
+            gap: "15px",
+            flexWrap: "wrap",
           }}
         >
-          <h1
-            style={{
-              margin: 0,
-              fontSize: "28px",
-              fontWeight: 700,
-            }}
-          >
-            📚 Attendance Portal
-          </h1>
+          <div>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: "28px",
+                fontWeight: 700,
+              }}
+            >
+              📚 Attendance Portal
+            </h1>
 
-          <p
+            <p
+              style={{
+                marginTop: "8px",
+                color: "#666",
+                marginBottom: 0,
+              }}
+            >
+              Teacher Attendance Management
+            </p>
+          </div>
+
+          <button
+            onClick={logout}
             style={{
-              marginTop: "8px",
-              color: "#666",
+              padding: "11px 17px",
+              border: "none",
+              borderRadius: "8px",
+              background: "#dc3545",
+              color: "white",
+              fontWeight: 600,
+              cursor: "pointer",
             }}
           >
-            Student Attendance Management
-          </p>
+            🚪 Logout
+          </button>
         </div>
 
         {/* DATE */}
@@ -234,11 +340,14 @@ export default function DashboardPage() {
             type="date"
             value={selectedDate}
             onChange={(e) =>
-              setSelectedDate(e.target.value)
+              setSelectedDate(
+                e.target.value
+              )
             }
             style={{
               padding: "11px 14px",
-              border: "1px solid #ccc",
+              border:
+                "1px solid #ccc",
               borderRadius: "8px",
               fontSize: "15px",
             }}
@@ -340,9 +449,12 @@ export default function DashboardPage() {
           <div
             style={{
               display: "flex",
-              justifyContent: "space-between",
+              justifyContent:
+                "space-between",
               alignItems: "center",
               marginBottom: "20px",
+              gap: "10px",
+              flexWrap: "wrap",
             }}
           >
             <h2 style={{ margin: 0 }}>
@@ -372,21 +484,24 @@ export default function DashboardPage() {
                 borderRadius: "10px",
               }}
             >
-              ⚠️ Students table se koi student
-              nahi mil raha.
+              ⚠️ Students table se koi
+              student nahi mil raha.
             </div>
           ) : (
             <div
               style={{
                 display: "flex",
-                flexDirection: "column",
+                flexDirection:
+                  "column",
                 gap: "12px",
               }}
             >
               {students.map(
                 (student, index) => {
                   const status =
-                    attendance[student.id];
+                    attendance[
+                      student.id
+                    ];
 
                   return (
                     <div
@@ -394,23 +509,25 @@ export default function DashboardPage() {
                       style={{
                         border:
                           "1px solid #e5e7eb",
-                        borderRadius: "12px",
+                        borderRadius:
+                          "12px",
                         padding: "15px",
                         display: "flex",
                         justifyContent:
                           "space-between",
-                        alignItems: "center",
+                        alignItems:
+                          "center",
                         gap: "15px",
-                        flexWrap: "wrap",
+                        flexWrap:
+                          "wrap",
                       }}
                     >
-                      {/* STUDENT */}
-
                       <div>
                         <div
                           style={{
                             fontWeight: 700,
-                            fontSize: "17px",
+                            fontSize:
+                              "17px",
                           }}
                         >
                           {index + 1}.{" "}
@@ -421,8 +538,10 @@ export default function DashboardPage() {
                         <div
                           style={{
                             color: "#777",
-                            fontSize: "14px",
-                            marginTop: "4px",
+                            fontSize:
+                              "14px",
+                            marginTop:
+                              "4px",
                           }}
                         >
                           Username:{" "}
@@ -431,8 +550,6 @@ export default function DashboardPage() {
                           }
                         </div>
                       </div>
-
-                      {/* ATTENDANCE */}
 
                       <div
                         style={{
@@ -467,7 +584,8 @@ export default function DashboardPage() {
                               "Present"
                                 ? "white"
                                 : "#198754",
-                            fontWeight: 600,
+                            fontWeight:
+                              600,
                             cursor:
                               "pointer",
                           }}
@@ -502,7 +620,8 @@ export default function DashboardPage() {
                               "Absent"
                                 ? "white"
                                 : "#dc3545",
-                            fontWeight: 600,
+                            fontWeight:
+                              600,
                             cursor:
                               "pointer",
                           }}
