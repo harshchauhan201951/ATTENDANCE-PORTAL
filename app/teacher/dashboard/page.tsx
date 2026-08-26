@@ -104,7 +104,7 @@ export default function TeacherDashboard() {
       description:
         "Mark today's student attendance",
       icon: "📝",
-      path: "/teacher/students",
+      path: "/teacher/attendance",
     },
     {
       title: "Attendance History",
