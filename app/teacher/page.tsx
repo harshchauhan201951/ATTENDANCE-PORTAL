@@ -48,6 +48,13 @@ const menuItems: MenuItem[] = [
     accent: "fees",
   },
   {
+    title: "Profile",
+    subtitle: "Manage your teacher profile and picture",
+    icon: "👤",
+    route: "/teacher/profile",
+    accent: "profile",
+  },
+  {
     title: "Settings",
     subtitle: "Manage teacher account settings",
     icon: "⚙",
@@ -92,6 +99,7 @@ export default function TeacherControlCenter() {
       localStorage.removeItem("teacherName");
       localStorage.removeItem("teacher_name");
       localStorage.removeItem("teacher");
+
       sessionStorage.removeItem("teacherName");
       sessionStorage.removeItem("teacher_name");
       sessionStorage.removeItem("teacher");
@@ -112,6 +120,7 @@ export default function TeacherControlCenter() {
         <div className="loading-orbit">
           <div className="loading-dot" />
         </div>
+
         <p>Preparing Teacher Control Centre...</p>
 
         <style jsx>{`
@@ -197,11 +206,23 @@ export default function TeacherControlCenter() {
 
             <div>
               <div className="brand-name">RACER ACADEMY</div>
-              <div className="brand-subtitle">ACADEMIC MANAGEMENT SYSTEM</div>
+              <div className="brand-subtitle">
+                ACADEMIC MANAGEMENT SYSTEM
+              </div>
             </div>
           </div>
 
           <div className="top-actions">
+            <button
+              className="profile-mini-button"
+              type="button"
+              onClick={() => router.push("/teacher/profile")}
+              title="Teacher Profile"
+            >
+              <span className="profile-mini-icon">👤</span>
+              <span className="profile-mini-text">Profile</span>
+            </button>
+
             <div className="live-status">
               <span className="live-dot" />
               <span>CONTROL CENTRE</span>
@@ -248,6 +269,15 @@ export default function TeacherControlCenter() {
                 <span className="meta-icon">◆</span>
                 Teacher Access
               </div>
+
+              <button
+                type="button"
+                className="profile-hero-button"
+                onClick={() => router.push("/teacher/profile")}
+              >
+                <span>👤</span>
+                Teacher Profile
+              </button>
             </div>
           </div>
 
@@ -255,6 +285,7 @@ export default function TeacherControlCenter() {
             <div className="control-orb">
               <div className="orb-ring ring-one" />
               <div className="orb-ring ring-two" />
+
               <div className="orb-core">
                 <span>TC</span>
               </div>
@@ -271,6 +302,7 @@ export default function TeacherControlCenter() {
         <section className="status-strip">
           <div className="status-item">
             <div className="status-symbol">01</div>
+
             <div>
               <span>ACCESS</span>
               <strong>TEACHER</strong>
@@ -280,7 +312,8 @@ export default function TeacherControlCenter() {
           <div className="status-divider" />
 
           <div className="status-item">
-            <div className="status-symbol">06</div>
+            <div className="status-symbol">07</div>
+
             <div>
               <span>MODULES</span>
               <strong>AVAILABLE</strong>
@@ -291,6 +324,7 @@ export default function TeacherControlCenter() {
 
           <div className="status-item">
             <div className="status-symbol pulse-symbol">●</div>
+
             <div>
               <span>PORTAL</span>
               <strong>ONLINE</strong>
@@ -316,7 +350,9 @@ export default function TeacherControlCenter() {
             <button
               key={item.title}
               type="button"
-              className={`module-card ${activeCard === item.title ? "active" : ""}`}
+              className={`module-card ${
+                activeCard === item.title ? "active" : ""
+              }`}
               onMouseEnter={() => setActiveCard(item.title)}
               onMouseLeave={() => setActiveCard(null)}
               onClick={() => openSection(item.route)}
@@ -333,9 +369,7 @@ export default function TeacherControlCenter() {
                 <div className="module-title-row">
                   <h3>{item.title}</h3>
 
-                  <span className="arrow">
-                    →
-                  </span>
+                  <span className="arrow">→</span>
                 </div>
 
                 <p>{item.subtitle}</p>
@@ -389,7 +423,12 @@ export default function TeacherControlCenter() {
               rgba(14, 165, 233, 0.12),
               transparent 28%
             ),
-            linear-gradient(135deg, #060914 0%, #0b1020 48%, #070b16 100%);
+            linear-gradient(
+              135deg,
+              #060914 0%,
+              #0b1020 48%,
+              #070b16 100%
+            );
           font-family:
             Inter,
             ui-sans-serif,
@@ -448,10 +487,10 @@ export default function TeacherControlCenter() {
           z-index: 2;
         }
 
-        /* TOPBAR */
+        /* TOP BAR */
 
         .topbar {
-          height: 88px;
+          min-height: 88px;
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -504,7 +543,35 @@ export default function TeacherControlCenter() {
         .top-actions {
           display: flex;
           align-items: center;
-          gap: 20px;
+          gap: 12px;
+        }
+
+        .profile-mini-button {
+          border: 1px solid rgba(129, 140, 248, 0.2);
+          background: rgba(99, 102, 241, 0.08);
+          color: #c7d2fe;
+          border-radius: 11px;
+          padding: 9px 13px;
+          display: flex;
+          gap: 7px;
+          align-items: center;
+          cursor: pointer;
+          font-size: 11px;
+          transition: 0.25s ease;
+        }
+
+        .profile-mini-button:hover {
+          background: rgba(99, 102, 241, 0.17);
+          border-color: rgba(129, 140, 248, 0.4);
+          transform: translateY(-2px);
+        }
+
+        .profile-mini-icon {
+          font-size: 14px;
+        }
+
+        .profile-mini-text {
+          font-weight: 700;
         }
 
         .live-status {
@@ -587,7 +654,12 @@ export default function TeacherControlCenter() {
         }
 
         .hero h1 span {
-          background: linear-gradient(90deg, #ffffff, #a5b4fc 48%, #67e8f9);
+          background: linear-gradient(
+            90deg,
+            #ffffff,
+            #a5b4fc 48%,
+            #67e8f9
+          );
           -webkit-background-clip: text;
           background-clip: text;
           color: transparent;
@@ -598,7 +670,9 @@ export default function TeacherControlCenter() {
           font-size: 34px;
           margin-left: 13px;
           vertical-align: middle;
-          filter: drop-shadow(0 0 12px rgba(251, 191, 36, 0.2));
+          filter: drop-shadow(
+            0 0 12px rgba(251, 191, 36, 0.2)
+          );
         }
 
         .hero-description {
@@ -613,6 +687,7 @@ export default function TeacherControlCenter() {
           display: flex;
           gap: 10px;
           flex-wrap: wrap;
+          align-items: center;
         }
 
         .meta-pill {
@@ -628,6 +703,24 @@ export default function TeacherControlCenter() {
         .meta-icon {
           color: #67e8f9;
           margin-right: 6px;
+        }
+
+        .profile-hero-button {
+          padding: 8px 13px;
+          border-radius: 100px;
+          border: 1px solid rgba(129, 140, 248, 0.25);
+          background: rgba(99, 102, 241, 0.1);
+          color: #c7d2fe;
+          font-size: 10px;
+          font-weight: 800;
+          cursor: pointer;
+          transition: 0.25s ease;
+        }
+
+        .profile-hero-button:hover {
+          background: rgba(99, 102, 241, 0.2);
+          border-color: rgba(129, 140, 248, 0.45);
+          transform: translateY(-2px);
         }
 
         .hero-right {
@@ -898,6 +991,11 @@ export default function TeacherControlCenter() {
           color: #fbbf24;
         }
 
+        .icon-profile {
+          background: rgba(236, 72, 153, 0.11);
+          color: #f9a8d4;
+        }
+
         .icon-settings {
           background: rgba(148, 163, 184, 0.1);
           color: #cbd5e1;
@@ -997,6 +1095,10 @@ export default function TeacherControlCenter() {
 
         .glow-fees {
           background: #f59e0b;
+        }
+
+        .glow-profile {
+          background: #ec4899;
         }
 
         .glow-settings {
@@ -1110,7 +1212,7 @@ export default function TeacherControlCenter() {
           }
 
           .topbar {
-            height: 74px;
+            min-height: 74px;
           }
 
           .brand-subtitle,
@@ -1126,6 +1228,18 @@ export default function TeacherControlCenter() {
             width: 36px;
             height: 36px;
             border-radius: 11px;
+          }
+
+          .top-actions {
+            gap: 7px;
+          }
+
+          .profile-mini-button {
+            padding: 8px 9px;
+          }
+
+          .profile-mini-text {
+            display: none;
           }
 
           .logout-button {
@@ -1230,7 +1344,8 @@ export default function TeacherControlCenter() {
             letter-spacing: 1.8px;
           }
 
-          .meta-pill {
+          .meta-pill,
+          .profile-hero-button {
             font-size: 9px;
           }
         }
