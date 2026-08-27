@@ -25,10 +25,6 @@ export default function TeacherDashboard() {
 
   /*
    * PERMANENT LOGOUT
-   *
-   * Clears every known teacher/student
-   * authentication key from both
-   * localStorage and sessionStorage.
    */
   async function handleLogout() {
     if (loggingOut) {
@@ -38,16 +34,10 @@ export default function TeacherDashboard() {
     setLoggingOut(true);
 
     const authKeys = [
-      /*
-       * New authentication system
-       */
       "attendance_role",
       "attendance_username",
       "attendance_teacher_id",
 
-      /*
-       * Teacher authentication
-       */
       "teacherLoggedIn",
       "teacher",
       "teacherUsername",
@@ -55,9 +45,6 @@ export default function TeacherDashboard() {
       "teacherName",
       "teacher_name",
 
-      /*
-       * Student authentication
-       */
       "studentLoggedIn",
       "studentId",
       "studentUsername",
@@ -66,35 +53,20 @@ export default function TeacherDashboard() {
       "student_name",
     ];
 
-    /*
-     * Clear localStorage.
-     */
     authKeys.forEach((key) => {
       localStorage.removeItem(key);
     });
 
-    /*
-     * Clear sessionStorage.
-     */
     authKeys.forEach((key) => {
       sessionStorage.removeItem(key);
     });
 
-    /*
-     * Small delay so browser storage is fully updated.
-     */
     await new Promise((resolve) =>
       setTimeout(resolve, 100)
     );
 
-    /*
-     * Go to REAL login page.
-     */
     router.replace("/");
 
-    /*
-     * Refresh Next.js router state.
-     */
     router.refresh();
   }
 
@@ -142,22 +114,27 @@ export default function TeacherDashboard() {
       path: "/teacher/fees",
     },
 
+    {
+      title: "Payments",
+      description:
+        "Manage cash and online fee payments",
+      icon: "💳",
+      path: "/teacher/payments",
+    },
+
     /*
-     * HOME WORK
+     * HOMEWORK
      */
     {
-      title: "Home Work",
+      title: "Homework",
       description:
         "Create and manage student homework",
       icon: "📚",
-      path: "/teacher/HOME WORK",
+      path: "/teacher/homework",
     },
 
     /*
      * ANNOUNCEMENTS
-     *
-     * One teacher announcement will be
-     * available for all students.
      */
     {
       title: "Announcements",
@@ -165,6 +142,14 @@ export default function TeacherDashboard() {
         "Create and manage announcements for all students",
       icon: "📢",
       path: "/teacher/announcements",
+    },
+
+    {
+      title: "Profile",
+      description:
+        "Manage your teacher profile and picture",
+      icon: "👤",
+      path: "/teacher/profile",
     },
 
     {
@@ -241,7 +226,7 @@ export default function TeacherDashboard() {
               }}
             >
               Manage attendance,
-              students, homework, reports
+              homework, students, fees
               and more.
             </p>
           </div>
@@ -316,7 +301,7 @@ export default function TeacherDashboard() {
           }}
         >
           {menuItems.map(
-            (item) => (
+            (item, index) => (
               <button
                 type="button"
                 key={item.path}
@@ -352,11 +337,33 @@ export default function TeacherDashboard() {
               >
                 <div
                   style={{
-                    fontSize: "36px",
+                    display: "flex",
+                    justifyContent:
+                      "space-between",
+                    alignItems: "center",
                     marginBottom: "14px",
                   }}
                 >
-                  {item.icon}
+                  <div
+                    style={{
+                      fontSize: "36px",
+                    }}
+                  >
+                    {item.icon}
+                  </div>
+
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      fontWeight: 900,
+                      color: "#94a3b8",
+                    }}
+                  >
+                    {String(index + 1).padStart(
+                      2,
+                      "0"
+                    )}
+                  </div>
                 </div>
 
                 <h3
@@ -389,7 +396,7 @@ export default function TeacherDashboard() {
                     fontSize: "14px",
                   }}
                 >
-                  Open →
+                  Open Module →
                 </div>
               </button>
             )
@@ -407,7 +414,7 @@ export default function TeacherDashboard() {
           }}
         >
           Attendance Portal •
-          Teacher Dashboard
+          Teacher Dashboard • 2026
         </footer>
       </div>
     </main>
