@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -22,6 +22,7 @@ type Student = {
   city: string | null;
   class_name: string | null;
   blood_group: string | null;
+  profile_image_url: string | null;
 };
 
 type FormData = {
@@ -50,22 +51,20 @@ const emptyForm: FormData = {
   blood_group: "",
 };
 
-const PROFILE_BUCKET = "student-profiles";
-
 export default function StudentProfilePage() {
   const [student, setStudent] = useState<Student | null>(null);
   const [form, setForm] = useState<FormData>(emptyForm);
 
-  const [profileImage, setProfileImage] = useState("");
-  const [uploadingImage, setUploadingImage] = useState(false);
-
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [editing, setEditing] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [lastUpdated, setLastUpdated] = useState("");
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     loadStudent();
@@ -97,39 +96,14 @@ export default function StudentProfilePage() {
     };
   }
 
-  function getProfileImageUrl(username: string) {
-    const { data } = supabase.storage
-      .from(PROFILE_BUCKET)
-      .getPublicUrl(`${username}.jpg`);
-
-    return `${data.publicUrl}?t=${Date.now()}`;
-  }
-
-  async function checkProfileImage(username: string) {
-    try {
-      const { data, error } = await supabase.storage
-        .from(PROFILE_BUCKET)
-        .list("", {
-          search: username,
-        });
-
-      if (error) {
-        console.log("Profile image check:", error.message);
-        return;
-      }
-
-      const exists = (data || []).some(
-        (file) => file.name === `${username}.jpg`
-      );
-
-      if (exists) {
-        setProfileImage(getProfileImageUrl(username));
-      } else {
-        setProfileImage("");
-      }
-    } catch (error) {
-      console.log("Profile image error:", error);
-    }
+  function updateLastUpdated() {
+    setLastUpdated(
+      new Date().toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+    );
   }
 
   async function loadStudent() {
@@ -162,7 +136,8 @@ export default function StudentProfilePage() {
           address,
           city,
           class_name,
-          blood_group
+          blood_group,
+          profile_image_url
         `)
         .eq("student_username", username)
         .maybeSingle();
@@ -189,37 +164,31 @@ export default function StudentProfilePage() {
       setStudent(loadedStudent);
       setForm(studentToForm(loadedStudent));
 
-      localStorage.setItem(
-        "studentName",
-        loadedStudent.student_name || "Student"
-      );
+      if (loadedStudent.student_name) {
+        localStorage.setItem(
+          "studentName",
+          loadedStudent.student_name
+        );
 
-      localStorage.setItem(
-        "student_name",
-        loadedStudent.student_name || "Student"
-      );
+        localStorage.setItem(
+          "student_name",
+          loadedStudent.student_name
+        );
+      }
 
-      localStorage.setItem(
-        "studentUsername",
-        loadedStudent.student_username
-      );
+      if (loadedStudent.student_username) {
+        localStorage.setItem(
+          "studentUsername",
+          loadedStudent.student_username
+        );
 
-      localStorage.setItem(
-        "student_username",
-        loadedStudent.student_username
-      );
+        localStorage.setItem(
+          "student_username",
+          loadedStudent.student_username
+        );
+      }
 
-      await checkProfileImage(
-        loadedStudent.student_username
-      );
-
-      setLastUpdated(
-        new Date().toLocaleTimeString("en-IN", {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        })
-      );
+      updateLastUpdated();
     } catch (error) {
       console.error(error);
 
@@ -230,130 +199,6 @@ export default function StudentProfilePage() {
       );
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function handleProfileImageUpload(
-    event: React.ChangeEvent<HTMLInputElement>
-  ) {
-    const file = event.target.files?.[0];
-
-    if (!file || !student) return;
-
-    setErrorMessage("");
-    setSuccessMessage("");
-
-    if (!file.type.startsWith("image/")) {
-      setErrorMessage(
-        "Please sirf image file upload karein."
-      );
-      event.target.value = "";
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setErrorMessage(
-        "Profile photo maximum 5 MB ki ho sakti hai."
-      );
-      event.target.value = "";
-      return;
-    }
-
-    setUploadingImage(true);
-
-    try {
-      const username =
-        student.student_username.trim().toUpperCase();
-
-      const filePath = `${username}.jpg`;
-
-      const { error: uploadError } =
-        await supabase.storage
-          .from(PROFILE_BUCKET)
-          .upload(filePath, file, {
-            cacheControl: "3600",
-            upsert: true,
-            contentType: "image/jpeg",
-          });
-
-      if (uploadError) {
-        throw new Error(
-          "Profile photo upload nahi hui: " +
-            uploadError.message
-        );
-      }
-
-      const imageUrl = getProfileImageUrl(username);
-
-      setProfileImage(imageUrl);
-
-      setSuccessMessage(
-        "✅ Profile photo successfully uploaded."
-      );
-
-      event.target.value = "";
-    } catch (error) {
-      console.error(
-        "Profile image upload error:",
-        error
-      );
-
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Profile photo upload nahi ho paayi."
-      );
-    } finally {
-      setUploadingImage(false);
-    }
-  }
-
-  async function removeProfileImage() {
-    if (!student) return;
-
-    const confirmed = window.confirm(
-      "Kya aap apni profile photo remove karna chahte hain?"
-    );
-
-    if (!confirmed) return;
-
-    setUploadingImage(true);
-    setErrorMessage("");
-    setSuccessMessage("");
-
-    try {
-      const username =
-        student.student_username.trim().toUpperCase();
-
-      const { error } = await supabase.storage
-        .from(PROFILE_BUCKET)
-        .remove([`${username}.jpg`]);
-
-      if (error) {
-        throw new Error(
-          "Profile photo remove nahi hui: " +
-            error.message
-        );
-      }
-
-      setProfileImage("");
-
-      setSuccessMessage(
-        "✅ Profile photo remove ho gayi."
-      );
-    } catch (error) {
-      console.error(
-        "Profile image remove error:",
-        error
-      );
-
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Profile photo remove nahi ho paayi."
-      );
-    } finally {
-      setUploadingImage(false);
     }
   }
 
@@ -395,37 +240,54 @@ export default function StudentProfilePage() {
     setErrorMessage("");
     setSuccessMessage("");
 
-    const studentName =
-      form.student_name.trim();
+    const studentName = form.student_name.trim();
 
     if (!studentName) {
-      setErrorMessage(
-        "Student Name zaroori hai."
-      );
+      setErrorMessage("Student Name zaroori hai.");
       return;
     }
 
     setSaving(true);
 
     try {
+      /*
+       * IMPORTANT:
+       * student_username aur admission_date intentionally
+       * updateData mein nahi hain.
+       *
+       * Isliye Student Profile se ye dono fields update
+       * nahi ki ja sakti.
+       *
+       * Teacher side se in fields ko separately manage
+       * kiya ja sakta hai.
+       */
       const updateData = {
         student_name: studentName,
+
         date_of_birth:
           form.date_of_birth || null,
+
         father_name:
           form.father_name.trim() || null,
+
         mother_name:
           form.mother_name.trim() || null,
+
         father_phone:
           form.father_phone.trim() || null,
+
         mother_phone:
           form.mother_phone.trim() || null,
+
         address:
           form.address.trim() || null,
+
         city:
           form.city.trim() || null,
+
         class_name:
           form.class_name.trim() || null,
+
         blood_group:
           form.blood_group || null,
       };
@@ -447,14 +309,16 @@ export default function StudentProfilePage() {
           address,
           city,
           class_name,
-          blood_group
+          blood_group,
+          profile_image_url
         `)
         .maybeSingle();
 
       if (error) {
+        console.error("Profile update error:", error);
+
         throw new Error(
-          "Profile save nahi hui: " +
-            error.message
+          "Profile save nahi hui: " + error.message
         );
       }
 
@@ -464,12 +328,15 @@ export default function StudentProfilePage() {
         );
       }
 
-      const updatedStudent =
-        data as Student;
+      const updatedStudent = data as Student;
 
       setStudent(updatedStudent);
       setForm(studentToForm(updatedStudent));
 
+      /*
+       * Username ko sirf database se aaya hua original
+       * username hi localStorage mein rakha ja raha hai.
+       */
       localStorage.setItem(
         "studentName",
         updatedStudent.student_name || "Student"
@@ -480,19 +347,23 @@ export default function StudentProfilePage() {
         updatedStudent.student_name || "Student"
       );
 
+      localStorage.setItem(
+        "studentUsername",
+        updatedStudent.student_username
+      );
+
+      localStorage.setItem(
+        "student_username",
+        updatedStudent.student_username
+      );
+
       setEditing(false);
 
       setSuccessMessage(
         "✅ Profile successfully updated."
       );
 
-      setLastUpdated(
-        new Date().toLocaleTimeString("en-IN", {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        })
-      );
+      updateLastUpdated();
     } catch (error) {
       console.error(error);
 
@@ -503,6 +374,133 @@ export default function StudentProfilePage() {
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleProfileImageChange(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    if (!student) return;
+
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    if (!file.type.startsWith("image/")) {
+      setErrorMessage(
+        "Please sirf image file select karein."
+      );
+
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMessage(
+        "Profile image maximum 5 MB ki ho sakti hai."
+      );
+
+      event.target.value = "";
+      return;
+    }
+
+    setUploadingImage(true);
+
+    try {
+      const fileExtension =
+        file.name.split(".").pop()?.toLowerCase() ||
+        "jpg";
+
+      const filePath =
+        `student-profiles/${student.id}-${Date.now()}.${fileExtension}`;
+
+      const { error: uploadError } =
+        await supabase.storage
+          .from("student-profiles")
+          .upload(filePath, file, {
+            cacheControl: "3600",
+            upsert: false,
+            contentType: file.type,
+          });
+
+      if (uploadError) {
+        throw new Error(
+          "Image upload nahi hui: " +
+            uploadError.message
+        );
+      }
+
+      const {
+        data: publicUrlData,
+      } = supabase.storage
+        .from("student-profiles")
+        .getPublicUrl(filePath);
+
+      const imageUrl =
+        publicUrlData.publicUrl;
+
+      const { data, error } =
+        await supabase
+          .from("students")
+          .update({
+            profile_image_url: imageUrl,
+          })
+          .eq("id", student.id)
+          .select(`
+            id,
+            student_name,
+            student_username,
+            admission_date,
+            date_of_birth,
+            father_name,
+            mother_name,
+            father_phone,
+            mother_phone,
+            address,
+            city,
+            class_name,
+            blood_group,
+            profile_image_url
+          `)
+          .maybeSingle();
+
+      if (error) {
+        throw new Error(
+          "Profile image database mein save nahi hui: " +
+            error.message
+        );
+      }
+
+      if (!data) {
+        throw new Error(
+          "Profile image save nahi hui."
+        );
+      }
+
+      setStudent(data as Student);
+
+      setSuccessMessage(
+        "✅ Profile picture successfully uploaded."
+      );
+
+      updateLastUpdated();
+    } catch (error) {
+      console.error(
+        "Profile image upload error:",
+        error
+      );
+
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Profile picture upload nahi ho saki."
+      );
+    } finally {
+      setUploadingImage(false);
+      event.target.value = "";
     }
   }
 
@@ -593,16 +591,13 @@ export default function StudentProfilePage() {
             </h1>
 
             <p style={styles.subtitle}>
-              View and manage your personal
-              information
+              View and manage your personal information
             </p>
           </div>
 
           <div style={styles.headerButtons}>
             <button
-              onClick={() =>
-                window.history.back()
-              }
+              onClick={() => window.history.back()}
               style={styles.backButton}
             >
               ← Back
@@ -644,75 +639,56 @@ export default function StudentProfilePage() {
         {/* PROFILE HERO */}
 
         <section style={styles.profileHero}>
-
-          <div style={styles.profileImageArea}>
-
-            <div style={styles.avatarWrapper}>
-              {profileImage ? (
-                <img
-                  src={profileImage}
-                  alt="Student Profile"
-                  style={styles.profileImage}
-                />
-              ) : (
-                <div style={styles.avatar}>
-                  {firstLetter}
-                </div>
-              )}
-            </div>
-
-            <div style={styles.photoButtons}>
-              <label
-                htmlFor="profile-photo-upload"
-                style={{
-                  ...styles.uploadButton,
-                  opacity: uploadingImage
-                    ? 0.6
-                    : 1,
-                  cursor: uploadingImage
-                    ? "not-allowed"
-                    : "pointer",
-                }}
-              >
-                {uploadingImage
-                  ? "⏳ Uploading..."
-                  : "📷 Upload Photo"}
-              </label>
-
-              <input
-                id="profile-photo-upload"
-                type="file"
-                accept="image/*"
-                onChange={
-                  handleProfileImageUpload
-                }
-                disabled={uploadingImage}
-                style={{
-                  display: "none",
-                }}
+          <div style={styles.avatarArea}>
+            {student.profile_image_url ? (
+              <img
+                src={student.profile_image_url}
+                alt="Student Profile"
+                style={styles.profileImage}
               />
+            ) : (
+              <div style={styles.avatar}>
+                {firstLetter}
+              </div>
+            )}
 
-              {profileImage && (
-                <button
-                  onClick={removeProfileImage}
-                  disabled={uploadingImage}
-                  style={styles.removePhotoButton}
-                >
-                  🗑️ Remove
-                </button>
-              )}
-            </div>
+            <button
+              type="button"
+              onClick={() =>
+                fileInputRef.current?.click()
+              }
+              disabled={uploadingImage}
+              style={{
+                ...styles.uploadButton,
+                opacity: uploadingImage ? 0.7 : 1,
+                cursor: uploadingImage
+                  ? "not-allowed"
+                  : "pointer",
+              }}
+            >
+              {uploadingImage
+                ? "⏳ Uploading..."
+                : "📷 Upload Picture"}
+            </button>
 
-            <div style={styles.photoHelp}>
-              JPG, PNG or other image • Maximum 5 MB
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleProfileImageChange}
+              style={{
+                display: "none",
+              }}
+            />
+
+            <div style={styles.imageHelp}>
+              JPG, PNG or WEBP • Max 5 MB
             </div>
           </div>
 
           <div style={styles.heroInfo}>
             <h2 style={styles.studentName}>
-              {displayValue(
-                student.student_name
-              )}
+              {displayValue(student.student_name)}
             </h2>
 
             <div style={styles.usernameBadge}>
@@ -720,7 +696,8 @@ export default function StudentProfilePage() {
             </div>
 
             <p style={styles.heroText}>
-              Your profile information
+              Username and Admission Date are managed
+              by your teacher.
             </p>
           </div>
         </section>
@@ -736,11 +713,13 @@ export default function StudentProfilePage() {
                 </h2>
 
                 <p style={styles.editSubtitle}>
-                  Fill in your details and save
-                  your changes.
+                  Fill in your details and save your
+                  changes.
                 </p>
               </div>
             </div>
+
+            {/* LOCKED ACCOUNT NOTICE */}
 
             <div style={styles.notice}>
               <span style={styles.noticeIcon}>
@@ -749,19 +728,20 @@ export default function StudentProfilePage() {
 
               <div>
                 <strong style={styles.noticeTitle}>
-                  Account Information
+                  Account Information Locked
                 </strong>
 
                 <p style={styles.noticeText}>
-                  Username and Admission Date
-                  are managed by your teacher.
-                  Other profile details can be
-                  updated by you.
+                  Username and Admission Date are
+                  managed by your teacher. Students
+                  cannot edit these fields.
                 </p>
               </div>
             </div>
 
             <div style={styles.formGrid}>
+
+              {/* STUDENT NAME */}
 
               <Field
                 label="Student Name *"
@@ -774,24 +754,35 @@ export default function StudentProfilePage() {
                 }
               />
 
+              {/* USERNAME - LOCKED */}
+
               <div style={styles.field}>
                 <label style={styles.label}>
                   Username
                 </label>
 
-                <input
-                  type="text"
-                  value={
-                    student.student_username
-                  }
-                  readOnly
-                  style={styles.lockedInput}
-                />
+                <div style={styles.lockedWrapper}>
+                  <span style={styles.lockIcon}>
+                    🔒
+                  </span>
+
+                  <input
+                    type="text"
+                    value={
+                      student.student_username
+                    }
+                    readOnly
+                    disabled
+                    style={styles.lockedInput}
+                  />
+                </div>
 
                 <span style={styles.helpText}>
-                  🔒 Managed by teacher
+                  🔒 Only teacher can change username
                 </span>
               </div>
+
+              {/* DATE OF BIRTH */}
 
               <div style={styles.field}>
                 <label style={styles.label}>
@@ -800,9 +791,7 @@ export default function StudentProfilePage() {
 
                 <input
                   type="date"
-                  value={
-                    form.date_of_birth
-                  }
+                  value={form.date_of_birth}
                   onChange={(e) =>
                     updateField(
                       "date_of_birth",
@@ -813,25 +802,35 @@ export default function StudentProfilePage() {
                 />
               </div>
 
+              {/* ADMISSION DATE - LOCKED */}
+
               <div style={styles.field}>
                 <label style={styles.label}>
                   Admission Date
                 </label>
 
-                <input
-                  type="date"
-                  value={
-                    student.admission_date ||
-                    ""
-                  }
-                  readOnly
-                  style={styles.lockedInput}
-                />
+                <div style={styles.lockedWrapper}>
+                  <span style={styles.lockIcon}>
+                    🔒
+                  </span>
+
+                  <input
+                    type="date"
+                    value={
+                      student.admission_date || ""
+                    }
+                    readOnly
+                    disabled
+                    style={styles.lockedInput}
+                  />
+                </div>
 
                 <span style={styles.helpText}>
-                  🔒 Managed by teacher
+                  🔒 Only teacher can change admission date
                 </span>
               </div>
+
+              {/* CLASS */}
 
               <Field
                 label="Class"
@@ -843,6 +842,8 @@ export default function StudentProfilePage() {
                   )
                 }
               />
+
+              {/* BLOOD GROUP */}
 
               <div style={styles.field}>
                 <label style={styles.label}>
@@ -862,6 +863,7 @@ export default function StudentProfilePage() {
                   <option value="">
                     Select Blood Group
                   </option>
+
                   <option value="A+">A+</option>
                   <option value="A-">A-</option>
                   <option value="B+">B+</option>
@@ -872,6 +874,8 @@ export default function StudentProfilePage() {
                   <option value="O-">O-</option>
                 </select>
               </div>
+
+              {/* FATHER */}
 
               <Field
                 label="Father's Name"
@@ -884,6 +888,8 @@ export default function StudentProfilePage() {
                 }
               />
 
+              {/* MOTHER */}
+
               <Field
                 label="Mother's Name"
                 value={form.mother_name}
@@ -894,6 +900,8 @@ export default function StudentProfilePage() {
                   )
                 }
               />
+
+              {/* FATHER PHONE */}
 
               <Field
                 label="Father's Phone"
@@ -907,6 +915,8 @@ export default function StudentProfilePage() {
                 type="tel"
               />
 
+              {/* MOTHER PHONE */}
+
               <Field
                 label="Mother's Phone"
                 value={form.mother_phone}
@@ -919,6 +929,8 @@ export default function StudentProfilePage() {
                 type="tel"
               />
 
+              {/* CITY */}
+
               <Field
                 label="City"
                 value={form.city}
@@ -929,6 +941,8 @@ export default function StudentProfilePage() {
                   )
                 }
               />
+
+              {/* ADDRESS */}
 
               <div
                 style={{
@@ -959,6 +973,8 @@ export default function StudentProfilePage() {
               </div>
             </div>
 
+            {/* FORM ACTIONS */}
+
             <div style={styles.formActions}>
               <button
                 onClick={cancelEditing}
@@ -974,6 +990,9 @@ export default function StudentProfilePage() {
                 style={{
                   ...styles.saveButton,
                   opacity: saving ? 0.7 : 1,
+                  cursor: saving
+                    ? "not-allowed"
+                    : "pointer",
                 }}
               >
                 {saving
@@ -988,9 +1007,7 @@ export default function StudentProfilePage() {
 
         <section style={styles.card}>
           <div style={styles.cardHeader}>
-            <div style={styles.cardIcon}>
-              👤
-            </div>
+            <div style={styles.cardIcon}>👤</div>
 
             <div>
               <h2 style={styles.cardTitle}>
@@ -1014,6 +1031,7 @@ export default function StudentProfilePage() {
             <Detail
               label="Username"
               value={student.student_username}
+              locked
             />
 
             <Detail
@@ -1028,6 +1046,7 @@ export default function StudentProfilePage() {
               value={formatDate(
                 student.admission_date
               )}
+              locked
             />
 
             <Detail
@@ -1060,8 +1079,8 @@ export default function StudentProfilePage() {
               </h2>
 
               <p style={styles.cardSubtitle}>
-                Information provided by you or
-                your teacher
+                Information provided by you or your
+                teacher
               </p>
             </div>
           </div>
@@ -1101,9 +1120,7 @@ export default function StudentProfilePage() {
 
         <section style={styles.card}>
           <div style={styles.cardHeader}>
-            <div style={styles.cardIcon}>
-              🏠
-            </div>
+            <div style={styles.cardIcon}>🏠</div>
 
             <div>
               <h2 style={styles.cardTitle}>
@@ -1119,9 +1136,7 @@ export default function StudentProfilePage() {
           <div style={styles.detailsGrid}>
             <Detail
               label="City"
-              value={displayValue(
-                student.city
-              )}
+              value={displayValue(student.city)}
             />
 
             <div style={styles.detailBox}>
@@ -1130,9 +1145,7 @@ export default function StudentProfilePage() {
               </div>
 
               <div style={styles.addressValue}>
-                {displayValue(
-                  student.address
-                )}
+                {displayValue(student.address)}
               </div>
             </div>
           </div>
@@ -1141,9 +1154,7 @@ export default function StudentProfilePage() {
         {/* INFORMATION */}
 
         <div style={styles.infoBox}>
-          <div style={styles.infoIcon}>
-            ℹ️
-          </div>
+          <div style={styles.infoIcon}>🔒</div>
 
           <div>
             <strong style={styles.infoTitle}>
@@ -1154,17 +1165,22 @@ export default function StudentProfilePage() {
               Students can update their personal
               and family information using Edit
               Profile. Username and Admission Date
-              remain managed by the teacher.
-              Profile photo can be uploaded from
-              the profile section.
+              are locked and can only be managed by
+              the teacher.
             </p>
           </div>
         </div>
 
+        {/* REFRESH */}
+
         <button
           onClick={loadStudent}
           style={styles.refreshButton}
-          disabled={loading || saving}
+          disabled={
+            loading ||
+            saving ||
+            uploadingImage
+          }
         >
           🔄 Refresh Profile
         </button>
@@ -1177,13 +1193,16 @@ export default function StudentProfilePage() {
         )}
 
         <footer style={styles.footer}>
-          Attendance Portal • Student Profile •
-          2026
+          Attendance Portal • Student Profile • 2026
         </footer>
       </div>
     </main>
   );
 }
+
+/* =========================================================
+   FIELD COMPONENT
+========================================================= */
 
 function Field({
   label,
@@ -1214,16 +1233,30 @@ function Field({
   );
 }
 
+/* =========================================================
+   DETAIL COMPONENT
+========================================================= */
+
 function Detail({
   label,
   value,
+  locked = false,
 }: {
   label: string;
   value: string;
+  locked?: boolean;
 }) {
   return (
-    <div style={styles.detailBox}>
+    <div
+      style={{
+        ...styles.detailBox,
+        ...(locked
+          ? styles.lockedDetailBox
+          : {}),
+      }}
+    >
       <div style={styles.detailLabel}>
+        {locked && "🔒 "}
         {label}
       </div>
 
@@ -1234,6 +1267,10 @@ function Detail({
   );
 }
 
+/* =========================================================
+   STYLES
+========================================================= */
+
 const styles: {
   [key: string]: React.CSSProperties;
 } = {
@@ -1243,7 +1280,8 @@ const styles: {
       "linear-gradient(135deg,#eef2ff,#f8fafc,#eff6ff)",
     padding: "25px 15px",
     boxSizing: "border-box",
-    fontFamily: "Arial, Helvetica, sans-serif",
+    fontFamily:
+      "Arial, Helvetica, sans-serif",
     color: "#0f172a",
   },
 
@@ -1333,7 +1371,8 @@ const styles: {
   successBox: {
     background: "#dcfce7",
     color: "#166534",
-    border: "1px solid #bbf7d0",
+    border:
+      "1px solid #bbf7d0",
     borderRadius: "12px",
     padding: "14px",
     marginBottom: "18px",
@@ -1343,7 +1382,8 @@ const styles: {
   errorBox: {
     background: "#fee2e2",
     color: "#991b1b",
-    border: "1px solid #fecaca",
+    border:
+      "1px solid #fecaca",
     borderRadius: "12px",
     padding: "14px",
     marginBottom: "18px",
@@ -1364,77 +1404,62 @@ const styles: {
     flexWrap: "wrap",
   },
 
-  profileImageArea: {
+  avatarArea: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     flexShrink: 0,
   },
 
-  avatarWrapper: {
-    width: "105px",
-    height: "105px",
-    borderRadius: "50%",
-    overflow: "hidden",
-    background: "#ffffff",
-    border: "4px solid rgba(255,255,255,0.8)",
-    boxShadow:
-      "0 8px 25px rgba(0,0,0,0.18)",
-  },
-
-  profileImage: {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-    display: "block",
-  },
-
   avatar: {
-    width: "100%",
-    height: "100%",
+    width: "110px",
+    height: "110px",
+    minWidth: "110px",
+    borderRadius: "50%",
     background: "#ffffff",
     color: "#2563eb",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "42px",
+    fontSize: "45px",
     fontWeight: "900",
+    boxShadow:
+      "0 8px 25px rgba(0,0,0,0.15)",
   },
 
-  photoButtons: {
-    display: "flex",
-    gap: "7px",
-    marginTop: "10px",
-    flexWrap: "wrap",
-    justifyContent: "center",
+  profileImage: {
+    width: "110px",
+    height: "110px",
+    minWidth: "110px",
+    borderRadius: "50%",
+    objectFit: "cover",
+    display: "block",
+    background: "#ffffff",
+    border:
+      "4px solid rgba(255,255,255,0.9)",
+    boxShadow:
+      "0 8px 25px rgba(0,0,0,0.15)",
   },
 
   uploadButton: {
+    marginTop: "12px",
+    border: "none",
     background: "#ffffff",
     color: "#1d4ed8",
-    padding: "8px 11px",
-    borderRadius: "8px",
-    fontSize: "11px",
+    padding: "9px 13px",
+    borderRadius: "9px",
     fontWeight: "900",
     cursor: "pointer",
+    fontSize: "12px",
+    boxShadow:
+      "0 5px 15px rgba(0,0,0,0.12)",
   },
 
-  removePhotoButton: {
-    border: "none",
-    background: "#fee2e2",
-    color: "#991b1b",
-    padding: "8px 11px",
-    borderRadius: "8px",
-    fontSize: "11px",
-    fontWeight: "900",
-    cursor: "pointer",
-  },
-
-  photoHelp: {
+  imageHelp: {
+    marginTop: "6px",
     color: "#dbeafe",
     fontSize: "9px",
     fontWeight: "700",
-    marginTop: "7px",
     textAlign: "center",
   },
 
@@ -1454,7 +1479,8 @@ const styles: {
   usernameBadge: {
     display: "inline-block",
     marginTop: "8px",
-    background: "rgba(255,255,255,0.18)",
+    background:
+      "rgba(255,255,255,0.18)",
     border:
       "1px solid rgba(255,255,255,0.3)",
     color: "#ffffff",
@@ -1478,7 +1504,8 @@ const styles: {
     marginBottom: "18px",
     boxShadow:
       "0 10px 30px rgba(15,23,42,0.09)",
-    border: "2px solid #bfdbfe",
+    border:
+      "2px solid #bfdbfe",
   },
 
   editHeader: {
@@ -1504,7 +1531,8 @@ const styles: {
     alignItems: "flex-start",
     gap: "12px",
     background: "#f8fafc",
-    border: "1px solid #e2e8f0",
+    border:
+      "1px solid #e2e8f0",
     borderRadius: "13px",
     padding: "14px",
     marginBottom: "20px",
@@ -1550,7 +1578,8 @@ const styles: {
     width: "100%",
     boxSizing: "border-box",
     padding: "12px 13px",
-    border: "1px solid #cbd5e1",
+    border:
+      "1px solid #cbd5e1",
     borderRadius: "10px",
     background: "#ffffff",
     color: "#0f172a",
@@ -1559,11 +1588,27 @@ const styles: {
     outline: "none",
   },
 
+  lockedWrapper: {
+    position: "relative",
+    width: "100%",
+  },
+
+  lockIcon: {
+    position: "absolute",
+    left: "12px",
+    top: "50%",
+    transform: "translateY(-50%)",
+    fontSize: "13px",
+    zIndex: 1,
+    pointerEvents: "none",
+  },
+
   lockedInput: {
     width: "100%",
     boxSizing: "border-box",
-    padding: "12px 13px",
-    border: "1px solid #cbd5e1",
+    padding: "12px 13px 12px 34px",
+    border:
+      "1px solid #cbd5e1",
     borderRadius: "10px",
     background: "#f1f5f9",
     color: "#64748b",
@@ -1588,7 +1633,8 @@ const styles: {
   },
 
   cancelButton: {
-    border: "1px solid #cbd5e1",
+    border:
+      "1px solid #cbd5e1",
     background: "#f8fafc",
     color: "#334155",
     padding: "12px 20px",
@@ -1605,7 +1651,6 @@ const styles: {
     padding: "12px 22px",
     borderRadius: "10px",
     fontWeight: "900",
-    cursor: "pointer",
   },
 
   card: {
@@ -1659,10 +1704,17 @@ const styles: {
 
   detailBox: {
     background: "#f8fafc",
-    border: "1px solid #e2e8f0",
+    border:
+      "1px solid #e2e8f0",
     borderRadius: "13px",
     padding: "15px",
     minWidth: 0,
+  },
+
+  lockedDetailBox: {
+    background: "#f1f5f9",
+    border:
+      "1px solid #cbd5e1",
   },
 
   detailLabel: {
@@ -1692,7 +1744,8 @@ const styles: {
 
   infoBox: {
     background: "#eff6ff",
-    border: "1px solid #bfdbfe",
+    border:
+      "1px solid #bfdbfe",
     borderRadius: "15px",
     padding: "16px",
     display: "flex",
