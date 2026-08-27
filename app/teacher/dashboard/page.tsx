@@ -25,6 +25,10 @@ export default function TeacherDashboard() {
 
   /*
    * PERMANENT LOGOUT
+   *
+   * Clears every known teacher/student
+   * authentication key from both
+   * localStorage and sessionStorage.
    */
   async function handleLogout() {
     if (loggingOut) {
@@ -34,10 +38,16 @@ export default function TeacherDashboard() {
     setLoggingOut(true);
 
     const authKeys = [
+      /*
+       * New authentication system
+       */
       "attendance_role",
       "attendance_username",
       "attendance_teacher_id",
 
+      /*
+       * Teacher authentication
+       */
       "teacherLoggedIn",
       "teacher",
       "teacherUsername",
@@ -45,6 +55,9 @@ export default function TeacherDashboard() {
       "teacherName",
       "teacher_name",
 
+      /*
+       * Student authentication
+       */
       "studentLoggedIn",
       "studentId",
       "studentUsername",
@@ -53,19 +66,35 @@ export default function TeacherDashboard() {
       "student_name",
     ];
 
+    /*
+     * Clear localStorage.
+     */
     authKeys.forEach((key) => {
       localStorage.removeItem(key);
     });
 
+    /*
+     * Clear sessionStorage.
+     */
     authKeys.forEach((key) => {
       sessionStorage.removeItem(key);
     });
 
+    /*
+     * Small delay so browser storage is fully updated.
+     */
     await new Promise((resolve) =>
       setTimeout(resolve, 100)
     );
 
+    /*
+     * Go to REAL login page.
+     */
     router.replace("/");
+
+    /*
+     * Refresh Next.js router state.
+     */
     router.refresh();
   }
 
@@ -113,6 +142,9 @@ export default function TeacherDashboard() {
       path: "/teacher/fees",
     },
 
+    /*
+     * HOME WORK
+     */
     {
       title: "Home Work",
       description:
@@ -148,7 +180,6 @@ export default function TeacherDashboard() {
           margin: "0 auto",
         }}
       >
-
         {/* HEADER */}
 
         <header
@@ -196,12 +227,12 @@ export default function TeacherDashboard() {
               }}
             >
               Manage attendance,
-              students, homework,
-              reports and more.
+              students, homework, reports
+              and more.
             </p>
           </div>
 
-          {/* LOGOUT */}
+          {/* LOGOUT BUTTON */}
 
           <button
             type="button"
@@ -255,7 +286,8 @@ export default function TeacherDashboard() {
               color: "#64748b",
             }}
           >
-            Select an option to continue.
+            Select an option to
+            continue.
           </p>
         </section>
 
@@ -269,91 +301,85 @@ export default function TeacherDashboard() {
             gap: "18px",
           }}
         >
-          {menuItems.map((item) => (
-            <button
-              type="button"
-              key={item.path}
-              onClick={() =>
-                router.push(item.path)
-              }
-              style={{
-                border: "none",
-                background: "#ffffff",
-                borderRadius: "18px",
-                padding: "24px",
-                textAlign: "left",
-                cursor: "pointer",
-                boxShadow:
-                  "0 6px 22px rgba(0,0,0,0.07)",
-                transition:
-                  "transform 0.2s ease, box-shadow 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform =
-                  "translateY(-4px)";
-
-                e.currentTarget.style.boxShadow =
-                  "0 12px 30px rgba(0,0,0,0.12)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform =
-                  "translateY(0)";
-
-                e.currentTarget.style.boxShadow =
-                  "0 6px 22px rgba(0,0,0,0.07)";
-              }}
-            >
-              {/* ICON */}
-
-              <div
+          {menuItems.map(
+            (item) => (
+              <button
+                type="button"
+                key={item.path}
+                onClick={() =>
+                  router.push(item.path)
+                }
                 style={{
-                  fontSize: "36px",
-                  marginBottom: "14px",
+                  border: "none",
+                  background: "#ffffff",
+                  borderRadius: "18px",
+                  padding: "24px",
+                  textAlign: "left",
+                  cursor: "pointer",
+                  boxShadow:
+                    "0 6px 22px rgba(0,0,0,0.07)",
+                  transition:
+                    "transform 0.2s ease, box-shadow 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform =
+                    "translateY(-4px)";
+
+                  e.currentTarget.style.boxShadow =
+                    "0 12px 30px rgba(0,0,0,0.12)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform =
+                    "translateY(0)";
+
+                  e.currentTarget.style.boxShadow =
+                    "0 6px 22px rgba(0,0,0,0.07)";
                 }}
               >
-                {item.icon}
-              </div>
+                <div
+                  style={{
+                    fontSize: "36px",
+                    marginBottom: "14px",
+                  }}
+                >
+                  {item.icon}
+                </div>
 
-              {/* TITLE */}
+                <h3
+                  style={{
+                    margin: "0 0 8px",
+                    color: "#0f172a",
+                    fontSize: "19px",
+                    fontWeight: 800,
+                  }}
+                >
+                  {item.title}
+                </h3>
 
-              <h3
-                style={{
-                  margin: "0 0 8px",
-                  color: "#0f172a",
-                  fontSize: "19px",
-                  fontWeight: 800,
-                }}
-              >
-                {item.title}
-              </h3>
+                <p
+                  style={{
+                    margin: 0,
+                    color: "#64748b",
+                    fontSize: "14px",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {item.description}
+                </p>
 
-              {/* DESCRIPTION */}
-
-              <p
-                style={{
-                  margin: 0,
-                  color: "#64748b",
-                  fontSize: "14px",
-                  lineHeight: 1.5,
-                }}
-              >
-                {item.description}
-              </p>
-
-              {/* OPEN */}
-
-              <div
-                style={{
-                  marginTop: "18px",
-                  color: "#4f46e5",
-                  fontWeight: 700,
-                  fontSize: "14px",
-                }}
-              >
-                Open →
-              </div>
-            </button>
-          ))}
+                <div
+                  style={{
+                    marginTop: "18px",
+                    color: "#4f46e5",
+                    fontWeight: 700,
+                    fontSize: "14px",
+                  }}
+                >
+                  Open →
+                </div>
+              </button>
+            )
+          )}
         </section>
 
         {/* FOOTER */}
@@ -367,7 +393,7 @@ export default function TeacherDashboard() {
           }}
         >
           Attendance Portal •
-          Teacher Dashboard • 2026
+          Teacher Dashboard
         </footer>
       </div>
     </main>
