@@ -31,7 +31,8 @@ export default function TeacherHomeworkPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
-  const [className, setClassName] = useState("");
+
+  const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -57,15 +58,10 @@ export default function TeacherHomeworkPage() {
           });
 
       if (homeworkError) {
-        console.error(
-          "Homework loading error:",
-          homeworkError
-        );
-
+        console.error("Homework loading error:", homeworkError);
         setError(
-          "Homework table could not be loaded."
+          `Homework table could not be loaded: ${homeworkError.message}`
         );
-
         return;
       }
 
@@ -80,37 +76,51 @@ export default function TeacherHomeworkPage() {
           });
 
       if (studentsError) {
-        console.error(
-          "Students loading error:",
-          studentsError
-        );
-
+        console.error("Students loading error:", studentsError);
         setError(
-          "Students could not be loaded."
+          `Students could not be loaded: ${studentsError.message}`
         );
-
         return;
       }
 
-      setHomework(
-        (homeworkData || []) as Homework[]
-      );
-
-      setStudents(
-        (studentsData || []) as Student[]
-      );
+      setHomework((homeworkData || []) as Homework[]);
+      setStudents((studentsData || []) as Student[]);
     } catch (err) {
-      console.error(
-        "Unexpected homework loading error:",
-        err
-      );
-
-      setError(
-        "Unable to load homework."
-      );
+      console.error("Unexpected loading error:", err);
+      setError("Unable to load homework.");
     } finally {
       setLoading(false);
     }
+  }
+
+  const classNames = Array.from(
+    new Set(
+      students
+        .map((student) => student.class_name?.trim())
+        .filter(
+          (value): value is string => Boolean(value)
+        )
+    )
+  ).sort();
+
+  function toggleClass(classValue: string) {
+    setSelectedClasses((previous) => {
+      if (previous.includes(classValue)) {
+        return previous.filter(
+          (item) => item !== classValue
+        );
+      }
+
+      return [...previous, classValue];
+    });
+  }
+
+  function selectAllClasses() {
+    setSelectedClasses(classNames);
+  }
+
+  function clearAllClasses() {
+    setSelectedClasses([]);
   }
 
   async function addHomework() {
@@ -136,14 +146,16 @@ export default function TeacherHomeworkPage() {
       return;
     }
 
-    if (!className.trim()) {
-      setError("Please select class.");
+    if (selectedClasses.length === 0) {
+      setError("Please select at least one class.");
       return;
     }
 
     setSaving(true);
 
     try {
+      const classValue = selectedClasses.join(", ");
+
       const { data, error: insertError } =
         await supabase
           .from("homework")
@@ -152,7 +164,7 @@ export default function TeacherHomeworkPage() {
             title: title.trim(),
             description: description.trim(),
             due_date: dueDate,
-            class_name: className.trim(),
+            class_name: classValue,
           })
           .select(
             "id, subject, title, description, due_date, class_name, created_at"
@@ -168,7 +180,6 @@ export default function TeacherHomeworkPage() {
         setError(
           `Homework could not be added: ${insertError.message}`
         );
-
         return;
       }
 
@@ -179,22 +190,26 @@ export default function TeacherHomeworkPage() {
         ]);
       }
 
+      const numberOfClasses = selectedClasses.length;
+
       setSubject("");
       setTitle("");
       setDescription("");
       setDueDate("");
-      setClassName("");
+      setSelectedClasses([]);
 
-      alert("Homework added successfully.");
+      alert(
+        `Homework added successfully for ${numberOfClasses} class${
+          numberOfClasses !== 1 ? "es" : ""
+        }.`
+      );
     } catch (err) {
       console.error(
         "Unexpected homework insert error:",
         err
       );
 
-      setError(
-        "Unable to add homework."
-      );
+      setError("Unable to add homework.");
     } finally {
       setSaving(false);
     }
@@ -211,45 +226,79 @@ export default function TeacherHomeworkPage() {
 
     setError("");
 
-    const { error: deleteError } =
-      await supabase
-        .from("homework")
-        .delete()
-        .eq("id", id);
+    try {
+      const { error: deleteError } =
+        await supabase
+          .from("homework")
+          .delete()
+          .eq("id", id);
 
-    if (deleteError) {
+      if (deleteError) {
+        console.error(
+          "Homework delete error:",
+          deleteError
+        );
+
+        setError(
+          `Homework could not be deleted: ${deleteError.message}`
+        );
+        return;
+      }
+
+      setHomework((previous) =>
+        previous.filter(
+          (item) => item.id !== id
+        )
+      );
+    } catch (err) {
       console.error(
-        "Homework delete error:",
-        deleteError
+        "Unexpected homework delete error:",
+        err
       );
 
-      setError(
-        `Homework could not be deleted: ${deleteError.message}`
-      );
-
-      return;
+      setError("Unable to delete homework.");
     }
-
-    setHomework((previous) =>
-      previous.filter(
-        (item) => item.id !== id
-      )
-    );
   }
 
-  const classNames = Array.from(
-    new Set(
-      students
-        .map(
-          (student) =>
-            student.class_name?.trim()
-        )
-        .filter(
-          (value): value is string =>
-            Boolean(value)
-        )
-    )
-  ).sort();
+  function formatDate(date: string) {
+    if (!date) {
+      return "";
+    }
+
+    return new Date(
+      `${date}T00:00:00`
+    ).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+  }
+
+  function getAssignedClasses(
+    className: string
+  ) {
+    return className
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  function getStudentCount(
+    className: string
+  ) {
+    const assignedClasses =
+      getAssignedClasses(className);
+
+    return students.filter((student) => {
+      const studentClass =
+        student.class_name?.trim();
+
+      return (
+        studentClass &&
+        assignedClasses.includes(studentClass)
+      );
+    }).length;
+  }
 
   return (
     <main style={styles.page}>
@@ -266,7 +315,8 @@ export default function TeacherHomeworkPage() {
             </h1>
 
             <p style={styles.subtitle}>
-              Create and manage homework for students
+              Create and manage homework for
+              one or multiple classes
             </p>
           </div>
 
@@ -288,6 +338,7 @@ export default function TeacherHomeworkPage() {
         )}
 
         <section style={styles.createCard}>
+
           <div style={styles.cardHeader}>
             <div style={styles.cardIcon}>
               ✏️
@@ -299,50 +350,120 @@ export default function TeacherHomeworkPage() {
               </h2>
 
               <p style={styles.cardSubtitle}>
-                Homework will be shown to students
-                of the selected class.
+                Select one or multiple classes.
               </p>
             </div>
+          </div>
+
+          <div style={styles.classSection}>
+
+            <div style={styles.classHeaderRow}>
+
+              <label style={styles.label}>
+                Select Classes
+              </label>
+
+              <div style={styles.classActions}>
+
+                <button
+                  type="button"
+                  onClick={selectAllClasses}
+                  disabled={
+                    classNames.length === 0
+                  }
+                  style={{
+                    ...styles.smallButton,
+                    opacity:
+                      classNames.length === 0
+                        ? 0.5
+                        : 1,
+                  }}
+                >
+                  Select All
+                </button>
+
+                <button
+                  type="button"
+                  onClick={clearAllClasses}
+                  style={styles.smallButtonSecondary}
+                >
+                  Clear
+                </button>
+
+              </div>
+            </div>
+
+            {classNames.length > 0 ? (
+              <div style={styles.classGrid}>
+
+                {classNames.map((item) => {
+
+                  const selected =
+                    selectedClasses.includes(item);
+
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() =>
+                        toggleClass(item)
+                      }
+                      style={{
+                        ...styles.classOption,
+                        ...(selected
+                          ? styles.classOptionSelected
+                          : {}),
+                      }}
+                    >
+                      <span
+                        style={{
+                          ...styles.checkbox,
+                          ...(selected
+                            ? styles.checkboxSelected
+                            : {}),
+                        }}
+                      >
+                        {selected ? "✓" : ""}
+                      </span>
+
+                      <span>
+                        {item}
+                      </span>
+                    </button>
+                  );
+                })}
+
+              </div>
+            ) : (
+              <div style={styles.noClasses}>
+                No classes found in student
+                records. Add class names from
+                Teacher → Students first.
+              </div>
+            )}
+
+            <div style={styles.selectedInfo}>
+
+              <div>
+                <span style={styles.selectedLabel}>
+                  🎯 Selected Classes
+                </span>
+              </div>
+
+              <div style={styles.selectedClassesText}>
+                {selectedClasses.length > 0
+                  ? selectedClasses.join(", ")
+                  : "No class selected"}
+              </div>
+
+            </div>
+
           </div>
 
           <div style={styles.formGrid}>
 
             <div style={styles.field}>
-              <label style={styles.label}>
-                Class
-              </label>
 
-              <select
-                value={className}
-                onChange={(e) =>
-                  setClassName(e.target.value)
-                }
-                style={styles.input}
-              >
-                <option value="">
-                  Select class
-                </option>
-
-                {classNames.map((item) => (
-                  <option
-                    key={item}
-                    value={item}
-                  >
-                    {item}
-                  </option>
-                ))}
-              </select>
-
-              {classNames.length === 0 && (
-                <small style={styles.helpText}>
-                  No classes found in student records.
-                  Add class names from Teacher →
-                  Students first.
-                </small>
-              )}
-            </div>
-
-            <div style={styles.field}>
               <label style={styles.label}>
                 Subject
               </label>
@@ -356,9 +477,11 @@ export default function TeacherHomeworkPage() {
                 }
                 style={styles.input}
               />
+
             </div>
 
             <div style={styles.field}>
+
               <label style={styles.label}>
                 Due Date
               </label>
@@ -371,9 +494,16 @@ export default function TeacherHomeworkPage() {
                 }
                 style={styles.input}
               />
+
             </div>
 
-            <div style={styles.field}>
+            <div
+              style={{
+                ...styles.field,
+                gridColumn: "1 / -1",
+              }}
+            >
+
               <label style={styles.label}>
                 Homework Title
               </label>
@@ -387,6 +517,7 @@ export default function TeacherHomeworkPage() {
                 }
                 style={styles.input}
               />
+
             </div>
 
             <div
@@ -395,6 +526,7 @@ export default function TeacherHomeworkPage() {
                 gridColumn: "1 / -1",
               }}
             >
+
               <label style={styles.label}>
                 Description
               </label>
@@ -412,19 +544,49 @@ export default function TeacherHomeworkPage() {
                   minHeight: "120px",
                 }}
               />
+
             </div>
+
           </div>
 
           <div style={styles.assignmentInfo}>
-            🎯 This homework will be assigned to:
-            <strong>
-              {className
-                ? ` ${className} students`
-                : " Select a class"}
-            </strong>
+
+            <div style={styles.assignmentIcon}>
+              🎯
+            </div>
+
+            <div>
+
+              <div style={styles.assignmentTitle}>
+                Homework will be assigned to
+              </div>
+
+              <div style={styles.assignmentClass}>
+                {selectedClasses.length > 0
+                  ? selectedClasses.join(" • ")
+                  : "Select one or more classes"}
+              </div>
+
+              {selectedClasses.length > 0 && (
+                <div style={styles.studentCountText}>
+                  {
+                    students.filter((student) =>
+                      selectedClasses.includes(
+                        student.class_name?.trim() || ""
+                      )
+                    ).length
+                  }{" "}
+                  students will receive this
+                  homework
+                </div>
+              )}
+
+            </div>
+
           </div>
 
           <div style={styles.actions}>
+
             <button
               type="button"
               onClick={addHomework}
@@ -438,19 +600,24 @@ export default function TeacherHomeworkPage() {
               }}
             >
               {saving
-                ? "Adding..."
+                ? "Adding Homework..."
                 : "➕ Add Homework"}
             </button>
+
           </div>
+
         </section>
 
         <section style={styles.listCard}>
+
           <div style={styles.cardHeader}>
+
             <div style={styles.cardIcon}>
               📋
             </div>
 
             <div>
+
               <h2 style={styles.cardTitle}>
                 Homework List
               </h2>
@@ -461,11 +628,14 @@ export default function TeacherHomeworkPage() {
                   ? "s"
                   : ""}
               </p>
+
             </div>
+
           </div>
 
           {loading ? (
             <div style={styles.empty}>
+
               <div style={styles.emptyIcon}>
                 ⏳
               </div>
@@ -473,9 +643,11 @@ export default function TeacherHomeworkPage() {
               <h3 style={styles.emptyTitle}>
                 Loading Homework...
               </h3>
+
             </div>
           ) : homework.length === 0 ? (
             <div style={styles.empty}>
+
               <div style={styles.emptyIcon}>
                 📚
               </div>
@@ -488,102 +660,127 @@ export default function TeacherHomeworkPage() {
                 Create your first homework using
                 the form above.
               </p>
+
             </div>
           ) : (
             <div style={styles.homeworkList}>
-              {homework.map((item) => (
-                <div
-                  key={item.id}
-                  style={styles.homeworkCard}
-                >
-                  <div style={styles.homeworkTop}>
-                    <div>
-                      <div style={styles.badgeRow}>
-                        <span
-                          style={styles.classBadge}
-                        >
-                          {item.class_name}
-                        </span>
 
-                        <span
+              {homework.map((item) => {
+
+                const assignedClasses =
+                  getAssignedClasses(
+                    item.class_name
+                  );
+
+                return (
+                  <div
+                    key={item.id}
+                    style={styles.homeworkCard}
+                  >
+
+                    <div style={styles.homeworkTop}>
+
+                      <div>
+
+                        <div
+                          style={styles.badgeRow}
+                        >
+
+                          {assignedClasses.map(
+                            (classItem) => (
+                              <span
+                                key={classItem}
+                                style={
+                                  styles.classBadge
+                                }
+                              >
+                                {classItem}
+                              </span>
+                            )
+                          )}
+
+                          <span
+                            style={
+                              styles.subjectBadge
+                            }
+                          >
+                            {item.subject}
+                          </span>
+
+                        </div>
+
+                        <h3
                           style={
-                            styles.subjectBadge
+                            styles.homeworkTitle
                           }
                         >
-                          {item.subject}
-                        </span>
+                          {item.title}
+                        </h3>
+
                       </div>
 
-                      <h3
+                      <button
+                        type="button"
+                        onClick={() =>
+                          deleteHomework(item.id)
+                        }
                         style={
-                          styles.homeworkTitle
+                          styles.deleteButton
                         }
                       >
-                        {item.title}
-                      </h3>
+                        🗑️ Delete
+                      </button>
+
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        deleteHomework(item.id)
+                    <p
+                      style={
+                        styles.homeworkDescription
                       }
-                      style={styles.deleteButton}
                     >
-                      🗑️ Delete
-                    </button>
-                  </div>
-
-                  <p
-                    style={
-                      styles.homeworkDescription
-                    }
-                  >
-                    {item.description}
-                  </p>
-
-                  <div
-                    style={
-                      styles.homeworkBottom
-                    }
-                  >
-                    <div style={styles.dueDate}>
-                      📅 Due:{" "}
-                      {new Date(
-                        `${item.due_date}T00:00:00`
-                      ).toLocaleDateString(
-                        "en-IN",
-                        {
-                          day: "2-digit",
-                          month: "long",
-                          year: "numeric",
-                        }
-                      )}
-                    </div>
+                      {item.description}
+                    </p>
 
                     <div
-                      style={styles.studentCount}
+                      style={
+                        styles.homeworkBottom
+                      }
                     >
-                      👨‍🎓{" "}
-                      {
-                        students.filter(
-                          (student) =>
-                            student.class_name?.trim() ===
-                            item.class_name.trim()
-                        ).length
-                      }{" "}
-                      students
+
+                      <div style={styles.dueDate}>
+                        📅 Due:{" "}
+                        {formatDate(
+                          item.due_date
+                        )}
+                      </div>
+
+                      <div
+                        style={
+                          styles.studentCount
+                        }
+                      >
+                        👨‍🎓{" "}
+                        {getStudentCount(
+                          item.class_name
+                        )}{" "}
+                        students
+                      </div>
+
                     </div>
+
                   </div>
-                </div>
-              ))}
+                );
+              })}
+
             </div>
           )}
+
         </section>
 
         <footer style={styles.footer}>
           Attendance Portal • Teacher Homework • 2026
         </footer>
+
       </div>
     </main>
   );
@@ -592,6 +789,7 @@ export default function TeacherHomeworkPage() {
 const styles: {
   [key: string]: React.CSSProperties;
 } = {
+
   page: {
     minHeight: "100vh",
     background:
@@ -722,6 +920,130 @@ const styles: {
     fontWeight: "600",
   },
 
+  classSection: {
+    marginBottom: "20px",
+    padding: "16px",
+    background: "#f8fafc",
+    border: "1px solid #e2e8f0",
+    borderRadius: "14px",
+  },
+
+  classHeaderRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "10px",
+    flexWrap: "wrap",
+    marginBottom: "12px",
+  },
+
+  classActions: {
+    display: "flex",
+    gap: "7px",
+    flexWrap: "wrap",
+  },
+
+  smallButton: {
+    border: "none",
+    background: "#2563eb",
+    color: "#ffffff",
+    padding: "7px 11px",
+    borderRadius: "7px",
+    fontSize: "10px",
+    fontWeight: "900",
+    cursor: "pointer",
+  },
+
+  smallButtonSecondary: {
+    border: "1px solid #cbd5e1",
+    background: "#ffffff",
+    color: "#475569",
+    padding: "7px 11px",
+    borderRadius: "7px",
+    fontSize: "10px",
+    fontWeight: "900",
+    cursor: "pointer",
+  },
+
+  classGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(3,minmax(0,1fr))",
+    gap: "9px",
+  },
+
+  classOption: {
+    border: "1px solid #cbd5e1",
+    background: "#ffffff",
+    color: "#334155",
+    padding: "11px 12px",
+    borderRadius: "9px",
+    display: "flex",
+    alignItems: "center",
+    gap: "9px",
+    cursor: "pointer",
+    fontSize: "12px",
+    fontWeight: "800",
+    textAlign: "left",
+  },
+
+  classOptionSelected: {
+    border: "2px solid #2563eb",
+    background: "#eff6ff",
+    color: "#1d4ed8",
+  },
+
+  checkbox: {
+    width: "20px",
+    height: "20px",
+    borderRadius: "5px",
+    border: "1px solid #cbd5e1",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    fontSize: "12px",
+    fontWeight: "900",
+  },
+
+  checkboxSelected: {
+    background: "#2563eb",
+    border: "1px solid #2563eb",
+    color: "#ffffff",
+  },
+
+  noClasses: {
+    padding: "14px",
+    borderRadius: "9px",
+    background: "#fff7ed",
+    border: "1px solid #fed7aa",
+    color: "#9a3412",
+    fontSize: "12px",
+    fontWeight: "700",
+  },
+
+  selectedInfo: {
+    marginTop: "12px",
+    padding: "12px",
+    background: "#eff6ff",
+    border: "1px solid #bfdbfe",
+    borderRadius: "9px",
+  },
+
+  selectedLabel: {
+    color: "#475569",
+    fontSize: "11px",
+    fontWeight: "800",
+  },
+
+  selectedClassesText: {
+    marginTop: "4px",
+    color: "#1d4ed8",
+    fontSize: "13px",
+    fontWeight: "900",
+    wordBreak: "break-word",
+  },
+
   formGrid: {
     display: "grid",
     gridTemplateColumns:
@@ -755,21 +1077,48 @@ const styles: {
     outline: "none",
   },
 
-  helpText: {
-    color: "#64748b",
-    fontSize: "11px",
-    lineHeight: 1.5,
-  },
-
   assignmentInfo: {
     marginTop: "18px",
-    padding: "12px 14px",
+    padding: "14px",
     background: "#eff6ff",
     border: "1px solid #bfdbfe",
-    borderRadius: "10px",
-    color: "#1e40af",
-    fontSize: "13px",
-    fontWeight: "600",
+    borderRadius: "12px",
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+  },
+
+  assignmentIcon: {
+    width: "42px",
+    height: "42px",
+    borderRadius: "11px",
+    background: "#dbeafe",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "20px",
+    flexShrink: 0,
+  },
+
+  assignmentTitle: {
+    color: "#475569",
+    fontSize: "11px",
+    fontWeight: "800",
+  },
+
+  assignmentClass: {
+    color: "#1d4ed8",
+    fontSize: "15px",
+    fontWeight: "900",
+    marginTop: "3px",
+    wordBreak: "break-word",
+  },
+
+  studentCountText: {
+    color: "#64748b",
+    fontSize: "11px",
+    fontWeight: "700",
+    marginTop: "3px",
   },
 
   actions: {
