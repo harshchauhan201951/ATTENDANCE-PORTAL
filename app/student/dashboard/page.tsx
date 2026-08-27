@@ -26,7 +26,9 @@ export default function StudentDashboardPage() {
 
   const [studentName, setStudentName] = useState("Student");
   const [username, setUsername] = useState("");
-  const [studentId, setStudentId] = useState<number | null>(null);
+  const [studentId, setStudentId] = useState<number | null>(
+    null
+  );
   const [time, setTime] = useState("");
 
   const [announcements, setAnnouncements] = useState<
@@ -40,53 +42,181 @@ export default function StudentDashboardPage() {
     null
   );
 
-  useEffect(() => {
-    const name =
-      localStorage.getItem("studentName") ||
-      localStorage.getItem("student_name") ||
-      "Student";
+  /*
+   * RESOLVE STUDENT ID
+   *
+   * First we try localStorage.
+   * If studentId is missing, we find the student
+   * using the logged-in student's username.
+   */
+  async function resolveStudentId(
+    savedUsername: string
+  ): Promise<number | null> {
+    if (!savedUsername) {
+      console.error(
+        "Student username is missing."
+      );
 
-    const savedUsername =
-      localStorage.getItem("student_username") ||
-      localStorage.getItem("studentUsername") ||
-      "";
-
-    const savedStudentId =
-      localStorage.getItem("studentId");
-
-    setStudentName(name);
-    setUsername(savedUsername);
-
-    if (savedStudentId) {
-      const parsedId = Number(savedStudentId);
-
-      if (!Number.isNaN(parsedId)) {
-        setStudentId(parsedId);
-        loadAnnouncements(parsedId);
-      } else {
-        loadAnnouncements(null);
-      }
-    } else {
-      loadAnnouncements(null);
+      return null;
     }
+
+    try {
+      const { data, error } = await supabase
+        .from("students")
+        .select("id")
+        .eq(
+          "student_username",
+          savedUsername
+        )
+        .maybeSingle();
+
+      if (error) {
+        console.error(
+          "Student ID lookup error:",
+          error
+        );
+
+        return null;
+      }
+
+      if (!data?.id) {
+        console.error(
+          "Student ID not found for username:",
+          savedUsername
+        );
+
+        return null;
+      }
+
+      const resolvedId = Number(data.id);
+
+      if (Number.isNaN(resolvedId)) {
+        console.error(
+          "Invalid student ID:",
+          data.id
+        );
+
+        return null;
+      }
+
+      /*
+       * Save the resolved ID so future likes
+       * can use it directly.
+       */
+      localStorage.setItem(
+        "studentId",
+        String(resolvedId)
+      );
+
+      setStudentId(resolvedId);
+
+      return resolvedId;
+    } catch (error) {
+      console.error(
+        "Unexpected student ID lookup error:",
+        error
+      );
+
+      return null;
+    }
+  }
+
+  /*
+   * INITIALIZE STUDENT
+   */
+  useEffect(() => {
+    const initializeStudent = async () => {
+      const name =
+        localStorage.getItem("studentName") ||
+        localStorage.getItem("student_name") ||
+        "Student";
+
+      const savedUsername =
+        localStorage.getItem(
+          "student_username"
+        ) ||
+        localStorage.getItem(
+          "studentUsername"
+        ) ||
+        "";
+
+      const savedStudentId =
+        localStorage.getItem("studentId");
+
+      setStudentName(name);
+      setUsername(savedUsername);
+
+      let currentStudentId: number | null =
+        null;
+
+      /*
+       * First try existing studentId.
+       */
+      if (savedStudentId) {
+        const parsedId =
+          Number(savedStudentId);
+
+        if (!Number.isNaN(parsedId)) {
+          currentStudentId = parsedId;
+          setStudentId(parsedId);
+        }
+      }
+
+      /*
+       * If studentId does not exist,
+       * automatically find it using username.
+       */
+      if (
+        currentStudentId === null &&
+        savedUsername
+      ) {
+        currentStudentId =
+          await resolveStudentId(
+            savedUsername
+          );
+      }
+
+      /*
+       * Load announcements with the resolved ID.
+       */
+      await loadAnnouncements(
+        currentStudentId
+      );
+    };
+
+    initializeStudent();
 
     updateTime();
 
-    const interval = setInterval(updateTime, 1000);
+    const interval = setInterval(
+      updateTime,
+      1000
+    );
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+    };
   }, []);
 
+  /*
+   * CLOCK
+   */
   function updateTime() {
     setTime(
-      new Date().toLocaleTimeString("en-IN", {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      })
+      new Date().toLocaleTimeString(
+        "en-IN",
+        {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        }
+      )
     );
   }
 
+  /*
+   * LOAD ANNOUNCEMENTS
+   */
   async function loadAnnouncements(
     currentStudentId: number | null
   ) {
@@ -125,9 +255,13 @@ export default function StudentDashboardPage() {
 
       const announcementIds =
         announcementRows.map(
-          (announcement) => announcement.id
+          (announcement) =>
+            announcement.id
         );
 
+      /*
+       * Load all likes for the announcements.
+       */
       const {
         data: likesData,
         error: likesError,
@@ -156,22 +290,31 @@ export default function StudentDashboardPage() {
             const announcementLikes =
               likes.filter(
                 (like) =>
-                  like.announcement_id ===
-                  announcement.id
+                  Number(
+                    like.announcement_id
+                  ) ===
+                  Number(
+                    announcement.id
+                  )
               );
 
             const likedByMe =
               currentStudentId !== null &&
               announcementLikes.some(
                 (like) =>
-                  Number(like.student_id) ===
-                  currentStudentId
+                  Number(
+                    like.student_id
+                  ) ===
+                  Number(
+                    currentStudentId
+                  )
               );
 
             return {
               id: announcement.id,
               title: announcement.title,
-              message: announcement.message,
+              message:
+                announcement.message,
               created_at:
                 announcement.created_at,
               likeCount:
@@ -196,14 +339,40 @@ export default function StudentDashboardPage() {
     }
   }
 
+  /*
+   * LIKE / UNLIKE ANNOUNCEMENT
+   */
   async function toggleLike(
     announcementId: number
   ) {
-    if (!studentId) {
-      alert(
-        "Student information could not be found. Please login again."
-      );
-      return;
+    let currentStudentId = studentId;
+
+    /*
+     * If studentId is missing, try to resolve
+     * it again from the logged-in username.
+     */
+    if (currentStudentId === null) {
+      const savedUsername =
+        localStorage.getItem(
+          "student_username"
+        ) ||
+        localStorage.getItem(
+          "studentUsername"
+        ) ||
+        username;
+
+      currentStudentId =
+        await resolveStudentId(
+          savedUsername
+        );
+
+      if (currentStudentId === null) {
+        alert(
+          "Student information could not be found. Please login again."
+        );
+
+        return;
+      }
     }
 
     if (likingId !== null) {
@@ -223,7 +392,12 @@ export default function StudentDashboardPage() {
     setLikingId(announcementId);
 
     try {
-      if (selectedAnnouncement.likedByMe) {
+      /*
+       * UNLIKE
+       */
+      if (
+        selectedAnnouncement.likedByMe
+      ) {
         const { error } =
           await supabase
             .from("announcement_likes")
@@ -234,7 +408,7 @@ export default function StudentDashboardPage() {
             )
             .eq(
               "student_id",
-              studentId
+              currentStudentId
             );
 
         if (error) {
@@ -253,27 +427,33 @@ export default function StudentDashboardPage() {
         setAnnouncements(
           (previous) =>
             previous.map((item) =>
-              item.id === announcementId
+              item.id ===
+              announcementId
                 ? {
                     ...item,
                     likedByMe: false,
                     likeCount:
                       Math.max(
                         0,
-                        item.likeCount - 1
+                        item.likeCount -
+                          1
                       ),
                   }
                 : item
             )
         );
       } else {
+        /*
+         * LIKE
+         */
         const { error } =
           await supabase
             .from("announcement_likes")
             .insert({
               announcement_id:
                 announcementId,
-              student_id: studentId,
+              student_id:
+                currentStudentId,
             });
 
         if (error) {
@@ -282,11 +462,15 @@ export default function StudentDashboardPage() {
             error
           );
 
+          /*
+           * Duplicate like means the
+           * student already liked it.
+           */
           if (
             error.code === "23505"
           ) {
             await loadAnnouncements(
-              studentId
+              currentStudentId
             );
           } else {
             alert(
@@ -300,12 +484,14 @@ export default function StudentDashboardPage() {
         setAnnouncements(
           (previous) =>
             previous.map((item) =>
-              item.id === announcementId
+              item.id ===
+              announcementId
                 ? {
                     ...item,
                     likedByMe: true,
                     likeCount:
-                      item.likeCount + 1,
+                      item.likeCount +
+                      1,
                   }
                 : item
             )
@@ -321,22 +507,30 @@ export default function StudentDashboardPage() {
     }
   }
 
+  /*
+   * LOGOUT
+   */
   function logout() {
     localStorage.removeItem(
       "studentLoggedIn"
     );
+
     localStorage.removeItem(
       "student_username"
     );
+
     localStorage.removeItem(
       "studentUsername"
     );
+
     localStorage.removeItem(
       "studentName"
     );
+
     localStorage.removeItem(
       "student_name"
     );
+
     localStorage.removeItem(
       "studentId"
     );
@@ -346,6 +540,9 @@ export default function StudentDashboardPage() {
     router.push("/");
   }
 
+  /*
+   * ANNOUNCEMENT DATE
+   */
   function formatAnnouncementDate(
     date: string
   ) {
@@ -368,6 +565,9 @@ export default function StudentDashboardPage() {
   const firstLetter =
     studentName.charAt(0).toUpperCase();
 
+  /*
+   * STUDENT SERVICES
+   */
   const cards: DashboardCard[] = [
     {
       icon: "📊",
@@ -494,7 +694,9 @@ export default function StudentDashboardPage() {
 
               {username && (
                 <div
-                  style={styles.usernameBadge}
+                  style={
+                    styles.usernameBadge
+                  }
                 >
                   Username: {username}
                 </div>
@@ -520,7 +722,9 @@ export default function StudentDashboardPage() {
         {/* ANNOUNCEMENTS */}
 
         <section
-          style={styles.announcementSection}
+          style={
+            styles.announcementSection
+          }
         >
           <div
             style={
@@ -813,14 +1017,20 @@ export default function StudentDashboardPage() {
           <div style={styles.cardGrid}>
             {cards.map((card) => {
               const styleKey =
-                `card${card.className.charAt(0).toUpperCase()}${card.className.slice(1)}`;
+                `card${card.className.charAt(
+                  0
+                ).toUpperCase()}${card.className.slice(
+                  1
+                )}`;
 
               return (
                 <button
                   key={card.path}
                   type="button"
                   onClick={() =>
-                    router.push(card.path)
+                    router.push(
+                      card.path
+                    )
                   }
                   style={
                     styles.serviceCard
@@ -829,28 +1039,37 @@ export default function StudentDashboardPage() {
                   <div
                     style={{
                       ...styles.cardTop,
-                      ...(styles[styleKey] ||
-                        {}),
+                      ...(styles[
+                        styleKey
+                      ] || {}),
                     }}
                   >
                     <div
-                      style={styles.cardIcon}
+                      style={
+                        styles.cardIcon
+                      }
                     >
                       {card.icon}
                     </div>
 
                     <div
-                      style={styles.arrow}
+                      style={
+                        styles.arrow
+                      }
                     >
                       →
                     </div>
                   </div>
 
                   <div
-                    style={styles.cardBody}
+                    style={
+                      styles.cardBody
+                    }
                   >
                     <h3
-                      style={styles.cardTitle}
+                      style={
+                        styles.cardTitle
+                      }
                     >
                       {card.title}
                     </h3>
@@ -864,10 +1083,17 @@ export default function StudentDashboardPage() {
                     </p>
 
                     <div
-                      style={styles.openLink}
+                      style={
+                        styles.openLink
+                      }
                     >
-                      <span>Open</span>
-                      <span>→</span>
+                      <span>
+                        Open
+                      </span>
+
+                      <span>
+                        →
+                      </span>
                     </div>
                   </div>
                 </button>
@@ -887,13 +1113,17 @@ export default function StudentDashboardPage() {
 
           <div style={styles.bottomText}>
             <h3
-              style={styles.bottomTitle}
+              style={
+                styles.bottomTitle
+              }
             >
               Keep your profile updated
             </h3>
 
             <p
-              style={styles.bottomDescription}
+              style={
+                styles.bottomDescription
+              }
             >
               Your personal information is
               managed through your student
@@ -904,9 +1134,13 @@ export default function StudentDashboardPage() {
           <button
             type="button"
             onClick={() =>
-              router.push("/student/profile")
+              router.push(
+                "/student/profile"
+              )
             }
-            style={styles.profileButton}
+            style={
+              styles.profileButton
+            }
           >
             View Profile →
           </button>
@@ -915,7 +1149,9 @@ export default function StudentDashboardPage() {
         {/* FOOTER */}
 
         <footer style={styles.footer}>
-          <div style={styles.footerBrand}>
+          <div
+            style={styles.footerBrand}
+          >
             🎓 Attendance Portal
           </div>
 
