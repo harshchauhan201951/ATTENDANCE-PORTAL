@@ -63,6 +63,59 @@ const menuItems: MenuItem[] = [
   },
 ];
 
+/*
+  Converts whatever was saved in localStorage/sessionStorage
+  into a clean teacher display name.
+
+  Examples:
+  "HARSH201951"
+      -> HARSH201951
+
+  {"id":1,"teacher_username":"HARSH201951"}
+      -> HARSH201951
+
+  {"teacher_name":"Harsh"}
+      -> Harsh
+*/
+function getCleanTeacherName(value: string | null): string {
+  if (!value || !value.trim()) {
+    return "";
+  }
+
+  const cleaned = value.trim();
+
+  // If it's a JSON object/string, extract the useful field.
+  try {
+    const parsed = JSON.parse(cleaned);
+
+    if (typeof parsed === "string" && parsed.trim()) {
+      return parsed.trim();
+    }
+
+    if (parsed && typeof parsed === "object") {
+      const possibleName =
+        parsed.teacher_name ||
+        parsed.teacherName ||
+        parsed.teacher_username ||
+        parsed.teacherUsername ||
+        parsed.username ||
+        parsed.name;
+
+      if (
+        typeof possibleName === "string" &&
+        possibleName.trim().length > 0
+      ) {
+        return possibleName.trim();
+      }
+    }
+  } catch {
+    // Not JSON — use the original value.
+  }
+
+  // Remove accidental surrounding quotes.
+  return cleaned.replace(/^["']|["']$/g, "");
+}
+
 export default function TeacherControlCenter() {
   const router = useRouter();
 
@@ -72,24 +125,35 @@ export default function TeacherControlCenter() {
 
   useEffect(() => {
     try {
-      const possibleNames = [
+      const possibleValues = [
         localStorage.getItem("teacherName"),
         localStorage.getItem("teacher_name"),
         localStorage.getItem("teacher"),
         sessionStorage.getItem("teacherName"),
         sessionStorage.getItem("teacher_name"),
+        sessionStorage.getItem("teacher"),
       ];
 
-      const savedName = possibleNames.find(
-        (name) => name && name.trim().length > 0
-      );
+      let finalName = "";
 
-      if (savedName) {
-        setTeacherName(savedName);
+      for (const value of possibleValues) {
+        const cleanName = getCleanTeacherName(value);
+
+        if (cleanName) {
+          finalName = cleanName;
+          break;
+        }
+      }
+
+      if (finalName) {
+        setTeacherName(finalName);
+      } else {
+        setTeacherName("Teacher");
       }
 
       setCheckingLogin(false);
     } catch {
+      setTeacherName("Teacher");
       setCheckingLogin(false);
     }
   }, []);
@@ -99,10 +163,16 @@ export default function TeacherControlCenter() {
       localStorage.removeItem("teacherName");
       localStorage.removeItem("teacher_name");
       localStorage.removeItem("teacher");
+      localStorage.removeItem("teacher_username");
+      localStorage.removeItem("teacherUsername");
+      localStorage.removeItem("teacherLoggedIn");
 
       sessionStorage.removeItem("teacherName");
       sessionStorage.removeItem("teacher_name");
       sessionStorage.removeItem("teacher");
+      sessionStorage.removeItem("teacher_username");
+      sessionStorage.removeItem("teacherUsername");
+      sessionStorage.removeItem("teacherLoggedIn");
     } catch {
       // Ignore storage errors
     }
@@ -206,6 +276,7 @@ export default function TeacherControlCenter() {
 
             <div>
               <div className="brand-name">RACER ACADEMY</div>
+
               <div className="brand-subtitle">
                 ACADEMIC MANAGEMENT SYSTEM
               </div>
@@ -336,6 +407,7 @@ export default function TeacherControlCenter() {
         <section className="modules-heading">
           <div>
             <div className="section-kicker">YOUR WORKSPACE</div>
+
             <h2>Choose a module</h2>
           </div>
 
@@ -487,8 +559,6 @@ export default function TeacherControlCenter() {
           z-index: 2;
         }
 
-        /* TOP BAR */
-
         .topbar {
           min-height: 88px;
           display: flex;
@@ -612,8 +682,6 @@ export default function TeacherControlCenter() {
           color: #fca5a5;
           transform: translateY(-2px);
         }
-
-        /* HERO */
 
         .hero {
           min-height: 385px;
@@ -804,8 +872,6 @@ export default function TeacherControlCenter() {
           margin-top: 3px;
         }
 
-        /* STATUS */
-
         .status-strip {
           display: grid;
           grid-template-columns: 1fr 1px 1fr 1px 1fr;
@@ -861,8 +927,6 @@ export default function TeacherControlCenter() {
           background: rgba(148, 163, 184, 0.1);
         }
 
-        /* MODULE HEADING */
-
         .modules-heading {
           display: flex;
           align-items: end;
@@ -888,8 +952,6 @@ export default function TeacherControlCenter() {
           color: #64748b;
           font-size: 11px;
         }
-
-        /* CARDS */
 
         .module-grid {
           display: grid;
@@ -1105,8 +1167,6 @@ export default function TeacherControlCenter() {
           background: #94a3b8;
         }
 
-        /* FOOTER */
-
         .footer {
           min-height: 80px;
           border-top: 1px solid rgba(148, 163, 184, 0.09);
@@ -1177,8 +1237,6 @@ export default function TeacherControlCenter() {
           }
         }
 
-        /* TABLET */
-
         @media (max-width: 950px) {
           .hero {
             padding-left: 10px;
@@ -1203,8 +1261,6 @@ export default function TeacherControlCenter() {
             grid-template-columns: repeat(2, 1fr);
           }
         }
-
-        /* MOBILE */
 
         @media (max-width: 680px) {
           .app-shell {
