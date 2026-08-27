@@ -4,261 +4,136 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
-type Student = {
-  id: number;
-  student_name: string | null;
-  student_username: string;
-  class_name: string | null;
-};
-
 type Homework = {
   id: number;
-  subject: string;
-  title: string;
-  description: string;
-  due_date: string;
-  class_name: string;
+  subject: string | null;
+  title: string | null;
+  description: string | null;
+  due_date: string | null;
+  class_name: string | null;
   created_at: string | null;
 };
 
-export default function TeacherHomeworkPage() {
+export default function StudentHomeworkPage() {
   const router = useRouter();
 
+  const [studentName, setStudentName] = useState("Student");
+  const [studentClass, setStudentClass] = useState("");
   const [homework, setHomework] = useState<Homework[]>([]);
-  const [students, setStudents] = useState<Student[]>([]);
-  const [classNames, setClassNames] = useState<string[]>([]);
-
-  const [subject, setSubject] = useState("");
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [className, setClassName] = useState("");
-
   const [loading, setLoading] = useState(true);
-  const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    loadHomework();
-    loadStudents();
+    loadStudentAndHomework();
   }, []);
 
-  async function loadHomework() {
+  async function loadStudentAndHomework() {
     try {
       setLoading(true);
       setError("");
 
-      const { data, error: homeworkError } = await supabase
-        .from("homework")
-        .select(
-          "id, subject, title, description, due_date, class_name, created_at"
-        )
-        .order("created_at", {
-          ascending: false,
-        });
+      const savedUsername =
+        localStorage.getItem("student_username") ||
+        localStorage.getItem("studentUsername") ||
+        "";
 
-      if (homeworkError) {
-        console.error("Homework loading error:", homeworkError);
+      const savedName =
+        localStorage.getItem("studentName") ||
+        localStorage.getItem("student_name") ||
+        "Student";
+
+      setStudentName(savedName);
+
+      if (!savedUsername) {
+        setError("Student information could not be found.");
+        return;
+      }
+
+      const { data: student, error: studentError } =
+        await supabase
+          .from("students")
+          .select(
+            "id, student_name, student_username, class_name"
+          )
+          .eq("student_username", savedUsername)
+          .maybeSingle();
+
+      if (studentError) {
+        console.error(
+          "Student loading error:",
+          studentError
+        );
+
         setError(
-          `Homework table could not be loaded: ${homeworkError.message}`
+          `Student information could not be loaded: ${studentError.message}`
+        );
+
+        return;
+      }
+
+      if (!student) {
+        setError("Student account could not be found.");
+        return;
+      }
+
+      const currentClass =
+        student.class_name?.trim() || "";
+
+      setStudentClass(currentClass);
+
+      if (!currentClass) {
+        setError(
+          "Your class is not assigned in the student profile."
         );
         return;
       }
 
-      setHomework((data || []) as Homework[]);
+      const { data, error: homeworkError } =
+        await supabase
+          .from("homework")
+          .select(
+            "id, subject, title, description, due_date, class_name, created_at"
+          )
+          .eq("class_name", currentClass)
+          .order("due_date", {
+            ascending: true,
+          });
+
+      if (homeworkError) {
+        console.error(
+          "Homework loading error:",
+          homeworkError
+        );
+
+        setError(
+          `Homework could not be loaded: ${homeworkError.message}`
+        );
+
+        return;
+      }
+
+      setHomework(
+        (data || []) as Homework[]
+      );
     } catch (err) {
-      console.error("Unexpected homework loading error:", err);
-      setError("Unable to load homework.");
+      console.error(
+        "Unexpected student homework error:",
+        err
+      );
+
+      setError(
+        "Unable to load your homework."
+      );
     } finally {
       setLoading(false);
     }
   }
 
-  async function loadStudents() {
-    try {
-      const { data, error: studentsError } = await supabase
-        .from("students")
-        .select(
-          "id, student_name, student_username, class_name"
-        )
-        .order("student_name", {
-          ascending: true,
-        });
-
-      if (studentsError) {
-        console.error(
-          "Students loading error:",
-          studentsError
-        );
-        return;
-      }
-
-      const studentData = (data || []) as Student[];
-
-      setStudents(studentData);
-
-      const uniqueClasses = Array.from(
-        new Set(
-          studentData
-            .map((student) =>
-              student.class_name?.trim()
-            )
-            .filter(
-              (value): value is string =>
-                Boolean(value)
-            )
-        )
-      ).sort();
-
-      setClassNames(uniqueClasses);
-
-      if (
-        uniqueClasses.length > 0 &&
-        !className
-      ) {
-        setClassName(uniqueClasses[0]);
-      }
-    } catch (err) {
-      console.error(
-        "Unexpected students loading error:",
-        err
-      );
-    }
-  }
-
-  async function addHomework() {
-    setError("");
-
-    if (!subject.trim()) {
-      setError("Please enter subject.");
-      return;
-    }
-
-    if (!title.trim()) {
-      setError("Please enter homework title.");
-      return;
-    }
-
-    if (!description.trim()) {
-      setError("Please enter homework description.");
-      return;
-    }
-
-    if (!dueDate) {
-      setError("Please select due date.");
-      return;
-    }
-
-    if (!className.trim()) {
-      setError("Please select a class.");
-      return;
-    }
-
-    try {
-      setAdding(true);
-
-      const { data, error: insertError } = await supabase
-        .from("homework")
-        .insert({
-          subject: subject.trim(),
-          title: title.trim(),
-          description: description.trim(),
-          due_date: dueDate,
-          class_name: className.trim(),
-        })
-        .select(
-          "id, subject, title, description, due_date, class_name, created_at"
-        )
-        .single();
-
-      if (insertError) {
-        console.error(
-          "Homework insert error:",
-          insertError
-        );
-
-        setError(
-          `Homework could not be added: ${insertError.message}`
-        );
-
-        return;
-      }
-
-      if (data) {
-        setHomework((previous) => [
-          data as Homework,
-          ...previous,
-        ]);
-      }
-
-      setSubject("");
-      setTitle("");
-      setDescription("");
-      setDueDate("");
-
-      alert(
-        `Homework assigned successfully to ${className}.`
-      );
-    } catch (err) {
-      console.error(
-        "Unexpected homework insert error:",
-        err
-      );
-
-      setError("Unable to add homework.");
-    } finally {
-      setAdding(false);
-    }
-  }
-
-  async function deleteHomework(id: number) {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this homework?"
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      setError("");
-
-      const { error: deleteError } = await supabase
-        .from("homework")
-        .delete()
-        .eq("id", id);
-
-      if (deleteError) {
-        console.error(
-          "Homework delete error:",
-          deleteError
-        );
-
-        setError(
-          `Homework could not be deleted: ${deleteError.message}`
-        );
-
-        return;
-      }
-
-      setHomework((previous) =>
-        previous.filter(
-          (item) => item.id !== id
-        )
-      );
-    } catch (err) {
-      console.error(
-        "Unexpected homework delete error:",
-        err
-      );
-
-      setError("Unable to delete homework.");
-    }
-  }
-
-  function formatDate(date: string) {
+  function formatDate(
+    date: string | null
+  ) {
     if (!date) {
-      return "";
+      return "No due date";
     }
 
     return new Date(
@@ -270,42 +145,118 @@ export default function TeacherHomeworkPage() {
     });
   }
 
-  const selectedClassStudents =
-    students.filter(
-      (student) =>
-        student.class_name?.trim() ===
-        className.trim()
+  function getDueStatus(
+    date: string | null
+  ) {
+    if (!date) {
+      return "No Due Date";
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const due = new Date(
+      `${date}T00:00:00`
     );
+    due.setHours(0, 0, 0, 0);
+
+    const difference =
+      due.getTime() - today.getTime();
+
+    const daysLeft =
+      Math.ceil(
+        difference /
+          (1000 * 60 * 60 * 24)
+      );
+
+    if (daysLeft < 0) {
+      return "Overdue";
+    }
+
+    if (daysLeft === 0) {
+      return "Due Today";
+    }
+
+    if (daysLeft === 1) {
+      return "Due Tomorrow";
+    }
+
+    return `${daysLeft} Days Left`;
+  }
+
+  function getStatusStyle(
+    date: string | null
+  ) {
+    const status = getDueStatus(date);
+
+    if (status === "Overdue") {
+      return styles.statusOverdue;
+    }
+
+    if (status === "Due Today") {
+      return styles.statusToday;
+    }
+
+    return styles.statusNormal;
+  }
 
   return (
     <main style={styles.page}>
       <div style={styles.container}>
 
+        {/* HEADER */}
+
         <header style={styles.header}>
-          <div>
-            <div style={styles.badge}>
-              TEACHER PORTAL
+          <div style={styles.headerLeft}>
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  "/student/dashboard"
+                )
+              }
+              style={styles.backButton}
+            >
+              ←
+            </button>
+
+            <div>
+              <div style={styles.badge}>
+                STUDENT PORTAL
+              </div>
+
+              <h1 style={styles.title}>
+                📚 Homework
+              </h1>
+
+              <p style={styles.subtitle}>
+                Homework assigned by your teacher
+              </p>
             </div>
-
-            <h1 style={styles.title}>
-              📚 Homework
-            </h1>
-
-            <p style={styles.subtitle}>
-              Create and manage homework for students
-            </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() =>
-              router.push("/teacher/dashboard")
-            }
-            style={styles.backButton}
-          >
-            ← Back to Dashboard
-          </button>
+          <div style={styles.studentInfo}>
+            <div style={styles.avatar}>
+              {studentName
+                .charAt(0)
+                .toUpperCase()}
+            </div>
+
+            <div>
+              <div style={styles.studentName}>
+                {studentName}
+              </div>
+
+              <div style={styles.studentClass}>
+                {studentClass
+                  ? `Class: ${studentClass}`
+                  : "Student"}
+              </div>
+            </div>
+          </div>
         </header>
+
+        {/* ERROR */}
 
         {error && (
           <div style={styles.errorBox}>
@@ -313,308 +264,248 @@ export default function TeacherHomeworkPage() {
           </div>
         )}
 
-        <section style={styles.createCard}>
-          <div style={styles.cardHeader}>
-            <div style={styles.cardIcon}>
-              ➕
+        {/* SUMMARY */}
+
+        <section style={styles.summaryCard}>
+          <div style={styles.summaryIcon}>
+            📖
+          </div>
+
+          <div style={styles.summaryText}>
+            <div style={styles.summaryLabel}>
+              YOUR HOMEWORK
             </div>
 
-            <div>
-              <h2 style={styles.cardTitle}>
-                Create New Homework
-              </h2>
+            <div style={styles.summaryTitle}>
+              {loading
+                ? "Loading..."
+                : `${homework.length} Homework ${
+                    homework.length === 1
+                      ? "Item"
+                      : "Items"
+                  }`}
+            </div>
 
-              <p style={styles.cardSubtitle}>
-                Assign homework to a specific class
-              </p>
+            <div style={styles.summaryDescription}>
+              Showing homework assigned to{" "}
+              {studentClass
+                ? studentClass
+                : "your class"}
+              .
             </div>
           </div>
 
-          <div style={styles.formGrid}>
-
-            <div style={styles.field}>
-              <label style={styles.label}>
-                Class
-              </label>
-
-              {classNames.length > 0 ? (
-                <select
-                  value={className}
-                  onChange={(e) =>
-                    setClassName(e.target.value)
-                  }
-                  style={styles.input}
-                >
-                  <option value="">
-                    Select Class
-                  </option>
-
-                  {classNames.map((item) => (
-                    <option
-                      key={item}
-                      value={item}
-                    >
-                      {item}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  value={className}
-                  onChange={(e) =>
-                    setClassName(e.target.value)
-                  }
-                  placeholder="e.g. Class 10"
-                  style={styles.input}
-                />
-              )}
-            </div>
-
-            <div style={styles.field}>
-              <label style={styles.label}>
-                Subject
-              </label>
-
-              <input
-                type="text"
-                value={subject}
-                onChange={(e) =>
-                  setSubject(e.target.value)
-                }
-                placeholder="e.g. Mathematics"
-                style={styles.input}
-              />
-            </div>
-
-            <div style={styles.field}>
-              <label style={styles.label}>
-                Due Date
-              </label>
-
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(e) =>
-                  setDueDate(e.target.value)
-                }
-                style={styles.input}
-              />
-            </div>
-
-            <div style={styles.field}>
-              <label style={styles.label}>
-                Homework Title
-              </label>
-
-              <input
-                type="text"
-                value={title}
-                onChange={(e) =>
-                  setTitle(e.target.value)
-                }
-                placeholder="Enter homework title"
-                style={styles.input}
-              />
-            </div>
-
-            <div
-              style={{
-                ...styles.field,
-                gridColumn: "span 2",
-              }}
-            >
-              <label style={styles.label}>
-                Description
-              </label>
-
-              <textarea
-                rows={5}
-                value={description}
-                onChange={(e) =>
-                  setDescription(e.target.value)
-                }
-                placeholder="Write homework instructions..."
-                style={{
-                  ...styles.input,
-                  resize: "vertical",
-                  minHeight: "120px",
-                }}
-              />
-            </div>
-          </div>
-
-          <div style={styles.assignmentInfo}>
-            <div style={styles.assignmentIcon}>
-              🎯
-            </div>
-
-            <div>
-              <div style={styles.assignmentTitle}>
-                This homework will be assigned to:
-              </div>
-
-              <div style={styles.assignmentClass}>
-                {className
-                  ? className
-                  : "Select a class"}
-              </div>
-
-              {className && (
-                <div style={styles.studentCount}>
-                  {selectedClassStudents.length} student
-                  {selectedClassStudents.length !== 1
-                    ? "s"
-                    : ""}{" "}
-                  found in this class
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div style={styles.actions}>
-            <button
-              type="button"
-              onClick={addHomework}
-              disabled={adding}
-              style={{
-                ...styles.addButton,
-                opacity: adding ? 0.7 : 1,
-              }}
-            >
-              {adding
-                ? "Adding Homework..."
-                : "➕ Add Homework"}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={loadStudentAndHomework}
+            style={styles.refreshButton}
+          >
+            ↻ Refresh
+          </button>
         </section>
 
-        <section style={styles.listCard}>
-          <div style={styles.cardHeader}>
-            <div style={styles.cardIcon}>
-              📋
+        {/* HOMEWORK LIST */}
+
+        <section style={styles.listSection}>
+          <div style={styles.sectionHeader}>
+            <div>
+              <div style={styles.sectionEyebrow}>
+                ASSIGNED WORK
+              </div>
+
+              <h2 style={styles.sectionTitle}>
+                My Homework
+              </h2>
             </div>
 
-            <div>
-              <h2 style={styles.cardTitle}>
-                Homework List
-              </h2>
-
-              <p style={styles.cardSubtitle}>
-                {homework.length} homework item
-                {homework.length !== 1
-                  ? "s"
-                  : ""}
-              </p>
+            <div style={styles.countBadge}>
+              {homework.length}
             </div>
           </div>
 
           {loading ? (
-            <div style={styles.empty}>
-              <div style={styles.emptyIcon}>
+            <div style={styles.emptyCard}>
+              <div style={styles.loadingIcon}>
                 ⏳
               </div>
 
               <h3 style={styles.emptyTitle}>
                 Loading Homework...
               </h3>
+
+              <p style={styles.emptyText}>
+                Please wait while we load your
+                assigned homework.
+              </p>
             </div>
           ) : homework.length === 0 ? (
-            <div style={styles.empty}>
+            <div style={styles.emptyCard}>
               <div style={styles.emptyIcon}>
-                📚
+                🎉
               </div>
 
               <h3 style={styles.emptyTitle}>
-                No Homework Added
+                No Homework Assigned
               </h3>
 
               <p style={styles.emptyText}>
-                Create your first homework using
-                the form above.
+                There is currently no homework
+                assigned to your class.
               </p>
             </div>
           ) : (
             <div style={styles.homeworkList}>
               {homework.map((item) => (
-                <div
+                <article
                   key={item.id}
                   style={styles.homeworkCard}
                 >
-                  <div style={styles.homeworkTop}>
-                    <div>
-                      <div style={styles.badgeRow}>
-                        <span
-                          style={
-                            styles.subjectBadge
-                          }
-                        >
-                          {item.subject}
-                        </span>
-
-                        <span
-                          style={
-                            styles.classBadge
-                          }
-                        >
-                          {item.class_name}
-                        </span>
-                      </div>
-
-                      <h3
+                  <div style={styles.homeworkHeader}>
+                    <div
+                      style={
+                        styles.homeworkHeaderLeft
+                      }
+                    >
+                      <div
                         style={
-                          styles.homeworkTitle
+                          styles.subjectBadge
                         }
                       >
-                        {item.title}
-                      </h3>
+                        {item.subject ||
+                          "General"}
+                      </div>
+
+                      <div
+                        style={
+                          styles.classBadge
+                        }
+                      >
+                        {item.class_name ||
+                          studentClass}
+                      </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        deleteHomework(item.id)
-                      }
-                      style={styles.deleteButton}
+                    <div
+                      style={{
+                        ...styles.statusBadge,
+                        ...getStatusStyle(
+                          item.due_date
+                        ),
+                      }}
                     >
-                      🗑️ Delete
-                    </button>
+                      {getDueStatus(
+                        item.due_date
+                      )}
+                    </div>
                   </div>
+
+                  <h3
+                    style={
+                      styles.homeworkTitle
+                    }
+                  >
+                    {item.title ||
+                      "Homework"}
+                  </h3>
 
                   <p
                     style={
-                      styles.homeworkDescription
+                      styles.description
                     }
                   >
-                    {item.description}
+                    {item.description ||
+                      "No additional instructions provided."}
                   </p>
 
                   <div
                     style={
-                      styles.homeworkBottom
+                      styles.homeworkFooter
                     }
                   >
-                    <div style={styles.dueDate}>
-                      📅 Due:{" "}
-                      {formatDate(
-                        item.due_date
-                      )}
+                    <div
+                      style={
+                        styles.dueDateBox
+                      }
+                    >
+                      <span
+                        style={
+                          styles.dueIcon
+                        }
+                      >
+                        📅
+                      </span>
+
+                      <div>
+                        <div
+                          style={
+                            styles.dueLabel
+                          }
+                        >
+                          DUE DATE
+                        </div>
+
+                        <div
+                          style={
+                            styles.dueValue
+                          }
+                        >
+                          {formatDate(
+                            item.due_date
+                          )}
+                        </div>
+                      </div>
                     </div>
 
-                    <div style={styles.visibleTo}>
-                      👥 Visible to{" "}
-                      {item.class_name} students
+                    <div
+                      style={
+                        styles.assignedBox
+                      }
+                    >
+                      <span>
+                        👥
+                      </span>
+
+                      <span>
+                        Assigned to your class
+                      </span>
                     </div>
                   </div>
-                </div>
+                </article>
               ))}
             </div>
           )}
         </section>
 
+        {/* INFORMATION */}
+
+        <section style={styles.infoCard}>
+          <div style={styles.infoIcon}>
+            💡
+          </div>
+
+          <div>
+            <h3 style={styles.infoTitle}>
+              Homework Information
+            </h3>
+
+            <p style={styles.infoText}>
+              Check your homework regularly and
+              complete all assignments before
+              their due dates.
+            </p>
+          </div>
+        </section>
+
+        {/* FOOTER */}
+
         <footer style={styles.footer}>
-          Attendance Portal • Teacher Homework •
-          2026
+          <div style={styles.footerBrand}>
+            🎓 Attendance Portal
+          </div>
+
+          <div>
+            Student Homework • 2026
+          </div>
         </footer>
 
       </div>
@@ -628,8 +519,8 @@ const styles: {
   page: {
     minHeight: "100vh",
     background:
-      "linear-gradient(135deg,#eef2ff,#f8fafc,#eff6ff)",
-    padding: "25px 15px",
+      "linear-gradient(135deg,#f8fafc 0%,#eef2ff 50%,#f0f9ff 100%)",
+    padding: "20px 15px",
     boxSizing: "border-box",
     fontFamily:
       "Arial, Helvetica, sans-serif",
@@ -644,236 +535,215 @@ const styles: {
 
   header: {
     background: "#ffffff",
-    borderRadius: "22px",
-    padding: "25px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "20px",
+    padding: "18px 20px",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     gap: "15px",
     marginBottom: "18px",
     boxShadow:
-      "0 10px 30px rgba(15,23,42,0.08)",
+      "0 8px 25px rgba(15,23,42,0.06)",
     flexWrap: "wrap",
+  },
+
+  headerLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: "13px",
+  },
+
+  backButton: {
+    width: "42px",
+    height: "42px",
+    border: "none",
+    borderRadius: "11px",
+    background: "#eef2ff",
+    color: "#3730a3",
+    fontSize: "21px",
+    fontWeight: "900",
+    cursor: "pointer",
   },
 
   badge: {
     display: "inline-block",
     background: "#dbeafe",
     color: "#1d4ed8",
-    padding: "7px 12px",
+    padding: "5px 9px",
     borderRadius: "999px",
-    fontSize: "11px",
+    fontSize: "9px",
     fontWeight: "900",
-    letterSpacing: "1px",
-    marginBottom: "9px",
+    letterSpacing: "1.5px",
+    marginBottom: "5px",
   },
 
   title: {
     margin: 0,
-    fontSize: "30px",
-    fontWeight: "900",
-    color: "#0f172a",
+    fontSize: "27px",
+    fontWeight: "1000",
+    color: "#172554",
   },
 
   subtitle: {
-    margin: "7px 0 0",
-    color: "#64748b",
-    fontSize: "14px",
-    fontWeight: "600",
-  },
-
-  backButton: {
-    border: "none",
-    background: "#475569",
-    color: "#ffffff",
-    padding: "11px 18px",
-    borderRadius: "10px",
-    fontWeight: "900",
-    cursor: "pointer",
-  },
-
-  errorBox: {
-    background: "#fee2e2",
-    border: "1px solid #fecaca",
-    color: "#991b1b",
-    borderRadius: "12px",
-    padding: "13px 15px",
-    marginBottom: "18px",
-    fontSize: "13px",
-    fontWeight: "800",
-  },
-
-  createCard: {
-    background: "#ffffff",
-    borderRadius: "22px",
-    padding: "25px",
-    marginBottom: "18px",
-    boxShadow:
-      "0 10px 30px rgba(15,23,42,0.08)",
-    border: "2px solid #bfdbfe",
-  },
-
-  listCard: {
-    background: "#ffffff",
-    borderRadius: "22px",
-    padding: "25px",
-    marginBottom: "18px",
-    boxShadow:
-      "0 10px 30px rgba(15,23,42,0.08)",
-  },
-
-  cardHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    marginBottom: "22px",
-  },
-
-  cardIcon: {
-    width: "46px",
-    height: "46px",
-    borderRadius: "13px",
-    background: "#dbeafe",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "22px",
-    flexShrink: 0,
-  },
-
-  cardTitle: {
-    margin: 0,
-    color: "#172554",
-    fontSize: "21px",
-    fontWeight: "900",
-  },
-
-  cardSubtitle: {
     margin: "4px 0 0",
     color: "#64748b",
     fontSize: "12px",
     fontWeight: "600",
   },
 
-  formGrid: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(2,minmax(0,1fr))",
-    gap: "16px",
-  },
-
-  field: {
+  studentInfo: {
     display: "flex",
-    flexDirection: "column",
-    gap: "7px",
-    minWidth: 0,
-  },
-
-  label: {
-    fontSize: "12px",
-    fontWeight: "900",
-    color: "#334155",
-  },
-
-  input: {
-    width: "100%",
-    boxSizing: "border-box",
-    padding: "12px 13px",
-    border: "1px solid #cbd5e1",
-    borderRadius: "10px",
-    background: "#ffffff",
-    color: "#0f172a",
-    fontSize: "14px",
-    fontWeight: "600",
-    outline: "none",
-  },
-
-  assignmentInfo: {
-    marginTop: "20px",
-    padding: "14px",
+    alignItems: "center",
+    gap: "10px",
+    background: "#f8fafc",
+    border: "1px solid #e2e8f0",
     borderRadius: "13px",
-    background: "#eff6ff",
-    border: "1px solid #bfdbfe",
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
+    padding: "8px 12px",
   },
 
-  assignmentIcon: {
-    width: "42px",
-    height: "42px",
+  avatar: {
+    width: "38px",
+    height: "38px",
     borderRadius: "11px",
-    background: "#dbeafe",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "20px",
-    flexShrink: 0,
-  },
-
-  assignmentTitle: {
-    color: "#475569",
-    fontSize: "11px",
-    fontWeight: "800",
-  },
-
-  assignmentClass: {
-    color: "#1d4ed8",
-    fontSize: "17px",
-    fontWeight: "900",
-    marginTop: "2px",
-  },
-
-  studentCount: {
-    color: "#64748b",
-    fontSize: "11px",
-    fontWeight: "700",
-    marginTop: "2px",
-  },
-
-  actions: {
-    display: "flex",
-    justifyContent: "flex-end",
-    marginTop: "20px",
-  },
-
-  addButton: {
-    border: "none",
     background:
       "linear-gradient(135deg,#2563eb,#7c3aed)",
     color: "#ffffff",
-    padding: "13px 22px",
-    borderRadius: "11px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "17px",
+    fontWeight: "1000",
+  },
+
+  studentName: {
+    color: "#172554",
+    fontSize: "12px",
+    fontWeight: "900",
+  },
+
+  studentClass: {
+    marginTop: "2px",
+    color: "#64748b",
+    fontSize: "10px",
+    fontWeight: "700",
+  },
+
+  errorBox: {
+    background: "#fee2e2",
+    border: "1px solid #fecaca",
+    color: "#991b1b",
+    borderRadius: "13px",
+    padding: "13px 15px",
+    marginBottom: "18px",
+    fontSize: "12px",
+    fontWeight: "800",
+  },
+
+  summaryCard: {
+    background:
+      "linear-gradient(135deg,#172554,#2563eb,#4f46e5)",
+    borderRadius: "20px",
+    padding: "20px",
+    display: "flex",
+    alignItems: "center",
+    gap: "14px",
+    marginBottom: "25px",
+    boxShadow:
+      "0 15px 35px rgba(37,99,235,0.18)",
+    flexWrap: "wrap",
+  },
+
+  summaryIcon: {
+    width: "52px",
+    height: "52px",
+    borderRadius: "15px",
+    background:
+      "rgba(255,255,255,0.15)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "25px",
+    flexShrink: 0,
+  },
+
+  summaryText: {
+    flex: 1,
+    minWidth: "200px",
+  },
+
+  summaryLabel: {
+    color: "#bfdbfe",
+    fontSize: "9px",
+    fontWeight: "900",
+    letterSpacing: "1.5px",
+  },
+
+  summaryTitle: {
+    color: "#ffffff",
+    fontSize: "20px",
+    fontWeight: "1000",
+    marginTop: "3px",
+  },
+
+  summaryDescription: {
+    color: "#dbeafe",
+    fontSize: "11px",
+    fontWeight: "600",
+    marginTop: "3px",
+  },
+
+  refreshButton: {
+    border: "1px solid rgba(255,255,255,0.25)",
+    background:
+      "rgba(255,255,255,0.12)",
+    color: "#ffffff",
+    padding: "9px 13px",
+    borderRadius: "9px",
+    fontSize: "11px",
     fontWeight: "900",
     cursor: "pointer",
-    fontSize: "14px",
   },
 
-  empty: {
-    textAlign: "center",
-    padding: "50px 20px",
-    background: "#f8fafc",
-    borderRadius: "16px",
-    border: "1px dashed #cbd5e1",
+  listSection: {
+    marginBottom: "20px",
   },
 
-  emptyIcon: {
-    fontSize: "45px",
-    marginBottom: "10px",
+  sectionHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    gap: "15px",
+    marginBottom: "15px",
   },
 
-  emptyTitle: {
-    margin: "5px 0",
-    color: "#334155",
-    fontSize: "18px",
-    fontWeight: "900",
+  sectionEyebrow: {
+    color: "#2563eb",
+    fontSize: "9px",
+    fontWeight: "1000",
+    letterSpacing: "2px",
+    marginBottom: "3px",
   },
 
-  emptyText: {
+  sectionTitle: {
     margin: 0,
-    color: "#64748b",
-    fontSize: "13px",
-    fontWeight: "600",
+    color: "#172554",
+    fontSize: "23px",
+    fontWeight: "1000",
+  },
+
+  countBadge: {
+    minWidth: "32px",
+    height: "32px",
+    padding: "0 8px",
+    borderRadius: "9px",
+    background: "#dbeafe",
+    color: "#1d4ed8",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "12px",
+    fontWeight: "1000",
   },
 
   homeworkList: {
@@ -883,101 +753,224 @@ const styles: {
   },
 
   homeworkCard: {
+    background: "#ffffff",
     border: "1px solid #e2e8f0",
-    borderRadius: "16px",
+    borderRadius: "18px",
     padding: "18px",
-    background: "#f8fafc",
+    boxShadow:
+      "0 7px 22px rgba(15,23,42,0.05)",
   },
 
-  homeworkTop: {
+  homeworkHeader: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: "15px",
+    alignItems: "center",
+    gap: "10px",
     flexWrap: "wrap",
   },
 
-  badgeRow: {
+  homeworkHeaderLeft: {
     display: "flex",
+    alignItems: "center",
     gap: "7px",
     flexWrap: "wrap",
   },
 
   subjectBadge: {
-    display: "inline-block",
     background: "#dbeafe",
     color: "#1d4ed8",
     padding: "5px 9px",
     borderRadius: "7px",
-    fontSize: "10px",
+    fontSize: "9px",
     fontWeight: "900",
     textTransform: "uppercase",
   },
 
   classBadge: {
-    display: "inline-block",
     background: "#ede9fe",
     color: "#6d28d9",
     padding: "5px 9px",
     borderRadius: "7px",
-    fontSize: "10px",
+    fontSize: "9px",
     fontWeight: "900",
+  },
+
+  statusBadge: {
+    padding: "5px 9px",
+    borderRadius: "7px",
+    fontSize: "9px",
+    fontWeight: "900",
+  },
+
+  statusNormal: {
+    background: "#dcfce7",
+    color: "#166534",
+  },
+
+  statusToday: {
+    background: "#fef3c7",
+    color: "#92400e",
+  },
+
+  statusOverdue: {
+    background: "#fee2e2",
+    color: "#991b1b",
   },
 
   homeworkTitle: {
-    margin: "8px 0 0",
+    margin: "12px 0 0",
     color: "#172554",
     fontSize: "19px",
-    fontWeight: "900",
+    fontWeight: "1000",
   },
 
-  homeworkDescription: {
-    margin: "14px 0",
+  description: {
+    margin: "8px 0 0",
     color: "#475569",
-    fontSize: "13px",
-    lineHeight: 1.6,
+    fontSize: "12px",
+    lineHeight: 1.65,
     fontWeight: "600",
     whiteSpace: "pre-wrap",
   },
 
-  homeworkBottom: {
+  homeworkFooter: {
+    marginTop: "16px",
+    paddingTop: "13px",
+    borderTop: "1px solid #e2e8f0",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: "10px",
-    paddingTop: "12px",
-    borderTop: "1px solid #e2e8f0",
+    gap: "12px",
     flexWrap: "wrap",
   },
 
-  dueDate: {
-    color: "#475569",
-    fontSize: "12px",
-    fontWeight: "800",
+  dueDateBox: {
+    display: "flex",
+    alignItems: "center",
+    gap: "9px",
   },
 
-  visibleTo: {
-    color: "#2563eb",
-    fontSize: "11px",
-    fontWeight: "800",
+  dueIcon: {
+    width: "35px",
+    height: "35px",
+    borderRadius: "9px",
+    background: "#eff6ff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "16px",
   },
 
-  deleteButton: {
-    border: "none",
-    background: "#fee2e2",
-    color: "#991b1b",
-    padding: "8px 12px",
-    borderRadius: "8px",
+  dueLabel: {
+    color: "#94a3b8",
+    fontSize: "8px",
     fontWeight: "900",
-    cursor: "pointer",
+    letterSpacing: "1px",
+  },
+
+  dueValue: {
+    color: "#334155",
     fontSize: "11px",
+    fontWeight: "900",
+    marginTop: "2px",
+  },
+
+  assignedBox: {
+    color: "#2563eb",
+    background: "#eff6ff",
+    borderRadius: "8px",
+    padding: "7px 9px",
+    fontSize: "9px",
+    fontWeight: "800",
+    display: "flex",
+    alignItems: "center",
+    gap: "5px",
+  },
+
+  emptyCard: {
+    background: "#ffffff",
+    border: "1px dashed #cbd5e1",
+    borderRadius: "18px",
+    padding: "55px 20px",
+    textAlign: "center",
+  },
+
+  loadingIcon: {
+    fontSize: "38px",
+    marginBottom: "8px",
+  },
+
+  emptyIcon: {
+    fontSize: "48px",
+    marginBottom: "8px",
+  },
+
+  emptyTitle: {
+    margin: "5px 0",
+    color: "#334155",
+    fontSize: "17px",
+    fontWeight: "1000",
+  },
+
+  emptyText: {
+    margin: 0,
+    color: "#64748b",
+    fontSize: "11px",
+    fontWeight: "600",
+    lineHeight: 1.6,
+  },
+
+  infoCard: {
+    background: "#ffffff",
+    border: "1px solid #dbeafe",
+    borderRadius: "16px",
+    padding: "15px",
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    marginBottom: "20px",
+  },
+
+  infoIcon: {
+    width: "40px",
+    height: "40px",
+    borderRadius: "10px",
+    background: "#eff6ff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "18px",
+    flexShrink: 0,
+  },
+
+  infoTitle: {
+    margin: 0,
+    color: "#172554",
+    fontSize: "12px",
+    fontWeight: "900",
+  },
+
+  infoText: {
+    margin: "3px 0 0",
+    color: "#64748b",
+    fontSize: "10px",
+    fontWeight: "600",
   },
 
   footer: {
-    textAlign: "center",
-    padding: "25px 10px",
-    color: "#64748b",
-    fontSize: "12px",
+    borderTop: "1px solid #e2e8f0",
+    padding: "18px 5px",
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "10px",
+    color: "#94a3b8",
+    fontSize: "10px",
     fontWeight: "700",
+    flexWrap: "wrap",
+  },
+
+  footerBrand: {
+    color: "#475569",
+    fontWeight: "900",
   },
 };
