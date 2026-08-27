@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "../../../lib/supabase";
+import { supabase } from "../../lib/supabase";
 
 type Student = {
   id: number;
@@ -19,7 +19,6 @@ type Fee = {
   payment_date: string | null;
   transaction_id: string | null;
   remarks: string | null;
-  razorpay_order_id?: string | null;
   created_at?: string;
 };
 
@@ -73,49 +72,57 @@ export default function TeacherFeesPage() {
   }, []);
 
   async function loadData() {
-    setLoading(true);
-    setError("");
+    try {
+      setLoading(true);
+      setError("");
 
-    const {
-      data: studentsData,
-      error: studentsError,
-    } = await supabase
-      .from("students")
-      .select(
-        "id, student_name, student_username"
-      )
-      .order("student_name", {
-        ascending: true,
-      });
+      const {
+        data: studentsData,
+        error: studentsError,
+      } = await supabase
+        .from("students")
+        .select(
+          "id, student_name, student_username"
+        )
+        .order("student_name", {
+          ascending: true,
+        });
 
-    if (studentsError) {
-      setError(studentsError.message);
+      if (studentsError) {
+        setError(studentsError.message);
+        setLoading(false);
+        return;
+      }
+
+      const {
+        data: feesData,
+        error: feesError,
+      } = await supabase
+        .from("fees")
+        .select("*")
+        .order("year", {
+          ascending: false,
+        })
+        .order("month", {
+          ascending: false,
+        });
+
+      if (feesError) {
+        setError(feesError.message);
+        setLoading(false);
+        return;
+      }
+
+      setStudents(studentsData || []);
+      setFees(feesData || []);
+    } catch (err) {
+      console.error(err);
+      setError(
+        "Unable to load fee management data."
+      );
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const {
-      data: feesData,
-      error: feesError,
-    } = await supabase
-      .from("fees")
-      .select("*")
-      .order("year", {
-        ascending: false,
-      })
-      .order("month", {
-        ascending: false,
-      });
-
-    if (feesError) {
-      setError(feesError.message);
-      setLoading(false);
-      return;
-    }
-
-    setStudents(studentsData || []);
-    setFees(feesData || []);
-    setLoading(false);
   }
 
   async function saveFee(
@@ -138,118 +145,113 @@ export default function TeacherFeesPage() {
 
     setSaving(true);
 
-    const {
-      data: existingFee,
-      error: existingError,
-    } = await supabase
-      .from("fees")
-      .select("id")
-      .eq("student_id", Number(studentId))
-      .eq("month", Number(month))
-      .eq("year", Number(year))
-      .maybeSingle();
+    try {
+      const {
+        data: existingFee,
+        error: existingError,
+      } = await supabase
+        .from("fees")
+        .select("id")
+        .eq("student_id", Number(studentId))
+        .eq("month", Number(month))
+        .eq("year", Number(year))
+        .maybeSingle();
 
-    if (existingError) {
-      setError(existingError.message);
+      if (existingError) {
+        setError(existingError.message);
+        setSaving(false);
+        return;
+      }
+
+      const feeData = {
+        student_id: Number(studentId),
+        month: Number(month),
+        year: Number(year),
+        amount: Number(amount),
+        status,
+        payment_date: paymentDate || null,
+        transaction_id:
+          transactionId.trim() || null,
+        remarks: remarks.trim() || null,
+      };
+
+      if (existingFee) {
+        const { error: updateError } =
+          await supabase
+            .from("fees")
+            .update(feeData)
+            .eq("id", existingFee.id);
+
+        if (updateError) {
+          setError(updateError.message);
+          setSaving(false);
+          return;
+        }
+
+        setMessage(
+          "Fee record updated successfully."
+        );
+      } else {
+        const { error: insertError } =
+          await supabase
+            .from("fees")
+            .insert(feeData);
+
+        if (insertError) {
+          setError(insertError.message);
+          setSaving(false);
+          return;
+        }
+
+        setMessage(
+          "Fee record added successfully."
+        );
+      }
+
+      await loadData();
+    } catch (err) {
+      console.error(err);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to save fee."
+      );
+    } finally {
       setSaving(false);
-      return;
     }
-
-    if (existingFee) {
-      const {
-        error: updateError,
-      } = await supabase
-        .from("fees")
-        .update({
-          amount: Number(amount),
-          status,
-          payment_date:
-            paymentDate || null,
-          transaction_id:
-            transactionId.trim() || null,
-          remarks:
-            remarks.trim() || null,
-        })
-        .eq("id", existingFee.id);
-
-      if (updateError) {
-        setError(updateError.message);
-        setSaving(false);
-        return;
-      }
-
-      setMessage(
-        "Fee record updated successfully."
-      );
-    } else {
-      const {
-        error: insertError,
-      } = await supabase
-        .from("fees")
-        .insert({
-          student_id: Number(studentId),
-          month: Number(month),
-          year: Number(year),
-          amount: Number(amount),
-          status,
-          payment_date:
-            paymentDate || null,
-          transaction_id:
-            transactionId.trim() || null,
-          remarks:
-            remarks.trim() || null,
-        });
-
-      if (insertError) {
-        setError(insertError.message);
-        setSaving(false);
-        return;
-      }
-
-      setMessage(
-        "Fee record added successfully."
-      );
-    }
-
-    await loadData();
-
-    setSaving(false);
   }
 
   async function deleteFee(id: number) {
-    const confirmDelete = window.confirm(
+    const confirmed = window.confirm(
       "Are you sure you want to delete this fee record?"
     );
 
-    if (!confirmDelete) return;
+    if (!confirmed) return;
 
-    const {
-      error: deleteError,
-    } = await supabase
-      .from("fees")
-      .delete()
-      .eq("id", id);
+    setError("");
+    setMessage("");
+
+    const { error: deleteError } =
+      await supabase
+        .from("fees")
+        .delete()
+        .eq("id", id);
 
     if (deleteError) {
       setError(deleteError.message);
       return;
     }
 
-    setMessage("Fee record deleted.");
+    setMessage("Fee record deleted successfully.");
 
     await loadData();
   }
 
-  function getStudent(studentId: number) {
-    return students.find(
-      (student) =>
-        student.id === studentId
+  function getStudentName(id: number) {
+    const student = students.find(
+      (item) => item.id === id
     );
-  }
-
-  function getStudentName(studentId: number) {
-    const student =
-      getStudent(studentId);
 
     if (!student) {
       return "Unknown Student";
@@ -261,54 +263,307 @@ export default function TeacherFeesPage() {
     );
   }
 
-  function formatDate(date: string | null) {
-    if (!date) return "—";
+  function getStudentUsername(id: number) {
+    const student = students.find(
+      (item) => item.id === id
+    );
 
-    const parts = date.split("-");
+    return student?.student_username || "";
+  }
 
-    if (parts.length === 3) {
-      return `${parts[2]}-${parts[1]}-${parts[0]}`;
-    }
-
-    return date;
+  function getMonthName(monthNumber: number) {
+    return (
+      months[monthNumber - 1] ||
+      `Month ${monthNumber}`
+    );
   }
 
   function downloadReceipt(fee: Fee) {
-    const student =
-      getStudent(fee.student_id);
+    const studentName = getStudentName(
+      fee.student_id
+    );
 
-    const studentName =
-      student?.student_name ||
-      student?.student_username ||
-      "Student";
+    const username = getStudentUsername(
+      fee.student_id
+    );
 
-    const username =
-      student?.student_username || "—";
-
-    const monthName =
-      months[fee.month - 1] ||
-      `Month ${fee.month}`;
-
-    const paymentDate =
-      fee.payment_date
-        ? formatDate(fee.payment_date)
-        : "—";
+    const monthName = getMonthName(fee.month);
 
     const receiptNumber =
-      `RA-${fee.year}-${String(
-        fee.month
-      ).padStart(2, "0")}-${fee.id}`;
+      `RA-${fee.year}-${String(fee.month).padStart(
+        2,
+        "0"
+      )}-${fee.id}`;
 
-    const amount = Number(
-      fee.amount || 0
-    ).toLocaleString("en-IN");
+    const receiptHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>RACER ACADEMY Fee Receipt</title>
 
-    const receiptWindow =
-      window.open(
-        "",
-        "_blank",
-        "width=800,height=900"
-      );
+<style>
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    background: #f1f5f9;
+    margin: 0;
+    padding: 30px;
+  }
+
+  .receipt {
+    max-width: 760px;
+    margin: auto;
+    background: white;
+    padding: 40px;
+    border-radius: 18px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+  }
+
+  .top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 2px solid #111827;
+    padding-bottom: 20px;
+  }
+
+  .academy {
+    font-size: 30px;
+    font-weight: 900;
+    color: #111827;
+  }
+
+  .tagline {
+    margin-top: 5px;
+    color: #6b7280;
+    font-size: 13px;
+  }
+
+  .receipt-title {
+    text-align: right;
+    font-size: 24px;
+    font-weight: 800;
+    color: #1d4ed8;
+  }
+
+  .receipt-number {
+    text-align: right;
+    margin-top: 6px;
+    color: #6b7280;
+    font-size: 13px;
+  }
+
+  .paid {
+    margin: 30px 0;
+    padding: 18px;
+    text-align: center;
+    border-radius: 12px;
+    background: #dcfce7;
+    color: #166534;
+    font-size: 22px;
+    font-weight: 800;
+  }
+
+  .section {
+    margin-top: 25px;
+  }
+
+  .section-title {
+    font-size: 16px;
+    font-weight: 800;
+    color: #111827;
+    margin-bottom: 10px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  td {
+    padding: 12px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  td:first-child {
+    width: 40%;
+    color: #64748b;
+    font-weight: 700;
+  }
+
+  td:last-child {
+    color: #111827;
+    font-weight: 600;
+  }
+
+  .amount {
+    font-size: 24px;
+    font-weight: 900;
+    color: #111827;
+  }
+
+  .footer {
+    margin-top: 35px;
+    padding-top: 20px;
+    border-top: 1px solid #e5e7eb;
+    text-align: center;
+    color: #64748b;
+    font-size: 12px;
+  }
+
+  .print-button {
+    display: block;
+    margin: 25px auto 0;
+    background: #111827;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 700;
+  }
+
+  @media print {
+    body {
+      background: white;
+      padding: 0;
+    }
+
+    .receipt {
+      box-shadow: none;
+      border-radius: 0;
+      max-width: none;
+    }
+
+    .print-button {
+      display: none;
+    }
+  }
+</style>
+</head>
+
+<body>
+
+<div class="receipt">
+
+  <div class="top">
+
+    <div>
+      <div class="academy">
+        RACER ACADEMY
+      </div>
+
+      <div class="tagline">
+        Learn • Grow • Race Ahead
+      </div>
+    </div>
+
+    <div>
+      <div class="receipt-title">
+        FEE RECEIPT
+      </div>
+
+      <div class="receipt-number">
+        Receipt No: ${receiptNumber}
+      </div>
+    </div>
+
+  </div>
+
+  <div class="paid">
+    ✓ PAYMENT RECEIVED
+  </div>
+
+  <div class="section">
+
+    <div class="section-title">
+      Student Details
+    </div>
+
+    <table>
+
+      <tr>
+        <td>Student Name</td>
+        <td>${studentName}</td>
+      </tr>
+
+      <tr>
+        <td>Username</td>
+        <td>${username}</td>
+      </tr>
+
+    </table>
+
+  </div>
+
+  <div class="section">
+
+    <div class="section-title">
+      Fee Details
+    </div>
+
+    <table>
+
+      <tr>
+        <td>Fee Month</td>
+        <td>${monthName} ${fee.year}</td>
+      </tr>
+
+      <tr>
+        <td>Amount Paid</td>
+        <td class="amount">
+          ₹${Number(fee.amount).toLocaleString("en-IN")}
+        </td>
+      </tr>
+
+      <tr>
+        <td>Status</td>
+        <td>${fee.status}</td>
+      </tr>
+
+      <tr>
+        <td>Payment Date</td>
+        <td>${fee.payment_date || "—"}</td>
+      </tr>
+
+      <tr>
+        <td>Transaction ID</td>
+        <td>${fee.transaction_id || "—"}</td>
+      </tr>
+
+      <tr>
+        <td>Remarks</td>
+        <td>${fee.remarks || "—"}</td>
+      </tr>
+
+    </table>
+
+  </div>
+
+  <div class="footer">
+    This is a computer-generated fee receipt.
+    <br />
+    RACER ACADEMY • Attendance & Fee Management
+  </div>
+
+  <button
+    class="print-button"
+    onclick="window.print()"
+  >
+    🖨️ Print / Save PDF
+  </button>
+
+</div>
+
+</body>
+</html>
+`;
+
+    const receiptWindow = window.open(
+      "",
+      "_blank",
+      "width=900,height=900"
+    );
 
     if (!receiptWindow) {
       setError(
@@ -317,360 +572,11 @@ export default function TeacherFeesPage() {
       return;
     }
 
-    receiptWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Fee Receipt - ${studentName}</title>
-
-        <style>
-          * {
-            box-sizing: border-box;
-          }
-
-          body {
-            margin: 0;
-            padding: 30px;
-            font-family: Arial, Helvetica, sans-serif;
-            background: #f1f5f9;
-            color: #111827;
-          }
-
-          .receipt {
-            max-width: 720px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 18px;
-            overflow: hidden;
-            box-shadow: 0 10px 35px rgba(0,0,0,0.10);
-          }
-
-          .top {
-            background: linear-gradient(
-              135deg,
-              #111827,
-              #1e3a8a
-            );
-            color: white;
-            padding: 30px;
-            text-align: center;
-          }
-
-          .academy {
-            font-size: 30px;
-            font-weight: 800;
-            letter-spacing: 1px;
-          }
-
-          .receipt-title {
-            margin-top: 8px;
-            font-size: 16px;
-            opacity: 0.9;
-          }
-
-          .success {
-            margin: 25px auto 0;
-            width: fit-content;
-            padding: 9px 18px;
-            border-radius: 999px;
-            background: #dcfce7;
-            color: #166534;
-            font-weight: 800;
-            font-size: 13px;
-          }
-
-          .content {
-            padding: 30px;
-          }
-
-          .receipt-number {
-            text-align: right;
-            color: #64748b;
-            font-size: 13px;
-            margin-bottom: 25px;
-          }
-
-          .grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 18px;
-          }
-
-          .box {
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            padding: 16px;
-          }
-
-          .label {
-            color: #64748b;
-            font-size: 12px;
-            margin-bottom: 6px;
-            text-transform: uppercase;
-            font-weight: 700;
-          }
-
-          .value {
-            color: #111827;
-            font-size: 16px;
-            font-weight: 700;
-          }
-
-          .amount-box {
-            margin-top: 22px;
-            background: #eff6ff;
-            border: 1px solid #bfdbfe;
-            border-radius: 14px;
-            padding: 22px;
-            text-align: center;
-          }
-
-          .amount-label {
-            color: #1e40af;
-            font-size: 13px;
-            font-weight: 700;
-          }
-
-          .amount {
-            color: #111827;
-            font-size: 34px;
-            font-weight: 900;
-            margin-top: 6px;
-          }
-
-          .transaction {
-            margin-top: 22px;
-            padding: 16px;
-            border-radius: 12px;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-          }
-
-          .remarks {
-            margin-top: 22px;
-            padding: 16px;
-            border-radius: 12px;
-            background: #fffbeb;
-            border: 1px solid #fde68a;
-          }
-
-          .footer {
-            padding: 22px 30px;
-            background: #f8fafc;
-            text-align: center;
-            color: #64748b;
-            font-size: 12px;
-          }
-
-          .print-button {
-            display: block;
-            margin: 25px auto 0;
-            border: none;
-            background: #111827;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 10px;
-            font-size: 15px;
-            font-weight: 700;
-            cursor: pointer;
-          }
-
-          @media print {
-            body {
-              background: white;
-              padding: 0;
-            }
-
-            .receipt {
-              box-shadow: none;
-              max-width: none;
-            }
-
-            .print-button {
-              display: none;
-            }
-          }
-
-          @media (max-width: 600px) {
-            body {
-              padding: 10px;
-            }
-
-            .grid {
-              grid-template-columns: 1fr;
-            }
-
-            .content {
-              padding: 20px;
-            }
-
-            .academy {
-              font-size: 24px;
-            }
-          }
-        </style>
-      </head>
-
-      <body>
-
-        <div class="receipt">
-
-          <div class="top">
-            <div class="academy">
-              RACER ACADEMY
-            </div>
-
-            <div class="receipt-title">
-              Official Fee Payment Receipt
-            </div>
-
-            <div class="success">
-              ✓ PAYMENT RECEIVED
-            </div>
-          </div>
-
-          <div class="content">
-
-            <div class="receipt-number">
-              Receipt No: <strong>${receiptNumber}</strong>
-            </div>
-
-            <div class="grid">
-
-              <div class="box">
-                <div class="label">
-                  Student Name
-                </div>
-
-                <div class="value">
-                  ${studentName}
-                </div>
-              </div>
-
-              <div class="box">
-                <div class="label">
-                  Username
-                </div>
-
-                <div class="value">
-                  ${username}
-                </div>
-              </div>
-
-              <div class="box">
-                <div class="label">
-                  Fee Month
-                </div>
-
-                <div class="value">
-                  ${monthName} ${fee.year}
-                </div>
-              </div>
-
-              <div class="box">
-                <div class="label">
-                  Payment Date
-                </div>
-
-                <div class="value">
-                  ${paymentDate}
-                </div>
-              </div>
-
-            </div>
-
-            <div class="amount-box">
-              <div class="amount-label">
-                AMOUNT PAID
-              </div>
-
-              <div class="amount">
-                ₹${amount}
-              </div>
-            </div>
-
-            <div class="transaction">
-
-              <div class="label">
-                Payment Status
-              </div>
-
-              <div class="value">
-                ${fee.status || "SUBMITTED"}
-              </div>
-
-              <br />
-
-              <div class="label">
-                Transaction ID
-              </div>
-
-              <div class="value">
-                ${fee.transaction_id || "—"}
-              </div>
-
-              ${
-                fee.razorpay_order_id
-                  ? `
-                    <br />
-
-                    <div class="label">
-                      Razorpay Order ID
-                    </div>
-
-                    <div class="value">
-                      ${fee.razorpay_order_id}
-                    </div>
-                  `
-                  : ""
-              }
-
-            </div>
-
-            ${
-              fee.remarks
-                ? `
-                  <div class="remarks">
-
-                    <div class="label">
-                      Remarks
-                    </div>
-
-                    <div class="value">
-                      ${fee.remarks}
-                    </div>
-
-                  </div>
-                `
-                : ""
-            }
-
-            <button
-              class="print-button"
-              onclick="window.print()"
-            >
-              🖨️ Print / Save PDF
-            </button>
-
-          </div>
-
-          <div class="footer">
-            RACER ACADEMY • Fee Management System
-            <br />
-            This is a computer-generated receipt.
-          </div>
-
-        </div>
-
-      </body>
-      </html>
-    `);
-
+    receiptWindow.document.open();
+    receiptWindow.document.write(
+      receiptHTML
+    );
     receiptWindow.document.close();
-
-    setTimeout(() => {
-      receiptWindow.focus();
-    }, 300);
   }
 
   const totalSubmitted = fees
@@ -714,9 +620,9 @@ export default function TeacherFeesPage() {
       <main style={styles.page}>
         <div style={styles.loading}>
           💰
-          <div>
+          <h2>
             Loading Fees Management...
-          </div>
+          </h2>
         </div>
       </main>
     );
@@ -798,10 +704,13 @@ export default function TeacherFeesPage() {
                 <select
                   value={studentId}
                   onChange={(e) =>
-                    setStudentId(e.target.value)
+                    setStudentId(
+                      e.target.value
+                    )
                   }
                   style={styles.input}
                 >
+
                   <option value="">
                     Select Student
                   </option>
@@ -838,11 +747,9 @@ export default function TeacherFeesPage() {
                   }
                   style={styles.input}
                 >
+
                   {months.map(
-                    (
-                      monthName,
-                      index
-                    ) => (
+                    (monthName, index) => (
                       <option
                         key={monthName}
                         value={index + 1}
@@ -851,6 +758,7 @@ export default function TeacherFeesPage() {
                       </option>
                     )
                   )}
+
                 </select>
               </div>
 
@@ -897,6 +805,7 @@ export default function TeacherFeesPage() {
                   }
                   style={styles.input}
                 >
+
                   {statuses.map(
                     (statusName) => (
                       <option
@@ -907,6 +816,7 @@ export default function TeacherFeesPage() {
                       </option>
                     )
                   )}
+
                 </select>
               </div>
 
@@ -954,7 +864,9 @@ export default function TeacherFeesPage() {
                   type="text"
                   value={remarks}
                   onChange={(e) =>
-                    setRemarks(e.target.value)
+                    setRemarks(
+                      e.target.value
+                    )
                   }
                   placeholder="Optional"
                   style={styles.input}
@@ -966,10 +878,7 @@ export default function TeacherFeesPage() {
             <button
               type="submit"
               disabled={saving}
-              style={{
-                ...styles.saveButton,
-                opacity: saving ? 0.7 : 1,
-              }}
+              style={styles.saveButton}
             >
               {saving
                 ? "Saving..."
@@ -1003,7 +912,6 @@ export default function TeacherFeesPage() {
 
               <p style={styles.subtitle}>
                 Complete student fee records
-                and receipts
               </p>
             </div>
 
@@ -1054,6 +962,10 @@ export default function TeacherFeesPage() {
                     </th>
 
                     <th style={styles.th}>
+                      Remarks
+                    </th>
+
+                    <th style={styles.th}>
                       Receipt
                     </th>
 
@@ -1067,123 +979,138 @@ export default function TeacherFeesPage() {
 
                 <tbody>
 
-                  {fees.map(
-                    (fee) => {
+                  {fees.map((fee) => {
 
-                      const feeStatus =
-                        String(
-                          fee.status || ""
-                        ).toUpperCase();
+                    const normalizedStatus =
+                      String(
+                        fee.status || ""
+                      ).toUpperCase();
 
-                      const hasPayment =
-                        feeStatus ===
-                          "SUBMITTED" ||
-                        feeStatus ===
-                          "PAID" ||
-                        feeStatus ===
-                          "PAID ONLINE";
+                    const canReceipt =
+                      normalizedStatus ===
+                        "SUBMITTED" ||
+                      normalizedStatus ===
+                        "PAID" ||
+                      normalizedStatus ===
+                        "PAID ONLINE";
 
-                      return (
-                        <tr key={fee.id}>
+                    return (
+                      <tr key={fee.id}>
 
-                          <td style={styles.td}>
-                            <strong>
-                              {getStudentName(
+                        <td style={styles.td}>
+
+                          <strong>
+                            {getStudentName(
+                              fee.student_id
+                            )}
+                          </strong>
+
+                          <div
+                            style={
+                              styles.username
+                            }
+                          >
+                            {
+                              getStudentUsername(
                                 fee.student_id
-                              )}
-                            </strong>
-                          </td>
+                              )
+                            }
+                          </div>
 
-                          <td style={styles.td}>
-                            {months[
-                              fee.month - 1
-                            ] ||
-                              `Month ${fee.month}`}{" "}
-                            {fee.year}
-                          </td>
+                        </td>
 
-                          <td style={styles.td}>
-                            <strong>
-                              ₹
-                              {Number(
-                                fee.amount || 0
-                              ).toLocaleString(
-                                "en-IN"
-                              )}
-                            </strong>
-                          </td>
+                        <td style={styles.td}>
+                          {getMonthName(
+                            fee.month
+                          )}{" "}
+                          {fee.year}
+                        </td>
 
-                          <td style={styles.td}>
-
-                            <StatusBadge
-                              status={
-                                fee.status
-                              }
-                            />
-
-                          </td>
-
-                          <td style={styles.td}>
-                            {formatDate(
-                              fee.payment_date
+                        <td style={styles.td}>
+                          <strong>
+                            ₹
+                            {Number(
+                              fee.amount
+                            ).toLocaleString(
+                              "en-IN"
                             )}
-                          </td>
+                          </strong>
+                        </td>
 
-                          <td style={styles.td}>
-                            {fee.transaction_id ||
-                              "—"}
-                          </td>
+                        <td style={styles.td}>
 
-                          <td style={styles.td}>
+                          <StatusBadge
+                            status={
+                              fee.status
+                            }
+                          />
 
-                            {hasPayment ? (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  downloadReceipt(
-                                    fee
-                                  )
-                                }
-                                style={
-                                  styles.receiptButton
-                                }
-                              >
-                                🧾 Receipt
-                              </button>
-                            ) : (
-                              <span
-                                style={
-                                  styles.noReceipt
-                                }
-                              >
-                                —
-                              </span>
-                            )}
+                        </td>
 
-                          </td>
+                        <td style={styles.td}>
+                          {fee.payment_date ||
+                            "—"}
+                        </td>
 
-                          <td style={styles.td}>
+                        <td style={styles.td}>
+                          {fee.transaction_id ||
+                            "—"}
+                        </td>
 
+                        <td style={styles.td}>
+                          {fee.remarks ||
+                            "—"}
+                        </td>
+
+                        <td style={styles.td}>
+
+                          {canReceipt ? (
                             <button
                               type="button"
                               onClick={() =>
-                                deleteFee(
-                                  fee.id
+                                downloadReceipt(
+                                  fee
                                 )
                               }
                               style={
-                                styles.deleteButton
+                                styles.receiptButton
                               }
                             >
-                              Delete
+                              🧾 Receipt
                             </button>
+                          ) : (
+                            <span
+                              style={
+                                styles.notAvailable
+                              }
+                            >
+                              Available after payment
+                            </span>
+                          )}
 
-                          </td>
+                        </td>
 
-                        </tr>
-                      );
-                    }
-                  )}
+                        <td style={styles.td}>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              deleteFee(
+                                fee.id
+                              )
+                            }
+                            style={
+                              styles.deleteButton
+                            }
+                          >
+                            Delete
+                          </button>
+
+                        </td>
+
+                      </tr>
+                    );
+                  })}
 
                 </tbody>
 
@@ -1243,9 +1170,8 @@ function StatusBadge({
 }: {
   status: string;
 }) {
-  const upperStatus =
-    String(status || "")
-      .toUpperCase();
+  const normalized =
+    String(status || "").toUpperCase();
 
   const statusStyles: Record<
     string,
@@ -1286,35 +1212,27 @@ function StatusBadge({
     <span
       style={{
         ...styles.badge,
-        ...(statusStyles[
-          upperStatus
-        ] || {
-          background: "#e5e7eb",
-          color: "#374151",
-        }),
+        ...(statusStyles[normalized] ||
+          statusStyles.PENDING),
       }}
     >
-      {upperStatus ===
-        "SUBMITTED" &&
+      {normalized === "SUBMITTED" &&
         "✓ "}
 
-      {upperStatus === "PENDING" &&
+      {normalized === "PENDING" &&
         "⏳ "}
 
-      {(upperStatus === "PAID" ||
-        upperStatus ===
-          "PAID ONLINE") &&
-        "✓ "}
-
-      {upperStatus ===
-        "REFUNDED" &&
+      {normalized === "REFUNDED" &&
         "↩️ "}
 
-      {upperStatus ===
-        "CANCELLED" &&
+      {normalized === "CANCELLED" &&
         "✕ "}
 
-      {upperStatus}
+      {(normalized === "PAID" ||
+        normalized === "PAID ONLINE") &&
+        "✓ "}
+
+      {normalized}
     </span>
   );
 }
@@ -1335,7 +1253,7 @@ const styles: Record<
 
   container: {
     width: "100%",
-    maxWidth: "1250px",
+    maxWidth: "1300px",
     margin: "0 auto",
   },
 
@@ -1356,7 +1274,7 @@ const styles: Record<
     margin: 0,
     color: "#172554",
     fontSize: "30px",
-    fontWeight: "800",
+    fontWeight: 800,
   },
 
   subtitle: {
@@ -1371,7 +1289,7 @@ const styles: Record<
     color: "white",
     padding: "12px 18px",
     borderRadius: "10px",
-    fontWeight: "700",
+    fontWeight: 700,
     whiteSpace: "nowrap",
   },
 
@@ -1403,7 +1321,7 @@ const styles: Record<
 
   summaryAmount: {
     fontSize: "28px",
-    fontWeight: "800",
+    fontWeight: 800,
     marginTop: "5px",
   },
 
@@ -1434,7 +1352,7 @@ const styles: Record<
     display: "block",
     marginBottom: "7px",
     color: "#334155",
-    fontWeight: "700",
+    fontWeight: 700,
     fontSize: "14px",
   },
 
@@ -1458,7 +1376,7 @@ const styles: Record<
     padding: "13px 24px",
     borderRadius: "10px",
     fontSize: "16px",
-    fontWeight: "700",
+    fontWeight: 700,
     cursor: "pointer",
   },
 
@@ -1468,7 +1386,7 @@ const styles: Record<
     color: "#166534",
     padding: "12px",
     borderRadius: "10px",
-    fontWeight: "600",
+    fontWeight: 600,
   },
 
   error: {
@@ -1477,7 +1395,7 @@ const styles: Record<
     color: "#991b1b",
     padding: "12px",
     borderRadius: "10px",
-    fontWeight: "600",
+    fontWeight: 600,
   },
 
   historyHeader: {
@@ -1494,7 +1412,7 @@ const styles: Record<
     color: "white",
     padding: "11px 17px",
     borderRadius: "10px",
-    fontWeight: "700",
+    fontWeight: 700,
     cursor: "pointer",
   },
 
@@ -1505,7 +1423,7 @@ const styles: Record<
 
   table: {
     width: "100%",
-    minWidth: "1100px",
+    minWidth: "1250px",
     borderCollapse: "collapse",
   },
 
@@ -1525,13 +1443,20 @@ const styles: Record<
       "1px solid #e2e8f0",
     color: "#334155",
     fontSize: "14px",
+    verticalAlign: "middle",
+  },
+
+  username: {
+    marginTop: "4px",
+    color: "#64748b",
+    fontSize: "12px",
   },
 
   badge: {
     display: "inline-block",
     padding: "7px 11px",
     borderRadius: "999px",
-    fontWeight: "700",
+    fontWeight: 700,
     fontSize: "12px",
     whiteSpace: "nowrap",
   },
@@ -1539,17 +1464,20 @@ const styles: Record<
   receiptButton: {
     border: "none",
     background:
-      "linear-gradient(135deg,#059669,#047857)",
+      "linear-gradient(135deg,#059669,#16a34a)",
     color: "white",
     padding: "9px 13px",
     borderRadius: "8px",
     cursor: "pointer",
-    fontWeight: "700",
+    fontWeight: 700,
     whiteSpace: "nowrap",
   },
 
-  noReceipt: {
+  notAvailable: {
     color: "#94a3b8",
+    fontSize: "11px",
+    display: "inline-block",
+    maxWidth: "100px",
   },
 
   deleteButton: {
@@ -1559,7 +1487,7 @@ const styles: Record<
     padding: "8px 11px",
     borderRadius: "8px",
     cursor: "pointer",
-    fontWeight: "700",
+    fontWeight: 700,
   },
 
   empty: {
@@ -1576,6 +1504,6 @@ const styles: Record<
     borderRadius: "18px",
     textAlign: "center",
     fontSize: "18px",
-    fontWeight: "700",
+    fontWeight: 700,
   },
 };
