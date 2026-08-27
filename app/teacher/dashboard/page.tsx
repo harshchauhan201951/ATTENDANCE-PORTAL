@@ -25,10 +25,6 @@ export default function TeacherDashboard() {
 
   /*
    * PERMANENT LOGOUT
-   *
-   * Clears every known teacher/student
-   * authentication key from both
-   * localStorage and sessionStorage.
    */
   async function handleLogout() {
     if (loggingOut) {
@@ -38,16 +34,10 @@ export default function TeacherDashboard() {
     setLoggingOut(true);
 
     const authKeys = [
-      /*
-       * New authentication system
-       */
       "attendance_role",
       "attendance_username",
       "attendance_teacher_id",
 
-      /*
-       * Teacher authentication
-       */
       "teacherLoggedIn",
       "teacher",
       "teacherUsername",
@@ -55,9 +45,6 @@ export default function TeacherDashboard() {
       "teacherName",
       "teacher_name",
 
-      /*
-       * Student authentication
-       */
       "studentLoggedIn",
       "studentId",
       "studentUsername",
@@ -66,38 +53,25 @@ export default function TeacherDashboard() {
       "student_name",
     ];
 
-    /*
-     * Clear localStorage.
-     */
     authKeys.forEach((key) => {
       localStorage.removeItem(key);
     });
 
-    /*
-     * Clear sessionStorage.
-     */
     authKeys.forEach((key) => {
       sessionStorage.removeItem(key);
     });
 
-    /*
-     * Small delay so browser storage is fully updated.
-     */
     await new Promise((resolve) =>
       setTimeout(resolve, 100)
     );
 
-    /*
-     * Go to REAL login page.
-     */
     router.replace("/");
-
-    /*
-     * Refresh Next.js router state.
-     */
     router.refresh();
   }
 
+  /*
+   * TEACHER DASHBOARD MENU
+   */
   const menuItems = [
     {
       title: "Mark Attendance",
@@ -106,6 +80,7 @@ export default function TeacherDashboard() {
       icon: "📝",
       path: "/teacher/attendance",
     },
+
     {
       title: "Attendance History",
       description:
@@ -113,6 +88,7 @@ export default function TeacherDashboard() {
       icon: "📊",
       path: "/teacher/attendance-history",
     },
+
     {
       title: "Calendar",
       description:
@@ -120,6 +96,7 @@ export default function TeacherDashboard() {
       icon: "📅",
       path: "/teacher/calendar",
     },
+
     {
       title: "Reports",
       description:
@@ -127,6 +104,7 @@ export default function TeacherDashboard() {
       icon: "📈",
       path: "/teacher/reports",
     },
+
     {
       title: "Fees",
       description:
@@ -134,6 +112,15 @@ export default function TeacherDashboard() {
       icon: "💰",
       path: "/teacher/fees",
     },
+
+    {
+      title: "Home Work",
+      description:
+        "Create and manage student homework",
+      icon: "📚",
+      path: "/teacher/HOME WORK",
+    },
+
     {
       title: "Settings",
       description:
@@ -161,6 +148,7 @@ export default function TeacherDashboard() {
           margin: "0 auto",
         }}
       >
+
         {/* HEADER */}
 
         <header
@@ -202,19 +190,18 @@ export default function TeacherDashboard() {
 
             <p
               style={{
-                margin:
-                  "8px 0 0",
+                margin: "8px 0 0",
                 color: "#64748b",
                 fontSize: "15px",
               }}
             >
               Manage attendance,
-              students, reports and
-              more.
+              students, homework,
+              reports and more.
             </p>
           </div>
 
-          {/* LOGOUT BUTTON */}
+          {/* LOGOUT */}
 
           <button
             type="button"
@@ -226,8 +213,7 @@ export default function TeacherDashboard() {
                 ? "#9ca3af"
                 : "#ef4444",
               color: "#ffffff",
-              padding:
-                "12px 20px",
+              padding: "12px 20px",
               borderRadius: "12px",
               fontWeight: 700,
               cursor: loggingOut
@@ -265,13 +251,11 @@ export default function TeacherDashboard() {
 
           <p
             style={{
-              margin:
-                "6px 0 0",
+              margin: "6px 0 0",
               color: "#64748b",
             }}
           >
-            Select an option to
-            continue.
+            Select an option to continue.
           </p>
         </section>
 
@@ -285,129 +269,105 @@ export default function TeacherDashboard() {
             gap: "18px",
           }}
         >
-          {menuItems.map(
-            (item) => (
-              <button
-                type="button"
-                key={item.path}
-                onClick={() =>
-                  router.push(
-                    item.path
-                  )
-                }
+          {menuItems.map((item) => (
+            <button
+              type="button"
+              key={item.path}
+              onClick={() =>
+                router.push(item.path)
+              }
+              style={{
+                border: "none",
+                background: "#ffffff",
+                borderRadius: "18px",
+                padding: "24px",
+                textAlign: "left",
+                cursor: "pointer",
+                boxShadow:
+                  "0 6px 22px rgba(0,0,0,0.07)",
+                transition:
+                  "transform 0.2s ease, box-shadow 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform =
+                  "translateY(-4px)";
+
+                e.currentTarget.style.boxShadow =
+                  "0 12px 30px rgba(0,0,0,0.12)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform =
+                  "translateY(0)";
+
+                e.currentTarget.style.boxShadow =
+                  "0 6px 22px rgba(0,0,0,0.07)";
+              }}
+            >
+              {/* ICON */}
+
+              <div
                 style={{
-                  border: "none",
-                  background:
-                    "#ffffff",
-                  borderRadius:
-                    "18px",
-                  padding:
-                    "24px",
-                  textAlign:
-                    "left",
-                  cursor:
-                    "pointer",
-                  boxShadow:
-                    "0 6px 22px rgba(0,0,0,0.07)",
-                  transition:
-                    "transform 0.2s ease, box-shadow 0.2s ease",
-                }}
-                onMouseEnter={(
-                  e
-                ) => {
-                  e.currentTarget.style.transform =
-                    "translateY(-4px)";
-
-                  e.currentTarget.style.boxShadow =
-                    "0 12px 30px rgba(0,0,0,0.12)";
-                }}
-                onMouseLeave={(
-                  e
-                ) => {
-                  e.currentTarget.style.transform =
-                    "translateY(0)";
-
-                  e.currentTarget.style.boxShadow =
-                    "0 6px 22px rgba(0,0,0,0.07)";
+                  fontSize: "36px",
+                  marginBottom: "14px",
                 }}
               >
-                <div
-                  style={{
-                    fontSize:
-                      "36px",
-                    marginBottom:
-                      "14px",
-                  }}
-                >
-                  {item.icon}
-                </div>
+                {item.icon}
+              </div>
 
-                <h3
-                  style={{
-                    margin:
-                      "0 0 8px",
-                    color:
-                      "#0f172a",
-                    fontSize:
-                      "19px",
-                    fontWeight:
-                      800,
-                  }}
-                >
-                  {item.title}
-                </h3>
+              {/* TITLE */}
 
-                <p
-                  style={{
-                    margin: 0,
-                    color:
-                      "#64748b",
-                    fontSize:
-                      "14px",
-                    lineHeight:
-                      1.5,
-                  }}
-                >
-                  {
-                    item.description
-                  }
-                </p>
+              <h3
+                style={{
+                  margin: "0 0 8px",
+                  color: "#0f172a",
+                  fontSize: "19px",
+                  fontWeight: 800,
+                }}
+              >
+                {item.title}
+              </h3>
 
-                <div
-                  style={{
-                    marginTop:
-                      "18px",
-                    color:
-                      "#4f46e5",
-                    fontWeight:
-                      700,
-                    fontSize:
-                      "14px",
-                  }}
-                >
-                  Open →
-                </div>
-              </button>
-            )
-          )}
+              {/* DESCRIPTION */}
+
+              <p
+                style={{
+                  margin: 0,
+                  color: "#64748b",
+                  fontSize: "14px",
+                  lineHeight: 1.5,
+                }}
+              >
+                {item.description}
+              </p>
+
+              {/* OPEN */}
+
+              <div
+                style={{
+                  marginTop: "18px",
+                  color: "#4f46e5",
+                  fontWeight: 700,
+                  fontSize: "14px",
+                }}
+              >
+                Open →
+              </div>
+            </button>
+          ))}
         </section>
 
         {/* FOOTER */}
 
         <footer
           style={{
-            textAlign:
-              "center",
-            marginTop:
-              "32px",
-            color:
-              "#94a3b8",
-            fontSize:
-              "13px",
+            textAlign: "center",
+            marginTop: "32px",
+            color: "#94a3b8",
+            fontSize: "13px",
           }}
         >
           Attendance Portal •
-          Teacher Dashboard
+          Teacher Dashboard • 2026
         </footer>
       </div>
     </main>
