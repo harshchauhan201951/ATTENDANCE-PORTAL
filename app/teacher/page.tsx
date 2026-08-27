@@ -151,24 +151,36 @@ export default function TeacherControlCenter() {
 
   const handleLogout = () => {
     try {
-      localStorage.removeItem("teacherName");
-      localStorage.removeItem("teacher_name");
-      localStorage.removeItem("teacher");
-      localStorage.removeItem("teacher_username");
-      localStorage.removeItem("teacherUsername");
-      localStorage.removeItem("teacherLoggedIn");
+      const authKeys = [
+        "attendance_role",
+        "attendance_username",
+        "attendance_teacher_id",
 
-      sessionStorage.removeItem("teacherName");
-      sessionStorage.removeItem("teacher_name");
-      sessionStorage.removeItem("teacher");
-      sessionStorage.removeItem("teacher_username");
-      sessionStorage.removeItem("teacherUsername");
-      sessionStorage.removeItem("teacherLoggedIn");
+        "teacherName",
+        "teacher_name",
+        "teacher",
+        "teacher_username",
+        "teacherUsername",
+        "teacherLoggedIn",
+
+        "studentLoggedIn",
+        "studentId",
+        "studentUsername",
+        "student_username",
+        "studentName",
+        "student_name",
+      ];
+
+      authKeys.forEach((key) => {
+        localStorage.removeItem(key);
+        sessionStorage.removeItem(key);
+      });
     } catch {
       // Ignore storage errors
     }
 
-    router.push("/");
+    router.replace("/");
+    router.refresh();
   };
 
   const openSection = (route: string) => {
