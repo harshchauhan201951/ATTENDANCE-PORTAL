@@ -123,13 +123,20 @@ export default function TeacherDashboard() {
     },
     {
       number: "08",
+      title: "Announcements",
+      description: "Create and manage announcements for all students",
+      icon: "📢",
+      path: "/teacher/announcements",
+    },
+    {
+      number: "09",
       title: "Profile",
       description: "Manage your teacher profile and picture",
       icon: "👤",
       path: "/teacher/profile",
     },
     {
-      number: "09",
+      number: "10",
       title: "Settings",
       description: "Manage teacher account settings",
       icon: "⚙",
@@ -341,10 +348,14 @@ export default function TeacherDashboard() {
                     background:
                       item.title === "Homework"
                         ? "linear-gradient(135deg,#ede9fe,#ddd6fe)"
+                        : item.title === "Announcements"
+                        ? "linear-gradient(135deg,#fef3c7,#fde68a)"
                         : "#eef2ff",
                     color:
                       item.title === "Homework"
                         ? "#7c3aed"
+                        : item.title === "Announcements"
+                        ? "#d97706"
                         : "#4f46e5",
                     display: "flex",
                     alignItems: "center",
@@ -393,6 +404,8 @@ export default function TeacherDashboard() {
                   color:
                     item.title === "Homework"
                       ? "#7c3aed"
+                      : item.title === "Announcements"
+                      ? "#d97706"
                       : "#4f46e5",
                   fontSize: "12px",
                   fontWeight: 900,
