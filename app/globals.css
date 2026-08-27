@@ -1,26 +1,796 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+* {
+  box-sizing: border-box;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  background: #050b18;
+  color: white;
+}
+
+button,
+input {
+  font-family: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* =========================================
+   MAIN PAGE
+========================================= */
+
+.racer-login-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 30px 20px;
+
+  position: relative;
+  overflow: hidden;
+
+  background:
+    radial-gradient(
+      circle at 20% 20%,
+      rgba(37, 99, 235, 0.15),
+      transparent 35%
+    ),
+    radial-gradient(
+      circle at 80% 80%,
+      rgba(124, 58, 237, 0.15),
+      transparent 35%
+    ),
+    linear-gradient(
+      135deg,
+      #020617,
+      #07101f,
+      #0b1224
+    );
+}
+
+/* =========================================
+   BACKGROUND
+========================================= */
+
+.racer-grid {
+  position: absolute;
+
+  inset: 0;
+
+  background-image:
+    linear-gradient(
+      rgba(255, 255, 255, 0.025) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.025) 1px,
+      transparent 1px
+    );
+
+  background-size: 45px 45px;
+
+  mask-image:
+    radial-gradient(
+      ellipse at center,
+      black 20%,
+      transparent 75%
+    );
+
+  pointer-events: none;
+}
+
+.racer-orb {
+  position: absolute;
+
+  border-radius: 50%;
+
+  filter: blur(80px);
+
+  pointer-events: none;
+}
+
+.racer-orb-one {
+  width: 260px;
+  height: 260px;
+
+  left: -100px;
+  top: -100px;
+
+  background: rgba(37, 99, 235, 0.18);
+}
+
+.racer-orb-two {
+  width: 300px;
+  height: 300px;
+
+  right: -120px;
+  bottom: -120px;
+
+  background: rgba(124, 58, 237, 0.18);
+}
+
+/* =========================================
+   CARD
+========================================= */
+
+.racer-login-card {
+  width: min(460px, 100%);
+
+  position: relative;
+  z-index: 5;
+
+  padding: 42px;
+
+  border-radius: 30px;
+
+  border: 1px solid
+    rgba(255, 255, 255, 0.1);
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(15, 23, 42, 0.9),
+      rgba(7, 15, 30, 0.88)
+    );
+
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+
+  box-shadow:
+    0 35px 100px
+      rgba(0, 0, 0, 0.5),
+    inset 0 1px 0
+      rgba(255, 255, 255, 0.06);
+}
+
+/* =========================================
+   LOGO
+========================================= */
+
+.racer-logo-area {
+  text-align: center;
+
+  margin-bottom: 30px;
+}
+
+.racer-logo {
+  width: 72px;
+  height: 72px;
+
+  margin: 0 auto 16px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 21px;
+
+  font-size: 35px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #2563eb,
+      #7c3aed
+    );
+
+  box-shadow:
+    0 16px 40px
+      rgba(37, 99, 235, 0.28);
+}
+
+.racer-logo-area h1 {
+  margin: 0;
+
+  font-size: 30px;
+
+  font-weight: 950;
+
+  letter-spacing: -1.5px;
+}
+
+.racer-logo-area h1 span {
+  margin-left: 7px;
+
+  background:
+    linear-gradient(
+      90deg,
+      #60a5fa,
+      #a78bfa
+    );
+
+  -webkit-background-clip: text;
+  background-clip: text;
+
+  color: transparent;
+}
+
+.racer-logo-area p {
+  margin: 9px 0 0;
+
+  color:
+    rgba(255, 255, 255, 0.42);
+
+  font-size: 12px;
+
+  letter-spacing: 0.3px;
+}
+
+/* =========================================
+   SWITCH
+========================================= */
+
+.login-switch {
+  display: grid;
+
+  grid-template-columns: 1fr 1fr;
+
+  gap: 5px;
+
+  padding: 5px;
+
+  margin-bottom: 30px;
+
+  border-radius: 15px;
+
+  background:
+    rgba(2, 6, 23, 0.75);
+
+  border: 1px solid
+    rgba(255, 255, 255, 0.06);
+}
+
+.switch-button {
+  min-height: 52px;
+
+  border: 0;
+
+  border-radius: 11px;
+
+  background: transparent;
+
+  color:
+    rgba(255, 255, 255, 0.48);
+
+  cursor: pointer;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 8px;
+
+  font-size: 14px;
+
+  font-weight: 750;
+
+  transition: 0.2s ease;
+}
+
+.switch-button.active {
+  color: white;
+
+  background:
+    linear-gradient(
+      135deg,
+      #2563eb,
+      #4f46e5
+    );
+
+  box-shadow:
+    0 8px 20px
+      rgba(37, 99, 235, 0.25);
+}
+
+.switch-button:not(.active):hover {
+  color: white;
+
+  background:
+    rgba(255, 255, 255, 0.04);
+}
+
+.switch-icon {
+  font-size: 17px;
+}
+
+/* =========================================
+   HEADING
+========================================= */
+
+.racer-heading {
+  margin-bottom: 26px;
+}
+
+.portal-badge {
+  display: inline-flex;
+
+  padding: 6px 10px;
+
+  border-radius: 7px;
+
+  background:
+    rgba(96, 165, 250, 0.09);
+
+  border: 1px solid
+    rgba(96, 165, 250, 0.12);
+
+  color: #60a5fa;
+
+  font-size: 9px;
+
+  font-weight: 850;
+
+  letter-spacing: 1.7px;
+
+  margin-bottom: 10px;
+}
+
+.racer-heading h2 {
+  margin: 0;
+
+  font-size: 32px;
+
+  letter-spacing: -1.3px;
+}
+
+.racer-heading h2 span {
+  font-size: 25px;
+}
+
+.racer-heading p {
+  margin: 8px 0 0;
+
+  color:
+    rgba(255, 255, 255, 0.43);
+
+  font-size: 13px;
+
+  line-height: 1.5;
+}
+
+/* =========================================
+   FORM
+========================================= */
+
+.racer-form {
+  width: 100%;
+}
+
+.racer-input-group {
+  margin-bottom: 19px;
+}
+
+.racer-input-group label {
+  display: block;
+
+  margin-bottom: 8px;
+
+  color:
+    rgba(255, 255, 255, 0.72);
+
+  font-size: 12px;
+
+  font-weight: 750;
+}
+
+.racer-input {
+  width: 100%;
+
+  position: relative;
+
+  display: flex;
+
+  align-items: center;
+}
+
+.racer-input input {
+  width: 100%;
+
+  height: 57px;
+
+  padding:
+    0 48px
+    0 46px;
+
+  outline: none;
+
+  border-radius: 14px;
+
+  border: 1px solid
+    rgba(255, 255, 255, 0.09);
+
+  background:
+    rgba(2, 6, 23, 0.62);
+
+  color: white;
+
+  font-size: 14px;
+
+  transition: 0.2s ease;
+}
+
+.racer-input input::placeholder {
+  color:
+    rgba(255, 255, 255, 0.28);
+}
+
+.racer-input input:focus {
+  border-color:
+    rgba(96, 165, 250, 0.75);
+
+  background:
+    rgba(2, 6, 23, 0.85);
+
+  box-shadow:
+    0 0 0 4px
+      rgba(37, 99, 235, 0.08);
+}
+
+.field-icon {
+  position: absolute;
+
+  left: 15px;
+
+  font-size: 16px;
+
+  opacity: 0.55;
+
+  pointer-events: none;
+
+  z-index: 2;
+}
+
+.password-toggle {
+  position: absolute;
+
+  right: 9px;
+
+  width: 39px;
+  height: 39px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  border: 0;
+
+  border-radius: 10px;
+
+  background: transparent;
+
+  cursor: pointer;
+
+  opacity: 0.55;
+
+  font-size: 15px;
+}
+
+.password-toggle:hover {
+  opacity: 1;
+
+  background:
+    rgba(255, 255, 255, 0.05);
+}
+
+/* =========================================
+   ERROR
+========================================= */
+
+.racer-error {
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  padding: 12px 13px;
+
+  margin-bottom: 17px;
+
+  border-radius: 12px;
+
+  border: 1px solid
+    rgba(239, 68, 68, 0.18);
+
+  background:
+    rgba(239, 68, 68, 0.08);
+
+  color: #fca5a5;
+
+  font-size: 12px;
+}
+
+/* =========================================
+   LOGIN BUTTON
+========================================= */
+
+.racer-login-button {
+  width: 100%;
+
+  min-height: 58px;
+
+  border: 0;
+
+  border-radius: 14px;
+
+  cursor: pointer;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 13px;
+
+  color: white;
+
+  font-size: 15px;
+
+  font-weight: 850;
+
+  background:
+    linear-gradient(
+      135deg,
+      #2563eb,
+      #7c3aed
+    );
+
+  box-shadow:
+    0 14px 30px
+      rgba(37, 99, 235, 0.24);
+
+  transition: 0.2s ease;
+}
+
+.racer-login-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+
+  box-shadow:
+    0 18px 38px
+      rgba(37, 99, 235, 0.32);
+}
+
+.racer-login-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.racer-login-button:disabled {
+  opacity: 0.65;
+
+  cursor: not-allowed;
+}
+
+.login-arrow {
+  font-size: 21px;
+
+  line-height: 1;
+}
+
+/* =========================================
+   SPINNER
+========================================= */
+
+.racer-spinner {
+  width: 18px;
+  height: 18px;
+
+  border-radius: 50%;
+
+  border:
+    2px solid
+    rgba(255, 255, 255, 0.28);
+
+  border-top-color: white;
+
+  animation:
+    racer-spin 0.8s linear infinite;
+}
+
+@keyframes racer-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* =========================================
+   FOOTER
+========================================= */
+
+.racer-footer {
+  margin-top: 24px;
+
+  padding-top: 19px;
+
+  border-top: 1px solid
+    rgba(255, 255, 255, 0.06);
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 12px;
+}
+
+.security-line {
+  display: flex;
+
+  align-items: center;
+
+  gap: 5px;
+
+  color:
+    rgba(255, 255, 255, 0.3);
+
+  font-size: 10px;
+}
+
+.footer-dot {
+  color:
+    rgba(255, 255, 255, 0.18);
+
+  font-size: 11px;
+}
+
+.racer-bottom-brand {
+  position: fixed;
+
+  bottom: 10px;
+
+  left: 50%;
+
+  transform: translateX(-50%);
+
+  z-index: 5;
+
+  color:
+    rgba(255, 255, 255, 0.14);
+
+  font-size: 8px;
+
+  letter-spacing: 3px;
+
+  font-weight: 800;
+}
+
+/* =========================================
+   MOBILE
+========================================= */
+
+@media (max-width: 600px) {
+  .racer-login-page {
+    padding:
+      16px
+      12px;
+  }
+
+  .racer-login-card {
+    width: 100%;
+
+    padding:
+      28px
+      20px;
+
+    border-radius: 24px;
+  }
+
+  .racer-logo-area {
+    margin-bottom: 24px;
+  }
+
+  .racer-logo {
+    width: 62px;
+    height: 62px;
+
+    font-size: 30px;
+
+    border-radius: 18px;
+
+    margin-bottom: 13px;
+  }
+
+  .racer-logo-area h1 {
+    font-size: 25px;
+  }
+
+  .racer-logo-area p {
+    font-size: 10px;
+  }
+
+  .login-switch {
+    margin-bottom: 25px;
+  }
+
+  .switch-button {
+    min-height: 50px;
+
+    font-size: 13px;
+  }
+
+  .racer-heading h2 {
+    font-size: 28px;
+  }
+
+  .racer-heading p {
+    font-size: 12px;
+  }
+
+  .racer-input input {
+    height: 58px;
+
+    font-size: 15px;
+  }
+
+  .racer-login-button {
+    min-height: 60px;
+  }
+
+  .racer-footer {
+    margin-top: 21px;
+  }
+}
+
+/* =========================================
+   VERY SMALL MOBILE
+========================================= */
+
+@media (max-width: 370px) {
+  .racer-login-card {
+    padding:
+      24px
+      16px;
+  }
+
+  .racer-logo-area h1 {
+    font-size: 23px;
+  }
+
+  .racer-heading h2 {
+    font-size: 26px;
+  }
+
+  .switch-button {
+    font-size: 12px;
+  }
+
+  .security-line {
+    font-size: 9px;
+  }
+}
+
+/* =========================================
+   TABLET
+========================================= */
+
+@media (min-width: 601px) and (max-width: 900px) {
+  .racer-login-card {
+    width: min(470px, 90vw);
+
+    padding: 38px;
+  }
 }
