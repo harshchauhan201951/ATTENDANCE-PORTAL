@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "../../lib/supabase";
 
 type DashboardCard = {
   icon: string;
@@ -11,12 +12,33 @@ type DashboardCard = {
   className: string;
 };
 
+type Announcement = {
+  id: number;
+  title: string;
+  message: string;
+  created_at: string;
+  likeCount: number;
+  likedByMe: boolean;
+};
+
 export default function StudentDashboardPage() {
   const router = useRouter();
 
   const [studentName, setStudentName] = useState("Student");
   const [username, setUsername] = useState("");
+  const [studentId, setStudentId] = useState<number | null>(null);
   const [time, setTime] = useState("");
+
+  const [announcements, setAnnouncements] = useState<
+    Announcement[]
+  >([]);
+
+  const [announcementLoading, setAnnouncementLoading] =
+    useState(true);
+
+  const [likingId, setLikingId] = useState<number | null>(
+    null
+  );
 
   useEffect(() => {
     const name =
@@ -29,8 +51,24 @@ export default function StudentDashboardPage() {
       localStorage.getItem("studentUsername") ||
       "";
 
+    const savedStudentId =
+      localStorage.getItem("studentId");
+
     setStudentName(name);
     setUsername(savedUsername);
+
+    if (savedStudentId) {
+      const parsedId = Number(savedStudentId);
+
+      if (!Number.isNaN(parsedId)) {
+        setStudentId(parsedId);
+        loadAnnouncements(parsedId);
+      } else {
+        loadAnnouncements(null);
+      }
+    } else {
+      loadAnnouncements(null);
+    }
 
     updateTime();
 
@@ -49,20 +87,286 @@ export default function StudentDashboardPage() {
     );
   }
 
+  async function loadAnnouncements(
+    currentStudentId: number | null
+  ) {
+    setAnnouncementLoading(true);
+
+    try {
+      const {
+        data: announcementData,
+        error: announcementError,
+      } = await supabase
+        .from("announcements")
+        .select(
+          "id, title, message, created_at"
+        )
+        .order("created_at", {
+          ascending: false,
+        });
+
+      if (announcementError) {
+        console.error(
+          "Announcements loading error:",
+          announcementError
+        );
+
+        setAnnouncements([]);
+        return;
+      }
+
+      const announcementRows =
+        announcementData || [];
+
+      if (announcementRows.length === 0) {
+        setAnnouncements([]);
+        return;
+      }
+
+      const announcementIds =
+        announcementRows.map(
+          (announcement) => announcement.id
+        );
+
+      const {
+        data: likesData,
+        error: likesError,
+      } = await supabase
+        .from("announcement_likes")
+        .select(
+          "announcement_id, student_id"
+        )
+        .in(
+          "announcement_id",
+          announcementIds
+        );
+
+      if (likesError) {
+        console.error(
+          "Announcement likes loading error:",
+          likesError
+        );
+      }
+
+      const likes = likesData || [];
+
+      const formattedAnnouncements =
+        announcementRows.map(
+          (announcement) => {
+            const announcementLikes =
+              likes.filter(
+                (like) =>
+                  like.announcement_id ===
+                  announcement.id
+              );
+
+            const likedByMe =
+              currentStudentId !== null &&
+              announcementLikes.some(
+                (like) =>
+                  Number(like.student_id) ===
+                  currentStudentId
+              );
+
+            return {
+              id: announcement.id,
+              title: announcement.title,
+              message: announcement.message,
+              created_at:
+                announcement.created_at,
+              likeCount:
+                announcementLikes.length,
+              likedByMe,
+            };
+          }
+        );
+
+      setAnnouncements(
+        formattedAnnouncements
+      );
+    } catch (error) {
+      console.error(
+        "Unexpected announcements error:",
+        error
+      );
+
+      setAnnouncements([]);
+    } finally {
+      setAnnouncementLoading(false);
+    }
+  }
+
+  async function toggleLike(
+    announcementId: number
+  ) {
+    if (!studentId) {
+      alert(
+        "Student information could not be found. Please login again."
+      );
+      return;
+    }
+
+    if (likingId !== null) {
+      return;
+    }
+
+    const selectedAnnouncement =
+      announcements.find(
+        (item) =>
+          item.id === announcementId
+      );
+
+    if (!selectedAnnouncement) {
+      return;
+    }
+
+    setLikingId(announcementId);
+
+    try {
+      if (selectedAnnouncement.likedByMe) {
+        const { error } =
+          await supabase
+            .from("announcement_likes")
+            .delete()
+            .eq(
+              "announcement_id",
+              announcementId
+            )
+            .eq(
+              "student_id",
+              studentId
+            );
+
+        if (error) {
+          console.error(
+            "Unlike error:",
+            error
+          );
+
+          alert(
+            `Could not remove like: ${error.message}`
+          );
+
+          return;
+        }
+
+        setAnnouncements(
+          (previous) =>
+            previous.map((item) =>
+              item.id === announcementId
+                ? {
+                    ...item,
+                    likedByMe: false,
+                    likeCount:
+                      Math.max(
+                        0,
+                        item.likeCount - 1
+                      ),
+                  }
+                : item
+            )
+        );
+      } else {
+        const { error } =
+          await supabase
+            .from("announcement_likes")
+            .insert({
+              announcement_id:
+                announcementId,
+              student_id: studentId,
+            });
+
+        if (error) {
+          console.error(
+            "Like error:",
+            error
+          );
+
+          if (
+            error.code === "23505"
+          ) {
+            await loadAnnouncements(
+              studentId
+            );
+          } else {
+            alert(
+              `Could not like announcement: ${error.message}`
+            );
+          }
+
+          return;
+        }
+
+        setAnnouncements(
+          (previous) =>
+            previous.map((item) =>
+              item.id === announcementId
+                ? {
+                    ...item,
+                    likedByMe: true,
+                    likeCount:
+                      item.likeCount + 1,
+                  }
+                : item
+            )
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Unexpected like error:",
+        error
+      );
+    } finally {
+      setLikingId(null);
+    }
+  }
+
   function logout() {
-    localStorage.removeItem("studentLoggedIn");
-    localStorage.removeItem("student_username");
-    localStorage.removeItem("studentUsername");
-    localStorage.removeItem("studentName");
-    localStorage.removeItem("student_name");
-    localStorage.removeItem("studentId");
+    localStorage.removeItem(
+      "studentLoggedIn"
+    );
+    localStorage.removeItem(
+      "student_username"
+    );
+    localStorage.removeItem(
+      "studentUsername"
+    );
+    localStorage.removeItem(
+      "studentName"
+    );
+    localStorage.removeItem(
+      "student_name"
+    );
+    localStorage.removeItem(
+      "studentId"
+    );
 
     sessionStorage.clear();
 
     router.push("/");
   }
 
-  const firstLetter = studentName.charAt(0).toUpperCase();
+  function formatAnnouncementDate(
+    date: string
+  ) {
+    if (!date) {
+      return "";
+    }
+
+    return new Date(date).toLocaleString(
+      "en-IN",
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }
+    );
+  }
+
+  const firstLetter =
+    studentName.charAt(0).toUpperCase();
 
   const cards: DashboardCard[] = [
     {
@@ -130,7 +434,9 @@ export default function StudentDashboardPage() {
 
         <nav style={styles.navbar}>
           <div style={styles.brandArea}>
-            <div style={styles.brandIcon}>🎓</div>
+            <div style={styles.brandIcon}>
+              🎓
+            </div>
 
             <div>
               <div style={styles.brandName}>
@@ -179,13 +485,17 @@ export default function StudentDashboardPage() {
               </h1>
 
               <p style={styles.welcomeText}>
-                Manage your attendance, academic information,
-                homework, reports, fees and account settings
-                from one place.
+                Manage your attendance,
+                academic information,
+                homework, reports, fees
+                and account settings from
+                one place.
               </p>
 
               {username && (
-                <div style={styles.usernameBadge}>
+                <div
+                  style={styles.usernameBadge}
+                >
                   Username: {username}
                 </div>
               )}
@@ -207,10 +517,263 @@ export default function StudentDashboardPage() {
           </div>
         </section>
 
+        {/* ANNOUNCEMENTS */}
+
+        <section
+          style={styles.announcementSection}
+        >
+          <div
+            style={
+              styles.announcementHeader
+            }
+          >
+            <div>
+              <div
+                style={
+                  styles.announcementEyebrow
+                }
+              >
+                📢 IMPORTANT
+              </div>
+
+              <h2
+                style={
+                  styles.announcementTitle
+                }
+              >
+                Announcements
+              </h2>
+
+              <p
+                style={
+                  styles.announcementSubtitle
+                }
+              >
+                Latest updates from your
+                teacher for all students.
+              </p>
+            </div>
+
+            <div
+              style={
+                styles.announcementBadge
+              }
+            >
+              {announcements.length}{" "}
+              {announcements.length === 1
+                ? "ANNOUNCEMENT"
+                : "ANNOUNCEMENTS"}
+            </div>
+          </div>
+
+          {announcementLoading ? (
+            <div
+              style={
+                styles.announcementLoading
+              }
+            >
+              <div
+                style={
+                  styles.loadingIcon
+                }
+              >
+                ⏳
+              </div>
+
+              <div>
+                <div
+                  style={
+                    styles.loadingTitle
+                  }
+                >
+                  Loading Announcements...
+                </div>
+
+                <div
+                  style={
+                    styles.loadingText
+                  }
+                >
+                  Please wait.
+                </div>
+              </div>
+            </div>
+          ) : announcements.length ===
+            0 ? (
+            <div
+              style={
+                styles.noAnnouncements
+              }
+            >
+              <div
+                style={
+                  styles.noAnnouncementIcon
+                }
+              >
+                📭
+              </div>
+
+              <div>
+                <h3
+                  style={
+                    styles.noAnnouncementTitle
+                  }
+                >
+                  No Announcements Yet
+                </h3>
+
+                <p
+                  style={
+                    styles.noAnnouncementText
+                  }
+                >
+                  Your teacher has not
+                  published any announcement
+                  yet.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div
+              style={
+                styles.announcementList
+              }
+            >
+              {announcements.map(
+                (announcement) => (
+                  <article
+                    key={announcement.id}
+                    style={
+                      styles.announcementCard
+                    }
+                  >
+                    <div
+                      style={
+                        styles.announcementCardTop
+                      }
+                    >
+                      <div
+                        style={
+                          styles.announcementIcon
+                        }
+                      >
+                        📢
+                      </div>
+
+                      <div
+                        style={
+                          styles.announcementCardContent
+                        }
+                      >
+                        <div
+                          style={
+                            styles.announcementMeta
+                          }
+                        >
+                          <span
+                            style={
+                              styles.teacherBadge
+                            }
+                          >
+                            TEACHER
+                          </span>
+
+                          <span
+                            style={
+                              styles.announcementDate
+                            }
+                          >
+                            {formatAnnouncementDate(
+                              announcement.created_at
+                            )}
+                          </span>
+                        </div>
+
+                        <h3
+                          style={
+                            styles.announcementCardTitle
+                          }
+                        >
+                          {announcement.title}
+                        </h3>
+
+                        <p
+                          style={
+                            styles.announcementMessage
+                          }
+                        >
+                          {announcement.message}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div
+                      style={
+                        styles.announcementBottom
+                      }
+                    >
+                      <div
+                        style={
+                          styles.everyoneText
+                        }
+                      >
+                        👥 For all students
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          toggleLike(
+                            announcement.id
+                          )
+                        }
+                        disabled={
+                          likingId ===
+                          announcement.id
+                        }
+                        style={{
+                          ...styles.likeButton,
+                          ...(announcement.likedByMe
+                            ? styles.likeButtonActive
+                            : {}),
+                          opacity:
+                            likingId ===
+                            announcement.id
+                              ? 0.65
+                              : 1,
+                          cursor:
+                            likingId ===
+                            announcement.id
+                              ? "not-allowed"
+                              : "pointer",
+                        }}
+                      >
+                        {announcement.likedByMe
+                          ? "❤️ Liked"
+                          : "🤍 Like"}
+
+                        <span
+                          style={
+                            styles.likeCount
+                          }
+                        >
+                          {announcement.likeCount}
+                        </span>
+                      </button>
+                    </div>
+                  </article>
+                )
+              )}
+            </div>
+          )}
+        </section>
+
         {/* NOTICE */}
 
         <section style={styles.notice}>
-          <div style={styles.noticeIcon}>ℹ️</div>
+          <div style={styles.noticeIcon}>
+            ℹ️
+          </div>
 
           <div>
             <div style={styles.noticeTitle}>
@@ -218,9 +781,10 @@ export default function StudentDashboardPage() {
             </div>
 
             <p style={styles.noticeText}>
-              Use the options below to check your attendance,
-              academic calendar, homework, reports, fees and
-              account settings.
+              Use the options below to check
+              your attendance, academic
+              calendar, homework, reports,
+              fees and account settings.
             </p>
           </div>
         </section>
@@ -230,7 +794,9 @@ export default function StudentDashboardPage() {
         <section>
           <div style={styles.sectionHeading}>
             <div>
-              <div style={styles.sectionEyebrow}>
+              <div
+                style={styles.sectionEyebrow}
+              >
                 STUDENT SERVICES
               </div>
 
@@ -253,34 +819,53 @@ export default function StudentDashboardPage() {
                 <button
                   key={card.path}
                   type="button"
-                  onClick={() => router.push(card.path)}
-                  style={styles.serviceCard}
+                  onClick={() =>
+                    router.push(card.path)
+                  }
+                  style={
+                    styles.serviceCard
+                  }
                 >
                   <div
                     style={{
                       ...styles.cardTop,
-                      ...(styles[styleKey] || {}),
+                      ...(styles[styleKey] ||
+                        {}),
                     }}
                   >
-                    <div style={styles.cardIcon}>
+                    <div
+                      style={styles.cardIcon}
+                    >
                       {card.icon}
                     </div>
 
-                    <div style={styles.arrow}>
+                    <div
+                      style={styles.arrow}
+                    >
                       →
                     </div>
                   </div>
 
-                  <div style={styles.cardBody}>
-                    <h3 style={styles.cardTitle}>
+                  <div
+                    style={styles.cardBody}
+                  >
+                    <h3
+                      style={styles.cardTitle}
+                    >
                       {card.title}
                     </h3>
 
-                    <p style={styles.cardDescription}>
+                    <p
+                      style={
+                        styles.cardDescription
+                      }
+                    >
                       {card.description}
                     </p>
 
-                    <div style={styles.openLink}>
+                    <div
+                      style={styles.openLink}
+                    >
                       <span>Open</span>
                       <span>→</span>
                     </div>
@@ -293,23 +878,34 @@ export default function StudentDashboardPage() {
 
         {/* PROFILE PANEL */}
 
-        <section style={styles.bottomPanel}>
-          <div style={styles.bottomIcon}>👤</div>
+        <section
+          style={styles.bottomPanel}
+        >
+          <div style={styles.bottomIcon}>
+            👤
+          </div>
 
           <div style={styles.bottomText}>
-            <h3 style={styles.bottomTitle}>
+            <h3
+              style={styles.bottomTitle}
+            >
               Keep your profile updated
             </h3>
 
-            <p style={styles.bottomDescription}>
-              Your personal information is managed through
-              your student profile.
+            <p
+              style={styles.bottomDescription}
+            >
+              Your personal information is
+              managed through your student
+              profile.
             </p>
           </div>
 
           <button
             type="button"
-            onClick={() => router.push("/student/profile")}
+            onClick={() =>
+              router.push("/student/profile")
+            }
             style={styles.profileButton}
           >
             View Profile →
@@ -572,6 +1168,251 @@ const styles: {
     color: "#bfdbfe",
     fontSize: "10px",
     fontWeight: "700",
+  },
+
+  /* ANNOUNCEMENTS */
+
+  announcementSection: {
+    background: "#ffffff",
+    border: "1px solid #dbeafe",
+    borderRadius: "20px",
+    padding: "20px",
+    marginBottom: "25px",
+    boxShadow:
+      "0 8px 26px rgba(15,23,42,0.06)",
+  },
+
+  announcementHeader: {
+    display: "flex",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: "15px",
+    marginBottom: "16px",
+    flexWrap: "wrap",
+  },
+
+  announcementEyebrow: {
+    color: "#2563eb",
+    fontSize: "9px",
+    fontWeight: "1000",
+    letterSpacing: "2px",
+    marginBottom: "4px",
+  },
+
+  announcementTitle: {
+    margin: 0,
+    color: "#172554",
+    fontSize: "24px",
+    fontWeight: "1000",
+  },
+
+  announcementSubtitle: {
+    margin: "5px 0 0",
+    color: "#64748b",
+    fontSize: "11px",
+    fontWeight: "600",
+  },
+
+  announcementBadge: {
+    background: "#eff6ff",
+    color: "#1d4ed8",
+    border: "1px solid #bfdbfe",
+    padding: "8px 11px",
+    borderRadius: "9px",
+    fontSize: "10px",
+    fontWeight: "1000",
+  },
+
+  announcementLoading: {
+    display: "flex",
+    alignItems: "center",
+    gap: "13px",
+    padding: "18px",
+    background: "#f8fafc",
+    borderRadius: "14px",
+    border: "1px dashed #cbd5e1",
+  },
+
+  loadingIcon: {
+    fontSize: "27px",
+  },
+
+  loadingTitle: {
+    color: "#334155",
+    fontSize: "13px",
+    fontWeight: "900",
+  },
+
+  loadingText: {
+    marginTop: "3px",
+    color: "#64748b",
+    fontSize: "10px",
+    fontWeight: "600",
+  },
+
+  noAnnouncements: {
+    display: "flex",
+    alignItems: "center",
+    gap: "14px",
+    padding: "20px",
+    background: "#f8fafc",
+    borderRadius: "14px",
+    border: "1px dashed #cbd5e1",
+  },
+
+  noAnnouncementIcon: {
+    width: "48px",
+    height: "48px",
+    borderRadius: "13px",
+    background: "#eff6ff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "23px",
+    flexShrink: 0,
+  },
+
+  noAnnouncementTitle: {
+    margin: 0,
+    color: "#334155",
+    fontSize: "14px",
+    fontWeight: "1000",
+  },
+
+  noAnnouncementText: {
+    margin: "4px 0 0",
+    color: "#64748b",
+    fontSize: "11px",
+    fontWeight: "600",
+  },
+
+  announcementList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+  },
+
+  announcementCard: {
+    background:
+      "linear-gradient(135deg,#f8fbff,#ffffff)",
+    border: "1px solid #dbeafe",
+    borderRadius: "16px",
+    padding: "16px",
+  },
+
+  announcementCardTop: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "13px",
+  },
+
+  announcementIcon: {
+    width: "45px",
+    height: "45px",
+    minWidth: "45px",
+    borderRadius: "12px",
+    background:
+      "linear-gradient(135deg,#dbeafe,#ede9fe)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "21px",
+  },
+
+  announcementCardContent: {
+    minWidth: 0,
+    flex: 1,
+  },
+
+  announcementMeta: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    flexWrap: "wrap",
+  },
+
+  teacherBadge: {
+    background: "#dbeafe",
+    color: "#1d4ed8",
+    padding: "4px 7px",
+    borderRadius: "6px",
+    fontSize: "8px",
+    fontWeight: "1000",
+    letterSpacing: "0.7px",
+  },
+
+  announcementDate: {
+    color: "#94a3b8",
+    fontSize: "9px",
+    fontWeight: "700",
+  },
+
+  announcementCardTitle: {
+    margin: "7px 0 0",
+    color: "#172554",
+    fontSize: "18px",
+    fontWeight: "1000",
+    wordBreak: "break-word",
+  },
+
+  announcementMessage: {
+    margin: "7px 0 0",
+    color: "#475569",
+    fontSize: "12px",
+    lineHeight: 1.65,
+    fontWeight: "600",
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+  },
+
+  announcementBottom: {
+    marginTop: "14px",
+    paddingTop: "12px",
+    borderTop: "1px solid #e2e8f0",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "10px",
+    flexWrap: "wrap",
+  },
+
+  everyoneText: {
+    color: "#64748b",
+    fontSize: "10px",
+    fontWeight: "800",
+  },
+
+  likeButton: {
+    border: "1px solid #cbd5e1",
+    background: "#ffffff",
+    color: "#475569",
+    padding: "8px 11px",
+    borderRadius: "9px",
+    fontSize: "11px",
+    fontWeight: "1000",
+    display: "flex",
+    alignItems: "center",
+    gap: "7px",
+  },
+
+  likeButtonActive: {
+    background: "#fff1f2",
+    border: "1px solid #fecdd3",
+    color: "#be123c",
+  },
+
+  likeCount: {
+    background: "#f1f5f9",
+    color: "#475569",
+    minWidth: "19px",
+    height: "19px",
+    padding: "0 4px",
+    borderRadius: "999px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "9px",
+    fontWeight: "1000",
   },
 
   notice: {
