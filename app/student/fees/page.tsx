@@ -16,6 +16,12 @@ type Fee = {
   created_at: string;
 };
 
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
+
 const months = [
   "",
   "January",
@@ -38,20 +44,32 @@ export default function StudentFeesPage() {
   const [studentUsername, setStudentUsername] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [payingFeeId, setPayingFeeId] = useState<number | null>(null);
 
   useEffect(() => {
     loadFees();
+    loadRazorpayScript();
   }, []);
+
+  function loadRazorpayScript() {
+    if (document.getElementById("razorpay-checkout-script")) {
+      return;
+    }
+
+    const script = document.createElement("script");
+
+    script.id = "razorpay-checkout-script";
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+
+    document.body.appendChild(script);
+  }
 
   async function loadFees() {
     try {
       setLoading(true);
       setError("");
 
-      /*
-       * We use username first.
-       * This avoids depending only on localStorage studentId.
-       */
       const username =
         localStorage.getItem("studentUsername") ||
         localStorage.getItem("student_username");
@@ -67,9 +85,6 @@ export default function StudentFeesPage() {
       const cleanUsername =
         username.trim().toUpperCase();
 
-      /*
-       * Find the actual student record.
-       */
       const {
         data: student,
         error: studentError,
@@ -106,18 +121,13 @@ export default function StudentFeesPage() {
       }
 
       setStudentName(
-        student.student_name ||
-          "Student"
+        student.student_name || "Student"
       );
 
       setStudentUsername(
         student.student_username
       );
 
-      /*
-       * IMPORTANT:
-       * fees.student_id is linked to students.id.
-       */
       const {
         data: feeData,
         error: feeError,
@@ -169,6 +179,182 @@ export default function StudentFeesPage() {
     }
   }
 
+  async function handlePayOnline(fee: Fee) {
+    try {
+      setError("");
+      setPayingFeeId(fee.id);
+
+      if (
+        String(fee.status).toUpperCase() !==
+        "PENDING"
+      ) {
+        setError(
+          "This fee is not available for online payment."
+        );
+        setPayingFeeId(null);
+        return;
+      }
+
+      if (!window.Razorpay) {
+        loadRazorpayScript();
+
+        setError(
+          "Razorpay is still loading. Please try again in a few seconds."
+        );
+
+        setPayingFeeId(null);
+        return;
+      }
+
+      const orderResponse = await fetch(
+        "/api/fees/create-order",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            feeId: fee.id,
+          }),
+        }
+      );
+
+      const orderData =
+        await orderResponse.json();
+
+      if (
+        !orderResponse.ok ||
+        !orderData.success
+      ) {
+        throw new Error(
+          orderData.error ||
+            "Unable to create Razorpay order."
+        );
+      }
+
+      const options = {
+        key: orderData.keyId,
+        amount: orderData.order.amount,
+        currency:
+          orderData.order.currency || "INR",
+
+        name: "RACER ACADEMY",
+        description:
+          `${months[fee.month] || `Month ${fee.month}`} ${fee.year} Fees`,
+
+        order_id: orderData.order.id,
+
+        prefill: {
+          name: studentName,
+        },
+
+        theme: {
+          color: "#111827",
+        },
+
+        handler: async function (
+          response: any
+        ) {
+          try {
+            const verifyResponse =
+              await fetch(
+                "/api/fees/verify-payment",
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type":
+                      "application/json",
+                  },
+                  body: JSON.stringify({
+                    feeId: fee.id,
+                    razorpay_order_id:
+                      response.razorpay_order_id,
+                    razorpay_payment_id:
+                      response.razorpay_payment_id,
+                    razorpay_signature:
+                      response.razorpay_signature,
+                  }),
+                }
+              );
+
+            const verifyData =
+              await verifyResponse.json();
+
+            if (
+              !verifyResponse.ok ||
+              !verifyData.success
+            ) {
+              throw new Error(
+                verifyData.error ||
+                  "Payment verification failed."
+              );
+            }
+
+            alert(
+              "Payment successful! Your fee has been updated."
+            );
+
+            await loadFees();
+          } catch (verifyError) {
+            console.error(
+              "Payment verification error:",
+              verifyError
+            );
+
+            setError(
+              verifyError instanceof Error
+                ? verifyError.message
+                : "Payment verification failed."
+            );
+          } finally {
+            setPayingFeeId(null);
+          }
+        },
+
+        modal: {
+          ondismiss: function () {
+            setPayingFeeId(null);
+          },
+        },
+      };
+
+      const razorpay =
+        new window.Razorpay(options);
+
+      razorpay.on(
+        "payment.failed",
+        function (response: any) {
+          console.error(
+            "Razorpay payment failed:",
+            response
+          );
+
+          setError(
+            response?.error?.description ||
+              "Payment failed. Please try again."
+          );
+
+          setPayingFeeId(null);
+        }
+      );
+
+      razorpay.open();
+    } catch (err) {
+      console.error(
+        "Online payment error:",
+        err
+      );
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to start online payment."
+      );
+
+      setPayingFeeId(null);
+    }
+  }
+
   const totalFees = fees.reduce(
     (sum, fee) =>
       sum + Number(fee.amount || 0),
@@ -213,7 +399,6 @@ export default function StudentFeesPage() {
   return (
     <main style={styles.page}>
       <div style={styles.container}>
-
         <div style={styles.header}>
           <div>
             <h1 style={styles.title}>
@@ -244,7 +429,6 @@ export default function StudentFeesPage() {
         )}
 
         <div style={styles.summaryGrid}>
-
           <div style={styles.summaryCard}>
             <div style={styles.icon}>
               💰
@@ -301,11 +485,9 @@ export default function StudentFeesPage() {
               </h2>
             </div>
           </div>
-
         </div>
 
         <section style={styles.card}>
-
           <h2 style={styles.sectionTitle}>
             📋 Fee Details
           </h2>
@@ -355,6 +537,10 @@ export default function StudentFeesPage() {
                     <th style={styles.th}>
                       Remarks
                     </th>
+
+                    <th style={styles.th}>
+                      Payment
+                    </th>
                   </tr>
                 </thead>
 
@@ -365,9 +551,16 @@ export default function StudentFeesPage() {
                         fee.status || ""
                       ).toUpperCase();
 
+                    const isPending =
+                      status === "PENDING";
+
+                    const isPaid =
+                      status ===
+                        "PAID ONLINE" ||
+                      status === "PAID";
+
                     return (
                       <tr key={fee.id}>
-
                         <td style={styles.td}>
                           <strong>
                             {months[fee.month] ||
@@ -398,6 +591,8 @@ export default function StudentFeesPage() {
                                   : status ===
                                     "PENDING"
                                   ? "#fef3c7"
+                                  : isPaid
+                                  ? "#dcfce7"
                                   : "#e5e7eb",
                               color:
                                 status ===
@@ -406,12 +601,16 @@ export default function StudentFeesPage() {
                                   : status ===
                                     "PENDING"
                                   ? "#92400e"
+                                  : isPaid
+                                  ? "#166534"
                                   : "#374151",
                             }}
                           >
                             {status ===
                             "SUBMITTED"
                               ? "✓ SUBMITTED"
+                              : isPaid
+                              ? "✓ PAID ONLINE"
                               : status}
                           </span>
                         </td>
@@ -430,6 +629,50 @@ export default function StudentFeesPage() {
                           {fee.remarks || "—"}
                         </td>
 
+                        <td style={styles.td}>
+                          {isPending ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handlePayOnline(
+                                  fee
+                                )
+                              }
+                              disabled={
+                                payingFeeId ===
+                                fee.id
+                              }
+                              style={{
+                                ...styles.payButton,
+                                opacity:
+                                  payingFeeId ===
+                                  fee.id
+                                    ? 0.7
+                                    : 1,
+                                cursor:
+                                  payingFeeId ===
+                                  fee.id
+                                    ? "not-allowed"
+                                    : "pointer",
+                              }}
+                            >
+                              {payingFeeId ===
+                              fee.id
+                                ? "Opening..."
+                                : "💳 Pay Online"}
+                            </button>
+                          ) : isPaid ? (
+                            <span
+                              style={
+                                styles.paidText
+                              }
+                            >
+                              ✓ Paid
+                            </span>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
@@ -454,7 +697,6 @@ export default function StudentFeesPage() {
         <footer style={styles.footer}>
           Attendance Portal • Student Fees • 2026
         </footer>
-
       </div>
     </main>
   );
@@ -601,7 +843,7 @@ const styles: Record<
 
   table: {
     width: "100%",
-    minWidth: "800px",
+    minWidth: "950px",
     borderCollapse: "collapse",
   },
 
@@ -630,6 +872,23 @@ const styles: Record<
     fontSize: "12px",
     fontWeight: 700,
     whiteSpace: "nowrap",
+  },
+
+  payButton: {
+    border: "none",
+    background: "#111827",
+    color: "white",
+    padding: "9px 13px",
+    borderRadius: "8px",
+    fontSize: "13px",
+    fontWeight: 700,
+    whiteSpace: "nowrap",
+  },
+
+  paidText: {
+    color: "#166534",
+    fontWeight: 700,
+    fontSize: "13px",
   },
 
   empty: {
