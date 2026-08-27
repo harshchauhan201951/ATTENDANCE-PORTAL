@@ -55,6 +55,7 @@ export default function StudentDashboardPage() {
     localStorage.removeItem("studentUsername");
     localStorage.removeItem("studentName");
     localStorage.removeItem("student_name");
+    localStorage.removeItem("studentId");
 
     sessionStorage.clear();
 
@@ -67,42 +68,56 @@ export default function StudentDashboardPage() {
     {
       icon: "📊",
       title: "My Attendance",
-      description: "View your current attendance and attendance percentage.",
+      description:
+        "View your current attendance and attendance percentage.",
       path: "/student/attendance",
       className: "blue",
     },
     {
       icon: "📜",
       title: "Attendance History",
-      description: "Check your previous attendance records and details.",
+      description:
+        "Check your previous attendance records and details.",
       path: "/student/attendance-history",
       className: "purple",
     },
     {
       icon: "📅",
       title: "Academic Calendar",
-      description: "View important academic dates and calendar information.",
+      description:
+        "View important academic dates and calendar information.",
       path: "/student/calendar",
       className: "green",
     },
     {
       icon: "📈",
       title: "Reports",
-      description: "View your attendance reports and performance details.",
+      description:
+        "View your attendance reports and performance details.",
       path: "/student/reports",
       className: "orange",
     },
     {
       icon: "💰",
       title: "Fees",
-      description: "Check your student fee information and payment details.",
+      description:
+        "Check your student fee information and payment details.",
       path: "/student/fees",
       className: "pink",
     },
     {
+      icon: "📚",
+      title: "Homework",
+      description:
+        "View homework assigned to your class by your teacher.",
+      path: "/student/homework",
+      className: "indigo",
+    },
+    {
       icon: "⚙️",
       title: "Settings",
-      description: "Manage your account, name and password.",
+      description:
+        "Manage your account, name and password.",
       path: "/student/settings",
       className: "cyan",
     },
@@ -111,14 +126,11 @@ export default function StudentDashboardPage() {
   return (
     <main style={styles.page}>
       <div style={styles.container}>
-
         {/* TOP NAVIGATION */}
-        <nav style={styles.navbar}>
 
+        <nav style={styles.navbar}>
           <div style={styles.brandArea}>
-            <div style={styles.brandIcon}>
-              🎓
-            </div>
+            <div style={styles.brandIcon}>🎓</div>
 
             <div>
               <div style={styles.brandName}>
@@ -132,36 +144,32 @@ export default function StudentDashboardPage() {
           </div>
 
           <div style={styles.navRight}>
-
             <div style={styles.clock}>
               🕒 {time}
             </div>
 
             <button
+              type="button"
               onClick={logout}
               style={styles.logoutButton}
             >
               Logout
             </button>
-
           </div>
-
         </nav>
 
         {/* HERO */}
-        <section style={styles.hero}>
 
+        <section style={styles.hero}>
           <div style={styles.heroGlowOne} />
           <div style={styles.heroGlowTwo} />
 
           <div style={styles.heroContent}>
-
             <div style={styles.avatar}>
               {firstLetter}
             </div>
 
             <div style={styles.welcomeArea}>
-
               <div style={styles.smallGreeting}>
                 STUDENT DASHBOARD
               </div>
@@ -172,7 +180,8 @@ export default function StudentDashboardPage() {
 
               <p style={styles.welcomeText}>
                 Manage your attendance, academic information,
-                reports, fees and account settings from one place.
+                homework, reports, fees and account settings
+                from one place.
               </p>
 
               {username && (
@@ -180,13 +189,10 @@ export default function StudentDashboardPage() {
                   Username: {username}
                 </div>
               )}
-
             </div>
-
           </div>
 
           <div style={styles.heroSide}>
-
             <div style={styles.statusDot} />
 
             <div>
@@ -198,17 +204,13 @@ export default function StudentDashboardPage() {
                 Student Portal
               </div>
             </div>
-
           </div>
-
         </section>
 
         {/* NOTICE */}
-        <section style={styles.notice}>
 
-          <div style={styles.noticeIcon}>
-            ℹ️
-          </div>
+        <section style={styles.notice}>
+          <div style={styles.noticeIcon}>ℹ️</div>
 
           <div>
             <div style={styles.noticeTitle}>
@@ -217,17 +219,16 @@ export default function StudentDashboardPage() {
 
             <p style={styles.noticeText}>
               Use the options below to check your attendance,
-              academic calendar, reports, fees and account settings.
+              academic calendar, homework, reports, fees and
+              account settings.
             </p>
           </div>
-
         </section>
 
         {/* SERVICES */}
+
         <section>
-
           <div style={styles.sectionHeading}>
-
             <div>
               <div style={styles.sectionEyebrow}>
                 STUDENT SERVICES
@@ -241,73 +242,61 @@ export default function StudentDashboardPage() {
             <div style={styles.serviceCount}>
               {cards.length} OPTIONS
             </div>
-
           </div>
 
           <div style={styles.cardGrid}>
+            {cards.map((card) => {
+              const styleKey =
+                `card${card.className.charAt(0).toUpperCase()}${card.className.slice(1)}`;
 
-            {cards.map((card) => (
-              <button
-                key={card.path}
-                type="button"
-                onClick={() => router.push(card.path)}
-                style={styles.serviceCard}
-              >
-
-                <div
-                  style={{
-                    ...styles.cardTop,
-                    ...(styles[
-                      `card${card.className
-                        .charAt(0)
-                        .toUpperCase()}${card.className.slice(1)}`
-                    ] || {}),
-                  }}
+              return (
+                <button
+                  key={card.path}
+                  type="button"
+                  onClick={() => router.push(card.path)}
+                  style={styles.serviceCard}
                 >
+                  <div
+                    style={{
+                      ...styles.cardTop,
+                      ...(styles[styleKey] || {}),
+                    }}
+                  >
+                    <div style={styles.cardIcon}>
+                      {card.icon}
+                    </div>
 
-                  <div style={styles.cardIcon}>
-                    {card.icon}
+                    <div style={styles.arrow}>
+                      →
+                    </div>
                   </div>
 
-                  <div style={styles.arrow}>
-                    →
+                  <div style={styles.cardBody}>
+                    <h3 style={styles.cardTitle}>
+                      {card.title}
+                    </h3>
+
+                    <p style={styles.cardDescription}>
+                      {card.description}
+                    </p>
+
+                    <div style={styles.openLink}>
+                      <span>Open</span>
+                      <span>→</span>
+                    </div>
                   </div>
-
-                </div>
-
-                <div style={styles.cardBody}>
-
-                  <h3 style={styles.cardTitle}>
-                    {card.title}
-                  </h3>
-
-                  <p style={styles.cardDescription}>
-                    {card.description}
-                  </p>
-
-                  <div style={styles.openLink}>
-                    <span>Open</span>
-                    <span>→</span>
-                  </div>
-
-                </div>
-
-              </button>
-            ))}
-
+                </button>
+              );
+            })}
           </div>
-
         </section>
 
         {/* PROFILE PANEL */}
-        <section style={styles.bottomPanel}>
 
-          <div style={styles.bottomIcon}>
-            👤
-          </div>
+        <section style={styles.bottomPanel}>
+          <div style={styles.bottomIcon}>👤</div>
 
           <div style={styles.bottomText}>
-
             <h3 style={styles.bottomTitle}>
               Keep your profile updated
             </h3>
@@ -316,7 +305,6 @@ export default function StudentDashboardPage() {
               Your personal information is managed through
               your student profile.
             </p>
-
           </div>
 
           <button
@@ -326,12 +314,11 @@ export default function StudentDashboardPage() {
           >
             View Profile →
           </button>
-
         </section>
 
         {/* FOOTER */}
-        <footer style={styles.footer}>
 
+        <footer style={styles.footer}>
           <div style={styles.footerBrand}>
             🎓 Attendance Portal
           </div>
@@ -339,9 +326,7 @@ export default function StudentDashboardPage() {
           <div>
             Student Portal • 2026
           </div>
-
         </footer>
-
       </div>
     </main>
   );
@@ -350,7 +335,6 @@ export default function StudentDashboardPage() {
 const styles: {
   [key: string]: React.CSSProperties;
 } = {
-
   page: {
     minHeight: "100vh",
     background:
@@ -466,7 +450,8 @@ const styles: {
     width: "230px",
     height: "230px",
     borderRadius: "50%",
-    background: "rgba(255,255,255,0.08)",
+    background:
+      "rgba(255,255,255,0.08)",
     right: "120px",
     top: "-100px",
   },
@@ -476,7 +461,8 @@ const styles: {
     width: "180px",
     height: "180px",
     borderRadius: "50%",
-    background: "rgba(255,255,255,0.06)",
+    background:
+      "rgba(255,255,255,0.06)",
     right: "-40px",
     bottom: "-90px",
   },
@@ -541,7 +527,8 @@ const styles: {
     marginTop: "13px",
     padding: "7px 11px",
     borderRadius: "8px",
-    background: "rgba(255,255,255,0.13)",
+    background:
+      "rgba(255,255,255,0.13)",
     border:
       "1px solid rgba(255,255,255,0.22)",
     color: "#ffffff",
@@ -552,7 +539,8 @@ const styles: {
   heroSide: {
     position: "relative",
     zIndex: 2,
-    background: "rgba(255,255,255,0.12)",
+    background:
+      "rgba(255,255,255,0.12)",
     border:
       "1px solid rgba(255,255,255,0.2)",
     borderRadius: "14px",
@@ -709,6 +697,11 @@ const styles: {
       "linear-gradient(135deg,#fce7f3,#fbcfe8)",
   },
 
+  cardIndigo: {
+    background:
+      "linear-gradient(135deg,#e0e7ff,#c7d2fe)",
+  },
+
   cardCyan: {
     background:
       "linear-gradient(135deg,#cffafe,#a5f3fc)",
@@ -718,7 +711,8 @@ const styles: {
     width: "47px",
     height: "47px",
     borderRadius: "14px",
-    background: "rgba(255,255,255,0.72)",
+    background:
+      "rgba(255,255,255,0.72)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -729,7 +723,8 @@ const styles: {
     width: "30px",
     height: "30px",
     borderRadius: "50%",
-    background: "rgba(255,255,255,0.65)",
+    background:
+      "rgba(255,255,255,0.65)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
