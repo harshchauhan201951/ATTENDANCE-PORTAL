@@ -49,10 +49,7 @@ export default function TeacherHomeworkPage() {
       status: "Pending",
     };
 
-    setHomework((previous) => [
-      newHomework,
-      ...previous,
-    ]);
+    setHomework((previous) => [newHomework, ...previous]);
 
     setSubject("");
     setTitle("");
@@ -67,57 +64,169 @@ export default function TeacherHomeworkPage() {
   }
 
   return (
-    <main style={styles.page}>
-      <div style={styles.container}>
-
-        {/* HEADER */}
-
-        <header style={styles.header}>
+    <main
+      style={{
+        minHeight: "100vh",
+        background:
+          "linear-gradient(135deg, #eef2ff, #f8fafc, #eff6ff)",
+        padding: "24px 15px",
+        fontFamily: "Arial, Helvetica, sans-serif",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: "1100px",
+          margin: "0 auto",
+        }}
+      >
+        <header
+          style={{
+            background: "#ffffff",
+            borderRadius: "22px",
+            padding: "25px",
+            marginBottom: "20px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "15px",
+            flexWrap: "wrap",
+            boxShadow: "0 10px 30px rgba(15,23,42,0.08)",
+          }}
+        >
           <div>
-            <div style={styles.badge}>
+            <div
+              style={{
+                display: "inline-block",
+                background: "#dbeafe",
+                color: "#1d4ed8",
+                padding: "7px 12px",
+                borderRadius: "999px",
+                fontSize: "11px",
+                fontWeight: 900,
+                marginBottom: "8px",
+              }}
+            >
               TEACHER PORTAL
             </div>
 
-            <h1 style={styles.title}>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: "30px",
+                fontWeight: 900,
+                color: "#0f172a",
+              }}
+            >
               📚 Homework
             </h1>
 
-            <p style={styles.subtitle}>
+            <p
+              style={{
+                margin: "7px 0 0",
+                color: "#64748b",
+                fontSize: "14px",
+              }}
+            >
               Create and manage student homework
             </p>
           </div>
 
           <button
+            type="button"
             onClick={() => window.history.back()}
-            style={styles.backButton}
+            style={{
+              border: "none",
+              background: "#475569",
+              color: "#ffffff",
+              padding: "11px 18px",
+              borderRadius: "10px",
+              fontWeight: 800,
+              cursor: "pointer",
+            }}
           >
             ← Back
           </button>
         </header>
 
-        {/* CREATE HOMEWORK */}
-
-        <section style={styles.createCard}>
-          <div style={styles.cardHeader}>
-            <div style={styles.cardIcon}>
-              ✏️
+        <section
+          style={{
+            background: "#ffffff",
+            borderRadius: "22px",
+            padding: "25px",
+            marginBottom: "20px",
+            boxShadow: "0 10px 30px rgba(15,23,42,0.08)",
+            border: "2px solid #bfdbfe",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              marginBottom: "22px",
+            }}
+          >
+            <div
+              style={{
+                width: "46px",
+                height: "46px",
+                borderRadius: "13px",
+                background: "#dbeafe",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "22px",
+              }}
+            >
+              ➕
             </div>
 
             <div>
-              <h2 style={styles.cardTitle}>
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: "21px",
+                  fontWeight: 900,
+                  color: "#172554",
+                }}
+              >
                 Create New Homework
               </h2>
 
-              <p style={styles.cardSubtitle}>
+              <p
+                style={{
+                  margin: "4px 0 0",
+                  color: "#64748b",
+                  fontSize: "12px",
+                }}
+              >
                 Add homework for your students
               </p>
             </div>
           </div>
 
-          <div style={styles.formGrid}>
-
-            <div style={styles.field}>
-              <label style={styles.label}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(2, minmax(0, 1fr))",
+              gap: "16px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "7px",
+              }}
+            >
+              <label
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 900,
+                  color: "#334155",
+                }}
+              >
                 Subject
               </label>
 
@@ -125,35 +234,55 @@ export default function TeacherHomeworkPage() {
                 type="text"
                 placeholder="e.g. Mathematics"
                 value={subject}
-                onChange={(e) =>
-                  setSubject(e.target.value)
+                onChange={(event) =>
+                  setSubject(event.target.value)
                 }
-                style={styles.input}
+                style={inputStyle}
               />
             </div>
 
-            <div style={styles.field}>
-              <label style={styles.label}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "7px",
+              }}
+            >
+              <label
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 900,
+                  color: "#334155",
+                }}
+              >
                 Due Date
               </label>
 
               <input
                 type="date"
                 value={dueDate}
-                onChange={(e) =>
-                  setDueDate(e.target.value)
+                onChange={(event) =>
+                  setDueDate(event.target.value)
                 }
-                style={styles.input}
+                style={inputStyle}
               />
             </div>
 
             <div
               style={{
-                ...styles.field,
-                gridColumn: "span 2",
+                display: "flex",
+                flexDirection: "column",
+                gap: "7px",
+                gridColumn: "1 / -1",
               }}
             >
-              <label style={styles.label}>
+              <label
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 900,
+                  color: "#334155",
+                }}
+              >
                 Homework Title
               </label>
 
@@ -161,20 +290,28 @@ export default function TeacherHomeworkPage() {
                 type="text"
                 placeholder="Enter homework title"
                 value={title}
-                onChange={(e) =>
-                  setTitle(e.target.value)
+                onChange={(event) =>
+                  setTitle(event.target.value)
                 }
-                style={styles.input}
+                style={inputStyle}
               />
             </div>
 
             <div
               style={{
-                ...styles.field,
-                gridColumn: "span 2",
+                display: "flex",
+                flexDirection: "column",
+                gap: "7px",
+                gridColumn: "1 / -1",
               }}
             >
-              <label style={styles.label}>
+              <label
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 900,
+                  color: "#334155",
+                }}
+              >
                 Description
               </label>
 
@@ -182,43 +319,95 @@ export default function TeacherHomeworkPage() {
                 rows={5}
                 placeholder="Write homework instructions..."
                 value={description}
-                onChange={(e) =>
-                  setDescription(e.target.value)
+                onChange={(event) =>
+                  setDescription(event.target.value)
                 }
                 style={{
-                  ...styles.input,
+                  ...inputStyle,
                   resize: "vertical",
                   minHeight: "120px",
                 }}
               />
             </div>
-
           </div>
 
-          <div style={styles.actions}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              marginTop: "20px",
+            }}
+          >
             <button
+              type="button"
               onClick={addHomework}
-              style={styles.addButton}
+              style={{
+                border: "none",
+                background:
+                  "linear-gradient(135deg, #2563eb, #7c3aed)",
+                color: "#ffffff",
+                padding: "13px 22px",
+                borderRadius: "11px",
+                fontWeight: 900,
+                cursor: "pointer",
+                fontSize: "14px",
+              }}
             >
               ➕ Add Homework
             </button>
           </div>
         </section>
 
-        {/* HOMEWORK LIST */}
-
-        <section style={styles.listCard}>
-          <div style={styles.cardHeader}>
-            <div style={styles.cardIcon}>
+        <section
+          style={{
+            background: "#ffffff",
+            borderRadius: "22px",
+            padding: "25px",
+            boxShadow: "0 10px 30px rgba(15,23,42,0.08)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              marginBottom: "22px",
+            }}
+          >
+            <div
+              style={{
+                width: "46px",
+                height: "46px",
+                borderRadius: "13px",
+                background: "#dbeafe",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "22px",
+              }}
+            >
               📋
             </div>
 
             <div>
-              <h2 style={styles.cardTitle}>
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: "21px",
+                  fontWeight: 900,
+                  color: "#172554",
+                }}
+              >
                 Homework List
               </h2>
 
-              <p style={styles.cardSubtitle}>
+              <p
+                style={{
+                  margin: "4px 0 0",
+                  color: "#64748b",
+                  fontSize: "12px",
+                }}
+              >
                 {homework.length} homework item
                 {homework.length !== 1 ? "s" : ""}
               </p>
@@ -226,88 +415,174 @@ export default function TeacherHomeworkPage() {
           </div>
 
           {homework.length === 0 ? (
-            <div style={styles.empty}>
-              <div style={styles.emptyIcon}>
+            <div
+              style={{
+                textAlign: "center",
+                padding: "50px 20px",
+                background: "#f8fafc",
+                borderRadius: "16px",
+                border: "1px dashed #cbd5e1",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "45px",
+                  marginBottom: "10px",
+                }}
+              >
                 📚
               </div>
 
-              <h3 style={styles.emptyTitle}>
+              <h3
+                style={{
+                  margin: "5px 0",
+                  color: "#334155",
+                  fontSize: "18px",
+                  fontWeight: 900,
+                }}
+              >
                 No Homework Added
               </h3>
 
-              <p style={styles.emptyText}>
+              <p
+                style={{
+                  margin: 0,
+                  color: "#64748b",
+                  fontSize: "13px",
+                }}
+              >
                 Create your first homework using
                 the form above.
               </p>
             </div>
           ) : (
-            <div style={styles.homeworkList}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "14px",
+              }}
+            >
               {homework.map((item) => (
                 <div
                   key={item.id}
-                  style={styles.homeworkCard}
+                  style={{
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "16px",
+                    padding: "18px",
+                    background: "#f8fafc",
+                  }}
                 >
-                  <div style={styles.homeworkTop}>
-
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      gap: "15px",
+                      flexWrap: "wrap",
+                    }}
+                  >
                     <div>
-                      <div style={styles.subjectBadge}>
+                      <div
+                        style={{
+                          display: "inline-block",
+                          background: "#dbeafe",
+                          color: "#1d4ed8",
+                          padding: "5px 9px",
+                          borderRadius: "7px",
+                          fontSize: "10px",
+                          fontWeight: 900,
+                          textTransform: "uppercase",
+                        }}
+                      >
                         {item.subject}
                       </div>
 
                       <h3
-                        style={
-                          styles.homeworkTitle
-                        }
+                        style={{
+                          margin: "8px 0 0",
+                          color: "#172554",
+                          fontSize: "19px",
+                          fontWeight: 900,
+                        }}
                       >
                         {item.title}
                       </h3>
                     </div>
 
                     <div
-                      style={
-                        item.status === "Completed"
-                          ? styles.completedBadge
-                          : styles.pendingBadge
-                      }
+                      style={{
+                        background: "#fef3c7",
+                        color: "#92400e",
+                        padding: "7px 10px",
+                        borderRadius: "8px",
+                        fontSize: "11px",
+                        fontWeight: 900,
+                      }}
                     >
                       {item.status}
                     </div>
-
                   </div>
 
                   <p
-                    style={
-                      styles.homeworkDescription
-                    }
+                    style={{
+                      margin: "14px 0",
+                      color: "#475569",
+                      fontSize: "13px",
+                      lineHeight: 1.6,
+                      fontWeight: 600,
+                      whiteSpace: "pre-wrap",
+                    }}
                   >
                     {item.description}
                   </p>
 
-                  <div style={styles.homeworkBottom}>
-
-                    <div style={styles.dueDate}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: "10px",
+                      paddingTop: "12px",
+                      borderTop: "1px solid #e2e8f0",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: "#475569",
+                        fontSize: "12px",
+                        fontWeight: 800,
+                      }}
+                    >
                       📅 Due:{" "}
                       {new Date(
                         `${item.dueDate}T00:00:00`
-                      ).toLocaleDateString(
-                        "en-IN",
-                        {
-                          day: "2-digit",
-                          month: "long",
-                          year: "numeric",
-                        }
-                      )}
+                      ).toLocaleDateString("en-IN", {
+                        day: "2-digit",
+                        month: "long",
+                        year: "numeric",
+                      })}
                     </div>
 
                     <button
+                      type="button"
                       onClick={() =>
                         deleteHomework(item.id)
                       }
-                      style={styles.deleteButton}
+                      style={{
+                        border: "none",
+                        background: "#fee2e2",
+                        color: "#991b1b",
+                        padding: "8px 12px",
+                        borderRadius: "8px",
+                        fontWeight: 900,
+                        cursor: "pointer",
+                        fontSize: "11px",
+                      }}
                     >
                       🗑️ Delete
                     </button>
-
                   </div>
                 </div>
               ))}
@@ -315,314 +590,31 @@ export default function TeacherHomeworkPage() {
           )}
         </section>
 
-        <footer style={styles.footer}>
-          Attendance Portal • Teacher Homework •
-          2026
+        <footer
+          style={{
+            textAlign: "center",
+            padding: "25px 10px",
+            color: "#64748b",
+            fontSize: "12px",
+            fontWeight: 700,
+          }}
+        >
+          Attendance Portal • Teacher Homework • 2026
         </footer>
-
       </div>
     </main>
   );
 }
 
-const styles: {
-  [key: string]: React.CSSProperties;
-} = {
-  page: {
-    minHeight: "100vh",
-    background:
-      "linear-gradient(135deg,#eef2ff,#f8fafc,#eff6ff)",
-    padding: "25px 15px",
-    boxSizing: "border-box",
-    fontFamily:
-      "Arial, Helvetica, sans-serif",
-    color: "#0f172a",
-  },
-
-  container: {
-    width: "100%",
-    maxWidth: "1100px",
-    margin: "0 auto",
-  },
-
-  header: {
-    background: "#ffffff",
-    borderRadius: "22px",
-    padding: "25px",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "15px",
-    marginBottom: "18px",
-    boxShadow:
-      "0 10px 30px rgba(15,23,42,0.08)",
-    flexWrap: "wrap",
-  },
-
-  badge: {
-    display: "inline-block",
-    background: "#dbeafe",
-    color: "#1d4ed8",
-    padding: "7px 12px",
-    borderRadius: "999px",
-    fontSize: "11px",
-    fontWeight: "900",
-    letterSpacing: "1px",
-    marginBottom: "9px",
-  },
-
-  title: {
-    margin: 0,
-    fontSize: "30px",
-    fontWeight: "900",
-    color: "#0f172a",
-  },
-
-  subtitle: {
-    margin: "7px 0 0",
-    color: "#64748b",
-    fontSize: "14px",
-    fontWeight: "600",
-  },
-
-  backButton: {
-    border: "none",
-    background: "#475569",
-    color: "#ffffff",
-    padding: "11px 18px",
-    borderRadius: "10px",
-    fontWeight: "900",
-    cursor: "pointer",
-  },
-
-  createCard: {
-    background: "#ffffff",
-    borderRadius: "22px",
-    padding: "25px",
-    marginBottom: "18px",
-    boxShadow:
-      "0 10px 30px rgba(15,23,42,0.08)",
-    border: "2px solid #bfdbfe",
-  },
-
-  listCard: {
-    background: "#ffffff",
-    borderRadius: "22px",
-    padding: "25px",
-    marginBottom: "18px",
-    boxShadow:
-      "0 10px 30px rgba(15,23,42,0.08)",
-  },
-
-  cardHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    marginBottom: "22px",
-  },
-
-  cardIcon: {
-    width: "46px",
-    height: "46px",
-    borderRadius: "13px",
-    background: "#dbeafe",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "22px",
-    flexShrink: 0,
-  },
-
-  cardTitle: {
-    margin: 0,
-    color: "#172554",
-    fontSize: "21px",
-    fontWeight: "900",
-  },
-
-  cardSubtitle: {
-    margin: "4px 0 0",
-    color: "#64748b",
-    fontSize: "12px",
-    fontWeight: "600",
-  },
-
-  formGrid: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(2,minmax(0,1fr))",
-    gap: "16px",
-  },
-
-  field: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "7px",
-    minWidth: 0,
-  },
-
-  label: {
-    fontSize: "12px",
-    fontWeight: "900",
-    color: "#334155",
-  },
-
-  input: {
-    width: "100%",
-    boxSizing: "border-box",
-    padding: "12px 13px",
-    border: "1px solid #cbd5e1",
-    borderRadius: "10px",
-    background: "#ffffff",
-    color: "#0f172a",
-    fontSize: "14px",
-    fontWeight: "600",
-    outline: "none",
-  },
-
-  actions: {
-    display: "flex",
-    justifyContent: "flex-end",
-    marginTop: "20px",
-  },
-
-  addButton: {
-    border: "none",
-    background:
-      "linear-gradient(135deg,#2563eb,#7c3aed)",
-    color: "#ffffff",
-    padding: "13px 22px",
-    borderRadius: "11px",
-    fontWeight: "900",
-    cursor: "pointer",
-    fontSize: "14px",
-  },
-
-  empty: {
-    textAlign: "center",
-    padding: "50px 20px",
-    background: "#f8fafc",
-    borderRadius: "16px",
-    border: "1px dashed #cbd5e1",
-  },
-
-  emptyIcon: {
-    fontSize: "45px",
-    marginBottom: "10px",
-  },
-
-  emptyTitle: {
-    margin: "5px 0",
-    color: "#334155",
-    fontSize: "18px",
-    fontWeight: "900",
-  },
-
-  emptyText: {
-    margin: 0,
-    color: "#64748b",
-    fontSize: "13px",
-    fontWeight: "600",
-  },
-
-  homeworkList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "14px",
-  },
-
-  homeworkCard: {
-    border: "1px solid #e2e8f0",
-    borderRadius: "16px",
-    padding: "18px",
-    background: "#f8fafc",
-  },
-
-  homeworkTop: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: "15px",
-    flexWrap: "wrap",
-  },
-
-  subjectBadge: {
-    display: "inline-block",
-    background: "#dbeafe",
-    color: "#1d4ed8",
-    padding: "5px 9px",
-    borderRadius: "7px",
-    fontSize: "10px",
-    fontWeight: "900",
-    textTransform: "uppercase",
-  },
-
-  homeworkTitle: {
-    margin: "8px 0 0",
-    color: "#172554",
-    fontSize: "19px",
-    fontWeight: "900",
-  },
-
-  pendingBadge: {
-    background: "#fef3c7",
-    color: "#92400e",
-    padding: "7px 10px",
-    borderRadius: "8px",
-    fontSize: "11px",
-    fontWeight: "900",
-  },
-
-  completedBadge: {
-    background: "#dcfce7",
-    color: "#166534",
-    padding: "7px 10px",
-    borderRadius: "8px",
-    fontSize: "11px",
-    fontWeight: "900",
-  },
-
-  homeworkDescription: {
-    margin: "14px 0",
-    color: "#475569",
-    fontSize: "13px",
-    lineHeight: 1.6,
-    fontWeight: "600",
-    whiteSpace: "pre-wrap",
-  },
-
-  homeworkBottom: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "10px",
-    paddingTop: "12px",
-    borderTop: "1px solid #e2e8f0",
-    flexWrap: "wrap",
-  },
-
-  dueDate: {
-    color: "#475569",
-    fontSize: "12px",
-    fontWeight: "800",
-  },
-
-  deleteButton: {
-    border: "none",
-    background: "#fee2e2",
-    color: "#991b1b",
-    padding: "8px 12px",
-    borderRadius: "8px",
-    fontWeight: "900",
-    cursor: "pointer",
-    fontSize: "11px",
-  },
-
-  footer: {
-    textAlign: "center",
-    padding: "25px 10px",
-    color: "#64748b",
-    fontSize: "12px",
-    fontWeight: "700",
-  },
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  boxSizing: "border-box",
+  padding: "12px 13px",
+  border: "1px solid #cbd5e1",
+  borderRadius: "10px",
+  background: "#ffffff",
+  color: "#0f172a",
+  fontSize: "14px",
+  fontWeight: 600,
+  outline: "none",
 };
