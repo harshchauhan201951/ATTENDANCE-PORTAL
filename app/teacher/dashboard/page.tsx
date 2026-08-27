@@ -153,6 +153,20 @@ export default function TeacherDashboard() {
       path: "/teacher/HOME WORK",
     },
 
+    /*
+     * ANNOUNCEMENTS
+     *
+     * One teacher announcement will be
+     * available for all students.
+     */
+    {
+      title: "Announcements",
+      description:
+        "Create and manage announcements for all students",
+      icon: "📢",
+      path: "/teacher/announcements",
+    },
+
     {
       title: "Settings",
       description:
