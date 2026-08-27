@@ -8,246 +8,380 @@ type Announcement = {
   id: number;
   title: string;
   message: string;
-  created_at: string | null;
+  created_at: string;
+};
+
+type LikeRecord = {
+  announcement_id: number;
+  student_id: number;
+};
+
+type Student = {
+  id: number;
+  student_name: string | null;
+  student_username: string | null;
+};
+
+type AnnouncementWithLikes = Announcement & {
+  likeCount: number;
+  likedStudents: Student[];
 };
 
 export default function TeacherAnnouncementsPage() {
   const router = useRouter();
 
-  const [announcement, setAnnouncement] =
-    useState<Announcement | null>(null);
+  const [announcements, setAnnouncements] = useState<
+    AnnouncementWithLikes[]
+  >([]);
 
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  const [error, setError] = useState("");
+  const [expandedLikes, setExpandedLikes] = useState<number | null>(
+    null
+  );
 
   useEffect(() => {
-    loadAnnouncement();
+    loadAnnouncements();
   }, []);
 
-  async function loadAnnouncement() {
+  async function loadAnnouncements() {
     setLoading(true);
-    setError("");
 
     try {
-      const { data, error: announcementError } =
-        await supabase
-          .from("announcements")
-          .select(
-            "id, title, message, created_at"
-          )
-          .order("created_at", {
-            ascending: false,
-          })
-          .limit(1)
-          .maybeSingle();
+      /*
+       * LOAD ANNOUNCEMENTS
+       */
+      const {
+        data: announcementData,
+        error: announcementError,
+      } = await supabase
+        .from("announcements")
+        .select("id, title, message, created_at")
+        .order("created_at", {
+          ascending: false,
+        });
 
       if (announcementError) {
         console.error(
-          "Announcement loading error:",
+          "Announcements loading error:",
           announcementError
         );
 
-        setError(
-          `Announcement could not be loaded: ${announcementError.message}`
+        alert(
+          `Could not load announcements: ${announcementError.message}`
         );
 
+        setAnnouncements([]);
         return;
       }
 
-      if (data) {
-        const currentAnnouncement =
-          data as Announcement;
+      const announcementRows = announcementData || [];
 
-        setAnnouncement(currentAnnouncement);
-
-        setTitle(currentAnnouncement.title);
-        setMessage(currentAnnouncement.message);
-      } else {
-        setAnnouncement(null);
-        setTitle("");
-        setMessage("");
+      if (announcementRows.length === 0) {
+        setAnnouncements([]);
+        return;
       }
-    } catch (err) {
-      console.error(
-        "Unexpected announcement loading error:",
-        err
+
+      /*
+       * GET ANNOUNCEMENT IDS
+       */
+      const announcementIds = announcementRows.map(
+        (announcement) => announcement.id
       );
 
-      setError(
-        "Unable to load announcement."
+      /*
+       * LOAD ALL LIKES
+       */
+      const {
+        data: likesData,
+        error: likesError,
+      } = await supabase
+        .from("announcement_likes")
+        .select("announcement_id, student_id")
+        .in("announcement_id", announcementIds);
+
+      if (likesError) {
+        console.error(
+          "Announcement likes loading error:",
+          likesError
+        );
+      }
+
+      const likes: LikeRecord[] = likesData || [];
+
+      /*
+       * GET UNIQUE STUDENT IDS WHO LIKED
+       */
+      const studentIds = Array.from(
+        new Set(
+          likes
+            .map((like) => Number(like.student_id))
+            .filter((id) => !Number.isNaN(id))
+        )
       );
+
+      let students: Student[] = [];
+
+      /*
+       * LOAD STUDENT DETAILS
+       */
+      if (studentIds.length > 0) {
+        const {
+          data: studentsData,
+          error: studentsError,
+        } = await supabase
+          .from("students")
+          .select(
+            "id, student_name, student_username"
+          )
+          .in("id", studentIds);
+
+        if (studentsError) {
+          console.error(
+            "Students loading error:",
+            studentsError
+          );
+        } else {
+          students = studentsData || [];
+        }
+      }
+
+      /*
+       * FORMAT ANNOUNCEMENTS
+       */
+      const formattedAnnouncements =
+        announcementRows.map(
+          (announcement): AnnouncementWithLikes => {
+            const announcementLikes =
+              likes.filter(
+                (like) =>
+                  Number(like.announcement_id) ===
+                  Number(announcement.id)
+              );
+
+            const likedStudentIds =
+              announcementLikes.map((like) =>
+                Number(like.student_id)
+              );
+
+            const likedStudents = students
+              .filter((student) =>
+                likedStudentIds.includes(
+                  Number(student.id)
+                )
+              )
+              .sort((a, b) =>
+                (
+                  a.student_name ||
+                  a.student_username ||
+                  ""
+                ).localeCompare(
+                  b.student_name ||
+                    b.student_username ||
+                    ""
+                )
+              );
+
+            return {
+              id: announcement.id,
+              title: announcement.title,
+              message: announcement.message,
+              created_at:
+                announcement.created_at,
+              likeCount: announcementLikes.length,
+              likedStudents,
+            };
+          }
+        );
+
+      setAnnouncements(formattedAnnouncements);
+    } catch (error) {
+      console.error(
+        "Unexpected announcements error:",
+        error
+      );
+
+      setAnnouncements([]);
     } finally {
       setLoading(false);
     }
   }
 
-  async function publishAnnouncement() {
-    setError("");
+  /*
+   * CREATE ANNOUNCEMENT
+   */
+  async function createAnnouncement() {
+    const cleanTitle = title.trim();
+    const cleanMessage = message.trim();
 
-    if (!title.trim()) {
-      setError(
-        "Please enter announcement title."
-      );
+    if (!cleanTitle) {
+      alert("Please enter announcement title.");
       return;
     }
 
-    if (!message.trim()) {
-      setError(
-        "Please enter announcement message."
-      );
+    if (!cleanMessage) {
+      alert("Please enter announcement message.");
       return;
     }
 
-    setSaving(true);
+    if (creating) {
+      return;
+    }
+
+    setCreating(true);
 
     try {
-      /*
-       * Delete the existing announcement first.
-       *
-       * This keeps only ONE announcement
-       * for all students.
-       */
-      if (announcement) {
-        const { error: deleteError } =
-          await supabase
-            .from("announcements")
-            .delete()
-            .eq("id", announcement.id);
+      const { error } = await supabase
+        .from("announcements")
+        .insert({
+          title: cleanTitle,
+          message: cleanMessage,
+        });
 
-        if (deleteError) {
-          console.error(
-            "Old announcement delete error:",
-            deleteError
-          );
-
-          setError(
-            `Previous announcement could not be replaced: ${deleteError.message}`
-          );
-
-          return;
-        }
-      }
-
-      /*
-       * Insert the new announcement.
-       */
-      const { data, error: insertError } =
-        await supabase
-          .from("announcements")
-          .insert({
-            title: title.trim(),
-            message: message.trim(),
-          })
-          .select(
-            "id, title, message, created_at"
-          )
-          .single();
-
-      if (insertError) {
+      if (error) {
         console.error(
-          "Announcement insert error:",
-          insertError
+          "Create announcement error:",
+          error
         );
 
-        setError(
-          `Announcement could not be published: ${insertError.message}`
+        alert(
+          `Could not create announcement: ${error.message}`
         );
 
         return;
       }
 
-      if (data) {
-        setAnnouncement(
-          data as Announcement
-        );
-      }
+      setTitle("");
+      setMessage("");
+
+      await loadAnnouncements();
+
+      alert("Announcement published successfully.");
+    } catch (error) {
+      console.error(
+        "Unexpected create announcement error:",
+        error
+      );
 
       alert(
-        "Announcement published successfully for all students."
-      );
-
-      await loadAnnouncement();
-    } catch (err) {
-      console.error(
-        "Unexpected announcement publish error:",
-        err
-      );
-
-      setError(
-        "Unable to publish announcement."
+        "Something went wrong while creating the announcement."
       );
     } finally {
-      setSaving(false);
+      setCreating(false);
     }
   }
 
-  async function deleteAnnouncement() {
-    if (!announcement) {
+  /*
+   * DELETE ANNOUNCEMENT
+   */
+  async function deleteAnnouncement(
+    announcementId: number
+  ) {
+    if (deletingId !== null) {
       return;
     }
 
-    const confirmed =
-      window.confirm(
-        "Are you sure you want to delete this announcement? It will disappear for all students."
+    const selectedAnnouncement =
+      announcements.find(
+        (announcement) =>
+          announcement.id === announcementId
       );
+
+    if (!selectedAnnouncement) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete "${selectedAnnouncement.title}"?\n\nThis will also remove all likes for this announcement.`
+    );
 
     if (!confirmed) {
       return;
     }
 
-    setDeleting(true);
-    setError("");
+    setDeletingId(announcementId);
 
     try {
-      const { error: deleteError } =
+      /*
+       * DELETE LIKES FIRST
+       */
+      const { error: likesDeleteError } =
         await supabase
-          .from("announcements")
+          .from("announcement_likes")
           .delete()
-          .eq("id", announcement.id);
+          .eq(
+            "announcement_id",
+            announcementId
+          );
 
-      if (deleteError) {
+      if (likesDeleteError) {
         console.error(
-          "Announcement delete error:",
-          deleteError
+          "Delete announcement likes error:",
+          likesDeleteError
+        );
+      }
+
+      /*
+       * DELETE ANNOUNCEMENT
+       */
+      const { error } = await supabase
+        .from("announcements")
+        .delete()
+        .eq("id", announcementId);
+
+      if (error) {
+        console.error(
+          "Delete announcement error:",
+          error
         );
 
-        setError(
-          `Announcement could not be deleted: ${deleteError.message}`
+        alert(
+          `Could not delete announcement: ${error.message}`
         );
 
         return;
       }
 
-      setAnnouncement(null);
-      setTitle("");
-      setMessage("");
+      setAnnouncements((previous) =>
+        previous.filter(
+          (announcement) =>
+            announcement.id !== announcementId
+        )
+      );
+
+      if (
+        expandedLikes === announcementId
+      ) {
+        setExpandedLikes(null);
+      }
+    } catch (error) {
+      console.error(
+        "Unexpected delete error:",
+        error
+      );
 
       alert(
-        "Announcement deleted successfully."
-      );
-    } catch (err) {
-      console.error(
-        "Unexpected announcement delete error:",
-        err
-      );
-
-      setError(
-        "Unable to delete announcement."
+        "Something went wrong while deleting the announcement."
       );
     } finally {
-      setDeleting(false);
+      setDeletingId(null);
     }
   }
 
-  function formatDate(
-    date: string | null
-  ) {
+  function toggleLikes(announcementId: number) {
+    setExpandedLikes((current) =>
+      current === announcementId
+        ? null
+        : announcementId
+    );
+  }
+
+  function formatDate(date: string) {
     if (!date) {
       return "";
     }
@@ -256,7 +390,7 @@ export default function TeacherAnnouncementsPage() {
       "en-IN",
       {
         day: "2-digit",
-        month: "long",
+        month: "short",
         year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
@@ -264,377 +398,571 @@ export default function TeacherAnnouncementsPage() {
     );
   }
 
+  const totalLikes = announcements.reduce(
+    (total, announcement) =>
+      total + announcement.likeCount,
+    0
+  );
+
   return (
     <main style={styles.page}>
       <div style={styles.container}>
-
         {/* HEADER */}
 
         <header style={styles.header}>
           <div style={styles.headerLeft}>
-
-            <div style={styles.logo}>
-              📢
-            </div>
+            <button
+              type="button"
+              onClick={() =>
+                router.push("/teacher")
+              }
+              style={styles.backButton}
+            >
+              ←
+            </button>
 
             <div>
-              <div style={styles.badge}>
+              <div style={styles.eyebrow}>
                 TEACHER PORTAL
               </div>
 
-              <h1 style={styles.title}>
+              <h1 style={styles.heading}>
                 Announcements
               </h1>
 
-              <p style={styles.subtitle}>
-                Create one announcement for
-                all students
+              <p style={styles.headerSubtitle}>
+                Create announcements and see which
+                students have liked them.
               </p>
             </div>
-
           </div>
 
           <button
             type="button"
             onClick={() =>
-              router.push(
-                "/teacher/dashboard"
-              )
+              router.push("/teacher")
             }
-            style={styles.backButton}
+            style={styles.dashboardButton}
           >
-            ← Dashboard
+            Teacher Dashboard
           </button>
         </header>
 
-        {/* ERROR */}
+        {/* CREATE ANNOUNCEMENT */}
 
-        {error && (
-          <div style={styles.errorBox}>
-            <div style={styles.errorIcon}>
-              ⚠️
-            </div>
-
+        <section style={styles.createSection}>
+          <div style={styles.createHeader}>
             <div>
-              <div style={styles.errorTitle}>
-                Something went wrong
+              <div style={styles.createEyebrow}>
+                📢 NEW ANNOUNCEMENT
               </div>
 
-              <div style={styles.errorText}>
-                {error}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* INFORMATION */}
-
-        <section style={styles.infoCard}>
-
-          <div style={styles.infoIcon}>
-            📢
-          </div>
-
-          <div>
-            <div style={styles.infoTitle}>
-              One Announcement for Everyone
-            </div>
-
-            <p style={styles.infoText}>
-              The announcement you publish here
-              will be visible to all students.
-              There is no class-wise selection.
-            </p>
-          </div>
-
-        </section>
-
-        {/* CREATE / EDIT CARD */}
-
-        <section style={styles.formCard}>
-
-          <div style={styles.cardHeader}>
-
-            <div style={styles.cardIcon}>
-              ✏️
-            </div>
-
-            <div>
-              <h2 style={styles.cardTitle}>
-                {announcement
-                  ? "Update Announcement"
-                  : "Create Announcement"}
+              <h2 style={styles.createTitle}>
+                Publish for All Students
               </h2>
 
-              <p style={styles.cardSubtitle}>
-                Write an important message for
-                all students.
+              <p style={styles.createSubtitle}>
+                Students will see this announcement
+                on their dashboard.
               </p>
             </div>
-
           </div>
 
-          {/* TITLE */}
+          <div style={styles.form}>
+            <div style={styles.field}>
+              <label style={styles.label}>
+                Announcement Title
+              </label>
 
-          <div style={styles.field}>
-
-            <label style={styles.label}>
-              Announcement Title
-            </label>
-
-            <input
-              type="text"
-              value={title}
-              onChange={(e) =>
-                setTitle(e.target.value)
-              }
-              placeholder="e.g. Important Notice"
-              style={styles.input}
-              maxLength={150}
-            />
-
-            <div style={styles.characterCount}>
-              {title.length}/150
+              <input
+                type="text"
+                value={title}
+                onChange={(event) =>
+                  setTitle(event.target.value)
+                }
+                placeholder="Example: Raksha Bandhan Holiday"
+                style={styles.input}
+                maxLength={150}
+              />
             </div>
 
-          </div>
+            <div style={styles.field}>
+              <label style={styles.label}>
+                Announcement Message
+              </label>
 
-          {/* MESSAGE */}
-
-          <div style={styles.field}>
-
-            <label style={styles.label}>
-              Announcement Message
-            </label>
-
-            <textarea
-              value={message}
-              onChange={(e) =>
-                setMessage(e.target.value)
-              }
-              placeholder="Write your announcement here..."
-              rows={8}
-              style={styles.textarea}
-              maxLength={2000}
-            />
-
-            <div style={styles.characterCount}>
-              {message.length}/2000
+              <textarea
+                value={message}
+                onChange={(event) =>
+                  setMessage(event.target.value)
+                }
+                placeholder="Write your announcement here..."
+                style={styles.textarea}
+                rows={5}
+                maxLength={2000}
+              />
             </div>
 
+            <div style={styles.formBottom}>
+              <div style={styles.formHint}>
+                👥 This announcement will be visible
+                to all students.
+              </div>
+
+              <button
+                type="button"
+                onClick={createAnnouncement}
+                disabled={creating}
+                style={{
+                  ...styles.publishButton,
+                  ...(creating
+                    ? styles.publishButtonDisabled
+                    : {}),
+                }}
+              >
+                {creating
+                  ? "Publishing..."
+                  : "📢 Publish Announcement"}
+              </button>
+            </div>
           </div>
+        </section>
 
-          {/* TARGET */}
+        {/* STATISTICS */}
 
-          <div style={styles.targetCard}>
-
-            <div style={styles.targetIcon}>
-              👥
+        <section style={styles.statsGrid}>
+          <div style={styles.statCard}>
+            <div
+              style={{
+                ...styles.statIcon,
+                background: "#dbeafe",
+              }}
+            >
+              📢
             </div>
 
             <div>
-
-              <div style={styles.targetTitle}>
-                Audience
+              <div style={styles.statLabel}>
+                TOTAL ANNOUNCEMENTS
               </div>
 
-              <div style={styles.targetText}>
-                All Students
+              <div style={styles.statValue}>
+                {announcements.length}
               </div>
-
-              <div style={styles.targetSubtext}>
-                This announcement will be
-                visible to every student.
-              </div>
-
             </div>
-
           </div>
 
-          {/* ACTIONS */}
+          <div style={styles.statCard}>
+            <div
+              style={{
+                ...styles.statIcon,
+                background: "#ffe4e6",
+              }}
+            >
+              ❤️
+            </div>
 
-          <div style={styles.actions}>
+            <div>
+              <div style={styles.statLabel}>
+                TOTAL LIKES
+              </div>
 
-            {announcement && (
-              <button
-                type="button"
-                onClick={deleteAnnouncement}
-                disabled={
-                  deleting || saving
-                }
-                style={{
-                  ...styles.deleteButton,
-                  opacity:
-                    deleting || saving
-                      ? 0.6
-                      : 1,
-                  cursor:
-                    deleting || saving
-                      ? "not-allowed"
-                      : "pointer",
-                }}
-              >
-                {deleting
-                  ? "Deleting..."
-                  : "🗑️ Delete"}
-              </button>
-            )}
+              <div style={styles.statValue}>
+                {totalLikes}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ANNOUNCEMENTS */}
+
+        <section style={styles.listSection}>
+          <div style={styles.listHeader}>
+            <div>
+              <div style={styles.listEyebrow}>
+                PUBLISHED UPDATES
+              </div>
+
+              <h2 style={styles.listTitle}>
+                Your Announcements
+              </h2>
+            </div>
 
             <button
               type="button"
-              onClick={
-                publishAnnouncement
-              }
-              disabled={
-                saving || deleting
-              }
-              style={{
-                ...styles.publishButton,
-                opacity:
-                  saving || deleting
-                    ? 0.7
-                    : 1,
-                cursor:
-                  saving || deleting
-                    ? "not-allowed"
-                    : "pointer",
-              }}
+              onClick={loadAnnouncements}
+              disabled={loading}
+              style={styles.refreshButton}
             >
-              {saving
-                ? "Publishing..."
-                : announcement
-                ? "📢 Update Announcement"
-                : "🚀 Publish Announcement"}
+              {loading
+                ? "Loading..."
+                : "↻ Refresh"}
             </button>
-
-          </div>
-
-        </section>
-
-        {/* CURRENT ANNOUNCEMENT */}
-
-        <section style={styles.currentCard}>
-
-          <div style={styles.cardHeader}>
-
-            <div style={styles.cardIcon}>
-              📋
-            </div>
-
-            <div>
-              <h2 style={styles.cardTitle}>
-                Current Announcement
-              </h2>
-
-              <p style={styles.cardSubtitle}>
-                This is the announcement currently
-                visible to students.
-              </p>
-            </div>
-
           </div>
 
           {loading ? (
             <div style={styles.emptyBox}>
-
               <div style={styles.emptyIcon}>
                 ⏳
               </div>
 
-              <div style={styles.emptyTitle}>
-                Loading Announcement...
-              </div>
-
-            </div>
-          ) : announcement ? (
-            <article
-              style={styles.announcementPreview}
-            >
-
-              <div style={styles.previewTop}>
-
-                <div style={styles.liveBadge}>
-                  ● LIVE
-                </div>
-
-                <div style={styles.audienceBadge}>
-                  👥 All Students
-                </div>
-
-              </div>
-
-              <h3
-                style={styles.previewTitle}
-              >
-                {announcement.title}
+              <h3 style={styles.emptyTitle}>
+                Loading Announcements...
               </h3>
 
-              <div
-                style={
-                  styles.previewMessageBox
-                }
-              >
-                <div
-                  style={
-                    styles.previewLabel
-                  }
-                >
-                  ANNOUNCEMENT
-                </div>
-
-                <p
-                  style={
-                    styles.previewMessage
-                  }
-                >
-                  {announcement.message}
-                </p>
-              </div>
-
-              <div
-                style={styles.previewFooter}
-              >
-                <span>
-                  📅 Published
-                </span>
-
-                <span>
-                  {formatDate(
-                    announcement.created_at
-                  )}
-                </span>
-              </div>
-
-            </article>
-          ) : (
+              <p style={styles.emptyText}>
+                Please wait while we load the
+                announcements and student likes.
+              </p>
+            </div>
+          ) : announcements.length === 0 ? (
             <div style={styles.emptyBox}>
-
               <div style={styles.emptyIcon}>
-                📢
+                📭
               </div>
 
-              <div style={styles.emptyTitle}>
-                No Announcement Published
-              </div>
+              <h3 style={styles.emptyTitle}>
+                No Announcements Yet
+              </h3>
 
               <p style={styles.emptyText}>
-                Create and publish an announcement
-                above. It will then become visible
-                to all students.
+                Create your first announcement
+                using the form above.
               </p>
+            </div>
+          ) : (
+            <div style={styles.announcementList}>
+              {announcements.map(
+                (announcement) => {
+                  const isExpanded =
+                    expandedLikes ===
+                    announcement.id;
 
+                  return (
+                    <article
+                      key={announcement.id}
+                      style={
+                        styles.announcementCard
+                      }
+                    >
+                      {/* TOP */}
+
+                      <div
+                        style={
+                          styles.cardMain
+                        }
+                      >
+                        <div
+                          style={
+                            styles.cardIcon
+                          }
+                        >
+                          📢
+                        </div>
+
+                        <div
+                          style={
+                            styles.cardContent
+                          }
+                        >
+                          <div
+                            style={
+                              styles.metaRow
+                            }
+                          >
+                            <span
+                              style={
+                                styles.teacherBadge
+                              }
+                            >
+                              TEACHER
+                            </span>
+
+                            <span
+                              style={
+                                styles.date
+                              }
+                            >
+                              {formatDate(
+                                announcement.created_at
+                              )}
+                            </span>
+                          </div>
+
+                          <h3
+                            style={
+                              styles.announcementTitle
+                            }
+                          >
+                            {announcement.title}
+                          </h3>
+
+                          <p
+                            style={
+                              styles.announcementMessage
+                            }
+                          >
+                            {announcement.message}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* ACTION BAR */}
+
+                      <div
+                        style={
+                          styles.actionBar
+                        }
+                      >
+                        <div
+                          style={
+                            styles.audience
+                          }
+                        >
+                          👥 For all students
+                        </div>
+
+                        <div
+                          style={
+                            styles.actionButtons
+                          }
+                        >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              toggleLikes(
+                                announcement.id
+                              )
+                            }
+                            style={{
+                              ...styles.likesButton,
+                              ...(isExpanded
+                                ? styles.likesButtonActive
+                                : {}),
+                            }}
+                          >
+                            ❤️{" "}
+                            {announcement.likeCount}{" "}
+                            {announcement.likeCount ===
+                            1
+                              ? "Like"
+                              : "Likes"}
+
+                            <span
+                              style={
+                                styles.viewArrow
+                              }
+                            >
+                              {isExpanded
+                                ? "▲"
+                                : "▼"}
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              deleteAnnouncement(
+                                announcement.id
+                              )
+                            }
+                            disabled={
+                              deletingId ===
+                              announcement.id
+                            }
+                            style={
+                              styles.deleteButton
+                            }
+                          >
+                            {deletingId ===
+                            announcement.id
+                              ? "Deleting..."
+                              : "🗑 Delete"}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* LIKED STUDENTS */}
+
+                      {isExpanded && (
+                        <div
+                          style={
+                            styles.likesPanel
+                          }
+                        >
+                          <div
+                            style={
+                              styles.likesPanelHeader
+                            }
+                          >
+                            <div>
+                              <div
+                                style={
+                                  styles.likesPanelEyebrow
+                                }
+                              >
+                                STUDENT ACTIVITY
+                              </div>
+
+                              <h4
+                                style={
+                                  styles.likesPanelTitle
+                                }
+                              >
+                                Students Who Liked
+                              </h4>
+                            </div>
+
+                            <div
+                              style={
+                                styles.likeNumber
+                              }
+                            >
+                              ❤️{" "}
+                              {
+                                announcement.likeCount
+                              }
+                            </div>
+                          </div>
+
+                          {announcement
+                            .likedStudents
+                            .length === 0 ? (
+                            <div
+                              style={
+                                styles.noLikes
+                              }
+                            >
+                              <span
+                                style={
+                                  styles.noLikesIcon
+                                }
+                              >
+                                🤍
+                              </span>
+
+                              <div>
+                                <div
+                                  style={
+                                    styles.noLikesTitle
+                                  }
+                                >
+                                  No student has liked
+                                  this announcement
+                                  yet.
+                                </div>
+
+                                <div
+                                  style={
+                                    styles.noLikesText
+                                  }
+                                >
+                                  Student likes will
+                                  appear here.
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div
+                              style={
+                                styles.studentList
+                              }
+                            >
+                              {announcement.likedStudents.map(
+                                (
+                                  student,
+                                  index
+                                ) => (
+                                  <div
+                                    key={
+                                      student.id
+                                    }
+                                    style={
+                                      styles.studentRow
+                                    }
+                                  >
+                                    <div
+                                      style={
+                                        styles.studentNumber
+                                      }
+                                    >
+                                      {index + 1}
+                                    </div>
+
+                                    <div
+                                      style={
+                                        styles.studentAvatar
+                                      }
+                                    >
+                                      {(
+                                        student.student_name ||
+                                        student.student_username ||
+                                        "S"
+                                      )
+                                        .charAt(
+                                          0
+                                        )
+                                        .toUpperCase()}
+                                    </div>
+
+                                    <div
+                                      style={
+                                        styles.studentInfo
+                                      }
+                                    >
+                                      <div
+                                        style={
+                                          styles.studentName
+                                        }
+                                      >
+                                        {student.student_name ||
+                                          "Student"}
+                                      </div>
+
+                                      {student.student_username && (
+                                        <div
+                                          style={
+                                            styles.studentUsername
+                                          }
+                                        >
+                                          @{student.student_username}
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    <div
+                                      style={
+                                        styles.heart
+                                      }
+                                    >
+                                      ❤️
+                                    </div>
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </article>
+                  );
+                }
+              )}
             </div>
           )}
-
         </section>
 
         {/* FOOTER */}
 
         <footer style={styles.footer}>
-          Attendance Portal • Teacher
-          Announcements • 2026
-        </footer>
+          <div style={styles.footerBrand}>
+            🎓 Attendance Portal
+          </div>
 
+          <div>
+            Teacher Portal • Announcements • 2026
+          </div>
+        </footer>
       </div>
     </main>
   );
@@ -646,8 +974,8 @@ const styles: {
   page: {
     minHeight: "100vh",
     background:
-      "linear-gradient(135deg,#eef2ff 0%,#f8fafc 50%,#eff6ff 100%)",
-    padding: "24px 15px",
+      "linear-gradient(135deg,#f8fafc 0%,#eef2ff 50%,#f0f9ff 100%)",
+    padding: "18px",
     boxSizing: "border-box",
     fontFamily:
       "Arial, Helvetica, sans-serif",
@@ -656,434 +984,603 @@ const styles: {
 
   container: {
     width: "100%",
-    maxWidth: "1100px",
+    maxWidth: "1200px",
     margin: "0 auto",
   },
 
   header: {
     background: "#ffffff",
-    borderRadius: "22px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "20px",
     padding: "22px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "15px",
     marginBottom: "18px",
     boxShadow:
-      "0 10px 30px rgba(15,23,42,0.08)",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "15px",
+      "0 8px 28px rgba(15,23,42,0.06)",
     flexWrap: "wrap",
   },
 
   headerLeft: {
     display: "flex",
     alignItems: "center",
-    gap: "13px",
+    gap: "14px",
+    minWidth: 0,
   },
 
-  logo: {
-    width: "54px",
-    height: "54px",
-    borderRadius: "15px",
-    background:
-      "linear-gradient(135deg,#2563eb,#7c3aed)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "26px",
-    boxShadow:
-      "0 8px 20px rgba(37,99,235,0.18)",
+  backButton: {
+    width: "45px",
+    height: "45px",
+    borderRadius: "13px",
+    border: "1px solid #dbeafe",
+    background: "#eff6ff",
+    color: "#2563eb",
+    fontSize: "22px",
+    fontWeight: "900",
+    cursor: "pointer",
+    flexShrink: 0,
   },
 
-  badge: {
-    display: "inline-block",
+  eyebrow: {
     color: "#2563eb",
     fontSize: "9px",
     fontWeight: "1000",
-    letterSpacing: "1.5px",
+    letterSpacing: "2px",
     marginBottom: "4px",
   },
 
-  title: {
+  heading: {
     margin: 0,
     color: "#172554",
-    fontSize: "28px",
+    fontSize: "29px",
     fontWeight: "1000",
   },
 
-  subtitle: {
+  headerSubtitle: {
     margin: "5px 0 0",
     color: "#64748b",
     fontSize: "12px",
     fontWeight: "600",
   },
 
-  backButton: {
-    border: "1px solid #cbd5e1",
-    background: "#ffffff",
-    color: "#334155",
-    padding: "10px 15px",
-    borderRadius: "9px",
-    fontSize: "11px",
+  dashboardButton: {
+    border: "none",
+    background: "#172554",
+    color: "#ffffff",
+    padding: "11px 15px",
+    borderRadius: "10px",
     fontWeight: "900",
+    fontSize: "11px",
     cursor: "pointer",
   },
 
-  errorBox: {
-    background: "#fee2e2",
-    border: "1px solid #fecaca",
-    borderRadius: "13px",
-    padding: "13px 15px",
-    marginBottom: "18px",
-    display: "flex",
-    alignItems: "flex-start",
-    gap: "10px",
-  },
-
-  errorIcon: {
-    fontSize: "20px",
-  },
-
-  errorTitle: {
-    color: "#991b1b",
-    fontSize: "12px",
-    fontWeight: "1000",
-  },
-
-  errorText: {
-    color: "#b91c1c",
-    fontSize: "11px",
-    fontWeight: "600",
-    marginTop: "3px",
-    wordBreak: "break-word",
-  },
-
-  infoCard: {
-    background:
-      "linear-gradient(135deg,#eff6ff,#eef2ff)",
-    border: "1px solid #bfdbfe",
-    borderRadius: "16px",
-    padding: "15px",
-    marginBottom: "18px",
-    display: "flex",
-    alignItems: "flex-start",
-    gap: "11px",
-  },
-
-  infoIcon: {
-    width: "38px",
-    height: "38px",
-    minWidth: "38px",
-    borderRadius: "10px",
-    background: "#dbeafe",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "18px",
-  },
-
-  infoTitle: {
-    color: "#1e3a8a",
-    fontSize: "12px",
-    fontWeight: "1000",
-  },
-
-  infoText: {
-    margin: "4px 0 0",
-    color: "#475569",
-    fontSize: "11px",
-    lineHeight: 1.5,
-    fontWeight: "600",
-  },
-
-  formCard: {
+  createSection: {
     background: "#ffffff",
-    borderRadius: "22px",
-    padding: "24px",
+    border: "1px solid #dbeafe",
+    borderRadius: "20px",
+    padding: "22px",
     marginBottom: "18px",
     boxShadow:
-      "0 10px 30px rgba(15,23,42,0.08)",
-    border: "2px solid #bfdbfe",
+      "0 8px 26px rgba(15,23,42,0.06)",
   },
 
-  currentCard: {
-    background: "#ffffff",
-    borderRadius: "22px",
-    padding: "24px",
+  createHeader: {
     marginBottom: "18px",
-    boxShadow:
-      "0 10px 30px rgba(15,23,42,0.08)",
   },
 
-  cardHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    marginBottom: "22px",
+  createEyebrow: {
+    color: "#2563eb",
+    fontSize: "9px",
+    fontWeight: "1000",
+    letterSpacing: "2px",
+    marginBottom: "5px",
   },
 
-  cardIcon: {
-    width: "45px",
-    height: "45px",
-    borderRadius: "12px",
-    background: "#dbeafe",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "21px",
-    flexShrink: 0,
-  },
-
-  cardTitle: {
+  createTitle: {
     margin: 0,
     color: "#172554",
-    fontSize: "20px",
+    fontSize: "22px",
     fontWeight: "1000",
   },
 
-  cardSubtitle: {
-    margin: "4px 0 0",
+  createSubtitle: {
+    margin: "5px 0 0",
     color: "#64748b",
     fontSize: "11px",
     fontWeight: "600",
+  },
+
+  form: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "14px",
   },
 
   field: {
     display: "flex",
     flexDirection: "column",
     gap: "7px",
-    marginBottom: "17px",
   },
 
   label: {
     color: "#334155",
-    fontSize: "12px",
-    fontWeight: "1000",
+    fontSize: "11px",
+    fontWeight: "900",
   },
 
   input: {
     width: "100%",
     boxSizing: "border-box",
-    padding: "13px 14px",
     border: "1px solid #cbd5e1",
-    borderRadius: "10px",
-    background: "#ffffff",
-    color: "#0f172a",
-    fontSize: "14px",
-    fontWeight: "600",
+    borderRadius: "11px",
+    padding: "12px 13px",
     outline: "none",
+    color: "#172554",
+    background: "#ffffff",
+    fontSize: "13px",
+    fontWeight: "600",
   },
 
   textarea: {
     width: "100%",
     boxSizing: "border-box",
-    padding: "13px 14px",
     border: "1px solid #cbd5e1",
-    borderRadius: "10px",
-    background: "#ffffff",
-    color: "#0f172a",
-    fontSize: "14px",
-    fontWeight: "600",
+    borderRadius: "11px",
+    padding: "12px 13px",
     outline: "none",
+    color: "#172554",
+    background: "#ffffff",
+    fontSize: "13px",
+    fontWeight: "600",
     resize: "vertical",
     lineHeight: 1.6,
-    minHeight: "170px",
     fontFamily:
       "Arial, Helvetica, sans-serif",
   },
 
-  characterCount: {
-    alignSelf: "flex-end",
-    color: "#94a3b8",
-    fontSize: "9px",
-    fontWeight: "700",
-  },
-
-  targetCard: {
-    marginTop: "3px",
-    padding: "14px",
-    borderRadius: "12px",
-    background: "#f0fdf4",
-    border: "1px solid #bbf7d0",
+  formBottom: {
     display: "flex",
     alignItems: "center",
-    gap: "11px",
+    justifyContent: "space-between",
+    gap: "12px",
+    flexWrap: "wrap",
   },
 
-  targetIcon: {
-    width: "40px",
-    height: "40px",
-    minWidth: "40px",
-    borderRadius: "10px",
-    background: "#dcfce7",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "18px",
-  },
-
-  targetTitle: {
-    color: "#166534",
-    fontSize: "9px",
-    fontWeight: "1000",
-    letterSpacing: "1px",
-  },
-
-  targetText: {
-    color: "#14532d",
-    fontSize: "15px",
-    fontWeight: "1000",
-    marginTop: "2px",
-  },
-
-  targetSubtext: {
+  formHint: {
     color: "#64748b",
     fontSize: "10px",
-    fontWeight: "600",
-    marginTop: "2px",
-  },
-
-  actions: {
-    display: "flex",
-    justifyContent: "flex-end",
-    alignItems: "center",
-    gap: "9px",
-    marginTop: "20px",
-    flexWrap: "wrap",
+    fontWeight: "700",
   },
 
   publishButton: {
     border: "none",
     background:
-      "linear-gradient(135deg,#2563eb,#7c3aed)",
+      "linear-gradient(135deg,#2563eb,#4f46e5)",
     color: "#ffffff",
-    padding: "13px 20px",
+    padding: "12px 17px",
     borderRadius: "10px",
-    fontSize: "12px",
-    fontWeight: "1000",
+    fontSize: "11px",
+    fontWeight: "900",
+    cursor: "pointer",
+    boxShadow:
+      "0 7px 18px rgba(37,99,235,0.20)",
   },
 
-  deleteButton: {
-    border: "none",
-    background: "#fee2e2",
-    color: "#991b1b",
-    padding: "13px 17px",
-    borderRadius: "10px",
-    fontSize: "12px",
-    fontWeight: "1000",
+  publishButtonDisabled: {
+    opacity: 0.65,
+    cursor: "not-allowed",
   },
 
-  announcementPreview: {
-    border: "1px solid #c7d2fe",
-    borderRadius: "16px",
-    padding: "18px",
-    background:
-      "linear-gradient(135deg,#f8faff,#ffffff)",
+  statsGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(2,minmax(0,1fr))",
+    gap: "15px",
+    marginBottom: "18px",
   },
 
-  previewTop: {
+  statCard: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "17px",
+    padding: "17px",
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: "8px",
-    flexWrap: "wrap",
+    gap: "13px",
+    boxShadow:
+      "0 7px 22px rgba(15,23,42,0.05)",
   },
 
-  liveBadge: {
-    background: "#dcfce7",
-    color: "#15803d",
-    padding: "6px 9px",
-    borderRadius: "7px",
-    fontSize: "9px",
-    fontWeight: "1000",
+  statIcon: {
+    width: "48px",
+    height: "48px",
+    borderRadius: "13px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "22px",
+    flexShrink: 0,
   },
 
-  audienceBadge: {
-    background: "#dbeafe",
-    color: "#1d4ed8",
-    padding: "6px 9px",
-    borderRadius: "7px",
-    fontSize: "9px",
-    fontWeight: "1000",
-  },
-
-  previewTitle: {
-    margin: "13px 0 0",
-    color: "#172554",
-    fontSize: "21px",
-    fontWeight: "1000",
-  },
-
-  previewMessageBox: {
-    marginTop: "13px",
-    padding: "14px",
-    borderRadius: "11px",
-    background: "#f8fafc",
-    border: "1px solid #e2e8f0",
-  },
-
-  previewLabel: {
+  statLabel: {
     color: "#64748b",
     fontSize: "8px",
     fontWeight: "1000",
     letterSpacing: "1.2px",
-    marginBottom: "6px",
   },
 
-  previewMessage: {
+  statValue: {
+    marginTop: "3px",
+    color: "#172554",
+    fontSize: "23px",
+    fontWeight: "1000",
+  },
+
+  listSection: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "20px",
+    padding: "22px",
+    boxShadow:
+      "0 8px 26px rgba(15,23,42,0.06)",
+  },
+
+  listHeader: {
+    display: "flex",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: "12px",
+    marginBottom: "17px",
+    flexWrap: "wrap",
+  },
+
+  listEyebrow: {
+    color: "#2563eb",
+    fontSize: "9px",
+    fontWeight: "1000",
+    letterSpacing: "2px",
+    marginBottom: "4px",
+  },
+
+  listTitle: {
     margin: 0,
+    color: "#172554",
+    fontSize: "23px",
+    fontWeight: "1000",
+  },
+
+  refreshButton: {
+    border: "1px solid #cbd5e1",
+    background: "#ffffff",
     color: "#475569",
-    fontSize: "13px",
-    lineHeight: 1.7,
+    padding: "9px 12px",
+    borderRadius: "9px",
+    fontSize: "10px",
+    fontWeight: "900",
+    cursor: "pointer",
+  },
+
+  emptyBox: {
+    padding: "35px 20px",
+    borderRadius: "15px",
+    background: "#f8fafc",
+    border: "1px dashed #cbd5e1",
+    textAlign: "center",
+  },
+
+  emptyIcon: {
+    fontSize: "35px",
+    marginBottom: "8px",
+  },
+
+  emptyTitle: {
+    margin: 0,
+    color: "#334155",
+    fontSize: "15px",
+    fontWeight: "1000",
+  },
+
+  emptyText: {
+    margin: "5px auto 0",
+    maxWidth: "500px",
+    color: "#64748b",
+    fontSize: "11px",
+    lineHeight: 1.5,
+    fontWeight: "600",
+  },
+
+  announcementList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "14px",
+  },
+
+  announcementCard: {
+    background:
+      "linear-gradient(135deg,#f8fbff,#ffffff)",
+    border: "1px solid #dbeafe",
+    borderRadius: "17px",
+    overflow: "hidden",
+  },
+
+  cardMain: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "13px",
+    padding: "17px",
+  },
+
+  cardIcon: {
+    width: "48px",
+    height: "48px",
+    minWidth: "48px",
+    borderRadius: "13px",
+    background:
+      "linear-gradient(135deg,#dbeafe,#ede9fe)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "23px",
+  },
+
+  cardContent: {
+    minWidth: 0,
+    flex: 1,
+  },
+
+  metaRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    flexWrap: "wrap",
+  },
+
+  teacherBadge: {
+    background: "#dbeafe",
+    color: "#1d4ed8",
+    padding: "4px 7px",
+    borderRadius: "6px",
+    fontSize: "8px",
+    fontWeight: "1000",
+    letterSpacing: "0.7px",
+  },
+
+  date: {
+    color: "#94a3b8",
+    fontSize: "9px",
+    fontWeight: "700",
+  },
+
+  announcementTitle: {
+    margin: "7px 0 0",
+    color: "#172554",
+    fontSize: "19px",
+    fontWeight: "1000",
+    wordBreak: "break-word",
+  },
+
+  announcementMessage: {
+    margin: "7px 0 0",
+    color: "#475569",
+    fontSize: "12px",
+    lineHeight: 1.65,
     fontWeight: "600",
     whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
   },
 
-  previewFooter: {
-    marginTop: "13px",
-    paddingTop: "11px",
+  actionBar: {
+    borderTop: "1px solid #e2e8f0",
+    padding: "12px 17px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "10px",
+    flexWrap: "wrap",
+    background: "#ffffff",
+  },
+
+  audience: {
+    color: "#64748b",
+    fontSize: "10px",
+    fontWeight: "800",
+  },
+
+  actionButtons: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    flexWrap: "wrap",
+  },
+
+  likesButton: {
+    border: "1px solid #fecdd3",
+    background: "#fff1f2",
+    color: "#be123c",
+    padding: "8px 11px",
+    borderRadius: "9px",
+    fontSize: "10px",
+    fontWeight: "1000",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    gap: "7px",
+  },
+
+  likesButtonActive: {
+    background: "#ffe4e6",
+    border: "1px solid #fb7185",
+  },
+
+  viewArrow: {
+    fontSize: "8px",
+    marginLeft: "2px",
+  },
+
+  deleteButton: {
+    border: "1px solid #fecaca",
+    background: "#ffffff",
+    color: "#dc2626",
+    padding: "8px 10px",
+    borderRadius: "9px",
+    fontSize: "10px",
+    fontWeight: "1000",
+    cursor: "pointer",
+  },
+
+  likesPanel: {
+    borderTop: "1px solid #e2e8f0",
+    background:
+      "linear-gradient(135deg,#fff7f8,#fff)",
+    padding: "17px",
+  },
+
+  likesPanelHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "10px",
+    marginBottom: "13px",
+  },
+
+  likesPanelEyebrow: {
+    color: "#e11d48",
+    fontSize: "8px",
+    fontWeight: "1000",
+    letterSpacing: "1.5px",
+    marginBottom: "3px",
+  },
+
+  likesPanelTitle: {
+    margin: 0,
+    color: "#881337",
+    fontSize: "15px",
+    fontWeight: "1000",
+  },
+
+  likeNumber: {
+    background: "#ffe4e6",
+    color: "#be123c",
+    border: "1px solid #fecdd3",
+    padding: "7px 10px",
+    borderRadius: "8px",
+    fontSize: "10px",
+    fontWeight: "1000",
+  },
+
+  noLikes: {
+    display: "flex",
+    alignItems: "center",
+    gap: "11px",
+    padding: "13px",
+    borderRadius: "11px",
+    background: "#ffffff",
+    border: "1px dashed #cbd5e1",
+  },
+
+  noLikesIcon: {
+    fontSize: "23px",
+  },
+
+  noLikesTitle: {
+    color: "#475569",
+    fontSize: "11px",
+    fontWeight: "900",
+  },
+
+  noLikesText: {
+    marginTop: "3px",
+    color: "#94a3b8",
+    fontSize: "9px",
+    fontWeight: "700",
+  },
+
+  studentList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "7px",
+  },
+
+  studentRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    padding: "10px 11px",
+    borderRadius: "10px",
+    background: "#ffffff",
+    border: "1px solid #f1f5f9",
+  },
+
+  studentNumber: {
+    width: "22px",
+    height: "22px",
+    borderRadius: "7px",
+    background: "#f8fafc",
+    color: "#94a3b8",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "9px",
+    fontWeight: "1000",
+    flexShrink: 0,
+  },
+
+  studentAvatar: {
+    width: "34px",
+    height: "34px",
+    borderRadius: "10px",
+    background:
+      "linear-gradient(135deg,#dbeafe,#ede9fe)",
+    color: "#3730a3",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "13px",
+    fontWeight: "1000",
+    flexShrink: 0,
+  },
+
+  studentInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  studentName: {
+    color: "#334155",
+    fontSize: "11px",
+    fontWeight: "1000",
+    wordBreak: "break-word",
+  },
+
+  studentUsername: {
+    marginTop: "2px",
+    color: "#94a3b8",
+    fontSize: "9px",
+    fontWeight: "700",
+  },
+
+  heart: {
+    fontSize: "16px",
+    flexShrink: 0,
+  },
+
+  footer: {
+    marginTop: "22px",
+    padding: "18px 5px",
     borderTop: "1px solid #e2e8f0",
     display: "flex",
     justifyContent: "space-between",
     gap: "10px",
-    color: "#64748b",
+    color: "#94a3b8",
     fontSize: "10px",
     fontWeight: "700",
     flexWrap: "wrap",
   },
 
-  emptyBox: {
-    textAlign: "center",
-    padding: "45px 20px",
-    borderRadius: "15px",
-    background: "#f8fafc",
-    border: "1px dashed #cbd5e1",
-  },
-
-  emptyIcon: {
-    fontSize: "42px",
-    marginBottom: "10px",
-  },
-
-  emptyTitle: {
-    color: "#334155",
-    fontSize: "17px",
-    fontWeight: "1000",
-  },
-
-  emptyText: {
-    maxWidth: "480px",
-    margin: "7px auto 0",
-    color: "#64748b",
-    fontSize: "11px",
-    lineHeight: 1.6,
-    fontWeight: "600",
-  },
-
-  footer: {
-    textAlign: "center",
-    padding: "22px 10px",
-    color: "#94a3b8",
-    fontSize: "10px",
-    fontWeight: "700",
+  footerBrand: {
+    color: "#475569",
+    fontWeight: "900",
   },
 };
