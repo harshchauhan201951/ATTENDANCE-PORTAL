@@ -59,11 +59,7 @@ export default function StudentHomeworkPage() {
           .single();
 
       if (studentError) {
-        console.error(
-          "Student loading error:",
-          studentError
-        );
-
+        console.error("Student loading error:", studentError);
         setError("Unable to load your student information.");
         setLoading(false);
         return;
@@ -85,13 +81,29 @@ export default function StudentHomeworkPage() {
         return;
       }
 
+      /*
+       * IMPORTANT
+       *
+       * Teacher homework can now contain multiple classes.
+       *
+       * Example:
+       *
+       * Class 9
+       *
+       * OR
+       *
+       * Class 9, Class 10, Class 11
+       *
+       * So we fetch homework and then check whether
+       * the student's class is included in the selected classes.
+       */
+
       const { data: homeworkData, error: homeworkError } =
         await supabase
           .from("homework")
           .select(
             "id, subject, title, description, due_date, class_name, created_at"
           )
-          .eq("class_name", studentClass)
           .order("due_date", {
             ascending: true,
           });
@@ -105,13 +117,27 @@ export default function StudentHomeworkPage() {
         setError(
           "Unable to load your homework right now."
         );
+
         setLoading(false);
         return;
       }
 
-      setHomework(
+      const assignedHomework = (
         (homeworkData || []) as Homework[]
-      );
+      ).filter((item) => {
+        const assignedClasses = item.class_name
+          .split(",")
+          .map((classItem) =>
+            classItem.trim().toLowerCase()
+          )
+          .filter(Boolean);
+
+        return assignedClasses.includes(
+          studentClass.toLowerCase()
+        );
+      });
+
+      setHomework(assignedHomework);
     } catch (err) {
       console.error(
         "Unexpected student homework error:",
@@ -146,9 +172,12 @@ export default function StudentHomeworkPage() {
     }
 
     const today = new Date();
+
     today.setHours(0, 0, 0, 0);
 
-    const due = new Date(`${date}T00:00:00`);
+    const due = new Date(
+      `${date}T00:00:00`
+    );
 
     return due < today;
   }
@@ -174,6 +203,7 @@ export default function StudentHomeworkPage() {
 
         <header style={styles.header}>
           <div style={styles.headerLeft}>
+
             <div style={styles.logo}>
               📚
             </div>
@@ -191,9 +221,11 @@ export default function StudentHomeworkPage() {
                 View homework assigned by your teacher
               </p>
             </div>
+
           </div>
 
           <div style={styles.headerActions}>
+
             <button
               type="button"
               onClick={() =>
@@ -211,6 +243,7 @@ export default function StudentHomeworkPage() {
             >
               Logout
             </button>
+
           </div>
         </header>
 
@@ -218,6 +251,7 @@ export default function StudentHomeworkPage() {
 
         {student && (
           <section style={styles.studentCard}>
+
             <div style={styles.studentAvatar}>
               {(student.student_name || "S")
                 .charAt(0)
@@ -225,6 +259,7 @@ export default function StudentHomeworkPage() {
             </div>
 
             <div style={styles.studentInfo}>
+
               <div style={styles.infoLabel}>
                 STUDENT
               </div>
@@ -236,9 +271,11 @@ export default function StudentHomeworkPage() {
               <div style={styles.username}>
                 @{student.student_username}
               </div>
+
             </div>
 
             <div style={styles.classBox}>
+
               <div style={styles.infoLabel}>
                 MY CLASS
               </div>
@@ -246,9 +283,11 @@ export default function StudentHomeworkPage() {
               <div style={styles.className}>
                 {student.class_name || "Not Assigned"}
               </div>
+
             </div>
 
             <div style={styles.homeworkCountBox}>
+
               <div style={styles.infoLabel}>
                 HOMEWORK
               </div>
@@ -256,7 +295,9 @@ export default function StudentHomeworkPage() {
               <div style={styles.homeworkCount}>
                 {homework.length}
               </div>
+
             </div>
+
           </section>
         )}
 
@@ -264,11 +305,13 @@ export default function StudentHomeworkPage() {
 
         {error && (
           <div style={styles.errorBox}>
+
             <div style={styles.errorIcon}>
               ⚠️
             </div>
 
             <div>
+
               <div style={styles.errorTitle}>
                 Unable to Load Homework
               </div>
@@ -276,7 +319,9 @@ export default function StudentHomeworkPage() {
               <div style={styles.errorText}>
                 {error}
               </div>
+
             </div>
+
           </div>
         )}
 
@@ -284,6 +329,7 @@ export default function StudentHomeworkPage() {
 
         {loading ? (
           <section style={styles.emptyCard}>
+
             <div style={styles.loadingIcon}>
               ⏳
             </div>
@@ -296,11 +342,14 @@ export default function StudentHomeworkPage() {
               Please wait while we load homework
               assigned to your class.
             </p>
+
           </section>
         ) : !error && homework.length === 0 ? (
+
           /* NO HOMEWORK */
 
           <section style={styles.emptyCard}>
+
             <div style={styles.emptyIcon}>
               📚
             </div>
@@ -319,13 +368,19 @@ export default function StudentHomeworkPage() {
                 Class: {student.class_name}
               </div>
             )}
+
           </section>
+
         ) : (
+
           /* HOMEWORK LIST */
 
           <section>
+
             <div style={styles.sectionHeader}>
+
               <div>
+
                 <div style={styles.sectionEyebrow}>
                   ACADEMIC WORK
                 </div>
@@ -338,15 +393,19 @@ export default function StudentHomeworkPage() {
                   Homework assigned to your class by
                   your teacher.
                 </p>
+
               </div>
 
               <div style={styles.readOnlyBadge}>
                 🔒 READ ONLY
               </div>
+
             </div>
 
             <div style={styles.homeworkList}>
+
               {homework.map((item) => {
+
                 const overdue = isOverdue(
                   item.due_date
                 );
@@ -356,8 +415,11 @@ export default function StudentHomeworkPage() {
                     key={item.id}
                     style={styles.homeworkCard}
                   >
+
                     <div style={styles.homeworkHeader}>
+
                       <div style={styles.badges}>
+
                         <span
                           style={
                             styles.subjectBadge
@@ -371,8 +433,9 @@ export default function StudentHomeworkPage() {
                             styles.classBadge
                           }
                         >
-                          {item.class_name}
+                          {student?.class_name}
                         </span>
+
                       </div>
 
                       <div
@@ -387,6 +450,7 @@ export default function StudentHomeworkPage() {
                           ? "OVERDUE"
                           : "ACTIVE"}
                       </div>
+
                     </div>
 
                     <h3 style={styles.homeworkTitle}>
@@ -394,6 +458,7 @@ export default function StudentHomeworkPage() {
                     </h3>
 
                     <div style={styles.descriptionBox}>
+
                       <div
                         style={
                           styles.descriptionLabel
@@ -409,15 +474,19 @@ export default function StudentHomeworkPage() {
                       >
                         {item.description}
                       </p>
+
                     </div>
 
                     <div style={styles.homeworkFooter}>
+
                       <div style={styles.dueBox}>
+
                         <div style={styles.dueIcon}>
                           📅
                         </div>
 
                         <div>
+
                           <div
                             style={
                               styles.dueLabel
@@ -435,10 +504,13 @@ export default function StudentHomeworkPage() {
                               item.due_date
                             )}
                           </div>
+
                         </div>
+
                       </div>
 
                       <div style={styles.classVisibility}>
+
                         <span
                           style={
                             styles.visibilityIcon
@@ -448,18 +520,22 @@ export default function StudentHomeworkPage() {
                         </span>
 
                         <span>
-                          Assigned to{" "}
+                          Assigned to your class{" "}
                           <strong>
-                            {item.class_name}
-                          </strong>{" "}
-                          students
+                            {student?.class_name}
+                          </strong>
                         </span>
+
                       </div>
+
                     </div>
+
                   </article>
                 );
               })}
+
             </div>
+
           </section>
         )}
 
@@ -467,11 +543,13 @@ export default function StudentHomeworkPage() {
 
         {!loading && !error && (
           <section style={styles.infoCard}>
+
             <div style={styles.infoCardIcon}>
               ℹ️
             </div>
 
             <div>
+
               <div style={styles.infoCardTitle}>
                 Homework Information
               </div>
@@ -482,13 +560,16 @@ export default function StudentHomeworkPage() {
                 You can only view homework assigned to
                 your own class.
               </p>
+
             </div>
+
           </section>
         )}
 
         {/* FOOTER */}
 
         <footer style={styles.footer}>
+
           <div style={styles.footerBrand}>
             🎓 Attendance Portal
           </div>
@@ -496,6 +577,7 @@ export default function StudentHomeworkPage() {
           <div>
             Student Portal • Homework • 2026
           </div>
+
         </footer>
 
       </div>
