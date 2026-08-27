@@ -44,7 +44,8 @@ export default function StudentFeesPage() {
   const [studentUsername, setStudentUsername] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [payingFeeId, setPayingFeeId] = useState<number | null>(null);
+  const [payingFeeId, setPayingFeeId] =
+    useState<number | null>(null);
 
   useEffect(() => {
     loadFees();
@@ -52,14 +53,19 @@ export default function StudentFeesPage() {
   }, []);
 
   function loadRazorpayScript() {
-    if (document.getElementById("razorpay-checkout-script")) {
+    if (
+      document.getElementById(
+        "razorpay-checkout-script"
+      )
+    ) {
       return;
     }
 
     const script = document.createElement("script");
 
     script.id = "razorpay-checkout-script";
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.src =
+      "https://checkout.razorpay.com/v1/checkout.js";
     script.async = true;
 
     document.body.appendChild(script);
@@ -184,10 +190,12 @@ export default function StudentFeesPage() {
       setError("");
       setPayingFeeId(fee.id);
 
-      if (
-        String(fee.status).toUpperCase() !==
-        "PENDING"
-      ) {
+      const currentStatus =
+        String(
+          fee.status || ""
+        ).toUpperCase();
+
+      if (currentStatus !== "PENDING") {
         setError(
           "This fee is not available for online payment."
         );
@@ -228,21 +236,27 @@ export default function StudentFeesPage() {
       ) {
         throw new Error(
           orderData.error ||
+            orderData.message ||
             "Unable to create Razorpay order."
         );
       }
 
       const options = {
         key: orderData.keyId,
-        amount: orderData.order.amount,
+
+        amount:
+          orderData.order.amount,
+
         currency:
           orderData.order.currency || "INR",
 
         name: "RACER ACADEMY",
+
         description:
           `${months[fee.month] || `Month ${fee.month}`} ${fee.year} Fees`,
 
-        order_id: orderData.order.id,
+        order_id:
+          orderData.order.id,
 
         prefill: {
           name: studentName,
@@ -256,23 +270,41 @@ export default function StudentFeesPage() {
           response: any
         ) {
           try {
+            /*
+             * VERIFY PAYMENT
+             */
+
             const verifyResponse =
               await fetch(
                 "/api/fees/verify-payment",
                 {
                   method: "POST",
+
                   headers: {
                     "Content-Type":
                       "application/json",
                   },
+
                   body: JSON.stringify({
                     feeId: fee.id,
+
                     razorpay_order_id:
                       response.razorpay_order_id,
+
                     razorpay_payment_id:
                       response.razorpay_payment_id,
+
                     razorpay_signature:
                       response.razorpay_signature,
+
+                    studentId:
+                      fee.student_id,
+
+                    month:
+                      fee.month,
+
+                    year:
+                      fee.year,
                   }),
                 }
               );
@@ -286,12 +318,22 @@ export default function StudentFeesPage() {
             ) {
               throw new Error(
                 verifyData.error ||
+                  verifyData.message ||
                   "Payment verification failed."
               );
             }
 
+            /*
+             * PAYMENT SUCCESS
+             *
+             * Backend automatically changes:
+             * status = SUBMITTED
+             * payment_date = today
+             * transaction_id = Razorpay Payment ID
+             */
+
             alert(
-              "Payment successful! Your fee has been updated."
+              "✅ Payment successful!\n\nYour fee has been submitted successfully."
             );
 
             await loadFees();
@@ -355,42 +397,314 @@ export default function StudentFeesPage() {
     }
   }
 
-  const totalFees = fees.reduce(
-    (sum, fee) =>
-      sum + Number(fee.amount || 0),
-    0
-  );
+  /*
+   * DOWNLOAD RECEIPT
+   */
 
-  const submittedFees = fees
-    .filter(
-      (fee) =>
-        String(fee.status).toUpperCase() ===
-        "SUBMITTED"
-    )
-    .reduce(
+  function downloadReceipt(fee: Fee) {
+    const monthName =
+      months[fee.month] ||
+      `Month ${fee.month}`;
+
+    const amount =
+      Number(
+        fee.amount || 0
+      ).toLocaleString("en-IN");
+
+    const paymentDate =
+      fee.payment_date || "—";
+
+    const transactionId =
+      fee.transaction_id || "—";
+
+    const receiptNumber =
+      `RA-${fee.year}-${String(
+        fee.month
+      ).padStart(2, "0")}-${fee.id}`;
+
+    const receiptHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+
+<title>RACER ACADEMY Fee Receipt</title>
+
+<style>
+
+body {
+  margin: 0;
+  padding: 30px;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.receipt {
+  max-width: 700px;
+  margin: 0 auto;
+  background: white;
+  padding: 40px;
+  border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+}
+
+.header {
+  text-align: center;
+  border-bottom: 2px solid #111827;
+  padding-bottom: 20px;
+  margin-bottom: 25px;
+}
+
+.academy {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.title {
+  font-size: 22px;
+  margin-top: 8px;
+  font-weight: 700;
+}
+
+.success {
+  margin: 20px 0;
+  padding: 14px;
+  background: #dcfce7;
+  color: #166534;
+  border-radius: 10px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 13px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.label {
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.value {
+  font-weight: 700;
+  text-align: right;
+}
+
+.amount {
+  font-size: 25px;
+}
+
+.footer {
+  margin-top: 30px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.receiptNo {
+  text-align: right;
+  color: #6b7280;
+  font-size: 13px;
+  margin-bottom: 15px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="receipt">
+
+  <div class="header">
+    <div class="academy">
+      RACER ACADEMY
+    </div>
+
+    <div class="title">
+      FEE PAYMENT RECEIPT
+    </div>
+  </div>
+
+  <div class="receiptNo">
+    Receipt No: ${receiptNumber}
+  </div>
+
+  <div class="success">
+    ✓ PAYMENT SUCCESSFUL
+  </div>
+
+  <div class="row">
+    <div class="label">
+      Student Name
+    </div>
+
+    <div class="value">
+      ${studentName}
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="label">
+      Username
+    </div>
+
+    <div class="value">
+      ${studentUsername}
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="label">
+      Fee Month
+    </div>
+
+    <div class="value">
+      ${monthName} ${fee.year}
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="label">
+      Amount Paid
+    </div>
+
+    <div class="value amount">
+      ₹${amount}
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="label">
+      Payment Date
+    </div>
+
+    <div class="value">
+      ${paymentDate}
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="label">
+      Transaction ID
+    </div>
+
+    <div class="value">
+      ${transactionId}
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="label">
+      Payment Status
+    </div>
+
+    <div class="value">
+      SUBMITTED
+    </div>
+  </div>
+
+  <div class="footer">
+    <strong>RACER ACADEMY</strong>
+    <br />
+    This is a computer-generated fee payment receipt.
+    <br />
+    Thank you for your payment.
+  </div>
+
+</div>
+
+</body>
+</html>
+`;
+
+    const blob =
+      new Blob(
+        [receiptHTML],
+        {
+          type: "text/html",
+        }
+      );
+
+    const url =
+      URL.createObjectURL(blob);
+
+    const link =
+      document.createElement("a");
+
+    link.href = url;
+
+    link.download =
+      `Racer-Academy-Fee-Receipt-${fee.id}.html`;
+
+    document.body.appendChild(link);
+
+    link.click();
+
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
+  }
+
+  const totalFees =
+    fees.reduce(
       (sum, fee) =>
-        sum + Number(fee.amount || 0),
+        sum +
+        Number(
+          fee.amount || 0
+        ),
       0
     );
 
-  const pendingFees = fees
-    .filter(
-      (fee) =>
-        String(fee.status).toUpperCase() ===
-        "PENDING"
-    )
-    .reduce(
-      (sum, fee) =>
-        sum + Number(fee.amount || 0),
-      0
-    );
+  const submittedFees =
+    fees
+      .filter(
+        (fee) =>
+          String(
+            fee.status
+          ).toUpperCase() ===
+          "SUBMITTED"
+      )
+      .reduce(
+        (sum, fee) =>
+          sum +
+          Number(
+            fee.amount || 0
+          ),
+        0
+      );
+
+  const pendingFees =
+    fees
+      .filter(
+        (fee) =>
+          String(
+            fee.status
+          ).toUpperCase() ===
+          "PENDING"
+      )
+      .reduce(
+        (sum, fee) =>
+          sum +
+          Number(
+            fee.amount || 0
+          ),
+        0
+      );
 
   if (loading) {
     return (
       <main style={styles.loadingPage}>
         <div style={styles.loadingBox}>
           💳
-          <h2>Loading Fees...</h2>
+          <h2>
+            Loading Fees...
+          </h2>
         </div>
       </main>
     );
@@ -399,6 +713,7 @@ export default function StudentFeesPage() {
   return (
     <main style={styles.page}>
       <div style={styles.container}>
+
         <div style={styles.header}>
           <div>
             <h1 style={styles.title}>
@@ -407,6 +722,7 @@ export default function StudentFeesPage() {
 
             <p style={styles.subtitle}>
               {studentName}
+
               {studentUsername
                 ? ` • ${studentUsername}`
                 : ""}
@@ -429,6 +745,7 @@ export default function StudentFeesPage() {
         )}
 
         <div style={styles.summaryGrid}>
+
           <div style={styles.summaryCard}>
             <div style={styles.icon}>
               💰
@@ -485,9 +802,11 @@ export default function StudentFeesPage() {
               </h2>
             </div>
           </div>
+
         </div>
 
         <section style={styles.card}>
+
           <h2 style={styles.sectionTitle}>
             📋 Fee Details
           </h2>
@@ -497,23 +816,34 @@ export default function StudentFeesPage() {
           </p>
 
           {fees.length === 0 ? (
+
             <div style={styles.empty}>
+
               <div style={styles.emptyIcon}>
                 💳
               </div>
 
-              <h3>No Fees Assigned</h3>
+              <h3>
+                No Fees Assigned
+              </h3>
 
               <p>
                 Your teacher has not assigned
                 any fees yet.
               </p>
+
             </div>
+
           ) : (
+
             <div style={styles.tableWrapper}>
+
               <table style={styles.table}>
+
                 <thead>
+
                   <tr>
+
                     <th style={styles.th}>
                       Month
                     </th>
@@ -535,41 +865,55 @@ export default function StudentFeesPage() {
                     </th>
 
                     <th style={styles.th}>
-                      Remarks
-                    </th>
-
-                    <th style={styles.th}>
                       Payment
                     </th>
+
                   </tr>
+
                 </thead>
 
                 <tbody>
+
                   {fees.map((fee) => {
+
                     const status =
                       String(
                         fee.status || ""
                       ).toUpperCase();
 
                     const isPending =
-                      status === "PENDING";
+                      status ===
+                      "PENDING";
+
+                    const isSubmitted =
+                      status ===
+                      "SUBMITTED";
 
                     const isPaid =
                       status ===
                         "PAID ONLINE" ||
-                      status === "PAID";
+                      status ===
+                        "PAID" ||
+                      isSubmitted;
 
                     return (
+
                       <tr key={fee.id}>
+
                         <td style={styles.td}>
+
                           <strong>
-                            {months[fee.month] ||
+                            {months[
+                              fee.month
+                            ] ||
                               `Month ${fee.month}`}
                           </strong>{" "}
                           {fee.year}
+
                         </td>
 
                         <td style={styles.td}>
+
                           <strong>
                             ₹
                             {Number(
@@ -578,41 +922,43 @@ export default function StudentFeesPage() {
                               "en-IN"
                             )}
                           </strong>
+
                         </td>
 
                         <td style={styles.td}>
+
                           <span
                             style={{
                               ...styles.status,
+
                               background:
-                                status ===
-                                "SUBMITTED"
+                                isSubmitted ||
+                                isPaid
                                   ? "#dcfce7"
                                   : status ===
                                     "PENDING"
                                   ? "#fef3c7"
-                                  : isPaid
-                                  ? "#dcfce7"
                                   : "#e5e7eb",
+
                               color:
-                                status ===
-                                "SUBMITTED"
+                                isSubmitted ||
+                                isPaid
                                   ? "#166534"
                                   : status ===
                                     "PENDING"
                                   ? "#92400e"
-                                  : isPaid
-                                  ? "#166534"
                                   : "#374151",
                             }}
                           >
-                            {status ===
-                            "SUBMITTED"
+
+                            {isSubmitted
                               ? "✓ SUBMITTED"
                               : isPaid
-                              ? "✓ PAID ONLINE"
+                              ? "✓ PAID"
                               : status}
+
                           </span>
+
                         </td>
 
                         <td style={styles.td}>
@@ -621,16 +967,16 @@ export default function StudentFeesPage() {
                         </td>
 
                         <td style={styles.td}>
+
                           {fee.transaction_id ||
                             "—"}
+
                         </td>
 
                         <td style={styles.td}>
-                          {fee.remarks || "—"}
-                        </td>
 
-                        <td style={styles.td}>
                           {isPending ? (
+
                             <button
                               type="button"
                               onClick={() =>
@@ -644,11 +990,13 @@ export default function StudentFeesPage() {
                               }
                               style={{
                                 ...styles.payButton,
+
                                 opacity:
                                   payingFeeId ===
                                   fee.id
                                     ? 0.7
                                     : 1,
+
                                 cursor:
                                   payingFeeId ===
                                   fee.id
@@ -656,47 +1004,77 @@ export default function StudentFeesPage() {
                                     : "pointer",
                               }}
                             >
+
                               {payingFeeId ===
                               fee.id
                                 ? "Opening..."
                                 : "💳 Pay Online"}
+
                             </button>
+
                           ) : isPaid ? (
-                            <span
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                downloadReceipt(
+                                  fee
+                                )
+                              }
                               style={
-                                styles.paidText
+                                styles.receiptButton
                               }
                             >
-                              ✓ Paid
-                            </span>
+                              🧾 Receipt
+                            </button>
+
                           ) : (
                             "—"
                           )}
+
                         </td>
+
                       </tr>
+
                     );
                   })}
+
                 </tbody>
+
               </table>
+
             </div>
+
           )}
+
         </section>
 
         <div style={styles.info}>
+
           <strong>
             💡 Fee Information
           </strong>
 
           <p>
-            Fees are assigned and managed by
-            your teacher. You can only view
-            fees assigned to your account.
+            After successful online payment,
+            your fee is automatically marked as
+            <strong> SUBMITTED </strong>
+            and the Razorpay transaction ID is
+            saved in your fee record.
           </p>
+
+          <p>
+            You can download your payment receipt
+            using the <strong>🧾 Receipt</strong>
+            button.
+          </p>
+
         </div>
 
         <footer style={styles.footer}>
-          Attendance Portal • Student Fees • 2026
+          RACER ACADEMY • Student Fees • 2026
         </footer>
+
       </div>
     </main>
   );
@@ -706,13 +1084,15 @@ const styles: Record<
   string,
   React.CSSProperties
 > = {
+
   loadingPage: {
     minHeight: "100vh",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     background: "#f5f7fb",
-    fontFamily: "Arial, sans-serif",
+    fontFamily:
+      "Arial, sans-serif",
   },
 
   loadingBox: {
@@ -743,7 +1123,8 @@ const styles: Record<
   header: {
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     gap: "15px",
     marginBottom: "25px",
     flexWrap: "wrap",
@@ -885,10 +1266,17 @@ const styles: Record<
     whiteSpace: "nowrap",
   },
 
-  paidText: {
-    color: "#166534",
-    fontWeight: 700,
+  receiptButton: {
+    border: "none",
+    background:
+      "linear-gradient(135deg,#16a34a,#15803d)",
+    color: "white",
+    padding: "9px 13px",
+    borderRadius: "8px",
     fontSize: "13px",
+    fontWeight: 700,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
   },
 
   empty: {
@@ -907,6 +1295,7 @@ const styles: Record<
     color: "#1e40af",
     padding: "18px",
     borderRadius: "12px",
+    lineHeight: 1.6,
   },
 
   footer: {
