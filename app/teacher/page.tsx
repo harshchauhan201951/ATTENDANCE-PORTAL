@@ -48,6 +48,13 @@ const menuItems: MenuItem[] = [
     accent: "fees",
   },
   {
+    title: "Payments",
+    subtitle: "Manage cash and online fee payments",
+    icon: "💳",
+    route: "/teacher/payments",
+    accent: "payments",
+  },
+  {
     title: "Profile",
     subtitle: "Manage your teacher profile and picture",
     icon: "👤",
@@ -63,20 +70,6 @@ const menuItems: MenuItem[] = [
   },
 ];
 
-/*
-  Converts whatever was saved in localStorage/sessionStorage
-  into a clean teacher display name.
-
-  Examples:
-  "HARSH201951"
-      -> HARSH201951
-
-  {"id":1,"teacher_username":"HARSH201951"}
-      -> HARSH201951
-
-  {"teacher_name":"Harsh"}
-      -> Harsh
-*/
 function getCleanTeacherName(value: string | null): string {
   if (!value || !value.trim()) {
     return "";
@@ -84,7 +77,6 @@ function getCleanTeacherName(value: string | null): string {
 
   const cleaned = value.trim();
 
-  // If it's a JSON object/string, extract the useful field.
   try {
     const parsed = JSON.parse(cleaned);
 
@@ -109,10 +101,9 @@ function getCleanTeacherName(value: string | null): string {
       }
     }
   } catch {
-    // Not JSON — use the original value.
+    // Not JSON — use original value.
   }
 
-  // Remove accidental surrounding quotes.
   return cleaned.replace(/^["']|["']$/g, "");
 }
 
@@ -267,7 +258,6 @@ export default function TeacherControlCenter() {
       <div className="ambient ambient-two" />
 
       <div className="app-shell">
-        {/* TOP BAR */}
         <header className="topbar">
           <div className="brand-area">
             <div className="brand-mark">
@@ -310,7 +300,6 @@ export default function TeacherControlCenter() {
           </div>
         </header>
 
-        {/* HERO */}
         <section className="hero">
           <div className="hero-left">
             <div className="eyebrow">
@@ -369,7 +358,6 @@ export default function TeacherControlCenter() {
           </div>
         </section>
 
-        {/* QUICK STATUS */}
         <section className="status-strip">
           <div className="status-item">
             <div className="status-symbol">01</div>
@@ -383,7 +371,7 @@ export default function TeacherControlCenter() {
           <div className="status-divider" />
 
           <div className="status-item">
-            <div className="status-symbol">07</div>
+            <div className="status-symbol">08</div>
 
             <div>
               <span>MODULES</span>
@@ -403,7 +391,6 @@ export default function TeacherControlCenter() {
           </div>
         </section>
 
-        {/* SECTION HEADING */}
         <section className="modules-heading">
           <div>
             <div className="section-kicker">YOUR WORKSPACE</div>
@@ -416,7 +403,6 @@ export default function TeacherControlCenter() {
           </div>
         </section>
 
-        {/* MODULE CARDS */}
         <section className="module-grid">
           {menuItems.map((item, index) => (
             <button
@@ -457,7 +443,6 @@ export default function TeacherControlCenter() {
           ))}
         </section>
 
-        {/* FOOTER */}
         <footer className="footer">
           <div className="footer-brand">
             <span className="footer-logo">R</span>
@@ -1053,6 +1038,11 @@ export default function TeacherControlCenter() {
           color: #fbbf24;
         }
 
+        .icon-payments {
+          background: rgba(34, 197, 94, 0.11);
+          color: #86efac;
+        }
+
         .icon-profile {
           background: rgba(236, 72, 153, 0.11);
           color: #f9a8d4;
@@ -1159,6 +1149,10 @@ export default function TeacherControlCenter() {
           background: #f59e0b;
         }
 
+        .glow-payments {
+          background: #22c55e;
+        }
+
         .glow-profile {
           background: #ec4899;
         }
@@ -1234,6 +1228,12 @@ export default function TeacherControlCenter() {
           50% {
             opacity: 0.45;
             transform: scale(0.78);
+          }
+        }
+
+        @keyframes spin {
+          to {
+            transform: rotate(360deg);
           }
         }
 
