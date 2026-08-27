@@ -1,33 +1,59 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceRoleKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const razorpaySecret =
-  process.env.RAZORPAY_KEY_SECRET!;
+  process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const supabaseAdmin = createClient(
-  supabaseUrl,
-  supabaseServiceRoleKey
-);
+const razorpayKeySecret =
+  process.env.RAZORPAY_KEY_SECRET;
 
-export async function POST(request: Request) {
+if (
+  !supabaseUrl ||
+  !supabaseServiceRoleKey ||
+  !razorpayKeySecret
+) {
+  console.error(
+    "Server credentials are missing."
+  );
+}
+
+const supabaseAdmin =
+  supabaseUrl && supabaseServiceRoleKey
+    ? createClient(
+        supabaseUrl,
+        supabaseServiceRoleKey,
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+          },
+        }
+      )
+    : null;
+
+export async function POST(
+  request: NextRequest
+) {
   try {
-    if (!supabaseServiceRoleKey) {
+    if (!supabaseAdmin) {
       return NextResponse.json(
         {
-          error: "SUPABASE_SERVICE_ROLE_KEY is not configured.",
+          success: false,
+          message:
+            "Supabase server credentials are missing.",
         },
         { status: 500 }
       );
     }
 
-    if (!razorpaySecret) {
+    if (!razorpayKeySecret) {
       return NextResponse.json(
         {
-          error: "RAZORPAY_KEY_SECRET is not configured.",
+          success: false,
+          message:
+            "Razorpay secret key is not configured.",
         },
         { status: 500 }
       );
@@ -35,169 +61,259 @@ export async function POST(request: Request) {
 
     const body = await request.json();
 
-    const feeId = Number(body.feeId);
-    const razorpayOrderId = String(
-      body.razorpay_order_id || ""
-    );
-    const razorpayPaymentId = String(
-      body.razorpay_payment_id || ""
-    );
-    const razorpaySignature = String(
-      body.razorpay_signature || ""
-    );
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
 
-    if (!Number.isInteger(feeId) || feeId <= 0) {
-      return NextResponse.json(
-        {
-          error: "Invalid fee ID.",
-        },
-        { status: 400 }
-      );
-    }
+      fee_id,
+      feeId,
+
+      student_id,
+      studentId,
+
+      month,
+      year,
+    } = body;
 
     if (
-      !razorpayOrderId ||
-      !razorpayPaymentId ||
-      !razorpaySignature
+      !razorpay_order_id ||
+      !razorpay_payment_id ||
+      !razorpay_signature
     ) {
       return NextResponse.json(
         {
-          error: "Incomplete Razorpay payment information.",
+          success: false,
+          message:
+            "Razorpay payment details are missing.",
         },
         { status: 400 }
       );
     }
 
-    const { data: fee, error: feeError } =
-      await supabaseAdmin
-        .from("fees")
-        .select(
-          "id, student_id, amount, status, razorpay_order_id"
-        )
-        .eq("id", feeId)
-        .maybeSingle();
-
-    if (feeError) {
-      console.error("Fee lookup error:", feeError);
-
-      return NextResponse.json(
-        {
-          error: "Unable to find fee record.",
-        },
-        { status: 500 }
-      );
-    }
-
-    if (!fee) {
-      return NextResponse.json(
-        {
-          error: "Fee record not found.",
-        },
-        { status: 404 }
-      );
-    }
-
-    if (!fee.razorpay_order_id) {
-      return NextResponse.json(
-        {
-          error:
-            "Razorpay order is not linked to this fee.",
-        },
-        { status: 400 }
-      );
-    }
-
-    const serverOrderId =
-      String(fee.razorpay_order_id);
-
-    if (serverOrderId !== razorpayOrderId) {
-      return NextResponse.json(
-        {
-          error:
-            "Razorpay order verification failed.",
-        },
-        { status: 400 }
-      );
-    }
+    /*
+     * VERIFY RAZORPAY SIGNATURE
+     */
 
     const generatedSignature =
       crypto
         .createHmac(
           "sha256",
-          razorpaySecret
+          razorpayKeySecret
         )
         .update(
-          `${serverOrderId}|${razorpayPaymentId}`
+          `${razorpay_order_id}|${razorpay_payment_id}`
         )
         .digest("hex");
 
-    const receivedBuffer = Buffer.from(
-      razorpaySignature,
-      "utf8"
-    );
+    const signaturesMatch =
+      generatedSignature ===
+      razorpay_signature;
 
-    const generatedBuffer = Buffer.from(
-      generatedSignature,
-      "utf8"
-    );
-
-    if (
-      receivedBuffer.length !==
-      generatedBuffer.length
-    ) {
+    if (!signaturesMatch) {
       return NextResponse.json(
         {
-          error:
+          success: false,
+          message:
             "Payment signature verification failed.",
         },
         { status: 400 }
       );
     }
 
-    const signatureValid =
-      crypto.timingSafeEqual(
-        receivedBuffer,
-        generatedBuffer
-      );
+    /*
+     * FIND FEE RECORD
+     */
 
-    if (!signatureValid) {
-      return NextResponse.json(
-        {
-          error:
-            "Payment signature verification failed.",
-        },
-        { status: 400 }
-      );
-    }
+    let feeRecord: {
+      id: number;
+      student_id: number;
+      amount: number;
+      status: string;
+    } | null = null;
 
-    const { data: updatedFee, error: updateError } =
-      await supabaseAdmin
+    /*
+     * First preference:
+     * fee_id sent from frontend
+     */
+
+    const actualFeeId =
+      fee_id ?? feeId;
+
+    if (actualFeeId) {
+      const {
+        data,
+        error,
+      } = await supabaseAdmin
         .from("fees")
-        .update({
-          status: "PAID ONLINE",
-          payment_method: "ONLINE",
-          transaction_id:
-            razorpayPaymentId,
-          razorpay_order_id:
-            serverOrderId,
-          razorpay_payment_id:
-            razorpayPaymentId,
-          razorpay_signature:
-            razorpaySignature,
-          paid_at:
-            new Date().toISOString(),
-          payment_date:
-            new Date().toISOString().slice(0, 10),
-          remarks:
-            fee.status === "PAID ONLINE"
-              ? undefined
-              : "Online payment completed successfully.",
-        })
-        .eq("id", fee.id)
         .select(
-          "id, student_id, month, year, amount, status, payment_date, transaction_id, remarks, created_at, payment_method, razorpay_order_id, razorpay_payment_id, paid_at"
+          "id, student_id, amount, status"
         )
-        .single();
+        .eq(
+          "id",
+          Number(actualFeeId)
+        )
+        .maybeSingle();
+
+      if (error) {
+        console.error(
+          "Fee lookup error:",
+          error
+        );
+
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "Unable to find fee record.",
+            error: error.message,
+          },
+          { status: 500 }
+        );
+      }
+
+      feeRecord = data;
+    }
+
+    /*
+     * Second preference:
+     * student + month + year
+     */
+
+    if (!feeRecord && student_id && month && year) {
+      const {
+        data,
+        error,
+      } = await supabaseAdmin
+        .from("fees")
+        .select(
+          "id, student_id, amount, status"
+        )
+        .eq(
+          "student_id",
+          Number(student_id)
+        )
+        .eq(
+          "month",
+          Number(month)
+        )
+        .eq(
+          "year",
+          Number(year)
+        )
+        .maybeSingle();
+
+      if (error) {
+        console.error(
+          "Fee lookup error:",
+          error
+        );
+
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "Unable to find fee record.",
+            error: error.message,
+          },
+          { status: 500 }
+        );
+      }
+
+      feeRecord = data;
+    }
+
+    /*
+     * Third preference:
+     * camelCase studentId
+     */
+
+    if (!feeRecord && studentId && month && year) {
+      const {
+        data,
+        error,
+      } = await supabaseAdmin
+        .from("fees")
+        .select(
+          "id, student_id, amount, status"
+        )
+        .eq(
+          "student_id",
+          Number(studentId)
+        )
+        .eq(
+          "month",
+          Number(month)
+        )
+        .eq(
+          "year",
+          Number(year)
+        )
+        .maybeSingle();
+
+      if (error) {
+        console.error(
+          "Fee lookup error:",
+          error
+        );
+
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "Unable to find fee record.",
+            error: error.message,
+          },
+          { status: 500 }
+        );
+      }
+
+      feeRecord = data;
+    }
+
+    if (!feeRecord) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Payment verified, but fee record was not found.",
+          payment_id:
+            razorpay_payment_id,
+          order_id:
+            razorpay_order_id,
+        },
+        { status: 404 }
+      );
+    }
+
+    /*
+     * UPDATE FEE RECORD
+     */
+
+    const today =
+      new Date()
+        .toISOString()
+        .split("T")[0];
+
+    const {
+      data: updatedFee,
+      error: updateError,
+    } = await supabaseAdmin
+      .from("fees")
+      .update({
+        status: "SUBMITTED",
+        payment_date: today,
+        transaction_id:
+          razorpay_payment_id,
+        remarks:
+          `Online payment successful. Razorpay Order ID: ${razorpay_order_id}`,
+      })
+      .eq(
+        "id",
+        feeRecord.id
+      )
+      .select()
+      .single();
 
     if (updateError) {
       console.error(
@@ -207,31 +323,45 @@ export async function POST(request: Request) {
 
       return NextResponse.json(
         {
-          error:
+          success: false,
+          message:
             "Payment verified, but fee record could not be updated.",
+          error:
+            updateError.message,
+          payment_id:
+            razorpay_payment_id,
+          order_id:
+            razorpay_order_id,
         },
         { status: 500 }
       );
     }
 
+    /*
+     * SUCCESS
+     */
+
     return NextResponse.json({
       success: true,
       message:
-        "Payment verified successfully.",
+        "Payment successful and fee record updated.",
+      payment_id:
+        razorpay_payment_id,
+      order_id:
+        razorpay_order_id,
       fee: updatedFee,
     });
   } catch (error) {
     console.error(
-      "Razorpay verification error:",
+      "Payment verification error:",
       error
     );
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unable to verify payment.",
+        success: false,
+        message:
+          "Something went wrong while verifying payment.",
       },
       { status: 500 }
     );
