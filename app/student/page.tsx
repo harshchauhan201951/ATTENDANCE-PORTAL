@@ -16,6 +16,7 @@ export default function StudentSettingsPage() {
 
   const [loading, setLoading] = useState(true);
   const [changing, setChanging] = useState(false);
+
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -38,6 +39,7 @@ export default function StudentSettingsPage() {
 
         if (!studentUsername) {
           setError("Student username nahi mila.");
+          setLoading(false);
           return;
         }
 
@@ -57,6 +59,11 @@ export default function StudentSettingsPage() {
     setMessage("");
     setError("");
 
+    if (!username) {
+      setError("Student username nahi mila.");
+      return;
+    }
+
     if (!newPassword || !confirmPassword) {
       setError("Please dono password fields fill karein.");
       return;
@@ -75,7 +82,7 @@ export default function StudentSettingsPage() {
     setChanging(true);
 
     try {
-      const { data, error: rpcError } = await supabase.rpc(
+      const { error: rpcError } = await supabase.rpc(
         "change_student_password",
         {
           p_username: username,
@@ -84,13 +91,12 @@ export default function StudentSettingsPage() {
       );
 
       if (rpcError) {
-        console.error("Password change error:", rpcError);
-        setError(rpcError.message || "Password update nahi ho saka.");
-        return;
-      }
+        console.error("Password change RPC error:", rpcError);
 
-      if (!data) {
-        setError("Password update nahi ho saka.");
+        setError(
+          rpcError.message || "Password change nahi ho saka."
+        );
+
         return;
       }
 
@@ -98,9 +104,12 @@ export default function StudentSettingsPage() {
 
       setNewPassword("");
       setConfirmPassword("");
+      setShowNewPassword(false);
+      setShowConfirmPassword(false);
     } catch (err) {
-      console.error("Unexpected error:", err);
-      setError("Something went wrong. Please try again.");
+      console.error("Unexpected password change error:", err);
+
+      setError("Unable to change password. Please try again.");
     } finally {
       setChanging(false);
     }
@@ -118,7 +127,18 @@ export default function StudentSettingsPage() {
           fontFamily: "Arial, sans-serif",
         }}
       >
-        Loading...
+        <div
+          style={{
+            background: "#ffffff",
+            padding: "25px 35px",
+            borderRadius: "15px",
+            boxShadow: "0 8px 25px rgba(0,0,0,0.08)",
+            fontSize: "16px",
+            fontWeight: 600,
+          }}
+        >
+          Loading...
+        </div>
       </main>
     );
   }
@@ -146,6 +166,8 @@ export default function StudentSettingsPage() {
             fontSize: "16px",
             cursor: "pointer",
             marginBottom: "20px",
+            color: "#111827",
+            fontWeight: 600,
           }}
         >
           ← Back
@@ -159,6 +181,8 @@ export default function StudentSettingsPage() {
             boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
           }}
         >
+          {/* HEADER */}
+
           <div
             style={{
               textAlign: "center",
@@ -186,6 +210,7 @@ export default function StudentSettingsPage() {
                 margin: 0,
                 fontSize: "28px",
                 fontWeight: 700,
+                color: "#111827",
               }}
             >
               Change Password
@@ -195,11 +220,14 @@ export default function StudentSettingsPage() {
               style={{
                 color: "#666",
                 marginTop: "8px",
+                marginBottom: 0,
               }}
             >
               Apna password securely change karein
             </p>
           </div>
+
+          {/* ERROR MESSAGE */}
 
           {error && (
             <div
@@ -210,11 +238,15 @@ export default function StudentSettingsPage() {
                 padding: "12px 15px",
                 borderRadius: "10px",
                 marginBottom: "18px",
+                fontSize: "14px",
+                fontWeight: 500,
               }}
             >
-              {error}
+              ⚠️ {error}
             </div>
           )}
+
+          {/* SUCCESS MESSAGE */}
 
           {message && (
             <div
@@ -225,18 +257,27 @@ export default function StudentSettingsPage() {
                 padding: "12px 15px",
                 borderRadius: "10px",
                 marginBottom: "18px",
+                fontSize: "14px",
+                fontWeight: 600,
               }}
             >
               {message}
             </div>
           )}
 
-          <div style={{ marginBottom: "18px" }}>
+          {/* USERNAME */}
+
+          <div
+            style={{
+              marginBottom: "18px",
+            }}
+          >
             <label
               style={{
                 display: "block",
                 fontWeight: 600,
                 marginBottom: "8px",
+                color: "#111827",
               }}
             >
               Username
@@ -260,23 +301,39 @@ export default function StudentSettingsPage() {
             />
           </div>
 
-          <div style={{ marginBottom: "18px" }}>
+          {/* NEW PASSWORD */}
+
+          <div
+            style={{
+              marginBottom: "18px",
+            }}
+          >
             <label
               style={{
                 display: "block",
                 fontWeight: 600,
                 marginBottom: "8px",
+                color: "#111827",
               }}
             >
               New Password
             </label>
 
-            <div style={{ position: "relative" }}>
+            <div
+              style={{
+                position: "relative",
+              }}
+            >
               <input
                 type={showNewPassword ? "text" : "password"}
                 value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
+                onChange={(e) => {
+                  setNewPassword(e.target.value);
+                  setError("");
+                  setMessage("");
+                }}
                 placeholder="Enter new password"
+                autoComplete="new-password"
                 style={{
                   width: "100%",
                   boxSizing: "border-box",
@@ -285,12 +342,20 @@ export default function StudentSettingsPage() {
                   border: "1px solid #d1d5db",
                   fontSize: "15px",
                   outline: "none",
+                  color: "#111827",
                 }}
               />
 
               <button
                 type="button"
-                onClick={() => setShowNewPassword(!showNewPassword)}
+                onClick={() =>
+                  setShowNewPassword(!showNewPassword)
+                }
+                aria-label={
+                  showNewPassword
+                    ? "Hide new password"
+                    : "Show new password"
+                }
                 style={{
                   position: "absolute",
                   right: "10px",
@@ -307,23 +372,39 @@ export default function StudentSettingsPage() {
             </div>
           </div>
 
-          <div style={{ marginBottom: "24px" }}>
+          {/* CONFIRM PASSWORD */}
+
+          <div
+            style={{
+              marginBottom: "24px",
+            }}
+          >
             <label
               style={{
                 display: "block",
                 fontWeight: 600,
                 marginBottom: "8px",
+                color: "#111827",
               }}
             >
               Confirm New Password
             </label>
 
-            <div style={{ position: "relative" }}>
+            <div
+              style={{
+                position: "relative",
+              }}
+            >
               <input
                 type={showConfirmPassword ? "text" : "password"}
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  setError("");
+                  setMessage("");
+                }}
                 placeholder="Confirm new password"
+                autoComplete="new-password"
                 style={{
                   width: "100%",
                   boxSizing: "border-box",
@@ -332,6 +413,7 @@ export default function StudentSettingsPage() {
                   border: "1px solid #d1d5db",
                   fontSize: "15px",
                   outline: "none",
+                  color: "#111827",
                 }}
               />
 
@@ -339,6 +421,11 @@ export default function StudentSettingsPage() {
                 type="button"
                 onClick={() =>
                   setShowConfirmPassword(!showConfirmPassword)
+                }
+                aria-label={
+                  showConfirmPassword
+                    ? "Hide confirm password"
+                    : "Show confirm password"
                 }
                 style={{
                   position: "absolute",
@@ -356,6 +443,8 @@ export default function StudentSettingsPage() {
             </div>
           </div>
 
+          {/* CHANGE PASSWORD BUTTON */}
+
           <button
             onClick={handleChangePassword}
             disabled={changing}
@@ -369,10 +458,15 @@ export default function StudentSettingsPage() {
               fontSize: "16px",
               fontWeight: 700,
               cursor: changing ? "not-allowed" : "pointer",
+              transition: "0.2s",
             }}
           >
-            {changing ? "Updating Password..." : "Change Password"}
+            {changing
+              ? "Updating Password..."
+              : "Change Password"}
           </button>
+
+          {/* FOOTER NOTE */}
 
           <p
             style={{
@@ -381,9 +475,11 @@ export default function StudentSettingsPage() {
               fontSize: "13px",
               marginTop: "18px",
               marginBottom: 0,
+              lineHeight: 1.5,
             }}
           >
-            Password change hone ke baad next login mein new password use karein.
+            Password change hone ke baad next login mein new
+            password use karein.
           </p>
         </div>
       </div>
