@@ -1,431 +1,391 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../lib/supabase";
+import { supabase } from "@/lib/supabase";
 
-export default function StudentLogin() {
+export default function StudentSettingsPage() {
   const router = useRouter();
 
   const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const [loading, setLoading] = useState(true);
+  const [changing, setChanging] = useState(false);
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  async function handleLogin(
-    e: React.FormEvent<HTMLFormElement>
-  ) {
-    e.preventDefault();
+  useEffect(() => {
+    const loadStudent = () => {
+      try {
+        const storedStudent = localStorage.getItem("student");
 
+        if (!storedStudent) {
+          router.push("/");
+          return;
+        }
+
+        const student = JSON.parse(storedStudent);
+
+        const studentUsername =
+          student.student_username ||
+          student.username ||
+          "";
+
+        if (!studentUsername) {
+          setError("Student username nahi mila.");
+          return;
+        }
+
+        setUsername(studentUsername);
+      } catch (err) {
+        console.error("Student data error:", err);
+        setError("Student information load nahi ho saki.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadStudent();
+  }, [router]);
+
+  const handleChangePassword = async () => {
+    setMessage("");
     setError("");
 
-    const enteredUsername =
-      username.trim().toUpperCase();
-
-    const enteredPassword =
-      password.trim();
-
-    if (
-      !enteredUsername ||
-      !enteredPassword
-    ) {
-      setError(
-        "Please enter username and password."
-      );
+    if (!newPassword || !confirmPassword) {
+      setError("Please dono password fields fill karein.");
       return;
     }
 
-    setLoading(true);
+    if (newPassword.length < 6) {
+      setError("Password kam se kam 6 characters ka hona chahiye.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError("New Password aur Confirm Password match nahi kar rahe.");
+      return;
+    }
+
+    setChanging(true);
 
     try {
-      /*
-       * STEP 1:
-       * Verify username/password using
-       * the existing student_login function.
-       */
-      const {
-        data,
-        error: loginError,
-      } = await supabase.rpc(
-        "student_login",
+      const { data, error: rpcError } = await supabase.rpc(
+        "change_student_password",
         {
-          p_username: enteredUsername,
-          p_password: enteredPassword,
+          p_username: username,
+          p_new_password: newPassword,
         }
       );
 
-      if (loginError) {
-        console.error(
-          "Student login error:",
-          loginError
-        );
-
-        setError(
-          "Invalid username or password."
-        );
-
+      if (rpcError) {
+        console.error("Password change error:", rpcError);
+        setError(rpcError.message || "Password update nahi ho saka.");
         return;
       }
 
-      if (
-        !data ||
-        !Array.isArray(data) ||
-        data.length === 0
-      ) {
-        setError(
-          "Invalid username or password."
-        );
-
+      if (!data) {
+        setError("Password update nahi ho saka.");
         return;
       }
 
-      const student = data[0];
+      setMessage("✅ Password successfully change ho gaya.");
 
-      /*
-       * STEP 2:
-       * Get the REAL student record directly
-       * from students table using username.
-       *
-       * This guarantees we get the numeric
-       * student ID needed by the fees table.
-       */
-      const {
-        data: realStudent,
-        error: studentError,
-      } = await supabase
-        .from("students")
-        .select(
-          "id, student_name, student_username"
-        )
-        .eq(
-          "student_username",
-          enteredUsername
-        )
-        .maybeSingle();
-
-      if (studentError) {
-        console.error(
-          "Student record error:",
-          studentError
-        );
-
-        setError(
-          "Unable to load student account."
-        );
-
-        return;
-      }
-
-      if (!realStudent) {
-        setError(
-          "Student account not found."
-        );
-
-        return;
-      }
-
-      /*
-       * STEP 3:
-       * Clear old login information.
-       */
-      localStorage.removeItem(
-        "studentId"
-      );
-
-      localStorage.removeItem(
-        "studentUsername"
-      );
-
-      localStorage.removeItem(
-        "student_username"
-      );
-
-      localStorage.removeItem(
-        "studentName"
-      );
-
-      localStorage.removeItem(
-        "student_name"
-      );
-
-      sessionStorage.removeItem(
-        "student_username"
-      );
-
-      sessionStorage.removeItem(
-        "student_name"
-      );
-
-      /*
-       * STEP 4:
-       * Save the REAL student information.
-       */
-      localStorage.setItem(
-        "studentLoggedIn",
-        "true"
-      );
-
-      localStorage.setItem(
-        "studentId",
-        String(realStudent.id)
-      );
-
-      localStorage.setItem(
-        "studentUsername",
-        realStudent.student_username
-      );
-
-      localStorage.setItem(
-        "student_username",
-        realStudent.student_username
-      );
-
-      localStorage.setItem(
-        "studentName",
-        realStudent.student_name ||
-          "Student"
-      );
-
-      localStorage.setItem(
-        "student_name",
-        realStudent.student_name ||
-          "Student"
-      );
-
-      sessionStorage.setItem(
-        "student_username",
-        realStudent.student_username
-      );
-
-      sessionStorage.setItem(
-        "student_name",
-        realStudent.student_name ||
-          "Student"
-      );
-
-      /*
-       * STEP 5:
-       * Go to student dashboard.
-       */
-      router.push("/student/dashboard");
+      setNewPassword("");
+      setConfirmPassword("");
     } catch (err) {
-      console.error(
-        "Unexpected login error:",
-        err
-      );
-
-      setError(
-        "Unable to login. Please try again."
-      );
+      console.error("Unexpected error:", err);
+      setError("Something went wrong. Please try again.");
     } finally {
-      setLoading(false);
+      setChanging(false);
     }
+  };
+
+  if (loading) {
+    return (
+      <main
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#f5f7fb",
+          fontFamily: "Arial, sans-serif",
+        }}
+      >
+        Loading...
+      </main>
+    );
   }
 
   return (
     <main
       style={{
         minHeight: "100vh",
-        background:
-          "linear-gradient(135deg,#dbeafe,#eef2ff,#dcfce7)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "20px",
-        fontFamily:
-          "Arial, sans-serif",
-        boxSizing: "border-box",
+        background: "#f5f7fb",
+        padding: "30px 20px",
+        fontFamily: "Arial, sans-serif",
       }}
     >
       <div
         style={{
-          width: "100%",
-          maxWidth: "430px",
-          background: "white",
-          borderRadius: "24px",
-          padding: "35px 28px",
-          boxShadow:
-            "0 20px 50px rgba(0,0,0,0.15)",
-          boxSizing: "border-box",
+          maxWidth: "500px",
+          margin: "0 auto",
         }}
       >
+        <button
+          onClick={() => router.back()}
+          style={{
+            border: "none",
+            background: "transparent",
+            fontSize: "16px",
+            cursor: "pointer",
+            marginBottom: "20px",
+          }}
+        >
+          ← Back
+        </button>
+
         <div
           style={{
-            width: "75px",
-            height: "75px",
-            margin:
-              "0 auto 15px",
-            borderRadius: "50%",
-            background:
-              "linear-gradient(135deg,#2563eb,#4f46e5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "38px",
+            background: "#ffffff",
+            borderRadius: "20px",
+            padding: "30px",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
           }}
         >
-          🎓
-        </div>
-
-        <h1
-          style={{
-            textAlign: "center",
-            color: "#111827",
-            fontSize: "30px",
-            margin:
-              "0 0 8px",
-          }}
-        >
-          Student Login
-        </h1>
-
-        <p
-          style={{
-            textAlign: "center",
-            color: "#6b7280",
-            margin:
-              "0 0 30px",
-          }}
-        >
-          Attendance Portal
-        </p>
-
-        <form
-          onSubmit={handleLogin}
-        >
-          <label
-            htmlFor="username"
+          <div
             style={{
-              display: "block",
-              color: "#111827",
-              fontWeight: "600",
-              marginBottom: "8px",
+              textAlign: "center",
+              marginBottom: "28px",
             }}
           >
-            Username
-          </label>
+            <div
+              style={{
+                width: "70px",
+                height: "70px",
+                borderRadius: "50%",
+                background: "#eef2ff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto 15px",
+                fontSize: "32px",
+              }}
+            >
+              🔐
+            </div>
 
-          <input
-            id="username"
-            type="text"
-            value={username}
-            onChange={(e) => {
-              setUsername(
-                e.target.value.toUpperCase()
-              );
+            <h1
+              style={{
+                margin: 0,
+                fontSize: "28px",
+                fontWeight: 700,
+              }}
+            >
+              Change Password
+            </h1>
 
-              if (error) {
-                setError("");
-              }
-            }}
-            placeholder="STU1001"
-            autoComplete="username"
-            disabled={loading}
-            style={{
-              width: "100%",
-              boxSizing:
-                "border-box",
-              padding: "14px",
-              border:
-                "1px solid #d1d5db",
-              borderRadius: "11px",
-              fontSize: "16px",
-              marginBottom:
-                "20px",
-              color: "#111827",
-              outline: "none",
-            }}
-          />
-
-          <label
-            htmlFor="password"
-            style={{
-              display: "block",
-              color: "#111827",
-              fontWeight: "600",
-              marginBottom: "8px",
-            }}
-          >
-            Password
-          </label>
-
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => {
-              setPassword(
-                e.target.value
-              );
-
-              if (error) {
-                setError("");
-              }
-            }}
-            placeholder="Enter password"
-            autoComplete="current-password"
-            disabled={loading}
-            style={{
-              width: "100%",
-              boxSizing:
-                "border-box",
-              padding: "14px",
-              border:
-                "1px solid #d1d5db",
-              borderRadius: "11px",
-              fontSize: "16px",
-              marginBottom:
-                "20px",
-              color: "#111827",
-              outline: "none",
-            }}
-          />
+            <p
+              style={{
+                color: "#666",
+                marginTop: "8px",
+              }}
+            >
+              Apna password securely change karein
+            </p>
+          </div>
 
           {error && (
             <div
               style={{
-                background: "#fee2e2",
-                color: "#b91c1c",
-                padding: "12px",
+                background: "#fff1f2",
+                color: "#be123c",
+                border: "1px solid #fecdd3",
+                padding: "12px 15px",
                 borderRadius: "10px",
-                marginBottom:
-                  "18px",
-                textAlign:
-                  "center",
-                fontSize: "14px",
-                fontWeight: "600",
+                marginBottom: "18px",
               }}
             >
-              ⚠️ {error}
+              {error}
             </div>
           )}
 
+          {message && (
+            <div
+              style={{
+                background: "#ecfdf5",
+                color: "#047857",
+                border: "1px solid #a7f3d0",
+                padding: "12px 15px",
+                borderRadius: "10px",
+                marginBottom: "18px",
+              }}
+            >
+              {message}
+            </div>
+          )}
+
+          <div style={{ marginBottom: "18px" }}>
+            <label
+              style={{
+                display: "block",
+                fontWeight: 600,
+                marginBottom: "8px",
+              }}
+            >
+              Username
+            </label>
+
+            <input
+              type="text"
+              value={username}
+              readOnly
+              style={{
+                width: "100%",
+                boxSizing: "border-box",
+                padding: "13px 14px",
+                borderRadius: "10px",
+                border: "1px solid #d1d5db",
+                background: "#f3f4f6",
+                color: "#555",
+                fontSize: "15px",
+                outline: "none",
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: "18px" }}>
+            <label
+              style={{
+                display: "block",
+                fontWeight: 600,
+                marginBottom: "8px",
+              }}
+            >
+              New Password
+            </label>
+
+            <div style={{ position: "relative" }}>
+              <input
+                type={showNewPassword ? "text" : "password"}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter new password"
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  padding: "13px 50px 13px 14px",
+                  borderRadius: "10px",
+                  border: "1px solid #d1d5db",
+                  fontSize: "15px",
+                  outline: "none",
+                }}
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                style={{
+                  position: "absolute",
+                  right: "10px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  border: "none",
+                  background: "transparent",
+                  cursor: "pointer",
+                  fontSize: "18px",
+                }}
+              >
+                {showNewPassword ? "🙈" : "👁️"}
+              </button>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: "24px" }}>
+            <label
+              style={{
+                display: "block",
+                fontWeight: 600,
+                marginBottom: "8px",
+              }}
+            >
+              Confirm New Password
+            </label>
+
+            <div style={{ position: "relative" }}>
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm new password"
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  padding: "13px 50px 13px 14px",
+                  borderRadius: "10px",
+                  border: "1px solid #d1d5db",
+                  fontSize: "15px",
+                  outline: "none",
+                }}
+              />
+
+              <button
+                type="button"
+                onClick={() =>
+                  setShowConfirmPassword(!showConfirmPassword)
+                }
+                style={{
+                  position: "absolute",
+                  right: "10px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  border: "none",
+                  background: "transparent",
+                  cursor: "pointer",
+                  fontSize: "18px",
+                }}
+              >
+                {showConfirmPassword ? "🙈" : "👁️"}
+              </button>
+            </div>
+          </div>
+
           <button
-            type="submit"
-            disabled={loading}
+            onClick={handleChangePassword}
+            disabled={changing}
             style={{
               width: "100%",
-              border: "none",
-              background:
-                loading
-                  ? "#9ca3af"
-                  : "linear-gradient(135deg,#2563eb,#4f46e5)",
-              color: "white",
               padding: "14px",
-              borderRadius: "11px",
-              fontSize: "17px",
-              fontWeight: "700",
-              cursor: loading
-                ? "not-allowed"
-                : "pointer",
+              border: "none",
+              borderRadius: "10px",
+              background: changing ? "#9ca3af" : "#111827",
+              color: "#ffffff",
+              fontSize: "16px",
+              fontWeight: 700,
+              cursor: changing ? "not-allowed" : "pointer",
             }}
           >
-            {loading
-              ? "Logging in..."
-              : "Login"}
+            {changing ? "Updating Password..." : "Change Password"}
           </button>
-        </form>
+
+          <p
+            style={{
+              textAlign: "center",
+              color: "#777",
+              fontSize: "13px",
+              marginTop: "18px",
+              marginBottom: 0,
+            }}
+          >
+            Password change hone ke baad next login mein new password use karein.
+          </p>
+        </div>
       </div>
     </main>
   );
