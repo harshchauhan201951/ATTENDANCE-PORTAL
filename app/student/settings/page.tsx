@@ -144,6 +144,7 @@ export default function StudentSettingsPage() {
           "studentName",
           student.student_name
         );
+
         localStorage.setItem(
           "student_name",
           student.student_name
@@ -195,15 +196,21 @@ export default function StudentSettingsPage() {
     setSaving(true);
 
     try {
+      /*
+       * IMPORTANT:
+       * admission_date is intentionally NOT included
+       * in studentData.
+       *
+       * Student cannot change Admission Date.
+       * Only Teacher can change it from Teacher Students Management.
+       */
+
       const studentData = {
         student_name:
           form.student_name.trim(),
 
         date_of_birth:
           form.date_of_birth || null,
-
-        admission_date:
-          form.admission_date || null,
 
         father_name:
           form.father_name.trim() || null,
@@ -271,6 +278,10 @@ export default function StudentSettingsPage() {
         date_of_birth:
           updatedStudent.date_of_birth || "",
 
+        /*
+         * Admission Date database se reload hogi,
+         * student ke form se change nahi hogi.
+         */
         admission_date:
           updatedStudent.admission_date || "",
 
@@ -571,7 +582,7 @@ export default function StudentSettingsPage() {
               />
             </div>
 
-            {/* ADMISSION */}
+            {/* ADMISSION DATE - LOCKED */}
 
             <div style={styles.field}>
               <label style={styles.label}>
@@ -581,14 +592,20 @@ export default function StudentSettingsPage() {
               <input
                 type="date"
                 value={form.admission_date}
-                onChange={(e) =>
-                  updateField(
-                    "admission_date",
-                    e.target.value
-                  )
-                }
-                style={styles.input}
+                readOnly
+                disabled
+                style={{
+                  ...styles.input,
+                  background: "#e2e8f0",
+                  color: "#475569",
+                  cursor: "not-allowed",
+                  border: "1px solid #cbd5e1",
+                }}
               />
+
+              <small style={styles.lockedText}>
+                🔒 Admission Date is locked. Only Teacher can change it.
+              </small>
             </div>
 
             {/* FATHER */}
@@ -1100,6 +1117,12 @@ const styles: {
   helpText: {
     color: "#94a3b8",
     fontSize: "11px",
+  },
+
+  lockedText: {
+    color: "#b45309",
+    fontSize: "11px",
+    fontWeight: "800",
   },
 
   actions: {
