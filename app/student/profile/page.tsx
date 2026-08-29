@@ -60,8 +60,16 @@ export default function StudentProfilePage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [editing, setEditing] = useState(false);
 
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [updatingPassword, setUpdatingPassword] = useState(false);
+
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState("");
+
   const [lastUpdated, setLastUpdated] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -250,46 +258,17 @@ export default function StudentProfilePage() {
     setSaving(true);
 
     try {
-      /*
-       * IMPORTANT:
-       * student_username aur admission_date intentionally
-       * updateData mein nahi hain.
-       *
-       * Isliye Student Profile se ye dono fields update
-       * nahi ki ja sakti.
-       *
-       * Teacher side se in fields ko separately manage
-       * kiya ja sakta hai.
-       */
       const updateData = {
         student_name: studentName,
-
-        date_of_birth:
-          form.date_of_birth || null,
-
-        father_name:
-          form.father_name.trim() || null,
-
-        mother_name:
-          form.mother_name.trim() || null,
-
-        father_phone:
-          form.father_phone.trim() || null,
-
-        mother_phone:
-          form.mother_phone.trim() || null,
-
-        address:
-          form.address.trim() || null,
-
-        city:
-          form.city.trim() || null,
-
-        class_name:
-          form.class_name.trim() || null,
-
-        blood_group:
-          form.blood_group || null,
+        date_of_birth: form.date_of_birth || null,
+        father_name: form.father_name.trim() || null,
+        mother_name: form.mother_name.trim() || null,
+        father_phone: form.father_phone.trim() || null,
+        mother_phone: form.mother_phone.trim() || null,
+        address: form.address.trim() || null,
+        city: form.city.trim() || null,
+        class_name: form.class_name.trim() || null,
+        blood_group: form.blood_group || null,
       };
 
       const { data, error } = await supabase
@@ -333,10 +312,6 @@ export default function StudentProfilePage() {
       setStudent(updatedStudent);
       setForm(studentToForm(updatedStudent));
 
-      /*
-       * Username ko sirf database se aaya hua original
-       * username hi localStorage mein rakha ja raha hai.
-       */
       localStorage.setItem(
         "studentName",
         updatedStudent.student_name || "Student"
@@ -374,6 +349,94 @@ export default function StudentProfilePage() {
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function updatePassword() {
+    if (!student) return;
+
+    setPasswordError("");
+    setPasswordSuccess("");
+
+    const password = newPassword.trim();
+    const confirm = confirmPassword.trim();
+
+    if (!password) {
+      setPasswordError("New Password enter karein.");
+      return;
+    }
+
+    if (password.length < 4) {
+      setPasswordError(
+        "Password minimum 4 characters ka hona chahiye."
+      );
+      return;
+    }
+
+    if (!confirm) {
+      setPasswordError(
+        "Confirm Password enter karein."
+      );
+      return;
+    }
+
+    if (password !== confirm) {
+      setPasswordError(
+        "New Password aur Confirm Password same nahi hain."
+      );
+      return;
+    }
+
+    setUpdatingPassword(true);
+
+    try {
+      const { data, error } = await supabase.rpc(
+        "update_student_password",
+        {
+          p_student_id: student.id,
+          p_new_password: password,
+        }
+      );
+
+      if (error) {
+        console.error(
+          "Password update RPC error:",
+          error
+        );
+
+        throw new Error(
+          "Password update nahi hua: " +
+            error.message
+        );
+      }
+
+      if (data !== true) {
+        throw new Error(
+          "Password update confirm nahi ho saka."
+        );
+      }
+
+      setNewPassword("");
+      setConfirmPassword("");
+
+      setPasswordSuccess(
+        "✅ Password successfully updated. Ab aap new password se login kar sakte hain."
+      );
+
+      updateLastUpdated();
+    } catch (error) {
+      console.error(
+        "Password update error:",
+        error
+      );
+
+      setPasswordError(
+        error instanceof Error
+          ? error.message
+          : "Password update nahi ho saka."
+      );
+    } finally {
+      setUpdatingPassword(false);
     }
   }
 
@@ -577,9 +640,6 @@ export default function StudentProfilePage() {
   return (
     <main style={styles.page}>
       <div style={styles.container}>
-
-        {/* HEADER */}
-
         <header style={styles.header}>
           <div>
             <div style={styles.badge}>
@@ -622,8 +682,6 @@ export default function StudentProfilePage() {
           </div>
         </header>
 
-        {/* MESSAGES */}
-
         {successMessage && (
           <div style={styles.successBox}>
             {successMessage}
@@ -635,8 +693,6 @@ export default function StudentProfilePage() {
             ⚠️ {errorMessage}
           </div>
         )}
-
-        {/* PROFILE HERO */}
 
         <section style={styles.profileHero}>
           <div style={styles.avatarArea}>
@@ -702,6 +758,147 @@ export default function StudentProfilePage() {
           </div>
         </section>
 
+        {/* CHANGE PASSWORD */}
+
+        <section style={styles.passwordCard}>
+          <div style={styles.cardHeader}>
+            <div style={styles.passwordIcon}>
+              🔐
+            </div>
+
+            <div>
+              <h2 style={styles.cardTitle}>
+                Change Password
+              </h2>
+
+              <p style={styles.cardSubtitle}>
+                Update your student account password
+              </p>
+            </div>
+          </div>
+
+          <div style={styles.passwordNotice}>
+            <div style={styles.passwordNoticeIcon}>
+              🛡️
+            </div>
+
+            <div>
+              <strong style={styles.passwordNoticeTitle}>
+                Secure Password Update
+              </strong>
+
+              <p style={styles.passwordNoticeText}>
+                Current password ki zaroorat nahi hai.
+                Apna new password aur confirm password
+                enter karke update karein.
+              </p>
+            </div>
+          </div>
+
+          {passwordSuccess && (
+            <div style={styles.passwordSuccessBox}>
+              {passwordSuccess}
+            </div>
+          )}
+
+          {passwordError && (
+            <div style={styles.passwordErrorBox}>
+              ⚠️ {passwordError}
+            </div>
+          )}
+
+          <div style={styles.passwordGrid}>
+            <div style={styles.field}>
+              <label style={styles.label}>
+                Username
+              </label>
+
+              <div style={styles.lockedWrapper}>
+                <span style={styles.lockIcon}>
+                  🔒
+                </span>
+
+                <input
+                  type="text"
+                  value={student.student_username}
+                  readOnly
+                  disabled
+                  style={styles.lockedInput}
+                />
+              </div>
+            </div>
+
+            <div style={styles.field}>
+              <label style={styles.label}>
+                New Password *
+              </label>
+
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) =>
+                  setNewPassword(e.target.value)
+                }
+                placeholder="Enter new password"
+                autoComplete="new-password"
+                style={styles.input}
+                disabled={updatingPassword}
+              />
+            </div>
+
+            <div style={styles.field}>
+              <label style={styles.label}>
+                Confirm Password *
+              </label>
+
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) =>
+                  setConfirmPassword(e.target.value)
+                }
+                placeholder="Confirm new password"
+                autoComplete="new-password"
+                style={styles.input}
+                disabled={updatingPassword}
+              />
+            </div>
+          </div>
+
+          <div style={styles.passwordActions}>
+            <button
+              type="button"
+              onClick={() => {
+                setNewPassword("");
+                setConfirmPassword("");
+                setPasswordError("");
+                setPasswordSuccess("");
+              }}
+              disabled={updatingPassword}
+              style={styles.passwordClearButton}
+            >
+              Clear
+            </button>
+
+            <button
+              type="button"
+              onClick={updatePassword}
+              disabled={updatingPassword}
+              style={{
+                ...styles.passwordUpdateButton,
+                opacity: updatingPassword ? 0.7 : 1,
+                cursor: updatingPassword
+                  ? "not-allowed"
+                  : "pointer",
+              }}
+            >
+              {updatingPassword
+                ? "⏳ Updating..."
+                : "🔐 Update Password"}
+            </button>
+          </div>
+        </section>
+
         {/* EDIT FORM */}
 
         {editing && (
@@ -718,8 +915,6 @@ export default function StudentProfilePage() {
                 </p>
               </div>
             </div>
-
-            {/* LOCKED ACCOUNT NOTICE */}
 
             <div style={styles.notice}>
               <span style={styles.noticeIcon}>
@@ -740,9 +935,6 @@ export default function StudentProfilePage() {
             </div>
 
             <div style={styles.formGrid}>
-
-              {/* STUDENT NAME */}
-
               <Field
                 label="Student Name *"
                 value={form.student_name}
@@ -753,8 +945,6 @@ export default function StudentProfilePage() {
                   )
                 }
               />
-
-              {/* USERNAME - LOCKED */}
 
               <div style={styles.field}>
                 <label style={styles.label}>
@@ -782,8 +972,6 @@ export default function StudentProfilePage() {
                 </span>
               </div>
 
-              {/* DATE OF BIRTH */}
-
               <div style={styles.field}>
                 <label style={styles.label}>
                   Date of Birth
@@ -801,8 +989,6 @@ export default function StudentProfilePage() {
                   style={styles.input}
                 />
               </div>
-
-              {/* ADMISSION DATE - LOCKED */}
 
               <div style={styles.field}>
                 <label style={styles.label}>
@@ -830,8 +1016,6 @@ export default function StudentProfilePage() {
                 </span>
               </div>
 
-              {/* CLASS */}
-
               <Field
                 label="Class"
                 value={form.class_name}
@@ -842,8 +1026,6 @@ export default function StudentProfilePage() {
                   )
                 }
               />
-
-              {/* BLOOD GROUP */}
 
               <div style={styles.field}>
                 <label style={styles.label}>
@@ -875,8 +1057,6 @@ export default function StudentProfilePage() {
                 </select>
               </div>
 
-              {/* FATHER */}
-
               <Field
                 label="Father's Name"
                 value={form.father_name}
@@ -888,8 +1068,6 @@ export default function StudentProfilePage() {
                 }
               />
 
-              {/* MOTHER */}
-
               <Field
                 label="Mother's Name"
                 value={form.mother_name}
@@ -900,8 +1078,6 @@ export default function StudentProfilePage() {
                   )
                 }
               />
-
-              {/* FATHER PHONE */}
 
               <Field
                 label="Father's Phone"
@@ -915,8 +1091,6 @@ export default function StudentProfilePage() {
                 type="tel"
               />
 
-              {/* MOTHER PHONE */}
-
               <Field
                 label="Mother's Phone"
                 value={form.mother_phone}
@@ -929,8 +1103,6 @@ export default function StudentProfilePage() {
                 type="tel"
               />
 
-              {/* CITY */}
-
               <Field
                 label="City"
                 value={form.city}
@@ -941,8 +1113,6 @@ export default function StudentProfilePage() {
                   )
                 }
               />
-
-              {/* ADDRESS */}
 
               <div
                 style={{
@@ -972,8 +1142,6 @@ export default function StudentProfilePage() {
                 />
               </div>
             </div>
-
-            {/* FORM ACTIONS */}
 
             <div style={styles.formActions}>
               <button
@@ -1007,7 +1175,9 @@ export default function StudentProfilePage() {
 
         <section style={styles.card}>
           <div style={styles.cardHeader}>
-            <div style={styles.cardIcon}>👤</div>
+            <div style={styles.cardIcon}>
+              👤
+            </div>
 
             <div>
               <h2 style={styles.cardTitle}>
@@ -1120,7 +1290,9 @@ export default function StudentProfilePage() {
 
         <section style={styles.card}>
           <div style={styles.cardHeader}>
-            <div style={styles.cardIcon}>🏠</div>
+            <div style={styles.cardIcon}>
+              🏠
+            </div>
 
             <div>
               <h2 style={styles.cardTitle}>
@@ -1166,12 +1338,11 @@ export default function StudentProfilePage() {
               and family information using Edit
               Profile. Username and Admission Date
               are locked and can only be managed by
-              the teacher.
+              the teacher. Password can be changed
+              from the Change Password section.
             </p>
           </div>
         </div>
-
-        {/* REFRESH */}
 
         <button
           onClick={loadStudent}
@@ -1179,7 +1350,8 @@ export default function StudentProfilePage() {
           disabled={
             loading ||
             saving ||
-            uploadingImage
+            uploadingImage ||
+            updatingPassword
           }
         >
           🔄 Refresh Profile
@@ -1495,6 +1667,119 @@ const styles: {
     color: "#dbeafe",
     fontSize: "13px",
     fontWeight: "700",
+  },
+
+  /* PASSWORD */
+
+  passwordCard: {
+    background: "#ffffff",
+    borderRadius: "22px",
+    padding: "25px",
+    marginBottom: "18px",
+    boxShadow:
+      "0 10px 30px rgba(15,23,42,0.09)",
+    border:
+      "2px solid #ddd6fe",
+  },
+
+  passwordIcon: {
+    width: "45px",
+    height: "45px",
+    borderRadius: "12px",
+    background: "#ede9fe",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "22px",
+    flexShrink: 0,
+  },
+
+  passwordNotice: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "12px",
+    background: "#f5f3ff",
+    border:
+      "1px solid #ddd6fe",
+    borderRadius: "13px",
+    padding: "14px",
+    marginBottom: "20px",
+  },
+
+  passwordNoticeIcon: {
+    fontSize: "20px",
+  },
+
+  passwordNoticeTitle: {
+    color: "#4c1d95",
+    fontSize: "13px",
+  },
+
+  passwordNoticeText: {
+    margin: "4px 0 0",
+    color: "#6b7280",
+    fontSize: "12px",
+    lineHeight: 1.5,
+  },
+
+  passwordSuccessBox: {
+    background: "#dcfce7",
+    color: "#166534",
+    border:
+      "1px solid #bbf7d0",
+    borderRadius: "12px",
+    padding: "13px",
+    marginBottom: "15px",
+    fontWeight: "800",
+    fontSize: "13px",
+  },
+
+  passwordErrorBox: {
+    background: "#fee2e2",
+    color: "#991b1b",
+    border:
+      "1px solid #fecaca",
+    borderRadius: "12px",
+    padding: "13px",
+    marginBottom: "15px",
+    fontWeight: "800",
+    fontSize: "13px",
+  },
+
+  passwordGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(3,minmax(0,1fr))",
+    gap: "16px",
+  },
+
+  passwordActions: {
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: "10px",
+    marginTop: "20px",
+    flexWrap: "wrap",
+  },
+
+  passwordClearButton: {
+    border:
+      "1px solid #cbd5e1",
+    background: "#f8fafc",
+    color: "#334155",
+    padding: "12px 20px",
+    borderRadius: "10px",
+    fontWeight: "800",
+    cursor: "pointer",
+  },
+
+  passwordUpdateButton: {
+    border: "none",
+    background:
+      "linear-gradient(135deg,#7c3aed,#4f46e5)",
+    color: "#ffffff",
+    padding: "12px 22px",
+    borderRadius: "10px",
+    fontWeight: "900",
   },
 
   editCard: {
@@ -1864,3 +2149,27 @@ const styles: {
     fontWeight: "700",
   },
 };
+
+/* =========================================================
+   MOBILE RESPONSIVE
+========================================================= */
+
+if (typeof document !== "undefined") {
+  const styleId = "student-profile-responsive-style";
+
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement("style");
+
+    style.id = styleId;
+
+    style.innerHTML = `
+      @media (max-width: 800px) {
+        .student-profile-mobile-fix {
+          display: block;
+        }
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+}
