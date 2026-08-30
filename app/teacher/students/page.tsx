@@ -1,4 +1,3 @@
-```tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -85,9 +84,10 @@ export default function TeacherStudentsPage() {
     setLoading(true);
     setError("");
 
-    const { data, error } = await supabase
+    const { data, error: loadError } = await supabase
       .from("students")
-      .select(`
+      .select(
+        `
         id,
         student_username,
         password_hash,
@@ -111,12 +111,13 @@ export default function TeacherStudentsPage() {
         mother_phone,
         city,
         profile_image_url
-      `)
+      `
+      )
       .order("id", { ascending: true });
 
-    if (error) {
-      console.error("Students loading error:", error);
-      setError(error.message);
+    if (loadError) {
+      console.error("Students loading error:", loadError);
+      setError(loadError.message);
       setStudents([]);
     } else {
       setStudents((data || []) as Student[]);
@@ -161,25 +162,33 @@ export default function TeacherStudentsPage() {
   }
 
   function closeEdit() {
-    if (saving) return;
+    if (saving) {
+      return;
+    }
 
     setEditingStudent(null);
+
     setEditName("");
     setEditUsername("");
     setEditPassword("");
     setEditAdmissionDate("");
     setEditDateOfBirth("");
+
     setEditFatherName("");
     setEditMotherName("");
+
     setEditStudentMobile("");
     setEditFatherMobile("");
     setEditMotherMobile("");
+
     setEditFatherPhone("");
     setEditMotherPhone("");
+
     setEditClassName("");
     setEditSection("");
     setEditGender("");
     setEditBloodGroup("");
+
     setEditEmail("");
     setEditCity("");
     setEditAddress("");
@@ -187,10 +196,14 @@ export default function TeacherStudentsPage() {
     setEditProfileImageUrl("");
   }
 
-  async function saveStudent(e: React.FormEvent) {
+  async function saveStudent(
+    e: React.FormEvent<HTMLFormElement>
+  ) {
     e.preventDefault();
 
-    if (!editingStudent) return;
+    if (!editingStudent) {
+      return;
+    }
 
     if (!editName.trim()) {
       setError("Student name cannot be empty.");
@@ -233,14 +246,14 @@ export default function TeacherStudentsPage() {
       updateData.password_hash = editPassword.trim();
     }
 
-    const { error } = await supabase
+    const { error: updateError } = await supabase
       .from("students")
       .update(updateData)
       .eq("id", editingStudent.id);
 
-    if (error) {
-      console.error("Student update error:", error);
-      setError(error.message);
+    if (updateError) {
+      console.error("Student update error:", updateError);
+      setError(updateError.message);
       setSaving(false);
       return;
     }
@@ -249,9 +262,39 @@ export default function TeacherStudentsPage() {
 
     await loadStudents();
 
-    closeEdit();
+    setEditingStudent(null);
 
-    setSuccess(`${updatedName} profile updated successfully.`);
+    setEditName("");
+    setEditUsername("");
+    setEditPassword("");
+    setEditAdmissionDate("");
+    setEditDateOfBirth("");
+
+    setEditFatherName("");
+    setEditMotherName("");
+
+    setEditStudentMobile("");
+    setEditFatherMobile("");
+    setEditMotherMobile("");
+
+    setEditFatherPhone("");
+    setEditMotherPhone("");
+
+    setEditClassName("");
+    setEditSection("");
+    setEditGender("");
+    setEditBloodGroup("");
+
+    setEditEmail("");
+    setEditCity("");
+    setEditAddress("");
+    setEditNotes("");
+    setEditProfileImageUrl("");
+
+    setSuccess(
+      updatedName + " profile updated successfully."
+    );
+
     setSaving(false);
 
     setTimeout(() => {
@@ -264,33 +307,46 @@ export default function TeacherStudentsPage() {
       student.student_name || student.student_username;
 
     const confirmed = window.confirm(
-      `Are you sure you want to delete ${studentName}?\n\nThis action cannot be undone.`
+      "Are you sure you want to delete " +
+        studentName +
+        "?\n\nThis action cannot be undone."
     );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     setDeletingId(student.id);
     setError("");
     setSuccess("");
 
-    const { error } = await supabase
+    const { error: deleteError } = await supabase
       .from("students")
       .delete()
       .eq("id", student.id);
 
-    if (error) {
-      console.error("Student delete error:", error);
-      setError(error.message);
+    if (deleteError) {
+      console.error(
+        "Student delete error:",
+        deleteError
+      );
+
+      setError(deleteError.message);
       setDeletingId(null);
       return;
     }
 
     setStudents((current) =>
-      current.filter((item) => item.id !== student.id)
+      current.filter(
+        (item) => item.id !== student.id
+      )
     );
 
     setDeletingId(null);
-    setSuccess(`${studentName} has been deleted successfully.`);
+
+    setSuccess(
+      studentName + " has been deleted successfully."
+    );
 
     setTimeout(() => {
       setSuccess("");
@@ -316,7 +372,9 @@ export default function TeacherStudentsPage() {
             <div style={styles.iconBox}>👨‍🎓</div>
 
             <div>
-              <h1 style={styles.title}>Students Management</h1>
+              <h1 style={styles.title}>
+                Students Management
+              </h1>
 
               <p style={styles.subtitle}>
                 Manage complete student profiles
@@ -335,7 +393,9 @@ export default function TeacherStudentsPage() {
 
             <button
               type="button"
-              onClick={() => router.push("/teacher/settings")}
+              onClick={() =>
+                router.push("/teacher/settings")
+              }
               style={styles.settingsButton}
             >
               ⚙️ Settings
@@ -367,7 +427,9 @@ export default function TeacherStudentsPage() {
           <div style={styles.summaryIcon}>👨‍🎓</div>
 
           <div>
-            <p style={styles.summaryLabel}>Total Students</p>
+            <p style={styles.summaryLabel}>
+              Total Students
+            </p>
 
             <h2 style={styles.summaryNumber}>
               {students.length}
@@ -380,10 +442,13 @@ export default function TeacherStudentsPage() {
             <div style={styles.cardIcon}>👥</div>
 
             <div>
-              <h2 style={styles.sectionTitle}>All Students</h2>
+              <h2 style={styles.sectionTitle}>
+                All Students
+              </h2>
 
               <p style={styles.sectionSubtitle}>
-                Edit complete profiles or delete student accounts
+                Edit complete profiles or delete student
+                accounts
               </p>
             </div>
           </div>
@@ -394,14 +459,17 @@ export default function TeacherStudentsPage() {
             </div>
           ) : students.length === 0 ? (
             <div style={styles.empty}>
-              <div style={styles.emptyIcon}>👨‍🎓</div>
+              <div style={styles.emptyIcon}>
+                👨‍🎓
+              </div>
 
               <h3 style={styles.emptyTitle}>
                 No Students Found
               </h3>
 
               <p style={styles.emptyText}>
-                There are currently no students in the database.
+                There are currently no students in the
+                database.
               </p>
             </div>
           ) : (
@@ -410,9 +478,15 @@ export default function TeacherStudentsPage() {
                 <thead>
                   <tr>
                     <th style={styles.th}>ID</th>
-                    <th style={styles.th}>Student Name</th>
-                    <th style={styles.th}>Username</th>
-                    <th style={styles.th}>Admission Date</th>
+                    <th style={styles.th}>
+                      Student Name
+                    </th>
+                    <th style={styles.th}>
+                      Username
+                    </th>
+                    <th style={styles.th}>
+                      Admission Date
+                    </th>
                     <th style={styles.th}>Actions</th>
                   </tr>
                 </thead>
@@ -423,7 +497,7 @@ export default function TeacherStudentsPage() {
                       <td style={styles.td}>
                         <span style={styles.idBadge}>
                           {student.student_username ||
-                            `STU${1001 + index}`}
+                            "STU" + (1001 + index)}
                         </span>
                       </td>
 
@@ -439,14 +513,17 @@ export default function TeacherStudentsPage() {
                       </td>
 
                       <td style={styles.td}>
-                        {student.admission_date || "Not set"}
+                        {student.admission_date ||
+                          "Not set"}
                       </td>
 
                       <td style={styles.td}>
                         <div style={styles.actionButtons}>
                           <button
                             type="button"
-                            onClick={() => openEdit(student)}
+                            onClick={() =>
+                              openEdit(student)
+                            }
                             style={styles.editButton}
                           >
                             ✏️ Edit
@@ -454,12 +531,19 @@ export default function TeacherStudentsPage() {
 
                           <button
                             type="button"
-                            onClick={() => deleteStudent(student)}
-                            disabled={deletingId === student.id}
+                            onClick={() =>
+                              deleteStudent(student)
+                            }
+                            disabled={
+                              deletingId === student.id
+                            }
                             style={{
                               ...styles.deleteButton,
                               opacity:
-                                deletingId === student.id ? 0.6 : 1,
+                                deletingId ===
+                                student.id
+                                  ? 0.6
+                                  : 1,
                             }}
                           >
                             {deletingId === student.id
@@ -520,7 +604,9 @@ export default function TeacherStudentsPage() {
                           type="text"
                           value={editUsername}
                           onChange={(e) =>
-                            setEditUsername(e.target.value)
+                            setEditUsername(
+                              e.target.value
+                            )
                           }
                           style={styles.input}
                         />
@@ -535,14 +621,17 @@ export default function TeacherStudentsPage() {
                           type="text"
                           value={editPassword}
                           onChange={(e) =>
-                            setEditPassword(e.target.value)
+                            setEditPassword(
+                              e.target.value
+                            )
                           }
                           placeholder="Leave blank to keep current password"
                           style={styles.input}
                         />
 
                         <p style={styles.helpText}>
-                          Enter a password only if you want to change it.
+                          Enter a password only if you
+                          want to change it.
                         </p>
                       </div>
                     </div>
@@ -579,7 +668,9 @@ export default function TeacherStudentsPage() {
                           type="date"
                           value={editDateOfBirth}
                           onChange={(e) =>
-                            setEditDateOfBirth(e.target.value)
+                            setEditDateOfBirth(
+                              e.target.value
+                            )
                           }
                           style={styles.input}
                         />
@@ -594,7 +685,9 @@ export default function TeacherStudentsPage() {
                           type="date"
                           value={editAdmissionDate}
                           onChange={(e) =>
-                            setEditAdmissionDate(e.target.value)
+                            setEditAdmissionDate(
+                              e.target.value
+                            )
                           }
                           style={styles.input}
                         />
@@ -608,14 +701,24 @@ export default function TeacherStudentsPage() {
                         <select
                           value={editGender}
                           onChange={(e) =>
-                            setEditGender(e.target.value)
+                            setEditGender(
+                              e.target.value
+                            )
                           }
                           style={styles.input}
                         >
-                          <option value="">Select Gender</option>
-                          <option value="Male">Male</option>
-                          <option value="Female">Female</option>
-                          <option value="Other">Other</option>
+                          <option value="">
+                            Select Gender
+                          </option>
+                          <option value="Male">
+                            Male
+                          </option>
+                          <option value="Female">
+                            Female
+                          </option>
+                          <option value="Other">
+                            Other
+                          </option>
                         </select>
                       </div>
                     </div>
@@ -636,7 +739,9 @@ export default function TeacherStudentsPage() {
                           type="text"
                           value={editFatherName}
                           onChange={(e) =>
-                            setEditFatherName(e.target.value)
+                            setEditFatherName(
+                              e.target.value
+                            )
                           }
                           style={styles.input}
                         />
@@ -651,7 +756,9 @@ export default function TeacherStudentsPage() {
                           type="text"
                           value={editMotherName}
                           onChange={(e) =>
-                            setEditMotherName(e.target.value)
+                            setEditMotherName(
+                              e.target.value
+                            )
                           }
                           style={styles.input}
                         />
@@ -666,7 +773,9 @@ export default function TeacherStudentsPage() {
                           type="tel"
                           value={editFatherPhone}
                           onChange={(e) =>
-                            setEditFatherPhone(e.target.value)
+                            setEditFatherPhone(
+                              e.target.value
+                            )
                           }
                           style={styles.input}
                         />
@@ -681,7 +790,9 @@ export default function TeacherStudentsPage() {
                           type="tel"
                           value={editMotherPhone}
                           onChange={(e) =>
-                            setEditMotherPhone(e.target.value)
+                            setEditMotherPhone(
+                              e.target.value
+                            )
                           }
                           style={styles.input}
                         />
@@ -696,7 +807,9 @@ export default function TeacherStudentsPage() {
                           type="tel"
                           value={editFatherMobile}
                           onChange={(e) =>
-                            setEditFatherMobile(e.target.value)
+                            setEditFatherMobile(
+                              e.target.value
+                            )
                           }
                           style={styles.input}
                         />
@@ -711,7 +824,9 @@ export default function TeacherStudentsPage() {
                           type="tel"
                           value={editMotherMobile}
                           onChange={(e) =>
-                            setEditMotherMobile(e.target.value)
+                            setEditMotherMobile(
+                              e.target.value
+                            )
                           }
                           style={styles.input}
                         />
@@ -734,7 +849,9 @@ export default function TeacherStudentsPage() {
                           type="tel"
                           value={editStudentMobile}
                           onChange={(e) =>
-                            setEditStudentMobile(e.target.value)
+                            setEditStudentMobile(
+                              e.target.value
+                            )
                           }
                           style={styles.input}
                         />
@@ -772,7 +889,9 @@ export default function TeacherStudentsPage() {
                           type="text"
                           value={editClassName}
                           onChange={(e) =>
-                            setEditClassName(e.target.value)
+                            setEditClassName(
+                              e.target.value
+                            )
                           }
                           placeholder="Example: B.Tech CSE-AIML"
                           style={styles.input}
@@ -788,7 +907,9 @@ export default function TeacherStudentsPage() {
                           type="text"
                           value={editSection}
                           onChange={(e) =>
-                            setEditSection(e.target.value)
+                            setEditSection(
+                              e.target.value
+                            )
                           }
                           style={styles.input}
                         />
@@ -802,21 +923,39 @@ export default function TeacherStudentsPage() {
                         <select
                           value={editBloodGroup}
                           onChange={(e) =>
-                            setEditBloodGroup(e.target.value)
+                            setEditBloodGroup(
+                              e.target.value
+                            )
                           }
                           style={styles.input}
                         >
                           <option value="">
                             Select Blood Group
                           </option>
-                          <option value="A+">A+</option>
-                          <option value="A-">A-</option>
-                          <option value="B+">B+</option>
-                          <option value="B-">B-</option>
-                          <option value="AB+">AB+</option>
-                          <option value="AB-">AB-</option>
-                          <option value="O+">O+</option>
-                          <option value="O-">O-</option>
+                          <option value="A+">
+                            A+
+                          </option>
+                          <option value="A-">
+                            A-
+                          </option>
+                          <option value="B+">
+                            B+
+                          </option>
+                          <option value="B-">
+                            B-
+                          </option>
+                          <option value="AB+">
+                            AB+
+                          </option>
+                          <option value="AB-">
+                            AB-
+                          </option>
+                          <option value="O+">
+                            O+
+                          </option>
+                          <option value="O-">
+                            O-
+                          </option>
                         </select>
                       </div>
                     </div>
@@ -843,7 +982,11 @@ export default function TeacherStudentsPage() {
                         />
                       </div>
 
-                      <div style={{ gridColumn: "1 / -1" }}>
+                      <div
+                        style={{
+                          gridColumn: "1 / -1",
+                        }}
+                      >
                         <label style={styles.label}>
                           Complete Address
                         </label>
@@ -851,7 +994,9 @@ export default function TeacherStudentsPage() {
                         <textarea
                           value={editAddress}
                           onChange={(e) =>
-                            setEditAddress(e.target.value)
+                            setEditAddress(
+                              e.target.value
+                            )
                           }
                           rows={4}
                           style={styles.textarea}
@@ -875,14 +1020,20 @@ export default function TeacherStudentsPage() {
                         type="url"
                         value={editProfileImageUrl}
                         onChange={(e) =>
-                          setEditProfileImageUrl(e.target.value)
+                          setEditProfileImageUrl(
+                            e.target.value
+                          )
                         }
                         style={styles.input}
                         placeholder="https://..."
                       />
                     </div>
 
-                    <div style={{ marginTop: "15px" }}>
+                    <div
+                      style={{
+                        marginTop: "15px",
+                      }}
+                    >
                       <label style={styles.label}>
                         Notes
                       </label>
@@ -931,7 +1082,9 @@ export default function TeacherStudentsPage() {
         <footer style={styles.footer}>
           <strong>Attendance Portal</strong>
 
-          <span>Students Management • 2026</span>
+          <span>
+            Students Management • 2026
+          </span>
         </footer>
       </div>
     </main>
@@ -1360,7 +1513,8 @@ const styles: {
     background: "white",
     outline: "none",
     resize: "vertical",
-    fontFamily: "Arial, Helvetica, sans-serif",
+    fontFamily:
+      "Arial, Helvetica, sans-serif",
     lineHeight: 1.5,
   },
 
@@ -1413,4 +1567,3 @@ const styles: {
     textAlign: "center",
   },
 };
-```
