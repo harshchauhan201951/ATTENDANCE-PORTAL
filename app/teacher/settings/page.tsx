@@ -108,9 +108,7 @@ export default function TeacherSettingsPage() {
         {/* HEADER */}
 
         <header style={styles.header}>
-
           <div style={styles.headerLeft}>
-
             <div style={styles.iconBox}>
               ⚙️
             </div>
@@ -124,12 +122,11 @@ export default function TeacherSettingsPage() {
                 Manage your teacher dashboard settings
               </p>
             </div>
-
           </div>
 
           <div style={styles.headerButtons}>
-
             <button
+              type="button"
               onClick={() => router.push("/teacher")}
               style={styles.dashboardButton}
             >
@@ -137,17 +134,16 @@ export default function TeacherSettingsPage() {
             </button>
 
             <button
+              type="button"
               onClick={logout}
               style={styles.logoutButton}
             >
               🚪 Logout
             </button>
-
           </div>
-
         </header>
 
-        {/* SUCCESS */}
+        {/* SUCCESS MESSAGE */}
 
         {saved && (
           <div style={styles.success}>
@@ -158,9 +154,7 @@ export default function TeacherSettingsPage() {
         {/* TEACHER PROFILE */}
 
         <section style={styles.card}>
-
           <div style={styles.cardHeader}>
-
             <div style={styles.cardIcon}>
               👨‍🏫
             </div>
@@ -174,11 +168,9 @@ export default function TeacherSettingsPage() {
                 Your teacher account information
               </p>
             </div>
-
           </div>
 
           <div style={styles.formGrid}>
-
             <div>
               <label style={styles.label}>
                 Teacher Name
@@ -215,17 +207,13 @@ export default function TeacherSettingsPage() {
                 Username cannot be changed here.
               </p>
             </div>
-
           </div>
-
         </section>
 
         {/* PORTAL SETTINGS */}
 
         <section style={styles.card}>
-
           <div style={styles.cardHeader}>
-
             <div style={styles.cardIcon}>
               🏫
             </div>
@@ -239,13 +227,10 @@ export default function TeacherSettingsPage() {
                 Customize your attendance portal
               </p>
             </div>
-
           </div>
 
           <form onSubmit={saveSettings}>
-
             <div style={styles.formGrid}>
-
               <div>
                 <label style={styles.label}>
                   Portal Name
@@ -309,11 +294,9 @@ export default function TeacherSettingsPage() {
                   style={styles.input}
                 />
               </div>
-
             </div>
 
             <div style={styles.buttonRow}>
-
               <button
                 type="submit"
                 style={styles.saveButton}
@@ -328,19 +311,14 @@ export default function TeacherSettingsPage() {
               >
                 🔄 Reset
               </button>
-
             </div>
-
           </form>
-
         </section>
 
         {/* DASHBOARD INFORMATION */}
 
         <section style={styles.card}>
-
           <div style={styles.cardHeader}>
-
             <div style={styles.cardIcon}>
               📊
             </div>
@@ -354,11 +332,9 @@ export default function TeacherSettingsPage() {
                 Current portal configuration
               </p>
             </div>
-
           </div>
 
           <div style={styles.infoGrid}>
-
             <div style={styles.infoItem}>
               <span style={styles.infoLabel}>
                 Portal
@@ -375,7 +351,10 @@ export default function TeacherSettingsPage() {
               </span>
 
               <strong style={styles.infoValue}>
-                ₹{Number(monthlyFee || 0).toLocaleString("en-IN")}
+                ₹
+                {Number(monthlyFee || 0).toLocaleString(
+                  "en-IN"
+                )}
               </strong>
             </div>
 
@@ -398,17 +377,13 @@ export default function TeacherSettingsPage() {
                 {academicYear}
               </strong>
             </div>
-
           </div>
-
         </section>
 
         {/* QUICK NAVIGATION */}
 
         <section style={styles.card}>
-
           <div style={styles.cardHeader}>
-
             <div style={styles.cardIcon}>
               ⚡
             </div>
@@ -422,95 +397,134 @@ export default function TeacherSettingsPage() {
                 Quickly open other teacher sections
               </p>
             </div>
-
           </div>
 
           <div style={styles.navigationGrid}>
 
+            {/* MARK ATTENDANCE */}
+
             <button
-              onClick={() => router.push("/dashboard")}
+              type="button"
+              onClick={() =>
+                router.push("/teacher/attendance")
+              }
               style={styles.navigationButton}
             >
-              📝
+              <span style={styles.navigationIcon}>
+                📝
+              </span>
+
               <span>
                 Mark Attendance
               </span>
             </button>
 
+            {/* ATTENDANCE HISTORY */}
+
             <button
+              type="button"
               onClick={() =>
                 router.push("/teacher/attendance-history")
               }
               style={styles.navigationButton}
             >
-              📅
+              <span style={styles.navigationIcon}>
+                📅
+              </span>
+
               <span>
                 Attendance History
               </span>
             </button>
 
+            {/* FEES MANAGEMENT */}
+
             <button
+              type="button"
               onClick={() =>
                 router.push("/teacher/fees")
               }
               style={styles.navigationButton}
             >
-              💰
+              <span style={styles.navigationIcon}>
+                💰
+              </span>
+
               <span>
                 Fees Management
               </span>
             </button>
 
+            {/* STUDENTS - FIXED ROUTE */}
+
             <button
+              type="button"
               onClick={() =>
                 router.push("/teacher/students")
               }
-              style={styles.navigationButton}
+              style={{
+                ...styles.navigationButton,
+                border: "2px solid #2563eb",
+                background:
+                  "linear-gradient(135deg,#eff6ff,#eef2ff)",
+              }}
             >
-              👨‍🎓
+              <span style={styles.navigationIcon}>
+                👨‍🎓
+              </span>
+
               <span>
                 Students
               </span>
             </button>
 
+            {/* CALENDAR */}
+
             <button
+              type="button"
               onClick={() =>
                 router.push("/teacher/calendar")
               }
               style={styles.navigationButton}
             >
-              🗓️
+              <span style={styles.navigationIcon}>
+                🗓️
+              </span>
+
               <span>
                 Calendar
               </span>
             </button>
 
+            {/* REPORTS */}
+
             <button
+              type="button"
               onClick={() =>
                 router.push("/teacher/reports")
               }
               style={styles.navigationButton}
             >
-              📊
+              <span style={styles.navigationIcon}>
+                📊
+              </span>
+
               <span>
                 Reports
               </span>
             </button>
 
           </div>
-
         </section>
 
         {/* SECURITY */}
 
         <section style={styles.securityCard}>
-
           <div style={styles.securityIcon}>
             🔐
           </div>
 
           <div style={styles.securityContent}>
-
             <h2 style={styles.securityTitle}>
               Account Security
             </h2>
@@ -522,20 +536,18 @@ export default function TeacherSettingsPage() {
             </p>
 
             <button
+              type="button"
               onClick={logout}
               style={styles.securityButton}
             >
               🚪 Logout from Teacher Account
             </button>
-
           </div>
-
         </section>
 
         {/* FOOTER */}
 
         <footer style={styles.footer}>
-
           <strong>
             Attendance Portal
           </strong>
@@ -543,7 +555,6 @@ export default function TeacherSettingsPage() {
           <span>
             Teacher Settings • 2026
           </span>
-
         </footer>
 
       </div>
@@ -554,7 +565,6 @@ export default function TeacherSettingsPage() {
 const styles: {
   [key: string]: React.CSSProperties;
 } = {
-
   page: {
     minHeight: "100vh",
     background:
@@ -645,8 +655,7 @@ const styles: {
   success: {
     background: "#dcfce7",
     color: "#166534",
-    border:
-      "1px solid #86efac",
+    border: "1px solid #86efac",
     padding: "14px 16px",
     borderRadius: "12px",
     marginBottom: "20px",
@@ -711,8 +720,7 @@ const styles: {
   input: {
     width: "100%",
     boxSizing: "border-box",
-    border:
-      "1px solid #cbd5e1",
+    border: "1px solid #cbd5e1",
     borderRadius: "10px",
     padding: "12px 13px",
     fontSize: "15px",
@@ -747,8 +755,7 @@ const styles: {
   },
 
   resetButton: {
-    border:
-      "1px solid #cbd5e1",
+    border: "1px solid #cbd5e1",
     background: "#f8fafc",
     color: "#334155",
     padding: "13px 22px",
@@ -767,8 +774,7 @@ const styles: {
 
   infoItem: {
     background: "#f8fafc",
-    border:
-      "1px solid #e2e8f0",
+    border: "1px solid #e2e8f0",
     borderRadius: "13px",
     padding: "17px",
   },
@@ -794,8 +800,7 @@ const styles: {
   },
 
   navigationButton: {
-    border:
-      "1px solid #dbeafe",
+    border: "1px solid #dbeafe",
     background: "#f8fafc",
     color: "#1e3a8a",
     borderRadius: "12px",
@@ -807,13 +812,17 @@ const styles: {
     fontWeight: "700",
     fontSize: "14px",
     cursor: "pointer",
+    minHeight: "55px",
+  },
+
+  navigationIcon: {
+    fontSize: "20px",
   },
 
   securityCard: {
     background:
       "linear-gradient(135deg,#fff7ed,#fef2f2)",
-    border:
-      "1px solid #fed7aa",
+    border: "1px solid #fed7aa",
     borderRadius: "20px",
     padding: "24px",
     display: "flex",
