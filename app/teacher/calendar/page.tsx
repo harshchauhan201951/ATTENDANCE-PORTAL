@@ -9,31 +9,15 @@ type CalendarEvent = {
   description: string;
 };
 
-/*
-  ============================================================
-  TEACHER TUITION CALENDAR
-  YEARS: 2025 - 2030
-
-  RULES:
-  1. Monday - Friday = CLASS
-  2. Saturday = WEEKLY TEST
-  3. Sunday = OFF
-  4. Holiday has priority over Saturday/Sunday
-  5. Muslim holidays are intentionally NOT included
-  6. Major Hindu, Indian National, New Year & Christmas holidays
-  ============================================================
-*/
-
 const holidays: CalendarEvent[] = [
-  // ==========================================================
+  // =========================
   // 2025
-  // ==========================================================
-
+  // =========================
   {
     date: "2025-01-01",
     title: "New Year's Day",
     type: "holiday",
-    description: "New Year holiday.",
+    description: "Tuition holiday.",
   },
   {
     date: "2025-01-14",
@@ -46,6 +30,12 @@ const holidays: CalendarEvent[] = [
     title: "Republic Day",
     type: "holiday",
     description: "National holiday.",
+  },
+  {
+    date: "2025-02-02",
+    title: "Basant Panchami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
   },
   {
     date: "2025-02-26",
@@ -66,10 +56,16 @@ const holidays: CalendarEvent[] = [
     description: "Hindu festival holiday.",
   },
   {
-    date: "2025-04-12",
-    title: "Hanuman Jayanti",
+    date: "2025-04-10",
+    title: "Mahavir Jayanti",
     type: "holiday",
-    description: "Hindu festival holiday.",
+    description: "Festival holiday.",
+  },
+  {
+    date: "2025-05-12",
+    title: "Buddha Purnima",
+    type: "holiday",
+    description: "Festival holiday.",
   },
   {
     date: "2025-08-09",
@@ -97,19 +93,19 @@ const holidays: CalendarEvent[] = [
   },
   {
     date: "2025-10-02",
-    title: "Gandhi Jayanti",
+    title: "Gandhi Jayanti / Dussehra",
     type: "holiday",
-    description: "National holiday.",
-  },
-  {
-    date: "2025-10-02",
-    title: "Dussehra",
-    type: "holiday",
-    description: "Hindu festival holiday.",
+    description: "National and Hindu festival holiday.",
   },
   {
     date: "2025-10-20",
     title: "Diwali",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2025-10-22",
+    title: "Govardhan Puja",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
@@ -120,25 +116,30 @@ const holidays: CalendarEvent[] = [
     description: "Hindu festival holiday.",
   },
   {
+    date: "2025-11-05",
+    title: "Guru Nanak Jayanti",
+    type: "holiday",
+    description: "Festival holiday.",
+  },
+  {
     date: "2025-12-25",
     title: "Christmas Day",
     type: "holiday",
     description: "Christmas holiday.",
   },
 
-  // ==========================================================
+  // =========================
   // 2026
-  // ==========================================================
-
+  // =========================
   {
     date: "2026-01-01",
     title: "New Year's Day",
     type: "holiday",
-    description: "New Year holiday.",
+    description: "Tuition holiday.",
   },
   {
-    date: "2026-01-14",
-    title: "Makar Sankranti",
+    date: "2026-01-23",
+    title: "Basant Panchami",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
@@ -167,10 +168,10 @@ const holidays: CalendarEvent[] = [
     description: "Hindu festival holiday.",
   },
   {
-    date: "2026-04-02",
-    title: "Hanuman Jayanti",
+    date: "2026-05-01",
+    title: "Buddha Purnima",
     type: "holiday",
-    description: "Hindu festival holiday.",
+    description: "Festival holiday.",
   },
   {
     date: "2026-08-15",
@@ -215,10 +216,22 @@ const holidays: CalendarEvent[] = [
     description: "Hindu festival holiday.",
   },
   {
+    date: "2026-11-09",
+    title: "Govardhan Puja",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
     date: "2026-11-11",
     title: "Bhai Dooj",
     type: "holiday",
     description: "Hindu festival holiday.",
+  },
+  {
+    date: "2026-11-24",
+    title: "Guru Nanak Jayanti",
+    type: "holiday",
+    description: "Festival holiday.",
   },
   {
     date: "2026-12-25",
@@ -227,27 +240,26 @@ const holidays: CalendarEvent[] = [
     description: "Christmas holiday.",
   },
 
-  // ==========================================================
+  // =========================
   // 2027
-  // ==========================================================
-
+  // =========================
   {
     date: "2027-01-01",
     title: "New Year's Day",
     type: "holiday",
-    description: "New Year holiday.",
-  },
-  {
-    date: "2027-01-15",
-    title: "Makar Sankranti",
-    type: "holiday",
-    description: "Hindu festival holiday.",
+    description: "Tuition holiday.",
   },
   {
     date: "2027-01-26",
     title: "Republic Day",
     type: "holiday",
     description: "National holiday.",
+  },
+  {
+    date: "2027-02-06",
+    title: "Basant Panchami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
   },
   {
     date: "2027-03-06",
@@ -262,14 +274,8 @@ const holidays: CalendarEvent[] = [
     description: "Hindu festival holiday.",
   },
   {
-    date: "2027-03-26",
+    date: "2027-04-15",
     title: "Ram Navami",
-    type: "holiday",
-    description: "Hindu festival holiday.",
-  },
-  {
-    date: "2027-04-22",
-    title: "Hanuman Jayanti",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
@@ -316,10 +322,22 @@ const holidays: CalendarEvent[] = [
     description: "Hindu festival holiday.",
   },
   {
-    date: "2027-11-01",
+    date: "2027-10-30",
+    title: "Govardhan Puja",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2027-10-31",
     title: "Bhai Dooj",
     type: "holiday",
     description: "Hindu festival holiday.",
+  },
+  {
+    date: "2027-11-14",
+    title: "Guru Nanak Jayanti",
+    type: "holiday",
+    description: "Festival holiday.",
   },
   {
     date: "2027-12-25",
@@ -328,21 +346,14 @@ const holidays: CalendarEvent[] = [
     description: "Christmas holiday.",
   },
 
-  // ==========================================================
+  // =========================
   // 2028
-  // ==========================================================
-
+  // =========================
   {
     date: "2028-01-01",
     title: "New Year's Day",
     type: "holiday",
-    description: "New Year holiday.",
-  },
-  {
-    date: "2028-01-15",
-    title: "Makar Sankranti",
-    type: "holiday",
-    description: "Hindu festival holiday.",
+    description: "Tuition holiday.",
   },
   {
     date: "2028-01-26",
@@ -351,7 +362,7 @@ const holidays: CalendarEvent[] = [
     description: "National holiday.",
   },
   {
-    date: "2028-02-23",
+    date: "2028-02-26",
     title: "Maha Shivratri",
     type: "holiday",
     description: "Hindu festival holiday.",
@@ -363,14 +374,8 @@ const holidays: CalendarEvent[] = [
     description: "Hindu festival holiday.",
   },
   {
-    date: "2028-04-02",
+    date: "2028-04-03",
     title: "Ram Navami",
-    type: "holiday",
-    description: "Hindu festival holiday.",
-  },
-  {
-    date: "2028-04-11",
-    title: "Hanuman Jayanti",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
@@ -393,13 +398,13 @@ const holidays: CalendarEvent[] = [
     description: "National holiday.",
   },
   {
-    date: "2028-08-23",
+    date: "2028-08-25",
     title: "Ganesh Chaturthi",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
   {
-    date: "2028-09-27",
+    date: "2028-09-30",
     title: "Dussehra",
     type: "holiday",
     description: "Hindu festival holiday.",
@@ -411,13 +416,25 @@ const holidays: CalendarEvent[] = [
     description: "National holiday.",
   },
   {
-    date: "2028-10-17",
+    date: "2028-11-03",
+    title: "Guru Nanak Jayanti",
+    type: "holiday",
+    description: "Festival holiday.",
+  },
+  {
+    date: "2028-11-17",
     title: "Diwali",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
   {
-    date: "2028-10-19",
+    date: "2028-11-18",
+    title: "Govardhan Puja",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2028-11-19",
     title: "Bhai Dooj",
     type: "holiday",
     description: "Hindu festival holiday.",
@@ -429,21 +446,14 @@ const holidays: CalendarEvent[] = [
     description: "Christmas holiday.",
   },
 
-  // ==========================================================
+  // =========================
   // 2029
-  // ==========================================================
-
+  // =========================
   {
     date: "2029-01-01",
     title: "New Year's Day",
     type: "holiday",
-    description: "New Year holiday.",
-  },
-  {
-    date: "2029-01-14",
-    title: "Makar Sankranti",
-    type: "holiday",
-    description: "Hindu festival holiday.",
+    description: "Tuition holiday.",
   },
   {
     date: "2029-01-26",
@@ -452,26 +462,20 @@ const holidays: CalendarEvent[] = [
     description: "National holiday.",
   },
   {
-    date: "2029-02-09",
+    date: "2029-02-13",
     title: "Maha Shivratri",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
   {
-    date: "2029-03-01",
+    date: "2029-03-02",
     title: "Holi",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
   {
-    date: "2029-04-20",
+    date: "2029-03-24",
     title: "Ram Navami",
-    type: "holiday",
-    description: "Hindu festival holiday.",
-  },
-  {
-    date: "2029-04-28",
-    title: "Hanuman Jayanti",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
@@ -494,7 +498,7 @@ const holidays: CalendarEvent[] = [
     description: "Hindu festival holiday.",
   },
   {
-    date: "2029-09-11",
+    date: "2029-09-12",
     title: "Ganesh Chaturthi",
     type: "holiday",
     description: "Hindu festival holiday.",
@@ -506,7 +510,7 @@ const holidays: CalendarEvent[] = [
     description: "National holiday.",
   },
   {
-    date: "2029-10-16",
+    date: "2029-10-17",
     title: "Dussehra",
     type: "holiday",
     description: "Hindu festival holiday.",
@@ -518,10 +522,22 @@ const holidays: CalendarEvent[] = [
     description: "Hindu festival holiday.",
   },
   {
+    date: "2029-11-06",
+    title: "Govardhan Puja",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
     date: "2029-11-07",
     title: "Bhai Dooj",
     type: "holiday",
     description: "Hindu festival holiday.",
+  },
+  {
+    date: "2029-11-22",
+    title: "Guru Nanak Jayanti",
+    type: "holiday",
+    description: "Festival holiday.",
   },
   {
     date: "2029-12-25",
@@ -530,21 +546,14 @@ const holidays: CalendarEvent[] = [
     description: "Christmas holiday.",
   },
 
-  // ==========================================================
+  // =========================
   // 2030
-  // ==========================================================
-
+  // =========================
   {
     date: "2030-01-01",
     title: "New Year's Day",
     type: "holiday",
-    description: "New Year holiday.",
-  },
-  {
-    date: "2030-01-14",
-    title: "Makar Sankranti",
-    type: "holiday",
-    description: "Hindu festival holiday.",
+    description: "Tuition holiday.",
   },
   {
     date: "2030-01-26",
@@ -553,26 +562,26 @@ const holidays: CalendarEvent[] = [
     description: "National holiday.",
   },
   {
-    date: "2030-03-02",
+    date: "2030-02-03",
+    title: "Basant Panchami",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
+    date: "2030-03-04",
     title: "Maha Shivratri",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
   {
-    date: "2030-03-20",
+    date: "2030-03-22",
     title: "Holi",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
   {
-    date: "2030-04-12",
+    date: "2030-04-13",
     title: "Ram Navami",
-    type: "holiday",
-    description: "Hindu festival holiday.",
-  },
-  {
-    date: "2030-04-18",
-    title: "Hanuman Jayanti",
     type: "holiday",
     description: "Hindu festival holiday.",
   },
@@ -595,7 +604,7 @@ const holidays: CalendarEvent[] = [
     description: "Hindu festival holiday.",
   },
   {
-    date: "2030-09-01",
+    date: "2030-09-03",
     title: "Ganesh Chaturthi",
     type: "holiday",
     description: "Hindu festival holiday.",
@@ -607,7 +616,7 @@ const holidays: CalendarEvent[] = [
     description: "National holiday.",
   },
   {
-    date: "2030-10-06",
+    date: "2030-10-07",
     title: "Dussehra",
     type: "holiday",
     description: "Hindu festival holiday.",
@@ -619,10 +628,22 @@ const holidays: CalendarEvent[] = [
     description: "Hindu festival holiday.",
   },
   {
+    date: "2030-10-27",
+    title: "Govardhan Puja",
+    type: "holiday",
+    description: "Hindu festival holiday.",
+  },
+  {
     date: "2030-10-28",
     title: "Bhai Dooj",
     type: "holiday",
     description: "Hindu festival holiday.",
+  },
+  {
+    date: "2030-11-12",
+    title: "Guru Nanak Jayanti",
+    type: "holiday",
+    description: "Festival holiday.",
   },
   {
     date: "2030-12-25",
@@ -677,23 +698,39 @@ function isSaturday(date: Date) {
   return date.getDay() === 6;
 }
 
+function isMonday(date: Date) {
+  return date.getDay() === 1;
+}
+
+function isSundayClassDate(date: Date) {
+  const key = dateKey(date);
+
+  return (
+    key >= "2026-08-30" &&
+    isSunday(date)
+  );
+}
+
+function isMondayOffDate(date: Date) {
+  const key = dateKey(date);
+
+  return (
+    key >= "2026-08-31" &&
+    isMonday(date)
+  );
+}
+
 export default function TeacherCalendarPage() {
   const today = new Date();
 
-  const [currentMonth, setCurrentMonth] = useState(
-    new Date(
-      today.getFullYear() < 2025
-        ? 2025
-        : today.getFullYear() > 2030
-        ? 2030
-        : today.getFullYear(),
-      today.getFullYear() >= 2025 &&
-        today.getFullYear() <= 2030
-        ? today.getMonth()
-        : 0,
-      1
-    )
-  );
+  const [currentMonth, setCurrentMonth] =
+    useState(
+      new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        1
+      )
+    );
 
   const [selectedEvent, setSelectedEvent] =
     useState<CalendarEvent | null>(null);
@@ -720,7 +757,11 @@ export default function TeacherCalendarPage() {
       days.push(null);
     }
 
-    for (let day = 1; day <= daysInMonth; day++) {
+    for (
+      let day = 1;
+      day <= daysInMonth;
+      day++
+    ) {
       days.push(
         new Date(year, month, day)
       );
@@ -735,71 +776,74 @@ export default function TeacherCalendarPage() {
   ]);
 
   function previousMonth() {
-    if (year === 2025 && month === 0) {
-      return;
-    }
-
     setCurrentMonth(
       new Date(year, month - 1, 1)
     );
   }
 
   function nextMonth() {
-    if (year === 2030 && month === 11) {
-      return;
-    }
-
     setCurrentMonth(
       new Date(year, month + 1, 1)
     );
   }
 
   function goToday() {
-    const todayYear = today.getFullYear();
-
-    if (
-      todayYear >= 2025 &&
-      todayYear <= 2030
-    ) {
-      setCurrentMonth(
-        new Date(
-          todayYear,
-          today.getMonth(),
-          1
-        )
-      );
-    } else {
-      setCurrentMonth(
-        new Date(2025, 0, 1)
-      );
-    }
+    setCurrentMonth(
+      new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        1
+      )
+    );
   }
 
-  function getDayInfo(date: Date): CalendarEvent | null {
-    /*
-      PRIORITY:
-      1. Holiday
-      2. Sunday OFF
-      3. Saturday Weekly Test
-      4. Monday-Friday Class
-    */
-
+  function getDayInfo(
+    date: Date
+  ): CalendarEvent | null {
     const holiday = getHoliday(date);
 
+    // Special holidays always have priority.
     if (holiday) {
       return holiday;
     }
 
+    // FROM 30 AUGUST 2026:
+    // Sunday becomes a regular CLASS day.
+    if (isSundayClassDate(date)) {
+      return {
+        date: dateKey(date),
+        title: "Sunday Class",
+        type: "class",
+        description:
+          "Sunday classes are open from 30 August 2026 onward.",
+      };
+    }
+
+    // FROM 31 AUGUST 2026:
+    // Every Monday is OFF.
+    if (isMondayOffDate(date)) {
+      return {
+        date: dateKey(date),
+        title: "Monday Off",
+        type: "holiday",
+        description:
+          "Monday is the weekly tuition holiday from 31 August 2026 onward.",
+      };
+    }
+
+    // BEFORE 30 AUGUST 2026:
+    // Sundays remain OFF.
     if (isSunday(date)) {
       return {
         date: dateKey(date),
         title: "Sunday Off",
         type: "holiday",
         description:
-          "Sunday is a weekly tuition holiday.",
+          "Sunday was a weekly tuition holiday before 30 August 2026.",
       };
     }
 
+    // Saturday remains Weekly Test.
     if (isSaturday(date)) {
       return {
         date: dateKey(date),
@@ -810,58 +854,25 @@ export default function TeacherCalendarPage() {
       };
     }
 
-    return {
-      date: dateKey(date),
-      title: "Regular Tuition Class",
-      type: "class",
-      description:
-        "Regular tuition class from Monday to Friday.",
-    };
-  }
-
-  function getModalIcon(type: CalendarEvent["type"]) {
-    if (type === "test") {
-      return "📝";
-    }
-
-    if (type === "class") {
-      return "📚";
-    }
-
-    return "🎉";
-  }
-
-  function getModalBadge(type: CalendarEvent["type"]) {
-    if (type === "test") {
-      return "WEEKLY TEST";
-    }
-
-    if (type === "class") {
-      return "REGULAR CLASS";
-    }
-
-    return "HOLIDAY";
+    return null;
   }
 
   return (
     <main style={styles.page}>
       <div style={styles.container}>
-
-        {/* HEADER */}
-
         <header style={styles.header}>
           <div>
             <div style={styles.badge}>
-              TEACHER PORTAL • 2025 — 2030
+              TEACHER PORTAL
             </div>
 
             <h1 style={styles.title}>
-              📅 Tuition Calendar
+              📅 Academic Calendar
             </h1>
 
             <p style={styles.subtitle}>
               Classes • Weekly Tests • Sundays •
-              Hindu & National Holidays
+              Holidays
             </p>
           </div>
 
@@ -873,27 +884,31 @@ export default function TeacherCalendarPage() {
           </a>
         </header>
 
-        {/* LEGEND */}
-
         <section style={styles.legendCard}>
-
           <Legend
             icon="📚"
-            title="Monday - Friday • Class"
+            title="Regular Class"
             color="#2563eb"
             background="#eff6ff"
           />
 
           <Legend
             icon="📝"
-            title="Saturday • Weekly Test"
+            title="Every Saturday - Weekly Test"
             color="#7c3aed"
             background="#f5f3ff"
           />
 
           <Legend
+            icon="📚"
+            title="Sunday - CLASS"
+            color="#2563eb"
+            background="#eff6ff"
+          />
+
+          <Legend
             icon="🔴"
-            title="Sunday • OFF"
+            title="Monday - OFF"
             color="#dc2626"
             background="#fef2f2"
           />
@@ -904,51 +919,14 @@ export default function TeacherCalendarPage() {
             color="#ea580c"
             background="#fff7ed"
           />
-
         </section>
-
-        {/* YEAR RANGE */}
-
-        <section style={styles.rangeCard}>
-          <div>
-            <strong style={styles.rangeTitle}>
-              📆 Academic Calendar Range
-            </strong>
-
-            <p style={styles.rangeText}>
-              Holidays are configured from
-              <strong> 2025 </strong>
-              to
-              <strong> 2030 </strong>.
-            </p>
-          </div>
-
-          <div style={styles.rangeBadge}>
-            2025 → 2030
-          </div>
-        </section>
-
-        {/* CALENDAR */}
 
         <section style={styles.calendarCard}>
-
           <div style={styles.calendarTop}>
-
             <button
               type="button"
               onClick={previousMonth}
-              disabled={
-                year === 2025 &&
-                month === 0
-              }
-              style={{
-                ...styles.navButton,
-                opacity:
-                  year === 2025 &&
-                  month === 0
-                    ? 0.4
-                    : 1,
-              }}
+              style={styles.navButton}
             >
               ←
             </button>
@@ -960,22 +938,10 @@ export default function TeacherCalendarPage() {
             <button
               type="button"
               onClick={nextMonth}
-              disabled={
-                year === 2030 &&
-                month === 11
-              }
-              style={{
-                ...styles.navButton,
-                opacity:
-                  year === 2030 &&
-                  month === 11
-                    ? 0.4
-                    : 1,
-              }}
+              style={styles.navButton}
             >
               →
             </button>
-
           </div>
 
           <button
@@ -1003,6 +969,9 @@ export default function TeacherCalendarPage() {
                   ...(day === "Sun"
                     ? styles.sundayHeader
                     : {}),
+                  ...(day === "Mon"
+                    ? styles.mondayHeader
+                    : {}),
                   ...(day === "Sat"
                     ? styles.saturdayHeader
                     : {}),
@@ -1014,10 +983,8 @@ export default function TeacherCalendarPage() {
           </div>
 
           <div style={styles.calendarGrid}>
-
             {calendarDays.map(
               (date, index) => {
-
                 if (!date) {
                   return (
                     <div
@@ -1033,8 +1000,17 @@ export default function TeacherCalendarPage() {
                 const sunday =
                   isSunday(date);
 
+                const monday =
+                  isMonday(date);
+
                 const saturday =
                   isSaturday(date);
+
+                const sundayClass =
+                  isSundayClassDate(date);
+
+                const mondayOff =
+                  isMondayOffDate(date);
 
                 const holiday =
                   getHoliday(date);
@@ -1049,7 +1025,9 @@ export default function TeacherCalendarPage() {
                     key={dateKey(date)}
                     onClick={() => {
                       if (info) {
-                        setSelectedEvent(info);
+                        setSelectedEvent(
+                          info
+                        );
                       }
                     }}
                     style={{
@@ -1057,8 +1035,19 @@ export default function TeacherCalendarPage() {
                       ...(todayDate
                         ? styles.today
                         : {}),
-                      ...(sunday
+                      ...(sunday &&
+                      !sundayClass &&
+                      !holiday
                         ? styles.sunday
+                        : {}),
+                      ...(sundayClass &&
+                      !holiday
+                        ? styles.sundayClass
+                        : {}),
+                      ...(monday &&
+                      mondayOff &&
+                      !holiday
+                        ? styles.mondayOff
                         : {}),
                       ...(saturday
                         ? styles.saturday
@@ -1068,7 +1057,6 @@ export default function TeacherCalendarPage() {
                         : {}),
                     }}
                   >
-
                     <div
                       style={{
                         ...styles.dayNumber,
@@ -1083,15 +1071,49 @@ export default function TeacherCalendarPage() {
                     {holiday ? (
                       <>
                         <div
-                          style={styles.holidayLabel}
+                          style={
+                            styles.holidayLabel
+                          }
                         >
                           🎉 HOLIDAY
                         </div>
 
                         <div
-                          style={styles.eventName}
+                          style={
+                            styles.eventName
+                          }
                         >
                           {holiday.title}
+                        </div>
+                      </>
+                    ) : sundayClass ? (
+                      <>
+                        <div
+                          style={
+                            styles.classLabel
+                          }
+                        >
+                          📚 CLASS
+                        </div>
+
+                        <div
+                          style={styles.smallText}
+                        >
+                          Sunday Class
+                        </div>
+                      </>
+                    ) : mondayOff ? (
+                      <>
+                        <div
+                          style={styles.offLabel}
+                        >
+                          🔴 OFF
+                        </div>
+
+                        <div
+                          style={styles.smallText}
+                        >
+                          Monday
                         </div>
                       </>
                     ) : sunday ? (
@@ -1111,7 +1133,9 @@ export default function TeacherCalendarPage() {
                     ) : saturday ? (
                       <>
                         <div
-                          style={styles.testLabel}
+                          style={
+                            styles.testLabel
+                          }
                         >
                           📝 TEST
                         </div>
@@ -1125,7 +1149,9 @@ export default function TeacherCalendarPage() {
                     ) : (
                       <>
                         <div
-                          style={styles.classLabel}
+                          style={
+                            styles.classLabel
+                          }
                         >
                           📚 CLASS
                         </div>
@@ -1137,25 +1163,34 @@ export default function TeacherCalendarPage() {
                         </div>
                       </>
                     )}
-
                   </button>
                 );
               }
             )}
-
           </div>
-
         </section>
 
-        {/* MONTH INFORMATION */}
-
         <section style={styles.infoCard}>
-
           <h2 style={styles.sectionTitle}>
-            📋 {monthNames[month]} {year} Schedule
+            📋 {monthNames[month]} Schedule
           </h2>
 
           <div style={styles.infoGrid}>
+            <div style={styles.infoItem}>
+              <div style={styles.infoIcon}>
+                📚
+              </div>
+
+              <div>
+                <strong>
+                  Tuesday - Friday
+                </strong>
+
+                <p>
+                  Regular Tuition Classes
+                </p>
+              </div>
+            </div>
 
             <div style={styles.infoItem}>
               <div style={styles.infoIcon}>
@@ -1164,10 +1199,10 @@ export default function TeacherCalendarPage() {
 
               <div>
                 <strong>
-                  Monday - Friday
+                  Every Sunday
                 </strong>
 
-                <p style={styles.infoItemText}>
+                <p>
                   Regular Tuition Classes
                 </p>
               </div>
@@ -1183,7 +1218,7 @@ export default function TeacherCalendarPage() {
                   Every Saturday
                 </strong>
 
-                <p style={styles.infoItemText}>
+                <p>
                   Weekly Test
                 </p>
               </div>
@@ -1196,10 +1231,10 @@ export default function TeacherCalendarPage() {
 
               <div>
                 <strong>
-                  Every Sunday
+                  Every Monday
                 </strong>
 
-                <p style={styles.infoItemText}>
+                <p>
                   Tuition Closed
                 </p>
               </div>
@@ -1215,49 +1250,37 @@ export default function TeacherCalendarPage() {
                   Holidays
                 </strong>
 
-                <p style={styles.infoItemText}>
+                <p>
                   Tuition Closed
                 </p>
               </div>
             </div>
-
           </div>
-
         </section>
 
-        {/* HOLIDAYS */}
-
         <section style={styles.holidayCard}>
-
-          <div style={styles.holidayHeader}>
-            <div>
-              <h2 style={styles.sectionTitle}>
-                🎉 Tuition Holidays
-              </h2>
-
-              <p style={styles.holidaySubtitle}>
-                2025 — 2030 holiday schedule
-              </p>
-            </div>
-
-            <div style={styles.holidayCount}>
-              {holidays.length} Holidays
-            </div>
-          </div>
+          <h2 style={styles.sectionTitle}>
+            🎉 Tuition Holidays
+          </h2>
 
           <div style={styles.holidayList}>
-
-            {holidays.map((holiday) => (
-              <button
-                type="button"
-                key={`${holiday.date}-${holiday.title}`}
-                onClick={() =>
-                  setSelectedEvent(holiday)
-                }
-                style={styles.holidayRow}
-              >
-
-                <div>
+            {holidays
+              .filter((holiday) =>
+                holiday.date.startsWith(
+                  String(year)
+                )
+              )
+              .map((holiday) => (
+                <button
+                  type="button"
+                  key={holiday.date}
+                  onClick={() =>
+                    setSelectedEvent(
+                      holiday
+                    )
+                  }
+                  style={styles.holidayRow}
+                >
                   <strong>
                     {formatDate(
                       new Date(
@@ -1266,30 +1289,25 @@ export default function TeacherCalendarPage() {
                     )}
                   </strong>
 
-                  <div style={styles.holidayDay}>
-                    {new Date(
-                      `${holiday.date}T00:00:00`
-                    ).toLocaleDateString(
-                      "en-IN",
-                      {
-                        weekday: "long",
-                      }
-                    )}
-                  </div>
-                </div>
+                  <span>
+                    🎉 {holiday.title}
+                  </span>
+                </button>
+              ))}
 
-                <span>
-                  🎉 {holiday.title}
-                </span>
-
-              </button>
-            ))}
-
+            {holidays.filter(
+              (holiday) =>
+                holiday.date.startsWith(
+                  String(year)
+                )
+            ).length === 0 && (
+              <div style={styles.noHoliday}>
+                No special holidays added for
+                this year.
+              </div>
+            )}
           </div>
-
         </section>
-
-        {/* MODAL */}
 
         {selectedEvent && (
           <div
@@ -1304,29 +1322,14 @@ export default function TeacherCalendarPage() {
                 e.stopPropagation()
               }
             >
-
               <div style={styles.modalIcon}>
-                {getModalIcon(
-                  selectedEvent.type
-                )}
-              </div>
-
-              <div
-                style={{
-                  ...styles.modalBadge,
-                  ...(selectedEvent.type ===
-                  "class"
-                    ? styles.modalClassBadge
-                    : {}),
-                  ...(selectedEvent.type ===
-                  "test"
-                    ? styles.modalTestBadge
-                    : {}),
-                }}
-              >
-                {getModalBadge(
-                  selectedEvent.type
-                )}
+                {selectedEvent.type ===
+                "test"
+                  ? "📝"
+                  : selectedEvent.type ===
+                    "class"
+                  ? "📚"
+                  : "🎉"}
               </div>
 
               <h2 style={styles.modalTitle}>
@@ -1342,7 +1345,11 @@ export default function TeacherCalendarPage() {
                 )}
               </p>
 
-              <p style={styles.modalDescription}>
+              <p
+                style={
+                  styles.modalDescription
+                }
+              >
                 {selectedEvent.description}
               </p>
 
@@ -1355,16 +1362,14 @@ export default function TeacherCalendarPage() {
               >
                 Close
               </button>
-
             </div>
           </div>
         )}
 
         <footer style={styles.footer}>
-          Attendance Portal • Teacher Tuition Calendar •
-          2025 — 2030
+          Attendance Portal • Teacher Calendar •
+          2025–2030
         </footer>
-
       </div>
     </main>
   );
@@ -1403,11 +1408,9 @@ function Legend({
 const styles: {
   [key: string]: React.CSSProperties;
 } = {
-
   page: {
     minHeight: "100vh",
-    background:
-      "linear-gradient(135deg,#f8fafc 0%,#eef2ff 50%,#f8fafc 100%)",
+    background: "#f5f7fb",
     padding: "20px",
     boxSizing: "border-box",
     fontFamily:
@@ -1422,8 +1425,8 @@ const styles: {
 
   header: {
     background: "white",
-    borderRadius: "20px",
-    padding: "24px",
+    borderRadius: "18px",
+    padding: "22px",
     marginBottom: "18px",
     display: "flex",
     justifyContent: "space-between",
@@ -1431,33 +1434,30 @@ const styles: {
     gap: "15px",
     flexWrap: "wrap",
     boxShadow:
-      "0 8px 30px rgba(15,23,42,0.08)",
-    border:
-      "1px solid rgba(148,163,184,0.18)",
+      "0 4px 15px rgba(15,23,42,0.07)",
   },
 
   badge: {
     display: "inline-block",
     background: "#eff6ff",
     color: "#1d4ed8",
-    padding: "7px 11px",
+    padding: "6px 10px",
     borderRadius: "999px",
     fontSize: "10px",
-    fontWeight: "900",
-    marginBottom: "9px",
-    letterSpacing: "0.5px",
+    fontWeight: "800",
+    marginBottom: "8px",
   },
 
   title: {
     margin: 0,
     color: "#111827",
-    fontSize: "30px",
-    fontWeight: "900",
+    fontSize: "28px",
+    fontWeight: "800",
   },
 
   subtitle: {
-    margin: "7px 0 0",
-    color: "#64748b",
+    margin: "6px 0 0",
+    color: "#6b7280",
     fontSize: "14px",
   },
 
@@ -1465,15 +1465,15 @@ const styles: {
     textDecoration: "none",
     background: "#111827",
     color: "white",
-    padding: "12px 16px",
-    borderRadius: "10px",
-    fontWeight: "800",
+    padding: "11px 15px",
+    borderRadius: "9px",
+    fontWeight: "700",
     fontSize: "13px",
   },
 
   legendCard: {
     background: "white",
-    borderRadius: "18px",
+    borderRadius: "16px",
     padding: "15px",
     display: "grid",
     gridTemplateColumns:
@@ -1481,22 +1481,22 @@ const styles: {
     gap: "10px",
     marginBottom: "18px",
     boxShadow:
-      "0 6px 22px rgba(15,23,42,0.06)",
+      "0 4px 15px rgba(15,23,42,0.06)",
   },
 
   legendItem: {
     display: "flex",
     alignItems: "center",
     gap: "9px",
-    padding: "10px",
+    padding: "9px",
     background: "#f8fafc",
-    borderRadius: "10px",
+    borderRadius: "9px",
   },
 
   legendIcon: {
-    width: "36px",
-    height: "36px",
-    borderRadius: "9px",
+    width: "34px",
+    height: "34px",
+    borderRadius: "8px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -1509,48 +1509,12 @@ const styles: {
     fontSize: "12px",
   },
 
-  rangeCard: {
-    background:
-      "linear-gradient(135deg,#111827,#1e3a8a)",
-    color: "white",
-    borderRadius: "18px",
-    padding: "17px 20px",
-    marginBottom: "18px",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "15px",
-    flexWrap: "wrap",
-    boxShadow:
-      "0 10px 30px rgba(30,58,138,0.18)",
-  },
-
-  rangeTitle: {
-    fontSize: "15px",
-  },
-
-  rangeText: {
-    margin: "5px 0 0",
-    color: "#dbeafe",
-    fontSize: "12px",
-  },
-
-  rangeBadge: {
-    background: "rgba(255,255,255,0.14)",
-    border:
-      "1px solid rgba(255,255,255,0.18)",
-    padding: "9px 13px",
-    borderRadius: "999px",
-    fontWeight: "900",
-    fontSize: "12px",
-  },
-
   calendarCard: {
     background: "white",
-    borderRadius: "18px",
+    borderRadius: "16px",
     padding: "18px",
     boxShadow:
-      "0 8px 28px rgba(15,23,42,0.08)",
+      "0 4px 15px rgba(15,23,42,0.07)",
     overflowX: "auto",
   },
 
@@ -1562,22 +1526,22 @@ const styles: {
   },
 
   monthTitle: {
-    minWidth: "210px",
+    minWidth: "190px",
     textAlign: "center",
     color: "#111827",
-    fontSize: "24px",
-    fontWeight: "900",
+    fontSize: "23px",
+    fontWeight: "800",
   },
 
   navButton: {
     width: "42px",
     height: "42px",
     border: "none",
-    borderRadius: "10px",
+    borderRadius: "9px",
     background: "#eff6ff",
     color: "#1d4ed8",
     fontSize: "20px",
-    fontWeight: "900",
+    fontWeight: "800",
     cursor: "pointer",
   },
 
@@ -1587,9 +1551,9 @@ const styles: {
     border: "none",
     background: "#2563eb",
     color: "white",
-    padding: "9px 18px",
+    padding: "9px 17px",
     borderRadius: "9px",
-    fontWeight: "800",
+    fontWeight: "700",
     cursor: "pointer",
   },
 
@@ -1606,12 +1570,17 @@ const styles: {
     padding: "10px 4px",
     background: "#f1f5f9",
     color: "#334155",
-    fontWeight: "900",
+    fontWeight: "800",
     fontSize: "12px",
     borderRadius: "7px",
   },
 
   sundayHeader: {
+    background: "#eff6ff",
+    color: "#2563eb",
+  },
+
+  mondayHeader: {
     background: "#fef2f2",
     color: "#dc2626",
   },
@@ -1631,15 +1600,15 @@ const styles: {
   },
 
   emptyDay: {
-    minHeight: "105px",
+    minHeight: "100px",
     background: "#f8fafc",
     borderRadius: "8px",
   },
 
   day: {
-    minHeight: "105px",
+    minHeight: "100px",
     border: "1px solid #e5e7eb",
-    borderRadius: "9px",
+    borderRadius: "8px",
     padding: "8px",
     background: "white",
     textAlign: "left",
@@ -1650,11 +1619,19 @@ const styles: {
 
   today: {
     border: "2px solid #2563eb",
-    boxShadow:
-      "0 0 0 3px rgba(37,99,235,0.08)",
   },
 
   sunday: {
+    background: "#fff7f7",
+    borderColor: "#fecaca",
+  },
+
+  sundayClass: {
+    background: "#f5f9ff",
+    borderColor: "#bfdbfe",
+  },
+
+  mondayOff: {
     background: "#fff7f7",
     borderColor: "#fecaca",
   },
@@ -1672,7 +1649,7 @@ const styles: {
   dayNumber: {
     color: "#374151",
     fontSize: "14px",
-    fontWeight: "900",
+    fontWeight: "800",
     marginBottom: "12px",
   },
 
@@ -1724,7 +1701,7 @@ const styles: {
     marginTop: "6px",
     color: "#9a3412",
     fontSize: "9px",
-    fontWeight: "800",
+    fontWeight: "700",
     lineHeight: 1.3,
   },
 
@@ -1737,18 +1714,18 @@ const styles: {
 
   infoCard: {
     background: "white",
-    borderRadius: "18px",
+    borderRadius: "16px",
     padding: "20px",
     marginTop: "18px",
     boxShadow:
-      "0 6px 22px rgba(15,23,42,0.06)",
+      "0 4px 15px rgba(15,23,42,0.06)",
   },
 
   sectionTitle: {
     margin: 0,
     color: "#111827",
     fontSize: "20px",
-    fontWeight: "900",
+    fontWeight: "800",
   },
 
   infoGrid: {
@@ -1772,42 +1749,13 @@ const styles: {
     fontSize: "25px",
   },
 
-  infoItemText: {
-    margin: "5px 0 0",
-    color: "#64748b",
-    fontSize: "12px",
-  },
-
   holidayCard: {
     background: "white",
-    borderRadius: "18px",
+    borderRadius: "16px",
     padding: "20px",
     marginTop: "18px",
     boxShadow:
-      "0 6px 22px rgba(15,23,42,0.06)",
-  },
-
-  holidayHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "12px",
-    flexWrap: "wrap",
-  },
-
-  holidaySubtitle: {
-    margin: "5px 0 0",
-    color: "#94a3b8",
-    fontSize: "12px",
-  },
-
-  holidayCount: {
-    background: "#fff7ed",
-    color: "#c2410c",
-    padding: "8px 11px",
-    borderRadius: "999px",
-    fontSize: "11px",
-    fontWeight: "900",
+      "0 4px 15px rgba(15,23,42,0.06)",
   },
 
   holidayList: {
@@ -1830,16 +1778,19 @@ const styles: {
     textAlign: "left",
   },
 
-  holidayDay: {
-    color: "#9ca3af",
-    fontSize: "10px",
-    marginTop: "3px",
+  noHoliday: {
+    padding: "15px",
+    background: "#f8fafc",
+    borderRadius: "10px",
+    color: "#6b7280",
+    textAlign: "center",
+    fontSize: "13px",
   },
 
   modalOverlay: {
     position: "fixed",
     inset: 0,
-    background: "rgba(15,23,42,0.58)",
+    background: "rgba(15,23,42,0.55)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -1851,37 +1802,16 @@ const styles: {
     width: "100%",
     maxWidth: "420px",
     background: "white",
-    borderRadius: "20px",
+    borderRadius: "18px",
     padding: "25px",
     textAlign: "center",
     boxShadow:
-      "0 25px 60px rgba(15,23,42,0.25)",
+      "0 20px 50px rgba(15,23,42,0.2)",
   },
 
   modalIcon: {
     fontSize: "42px",
-    marginBottom: "6px",
-  },
-
-  modalBadge: {
-    display: "inline-block",
-    background: "#fff7ed",
-    color: "#ea580c",
-    padding: "6px 9px",
-    borderRadius: "999px",
-    fontSize: "9px",
-    fontWeight: "900",
     marginBottom: "8px",
-  },
-
-  modalClassBadge: {
-    background: "#eff6ff",
-    color: "#2563eb",
-  },
-
-  modalTestBadge: {
-    background: "#f5f3ff",
-    color: "#7c3aed",
   },
 
   modalTitle: {
@@ -1892,7 +1822,7 @@ const styles: {
 
   modalDate: {
     color: "#6b7280",
-    fontWeight: "800",
+    fontWeight: "700",
     fontSize: "13px",
   },
 
@@ -1910,7 +1840,7 @@ const styles: {
     color: "white",
     padding: "11px",
     borderRadius: "9px",
-    fontWeight: "800",
+    fontWeight: "700",
     cursor: "pointer",
   },
 
