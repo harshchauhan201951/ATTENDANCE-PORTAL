@@ -698,6 +698,28 @@ function isSaturday(date: Date) {
   return date.getDay() === 6;
 }
 
+function isMonday(date: Date) {
+  return date.getDay() === 1;
+}
+
+/*
+  IMPORTANT SCHEDULE CHANGE
+
+  Before 30 August 2026:
+  - Sunday = OFF
+  - Monday-Friday = Regular Class
+  - Saturday = Weekly Test
+
+  From 30 August 2026 onward:
+  - Sunday = Regular Class
+  - Monday = OFF
+  - Tuesday-Friday = Regular Class
+  - Saturday = Weekly Test
+
+  Existing holidays always have priority.
+*/
+const SCHEDULE_CHANGE_DATE = "2026-08-30";
+
 export default function StudentCalendarPage() {
   const today = new Date();
 
@@ -770,17 +792,31 @@ export default function StudentCalendarPage() {
     );
   }
 
+  function isNewScheduleActive(date: Date) {
+    return dateKey(date) >= SCHEDULE_CHANGE_DATE;
+  }
+
   function getDayInfo(date: Date) {
     const holiday = getHoliday(date);
 
-    // Holiday always gets priority.
-    // If a holiday is on Saturday, it remains HOLIDAY,
-    // not Weekly Test.
+    /*
+      Holiday always gets priority.
+      This means if Monday/Sunday/Saturday has
+      a holiday, it remains HOLIDAY.
+    */
     if (holiday) {
       return holiday;
     }
 
-    if (isSunday(date)) {
+    const newSchedule =
+      isNewScheduleActive(date);
+
+    /*
+      OLD SCHEDULE
+      Before 30 August 2026:
+      Sunday = OFF
+    */
+    if (!newSchedule && isSunday(date)) {
       return {
         date: dateKey(date),
         title: "Sunday Off",
@@ -790,6 +826,25 @@ export default function StudentCalendarPage() {
       };
     }
 
+    /*
+      NEW SCHEDULE
+      From 30 August 2026:
+      Monday = OFF
+    */
+    if (newSchedule && isMonday(date)) {
+      return {
+        date: dateKey(date),
+        title: "Monday Off",
+        type: "holiday" as const,
+        description:
+          "Monday is a weekly tuition holiday.",
+      };
+    }
+
+    /*
+      Saturday remains Weekly Test
+      throughout the calendar.
+    */
     if (isSaturday(date)) {
       return {
         date: dateKey(date),
@@ -800,13 +855,42 @@ export default function StudentCalendarPage() {
       };
     }
 
-    return null;
+    /*
+      All remaining days are regular classes.
+    */
+    return {
+      date: dateKey(date),
+      title: "Regular Class",
+      type: "class" as const,
+      description:
+        "Regular tuition class.",
+    };
+  }
+
+  function isOffDay(date: Date) {
+    const holiday = getHoliday(date);
+
+    if (holiday) {
+      return false;
+    }
+
+    const newSchedule =
+      isNewScheduleActive(date);
+
+    if (!newSchedule && isSunday(date)) {
+      return true;
+    }
+
+    if (newSchedule && isMonday(date)) {
+      return true;
+    }
+
+    return false;
   }
 
   return (
     <main style={styles.page}>
       <div style={styles.container}>
-
         <header style={styles.header}>
           <div>
             <div style={styles.badge}>
@@ -847,7 +931,7 @@ export default function StudentCalendarPage() {
 
           <Legend
             icon="🔴"
-            title="Every Sunday - OFF"
+            title="Weekly Off Day"
             color="#dc2626"
             background="#fef2f2"
           />
@@ -860,8 +944,25 @@ export default function StudentCalendarPage() {
           />
         </section>
 
-        <section style={styles.calendarCard}>
+        <section style={styles.changeNotice}>
+          <div style={styles.changeNoticeIcon}>
+            🔄
+          </div>
 
+          <div>
+            <strong style={styles.changeNoticeTitle}>
+              Schedule Updated from 30 August 2026
+            </strong>
+
+            <p style={styles.changeNoticeText}>
+              Sunday will now be a regular class day
+              and Monday will be the weekly off day.
+              Saturday weekly tests remain unchanged.
+            </p>
+          </div>
+        </section>
+
+        <section style={styles.calendarCard}>
           <div style={styles.calendarTop}>
             <button
               type="button"
@@ -909,6 +1010,9 @@ export default function StudentCalendarPage() {
                   ...(day === "Sun"
                     ? styles.sundayHeader
                     : {}),
+                  ...(day === "Mon"
+                    ? styles.mondayHeader
+                    : {}),
                   ...(day === "Sat"
                     ? styles.saturdayHeader
                     : {}),
@@ -937,15 +1041,24 @@ export default function StudentCalendarPage() {
                 const sunday =
                   isSunday(date);
 
+                const monday =
+                  isMonday(date);
+
                 const saturday =
                   isSaturday(date);
 
                 const holiday =
                   getHoliday(date);
 
+                const offDay =
+                  isOffDay(date);
+
                 const todayDate =
                   dateKey(date) ===
                   dateKey(today);
+
+                const newSchedule =
+                  isNewScheduleActive(date);
 
                 return (
                   <button
@@ -953,7 +1066,9 @@ export default function StudentCalendarPage() {
                     key={dateKey(date)}
                     onClick={() => {
                       if (info) {
-                        setSelectedEvent(info);
+                        setSelectedEvent(
+                          info
+                        );
                       }
                     }}
                     style={{
@@ -964,11 +1079,17 @@ export default function StudentCalendarPage() {
                       ...(sunday
                         ? styles.sunday
                         : {}),
+                      ...(monday
+                        ? styles.monday
+                        : {}),
                       ...(saturday
                         ? styles.saturday
                         : {}),
                       ...(holiday
                         ? styles.holiday
+                        : {}),
+                      ...(offDay
+                        ? styles.offDay
                         : {}),
                     }}
                   >
@@ -1001,7 +1122,7 @@ export default function StudentCalendarPage() {
                           {holiday.title}
                         </div>
                       </>
-                    ) : sunday ? (
+                    ) : offDay ? (
                       <>
                         <div
                           style={styles.offLabel}
@@ -1012,7 +1133,10 @@ export default function StudentCalendarPage() {
                         <div
                           style={styles.smallText}
                         >
-                          Sunday
+                          {newSchedule &&
+                          monday
+                            ? "Monday"
+                            : "Sunday"}
                         </div>
                       </>
                     ) : saturday ? (
@@ -1068,7 +1192,10 @@ export default function StudentCalendarPage() {
 
               <div>
                 <strong>
-                  Monday - Friday
+                  {year >= 2026 &&
+                  month >= 7
+                    ? "Tuesday - Sunday"
+                    : "Monday - Friday"}
                 </strong>
 
                 <p>
@@ -1100,7 +1227,11 @@ export default function StudentCalendarPage() {
 
               <div>
                 <strong>
-                  Every Sunday
+                  {year > 2026 ||
+                  (year === 2026 &&
+                    month >= 7)
+                    ? "Every Monday"
+                    : "Every Sunday"}
                 </strong>
 
                 <p>
@@ -1196,7 +1327,14 @@ export default function StudentCalendarPage() {
                 {selectedEvent.type ===
                 "test"
                   ? "📝"
-                  : "🎉"}
+                  : selectedEvent.title.includes(
+                      "Off"
+                    )
+                  ? "🔴"
+                  : selectedEvent.type ===
+                    "holiday"
+                  ? "🎉"
+                  : "📚"}
               </div>
 
               <h2 style={styles.modalTitle}>
@@ -1376,6 +1514,46 @@ const styles: {
     fontSize: "12px",
   },
 
+  changeNotice: {
+    background:
+      "linear-gradient(135deg,#eff6ff,#eef2ff)",
+    border: "1px solid #bfdbfe",
+    borderRadius: "16px",
+    padding: "15px",
+    marginBottom: "18px",
+    display: "flex",
+    alignItems: "center",
+    gap: "13px",
+    boxShadow:
+      "0 4px 15px rgba(37,99,235,0.05)",
+  },
+
+  changeNoticeIcon: {
+    width: "42px",
+    height: "42px",
+    borderRadius: "11px",
+    background: "white",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "21px",
+    flexShrink: 0,
+  },
+
+  changeNoticeTitle: {
+    display: "block",
+    color: "#1e3a8a",
+    fontSize: "14px",
+    fontWeight: "800",
+  },
+
+  changeNoticeText: {
+    margin: "4px 0 0",
+    color: "#475569",
+    fontSize: "12px",
+    lineHeight: 1.5,
+  },
+
   calendarCard: {
     background: "white",
     borderRadius: "16px",
@@ -1443,6 +1621,11 @@ const styles: {
   },
 
   sundayHeader: {
+    background: "#eff6ff",
+    color: "#2563eb",
+  },
+
+  mondayHeader: {
     background: "#fef2f2",
     color: "#dc2626",
   },
@@ -1484,6 +1667,11 @@ const styles: {
   },
 
   sunday: {
+    background: "#f4f9ff",
+    borderColor: "#bfdbfe",
+  },
+
+  monday: {
     background: "#fff7f7",
     borderColor: "#fecaca",
   },
@@ -1496,6 +1684,11 @@ const styles: {
   holiday: {
     background: "#fffaf5",
     borderColor: "#fed7aa",
+  },
+
+  offDay: {
+    background: "#fff7f7",
+    borderColor: "#fecaca",
   },
 
   dayNumber: {
