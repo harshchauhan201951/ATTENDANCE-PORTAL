@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 type CalendarEvent = {
   date: string;
   title: string;
-  type: "holiday" | "test";
+  type: "holiday" | "test" | "class";
   description: string;
 };
 
@@ -15,11 +15,12 @@ type CalendarEvent = {
   YEARS: 2025 - 2030
 
   RULES:
-  1. Sunday = OFF
-  2. Saturday = Weekly Test
-  3. Holiday has priority over Saturday/Sunday
-  4. Muslim holidays are intentionally NOT included
-  5. Includes major Hindu, Indian national, New Year & Christmas
+  1. Monday - Friday = CLASS
+  2. Saturday = WEEKLY TEST
+  3. Sunday = OFF
+  4. Holiday has priority over Saturday/Sunday
+  5. Muslim holidays are intentionally NOT included
+  6. Major Hindu, Indian National, New Year & Christmas holidays
   ============================================================
 */
 
@@ -774,12 +775,13 @@ export default function TeacherCalendarPage() {
     }
   }
 
-  function getDayInfo(date: Date) {
+  function getDayInfo(date: Date): CalendarEvent | null {
     /*
-      IMPORTANT:
-      Holiday has highest priority.
-      Therefore if Saturday/Sunday is a holiday,
-      only HOLIDAY will be shown.
+      PRIORITY:
+      1. Holiday
+      2. Sunday OFF
+      3. Saturday Weekly Test
+      4. Monday-Friday Class
     */
 
     const holiday = getHoliday(date);
@@ -792,7 +794,7 @@ export default function TeacherCalendarPage() {
       return {
         date: dateKey(date),
         title: "Sunday Off",
-        type: "holiday" as const,
+        type: "holiday",
         description:
           "Sunday is a weekly tuition holiday.",
       };
@@ -802,13 +804,43 @@ export default function TeacherCalendarPage() {
       return {
         date: dateKey(date),
         title: "Weekly Test",
-        type: "test" as const,
+        type: "test",
         description:
           "Weekly test for tuition students.",
       };
     }
 
-    return null;
+    return {
+      date: dateKey(date),
+      title: "Regular Tuition Class",
+      type: "class",
+      description:
+        "Regular tuition class from Monday to Friday.",
+    };
+  }
+
+  function getModalIcon(type: CalendarEvent["type"]) {
+    if (type === "test") {
+      return "📝";
+    }
+
+    if (type === "class") {
+      return "📚";
+    }
+
+    return "🎉";
+  }
+
+  function getModalBadge(type: CalendarEvent["type"]) {
+    if (type === "test") {
+      return "WEEKLY TEST";
+    }
+
+    if (type === "class") {
+      return "REGULAR CLASS";
+    }
+
+    return "HOLIDAY";
   }
 
   return (
@@ -1135,7 +1167,7 @@ export default function TeacherCalendarPage() {
                   Monday - Friday
                 </strong>
 
-                <p>
+                <p style={styles.infoItemText}>
                   Regular Tuition Classes
                 </p>
               </div>
@@ -1151,7 +1183,7 @@ export default function TeacherCalendarPage() {
                   Every Saturday
                 </strong>
 
-                <p>
+                <p style={styles.infoItemText}>
                   Weekly Test
                 </p>
               </div>
@@ -1167,7 +1199,7 @@ export default function TeacherCalendarPage() {
                   Every Sunday
                 </strong>
 
-                <p>
+                <p style={styles.infoItemText}>
                   Tuition Closed
                 </p>
               </div>
@@ -1183,7 +1215,7 @@ export default function TeacherCalendarPage() {
                   Holidays
                 </strong>
 
-                <p>
+                <p style={styles.infoItemText}>
                   Tuition Closed
                 </p>
               </div>
@@ -1274,17 +1306,27 @@ export default function TeacherCalendarPage() {
             >
 
               <div style={styles.modalIcon}>
-                {selectedEvent.type ===
-                "test"
-                  ? "📝"
-                  : "🎉"}
+                {getModalIcon(
+                  selectedEvent.type
+                )}
               </div>
 
-              <div style={styles.modalBadge}>
-                {selectedEvent.type ===
-                "test"
-                  ? "WEEKLY TEST"
-                  : "HOLIDAY"}
+              <div
+                style={{
+                  ...styles.modalBadge,
+                  ...(selectedEvent.type ===
+                  "class"
+                    ? styles.modalClassBadge
+                    : {}),
+                  ...(selectedEvent.type ===
+                  "test"
+                    ? styles.modalTestBadge
+                    : {}),
+                }}
+              >
+                {getModalBadge(
+                  selectedEvent.type
+                )}
               </div>
 
               <h2 style={styles.modalTitle}>
@@ -1731,6 +1773,7 @@ const styles: {
   },
 
   infoItemText: {
+    margin: "5px 0 0",
     color: "#64748b",
     fontSize: "12px",
   },
@@ -1829,6 +1872,16 @@ const styles: {
     fontSize: "9px",
     fontWeight: "900",
     marginBottom: "8px",
+  },
+
+  modalClassBadge: {
+    background: "#eff6ff",
+    color: "#2563eb",
+  },
+
+  modalTestBadge: {
+    background: "#f5f3ff",
+    color: "#7c3aed",
   },
 
   modalTitle: {
