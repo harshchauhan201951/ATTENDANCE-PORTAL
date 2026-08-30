@@ -67,12 +67,7 @@ export default function StudentDashboardPage() {
 
     /*
      * FIRST:
-     * If username is available, get the real student ID
-     * directly from the students table.
-     *
-     * This prevents the "Student information could not
-     * be found" problem when studentId was not saved
-     * correctly during login.
+     * Resolve the real student ID from username.
      */
     if (savedUsername) {
       const resolvedId =
@@ -87,13 +82,20 @@ export default function StudentDashboardPage() {
         );
 
         await loadAnnouncements(resolvedId);
+
+        /*
+         * Register this student's device for
+         * push notifications.
+         */
+        await registerPushNotifications(resolvedId);
+
         return;
       }
     }
 
     /*
      * FALLBACK:
-     * If username lookup fails, try existing studentId.
+     * Existing studentId from localStorage.
      */
     if (savedStudentId) {
       const parsedId = Number(savedStudentId);
@@ -102,6 +104,13 @@ export default function StudentDashboardPage() {
         setStudentId(parsedId);
 
         await loadAnnouncements(parsedId);
+
+        /*
+         * Register this student's device for
+         * push notifications.
+         */
+        await registerPushNotifications(parsedId);
+
         return;
       }
     }
@@ -121,7 +130,10 @@ export default function StudentDashboardPage() {
       const { data, error } = await supabase
         .from("students")
         .select("id")
-        .eq("student_username", studentUsername)
+        .eq(
+          "student_username",
+          studentUsername
+        )
         .maybeSingle();
 
       if (error) {
@@ -153,13 +165,228 @@ export default function StudentDashboardPage() {
     }
   }
 
+  /*
+   * =====================================================
+   * PUSH NOTIFICATION REGISTRATION
+   * =====================================================
+   *
+   * This runs automatically after the student ID
+   * has been successfully identified.
+   *
+   * It:
+   * 1. Checks browser support.
+   * 2. Registers /sw.js.
+   * 3. Requests notification permission.
+   * 4. Reuses an existing subscription if available.
+   * 5. Creates a new PushSubscription when required.
+   * 6. Sends the subscription to:
+   *    /api/push/subscribe
+   */
+  async function registerPushNotifications(
+    currentStudentId: number
+  ) {
+    try {
+      if (typeof window === "undefined") {
+        return;
+      }
+
+      if (!("serviceWorker" in navigator)) {
+        console.warn(
+          "Service Worker is not supported by this browser."
+        );
+
+        return;
+      }
+
+      if (!("PushManager" in window)) {
+        console.warn(
+          "Push notifications are not supported by this browser."
+        );
+
+        return;
+      }
+
+      if (!("Notification" in window)) {
+        console.warn(
+          "Notifications are not supported by this browser."
+        );
+
+        return;
+      }
+
+      /*
+       * Register the existing public/sw.js file.
+       */
+      const registration =
+        await navigator.serviceWorker.register(
+          "/sw.js"
+        );
+
+      console.log(
+        "Push service worker registered:",
+        registration.scope
+      );
+
+      /*
+       * Ask the browser for notification permission.
+       */
+      let permission =
+        Notification.permission;
+
+      if (permission === "default") {
+        permission =
+          await Notification.requestPermission();
+      }
+
+      /*
+       * Student denied notifications.
+       *
+       * Do not stop the dashboard.
+       */
+      if (permission !== "granted") {
+        console.warn(
+          "Notification permission was not granted."
+        );
+
+        return;
+      }
+
+      /*
+       * Get an existing push subscription.
+       */
+      let subscription =
+        await registration.pushManager.getSubscription();
+
+      /*
+       * If there is no existing subscription,
+       * create a new one.
+       */
+      if (!subscription) {
+        const vapidPublicKey =
+          process.env
+            .NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+
+        if (!vapidPublicKey) {
+          console.error(
+            "NEXT_PUBLIC_VAPID_PUBLIC_KEY is missing."
+          );
+
+          return;
+        }
+
+        const applicationServerKey =
+          urlBase64ToUint8Array(
+            vapidPublicKey
+          );
+
+        subscription =
+          await registration.pushManager.subscribe(
+            {
+              userVisibleOnly: true,
+              applicationServerKey,
+            }
+          );
+      }
+
+      /*
+       * Send the subscription to the API.
+       */
+      const response = await fetch(
+        "/api/push/subscribe",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            studentId:
+              currentStudentId,
+            subscription:
+              subscription.toJSON(),
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText =
+          await response.text();
+
+        console.error(
+          "Push subscription API error:",
+          errorText
+        );
+
+        return;
+      }
+
+      console.log(
+        "Student push notification registration completed."
+      );
+    } catch (error) {
+      /*
+       * Push registration must NEVER break
+       * the student dashboard.
+       */
+      console.error(
+        "Push notification registration error:",
+        error
+      );
+    }
+  }
+
+  /*
+   * Convert VAPID public key from Base64URL
+   * into Uint8Array for PushManager.subscribe().
+   */
+  function urlBase64ToUint8Array(
+    base64String: string
+  ) {
+    const padding =
+      "=".repeat(
+        (4 -
+          (base64String.length % 4)) %
+          4
+      );
+
+    const base64 =
+      (
+        base64String +
+        padding
+      )
+        .replace(/-/g, "+")
+        .replace(/_/g, "/");
+
+    const rawData =
+      window.atob(base64);
+
+    const outputArray =
+      new Uint8Array(
+        rawData.length
+      );
+
+    for (
+      let i = 0;
+      i < rawData.length;
+      ++i
+    ) {
+      outputArray[i] =
+        rawData.charCodeAt(i);
+    }
+
+    return outputArray;
+  }
+
   function updateTime() {
     setTime(
-      new Date().toLocaleTimeString("en-IN", {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      })
+      new Date().toLocaleTimeString(
+        "en-IN",
+        {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        }
+      )
     );
   }
 
@@ -188,6 +415,7 @@ export default function StudentDashboardPage() {
         );
 
         setAnnouncements([]);
+
         return;
       }
 
@@ -196,12 +424,14 @@ export default function StudentDashboardPage() {
 
       if (announcementRows.length === 0) {
         setAnnouncements([]);
+
         return;
       }
 
       const announcementIds =
         announcementRows.map(
-          (announcement) => announcement.id
+          (announcement) =>
+            announcement.id
         );
 
       const {
@@ -224,7 +454,8 @@ export default function StudentDashboardPage() {
         );
       }
 
-      const likes = likesData || [];
+      const likes =
+        likesData || [];
 
       const formattedAnnouncements =
         announcementRows.map(
@@ -232,22 +463,31 @@ export default function StudentDashboardPage() {
             const announcementLikes =
               likes.filter(
                 (like) =>
-                  Number(like.announcement_id) ===
-                  Number(announcement.id)
+                  Number(
+                    like.announcement_id
+                  ) ===
+                  Number(
+                    announcement.id
+                  )
               );
 
             const likedByMe =
               currentStudentId !== null &&
               announcementLikes.some(
                 (like) =>
-                  Number(like.student_id) ===
-                  Number(currentStudentId)
+                  Number(
+                    like.student_id
+                  ) ===
+                  Number(
+                    currentStudentId
+                  )
               );
 
             return {
               id: announcement.id,
               title: announcement.title,
-              message: announcement.message,
+              message:
+                announcement.message,
               created_at:
                 announcement.created_at,
               likeCount:
@@ -275,20 +515,25 @@ export default function StudentDashboardPage() {
   async function toggleLike(
     announcementId: number
   ) {
-    /*
-     * If studentId is missing, try resolving it again
-     * from the saved username before showing an error.
-     */
-    let currentStudentId = studentId;
+    let currentStudentId =
+      studentId;
 
-    if (!currentStudentId && username) {
+    if (
+      !currentStudentId &&
+      username
+    ) {
       const resolvedId =
-        await resolveStudentId(username);
+        await resolveStudentId(
+          username
+        );
 
       if (resolvedId !== null) {
-        currentStudentId = resolvedId;
+        currentStudentId =
+          resolvedId;
 
-        setStudentId(resolvedId);
+        setStudentId(
+          resolvedId
+        );
 
         localStorage.setItem(
           "studentId",
@@ -312,23 +557,30 @@ export default function StudentDashboardPage() {
     const selectedAnnouncement =
       announcements.find(
         (item) =>
-          item.id === announcementId
+          item.id ===
+          announcementId
       );
 
     if (!selectedAnnouncement) {
       return;
     }
 
-    setLikingId(announcementId);
+    setLikingId(
+      announcementId
+    );
 
     try {
       /*
        * UNLIKE
        */
-      if (selectedAnnouncement.likedByMe) {
+      if (
+        selectedAnnouncement.likedByMe
+      ) {
         const { error } =
           await supabase
-            .from("announcement_likes")
+            .from(
+              "announcement_likes"
+            )
             .delete()
             .eq(
               "announcement_id",
@@ -354,18 +606,22 @@ export default function StudentDashboardPage() {
 
         setAnnouncements(
           (previous) =>
-            previous.map((item) =>
-              item.id === announcementId
-                ? {
-                    ...item,
-                    likedByMe: false,
-                    likeCount:
-                      Math.max(
-                        0,
-                        item.likeCount - 1
-                      ),
-                  }
-                : item
+            previous.map(
+              (item) =>
+                item.id ===
+                announcementId
+                  ? {
+                      ...item,
+                      likedByMe:
+                        false,
+                      likeCount:
+                        Math.max(
+                          0,
+                          item.likeCount -
+                            1
+                        ),
+                    }
+                  : item
             )
         );
 
@@ -377,7 +633,9 @@ export default function StudentDashboardPage() {
        */
       const { error } =
         await supabase
-          .from("announcement_likes")
+          .from(
+            "announcement_likes"
+          )
           .insert({
             announcement_id:
               announcementId,
@@ -391,11 +649,10 @@ export default function StudentDashboardPage() {
           error
         );
 
-        /*
-         * If the student already liked it,
-         * simply reload the latest state.
-         */
-        if (error.code === "23505") {
+        if (
+          error.code ===
+          "23505"
+        ) {
           await loadAnnouncements(
             currentStudentId
           );
@@ -410,15 +667,19 @@ export default function StudentDashboardPage() {
 
       setAnnouncements(
         (previous) =>
-          previous.map((item) =>
-            item.id === announcementId
-              ? {
-                  ...item,
-                  likedByMe: true,
-                  likeCount:
-                    item.likeCount + 1,
-                }
-              : item
+          previous.map(
+            (item) =>
+              item.id ===
+              announcementId
+                ? {
+                    ...item,
+                    likedByMe:
+                      true,
+                    likeCount:
+                      item.likeCount +
+                      1,
+                  }
+                : item
           )
       );
     } catch (error) {
@@ -468,7 +729,9 @@ export default function StudentDashboardPage() {
       return "";
     }
 
-    return new Date(date).toLocaleString(
+    return new Date(
+      date
+    ).toLocaleString(
       "en-IN",
       {
         day: "2-digit",
@@ -481,7 +744,9 @@ export default function StudentDashboardPage() {
   }
 
   const firstLetter =
-    studentName.charAt(0).toUpperCase();
+    studentName
+      .charAt(0)
+      .toUpperCase();
 
   const cards: DashboardCard[] = [
     {
@@ -545,6 +810,7 @@ export default function StudentDashboardPage() {
   return (
     <main style={styles.page}>
       <div style={styles.container}>
+
         {/* TOP NAVIGATION */}
 
         <nav style={styles.navbar}>
@@ -582,8 +848,17 @@ export default function StudentDashboardPage() {
         {/* HERO */}
 
         <section style={styles.hero}>
-          <div style={styles.heroGlowOne} />
-          <div style={styles.heroGlowTwo} />
+          <div
+            style={
+              styles.heroGlowOne
+            }
+          />
+
+          <div
+            style={
+              styles.heroGlowTwo
+            }
+          />
 
           <div style={styles.heroContent}>
             <div style={styles.avatar}>
@@ -609,7 +884,9 @@ export default function StudentDashboardPage() {
 
               {username && (
                 <div
-                  style={styles.usernameBadge}
+                  style={
+                    styles.usernameBadge
+                  }
                 >
                   Username: {username}
                 </div>
@@ -635,7 +912,9 @@ export default function StudentDashboardPage() {
         {/* ANNOUNCEMENTS */}
 
         <section
-          style={styles.announcementSection}
+          style={
+            styles.announcementSection
+          }
         >
           <div
             style={
@@ -757,7 +1036,9 @@ export default function StudentDashboardPage() {
               {announcements.map(
                 (announcement) => (
                   <article
-                    key={announcement.id}
+                    key={
+                      announcement.id
+                    }
                     style={
                       styles.announcementCard
                     }
@@ -809,7 +1090,9 @@ export default function StudentDashboardPage() {
                             styles.announcementCardTitle
                           }
                         >
-                          {announcement.title}
+                          {
+                            announcement.title
+                          }
                         </h3>
 
                         <p
@@ -817,7 +1100,9 @@ export default function StudentDashboardPage() {
                             styles.announcementMessage
                           }
                         >
-                          {announcement.message}
+                          {
+                            announcement.message
+                          }
                         </p>
                       </div>
                     </div>
@@ -872,7 +1157,9 @@ export default function StudentDashboardPage() {
                             styles.likeCount
                           }
                         >
-                          {announcement.likeCount}
+                          {
+                            announcement.likeCount
+                          }
                         </span>
                       </button>
                     </div>
@@ -910,7 +1197,9 @@ export default function StudentDashboardPage() {
           <div style={styles.sectionHeading}>
             <div>
               <div
-                style={styles.sectionEyebrow}
+                style={
+                  styles.sectionEyebrow
+                }
               >
                 STUDENT SERVICES
               </div>
@@ -928,14 +1217,20 @@ export default function StudentDashboardPage() {
           <div style={styles.cardGrid}>
             {cards.map((card) => {
               const styleKey =
-                `card${card.className.charAt(0).toUpperCase()}${card.className.slice(1)}`;
+                `card${card.className
+                  .charAt(0)
+                  .toUpperCase()}${card.className.slice(
+                  1
+                )}`;
 
               return (
                 <button
                   key={card.path}
                   type="button"
                   onClick={() =>
-                    router.push(card.path)
+                    router.push(
+                      card.path
+                    )
                   }
                   style={
                     styles.serviceCard
@@ -944,28 +1239,37 @@ export default function StudentDashboardPage() {
                   <div
                     style={{
                       ...styles.cardTop,
-                      ...(styles[styleKey] ||
-                        {}),
+                      ...(styles[
+                        styleKey
+                      ] || {}),
                     }}
                   >
                     <div
-                      style={styles.cardIcon}
+                      style={
+                        styles.cardIcon
+                      }
                     >
                       {card.icon}
                     </div>
 
                     <div
-                      style={styles.arrow}
+                      style={
+                        styles.arrow
+                      }
                     >
                       →
                     </div>
                   </div>
 
                   <div
-                    style={styles.cardBody}
+                    style={
+                      styles.cardBody
+                    }
                   >
                     <h3
-                      style={styles.cardTitle}
+                      style={
+                        styles.cardTitle
+                      }
                     >
                       {card.title}
                     </h3>
@@ -975,14 +1279,23 @@ export default function StudentDashboardPage() {
                         styles.cardDescription
                       }
                     >
-                      {card.description}
+                      {
+                        card.description
+                      }
                     </p>
 
                     <div
-                      style={styles.openLink}
+                      style={
+                        styles.openLink
+                      }
                     >
-                      <span>Open</span>
-                      <span>→</span>
+                      <span>
+                        Open
+                      </span>
+
+                      <span>
+                        →
+                      </span>
                     </div>
                   </div>
                 </button>
@@ -994,7 +1307,9 @@ export default function StudentDashboardPage() {
         {/* PROFILE PANEL */}
 
         <section
-          style={styles.bottomPanel}
+          style={
+            styles.bottomPanel
+          }
         >
           <div style={styles.bottomIcon}>
             👤
@@ -1002,13 +1317,17 @@ export default function StudentDashboardPage() {
 
           <div style={styles.bottomText}>
             <h3
-              style={styles.bottomTitle}
+              style={
+                styles.bottomTitle
+              }
             >
               Keep your profile updated
             </h3>
 
             <p
-              style={styles.bottomDescription}
+              style={
+                styles.bottomDescription
+              }
             >
               Your personal information is
               managed through your student
@@ -1019,9 +1338,13 @@ export default function StudentDashboardPage() {
           <button
             type="button"
             onClick={() =>
-              router.push("/student/profile")
+              router.push(
+                "/student/profile"
+              )
             }
-            style={styles.profileButton}
+            style={
+              styles.profileButton
+            }
           >
             View Profile →
           </button>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
 const supabaseServiceRoleKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -35,6 +36,7 @@ export async function POST(
     const body = await request.json();
 
     const studentId = Number(body?.studentId);
+
     const subscription = body?.subscription;
 
     if (
@@ -58,21 +60,24 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-          error: "Valid push subscription is required.",
+          error:
+            "Valid push subscription is required.",
         },
         { status: 400 }
       );
     }
 
     /*
-     * Make sure the student actually exists.
+     * Check that the student exists.
      */
-    const { data: student, error: studentError } =
-      await supabaseAdmin
-        .from("students")
-        .select("id")
-        .eq("id", studentId)
-        .maybeSingle();
+    const {
+      data: student,
+      error: studentError,
+    } = await supabaseAdmin
+      .from("students")
+      .select("id")
+      .eq("id", studentId)
+      .maybeSingle();
 
     if (studentError) {
       console.error(
@@ -100,33 +105,40 @@ export async function POST(
     }
 
     /*
-     * Save subscription.
+     * Save the complete browser push subscription.
      *
-     * endpoint is used as the unique browser/device
-     * identifier so the same subscription is updated
-     * instead of creating duplicate records.
+     * IMPORTANT:
+     * Your current Supabase table only has:
+     *
+     * id
+     * student_id
+     * endpoint
+     * subscription
+     * created_at
+     * updated_at
+     *
+     * Therefore we DO NOT insert auth or p256dh
+     * into separate columns.
      */
-    const { data, error } =
-      await supabaseAdmin
-        .from("push_subscriptions")
-        .upsert(
-          {
-            student_id: studentId,
-            endpoint:
-              subscription.endpoint,
-            p256dh:
-              subscription.keys?.p256dh || null,
-            auth:
-              subscription.keys?.auth || null,
-            subscription:
-              subscription,
-          },
-          {
-            onConflict: "endpoint",
-          }
-        )
-        .select()
-        .single();
+    const {
+      data,
+      error,
+    } = await supabaseAdmin
+      .from("push_subscriptions")
+      .upsert(
+        {
+          student_id: studentId,
+          endpoint:
+            subscription.endpoint,
+          subscription:
+            subscription,
+        },
+        {
+          onConflict: "endpoint",
+        }
+      )
+      .select()
+      .single();
 
     if (error) {
       console.error(
