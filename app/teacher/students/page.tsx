@@ -84,10 +84,9 @@ export default function TeacherStudentsPage() {
     setLoading(true);
     setError("");
 
-    const { data, error: loadError } = await supabase
+    const { data, error } = await supabase
       .from("students")
-      .select(
-        `
+      .select(`
         id,
         student_username,
         password_hash,
@@ -111,13 +110,12 @@ export default function TeacherStudentsPage() {
         mother_phone,
         city,
         profile_image_url
-      `
-      )
+      `)
       .order("id", { ascending: true });
 
-    if (loadError) {
-      console.error("Students loading error:", loadError);
-      setError(loadError.message);
+    if (error) {
+      console.error("Students loading error:", error);
+      setError(error.message);
       setStudents([]);
     } else {
       setStudents((data || []) as Student[]);
@@ -162,33 +160,25 @@ export default function TeacherStudentsPage() {
   }
 
   function closeEdit() {
-    if (saving) {
-      return;
-    }
+    if (saving) return;
 
     setEditingStudent(null);
-
     setEditName("");
     setEditUsername("");
     setEditPassword("");
     setEditAdmissionDate("");
     setEditDateOfBirth("");
-
     setEditFatherName("");
     setEditMotherName("");
-
     setEditStudentMobile("");
     setEditFatherMobile("");
     setEditMotherMobile("");
-
     setEditFatherPhone("");
     setEditMotherPhone("");
-
     setEditClassName("");
     setEditSection("");
     setEditGender("");
     setEditBloodGroup("");
-
     setEditEmail("");
     setEditCity("");
     setEditAddress("");
@@ -196,14 +186,10 @@ export default function TeacherStudentsPage() {
     setEditProfileImageUrl("");
   }
 
-  async function saveStudent(
-    e: React.FormEvent<HTMLFormElement>
-  ) {
+  async function saveStudent(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    if (!editingStudent) {
-      return;
-    }
+    if (!editingStudent) return;
 
     if (!editName.trim()) {
       setError("Student name cannot be empty.");
@@ -246,14 +232,14 @@ export default function TeacherStudentsPage() {
       updateData.password_hash = editPassword.trim();
     }
 
-    const { error: updateError } = await supabase
+    const { error } = await supabase
       .from("students")
       .update(updateData)
       .eq("id", editingStudent.id);
 
-    if (updateError) {
-      console.error("Student update error:", updateError);
-      setError(updateError.message);
+    if (error) {
+      console.error("Student update error:", error);
+      setError(error.message);
       setSaving(false);
       return;
     }
@@ -263,38 +249,29 @@ export default function TeacherStudentsPage() {
     await loadStudents();
 
     setEditingStudent(null);
-
     setEditName("");
     setEditUsername("");
     setEditPassword("");
     setEditAdmissionDate("");
     setEditDateOfBirth("");
-
     setEditFatherName("");
     setEditMotherName("");
-
     setEditStudentMobile("");
     setEditFatherMobile("");
     setEditMotherMobile("");
-
     setEditFatherPhone("");
     setEditMotherPhone("");
-
     setEditClassName("");
     setEditSection("");
     setEditGender("");
     setEditBloodGroup("");
-
     setEditEmail("");
     setEditCity("");
     setEditAddress("");
     setEditNotes("");
     setEditProfileImageUrl("");
 
-    setSuccess(
-      updatedName + " profile updated successfully."
-    );
-
+    setSuccess(`${updatedName} profile updated successfully.`);
     setSaving(false);
 
     setTimeout(() => {
@@ -307,46 +284,33 @@ export default function TeacherStudentsPage() {
       student.student_name || student.student_username;
 
     const confirmed = window.confirm(
-      "Are you sure you want to delete " +
-        studentName +
-        "?\n\nThis action cannot be undone."
+      `Are you sure you want to delete ${studentName}?\n\nThis action cannot be undone.`
     );
 
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
 
     setDeletingId(student.id);
     setError("");
     setSuccess("");
 
-    const { error: deleteError } = await supabase
+    const { error } = await supabase
       .from("students")
       .delete()
       .eq("id", student.id);
 
-    if (deleteError) {
-      console.error(
-        "Student delete error:",
-        deleteError
-      );
-
-      setError(deleteError.message);
+    if (error) {
+      console.error("Student delete error:", error);
+      setError(error.message);
       setDeletingId(null);
       return;
     }
 
     setStudents((current) =>
-      current.filter(
-        (item) => item.id !== student.id
-      )
+      current.filter((item) => item.id !== student.id)
     );
 
     setDeletingId(null);
-
-    setSuccess(
-      studentName + " has been deleted successfully."
-    );
+    setSuccess(`${studentName} has been deleted successfully.`);
 
     setTimeout(() => {
       setSuccess("");
@@ -371,7 +335,7 @@ export default function TeacherStudentsPage() {
           <div style={styles.headerLeft}>
             <div style={styles.iconBox}>👨‍🎓</div>
 
-            <div>
+            <div style={styles.headerText}>
               <h1 style={styles.title}>
                 Students Management
               </h1>
@@ -393,9 +357,7 @@ export default function TeacherStudentsPage() {
 
             <button
               type="button"
-              onClick={() =>
-                router.push("/teacher/settings")
-              }
+              onClick={() => router.push("/teacher/settings")}
               style={styles.settingsButton}
             >
               ⚙️ Settings
@@ -426,7 +388,7 @@ export default function TeacherStudentsPage() {
         <section style={styles.summaryCard}>
           <div style={styles.summaryIcon}>👨‍🎓</div>
 
-          <div>
+          <div style={styles.summaryText}>
             <p style={styles.summaryLabel}>
               Total Students
             </p>
@@ -441,14 +403,13 @@ export default function TeacherStudentsPage() {
           <div style={styles.cardHeader}>
             <div style={styles.cardIcon}>👥</div>
 
-            <div>
+            <div style={styles.cardHeaderText}>
               <h2 style={styles.sectionTitle}>
                 All Students
               </h2>
 
               <p style={styles.sectionSubtitle}>
-                Edit complete profiles or delete student
-                accounts
+                Edit complete profiles or delete student accounts
               </p>
             </div>
           </div>
@@ -459,17 +420,14 @@ export default function TeacherStudentsPage() {
             </div>
           ) : students.length === 0 ? (
             <div style={styles.empty}>
-              <div style={styles.emptyIcon}>
-                👨‍🎓
-              </div>
+              <div style={styles.emptyIcon}>👨‍🎓</div>
 
               <h3 style={styles.emptyTitle}>
                 No Students Found
               </h3>
 
               <p style={styles.emptyText}>
-                There are currently no students in the
-                database.
+                There are currently no students in the database.
               </p>
             </div>
           ) : (
@@ -478,15 +436,9 @@ export default function TeacherStudentsPage() {
                 <thead>
                   <tr>
                     <th style={styles.th}>ID</th>
-                    <th style={styles.th}>
-                      Student Name
-                    </th>
-                    <th style={styles.th}>
-                      Username
-                    </th>
-                    <th style={styles.th}>
-                      Admission Date
-                    </th>
+                    <th style={styles.th}>Student Name</th>
+                    <th style={styles.th}>Username</th>
+                    <th style={styles.th}>Admission Date</th>
                     <th style={styles.th}>Actions</th>
                   </tr>
                 </thead>
@@ -497,7 +449,7 @@ export default function TeacherStudentsPage() {
                       <td style={styles.td}>
                         <span style={styles.idBadge}>
                           {student.student_username ||
-                            "STU" + (1001 + index)}
+                            `STU${1001 + index}`}
                         </span>
                       </td>
 
@@ -513,17 +465,14 @@ export default function TeacherStudentsPage() {
                       </td>
 
                       <td style={styles.td}>
-                        {student.admission_date ||
-                          "Not set"}
+                        {student.admission_date || "Not set"}
                       </td>
 
                       <td style={styles.td}>
                         <div style={styles.actionButtons}>
                           <button
                             type="button"
-                            onClick={() =>
-                              openEdit(student)
-                            }
+                            onClick={() => openEdit(student)}
                             style={styles.editButton}
                           >
                             ✏️ Edit
@@ -531,17 +480,12 @@ export default function TeacherStudentsPage() {
 
                           <button
                             type="button"
-                            onClick={() =>
-                              deleteStudent(student)
-                            }
-                            disabled={
-                              deletingId === student.id
-                            }
+                            onClick={() => deleteStudent(student)}
+                            disabled={deletingId === student.id}
                             style={{
                               ...styles.deleteButton,
                               opacity:
-                                deletingId ===
-                                student.id
+                                deletingId === student.id
                                   ? 0.6
                                   : 1,
                             }}
@@ -564,7 +508,7 @@ export default function TeacherStudentsPage() {
           <div style={styles.modalOverlay}>
             <div style={styles.modal}>
               <div style={styles.modalHeader}>
-                <div>
+                <div style={styles.modalHeaderText}>
                   <h2 style={styles.modalTitle}>
                     ✏️ Edit Student Profile
                   </h2>
@@ -595,7 +539,7 @@ export default function TeacherStudentsPage() {
                     </h3>
 
                     <div style={styles.formGrid}>
-                      <div>
+                      <div style={styles.field}>
                         <label style={styles.label}>
                           Username
                         </label>
@@ -604,15 +548,13 @@ export default function TeacherStudentsPage() {
                           type="text"
                           value={editUsername}
                           onChange={(e) =>
-                            setEditUsername(
-                              e.target.value
-                            )
+                            setEditUsername(e.target.value)
                           }
                           style={styles.input}
                         />
                       </div>
 
-                      <div>
+                      <div style={styles.field}>
                         <label style={styles.label}>
                           New Password
                         </label>
@@ -621,17 +563,14 @@ export default function TeacherStudentsPage() {
                           type="text"
                           value={editPassword}
                           onChange={(e) =>
-                            setEditPassword(
-                              e.target.value
-                            )
+                            setEditPassword(e.target.value)
                           }
                           placeholder="Leave blank to keep current password"
                           style={styles.input}
                         />
 
                         <p style={styles.helpText}>
-                          Enter a password only if you
-                          want to change it.
+                          Enter a password only if you want to change it.
                         </p>
                       </div>
                     </div>
@@ -643,7 +582,7 @@ export default function TeacherStudentsPage() {
                     </h3>
 
                     <div style={styles.formGrid}>
-                      <div>
+                      <div style={styles.field}>
                         <label style={styles.label}>
                           Student Name *
                         </label>
@@ -659,7 +598,7 @@ export default function TeacherStudentsPage() {
                         />
                       </div>
 
-                      <div>
+                      <div style={styles.field}>
                         <label style={styles.label}>
                           Date of Birth
                         </label>
@@ -668,15 +607,13 @@ export default function TeacherStudentsPage() {
                           type="date"
                           value={editDateOfBirth}
                           onChange={(e) =>
-                            setEditDateOfBirth(
-                              e.target.value
-                            )
+                            setEditDateOfBirth(e.target.value)
                           }
                           style={styles.input}
                         />
                       </div>
 
-                      <div>
+                      <div style={styles.field}>
                         <label style={styles.label}>
                           Admission Date
                         </label>
@@ -685,15 +622,13 @@ export default function TeacherStudentsPage() {
                           type="date"
                           value={editAdmissionDate}
                           onChange={(e) =>
-                            setEditAdmissionDate(
-                              e.target.value
-                            )
+                            setEditAdmissionDate(e.target.value)
                           }
                           style={styles.input}
                         />
                       </div>
 
-                      <div>
+                      <div style={styles.field}>
                         <label style={styles.label}>
                           Gender
                         </label>
@@ -701,18 +636,14 @@ export default function TeacherStudentsPage() {
                         <select
                           value={editGender}
                           onChange={(e) =>
-                            setEditGender(
-                              e.target.value
-                            )
+                            setEditGender(e.target.value)
                           }
                           style={styles.input}
                         >
                           <option value="">
                             Select Gender
                           </option>
-                          <option value="Male">
-                            Male
-                          </option>
+                          <option value="Male">Male</option>
                           <option value="Female">
                             Female
                           </option>
@@ -730,7 +661,7 @@ export default function TeacherStudentsPage() {
                     </h3>
 
                     <div style={styles.formGrid}>
-                      <div>
+                      <div style={styles.field}>
                         <label style={styles.label}>
                           Father's Name
                         </label>
@@ -739,15 +670,13 @@ export default function TeacherStudentsPage() {
                           type="text"
                           value={editFatherName}
                           onChange={(e) =>
-                            setEditFatherName(
-                              e.target.value
-                            )
+                            setEditFatherName(e.target.value)
                           }
                           style={styles.input}
                         />
                       </div>
 
-                      <div>
+                      <div style={styles.field}>
                         <label style={styles.label}>
                           Mother's Name
                         </label>
@@ -756,15 +685,13 @@ export default function TeacherStudentsPage() {
                           type="text"
                           value={editMotherName}
                           onChange={(e) =>
-                            setEditMotherName(
-                              e.target.value
-                            )
+                            setEditMotherName(e.target.value)
                           }
                           style={styles.input}
                         />
                       </div>
 
-                      <div>
+                      <div style={styles.field}>
                         <label style={styles.label}>
                           Father's Phone
                         </label>
@@ -773,15 +700,13 @@ export default function TeacherStudentsPage() {
                           type="tel"
                           value={editFatherPhone}
                           onChange={(e) =>
-                            setEditFatherPhone(
-                              e.target.value
-                            )
+                            setEditFatherPhone(e.target.value)
                           }
                           style={styles.input}
                         />
                       </div>
 
-                      <div>
+                      <div style={styles.field}>
                         <label style={styles.label}>
                           Mother's Phone
                         </label>
@@ -790,15 +715,13 @@ export default function TeacherStudentsPage() {
                           type="tel"
                           value={editMotherPhone}
                           onChange={(e) =>
-                            setEditMotherPhone(
-                              e.target.value
-                            )
+                            setEditMotherPhone(e.target.value)
                           }
                           style={styles.input}
                         />
                       </div>
 
-                      <div>
+                      <div style={styles.field}>
                         <label style={styles.label}>
                           Father Mobile
                         </label>
@@ -807,15 +730,13 @@ export default function TeacherStudentsPage() {
                           type="tel"
                           value={editFatherMobile}
                           onChange={(e) =>
-                            setEditFatherMobile(
-                              e.target.value
-                            )
+                            setEditFatherMobile(e.target.value)
                           }
                           style={styles.input}
                         />
                       </div>
 
-                      <div>
+                      <div style={styles.field}>
                         <label style={styles.label}>
                           Mother Mobile
                         </label>
@@ -824,9 +745,7 @@ export default function TeacherStudentsPage() {
                           type="tel"
                           value={editMotherMobile}
                           onChange={(e) =>
-                            setEditMotherMobile(
-                              e.target.value
-                            )
+                            setEditMotherMobile(e.target.value)
                           }
                           style={styles.input}
                         />
@@ -840,7 +759,7 @@ export default function TeacherStudentsPage() {
                     </h3>
 
                     <div style={styles.formGrid}>
-                      <div>
+                      <div style={styles.field}>
                         <label style={styles.label}>
                           Student Mobile
                         </label>
@@ -849,15 +768,13 @@ export default function TeacherStudentsPage() {
                           type="tel"
                           value={editStudentMobile}
                           onChange={(e) =>
-                            setEditStudentMobile(
-                              e.target.value
-                            )
+                            setEditStudentMobile(e.target.value)
                           }
                           style={styles.input}
                         />
                       </div>
 
-                      <div>
+                      <div style={styles.field}>
                         <label style={styles.label}>
                           Email
                         </label>
@@ -880,7 +797,7 @@ export default function TeacherStudentsPage() {
                     </h3>
 
                     <div style={styles.formGrid}>
-                      <div>
+                      <div style={styles.field}>
                         <label style={styles.label}>
                           Class
                         </label>
@@ -889,16 +806,14 @@ export default function TeacherStudentsPage() {
                           type="text"
                           value={editClassName}
                           onChange={(e) =>
-                            setEditClassName(
-                              e.target.value
-                            )
+                            setEditClassName(e.target.value)
                           }
                           placeholder="Example: B.Tech CSE-AIML"
                           style={styles.input}
                         />
                       </div>
 
-                      <div>
+                      <div style={styles.field}>
                         <label style={styles.label}>
                           Section
                         </label>
@@ -907,15 +822,13 @@ export default function TeacherStudentsPage() {
                           type="text"
                           value={editSection}
                           onChange={(e) =>
-                            setEditSection(
-                              e.target.value
-                            )
+                            setEditSection(e.target.value)
                           }
                           style={styles.input}
                         />
                       </div>
 
-                      <div>
+                      <div style={styles.field}>
                         <label style={styles.label}>
                           Blood Group
                         </label>
@@ -923,39 +836,21 @@ export default function TeacherStudentsPage() {
                         <select
                           value={editBloodGroup}
                           onChange={(e) =>
-                            setEditBloodGroup(
-                              e.target.value
-                            )
+                            setEditBloodGroup(e.target.value)
                           }
                           style={styles.input}
                         >
                           <option value="">
                             Select Blood Group
                           </option>
-                          <option value="A+">
-                            A+
-                          </option>
-                          <option value="A-">
-                            A-
-                          </option>
-                          <option value="B+">
-                            B+
-                          </option>
-                          <option value="B-">
-                            B-
-                          </option>
-                          <option value="AB+">
-                            AB+
-                          </option>
-                          <option value="AB-">
-                            AB-
-                          </option>
-                          <option value="O+">
-                            O+
-                          </option>
-                          <option value="O-">
-                            O-
-                          </option>
+                          <option value="A+">A+</option>
+                          <option value="A-">A-</option>
+                          <option value="B+">B+</option>
+                          <option value="B-">B-</option>
+                          <option value="AB+">AB+</option>
+                          <option value="AB-">AB-</option>
+                          <option value="O+">O+</option>
+                          <option value="O-">O-</option>
                         </select>
                       </div>
                     </div>
@@ -967,7 +862,7 @@ export default function TeacherStudentsPage() {
                     </h3>
 
                     <div style={styles.formGrid}>
-                      <div>
+                      <div style={styles.field}>
                         <label style={styles.label}>
                           City
                         </label>
@@ -982,11 +877,7 @@ export default function TeacherStudentsPage() {
                         />
                       </div>
 
-                      <div
-                        style={{
-                          gridColumn: "1 / -1",
-                        }}
-                      >
+                      <div style={styles.fullWidthField}>
                         <label style={styles.label}>
                           Complete Address
                         </label>
@@ -994,9 +885,7 @@ export default function TeacherStudentsPage() {
                         <textarea
                           value={editAddress}
                           onChange={(e) =>
-                            setEditAddress(
-                              e.target.value
-                            )
+                            setEditAddress(e.target.value)
                           }
                           rows={4}
                           style={styles.textarea}
@@ -1011,7 +900,7 @@ export default function TeacherStudentsPage() {
                       📝 Other Information
                     </h3>
 
-                    <div>
+                    <div style={styles.fullWidthField}>
                       <label style={styles.label}>
                         Profile Image URL
                       </label>
@@ -1020,20 +909,14 @@ export default function TeacherStudentsPage() {
                         type="url"
                         value={editProfileImageUrl}
                         onChange={(e) =>
-                          setEditProfileImageUrl(
-                            e.target.value
-                          )
+                          setEditProfileImageUrl(e.target.value)
                         }
                         style={styles.input}
                         placeholder="https://..."
                       />
                     </div>
 
-                    <div
-                      style={{
-                        marginTop: "15px",
-                      }}
-                    >
+                    <div style={styles.notesField}>
                       <label style={styles.label}>
                         Notes
                       </label>
@@ -1082,9 +965,7 @@ export default function TeacherStudentsPage() {
         <footer style={styles.footer}>
           <strong>Attendance Portal</strong>
 
-          <span>
-            Students Management • 2026
-          </span>
+          <span>Students Management • 2026</span>
         </footer>
       </div>
     </main>
@@ -1096,20 +977,37 @@ const styles: {
 } = {
   page: {
     minHeight: "100vh",
+    width: "100%",
+    maxWidth: "100%",
+    boxSizing: "border-box",
+    overflowX: "hidden",
     background:
       "linear-gradient(135deg, #eef2ff, #f8fafc, #eff6ff)",
     padding: "20px",
-    boxSizing: "border-box",
     fontFamily: "Arial, Helvetica, sans-serif",
+
+    /* IMPORTANT MOBILE TEXT FIX */
+    wordBreak: "normal",
+    overflowWrap: "normal",
+    whiteSpace: "normal",
   },
 
   container: {
     width: "100%",
     maxWidth: "1200px",
     margin: "0 auto",
+    boxSizing: "border-box",
+    minWidth: 0,
+
+    /* IMPORTANT MOBILE TEXT FIX */
+    wordBreak: "normal",
+    overflowWrap: "normal",
+    whiteSpace: "normal",
   },
 
   header: {
+    width: "100%",
+    boxSizing: "border-box",
     background: "white",
     borderRadius: "18px",
     padding: "18px 20px",
@@ -1121,17 +1019,32 @@ const styles: {
     boxShadow:
       "0 8px 25px rgba(15, 23, 42, 0.08)",
     marginBottom: "20px",
+
+    minWidth: 0,
+    wordBreak: "normal",
+    overflowWrap: "normal",
   },
 
   headerLeft: {
     display: "flex",
     alignItems: "center",
     gap: "13px",
+    minWidth: 0,
+    flex: "1 1 300px",
+  },
+
+  headerText: {
+    minWidth: 0,
+    flex: 1,
+    wordBreak: "normal",
+    overflowWrap: "normal",
+    whiteSpace: "normal",
   },
 
   iconBox: {
     width: "55px",
     height: "55px",
+    minWidth: "55px",
     borderRadius: "15px",
     background:
       "linear-gradient(135deg, #2563eb, #7c3aed)",
@@ -1139,6 +1052,7 @@ const styles: {
     alignItems: "center",
     justifyContent: "center",
     fontSize: "28px",
+    flexShrink: 0,
   },
 
   title: {
@@ -1146,18 +1060,30 @@ const styles: {
     color: "#172554",
     fontSize: "26px",
     fontWeight: "800",
+    lineHeight: 1.2,
+
+    wordBreak: "normal",
+    overflowWrap: "normal",
+    whiteSpace: "normal",
   },
 
   subtitle: {
     margin: "5px 0 0",
     color: "#64748b",
     fontSize: "13px",
+    lineHeight: 1.4,
+
+    wordBreak: "normal",
+    overflowWrap: "normal",
+    whiteSpace: "normal",
   },
 
   headerButtons: {
     display: "flex",
     gap: "9px",
     flexWrap: "wrap",
+    flexShrink: 0,
+    minWidth: 0,
   },
 
   dashboardButton: {
@@ -1168,6 +1094,8 @@ const styles: {
     borderRadius: "10px",
     fontWeight: "700",
     cursor: "pointer",
+    whiteSpace: "nowrap",
+    wordBreak: "normal",
   },
 
   settingsButton: {
@@ -1178,6 +1106,8 @@ const styles: {
     borderRadius: "10px",
     fontWeight: "700",
     cursor: "pointer",
+    whiteSpace: "nowrap",
+    wordBreak: "normal",
   },
 
   logoutButton: {
@@ -1188,9 +1118,13 @@ const styles: {
     borderRadius: "10px",
     fontWeight: "700",
     cursor: "pointer",
+    whiteSpace: "nowrap",
+    wordBreak: "normal",
   },
 
   error: {
+    width: "100%",
+    boxSizing: "border-box",
     background: "#fee2e2",
     color: "#991b1b",
     border: "1px solid #fecaca",
@@ -1198,9 +1132,16 @@ const styles: {
     borderRadius: "12px",
     marginBottom: "20px",
     fontWeight: "700",
+    lineHeight: 1.5,
+
+    wordBreak: "normal",
+    overflowWrap: "normal",
+    whiteSpace: "normal",
   },
 
   success: {
+    width: "100%",
+    boxSizing: "border-box",
     background: "#dcfce7",
     color: "#166534",
     border: "1px solid #86efac",
@@ -1208,9 +1149,16 @@ const styles: {
     borderRadius: "12px",
     marginBottom: "20px",
     fontWeight: "700",
+    lineHeight: 1.5,
+
+    wordBreak: "normal",
+    overflowWrap: "normal",
+    whiteSpace: "normal",
   },
 
   summaryCard: {
+    width: "100%",
+    boxSizing: "border-box",
     background: "white",
     borderRadius: "18px",
     padding: "20px",
@@ -1220,17 +1168,27 @@ const styles: {
     boxShadow:
       "0 8px 25px rgba(15, 23, 42, 0.07)",
     marginBottom: "20px",
+    minWidth: 0,
   },
 
   summaryIcon: {
     width: "58px",
     height: "58px",
+    minWidth: "58px",
     borderRadius: "15px",
     background: "#eff6ff",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     fontSize: "29px",
+    flexShrink: 0,
+  },
+
+  summaryText: {
+    minWidth: 0,
+    flex: 1,
+    wordBreak: "normal",
+    overflowWrap: "normal",
   },
 
   summaryLabel: {
@@ -1238,6 +1196,8 @@ const styles: {
     color: "#64748b",
     fontSize: "13px",
     fontWeight: "700",
+    lineHeight: 1.4,
+    whiteSpace: "normal",
   },
 
   summaryNumber: {
@@ -1245,15 +1205,19 @@ const styles: {
     color: "#172554",
     fontSize: "28px",
     fontWeight: "800",
+    lineHeight: 1.2,
   },
 
   card: {
+    width: "100%",
+    boxSizing: "border-box",
     background: "white",
     borderRadius: "20px",
     padding: "25px",
     marginBottom: "20px",
     boxShadow:
       "0 8px 25px rgba(15, 23, 42, 0.07)",
+    minWidth: 0,
   },
 
   cardHeader: {
@@ -1261,17 +1225,27 @@ const styles: {
     alignItems: "center",
     gap: "13px",
     marginBottom: "20px",
+    minWidth: 0,
   },
 
   cardIcon: {
     width: "48px",
     height: "48px",
+    minWidth: "48px",
     borderRadius: "14px",
     background: "#eff6ff",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     fontSize: "24px",
+    flexShrink: 0,
+  },
+
+  cardHeaderText: {
+    minWidth: 0,
+    flex: 1,
+    wordBreak: "normal",
+    overflowWrap: "normal",
   },
 
   sectionTitle: {
@@ -1279,19 +1253,30 @@ const styles: {
     color: "#172554",
     fontSize: "21px",
     fontWeight: "800",
+    lineHeight: 1.3,
+    wordBreak: "normal",
+    overflowWrap: "normal",
+    whiteSpace: "normal",
   },
 
   sectionSubtitle: {
     margin: "4px 0 0",
     color: "#64748b",
     fontSize: "13px",
+    lineHeight: 1.5,
+    wordBreak: "normal",
+    overflowWrap: "normal",
+    whiteSpace: "normal",
   },
 
   tableWrapper: {
     width: "100%",
+    maxWidth: "100%",
     overflowX: "auto",
+    overflowY: "hidden",
     border: "1px solid #e2e8f0",
     borderRadius: "14px",
+    WebkitOverflowScrolling: "touch",
   },
 
   table: {
@@ -1308,6 +1293,8 @@ const styles: {
     fontSize: "13px",
     fontWeight: "800",
     borderBottom: "1px solid #e2e8f0",
+    whiteSpace: "nowrap",
+    wordBreak: "normal",
   },
 
   td: {
@@ -1315,6 +1302,9 @@ const styles: {
     color: "#475569",
     fontSize: "14px",
     borderBottom: "1px solid #f1f5f9",
+    whiteSpace: "normal",
+    wordBreak: "normal",
+    overflowWrap: "normal",
   },
 
   idBadge: {
@@ -1325,17 +1315,24 @@ const styles: {
     borderRadius: "8px",
     fontSize: "12px",
     fontWeight: "800",
+    whiteSpace: "nowrap",
+    wordBreak: "normal",
   },
 
   studentName: {
     color: "#172554",
     fontWeight: "800",
+    whiteSpace: "normal",
+    wordBreak: "normal",
+    overflowWrap: "normal",
+    lineHeight: 1.4,
   },
 
   actionButtons: {
     display: "flex",
     gap: "8px",
     flexWrap: "wrap",
+    minWidth: 0,
   },
 
   editButton: {
@@ -1346,6 +1343,8 @@ const styles: {
     borderRadius: "8px",
     fontWeight: "700",
     cursor: "pointer",
+    whiteSpace: "nowrap",
+    wordBreak: "normal",
   },
 
   deleteButton: {
@@ -1356,6 +1355,8 @@ const styles: {
     borderRadius: "8px",
     fontWeight: "700",
     cursor: "pointer",
+    whiteSpace: "nowrap",
+    wordBreak: "normal",
   },
 
   loading: {
@@ -1363,6 +1364,10 @@ const styles: {
     padding: "50px 20px",
     color: "#64748b",
     fontWeight: "700",
+    lineHeight: 1.5,
+    whiteSpace: "normal",
+    wordBreak: "normal",
+    overflowWrap: "normal",
   },
 
   empty: {
@@ -1378,22 +1383,31 @@ const styles: {
   emptyTitle: {
     margin: 0,
     color: "#172554",
+    wordBreak: "normal",
+    overflowWrap: "normal",
   },
 
   emptyText: {
     color: "#64748b",
     fontSize: "14px",
+    lineHeight: 1.5,
+    wordBreak: "normal",
+    overflowWrap: "normal",
   },
 
   modalOverlay: {
     position: "fixed",
     inset: 0,
+    width: "100%",
+    height: "100%",
     background: "rgba(15, 23, 42, 0.55)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     padding: "20px",
+    boxSizing: "border-box",
     zIndex: 1000,
+    overflow: "auto",
   },
 
   modal: {
@@ -1407,6 +1421,7 @@ const styles: {
     display: "flex",
     flexDirection: "column",
     overflow: "hidden",
+    minWidth: 0,
   },
 
   modalHeader: {
@@ -1415,8 +1430,17 @@ const styles: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
+    gap: "15px",
     borderBottom: "1px solid #e2e8f0",
     background: "white",
+    minWidth: 0,
+  },
+
+  modalHeaderText: {
+    minWidth: 0,
+    flex: 1,
+    wordBreak: "normal",
+    overflowWrap: "normal",
   },
 
   modalTitle: {
@@ -1424,12 +1448,20 @@ const styles: {
     color: "#172554",
     fontSize: "21px",
     fontWeight: "800",
+    lineHeight: 1.3,
+    wordBreak: "normal",
+    overflowWrap: "normal",
+    whiteSpace: "normal",
   },
 
   modalSubtitle: {
     margin: "5px 0 0",
     color: "#64748b",
     fontSize: "13px",
+    lineHeight: 1.5,
+    wordBreak: "normal",
+    overflowWrap: "normal",
+    whiteSpace: "normal",
   },
 
   closeButton: {
@@ -1438,6 +1470,7 @@ const styles: {
     color: "#475569",
     width: "35px",
     height: "35px",
+    minWidth: "35px",
     borderRadius: "9px",
     cursor: "pointer",
     fontWeight: "800",
@@ -1449,6 +1482,7 @@ const styles: {
     flexDirection: "column",
     minHeight: 0,
     flex: 1,
+    minWidth: 0,
   },
 
   modalBody: {
@@ -1459,6 +1493,7 @@ const styles: {
     overflowX: "hidden",
     flex: 1,
     minHeight: 0,
+    minWidth: 0,
   },
 
   formSection: {
@@ -1466,6 +1501,8 @@ const styles: {
     border: "1px solid #e2e8f0",
     borderRadius: "15px",
     padding: "17px",
+    minWidth: 0,
+    boxSizing: "border-box",
   },
 
   formSectionTitle: {
@@ -1473,13 +1510,35 @@ const styles: {
     color: "#172554",
     fontSize: "16px",
     fontWeight: "800",
+    lineHeight: 1.4,
+    wordBreak: "normal",
+    overflowWrap: "normal",
+    whiteSpace: "normal",
   },
 
   formGrid: {
     display: "grid",
     gridTemplateColumns:
-      "repeat(auto-fit, minmax(230px, 1fr))",
+      "repeat(auto-fit, minmax(min(230px, 100%), 1fr))",
     gap: "15px",
+    minWidth: 0,
+  },
+
+  field: {
+    minWidth: 0,
+    width: "100%",
+  },
+
+  fullWidthField: {
+    width: "100%",
+    minWidth: 0,
+    gridColumn: "1 / -1",
+  },
+
+  notesField: {
+    width: "100%",
+    minWidth: 0,
+    marginTop: "15px",
   },
 
   label: {
@@ -1488,10 +1547,15 @@ const styles: {
     color: "#334155",
     fontSize: "13px",
     fontWeight: "700",
+    lineHeight: 1.4,
+    wordBreak: "normal",
+    overflowWrap: "normal",
+    whiteSpace: "normal",
   },
 
   input: {
     width: "100%",
+    maxWidth: "100%",
     boxSizing: "border-box",
     border: "1px solid #cbd5e1",
     borderRadius: "10px",
@@ -1500,10 +1564,12 @@ const styles: {
     color: "#111827",
     background: "white",
     outline: "none",
+    minWidth: 0,
   },
 
   textarea: {
     width: "100%",
+    maxWidth: "100%",
     boxSizing: "border-box",
     border: "1px solid #cbd5e1",
     borderRadius: "10px",
@@ -1513,9 +1579,9 @@ const styles: {
     background: "white",
     outline: "none",
     resize: "vertical",
-    fontFamily:
-      "Arial, Helvetica, sans-serif",
+    fontFamily: "Arial, Helvetica, sans-serif",
     lineHeight: 1.5,
+    minWidth: 0,
   },
 
   helpText: {
@@ -1523,6 +1589,9 @@ const styles: {
     color: "#64748b",
     fontSize: "11px",
     lineHeight: 1.4,
+    wordBreak: "normal",
+    overflowWrap: "normal",
+    whiteSpace: "normal",
   },
 
   modalFooter: {
@@ -1533,6 +1602,7 @@ const styles: {
     gap: "10px",
     borderTop: "1px solid #e2e8f0",
     background: "white",
+    flexWrap: "wrap",
   },
 
   cancelButton: {
@@ -1543,6 +1613,8 @@ const styles: {
     borderRadius: "9px",
     fontWeight: "700",
     cursor: "pointer",
+    whiteSpace: "nowrap",
+    wordBreak: "normal",
   },
 
   saveButton: {
@@ -1554,16 +1626,24 @@ const styles: {
     borderRadius: "9px",
     fontWeight: "700",
     cursor: "pointer",
+    whiteSpace: "nowrap",
+    wordBreak: "normal",
   },
 
   footer: {
     padding: "25px 10px 10px",
     display: "flex",
     justifyContent: "center",
+    alignItems: "center",
     gap: "8px",
     flexWrap: "wrap",
     color: "#64748b",
     fontSize: "12px",
     textAlign: "center",
+    lineHeight: 1.5,
+
+    wordBreak: "normal",
+    overflowWrap: "normal",
+    whiteSpace: "normal",
   },
 };
