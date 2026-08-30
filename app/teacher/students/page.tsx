@@ -2,998 +2,436 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../lib/supabase";
+import { createClient } from "@supabase/supabase-js";
 
-type DashboardCard = {
-  icon: string;
-  title: string;
-  description: string;
-  path: string;
-  className: string;
-};
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
-type Announcement = {
+type Student = {
   id: number;
-  title: string;
-  message: string;
-  created_at: string;
-  likeCount: number;
-  likedByMe: boolean;
+  student_username: string;
+  password_hash: string;
+  created_at: string | null;
+  student_name: string | null;
+  admission_date: string | null;
 };
 
-export default function StudentDashboardPage() {
+export default function TeacherStudentsPage() {
   const router = useRouter();
 
-  const [studentName, setStudentName] = useState("Student");
-  const [username, setUsername] = useState("");
-  const [studentId, setStudentId] = useState<number | null>(null);
-  const [time, setTime] = useState("");
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const [announcements, setAnnouncements] = useState<
-    Announcement[]
-  >([]);
+  const [editingStudent, setEditingStudent] =
+    useState<Student | null>(null);
 
-  const [announcementLoading, setAnnouncementLoading] =
-    useState(true);
+  const [editName, setEditName] = useState("");
+  const [editUsername, setEditUsername] = useState("");
+  const [editAdmissionDate, setEditAdmissionDate] = useState("");
 
-  const [likingId, setLikingId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
-    initializeStudent();
-
-    updateTime();
-
-    const interval = setInterval(updateTime, 1000);
-
-    return () => clearInterval(interval);
+    loadStudents();
   }, []);
 
-  async function initializeStudent() {
-    const name =
-      localStorage.getItem("studentName") ||
-      localStorage.getItem("student_name") ||
-      "Student";
+  async function loadStudents() {
+    setLoading(true);
+    setError("");
 
-    const savedUsername =
-      localStorage.getItem("student_username") ||
-      localStorage.getItem("studentUsername") ||
-      "";
+    const { data, error } = await supabase
+      .from("students")
+      .select(
+        "id, student_username, password_hash, created_at, student_name, admission_date"
+      )
+      .order("id", { ascending: true });
 
-    const savedStudentId =
-      localStorage.getItem("studentId");
-
-    setStudentName(name);
-    setUsername(savedUsername);
-
-    if (savedUsername) {
-      const resolvedId =
-        await resolveStudentId(savedUsername);
-
-      if (resolvedId !== null) {
-        setStudentId(resolvedId);
-
-        localStorage.setItem(
-          "studentId",
-          String(resolvedId)
-        );
-
-        await loadAnnouncements(resolvedId);
-        return;
-      }
+    if (error) {
+      console.error("Students loading error:", error);
+      setError(error.message);
+      setStudents([]);
+    } else {
+      setStudents(data || []);
     }
 
-    if (savedStudentId) {
-      const parsedId = Number(savedStudentId);
-
-      if (!Number.isNaN(parsedId) && parsedId > 0) {
-        setStudentId(parsedId);
-
-        await loadAnnouncements(parsedId);
-        return;
-      }
-    }
-
-    setStudentId(null);
-
-    await loadAnnouncements(null);
+    setLoading(false);
   }
 
-  async function resolveStudentId(
-    studentUsername: string
-  ): Promise<number | null> {
-    try {
-      const { data, error } = await supabase
-        .from("students")
-        .select("id")
-        .eq("student_username", studentUsername)
-        .maybeSingle();
-
-      if (error) {
-        console.error(
-          "Student ID lookup error:",
-          error
-        );
-
-        return null;
-      }
-
-      if (!data?.id) {
-        console.error(
-          "Student ID not found for username:",
-          studentUsername
-        );
-
-        return null;
-      }
-
-      return Number(data.id);
-    } catch (error) {
-      console.error(
-        "Unexpected student ID lookup error:",
-        error
-      );
-
-      return null;
-    }
+  function openEdit(student: Student) {
+    setEditingStudent(student);
+    setEditName(student.student_name || "");
+    setEditUsername(student.student_username || "");
+    setEditAdmissionDate(student.admission_date || "");
+    setError("");
   }
 
-  function updateTime() {
-    setTime(
-      new Date().toLocaleTimeString("en-IN", {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
+  function closeEdit() {
+    setEditingStudent(null);
+    setEditName("");
+    setEditUsername("");
+    setEditAdmissionDate("");
+  }
+
+  async function saveStudent(e: React.FormEvent) {
+    e.preventDefault();
+
+    if (!editingStudent) return;
+
+    if (!editName.trim()) {
+      setError("Student name cannot be empty.");
+      return;
+    }
+
+    if (!editUsername.trim()) {
+      setError("Username cannot be empty.");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+
+    const { error } = await supabase
+      .from("students")
+      .update({
+        student_name: editName.trim(),
+        student_username: editUsername.trim(),
+        admission_date: editAdmissionDate.trim() || null,
       })
+      .eq("id", editingStudent.id);
+
+    if (error) {
+      console.error("Student update error:", error);
+      setError(error.message);
+      setSaving(false);
+      return;
+    }
+
+    await loadStudents();
+
+    setSaving(false);
+    closeEdit();
+  }
+
+  async function deleteStudent(student: Student) {
+    const studentName =
+      student.student_name || student.student_username;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${studentName}?\n\nThis action cannot be undone.`
     );
-  }
 
-  async function loadAnnouncements(
-    currentStudentId: number | null
-  ) {
-    setAnnouncementLoading(true);
+    if (!confirmed) return;
 
-    try {
-      const {
-        data: announcementData,
-        error: announcementError,
-      } = await supabase
-        .from("announcements")
-        .select(
-          "id, title, message, created_at"
-        )
-        .order("created_at", {
-          ascending: false,
-        });
+    setDeletingId(student.id);
+    setError("");
 
-      if (announcementError) {
-        console.error(
-          "Announcements loading error:",
-          announcementError
-        );
+    const { error } = await supabase
+      .from("students")
+      .delete()
+      .eq("id", student.id);
 
-        setAnnouncements([]);
-        return;
-      }
-
-      const announcementRows =
-        announcementData || [];
-
-      if (announcementRows.length === 0) {
-        setAnnouncements([]);
-        return;
-      }
-
-      const announcementIds =
-        announcementRows.map(
-          (announcement) => announcement.id
-        );
-
-      const {
-        data: likesData,
-        error: likesError,
-      } = await supabase
-        .from("announcement_likes")
-        .select(
-          "announcement_id, student_id"
-        )
-        .in(
-          "announcement_id",
-          announcementIds
-        );
-
-      if (likesError) {
-        console.error(
-          "Announcement likes loading error:",
-          likesError
-        );
-      }
-
-      const likes = likesData || [];
-
-      const formattedAnnouncements =
-        announcementRows.map(
-          (announcement) => {
-            const announcementLikes =
-              likes.filter(
-                (like) =>
-                  Number(like.announcement_id) ===
-                  Number(announcement.id)
-              );
-
-            const likedByMe =
-              currentStudentId !== null &&
-              announcementLikes.some(
-                (like) =>
-                  Number(like.student_id) ===
-                  Number(currentStudentId)
-              );
-
-            return {
-              id: announcement.id,
-              title: announcement.title,
-              message: announcement.message,
-              created_at:
-                announcement.created_at,
-              likeCount:
-                announcementLikes.length,
-              likedByMe,
-            };
-          }
-        );
-
-      setAnnouncements(
-        formattedAnnouncements
-      );
-    } catch (error) {
-      console.error(
-        "Unexpected announcements error:",
-        error
-      );
-
-      setAnnouncements([]);
-    } finally {
-      setAnnouncementLoading(false);
-    }
-  }
-
-  async function toggleLike(
-    announcementId: number
-  ) {
-    let currentStudentId = studentId;
-
-    if (!currentStudentId && username) {
-      const resolvedId =
-        await resolveStudentId(username);
-
-      if (resolvedId !== null) {
-        currentStudentId = resolvedId;
-
-        setStudentId(resolvedId);
-
-        localStorage.setItem(
-          "studentId",
-          String(resolvedId)
-        );
-      }
-    }
-
-    if (!currentStudentId) {
-      alert(
-        "Student information could not be found. Please login again."
-      );
-
+    if (error) {
+      console.error("Student delete error:", error);
+      setError(error.message);
+      setDeletingId(null);
       return;
     }
 
-    if (likingId !== null) {
-      return;
-    }
+    setStudents((current) =>
+      current.filter((item) => item.id !== student.id)
+    );
 
-    const selectedAnnouncement =
-      announcements.find(
-        (item) =>
-          item.id === announcementId
-      );
-
-    if (!selectedAnnouncement) {
-      return;
-    }
-
-    setLikingId(announcementId);
-
-    try {
-      if (selectedAnnouncement.likedByMe) {
-        const { error } =
-          await supabase
-            .from("announcement_likes")
-            .delete()
-            .eq(
-              "announcement_id",
-              announcementId
-            )
-            .eq(
-              "student_id",
-              currentStudentId
-            );
-
-        if (error) {
-          console.error(
-            "Unlike error:",
-            error
-          );
-
-          alert(
-            `Could not remove like: ${error.message}`
-          );
-
-          return;
-        }
-
-        setAnnouncements(
-          (previous) =>
-            previous.map((item) =>
-              item.id === announcementId
-                ? {
-                    ...item,
-                    likedByMe: false,
-                    likeCount:
-                      Math.max(
-                        0,
-                        item.likeCount - 1
-                      ),
-                  }
-                : item
-            )
-        );
-
-        return;
-      }
-
-      const { error } =
-        await supabase
-          .from("announcement_likes")
-          .insert({
-            announcement_id:
-              announcementId,
-            student_id:
-              currentStudentId,
-          });
-
-      if (error) {
-        console.error(
-          "Like error:",
-          error
-        );
-
-        if (error.code === "23505") {
-          await loadAnnouncements(
-            currentStudentId
-          );
-        } else {
-          alert(
-            `Could not like announcement: ${error.message}`
-          );
-        }
-
-        return;
-      }
-
-      setAnnouncements(
-        (previous) =>
-          previous.map((item) =>
-            item.id === announcementId
-              ? {
-                  ...item,
-                  likedByMe: true,
-                  likeCount:
-                    item.likeCount + 1,
-                }
-              : item
-          )
-      );
-    } catch (error) {
-      console.error(
-        "Unexpected like error:",
-        error
-      );
-    } finally {
-      setLikingId(null);
-    }
+    setDeletingId(null);
   }
 
   function logout() {
-    localStorage.removeItem(
-      "studentLoggedIn"
-    );
-
-    localStorage.removeItem(
-      "student_username"
-    );
-
-    localStorage.removeItem(
-      "studentUsername"
-    );
-
-    localStorage.removeItem(
-      "studentName"
-    );
-
-    localStorage.removeItem(
-      "student_name"
-    );
-
-    localStorage.removeItem(
-      "studentId"
-    );
+    localStorage.removeItem("teacherLoggedIn");
+    localStorage.removeItem("teacherName");
+    localStorage.removeItem("teacher_name");
+    localStorage.removeItem("teacher_username");
 
     sessionStorage.clear();
 
     router.push("/");
   }
 
-  function formatAnnouncementDate(
-    date: string
-  ) {
-    if (!date) {
-      return "";
-    }
-
-    return new Date(date).toLocaleString(
-      "en-IN",
-      {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      }
-    );
-  }
-
-  const firstLetter =
-    studentName.charAt(0).toUpperCase();
-
-  const cards: DashboardCard[] = [
-    {
-      icon: "📊",
-      title: "My Attendance",
-      description:
-        "View your current attendance and attendance percentage.",
-      path: "/student/attendance",
-      className: "blue",
-    },
-    {
-      icon: "📜",
-      title: "Attendance History",
-      description:
-        "Check your previous attendance records and details.",
-      path: "/student/attendance-history",
-      className: "purple",
-    },
-    {
-      icon: "📅",
-      title: "Academic Calendar",
-      description:
-        "View important academic dates and calendar information.",
-      path: "/student/calendar",
-      className: "green",
-    },
-    {
-      icon: "📈",
-      title: "Reports",
-      description:
-        "View your attendance reports and performance details.",
-      path: "/student/reports",
-      className: "orange",
-    },
-    {
-      icon: "💰",
-      title: "Fees",
-      description:
-        "Check your student fee information and payment details.",
-      path: "/student/fees",
-      className: "pink",
-    },
-    {
-      icon: "📚",
-      title: "Homework",
-      description:
-        "View homework assigned to your class by your teacher.",
-      path: "/student/homework",
-      className: "indigo",
-    },
-    {
-      icon: "⚙️",
-      title: "Settings",
-      description:
-        "Manage your account, name and password.",
-      path: "/student/settings",
-      className: "cyan",
-    },
-  ];
-
   return (
     <main style={styles.page}>
       <div style={styles.container}>
-
-        <nav style={styles.navbar}>
-          <div style={styles.brandArea}>
-            <div style={styles.brandIcon}>
-              🎓
-            </div>
+        <header style={styles.header}>
+          <div style={styles.headerLeft}>
+            <div style={styles.iconBox}>👨‍🎓</div>
 
             <div>
-              <div style={styles.brandName}>
-                ATTENDANCE PORTAL
-              </div>
+              <h1 style={styles.title}>Students Management</h1>
 
-              <div style={styles.brandSub}>
-                STUDENT CENTER
-              </div>
+              <p style={styles.subtitle}>
+                Manage all registered students
+              </p>
             </div>
           </div>
 
-          <div style={styles.navRight}>
-            <div style={styles.clock}>
-              🕒 {time}
-            </div>
+          <div style={styles.headerButtons}>
+            <button
+              type="button"
+              onClick={() => router.push("/teacher")}
+              style={styles.dashboardButton}
+            >
+              ← Teacher Dashboard
+            </button>
+
+            <button
+              type="button"
+              onClick={() => router.push("/teacher/settings")}
+              style={styles.settingsButton}
+            >
+              ⚙️ Settings
+            </button>
 
             <button
               type="button"
               onClick={logout}
               style={styles.logoutButton}
             >
-              Logout
+              🚪 Logout
             </button>
           </div>
-        </nav>
+        </header>
 
-        <section style={styles.hero}>
-          <div style={styles.heroGlowOne} />
-          <div style={styles.heroGlowTwo} />
-
-          <div style={styles.heroContent}>
-            <div style={styles.avatar}>
-              {firstLetter}
-            </div>
-
-            <div style={styles.welcomeArea}>
-              <div style={styles.smallGreeting}>
-                STUDENT DASHBOARD
-              </div>
-
-              <h1 style={styles.welcomeTitle}>
-                Welcome, {studentName}
-              </h1>
-
-              <p style={styles.welcomeText}>
-                Manage your attendance,
-                academic information,
-                homework, reports, fees
-                and account settings from
-                one place.
-              </p>
-
-              {username && (
-                <div
-                  style={styles.usernameBadge}
-                >
-                  Username: {username}
-                </div>
-              )}
-            </div>
+        {error && (
+          <div style={styles.error}>
+            ❌ {error}
           </div>
+        )}
 
-          <div style={styles.heroSide}>
-            <div style={styles.statusDot} />
+        <section style={styles.summaryCard}>
+          <div style={styles.summaryIcon}>👨‍🎓</div>
 
-            <div>
-              <div style={styles.onlineText}>
-                ACCOUNT ACTIVE
-              </div>
+          <div>
+            <p style={styles.summaryLabel}>
+              Total Students
+            </p>
 
-              <div style={styles.onlineSub}>
-                Student Portal
-              </div>
-            </div>
+            <h2 style={styles.summaryNumber}>
+              {students.length}
+            </h2>
           </div>
         </section>
 
-        <section
-          style={styles.announcementSection}
-        >
-          <div
-            style={
-              styles.announcementHeader
-            }
-          >
-            <div>
-              <div
-                style={
-                  styles.announcementEyebrow
-                }
-              >
-                📢 IMPORTANT
-              </div>
+        <section style={styles.card}>
+          <div style={styles.cardHeader}>
+            <div style={styles.cardIcon}>👥</div>
 
-              <h2
-                style={
-                  styles.announcementTitle
-                }
-              >
-                Announcements
+            <div>
+              <h2 style={styles.sectionTitle}>
+                All Students
               </h2>
 
-              <p
-                style={
-                  styles.announcementSubtitle
-                }
-              >
-                Latest updates from your
-                teacher for all students.
+              <p style={styles.sectionSubtitle}>
+                Edit or delete student accounts
               </p>
-            </div>
-
-            <div
-              style={
-                styles.announcementBadge
-              }
-            >
-              {announcements.length}{" "}
-              {announcements.length === 1
-                ? "ANNOUNCEMENT"
-                : "ANNOUNCEMENTS"}
             </div>
           </div>
 
-          {announcementLoading ? (
-            <div
-              style={
-                styles.announcementLoading
-              }
-            >
-              <div
-                style={
-                  styles.loadingIcon
-                }
-              >
-                ⏳
-              </div>
-
-              <div>
-                <div
-                  style={
-                    styles.loadingTitle
-                  }
-                >
-                  Loading Announcements...
-                </div>
-
-                <div
-                  style={
-                    styles.loadingText
-                  }
-                >
-                  Please wait.
-                </div>
-              </div>
+          {loading ? (
+            <div style={styles.loading}>
+              ⏳ Loading students...
             </div>
-          ) : announcements.length ===
-            0 ? (
-            <div
-              style={
-                styles.noAnnouncements
-              }
-            >
-              <div
-                style={
-                  styles.noAnnouncementIcon
-                }
-              >
-                📭
-              </div>
+          ) : students.length === 0 ? (
+            <div style={styles.empty}>
+              <div style={styles.emptyIcon}>👨‍🎓</div>
 
-              <div>
-                <h3
-                  style={
-                    styles.noAnnouncementTitle
-                  }
-                >
-                  No Announcements Yet
-                </h3>
+              <h3 style={styles.emptyTitle}>
+                No Students Found
+              </h3>
 
-                <p
-                  style={
-                    styles.noAnnouncementText
-                  }
-                >
-                  Your teacher has not
-                  published any announcement
-                  yet.
-                </p>
-              </div>
+              <p style={styles.emptyText}>
+                There are currently no students in the database.
+              </p>
             </div>
           ) : (
-            <div
-              style={
-                styles.announcementList
-              }
-            >
-              {announcements.map(
-                (announcement) => (
-                  <article
-                    key={announcement.id}
-                    style={
-                      styles.announcementCard
-                    }
-                  >
-                    <div
-                      style={
-                        styles.announcementCardTop
-                      }
-                    >
-                      <div
-                        style={
-                          styles.announcementIcon
-                        }
-                      >
-                        📢
-                      </div>
+            <div style={styles.tableWrapper}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>ID</th>
+                    <th style={styles.th}>Student Name</th>
+                    <th style={styles.th}>Username</th>
+                    <th style={styles.th}>Admission Date</th>
+                    <th style={styles.th}>Actions</th>
+                  </tr>
+                </thead>
 
-                      <div
-                        style={
-                          styles.announcementCardContent
-                        }
-                      >
-                        <div
-                          style={
-                            styles.announcementMeta
-                          }
-                        >
-                          <span
-                            style={
-                              styles.teacherBadge
-                            }
-                          >
-                            TEACHER
-                          </span>
-
-                          <span
-                            style={
-                              styles.announcementDate
-                            }
-                          >
-                            {formatAnnouncementDate(
-                              announcement.created_at
-                            )}
-                          </span>
-                        </div>
-
-                        <h3
-                          style={
-                            styles.announcementCardTitle
-                          }
-                        >
-                          {announcement.title}
-                        </h3>
-
-                        <p
-                          style={
-                            styles.announcementMessage
-                          }
-                        >
-                          {announcement.message}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div
-                      style={
-                        styles.announcementBottom
-                      }
-                    >
-                      <div
-                        style={
-                          styles.everyoneText
-                        }
-                      >
-                        👥 For all students
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          toggleLike(
-                            announcement.id
-                          )
-                        }
-                        disabled={
-                          likingId ===
-                          announcement.id
-                        }
-                        style={{
-                          ...styles.likeButton,
-                          ...(announcement.likedByMe
-                            ? styles.likeButtonActive
-                            : {}),
-                          opacity:
-                            likingId ===
-                            announcement.id
-                              ? 0.65
-                              : 1,
-                          cursor:
-                            likingId ===
-                            announcement.id
-                              ? "not-allowed"
-                              : "pointer",
-                        }}
-                      >
-                        {announcement.likedByMe
-                          ? "❤️ Liked"
-                          : "🤍 Like"}
-
-                        <span
-                          style={
-                            styles.likeCount
-                          }
-                        >
-                          {announcement.likeCount}
+                <tbody>
+                  {students.map((student, index) => (
+                    <tr key={student.id}>
+                      <td style={styles.td}>
+                        <span style={styles.idBadge}>
+                          {student.student_username ||
+                            `STU${1001 + index}`}
                         </span>
-                      </button>
-                    </div>
-                  </article>
-                )
-              )}
+                      </td>
+
+                      <td style={styles.td}>
+                        <div style={styles.studentName}>
+                          {student.student_name || "Unnamed Student"}
+                        </div>
+                      </td>
+
+                      <td style={styles.td}>
+                        {student.student_username}
+                      </td>
+
+                      <td style={styles.td}>
+                        {student.admission_date || "Not set"}
+                      </td>
+
+                      <td style={styles.td}>
+                        <div style={styles.actionButtons}>
+                          <button
+                            type="button"
+                            onClick={() => openEdit(student)}
+                            style={styles.editButton}
+                          >
+                            ✏️ Edit
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => deleteStudent(student)}
+                            disabled={deletingId === student.id}
+                            style={{
+                              ...styles.deleteButton,
+                              opacity:
+                                deletingId === student.id
+                                  ? 0.6
+                                  : 1,
+                            }}
+                          >
+                            {deletingId === student.id
+                              ? "Deleting..."
+                              : "🗑️ Delete"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </section>
 
-        <section style={styles.notice}>
-          <div style={styles.noticeIcon}>
-            ℹ️
-          </div>
+        {editingStudent && (
+          <div style={styles.modalOverlay}>
+            <div style={styles.modal}>
+              <div style={styles.modalHeader}>
+                <div>
+                  <h2 style={styles.modalTitle}>
+                    Edit Student
+                  </h2>
 
-          <div>
-            <div style={styles.noticeTitle}>
-              Student Information Center
-            </div>
+                  <p style={styles.modalSubtitle}>
+                    Update student information
+                  </p>
+                </div>
 
-            <p style={styles.noticeText}>
-              Use the options below to check
-              your attendance, academic
-              calendar, homework, reports,
-              fees and account settings.
-            </p>
-          </div>
-        </section>
-
-        <section>
-          <div style={styles.sectionHeading}>
-            <div>
-              <div
-                style={styles.sectionEyebrow}
-              >
-                STUDENT SERVICES
+                <button
+                  type="button"
+                  onClick={closeEdit}
+                  style={styles.closeButton}
+                >
+                  ✕
+                </button>
               </div>
 
-              <h2 style={styles.sectionTitle}>
-                Your Dashboard
-              </h2>
-            </div>
+              <form onSubmit={saveStudent}>
+                <div style={styles.modalBody}>
+                  <div>
+                    <label style={styles.label}>
+                      Student Name
+                    </label>
 
-            <div style={styles.serviceCount}>
-              {cards.length} OPTIONS
-            </div>
-          </div>
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) =>
+                        setEditName(e.target.value)
+                      }
+                      style={styles.input}
+                      placeholder="Enter student name"
+                    />
+                  </div>
 
-          <div style={styles.cardGrid}>
-            {cards.map((card) => {
-              const styleKey =
-                `card${card.className.charAt(0).toUpperCase()}${card.className.slice(1)}`;
+                  <div>
+                    <label style={styles.label}>
+                      Username
+                    </label>
 
-              return (
-                <button
-                  key={card.path}
-                  type="button"
-                  onClick={() =>
-                    router.push(card.path)
-                  }
-                  style={
-                    styles.serviceCard
-                  }
-                >
-                  <div
+                    <input
+                      type="text"
+                      value={editUsername}
+                      onChange={(e) =>
+                        setEditUsername(e.target.value)
+                      }
+                      style={styles.input}
+                      placeholder="Enter username"
+                    />
+                  </div>
+
+                  <div>
+                    <label style={styles.label}>
+                      Admission Date
+                    </label>
+
+                    <input
+                      type="date"
+                      value={editAdmissionDate}
+                      onChange={(e) =>
+                        setEditAdmissionDate(e.target.value)
+                      }
+                      style={styles.input}
+                    />
+                  </div>
+                </div>
+
+                <div style={styles.modalFooter}>
+                  <button
+                    type="button"
+                    onClick={closeEdit}
+                    style={styles.cancelButton}
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={saving}
                     style={{
-                      ...styles.cardTop,
-                      ...(styles[styleKey] ||
-                        {}),
+                      ...styles.saveButton,
+                      opacity: saving ? 0.6 : 1,
                     }}
                   >
-                    <div
-                      style={styles.cardIcon}
-                    >
-                      {card.icon}
-                    </div>
-
-                    <div
-                      style={styles.arrow}
-                    >
-                      →
-                    </div>
-                  </div>
-
-                  <div
-                    style={styles.cardBody}
-                  >
-                    <h3
-                      style={styles.cardTitle}
-                    >
-                      {card.title}
-                    </h3>
-
-                    <p
-                      style={
-                        styles.cardDescription
-                      }
-                    >
-                      {card.description}
-                    </p>
-
-                    <div
-                      style={styles.openLink}
-                    >
-                      <span>Open</span>
-                      <span>→</span>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
+                    {saving
+                      ? "Saving..."
+                      : "💾 Save Changes"}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </section>
-
-        <section
-          style={styles.bottomPanel}
-        >
-          <div style={styles.bottomIcon}>
-            👤
-          </div>
-
-          <div style={styles.bottomText}>
-            <h3
-              style={styles.bottomTitle}
-            >
-              Keep your profile updated
-            </h3>
-
-            <p
-              style={styles.bottomDescription}
-            >
-              Your personal information is
-              managed through your student
-              profile.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() =>
-              router.push("/student/profile")
-            }
-            style={styles.profileButton}
-          >
-            View Profile →
-          </button>
-        </section>
+        )}
 
         <footer style={styles.footer}>
-          <div style={styles.footerBrand}>
-            🎓 Attendance Portal
-          </div>
+          <strong>Attendance Portal</strong>
 
-          <div>
-            Student Portal • 2026
-          </div>
+          <span>
+            Students Management • 2026
+          </span>
         </footer>
       </div>
     </main>
@@ -1006,743 +444,400 @@ const styles: {
   page: {
     minHeight: "100vh",
     background:
-      "linear-gradient(135deg,#f8fafc 0%,#eef2ff 50%,#f0f9ff 100%)",
-    padding: "18px",
+      "linear-gradient(135deg, #eef2ff, #f8fafc, #eff6ff)",
+    padding: "20px",
     boxSizing: "border-box",
-    fontFamily:
-      "Arial, Helvetica, sans-serif",
-    color: "#0f172a",
+    fontFamily: "Arial, Helvetica, sans-serif",
   },
 
   container: {
     width: "100%",
-    maxWidth: "1250px",
+    maxWidth: "1200px",
     margin: "0 auto",
   },
 
-  navbar: {
-    background: "#ffffff",
-    border: "1px solid #e2e8f0",
+  header: {
+    background: "white",
     borderRadius: "18px",
-    padding: "14px 18px",
+    padding: "18px 20px",
     display: "flex",
-    alignItems: "center",
     justifyContent: "space-between",
+    alignItems: "center",
     gap: "15px",
-    marginBottom: "18px",
-    boxShadow:
-      "0 8px 25px rgba(15,23,42,0.06)",
     flexWrap: "wrap",
+    boxShadow:
+      "0 8px 25px rgba(15, 23, 42, 0.08)",
+    marginBottom: "20px",
   },
 
-  brandArea: {
+  headerLeft: {
     display: "flex",
     alignItems: "center",
-    gap: "11px",
+    gap: "13px",
   },
 
-  brandIcon: {
-    width: "45px",
-    height: "45px",
-    borderRadius: "13px",
+  iconBox: {
+    width: "55px",
+    height: "55px",
+    borderRadius: "15px",
     background:
-      "linear-gradient(135deg,#2563eb,#7c3aed)",
+      "linear-gradient(135deg, #2563eb, #7c3aed)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "22px",
+    fontSize: "28px",
   },
 
-  brandName: {
-    fontSize: "13px",
-    fontWeight: "1000",
-    letterSpacing: "1px",
+  title: {
+    margin: 0,
     color: "#172554",
+    fontSize: "26px",
+    fontWeight: "800",
   },
 
-  brandSub: {
-    marginTop: "3px",
-    fontSize: "9px",
-    fontWeight: "900",
-    letterSpacing: "2px",
+  subtitle: {
+    margin: "5px 0 0",
     color: "#64748b",
+    fontSize: "13px",
   },
 
-  navRight: {
+  headerButtons: {
     display: "flex",
-    alignItems: "center",
-    gap: "10px",
+    gap: "9px",
     flexWrap: "wrap",
   },
 
-  clock: {
-    background: "#f8fafc",
-    border: "1px solid #e2e8f0",
-    padding: "9px 12px",
-    borderRadius: "9px",
-    color: "#475569",
-    fontSize: "11px",
-    fontWeight: "800",
+  dashboardButton: {
+    border: "none",
+    background: "#1e3a8a",
+    color: "white",
+    padding: "11px 15px",
+    borderRadius: "10px",
+    fontWeight: "700",
+    cursor: "pointer",
+  },
+
+  settingsButton: {
+    border: "none",
+    background: "#475569",
+    color: "white",
+    padding: "11px 15px",
+    borderRadius: "10px",
+    fontWeight: "700",
+    cursor: "pointer",
   },
 
   logoutButton: {
     border: "none",
-    background: "#0f172a",
-    color: "#ffffff",
-    padding: "10px 15px",
-    borderRadius: "9px",
-    fontWeight: "900",
+    background: "#dc2626",
+    color: "white",
+    padding: "11px 15px",
+    borderRadius: "10px",
+    fontWeight: "700",
     cursor: "pointer",
   },
 
-  hero: {
-    position: "relative",
-    overflow: "hidden",
-    background:
-      "linear-gradient(135deg,#172554,#2563eb,#4f46e5)",
-    borderRadius: "25px",
-    padding: "34px",
-    minHeight: "220px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "25px",
-    marginBottom: "18px",
-    boxShadow:
-      "0 18px 45px rgba(37,99,235,0.22)",
-    boxSizing: "border-box",
-  },
-
-  heroGlowOne: {
-    position: "absolute",
-    width: "230px",
-    height: "230px",
-    borderRadius: "50%",
-    background:
-      "rgba(255,255,255,0.08)",
-    right: "120px",
-    top: "-100px",
-  },
-
-  heroGlowTwo: {
-    position: "absolute",
-    width: "180px",
-    height: "180px",
-    borderRadius: "50%",
-    background:
-      "rgba(255,255,255,0.06)",
-    right: "-40px",
-    bottom: "-90px",
-  },
-
-  heroContent: {
-    position: "relative",
-    zIndex: 2,
-    display: "flex",
-    alignItems: "center",
-    gap: "20px",
-    minWidth: 0,
-  },
-
-  avatar: {
-    width: "88px",
-    height: "88px",
-    minWidth: "88px",
-    borderRadius: "24px",
-    background: "#ffffff",
-    color: "#2563eb",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "38px",
-    fontWeight: "1000",
-    boxShadow:
-      "0 12px 30px rgba(0,0,0,0.18)",
-  },
-
-  welcomeArea: {
-    minWidth: 0,
-  },
-
-  smallGreeting: {
-    color: "#bfdbfe",
-    fontSize: "10px",
-    fontWeight: "1000",
-    letterSpacing: "2px",
-    marginBottom: "8px",
-  },
-
-  welcomeTitle: {
-    margin: 0,
-    color: "#ffffff",
-    fontSize: "30px",
-    lineHeight: 1.2,
-    fontWeight: "1000",
-    wordBreak: "break-word",
-  },
-
-  welcomeText: {
-    margin: "9px 0 0",
-    color: "#dbeafe",
-    fontSize: "13px",
-    fontWeight: "600",
-    lineHeight: 1.6,
-    maxWidth: "600px",
-  },
-
-  usernameBadge: {
-    display: "inline-block",
-    marginTop: "13px",
-    padding: "7px 11px",
-    borderRadius: "8px",
-    background:
-      "rgba(255,255,255,0.13)",
-    border:
-      "1px solid rgba(255,255,255,0.22)",
-    color: "#ffffff",
-    fontSize: "11px",
-    fontWeight: "900",
-  },
-
-  heroSide: {
-    position: "relative",
-    zIndex: 2,
-    background:
-      "rgba(255,255,255,0.12)",
-    border:
-      "1px solid rgba(255,255,255,0.2)",
-    borderRadius: "14px",
-    padding: "13px 15px",
-    display: "flex",
-    alignItems: "center",
-    gap: "9px",
-    minWidth: "155px",
-  },
-
-  statusDot: {
-    width: "10px",
-    height: "10px",
-    borderRadius: "50%",
-    background: "#4ade80",
-    boxShadow:
-      "0 0 0 5px rgba(74,222,128,0.15)",
-  },
-
-  onlineText: {
-    color: "#ffffff",
-    fontSize: "10px",
-    fontWeight: "1000",
-    letterSpacing: "1px",
-  },
-
-  onlineSub: {
-    marginTop: "3px",
-    color: "#bfdbfe",
-    fontSize: "10px",
-    fontWeight: "700",
-  },
-
-  announcementSection: {
-    background: "#ffffff",
-    border: "1px solid #dbeafe",
-    borderRadius: "20px",
-    padding: "20px",
-    marginBottom: "25px",
-    boxShadow:
-      "0 8px 26px rgba(15,23,42,0.06)",
-  },
-
-  announcementHeader: {
-    display: "flex",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    gap: "15px",
-    marginBottom: "16px",
-    flexWrap: "wrap",
-  },
-
-  announcementEyebrow: {
-    color: "#2563eb",
-    fontSize: "9px",
-    fontWeight: "1000",
-    letterSpacing: "2px",
-    marginBottom: "4px",
-  },
-
-  announcementTitle: {
-    margin: 0,
-    color: "#172554",
-    fontSize: "24px",
-    fontWeight: "1000",
-  },
-
-  announcementSubtitle: {
-    margin: "5px 0 0",
-    color: "#64748b",
-    fontSize: "11px",
-    fontWeight: "600",
-  },
-
-  announcementBadge: {
-    background: "#eff6ff",
-    color: "#1d4ed8",
-    border: "1px solid #bfdbfe",
-    padding: "8px 11px",
-    borderRadius: "9px",
-    fontSize: "10px",
-    fontWeight: "1000",
-  },
-
-  announcementLoading: {
-    display: "flex",
-    alignItems: "center",
-    gap: "13px",
-    padding: "18px",
-    background: "#f8fafc",
-    borderRadius: "14px",
-    border: "1px dashed #cbd5e1",
-  },
-
-  loadingIcon: {
-    fontSize: "27px",
-  },
-
-  loadingTitle: {
-    color: "#334155",
-    fontSize: "13px",
-    fontWeight: "900",
-  },
-
-  loadingText: {
-    marginTop: "3px",
-    color: "#64748b",
-    fontSize: "10px",
-    fontWeight: "600",
-  },
-
-  noAnnouncements: {
-    display: "flex",
-    alignItems: "center",
-    gap: "14px",
-    padding: "20px",
-    background: "#f8fafc",
-    borderRadius: "14px",
-    border: "1px dashed #cbd5e1",
-  },
-
-  noAnnouncementIcon: {
-    width: "48px",
-    height: "48px",
-    borderRadius: "13px",
-    background: "#eff6ff",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "23px",
-    flexShrink: 0,
-  },
-
-  noAnnouncementTitle: {
-    margin: 0,
-    color: "#334155",
-    fontSize: "14px",
-    fontWeight: "1000",
-  },
-
-  noAnnouncementText: {
-    margin: "4px 0 0",
-    color: "#64748b",
-    fontSize: "11px",
-    fontWeight: "600",
-  },
-
-  announcementList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-  },
-
-  announcementCard: {
-    background:
-      "linear-gradient(135deg,#f8fbff,#ffffff)",
-    border: "1px solid #dbeafe",
-    borderRadius: "16px",
-    padding: "16px",
-  },
-
-  announcementCardTop: {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: "13px",
-  },
-
-  announcementIcon: {
-    width: "45px",
-    height: "45px",
-    minWidth: "45px",
+  error: {
+    background: "#fee2e2",
+    color: "#991b1b",
+    border: "1px solid #fecaca",
+    padding: "14px 16px",
     borderRadius: "12px",
-    background:
-      "linear-gradient(135deg,#dbeafe,#ede9fe)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "21px",
-  },
-
-  announcementCardContent: {
-    minWidth: 0,
-    flex: 1,
-  },
-
-  announcementMeta: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    flexWrap: "wrap",
-  },
-
-  teacherBadge: {
-    background: "#dbeafe",
-    color: "#1d4ed8",
-    padding: "4px 7px",
-    borderRadius: "6px",
-    fontSize: "8px",
-    fontWeight: "1000",
-    letterSpacing: "0.7px",
-  },
-
-  announcementDate: {
-    color: "#94a3b8",
-    fontSize: "9px",
+    marginBottom: "20px",
     fontWeight: "700",
   },
 
-  announcementCardTitle: {
-    margin: "7px 0 0",
-    color: "#172554",
-    fontSize: "18px",
-    fontWeight: "1000",
-    wordBreak: "break-word",
-  },
-
-  announcementMessage: {
-    margin: "7px 0 0",
-    color: "#475569",
-    fontSize: "12px",
-    lineHeight: 1.65,
-    fontWeight: "600",
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
-  },
-
-  announcementBottom: {
-    marginTop: "14px",
-    paddingTop: "12px",
-    borderTop: "1px solid #e2e8f0",
+  summaryCard: {
+    background: "white",
+    borderRadius: "18px",
+    padding: "20px",
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: "10px",
-    flexWrap: "wrap",
+    gap: "15px",
+    boxShadow:
+      "0 8px 25px rgba(15, 23, 42, 0.07)",
+    marginBottom: "20px",
   },
 
-  everyoneText: {
+  summaryIcon: {
+    width: "58px",
+    height: "58px",
+    borderRadius: "15px",
+    background: "#eff6ff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "29px",
+  },
+
+  summaryLabel: {
+    margin: 0,
     color: "#64748b",
-    fontSize: "10px",
+    fontSize: "13px",
+    fontWeight: "700",
+  },
+
+  summaryNumber: {
+    margin: "3px 0 0",
+    color: "#172554",
+    fontSize: "28px",
     fontWeight: "800",
   },
 
-  likeButton: {
-    border: "1px solid #cbd5e1",
-    background: "#ffffff",
-    color: "#475569",
-    padding: "8px 11px",
-    borderRadius: "9px",
-    fontSize: "11px",
-    fontWeight: "1000",
-    display: "flex",
-    alignItems: "center",
-    gap: "7px",
+  card: {
+    background: "white",
+    borderRadius: "20px",
+    padding: "25px",
+    marginBottom: "20px",
+    boxShadow:
+      "0 8px 25px rgba(15, 23, 42, 0.07)",
   },
 
-  likeButtonActive: {
-    background: "#fff1f2",
-    border: "1px solid #fecdd3",
-    color: "#be123c",
-  },
-
-  likeCount: {
-    background: "#f1f5f9",
-    color: "#475569",
-    minWidth: "19px",
-    height: "19px",
-    padding: "0 4px",
-    borderRadius: "999px",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "9px",
-    fontWeight: "1000",
-  },
-
-  notice: {
-    background: "#ffffff",
-    border: "1px solid #dbeafe",
-    borderRadius: "17px",
-    padding: "15px 18px",
+  cardHeader: {
     display: "flex",
     alignItems: "center",
     gap: "13px",
-    marginBottom: "25px",
-    boxShadow:
-      "0 7px 22px rgba(15,23,42,0.05)",
+    marginBottom: "20px",
   },
 
-  noticeIcon: {
-    width: "40px",
-    height: "40px",
-    minWidth: "40px",
-    borderRadius: "11px",
+  cardIcon: {
+    width: "48px",
+    height: "48px",
+    borderRadius: "14px",
     background: "#eff6ff",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "19px",
-  },
-
-  noticeTitle: {
-    color: "#172554",
-    fontSize: "13px",
-    fontWeight: "900",
-  },
-
-  noticeText: {
-    margin: "3px 0 0",
-    color: "#64748b",
-    fontSize: "11px",
-    lineHeight: 1.5,
-    fontWeight: "600",
-  },
-
-  sectionHeading: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-    gap: "15px",
-    marginBottom: "15px",
-  },
-
-  sectionEyebrow: {
-    color: "#2563eb",
-    fontSize: "9px",
-    fontWeight: "1000",
-    letterSpacing: "2px",
-    marginBottom: "3px",
+    fontSize: "24px",
   },
 
   sectionTitle: {
     margin: 0,
-    fontSize: "24px",
-    fontWeight: "1000",
     color: "#172554",
+    fontSize: "21px",
+    fontWeight: "800",
   },
 
-  serviceCount: {
-    background: "#ffffff",
-    border: "1px solid #e2e8f0",
+  sectionSubtitle: {
+    margin: "4px 0 0",
     color: "#64748b",
-    padding: "8px 11px",
-    borderRadius: "9px",
-    fontSize: "10px",
-    fontWeight: "900",
+    fontSize: "13px",
   },
 
-  cardGrid: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(3,minmax(0,1fr))",
-    gap: "15px",
-  },
-
-  serviceCard: {
+  tableWrapper: {
+    width: "100%",
+    overflowX: "auto",
     border: "1px solid #e2e8f0",
-    background: "#ffffff",
-    borderRadius: "19px",
-    overflow: "hidden",
-    padding: 0,
-    textAlign: "left",
-    cursor: "pointer",
-    boxShadow:
-      "0 7px 22px rgba(15,23,42,0.05)",
-  },
-
-  cardTop: {
-    padding: "15px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-
-  cardBlue: {
-    background:
-      "linear-gradient(135deg,#dbeafe,#bfdbfe)",
-  },
-
-  cardPurple: {
-    background:
-      "linear-gradient(135deg,#ede9fe,#ddd6fe)",
-  },
-
-  cardGreen: {
-    background:
-      "linear-gradient(135deg,#dcfce7,#bbf7d0)",
-  },
-
-  cardOrange: {
-    background:
-      "linear-gradient(135deg,#ffedd5,#fed7aa)",
-  },
-
-  cardPink: {
-    background:
-      "linear-gradient(135deg,#fce7f3,#fbcfe8)",
-  },
-
-  cardIndigo: {
-    background:
-      "linear-gradient(135deg,#e0e7ff,#c7d2fe)",
-  },
-
-  cardCyan: {
-    background:
-      "linear-gradient(135deg,#cffafe,#a5f3fc)",
-  },
-
-  cardIcon: {
-    width: "47px",
-    height: "47px",
     borderRadius: "14px",
-    background:
-      "rgba(255,255,255,0.72)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "23px",
   },
 
-  arrow: {
-    width: "30px",
-    height: "30px",
-    borderRadius: "50%",
-    background:
-      "rgba(255,255,255,0.65)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+    minWidth: "800px",
+  },
+
+  th: {
+    textAlign: "left",
+    padding: "14px",
+    background: "#f8fafc",
+    color: "#334155",
+    fontSize: "13px",
+    fontWeight: "800",
+    borderBottom: "1px solid #e2e8f0",
+  },
+
+  td: {
+    padding: "15px 14px",
+    color: "#475569",
+    fontSize: "14px",
+    borderBottom: "1px solid #f1f5f9",
+  },
+
+  idBadge: {
+    display: "inline-block",
+    background: "#dbeafe",
+    color: "#1d4ed8",
+    padding: "6px 9px",
+    borderRadius: "8px",
+    fontSize: "12px",
+    fontWeight: "800",
+  },
+
+  studentName: {
     color: "#172554",
-    fontWeight: "1000",
+    fontWeight: "800",
   },
 
-  cardBody: {
-    padding: "17px",
-  },
-
-  cardTitle: {
-    margin: 0,
-    color: "#172554",
-    fontSize: "17px",
-    fontWeight: "1000",
-  },
-
-  cardDescription: {
-    margin: "7px 0 0",
-    color: "#64748b",
-    fontSize: "11px",
-    lineHeight: 1.6,
-    minHeight: "36px",
-    fontWeight: "600",
-  },
-
-  openLink: {
-    marginTop: "13px",
-    color: "#2563eb",
-    fontSize: "11px",
-    fontWeight: "1000",
+  actionButtons: {
     display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-
-  bottomPanel: {
-    marginTop: "20px",
-    background:
-      "linear-gradient(135deg,#ffffff,#f8fafc)",
-    border: "1px solid #e2e8f0",
-    borderRadius: "18px",
-    padding: "17px",
-    display: "flex",
-    alignItems: "center",
-    gap: "13px",
-    boxShadow:
-      "0 7px 22px rgba(15,23,42,0.05)",
+    gap: "8px",
     flexWrap: "wrap",
   },
 
-  bottomIcon: {
-    width: "48px",
-    height: "48px",
-    borderRadius: "13px",
-    background: "#eef2ff",
+  editButton: {
+    border: "none",
+    background: "#2563eb",
+    color: "white",
+    padding: "9px 12px",
+    borderRadius: "8px",
+    fontWeight: "700",
+    cursor: "pointer",
+  },
+
+  deleteButton: {
+    border: "none",
+    background: "#dc2626",
+    color: "white",
+    padding: "9px 12px",
+    borderRadius: "8px",
+    fontWeight: "700",
+    cursor: "pointer",
+  },
+
+  loading: {
+    textAlign: "center",
+    padding: "50px 20px",
+    color: "#64748b",
+    fontWeight: "700",
+  },
+
+  empty: {
+    textAlign: "center",
+    padding: "50px 20px",
+  },
+
+  emptyIcon: {
+    fontSize: "45px",
+    marginBottom: "10px",
+  },
+
+  emptyTitle: {
+    margin: 0,
+    color: "#172554",
+  },
+
+  emptyText: {
+    color: "#64748b",
+    fontSize: "14px",
+  },
+
+  modalOverlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(15, 23, 42, 0.55)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "23px",
+    padding: "20px",
+    zIndex: 1000,
   },
 
-  bottomText: {
-    flex: 1,
-    minWidth: "200px",
+  modal: {
+    width: "100%",
+    maxWidth: "520px",
+    background: "white",
+    borderRadius: "20px",
+    boxShadow:
+      "0 25px 60px rgba(15, 23, 42, 0.25)",
+    overflow: "hidden",
   },
 
-  bottomTitle: {
+  modalHeader: {
+    padding: "20px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    borderBottom: "1px solid #e2e8f0",
+  },
+
+  modalTitle: {
     margin: 0,
     color: "#172554",
-    fontSize: "14px",
-    fontWeight: "1000",
+    fontSize: "21px",
+    fontWeight: "800",
   },
 
-  bottomDescription: {
-    margin: "4px 0 0",
+  modalSubtitle: {
+    margin: "5px 0 0",
     color: "#64748b",
-    fontSize: "11px",
-    fontWeight: "600",
+    fontSize: "13px",
   },
 
-  profileButton: {
+  closeButton: {
     border: "none",
-    background: "#2563eb",
-    color: "#ffffff",
-    padding: "10px 15px",
+    background: "#f1f5f9",
+    color: "#475569",
+    width: "35px",
+    height: "35px",
     borderRadius: "9px",
-    fontWeight: "900",
+    cursor: "pointer",
+    fontWeight: "800",
+  },
+
+  modalBody: {
+    padding: "20px",
+    display: "grid",
+    gap: "17px",
+  },
+
+  label: {
+    display: "block",
+    marginBottom: "7px",
+    color: "#334155",
+    fontSize: "14px",
+    fontWeight: "700",
+  },
+
+  input: {
+    width: "100%",
+    boxSizing: "border-box",
+    border: "1px solid #cbd5e1",
+    borderRadius: "10px",
+    padding: "12px 13px",
+    fontSize: "15px",
+    color: "#111827",
+    background: "white",
+    outline: "none",
+  },
+
+  modalFooter: {
+    padding: "16px 20px",
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: "10px",
+    borderTop: "1px solid #e2e8f0",
+  },
+
+  cancelButton: {
+    border: "1px solid #cbd5e1",
+    background: "#f8fafc",
+    color: "#334155",
+    padding: "11px 17px",
+    borderRadius: "9px",
+    fontWeight: "700",
+    cursor: "pointer",
+  },
+
+  saveButton: {
+    border: "none",
+    background:
+      "linear-gradient(135deg, #2563eb, #4f46e5)",
+    color: "white",
+    padding: "11px 17px",
+    borderRadius: "9px",
+    fontWeight: "700",
     cursor: "pointer",
   },
 
   footer: {
-    marginTop: "25px",
-    padding: "18px 5px",
-    borderTop: "1px solid #e2e8f0",
+    padding: "25px 10px 10px",
     display: "flex",
-    justifyContent: "space-between",
-    gap: "10px",
-    color: "#94a3b8",
-    fontSize: "10px",
-    fontWeight: "700",
+    justifyContent: "center",
+    gap: "8px",
     flexWrap: "wrap",
-  },
-
-  footerBrand: {
-    color: "#475569",
-    fontWeight: "900",
+    color: "#64748b",
+    fontSize: "12px",
+    textAlign: "center",
   },
 };
