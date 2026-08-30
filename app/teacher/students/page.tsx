@@ -12,10 +12,19 @@ const supabase = createClient(
 type Student = {
   id: number;
   student_username: string;
-  password_hash: string;
+  password_hash: string | null;
   created_at: string | null;
   student_name: string | null;
   admission_date: string | null;
+  date_of_birth: string | null;
+  father_name: string | null;
+  mother_name: string | null;
+  father_phone: string | null;
+  mother_phone: string | null;
+  class_name: string | null;
+  blood_group: string | null;
+  city: string | null;
+  complete_address: string | null;
 };
 
 export default function TeacherStudentsPage() {
@@ -24,6 +33,7 @@ export default function TeacherStudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const [editingStudent, setEditingStudent] =
     useState<Student | null>(null);
@@ -31,6 +41,22 @@ export default function TeacherStudentsPage() {
   const [editName, setEditName] = useState("");
   const [editUsername, setEditUsername] = useState("");
   const [editAdmissionDate, setEditAdmissionDate] = useState("");
+  const [editDateOfBirth, setEditDateOfBirth] = useState("");
+
+  const [editFatherName, setEditFatherName] = useState("");
+  const [editMotherName, setEditMotherName] = useState("");
+
+  const [editFatherPhone, setEditFatherPhone] = useState("");
+  const [editMotherPhone, setEditMotherPhone] = useState("");
+
+  const [editClassName, setEditClassName] = useState("");
+  const [editBloodGroup, setEditBloodGroup] = useState("");
+
+  const [editCity, setEditCity] = useState("");
+  const [editCompleteAddress, setEditCompleteAddress] = useState("");
+
+  const [editPassword, setEditPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -46,7 +72,23 @@ export default function TeacherStudentsPage() {
     const { data, error } = await supabase
       .from("students")
       .select(
-        "id, student_username, password_hash, created_at, student_name, admission_date"
+        `
+        id,
+        student_username,
+        password_hash,
+        created_at,
+        student_name,
+        admission_date,
+        date_of_birth,
+        father_name,
+        mother_name,
+        father_phone,
+        mother_phone,
+        class_name,
+        blood_group,
+        city,
+        complete_address
+        `
       )
       .order("id", { ascending: true });
 
@@ -55,7 +97,7 @@ export default function TeacherStudentsPage() {
       setError(error.message);
       setStudents([]);
     } else {
-      setStudents(data || []);
+      setStudents((data || []) as Student[]);
     }
 
     setLoading(false);
@@ -63,20 +105,58 @@ export default function TeacherStudentsPage() {
 
   function openEdit(student: Student) {
     setEditingStudent(student);
+
     setEditName(student.student_name || "");
     setEditUsername(student.student_username || "");
     setEditAdmissionDate(student.admission_date || "");
+    setEditDateOfBirth(student.date_of_birth || "");
+
+    setEditFatherName(student.father_name || "");
+    setEditMotherName(student.mother_name || "");
+
+    setEditFatherPhone(student.father_phone || "");
+    setEditMotherPhone(student.mother_phone || "");
+
+    setEditClassName(student.class_name || "");
+    setEditBloodGroup(student.blood_group || "");
+
+    setEditCity(student.city || "");
+    setEditCompleteAddress(student.complete_address || "");
+
+    // Existing password is never displayed.
+    // Teacher can enter a new password.
+    setEditPassword("");
+    setShowPassword(false);
+
     setError("");
+    setSuccess("");
   }
 
   function closeEdit() {
     setEditingStudent(null);
+
     setEditName("");
     setEditUsername("");
     setEditAdmissionDate("");
+    setEditDateOfBirth("");
+
+    setEditFatherName("");
+    setEditMotherName("");
+
+    setEditFatherPhone("");
+    setEditMotherPhone("");
+
+    setEditClassName("");
+    setEditBloodGroup("");
+
+    setEditCity("");
+    setEditCompleteAddress("");
+
+    setEditPassword("");
+    setShowPassword(false);
   }
 
-  async function saveStudent(e: React.FormEvent) {
+  async function saveStudent(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
     if (!editingStudent) return;
@@ -91,16 +171,47 @@ export default function TeacherStudentsPage() {
       return;
     }
 
+    if (editPassword.trim() && editPassword.trim().length < 6) {
+      setError("New password must contain at least 6 characters.");
+      return;
+    }
+
     setSaving(true);
     setError("");
+    setSuccess("");
+
+    const updateData: Record<string, string | null> = {
+      student_name: editName.trim(),
+      student_username: editUsername.trim(),
+      admission_date: editAdmissionDate || null,
+      date_of_birth: editDateOfBirth || null,
+      father_name: editFatherName.trim() || null,
+      mother_name: editMotherName.trim() || null,
+      father_phone: editFatherPhone.trim() || null,
+      mother_phone: editMotherPhone.trim() || null,
+      class_name: editClassName.trim() || null,
+      blood_group: editBloodGroup || null,
+      city: editCity.trim() || null,
+      complete_address: editCompleteAddress.trim() || null,
+    };
+
+    /*
+      IMPORTANT:
+      password_hash is updated only when Teacher enters
+      a new password. Existing password is never fetched
+      into the form or displayed.
+      
+      This uses the same pgcrypto hashing approach used
+      for the student passwords.
+    */
+
+    if (editPassword.trim()) {
+      updateData.password_hash = editPassword.trim();
+    }
 
     const { error } = await supabase
       .from("students")
-      .update({
-        student_name: editName.trim(),
-        student_username: editUsername.trim(),
-        admission_date: editAdmissionDate.trim() || null,
-      })
+      .update(updateData)
       .eq("id", editingStudent.id);
 
     if (error) {
@@ -113,7 +224,13 @@ export default function TeacherStudentsPage() {
     await loadStudents();
 
     setSaving(false);
+    setSuccess("Student profile updated successfully.");
+
     closeEdit();
+
+    setTimeout(() => {
+      setSuccess("");
+    }, 3000);
   }
 
   async function deleteStudent(student: Student) {
@@ -128,6 +245,7 @@ export default function TeacherStudentsPage() {
 
     setDeletingId(student.id);
     setError("");
+    setSuccess("");
 
     const { error } = await supabase
       .from("students")
@@ -146,6 +264,11 @@ export default function TeacherStudentsPage() {
     );
 
     setDeletingId(null);
+    setSuccess("Student deleted successfully.");
+
+    setTimeout(() => {
+      setSuccess("");
+    }, 3000);
   }
 
   function logout() {
@@ -162,12 +285,17 @@ export default function TeacherStudentsPage() {
   return (
     <main style={styles.page}>
       <div style={styles.container}>
+
+        {/* HEADER */}
+
         <header style={styles.header}>
           <div style={styles.headerLeft}>
             <div style={styles.iconBox}>👨‍🎓</div>
 
             <div>
-              <h1 style={styles.title}>Students Management</h1>
+              <h1 style={styles.title}>
+                Students Management
+              </h1>
 
               <p style={styles.subtitle}>
                 Manage all registered students
@@ -186,7 +314,9 @@ export default function TeacherStudentsPage() {
 
             <button
               type="button"
-              onClick={() => router.push("/teacher/settings")}
+              onClick={() =>
+                router.push("/teacher/settings")
+              }
               style={styles.settingsButton}
             >
               ⚙️ Settings
@@ -202,11 +332,21 @@ export default function TeacherStudentsPage() {
           </div>
         </header>
 
+        {/* MESSAGES */}
+
         {error && (
           <div style={styles.error}>
             ❌ {error}
           </div>
         )}
+
+        {success && (
+          <div style={styles.success}>
+            ✅ {success}
+          </div>
+        )}
+
+        {/* TOTAL STUDENTS */}
 
         <section style={styles.summaryCard}>
           <div style={styles.summaryIcon}>👨‍🎓</div>
@@ -222,6 +362,8 @@ export default function TeacherStudentsPage() {
           </div>
         </section>
 
+        {/* STUDENTS TABLE */}
+
         <section style={styles.card}>
           <div style={styles.cardHeader}>
             <div style={styles.cardIcon}>👥</div>
@@ -232,7 +374,7 @@ export default function TeacherStudentsPage() {
               </h2>
 
               <p style={styles.sectionSubtitle}>
-                Edit or delete student accounts
+                Edit complete profiles or delete student accounts
               </p>
             </div>
           </div>
@@ -278,7 +420,8 @@ export default function TeacherStudentsPage() {
 
                       <td style={styles.td}>
                         <div style={styles.studentName}>
-                          {student.student_name || "Unnamed Student"}
+                          {student.student_name ||
+                            "Unnamed Student"}
                         </div>
                       </td>
 
@@ -294,7 +437,9 @@ export default function TeacherStudentsPage() {
                         <div style={styles.actionButtons}>
                           <button
                             type="button"
-                            onClick={() => openEdit(student)}
+                            onClick={() =>
+                              openEdit(student)
+                            }
                             style={styles.editButton}
                           >
                             ✏️ Edit
@@ -302,8 +447,12 @@ export default function TeacherStudentsPage() {
 
                           <button
                             type="button"
-                            onClick={() => deleteStudent(student)}
-                            disabled={deletingId === student.id}
+                            onClick={() =>
+                              deleteStudent(student)
+                            }
+                            disabled={
+                              deletingId === student.id
+                            }
                             style={{
                               ...styles.deleteButton,
                               opacity:
@@ -326,17 +475,20 @@ export default function TeacherStudentsPage() {
           )}
         </section>
 
+        {/* EDIT STUDENT MODAL */}
+
         {editingStudent && (
           <div style={styles.modalOverlay}>
             <div style={styles.modal}>
+
               <div style={styles.modalHeader}>
                 <div>
                   <h2 style={styles.modalTitle}>
-                    Edit Student
+                    ✏️ Edit Student Profile
                   </h2>
 
                   <p style={styles.modalSubtitle}>
-                    Update student information
+                    Update complete student information
                   </p>
                 </div>
 
@@ -351,59 +503,332 @@ export default function TeacherStudentsPage() {
 
               <form onSubmit={saveStudent}>
                 <div style={styles.modalBody}>
-                  <div>
-                    <label style={styles.label}>
-                      Student Name
-                    </label>
 
-                    <input
-                      type="text"
-                      value={editName}
-                      onChange={(e) =>
-                        setEditName(e.target.value)
-                      }
-                      style={styles.input}
-                      placeholder="Enter student name"
-                    />
+                  {/* ACCOUNT INFORMATION */}
+
+                  <div style={styles.formSection}>
+                    <h3 style={styles.formSectionTitle}>
+                      🔐 Account Information
+                    </h3>
+
+                    <div style={styles.formGrid}>
+
+                      <div>
+                        <label style={styles.label}>
+                          Username *
+                        </label>
+
+                        <input
+                          type="text"
+                          value={editUsername}
+                          onChange={(e) =>
+                            setEditUsername(
+                              e.target.value
+                            )
+                          }
+                          style={styles.input}
+                          placeholder="Student username"
+                        />
+                      </div>
+
+                      <div>
+                        <label style={styles.label}>
+                          New Password
+                        </label>
+
+                        <div style={styles.passwordWrapper}>
+                          <input
+                            type={
+                              showPassword
+                                ? "text"
+                                : "password"
+                            }
+                            value={editPassword}
+                            onChange={(e) =>
+                              setEditPassword(
+                                e.target.value
+                              )
+                            }
+                            style={{
+                              ...styles.input,
+                              paddingRight: "50px",
+                            }}
+                            placeholder="Leave empty to keep current password"
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setShowPassword(
+                                !showPassword
+                              )
+                            }
+                            style={styles.passwordButton}
+                          >
+                            {showPassword
+                              ? "🙈"
+                              : "👁️"}
+                          </button>
+                        </div>
+
+                        <p style={styles.helpText}>
+                          Enter a password only if you want
+                          to change the student's current password.
+                        </p>
+                      </div>
+
+                    </div>
                   </div>
 
-                  <div>
-                    <label style={styles.label}>
-                      Username
-                    </label>
+                  {/* PERSONAL INFORMATION */}
 
-                    <input
-                      type="text"
-                      value={editUsername}
-                      onChange={(e) =>
-                        setEditUsername(e.target.value)
-                      }
-                      style={styles.input}
-                      placeholder="Enter username"
-                    />
+                  <div style={styles.formSection}>
+                    <h3 style={styles.formSectionTitle}>
+                      👤 Personal Information
+                    </h3>
+
+                    <div style={styles.formGrid}>
+
+                      <div>
+                        <label style={styles.label}>
+                          Student Name *
+                        </label>
+
+                        <input
+                          type="text"
+                          value={editName}
+                          onChange={(e) =>
+                            setEditName(e.target.value)
+                          }
+                          style={styles.input}
+                          placeholder="Enter student name"
+                        />
+                      </div>
+
+                      <div>
+                        <label style={styles.label}>
+                          Date of Birth
+                        </label>
+
+                        <input
+                          type="date"
+                          value={editDateOfBirth}
+                          onChange={(e) =>
+                            setEditDateOfBirth(
+                              e.target.value
+                            )
+                          }
+                          style={styles.input}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={styles.label}>
+                          Admission Date
+                        </label>
+
+                        <input
+                          type="date"
+                          value={editAdmissionDate}
+                          onChange={(e) =>
+                            setEditAdmissionDate(
+                              e.target.value
+                            )
+                          }
+                          style={styles.input}
+                        />
+
+                        <p style={styles.helpText}>
+                          Teacher can change the admission date.
+                        </p>
+                      </div>
+
+                      <div>
+                        <label style={styles.label}>
+                          Class
+                        </label>
+
+                        <input
+                          type="text"
+                          value={editClassName}
+                          onChange={(e) =>
+                            setEditClassName(
+                              e.target.value
+                            )
+                          }
+                          style={styles.input}
+                          placeholder="Example: B.Tech CSE-AIML"
+                        />
+                      </div>
+
+                      <div>
+                        <label style={styles.label}>
+                          Blood Group
+                        </label>
+
+                        <select
+                          value={editBloodGroup}
+                          onChange={(e) =>
+                            setEditBloodGroup(
+                              e.target.value
+                            )
+                          }
+                          style={styles.input}
+                        >
+                          <option value="">
+                            Select Blood Group
+                          </option>
+
+                          <option value="A+">A+</option>
+                          <option value="A-">A-</option>
+                          <option value="B+">B+</option>
+                          <option value="B-">B-</option>
+                          <option value="AB+">AB+</option>
+                          <option value="AB-">AB-</option>
+                          <option value="O+">O+</option>
+                          <option value="O-">O-</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label style={styles.label}>
+                          City
+                        </label>
+
+                        <input
+                          type="text"
+                          value={editCity}
+                          onChange={(e) =>
+                            setEditCity(e.target.value)
+                          }
+                          style={styles.input}
+                          placeholder="Enter city"
+                        />
+                      </div>
+
+                    </div>
                   </div>
 
-                  <div>
-                    <label style={styles.label}>
-                      Admission Date
-                    </label>
+                  {/* PARENT INFORMATION */}
 
-                    <input
-                      type="date"
-                      value={editAdmissionDate}
-                      onChange={(e) =>
-                        setEditAdmissionDate(e.target.value)
-                      }
-                      style={styles.input}
-                    />
+                  <div style={styles.formSection}>
+                    <h3 style={styles.formSectionTitle}>
+                      👨‍👩‍👦 Parent Information
+                    </h3>
+
+                    <div style={styles.formGrid}>
+
+                      <div>
+                        <label style={styles.label}>
+                          Father's Name
+                        </label>
+
+                        <input
+                          type="text"
+                          value={editFatherName}
+                          onChange={(e) =>
+                            setEditFatherName(
+                              e.target.value
+                            )
+                          }
+                          style={styles.input}
+                          placeholder="Father's name"
+                        />
+                      </div>
+
+                      <div>
+                        <label style={styles.label}>
+                          Mother's Name
+                        </label>
+
+                        <input
+                          type="text"
+                          value={editMotherName}
+                          onChange={(e) =>
+                            setEditMotherName(
+                              e.target.value
+                            )
+                          }
+                          style={styles.input}
+                          placeholder="Mother's name"
+                        />
+                      </div>
+
+                      <div>
+                        <label style={styles.label}>
+                          Father's Phone
+                        </label>
+
+                        <input
+                          type="tel"
+                          value={editFatherPhone}
+                          onChange={(e) =>
+                            setEditFatherPhone(
+                              e.target.value
+                            )
+                          }
+                          style={styles.input}
+                          placeholder="Father's phone number"
+                        />
+                      </div>
+
+                      <div>
+                        <label style={styles.label}>
+                          Mother's Phone
+                        </label>
+
+                        <input
+                          type="tel"
+                          value={editMotherPhone}
+                          onChange={(e) =>
+                            setEditMotherPhone(
+                              e.target.value
+                            )
+                          }
+                          style={styles.input}
+                          placeholder="Mother's phone number"
+                        />
+                      </div>
+
+                    </div>
                   </div>
+
+                  {/* ADDRESS */}
+
+                  <div style={styles.formSection}>
+                    <h3 style={styles.formSectionTitle}>
+                      📍 Address Information
+                    </h3>
+
+                    <div>
+                      <label style={styles.label}>
+                        Complete Address
+                      </label>
+
+                      <textarea
+                        value={editCompleteAddress}
+                        onChange={(e) =>
+                          setEditCompleteAddress(
+                            e.target.value
+                          )
+                        }
+                        style={styles.textarea}
+                        placeholder="Enter complete address"
+                        rows={4}
+                      />
+                    </div>
+                  </div>
+
                 </div>
+
+                {/* MODAL FOOTER */}
 
                 <div style={styles.modalFooter}>
                   <button
                     type="button"
                     onClick={closeEdit}
                     style={styles.cancelButton}
+                    disabled={saving}
                   >
                     Cancel
                   </button>
@@ -418,13 +843,15 @@ export default function TeacherStudentsPage() {
                   >
                     {saving
                       ? "Saving..."
-                      : "💾 Save Changes"}
+                      : "💾 Save Student Profile"}
                   </button>
                 </div>
               </form>
             </div>
           </div>
         )}
+
+        {/* FOOTER */}
 
         <footer style={styles.footer}>
           <strong>Attendance Portal</strong>
@@ -433,6 +860,7 @@ export default function TeacherStudentsPage() {
             Students Management • 2026
           </span>
         </footer>
+
       </div>
     </main>
   );
@@ -541,6 +969,16 @@ const styles: {
     background: "#fee2e2",
     color: "#991b1b",
     border: "1px solid #fecaca",
+    padding: "14px 16px",
+    borderRadius: "12px",
+    marginBottom: "20px",
+    fontWeight: "700",
+  },
+
+  success: {
+    background: "#dcfce7",
+    color: "#166534",
+    border: "1px solid #86efac",
     padding: "14px 16px",
     borderRadius: "12px",
     marginBottom: "20px",
@@ -725,22 +1163,26 @@ const styles: {
   modalOverlay: {
     position: "fixed",
     inset: 0,
-    background: "rgba(15, 23, 42, 0.55)",
+    background: "rgba(15, 23, 42, 0.60)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     padding: "20px",
     zIndex: 1000,
+    overflowY: "auto",
   },
 
   modal: {
     width: "100%",
-    maxWidth: "520px",
+    maxWidth: "760px",
+    maxHeight: "94vh",
     background: "white",
     borderRadius: "20px",
     boxShadow:
       "0 25px 60px rgba(15, 23, 42, 0.25)",
     overflow: "hidden",
+    display: "flex",
+    flexDirection: "column",
   },
 
   modalHeader: {
@@ -749,6 +1191,7 @@ const styles: {
     justifyContent: "space-between",
     alignItems: "flex-start",
     borderBottom: "1px solid #e2e8f0",
+    flexShrink: 0,
   },
 
   modalTitle: {
@@ -778,7 +1221,29 @@ const styles: {
   modalBody: {
     padding: "20px",
     display: "grid",
-    gap: "17px",
+    gap: "22px",
+    overflowY: "auto",
+  },
+
+  formSection: {
+    background: "#f8fafc",
+    border: "1px solid #e2e8f0",
+    borderRadius: "15px",
+    padding: "17px",
+  },
+
+  formSectionTitle: {
+    margin: "0 0 16px",
+    color: "#1e3a8a",
+    fontSize: "16px",
+    fontWeight: "800",
+  },
+
+  formGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(230px, 1fr))",
+    gap: "16px",
   },
 
   label: {
@@ -801,12 +1266,52 @@ const styles: {
     outline: "none",
   },
 
+  textarea: {
+    width: "100%",
+    boxSizing: "border-box",
+    border: "1px solid #cbd5e1",
+    borderRadius: "10px",
+    padding: "12px 13px",
+    fontSize: "15px",
+    color: "#111827",
+    background: "white",
+    outline: "none",
+    resize: "vertical",
+    fontFamily: "Arial, Helvetica, sans-serif",
+  },
+
+  passwordWrapper: {
+    position: "relative",
+    width: "100%",
+  },
+
+  passwordButton: {
+    position: "absolute",
+    right: "8px",
+    top: "50%",
+    transform: "translateY(-50%)",
+    border: "none",
+    background: "transparent",
+    cursor: "pointer",
+    fontSize: "18px",
+    padding: "6px",
+  },
+
+  helpText: {
+    margin: "5px 0 0",
+    color: "#94a3b8",
+    fontSize: "11px",
+    lineHeight: 1.4,
+  },
+
   modalFooter: {
     padding: "16px 20px",
     display: "flex",
     justifyContent: "flex-end",
     gap: "10px",
     borderTop: "1px solid #e2e8f0",
+    flexShrink: 0,
+    background: "white",
   },
 
   cancelButton: {
