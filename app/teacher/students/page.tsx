@@ -46,6 +46,9 @@ export default function TeacherStudentsPage() {
   const [editingStudent, setEditingStudent] =
     useState<Student | null>(null);
 
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
   const [editName, setEditName] = useState("");
   const [editUsername, setEditUsername] = useState("");
   const [editPassword, setEditPassword] = useState("");
@@ -55,28 +58,23 @@ export default function TeacherStudentsPage() {
   const [editFatherName, setEditFatherName] = useState("");
   const [editMotherName, setEditMotherName] = useState("");
 
+  const [editStudentMobile, setEditStudentMobile] = useState("");
+  const [editFatherMobile, setEditFatherMobile] = useState("");
+  const [editMotherMobile, setEditMotherMobile] = useState("");
+
   const [editFatherPhone, setEditFatherPhone] = useState("");
   const [editMotherPhone, setEditMotherPhone] = useState("");
-
-  const [editStudentMobile, setEditStudentMobile] = useState("");
 
   const [editClassName, setEditClassName] = useState("");
   const [editSection, setEditSection] = useState("");
   const [editGender, setEditGender] = useState("");
-
   const [editBloodGroup, setEditBloodGroup] = useState("");
 
   const [editEmail, setEditEmail] = useState("");
   const [editCity, setEditCity] = useState("");
   const [editAddress, setEditAddress] = useState("");
   const [editNotes, setEditNotes] = useState("");
-  const [editProfileImageUrl, setEditProfileImageUrl] =
-    useState("");
-
-  const [showPassword, setShowPassword] = useState(false);
-
-  const [saving, setSaving] = useState(false);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [editProfileImageUrl, setEditProfileImageUrl] = useState("");
 
   useEffect(() => {
     loadStudents();
@@ -88,8 +86,7 @@ export default function TeacherStudentsPage() {
 
     const { data, error } = await supabase
       .from("students")
-      .select(
-        `
+      .select(`
         id,
         student_username,
         password_hash,
@@ -113,8 +110,7 @@ export default function TeacherStudentsPage() {
         mother_phone,
         city,
         profile_image_url
-        `
-      )
+      `)
       .order("id", { ascending: true });
 
     if (error) {
@@ -141,45 +137,31 @@ export default function TeacherStudentsPage() {
     setEditFatherName(student.father_name || "");
     setEditMotherName(student.mother_name || "");
 
-    setEditFatherPhone(
-      student.father_phone ||
-        student.father_mobile ||
-        ""
-    );
-
-    setEditMotherPhone(
-      student.mother_phone ||
-        student.mother_mobile ||
-        ""
-    );
-
     setEditStudentMobile(student.student_mobile || "");
+    setEditFatherMobile(student.father_mobile || "");
+    setEditMotherMobile(student.mother_mobile || "");
+
+    setEditFatherPhone(student.father_phone || "");
+    setEditMotherPhone(student.mother_phone || "");
 
     setEditClassName(student.class_name || "");
     setEditSection(student.section || "");
     setEditGender(student.gender || "");
-
     setEditBloodGroup(student.blood_group || "");
 
     setEditEmail(student.email || "");
     setEditCity(student.city || "");
     setEditAddress(student.address || "");
     setEditNotes(student.notes || "");
-    setEditProfileImageUrl(
-      student.profile_image_url || ""
-    );
+    setEditProfileImageUrl(student.profile_image_url || "");
 
-    setShowPassword(false);
     setError("");
     setSuccess("");
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
   }
 
   function closeEdit() {
+    if (saving) return;
+
     setEditingStudent(null);
 
     setEditName("");
@@ -191,14 +173,16 @@ export default function TeacherStudentsPage() {
     setEditFatherName("");
     setEditMotherName("");
 
+    setEditStudentMobile("");
+    setEditFatherMobile("");
+    setEditMotherMobile("");
+
     setEditFatherPhone("");
     setEditMotherPhone("");
-    setEditStudentMobile("");
 
     setEditClassName("");
     setEditSection("");
     setEditGender("");
-
     setEditBloodGroup("");
 
     setEditEmail("");
@@ -206,8 +190,6 @@ export default function TeacherStudentsPage() {
     setEditAddress("");
     setEditNotes("");
     setEditProfileImageUrl("");
-
-    setShowPassword(false);
   }
 
   async function saveStudent(e: React.FormEvent) {
@@ -225,130 +207,87 @@ export default function TeacherStudentsPage() {
       return;
     }
 
-    if (editPassword && editPassword.length < 4) {
-      setError(
-        "New password must contain at least 4 characters."
-      );
-      return;
-    }
-
     setSaving(true);
     setError("");
     setSuccess("");
 
-    const updateData: Record<string, string | null> = {
+    const updateData: Partial<Student> = {
       student_name: editName.trim(),
       student_username: editUsername.trim(),
-
       admission_date:
         editAdmissionDate.trim() || null,
-
       date_of_birth:
         editDateOfBirth.trim() || null,
 
       father_name:
         editFatherName.trim() || null,
-
       mother_name:
         editMotherName.trim() || null,
 
+      student_mobile:
+        editStudentMobile.trim() || null,
+      father_mobile:
+        editFatherMobile.trim() || null,
+      mother_mobile:
+        editMotherMobile.trim() || null,
+
       father_phone:
         editFatherPhone.trim() || null,
-
       mother_phone:
         editMotherPhone.trim() || null,
 
-      student_mobile:
-        editStudentMobile.trim() || null,
-
       class_name:
         editClassName.trim() || null,
-
       section:
         editSection.trim() || null,
-
       gender:
         editGender.trim() || null,
-
       blood_group:
         editBloodGroup.trim() || null,
 
       email:
         editEmail.trim() || null,
-
       city:
         editCity.trim() || null,
-
       address:
         editAddress.trim() || null,
-
       notes:
         editNotes.trim() || null,
-
       profile_image_url:
         editProfileImageUrl.trim() || null,
     };
 
     /*
-      IMPORTANT:
-      Existing password_hash is NOT selected/displayed as plain text.
+      Password is updated only when teacher enters
+      a new password.
 
-      If Teacher enters a NEW password,
-      we call the Supabase PostgreSQL crypt function.
+      Existing password remains unchanged if
+      this field is left empty.
     */
 
     if (editPassword.trim()) {
-      const { data: passwordData, error: passwordError } =
-        await supabase.rpc("hash_student_password", {
-          plain_password: editPassword.trim(),
-        });
-
-      if (passwordError) {
-        console.error(
-          "Password hashing error:",
-          passwordError
-        );
-
-        setError(
-          "Password update failed. Please make sure the password hashing function exists in Supabase."
-        );
-
-        setSaving(false);
-        return;
-      }
-
-      if (!passwordData) {
-        setError("Could not generate password hash.");
-        setSaving(false);
-        return;
-      }
-
-      updateData.password_hash = String(passwordData);
+      updateData.password_hash = editPassword.trim();
     }
 
-    const { error: updateError } = await supabase
+    const { error } = await supabase
       .from("students")
       .update(updateData)
       .eq("id", editingStudent.id);
 
-    if (updateError) {
-      console.error(
-        "Student update error:",
-        updateError
-      );
-
-      setError(updateError.message);
+    if (error) {
+      console.error("Student update error:", error);
+      setError(error.message);
       setSaving(false);
       return;
     }
 
     await loadStudents();
 
-    setSaving(false);
     setSuccess(
       `${editName.trim()} profile updated successfully.`
     );
 
+    setSaving(false);
     closeEdit();
 
     setTimeout(() => {
@@ -372,18 +311,14 @@ export default function TeacherStudentsPage() {
     setError("");
     setSuccess("");
 
-    const { error: deleteError } = await supabase
+    const { error } = await supabase
       .from("students")
       .delete()
       .eq("id", student.id);
 
-    if (deleteError) {
-      console.error(
-        "Student delete error:",
-        deleteError
-      );
-
-      setError(deleteError.message);
+    if (error) {
+      console.error("Student delete error:", error);
+      setError(error.message);
       setDeletingId(null);
       return;
     }
@@ -419,6 +354,9 @@ export default function TeacherStudentsPage() {
   return (
     <main style={styles.page}>
       <div style={styles.container}>
+
+        {/* HEADER */}
+
         <header style={styles.header}>
           <div style={styles.headerLeft}>
             <div style={styles.iconBox}>
@@ -467,17 +405,23 @@ export default function TeacherStudentsPage() {
           </div>
         </header>
 
+        {/* ERROR */}
+
         {error && (
           <div style={styles.error}>
             ❌ {error}
           </div>
         )}
 
+        {/* SUCCESS */}
+
         {success && (
           <div style={styles.success}>
             ✅ {success}
           </div>
         )}
+
+        {/* SUMMARY */}
 
         <section style={styles.summaryCard}>
           <div style={styles.summaryIcon}>
@@ -494,6 +438,8 @@ export default function TeacherStudentsPage() {
             </h2>
           </div>
         </section>
+
+        {/* STUDENTS TABLE */}
 
         <section style={styles.card}>
           <div style={styles.cardHeader}>
@@ -528,17 +474,9 @@ export default function TeacherStudentsPage() {
               </h3>
 
               <p style={styles.emptyText}>
-                There are currently no students in
-                the database.
+                There are currently no students
+                in the database.
               </p>
-
-              <button
-                type="button"
-                onClick={loadStudents}
-                style={styles.reloadButton}
-              >
-                🔄 Reload
-              </button>
             </div>
           ) : (
             <div style={styles.tableWrapper}>
@@ -576,9 +514,7 @@ export default function TeacherStudentsPage() {
                             style={styles.idBadge}
                           >
                             {student.student_username ||
-                              `STU${
-                                1001 + index
-                              }`}
+                              `STU${1001 + index}`}
                           </span>
                         </td>
 
@@ -594,9 +530,7 @@ export default function TeacherStudentsPage() {
                         </td>
 
                         <td style={styles.td}>
-                          {
-                            student.student_username
-                          }
+                          {student.student_username}
                         </td>
 
                         <td style={styles.td}>
@@ -613,9 +547,7 @@ export default function TeacherStudentsPage() {
                             <button
                               type="button"
                               onClick={() =>
-                                openEdit(
-                                  student
-                                )
+                                openEdit(student)
                               }
                               style={
                                 styles.editButton
@@ -660,9 +592,14 @@ export default function TeacherStudentsPage() {
           )}
         </section>
 
+        {/* EDIT MODAL */}
+
         {editingStudent && (
           <div style={styles.modalOverlay}>
             <div style={styles.modal}>
+
+              {/* MODAL HEADER */}
+
               <div style={styles.modalHeader}>
                 <div>
                   <h2 style={styles.modalTitle}>
@@ -678,20 +615,27 @@ export default function TeacherStudentsPage() {
                 <button
                   type="button"
                   onClick={closeEdit}
+                  disabled={saving}
                   style={styles.closeButton}
                 >
                   ✕
                 </button>
               </div>
 
-              <form onSubmit={saveStudent}>
-                <div style={styles.modalBody}>
+              {/* SCROLLABLE DETAILS AREA */}
+
+              <form
+                onSubmit={saveStudent}
+                style={styles.modalForm}
+              >
+                <div
+                  style={styles.modalBody}
+                >
+
                   {/* ACCOUNT DETAILS */}
 
                   <div
-                    style={
-                      styles.formSection
-                    }
+                    style={styles.formSection}
                   >
                     <h3
                       style={
@@ -708,90 +652,49 @@ export default function TeacherStudentsPage() {
                     >
                       <div>
                         <label
-                          style={
-                            styles.label
-                          }
+                          style={styles.label}
                         >
-                          Username *
+                          Username
                         </label>
 
                         <input
                           type="text"
-                          value={
-                            editUsername
-                          }
+                          value={editUsername}
                           onChange={(e) =>
                             setEditUsername(
                               e.target.value
                             )
                           }
-                          style={
-                            styles.input
-                          }
-                          required
+                          style={styles.input}
                         />
                       </div>
 
                       <div>
                         <label
-                          style={
-                            styles.label
-                          }
+                          style={styles.label}
                         >
                           New Password
                         </label>
 
-                        <div
-                          style={
-                            styles.passwordWrapper
+                        <input
+                          type="text"
+                          value={editPassword}
+                          onChange={(e) =>
+                            setEditPassword(
+                              e.target.value
+                            )
                           }
-                        >
-                          <input
-                            type={
-                              showPassword
-                                ? "text"
-                                : "password"
-                            }
-                            value={
-                              editPassword
-                            }
-                            onChange={(e) =>
-                              setEditPassword(
-                                e.target.value
-                              )
-                            }
-                            style={
-                              styles.passwordInput
-                            }
-                            placeholder="Leave blank to keep current password"
-                          />
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setShowPassword(
-                                (value) =>
-                                  !value
-                              )
-                            }
-                            style={
-                              styles.passwordToggle
-                            }
-                          >
-                            {showPassword
-                              ? "🙈"
-                              : "👁️"}
-                          </button>
-                        </div>
+                          placeholder="Leave blank to keep current password"
+                          style={styles.input}
+                        />
 
                         <p
                           style={
                             styles.helpText
                           }
                         >
-                          Leave blank if you
-                          don't want to change
-                          the password.
+                          Enter a password only if
+                          you want to change it.
                         </p>
                       </div>
                     </div>
@@ -800,16 +703,14 @@ export default function TeacherStudentsPage() {
                   {/* BASIC DETAILS */}
 
                   <div
-                    style={
-                      styles.formSection
-                    }
+                    style={styles.formSection}
                   >
                     <h3
                       style={
                         styles.formSectionTitle
                       }
                     >
-                      👤 Personal Details
+                      👤 Basic Details
                     </h3>
 
                     <div
@@ -819,35 +720,27 @@ export default function TeacherStudentsPage() {
                     >
                       <div>
                         <label
-                          style={
-                            styles.label
-                          }
+                          style={styles.label}
                         >
                           Student Name *
                         </label>
 
                         <input
                           type="text"
-                          value={
-                            editName
-                          }
+                          value={editName}
                           onChange={(e) =>
                             setEditName(
                               e.target.value
                             )
                           }
-                          style={
-                            styles.input
-                          }
+                          style={styles.input}
                           required
                         />
                       </div>
 
                       <div>
                         <label
-                          style={
-                            styles.label
-                          }
+                          style={styles.label}
                         >
                           Date of Birth
                         </label>
@@ -862,17 +755,13 @@ export default function TeacherStudentsPage() {
                               e.target.value
                             )
                           }
-                          style={
-                            styles.input
-                          }
+                          style={styles.input}
                         />
                       </div>
 
                       <div>
                         <label
-                          style={
-                            styles.label
-                          }
+                          style={styles.label}
                         >
                           Admission Date
                         </label>
@@ -887,33 +776,25 @@ export default function TeacherStudentsPage() {
                               e.target.value
                             )
                           }
-                          style={
-                            styles.input
-                          }
+                          style={styles.input}
                         />
                       </div>
 
                       <div>
                         <label
-                          style={
-                            styles.label
-                          }
+                          style={styles.label}
                         >
                           Gender
                         </label>
 
                         <select
-                          value={
-                            editGender
-                          }
+                          value={editGender}
                           onChange={(e) =>
                             setEditGender(
                               e.target.value
                             )
                           }
-                          style={
-                            styles.input
-                          }
+                          style={styles.input}
                         >
                           <option value="">
                             Select Gender
@@ -935,19 +816,17 @@ export default function TeacherStudentsPage() {
                     </div>
                   </div>
 
-                  {/* FAMILY DETAILS */}
+                  {/* PARENT DETAILS */}
 
                   <div
-                    style={
-                      styles.formSection
-                    }
+                    style={styles.formSection}
                   >
                     <h3
                       style={
                         styles.formSectionTitle
                       }
                     >
-                      👨‍👩‍👧 Family Details
+                      👨‍👩‍👧 Parent Details
                     </h3>
 
                     <div
@@ -957,9 +836,7 @@ export default function TeacherStudentsPage() {
                     >
                       <div>
                         <label
-                          style={
-                            styles.label
-                          }
+                          style={styles.label}
                         >
                           Father's Name
                         </label>
@@ -974,17 +851,13 @@ export default function TeacherStudentsPage() {
                               e.target.value
                             )
                           }
-                          style={
-                            styles.input
-                          }
+                          style={styles.input}
                         />
                       </div>
 
                       <div>
                         <label
-                          style={
-                            styles.label
-                          }
+                          style={styles.label}
                         >
                           Mother's Name
                         </label>
@@ -999,17 +872,13 @@ export default function TeacherStudentsPage() {
                               e.target.value
                             )
                           }
-                          style={
-                            styles.input
-                          }
+                          style={styles.input}
                         />
                       </div>
 
                       <div>
                         <label
-                          style={
-                            styles.label
-                          }
+                          style={styles.label}
                         >
                           Father's Phone
                         </label>
@@ -1024,18 +893,13 @@ export default function TeacherStudentsPage() {
                               e.target.value
                             )
                           }
-                          style={
-                            styles.input
-                          }
-                          placeholder="Father's contact number"
+                          style={styles.input}
                         />
                       </div>
 
                       <div>
                         <label
-                          style={
-                            styles.label
-                          }
+                          style={styles.label}
                         >
                           Mother's Phone
                         </label>
@@ -1050,28 +914,65 @@ export default function TeacherStudentsPage() {
                               e.target.value
                             )
                           }
-                          style={
-                            styles.input
+                          style={styles.input}
+                        />
+                      </div>
+
+                      <div>
+                        <label
+                          style={styles.label}
+                        >
+                          Father Mobile
+                        </label>
+
+                        <input
+                          type="tel"
+                          value={
+                            editFatherMobile
                           }
-                          placeholder="Mother's contact number"
+                          onChange={(e) =>
+                            setEditFatherMobile(
+                              e.target.value
+                            )
+                          }
+                          style={styles.input}
+                        />
+                      </div>
+
+                      <div>
+                        <label
+                          style={styles.label}
+                        >
+                          Mother Mobile
+                        </label>
+
+                        <input
+                          type="tel"
+                          value={
+                            editMotherMobile
+                          }
+                          onChange={(e) =>
+                            setEditMotherMobile(
+                              e.target.value
+                            )
+                          }
+                          style={styles.input}
                         />
                       </div>
                     </div>
                   </div>
 
-                  {/* CONTACT DETAILS */}
+                  {/* STUDENT CONTACT */}
 
                   <div
-                    style={
-                      styles.formSection
-                    }
+                    style={styles.formSection}
                   >
                     <h3
                       style={
                         styles.formSectionTitle
                       }
                     >
-                      📞 Contact Details
+                      📱 Contact Details
                     </h3>
 
                     <div
@@ -1081,9 +982,7 @@ export default function TeacherStudentsPage() {
                     >
                       <div>
                         <label
-                          style={
-                            styles.label
-                          }
+                          style={styles.label}
                         >
                           Student Mobile
                         </label>
@@ -1098,70 +997,35 @@ export default function TeacherStudentsPage() {
                               e.target.value
                             )
                           }
-                          style={
-                            styles.input
-                          }
+                          style={styles.input}
                         />
                       </div>
 
                       <div>
                         <label
-                          style={
-                            styles.label
-                          }
+                          style={styles.label}
                         >
                           Email
                         </label>
 
                         <input
                           type="email"
-                          value={
-                            editEmail
-                          }
+                          value={editEmail}
                           onChange={(e) =>
                             setEditEmail(
                               e.target.value
                             )
                           }
-                          style={
-                            styles.input
-                          }
-                        />
-                      </div>
-
-                      <div>
-                        <label
-                          style={
-                            styles.label
-                          }
-                        >
-                          City
-                        </label>
-
-                        <input
-                          type="text"
-                          value={
-                            editCity
-                          }
-                          onChange={(e) =>
-                            setEditCity(
-                              e.target.value
-                            )
-                          }
-                          style={
-                            styles.input
-                          }
+                          style={styles.input}
                         />
                       </div>
                     </div>
                   </div>
 
-                  {/* ACADEMIC DETAILS */}
+                  {/* EDUCATION */}
 
                   <div
-                    style={
-                      styles.formSection
-                    }
+                    style={styles.formSection}
                   >
                     <h3
                       style={
@@ -1178,9 +1042,7 @@ export default function TeacherStudentsPage() {
                     >
                       <div>
                         <label
-                          style={
-                            styles.label
-                          }
+                          style={styles.label}
                         >
                           Class
                         </label>
@@ -1195,44 +1057,33 @@ export default function TeacherStudentsPage() {
                               e.target.value
                             )
                           }
-                          style={
-                            styles.input
-                          }
                           placeholder="Example: B.Tech CSE-AIML"
+                          style={styles.input}
                         />
                       </div>
 
                       <div>
                         <label
-                          style={
-                            styles.label
-                          }
+                          style={styles.label}
                         >
                           Section
                         </label>
 
                         <input
                           type="text"
-                          value={
-                            editSection
-                          }
+                          value={editSection}
                           onChange={(e) =>
                             setEditSection(
                               e.target.value
                             )
                           }
-                          style={
-                            styles.input
-                          }
-                          placeholder="Example: A"
+                          style={styles.input}
                         />
                       </div>
 
                       <div>
                         <label
-                          style={
-                            styles.label
-                          }
+                          style={styles.label}
                         >
                           Blood Group
                         </label>
@@ -1246,9 +1097,7 @@ export default function TeacherStudentsPage() {
                               e.target.value
                             )
                           }
-                          style={
-                            styles.input
-                          }
+                          style={styles.input}
                         >
                           <option value="">
                             Select Blood Group
@@ -1293,16 +1142,14 @@ export default function TeacherStudentsPage() {
                   {/* ADDRESS */}
 
                   <div
-                    style={
-                      styles.formSection
-                    }
+                    style={styles.formSection}
                   >
                     <h3
                       style={
                         styles.formSectionTitle
                       }
                     >
-                      🏠 Address
+                      📍 Address Details
                     </h3>
 
                     <div
@@ -1310,129 +1157,125 @@ export default function TeacherStudentsPage() {
                         styles.formGrid
                       }
                     >
+                      <div>
+                        <label
+                          style={styles.label}
+                        >
+                          City
+                        </label>
+
+                        <input
+                          type="text"
+                          value={editCity}
+                          onChange={(e) =>
+                            setEditCity(
+                              e.target.value
+                            )
+                          }
+                          style={styles.input}
+                        />
+                      </div>
+
                       <div
-                        style={
-                          styles.fullWidth
-                        }
+                        style={{
+                          gridColumn:
+                            "1 / -1",
+                        }}
                       >
                         <label
-                          style={
-                            styles.label
-                          }
+                          style={styles.label}
                         >
                           Complete Address
                         </label>
 
                         <textarea
-                          value={
-                            editAddress
-                          }
+                          value={editAddress}
                           onChange={(e) =>
                             setEditAddress(
                               e.target.value
                             )
                           }
+                          rows={4}
                           style={
                             styles.textarea
                           }
                           placeholder="Enter complete address"
-                          rows={4}
                         />
                       </div>
                     </div>
                   </div>
 
-                  {/* EXTRA INFORMATION */}
+                  {/* OTHER */}
 
                   <div
-                    style={
-                      styles.formSection
-                    }
+                    style={styles.formSection}
                   >
                     <h3
                       style={
                         styles.formSectionTitle
                       }
                     >
-                      📝 Additional Information
+                      📝 Other Information
                     </h3>
 
+                    <div>
+                      <label
+                        style={styles.label}
+                      >
+                        Profile Image URL
+                      </label>
+
+                      <input
+                        type="url"
+                        value={
+                          editProfileImageUrl
+                        }
+                        onChange={(e) =>
+                          setEditProfileImageUrl(
+                            e.target.value
+                          )
+                        }
+                        style={styles.input}
+                        placeholder="https://..."
+                      />
+                    </div>
+
                     <div
-                      style={
-                        styles.formGrid
-                      }
+                      style={{
+                        marginTop: "15px",
+                      }}
                     >
-                      <div
-                        style={
-                          styles.fullWidth
-                        }
+                      <label
+                        style={styles.label}
                       >
-                        <label
-                          style={
-                            styles.label
-                          }
-                        >
-                          Notes
-                        </label>
+                        Notes
+                      </label>
 
-                        <textarea
-                          value={
-                            editNotes
-                          }
-                          onChange={(e) =>
-                            setEditNotes(
-                              e.target.value
-                            )
-                          }
-                          style={
-                            styles.textarea
-                          }
-                          placeholder="Additional notes about the student"
-                          rows={3}
-                        />
-                      </div>
-
-                      <div
-                        style={
-                          styles.fullWidth
+                      <textarea
+                        value={editNotes}
+                        onChange={(e) =>
+                          setEditNotes(
+                            e.target.value
+                          )
                         }
-                      >
-                        <label
-                          style={
-                            styles.label
-                          }
-                        >
-                          Profile Image URL
-                        </label>
-
-                        <input
-                          type="url"
-                          value={
-                            editProfileImageUrl
-                          }
-                          onChange={(e) =>
-                            setEditProfileImageUrl(
-                              e.target.value
-                            )
-                          }
-                          style={
-                            styles.input
-                          }
-                          placeholder="https://..."
-                        />
-                      </div>
+                        rows={4}
+                        style={styles.textarea}
+                        placeholder="Additional notes about the student"
+                      />
                     </div>
                   </div>
+
                 </div>
 
+                {/* MODAL FOOTER */}
+
                 <div
-                  style={
-                    styles.modalFooter
-                  }
+                  style={styles.modalFooter}
                 >
                   <button
                     type="button"
                     onClick={closeEdit}
+                    disabled={saving}
                     style={
                       styles.cancelButton
                     }
@@ -1451,7 +1294,7 @@ export default function TeacherStudentsPage() {
                     }}
                   >
                     {saving
-                      ? "Saving..."
+                      ? "⏳ Saving..."
                       : "💾 Save Complete Profile"}
                   </button>
                 </div>
@@ -1459,6 +1302,8 @@ export default function TeacherStudentsPage() {
             </div>
           </div>
         )}
+
+        {/* FOOTER */}
 
         <footer style={styles.footer}>
           <strong>
@@ -1469,6 +1314,7 @@ export default function TeacherStudentsPage() {
             Students Management • 2026
           </span>
         </footer>
+
       </div>
     </main>
   );
@@ -1489,7 +1335,7 @@ const styles: {
 
   container: {
     width: "100%",
-    maxWidth: "1250px",
+    maxWidth: "1200px",
     margin: "0 auto",
   },
 
@@ -1769,53 +1615,49 @@ const styles: {
   emptyText: {
     color: "#64748b",
     fontSize: "14px",
-    marginBottom: "18px",
-  },
-
-  reloadButton: {
-    border: "none",
-    background: "#2563eb",
-    color: "white",
-    padding: "11px 18px",
-    borderRadius: "9px",
-    fontWeight: "700",
-    cursor: "pointer",
   },
 
   modalOverlay: {
     position: "fixed",
     inset: 0,
     background:
-      "rgba(15, 23, 42, 0.60)",
+      "rgba(15, 23, 42, 0.55)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     padding: "20px",
     zIndex: 1000,
-    overflowY: "auto",
   },
+
+  /*
+    IMPORTANT:
+    Modal itself does not scroll.
+    Header and footer remain visible.
+    Only modalBody scrolls.
+  */
 
   modal: {
     width: "100%",
-    maxWidth: "850px",
-    maxHeight: "94vh",
+    maxWidth: "700px",
+    maxHeight: "92vh",
     background: "white",
     borderRadius: "20px",
     boxShadow:
       "0 25px 60px rgba(15, 23, 42, 0.25)",
-    overflow: "hidden",
     display: "flex",
     flexDirection: "column",
+    overflow: "hidden",
   },
 
   modalHeader: {
+    flexShrink: 0,
     padding: "20px",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
     borderBottom:
       "1px solid #e2e8f0",
-    flexShrink: 0,
+    background: "white",
   },
 
   modalTitle: {
@@ -1843,23 +1685,38 @@ const styles: {
     flexShrink: 0,
   },
 
+  modalForm: {
+    display: "flex",
+    flexDirection: "column",
+    minHeight: 0,
+    flex: 1,
+  },
+
+  /*
+    THIS IS THE MAIN SCROLLER
+  */
+
   modalBody: {
     padding: "20px",
     display: "grid",
     gap: "18px",
     overflowY: "auto",
+    overflowX: "hidden",
+    flex: 1,
+    minHeight: 0,
   },
 
   formSection: {
-    border: "1px solid #e2e8f0",
+    background: "#f8fafc",
+    border:
+      "1px solid #e2e8f0",
     borderRadius: "15px",
-    padding: "18px",
-    background: "#ffffff",
+    padding: "17px",
   },
 
   formSectionTitle: {
-    margin: "0 0 16px",
-    color: "#1e3a8a",
+    margin: "0 0 15px",
+    color: "#172554",
     fontSize: "16px",
     fontWeight: "800",
   },
@@ -1867,12 +1724,8 @@ const styles: {
   formGrid: {
     display: "grid",
     gridTemplateColumns:
-      "repeat(auto-fit, minmax(240px, 1fr))",
-    gap: "16px",
-  },
-
-  fullWidth: {
-    gridColumn: "1 / -1",
+      "repeat(auto-fit, minmax(230px, 1fr))",
+    gap: "15px",
   },
 
   label: {
@@ -1886,9 +1739,10 @@ const styles: {
   input: {
     width: "100%",
     boxSizing: "border-box",
-    border: "1px solid #cbd5e1",
+    border:
+      "1px solid #cbd5e1",
     borderRadius: "10px",
-    padding: "12px 13px",
+    padding: "11px 12px",
     fontSize: "14px",
     color: "#111827",
     background: "white",
@@ -1898,9 +1752,10 @@ const styles: {
   textarea: {
     width: "100%",
     boxSizing: "border-box",
-    border: "1px solid #cbd5e1",
+    border:
+      "1px solid #cbd5e1",
     borderRadius: "10px",
-    padding: "12px 13px",
+    padding: "11px 12px",
     fontSize: "14px",
     color: "#111827",
     background: "white",
@@ -1911,53 +1766,22 @@ const styles: {
     lineHeight: 1.5,
   },
 
-  passwordWrapper: {
-    display: "flex",
-    alignItems: "stretch",
-    width: "100%",
-  },
-
-  passwordInput: {
-    flex: 1,
-    minWidth: 0,
-    boxSizing: "border-box",
-    border:
-      "1px solid #cbd5e1",
-    borderRight: "none",
-    borderRadius:
-      "10px 0 0 10px",
-    padding: "12px 13px",
-    fontSize: "14px",
-    color: "#111827",
-    background: "white",
-    outline: "none",
-  },
-
-  passwordToggle: {
-    width: "48px",
-    border:
-      "1px solid #cbd5e1",
-    background: "#f8fafc",
-    borderRadius:
-      "0 10px 10px 0",
-    cursor: "pointer",
-    fontSize: "17px",
-  },
-
   helpText: {
     margin: "5px 0 0",
-    color: "#94a3b8",
+    color: "#64748b",
     fontSize: "11px",
+    lineHeight: 1.4,
   },
 
   modalFooter: {
+    flexShrink: 0,
     padding: "16px 20px",
     display: "flex",
     justifyContent: "flex-end",
     gap: "10px",
     borderTop:
       "1px solid #e2e8f0",
-    flexShrink: 0,
+    background: "white",
   },
 
   cancelButton: {
