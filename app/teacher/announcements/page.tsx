@@ -27,15 +27,6 @@ type AnnouncementWithLikes = Announcement & {
   likedStudents: Student[];
 };
 
-type PushResponse = {
-  success?: boolean;
-  sent?: number;
-  failed?: number;
-  total?: number;
-  message?: string;
-  error?: string;
-};
-
 export default function TeacherAnnouncementsPage() {
   const router = useRouter();
 
@@ -43,11 +34,11 @@ export default function TeacherAnnouncementsPage() {
     AnnouncementWithLikes[]
   >([]);
 
-  const [title, setTitle] = useState<string>("");
-  const [message, setMessage] = useState<string>("");
+  const [title, setTitle] = useState("");
+  const [message, setMessage] = useState("");
 
-  const [loading, setLoading] = useState<boolean>(true);
-  const [creating, setCreating] = useState<boolean>(false);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const [expandedLikes, setExpandedLikes] = useState<number | null>(
@@ -55,10 +46,10 @@ export default function TeacherAnnouncementsPage() {
   );
 
   useEffect(() => {
-    void loadAnnouncements();
+    loadAnnouncements();
   }, []);
 
-  async function loadAnnouncements(): Promise<void> {
+  async function loadAnnouncements() {
     setLoading(true);
 
     try {
@@ -112,8 +103,7 @@ export default function TeacherAnnouncementsPage() {
         );
       }
 
-      const likes: LikeRecord[] =
-        (likesData as LikeRecord[] | null) || [];
+      const likes: LikeRecord[] = likesData || [];
 
       const studentIds = Array.from(
         new Set(
@@ -142,14 +132,13 @@ export default function TeacherAnnouncementsPage() {
             studentsError
           );
         } else {
-          students =
-            (studentsData as Student[] | null) || [];
+          students = studentsData || [];
         }
       }
 
-      const formattedAnnouncements: AnnouncementWithLikes[] =
+      const formattedAnnouncements =
         announcementRows.map(
-          (announcement) => {
+          (announcement): AnnouncementWithLikes => {
             const announcementLikes =
               likes.filter(
                 (like) =>
@@ -206,14 +195,9 @@ export default function TeacherAnnouncementsPage() {
   }
 
   /*
-   * CREATE ANNOUNCEMENT
-   *
-   * Announcement save hone ke baad:
-   * /api/push/send automatically call hota hai.
-   *
-   * Isliye student ko refresh karne ki zarurat nahi.
+   * CREATE ANNOUNCEMENT + PUSH NOTIFICATION
    */
-  async function createAnnouncement(): Promise<void> {
+  async function createAnnouncement() {
     const cleanTitle = title.trim();
     const cleanMessage = message.trim();
 
@@ -236,30 +220,28 @@ export default function TeacherAnnouncementsPage() {
     try {
       /*
        * STEP 1
-       * SAVE ANNOUNCEMENT
+       * CREATE ANNOUNCEMENT IN DATABASE
        */
       const {
-        data: newAnnouncement,
-        error: announcementError,
+        data: createdAnnouncement,
+        error: createError,
       } = await supabase
         .from("announcements")
         .insert({
           title: cleanTitle,
           message: cleanMessage,
         })
-        .select(
-          "id, title, message, created_at"
-        )
+        .select("id, title, message, created_at")
         .single();
 
-      if (announcementError) {
+      if (createError) {
         console.error(
           "Create announcement error:",
-          announcementError
+          createError
         );
 
         alert(
-          `Could not create announcement: ${announcementError.message}`
+          `Could not create announcement: ${createError.message}`
         );
 
         return;
@@ -267,20 +249,21 @@ export default function TeacherAnnouncementsPage() {
 
       /*
        * STEP 2
-       * CLEAR FORM
+       * CLEAR FORM IMMEDIATELY
        */
       setTitle("");
       setMessage("");
 
       /*
        * STEP 3
-       * REFRESH TEACHER LIST
+       * REFRESH TEACHER ANNOUNCEMENT LIST
        */
       await loadAnnouncements();
 
       /*
        * STEP 4
-       * SEND PUSH AUTOMATICALLY
+       * SEND PUSH NOTIFICATION TO ALL
+       * REGISTERED STUDENT DEVICES
        */
       try {
         const pushResponse = await fetch(
@@ -294,25 +277,18 @@ export default function TeacherAnnouncementsPage() {
             body: JSON.stringify({
               title: cleanTitle,
               message: cleanMessage,
+              url: "/student",
               announcementId:
-                newAnnouncement?.id ?? null,
+                createdAnnouncement?.id ||
+                null,
             }),
           }
         );
 
-        let pushResult: PushResponse = {};
-
-        try {
-          pushResult =
-            (await pushResponse.json()) as PushResponse;
-        } catch {
-          pushResult = {};
-        }
-
-        console.log(
-          "Push notification response:",
-          pushResult
-        );
+        const pushResult =
+          await pushResponse.json().catch(
+            () => null
+          );
 
         if (!pushResponse.ok) {
           console.error(
@@ -321,20 +297,26 @@ export default function TeacherAnnouncementsPage() {
           );
         } else {
           console.log(
-            `Push sent: ${pushResult.sent ?? 0}/${pushResult.total ?? 0}`
+            "Push notification result:",
+            pushResult
           );
         }
       } catch (pushError) {
         /*
-         * Announcement already saved hai.
-         * Push fail hone par announcement delete nahi hoga.
+         * IMPORTANT:
+         * If push notification fails,
+         * announcement itself remains published.
          */
         console.error(
-          "Automatic push notification error:",
+          "Push notification request error:",
           pushError
         );
       }
 
+      /*
+       * STEP 5
+       * SUCCESS
+       */
       alert(
         "Announcement published successfully."
       );
@@ -357,7 +339,7 @@ export default function TeacherAnnouncementsPage() {
    */
   async function deleteAnnouncement(
     announcementId: number
-  ): Promise<void> {
+  ) {
     if (deletingId !== null) {
       return;
     }
@@ -449,9 +431,7 @@ export default function TeacherAnnouncementsPage() {
     }
   }
 
-  function toggleLikes(
-    announcementId: number
-  ): void {
+  function toggleLikes(announcementId: number) {
     setExpandedLikes((current) =>
       current === announcementId
         ? null
@@ -459,7 +439,7 @@ export default function TeacherAnnouncementsPage() {
     );
   }
 
-  function formatDate(date: string): string {
+  function formatDate(date: string) {
     if (!date) {
       return "";
     }
@@ -485,7 +465,6 @@ export default function TeacherAnnouncementsPage() {
   return (
     <main style={styles.page}>
       <div style={styles.container}>
-        {/* HEADER */}
 
         <header style={styles.header}>
           <div style={styles.headerLeft}>
@@ -526,8 +505,6 @@ export default function TeacherAnnouncementsPage() {
           </button>
         </header>
 
-        {/* CREATE ANNOUNCEMENT */}
-
         <section style={styles.createSection}>
           <div style={styles.createHeader}>
             <div>
@@ -541,8 +518,8 @@ export default function TeacherAnnouncementsPage() {
 
               <p style={styles.createSubtitle}>
                 Students will see this announcement
-                on their dashboard and receive a
-                notification automatically.
+                on their dashboard and registered
+                devices will receive a push notification.
               </p>
             </div>
           </div>
@@ -584,15 +561,13 @@ export default function TeacherAnnouncementsPage() {
 
             <div style={styles.formBottom}>
               <div style={styles.formHint}>
-                👥 All registered students will receive
-                the push notification automatically.
+                👥 All students with notifications
+                enabled will receive a push notification.
               </div>
 
               <button
                 type="button"
-                onClick={() =>
-                  void createAnnouncement()
-                }
+                onClick={createAnnouncement}
                 disabled={creating}
                 style={{
                   ...styles.publishButton,
@@ -602,14 +577,12 @@ export default function TeacherAnnouncementsPage() {
                 }}
               >
                 {creating
-                  ? "Publishing & Sending..."
+                  ? "Publishing..."
                   : "📢 Publish Announcement"}
               </button>
             </div>
           </div>
         </section>
-
-        {/* STATISTICS */}
 
         <section style={styles.statsGrid}>
           <div style={styles.statCard}>
@@ -655,8 +628,6 @@ export default function TeacherAnnouncementsPage() {
           </div>
         </section>
 
-        {/* ANNOUNCEMENTS */}
-
         <section style={styles.listSection}>
           <div style={styles.listHeader}>
             <div>
@@ -671,9 +642,7 @@ export default function TeacherAnnouncementsPage() {
 
             <button
               type="button"
-              onClick={() =>
-                void loadAnnouncements()
-              }
+              onClick={loadAnnouncements}
               disabled={loading}
               style={styles.refreshButton}
             >
@@ -728,8 +697,6 @@ export default function TeacherAnnouncementsPage() {
                         styles.announcementCard
                       }
                     >
-                      {/* TOP */}
-
                       <div
                         style={
                           styles.cardMain
@@ -790,8 +757,6 @@ export default function TeacherAnnouncementsPage() {
                         </div>
                       </div>
 
-                      {/* ACTION BAR */}
-
                       <div
                         style={
                           styles.actionBar
@@ -845,7 +810,7 @@ export default function TeacherAnnouncementsPage() {
                           <button
                             type="button"
                             onClick={() =>
-                              void deleteAnnouncement(
+                              deleteAnnouncement(
                                 announcement.id
                               )
                             }
@@ -864,8 +829,6 @@ export default function TeacherAnnouncementsPage() {
                           </button>
                         </div>
                       </div>
-
-                      {/* LIKED STUDENTS */}
 
                       {isExpanded && (
                         <div
@@ -982,7 +945,9 @@ export default function TeacherAnnouncementsPage() {
                                         student.student_username ||
                                         "S"
                                       )
-                                        .charAt(0)
+                                        .charAt(
+                                          0
+                                        )
                                         .toUpperCase()}
                                     </div>
 
@@ -1006,10 +971,7 @@ export default function TeacherAnnouncementsPage() {
                                             styles.studentUsername
                                           }
                                         >
-                                          @
-                                          {
-                                            student.student_username
-                                          }
+                                          @{student.student_username}
                                         </div>
                                       )}
                                     </div>
@@ -1035,8 +997,6 @@ export default function TeacherAnnouncementsPage() {
             </div>
           )}
         </section>
-
-        {/* FOOTER */}
 
         <footer style={styles.footer}>
           <div style={styles.footerBrand}>
