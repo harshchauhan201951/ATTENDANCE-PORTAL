@@ -12,6 +12,7 @@ type Student = {
   id: number;
   student_name: string | null;
   student_username: string;
+  admission_date: string | null;
 };
 
 type Attendance = {
@@ -36,6 +37,7 @@ type StudentMark = {
   studentId: number;
   obtainedMarks: string;
   remarks: string;
+  status: "present" | "absent";
 };
 
 const months = [
@@ -86,12 +88,41 @@ function isPass(percentage: number) {
   return percentage >= 40;
 }
 
+function isStudentEligibleForTest(
+  student: Student,
+  testDate: string
+) {
+  if (!student.admission_date || !testDate) {
+    return true;
+  }
+
+  return student.admission_date <= testDate;
+}
+
+function formatDate(date: string | null) {
+  if (!date) return "—";
+
+  const parts = date.split("-");
+
+  if (parts.length !== 3) return date;
+
+  return `${parts[2]}-${parts[1]}-${parts[0]}`;
+}
+
+function isAssessmentAbsent(row: AssessmentRow) {
+  return (
+    row.remarks?.trim().toUpperCase() === "ABSENT"
+  );
+}
+
 export default function TeacherReportsPage() {
   const currentDate = new Date();
 
   const [students, setStudents] = useState<Student[]>([]);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
-  const [assessments, setAssessments] = useState<AssessmentRow[]>([]);
+  const [assessments, setAssessments] = useState<
+    AssessmentRow[]
+  >([]);
 
   const [month, setMonth] = useState(
     String(currentDate.getMonth() + 1)
@@ -158,7 +189,7 @@ export default function TeacherReportsPage() {
     } = await supabase
       .from("students")
       .select(
-        "id, student_name, student_username"
+        "id, student_name, student_username, admission_date"
       )
       .order("student_name", {
         ascending: true,
@@ -188,14 +219,17 @@ export default function TeacherReportsPage() {
       return;
     }
 
-    setStudents(studentsData || []);
+    const loadedStudents = studentsData || [];
+
+    setStudents(loadedStudents);
     setAttendance(attendanceData || []);
 
     setStudentMarks(
-      (studentsData || []).map((student) => ({
+      loadedStudents.map((student) => ({
         studentId: student.id,
         obtainedMarks: "",
         remarks: "",
+        status: "present",
       }))
     );
 
@@ -224,6 +258,12 @@ export default function TeacherReportsPage() {
     }
 
     setAssessments(data || []);
+  }
+
+  function getEligibleStudents(date: string) {
+    return students.filter((student) =>
+      isStudentEligibleForTest(student, date)
+    );
   }
 
   function updateStudentMarks(
@@ -258,11 +298,39 @@ export default function TeacherReportsPage() {
     );
   }
 
+  function updateStudentStatus(
+    studentId: number,
+    value: "present" | "absent"
+  ) {
+    setStudentMarks((current) =>
+      current.map((item) =>
+        item.studentId === studentId
+          ? {
+              ...item,
+              status: value,
+              obtainedMarks:
+                value === "absent"
+                  ? "0"
+                  : item.obtainedMarks,
+              remarks:
+                value === "absent"
+                  ? "ABSENT"
+                  : item.remarks === "ABSENT"
+                  ? ""
+                  : item.remarks,
+            }
+          : item
+      )
+    );
+  }
+
   function resetAssessmentForm() {
     setTestName("");
+
     setTestDate(
       new Date().toISOString().split("T")[0]
     );
+
     setTotalMarks("");
 
     setStudentMarks(
@@ -270,6 +338,7 @@ export default function TeacherReportsPage() {
         studentId: student.id,
         obtainedMarks: "",
         remarks: "",
+        status: "present",
       }))
     );
 
@@ -306,15 +375,30 @@ export default function TeacherReportsPage() {
       return;
     }
 
-    if (students.length === 0) {
+    const eligibleStudents =
+      getEligibleStudents(testDate);
+
+    if (eligibleStudents.length === 0) {
       setAssessmentError(
-        "Koi student record nahi mila."
+        "Is test date tak koi eligible student nahi mila."
       );
       return;
     }
 
-    const invalidMarks = studentMarks.find(
+    const eligibleStudentIds = new Set(
+      eligibleStudents.map((student) => student.id)
+    );
+
+    const eligibleMarks = studentMarks.filter((item) =>
+      eligibleStudentIds.has(item.studentId)
+    );
+
+    const invalidMarks = eligibleMarks.find(
       (item) => {
+        if (item.status === "absent") {
+          return false;
+        }
+
         const value = Number(
           item.obtainedMarks
         );
@@ -341,6 +425,7 @@ export default function TeacherReportsPage() {
           "Student"
         } ke obtained marks valid nahi hain.`
       );
+
       return;
     }
 
@@ -373,17 +458,20 @@ export default function TeacherReportsPage() {
         }
       }
 
-      const rows = studentMarks.map(
+      const rows = eligibleMarks.map(
         (item) => ({
           test_name: trimmedName,
           test_date: testDate,
           total_marks: total,
           student_id: item.studentId,
-          obtained_marks: Number(
-            item.obtainedMarks
-          ),
+          obtained_marks:
+            item.status === "absent"
+              ? 0
+              : Number(item.obtainedMarks),
           remarks:
-            item.remarks.trim() || null,
+            item.status === "absent"
+              ? "ABSENT"
+              : item.remarks.trim() || null,
         })
       );
 
@@ -438,9 +526,13 @@ export default function TeacherReportsPage() {
 
     setTestName(first.test_name);
     setTestDate(first.test_date);
+
     setTotalMarks(
       String(first.total_marks)
     );
+
+    const eligibleStudents =
+      getEligibleStudents(first.test_date);
 
     setStudentMarks(
       students.map((student) => {
@@ -449,15 +541,31 @@ export default function TeacherReportsPage() {
             item.student_id === student.id
         );
 
+        const absent =
+          row ? isAssessmentAbsent(row) : false;
+
         return {
           studentId: student.id,
-          obtainedMarks: row
-            ? String(row.obtained_marks)
-            : "",
-          remarks: row?.remarks || "",
+          obtainedMarks:
+            row && !absent
+              ? String(row.obtained_marks)
+              : "",
+          remarks:
+            row && !absent
+              ? row.remarks || ""
+              : "",
+          status: absent
+            ? "absent"
+            : "present",
         };
       })
     );
+
+    if (eligibleStudents.length === 0) {
+      setAssessmentError(
+        "Is assessment date ke liye koi eligible student nahi mila."
+      );
+    }
 
     setSelectedAssessment(
       `${assessmentName}__${assessmentDate}`
@@ -673,6 +781,7 @@ export default function TeacherReportsPage() {
     const headers = [
       "Student Name",
       "Username",
+      "Admission Date",
       "Test Name",
       "Test Date",
       "Total Marks",
@@ -683,37 +792,62 @@ export default function TeacherReportsPage() {
       "Remarks",
     ];
 
-    const csvRows = rows.map(
-      (item) => {
+    const csvRows = rows
+      .filter((item) => {
+        const student = students.find(
+          (s) => s.id === item.student_id
+        );
+
+        return (
+          student &&
+          isStudentEligibleForTest(
+            student,
+            item.test_date
+          )
+        );
+      })
+      .map((item) => {
         const student = students.find(
           (s) =>
             s.id === item.student_id
         );
 
-        const percentage =
-          getPercentage(
-            Number(item.obtained_marks),
-            Number(item.total_marks)
-          );
+        const absent =
+          isAssessmentAbsent(item);
+
+        const percentage = absent
+          ? 0
+          : getPercentage(
+              Number(item.obtained_marks),
+              Number(item.total_marks)
+            );
 
         return [
           student?.student_name ||
             student?.student_username ||
             "Unknown Student",
           student?.student_username || "",
+          student?.admission_date || "",
           item.test_name,
           item.test_date,
           item.total_marks,
-          item.obtained_marks,
-          `${percentage.toFixed(1)}%`,
-          getGrade(percentage),
-          isPass(percentage)
+          absent ? "ABSENT" : item.obtained_marks,
+          absent
+            ? "—"
+            : `${percentage.toFixed(1)}%`,
+          absent
+            ? "—"
+            : getGrade(percentage),
+          absent
+            ? "ABSENT"
+            : isPass(percentage)
             ? "PASS"
             : "FAIL",
-          item.remarks || "",
+          absent
+            ? "ABSENT"
+            : item.remarks || "",
         ];
-      }
-    );
+      });
 
     const csvContent = [
       headers.join(","),
@@ -764,12 +898,12 @@ export default function TeacherReportsPage() {
     );
   }
 
+  const eligibleStudents =
+    getEligibleStudents(testDate);
+
   return (
     <main style={styles.page}>
       <div style={styles.container}>
-
-        {/* HEADER */}
-
         <header style={styles.header}>
           <div>
             <div style={styles.brand}>
@@ -793,8 +927,6 @@ export default function TeacherReportsPage() {
             ← Teacher Dashboard
           </a>
         </header>
-
-        {/* ATTENDANCE FILTER */}
 
         <section style={styles.filterCard}>
           <div>
@@ -882,8 +1014,6 @@ export default function TeacherReportsPage() {
           )}
         </section>
 
-        {/* SUMMARY */}
-
         <section style={styles.summaryGrid}>
           <div
             style={{
@@ -965,8 +1095,6 @@ export default function TeacherReportsPage() {
             </div>
           </div>
         </section>
-
-        {/* STUDENT ATTENDANCE */}
 
         <section style={styles.card}>
           <div style={styles.tableHeader}>
@@ -1105,8 +1233,6 @@ export default function TeacherReportsPage() {
           )}
         </section>
 
-        {/* RACER ACADEMY ASSESSMENTS */}
-
         <section style={styles.assessmentCard}>
           <div style={styles.assessmentHeader}>
             <div>
@@ -1127,6 +1253,7 @@ export default function TeacherReportsPage() {
             <button
               onClick={() => {
                 resetAssessmentForm();
+
                 setShowAssessmentForm(
                   !showAssessmentForm
                 );
@@ -1217,11 +1344,31 @@ export default function TeacherReportsPage() {
                 💡 <strong>Automatic:</strong>{" "}
                 Percentage, Grade and PASS/FAIL
                 will be calculated automatically.
+                <br />
+                📅 Students are automatically shown
+                according to their admission date.
               </div>
 
-              {students.length === 0 ? (
+              <div style={styles.eligibilityBox}>
+                <strong>
+                  📅 Test Date: {formatDate(testDate)}
+                </strong>
+
+                <span>
+                  👨‍🎓 Eligible Students:{" "}
+                  {eligibleStudents.length}
+                </span>
+
+                <span>
+                  🚫 Students admitted after this
+                  date are hidden automatically.
+                </span>
+              </div>
+
+              {eligibleStudents.length === 0 ? (
                 <div style={styles.empty}>
-                  No students found.
+                  No students found for this test
+                  date.
                 </div>
               ) : (
                 <div style={styles.tableWrapper}>
@@ -1240,6 +1387,14 @@ export default function TeacherReportsPage() {
 
                         <th style={styles.th}>
                           Username
+                        </th>
+
+                        <th style={styles.th}>
+                          Admission Date
+                        </th>
+
+                        <th style={styles.th}>
+                          Status
                         </th>
 
                         <th style={styles.th}>
@@ -1269,7 +1424,7 @@ export default function TeacherReportsPage() {
                     </thead>
 
                     <tbody>
-                      {students.map(
+                      {eligibleStudents.map(
                         (student, index) => {
                           const mark =
                             studentMarks.find(
@@ -1277,6 +1432,10 @@ export default function TeacherReportsPage() {
                                 item.studentId ===
                                 student.id
                             );
+
+                          const absent =
+                            mark?.status ===
+                            "absent";
 
                           const obtained =
                             Number(
@@ -1290,15 +1449,19 @@ export default function TeacherReportsPage() {
                             );
 
                           const percentage =
-                            getPercentage(
-                              obtained,
-                              total
-                            );
+                            absent
+                              ? 0
+                              : getPercentage(
+                                  obtained,
+                                  total
+                                );
 
                           const grade =
-                            getGrade(
-                              percentage
-                            );
+                            absent
+                              ? "—"
+                              : getGrade(
+                                  percentage
+                                );
 
                           return (
                             <tr
@@ -1340,6 +1503,50 @@ export default function TeacherReportsPage() {
                                   styles.td
                                 }
                               >
+                                {formatDate(
+                                  student.admission_date
+                                )}
+                              </td>
+
+                              <td
+                                style={
+                                  styles.td
+                                }
+                              >
+                                <select
+                                  value={
+                                    mark?.status ||
+                                    "present"
+                                  }
+                                  onChange={(e) =>
+                                    updateStudentStatus(
+                                      student.id,
+                                      e.target.value as
+                                        | "present"
+                                        | "absent"
+                                    )
+                                  }
+                                  style={
+                                    absent
+                                      ? styles.absentSelect
+                                      : styles.presentSelect
+                                  }
+                                >
+                                  <option value="present">
+                                    PRESENT
+                                  </option>
+
+                                  <option value="absent">
+                                    ABSENT
+                                  </option>
+                                </select>
+                              </td>
+
+                              <td
+                                style={
+                                  styles.td
+                                }
+                              >
                                 {totalMarks ||
                                   "—"}
                               </td>
@@ -1349,27 +1556,37 @@ export default function TeacherReportsPage() {
                                   styles.td
                                 }
                               >
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max={
-                                    totalMarks ||
-                                    undefined
-                                  }
-                                  value={
-                                    mark?.obtainedMarks ||
-                                    ""
-                                  }
-                                  onChange={(e) =>
-                                    updateStudentMarks(
-                                      student.id,
-                                      e.target.value
-                                    )
-                                  }
-                                  style={
-                                    styles.marksInput
-                                  }
-                                />
+                                {absent ? (
+                                  <span
+                                    style={
+                                      styles.absentText
+                                    }
+                                  >
+                                    ABSENT
+                                  </span>
+                                ) : (
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max={
+                                      totalMarks ||
+                                      undefined
+                                    }
+                                    value={
+                                      mark?.obtainedMarks ||
+                                      ""
+                                    }
+                                    onChange={(e) =>
+                                      updateStudentMarks(
+                                        student.id,
+                                        e.target.value
+                                      )
+                                    }
+                                    style={
+                                      styles.marksInput
+                                    }
+                                  />
+                                )}
                               </td>
 
                               <td
@@ -1378,7 +1595,9 @@ export default function TeacherReportsPage() {
                                 }
                               >
                                 <strong>
-                                  {total > 0
+                                  {absent
+                                    ? "—"
+                                    : total > 0
                                     ? `${percentage.toFixed(
                                         1
                                       )}%`
@@ -1395,18 +1614,24 @@ export default function TeacherReportsPage() {
                                   style={{
                                     ...styles.gradeBadge,
                                     background:
-                                      grade ===
-                                      "F"
+                                      absent
+                                        ? "#f1f5f9"
+                                        : grade ===
+                                          "F"
                                         ? "#fee2e2"
                                         : "#dcfce7",
                                     color:
-                                      grade ===
-                                      "F"
+                                      absent
+                                        ? "#475569"
+                                        : grade ===
+                                          "F"
                                         ? "#991b1b"
                                         : "#166534",
                                   }}
                                 >
-                                  {total > 0
+                                  {absent
+                                    ? "—"
+                                    : total > 0
                                     ? grade
                                     : "—"}
                                 </span>
@@ -1421,22 +1646,28 @@ export default function TeacherReportsPage() {
                                   style={{
                                     ...styles.resultBadge,
                                     background:
-                                      total > 0 &&
-                                      isPass(
-                                        percentage
-                                      )
+                                      absent
+                                        ? "#fee2e2"
+                                        : total > 0 &&
+                                          isPass(
+                                            percentage
+                                          )
                                         ? "#dcfce7"
                                         : "#fee2e2",
                                     color:
-                                      total > 0 &&
-                                      isPass(
-                                        percentage
-                                      )
+                                      absent
+                                        ? "#991b1b"
+                                        : total > 0 &&
+                                          isPass(
+                                            percentage
+                                          )
                                         ? "#166534"
                                         : "#991b1b",
                                   }}
                                 >
-                                  {total > 0
+                                  {absent
+                                    ? "ABSENT"
+                                    : total > 0
                                     ? isPass(
                                         percentage
                                       )
@@ -1454,8 +1685,13 @@ export default function TeacherReportsPage() {
                                 <input
                                   type="text"
                                   value={
-                                    mark?.remarks ||
-                                    ""
+                                    absent
+                                      ? "ABSENT"
+                                      : mark?.remarks ||
+                                        ""
+                                  }
+                                  disabled={
+                                    absent
                                   }
                                   onChange={(e) =>
                                     updateStudentRemarks(
@@ -1507,8 +1743,6 @@ export default function TeacherReportsPage() {
             </div>
           )}
 
-          {/* SAVED ASSESSMENTS */}
-
           <div style={styles.savedSection}>
             <div style={styles.savedHeader}>
               <div>
@@ -1551,13 +1785,39 @@ export default function TeacherReportsPage() {
                   (group) => {
                     const first = group[0];
 
+                    const visibleGroup =
+                      group.filter((item) => {
+                        const student =
+                          students.find(
+                            (s) =>
+                              s.id ===
+                              item.student_id
+                          );
+
+                        return (
+                          student &&
+                          isStudentEligibleForTest(
+                            student,
+                            first.test_date
+                          )
+                        );
+                      });
+
                     const total =
                       Number(
                         first.total_marks
                       );
 
+                    const presentRows =
+                      visibleGroup.filter(
+                        (item) =>
+                          !isAssessmentAbsent(
+                            item
+                          )
+                      );
+
                     const totalObtained =
-                      group.reduce(
+                      presentRows.reduce(
                         (sum, item) =>
                           sum +
                           Number(
@@ -1567,13 +1827,21 @@ export default function TeacherReportsPage() {
                       );
 
                     const average =
-                      group.length > 0 &&
+                      presentRows.length > 0 &&
                       total > 0
                         ? (totalObtained /
                             (total *
-                              group.length)) *
+                              presentRows.length)) *
                           100
                         : 0;
+
+                    const absentCount =
+                      visibleGroup.filter(
+                        (item) =>
+                          isAssessmentAbsent(
+                            item
+                          )
+                      ).length;
 
                     return (
                       <div
@@ -1603,7 +1871,10 @@ export default function TeacherReportsPage() {
                             {total}
                             {"  •  "}
                             👨‍🎓 Students:{" "}
-                            {group.length}
+                            {visibleGroup.length}
+                            {"  •  "}
+                            ❌ Absent:{" "}
+                            {absentCount}
                             {"  •  "}
                             📈 Average:{" "}
                             {average.toFixed(
@@ -1654,8 +1925,6 @@ export default function TeacherReportsPage() {
             )}
           </div>
 
-          {/* GRADE INFO */}
-
           <div style={styles.gradeInfo}>
             <h3 style={styles.gradeInfoTitle}>
               🎓 Grade System
@@ -1699,8 +1968,6 @@ export default function TeacherReportsPage() {
             </div>
           </div>
         </section>
-
-        {/* ATTENDANCE RECORDS */}
 
         <section style={styles.card}>
           <h2 style={styles.sectionTitle}>
@@ -2009,7 +2276,7 @@ const styles: {
 
   assessmentTable: {
     width: "100%",
-    minWidth: "1150px",
+    minWidth: "1350px",
     borderCollapse: "collapse",
   },
 
@@ -2069,8 +2336,6 @@ const styles: {
       "linear-gradient(90deg,#2563eb,#4f46e5)",
     borderRadius: "999px",
   },
-
-  /* ASSESSMENT */
 
   assessmentCard: {
     background: "white",
@@ -2158,6 +2423,21 @@ const styles: {
     padding: "12px",
     borderRadius: "10px",
     fontSize: "13px",
+    lineHeight: "1.7",
+  },
+
+  eligibilityBox: {
+    marginTop: "15px",
+    background: "#f0fdf4",
+    color: "#166534",
+    border:
+      "1px solid #bbf7d0",
+    padding: "12px",
+    borderRadius: "10px",
+    display: "flex",
+    gap: "18px",
+    flexWrap: "wrap",
+    fontSize: "13px",
   },
 
   marksInput: {
@@ -2181,6 +2461,36 @@ const styles: {
     borderRadius: "8px",
     background: "white",
     color: "#111827",
+  },
+
+  presentSelect: {
+    padding: "9px",
+    border:
+      "1px solid #86efac",
+    borderRadius: "8px",
+    background: "#f0fdf4",
+    color: "#166534",
+    fontWeight: "800",
+  },
+
+  absentSelect: {
+    padding: "9px",
+    border:
+      "1px solid #fca5a5",
+    borderRadius: "8px",
+    background: "#fef2f2",
+    color: "#991b1b",
+    fontWeight: "800",
+  },
+
+  absentText: {
+    display: "inline-block",
+    padding: "8px 10px",
+    borderRadius: "8px",
+    background: "#fee2e2",
+    color: "#991b1b",
+    fontSize: "12px",
+    fontWeight: "900",
   },
 
   gradeBadge: {
