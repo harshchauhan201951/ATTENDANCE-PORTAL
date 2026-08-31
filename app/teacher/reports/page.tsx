@@ -26,21 +26,23 @@ type AssessmentRow = {
   id: number;
   test_name: string;
   test_date: string;
-  subject: "English" | "Mathematics";
   total_marks: number;
   student_id: number;
   obtained_marks: number;
-  attendance_status: "PRESENT" | "ABSENT";
   remarks: string | null;
-  image_urls: string[] | null;
   created_at: string;
+  subject: "English" | "Mathematics";
+  attendance_status: "PRESENT" | "ABSENT";
+  test_images: string[] | null;
 };
 
 type StudentMark = {
   studentId: number;
+  subject: "English" | "Mathematics";
   obtainedMarks: string;
   remarks: string;
   attendanceStatus: "PRESENT" | "ABSENT";
+  testImages: string[];
 };
 
 const months = [
@@ -91,14 +93,6 @@ function isPass(percentage: number) {
   return percentage >= 40;
 }
 
-function isStudentEligible(
-  admissionDate: string | null,
-  testDate: string
-) {
-  if (!admissionDate) return true;
-  return admissionDate <= testDate;
-}
-
 export default function TeacherReportsPage() {
   const currentDate = new Date();
 
@@ -128,11 +122,6 @@ export default function TeacherReportsPage() {
   const [testDate, setTestDate] = useState(
     new Date().toISOString().split("T")[0]
   );
-
-  const [subject, setSubject] = useState<
-    "English" | "Mathematics"
-  >("English");
-
   const [totalMarks, setTotalMarks] = useState("");
 
   const [studentMarks, setStudentMarks] = useState<
@@ -144,13 +133,6 @@ export default function TeacherReportsPage() {
 
   const [showAssessmentForm, setShowAssessmentForm] =
     useState(true);
-
-  const [selectedImages, setSelectedImages] = useState<
-    File[]
-  >([]);
-
-  const [uploadingImages, setUploadingImages] =
-    useState(false);
 
   useEffect(() => {
     loadReport();
@@ -213,15 +195,20 @@ export default function TeacherReportsPage() {
       return;
     }
 
-    setStudents(studentsData || []);
+    const loadedStudents = (studentsData ||
+      []) as Student[];
+
+    setStudents(loadedStudents);
     setAttendance(attendanceData || []);
 
     setStudentMarks(
-      (studentsData || []).map((student) => ({
+      loadedStudents.map((student) => ({
         studentId: student.id,
+        subject: "Mathematics",
         obtainedMarks: "",
         remarks: "",
         attendanceStatus: "PRESENT",
+        testImages: [],
       }))
     );
 
@@ -250,20 +237,23 @@ export default function TeacherReportsPage() {
     }
 
     setAssessments(
-      (data || []).map((item) => ({
-        ...item,
-        subject: item.subject || "English",
-        attendance_status:
-          item.attendance_status || "PRESENT",
-        image_urls: item.image_urls || [],
-      }))
+      (data || []) as AssessmentRow[]
     );
+  }
+
+  function isStudentEligibleForTest(
+    student: Student,
+    date: string
+  ) {
+    if (!student.admission_date) return true;
+
+    return student.admission_date <= date;
   }
 
   const eligibleStudents = useMemo(() => {
     return students.filter((student) =>
-      isStudentEligible(
-        student.admission_date,
+      isStudentEligibleForTest(
+        student,
         testDate
       )
     );
@@ -279,7 +269,38 @@ export default function TeacherReportsPage() {
           ? {
               ...item,
               obtainedMarks: value,
-              attendanceStatus: "PRESENT",
+            }
+          : item
+      )
+    );
+  }
+
+  function updateStudentSubject(
+    studentId: number,
+    value: "English" | "Mathematics"
+  ) {
+    setStudentMarks((current) =>
+      current.map((item) =>
+        item.studentId === studentId
+          ? {
+              ...item,
+              subject: value,
+            }
+          : item
+      )
+    );
+  }
+
+  function updateStudentAttendance(
+    studentId: number,
+    value: "PRESENT" | "ABSENT"
+  ) {
+    setStudentMarks((current) =>
+      current.map((item) =>
+        item.studentId === studentId
+          ? {
+              ...item,
+              attendanceStatus: value,
             }
           : item
       )
@@ -302,20 +323,102 @@ export default function TeacherReportsPage() {
     );
   }
 
-  function updateAttendanceStatus(
+  async function uploadTestImages(
     studentId: number,
-    value: "PRESENT" | "ABSENT"
+    files: FileList | null
+  ) {
+    if (!files || files.length === 0) return;
+
+    setAssessmentError("");
+
+    const uploadedUrls: string[] = [];
+
+    try {
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith("image/")) {
+          continue;
+        }
+
+        const extension =
+          file.name.split(".").pop() || "jpg";
+
+        const fileName = `${studentId}-${Date.now()}-${Math.random()
+          .toString(36)
+          .substring(2)}.${extension}`;
+
+        const filePath = `tests/${fileName}`;
+
+        const {
+          error: uploadError,
+        } = await supabase.storage
+          .from("test-images")
+          .upload(filePath, file, {
+            cacheControl: "3600",
+            upsert: false,
+          });
+
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        const {
+          data: publicUrlData,
+        } = supabase.storage
+          .from("test-images")
+          .getPublicUrl(filePath);
+
+        if (publicUrlData?.publicUrl) {
+          uploadedUrls.push(
+            publicUrlData.publicUrl
+          );
+        }
+      }
+
+      setStudentMarks((current) =>
+        current.map((item) =>
+          item.studentId === studentId
+            ? {
+                ...item,
+                testImages: [
+                  ...item.testImages,
+                  ...uploadedUrls,
+                ],
+              }
+            : item
+        )
+      );
+
+      if (uploadedUrls.length > 0) {
+        setAssessmentMessage(
+          `${uploadedUrls.length} test image(s) uploaded successfully.`
+        );
+      }
+    } catch (err) {
+      console.error(
+        "Test image upload error:",
+        err
+      );
+
+      setAssessmentError(
+        err instanceof Error
+          ? err.message
+          : "Test images upload nahi ho paayi."
+      );
+    }
+  }
+
+  function removeTestImage(
+    studentId: number,
+    imageUrl: string
   ) {
     setStudentMarks((current) =>
       current.map((item) =>
         item.studentId === studentId
           ? {
               ...item,
-              attendanceStatus: value,
-              obtainedMarks:
-                value === "ABSENT"
-                  ? "0"
-                  : item.obtainedMarks,
+              testImages: item.testImages.filter(
+                (url) => url !== imageUrl
+              ),
             }
           : item
       )
@@ -329,70 +432,31 @@ export default function TeacherReportsPage() {
       new Date().toISOString().split("T")[0]
     );
 
-    setSubject("English");
     setTotalMarks("");
-    setSelectedImages([]);
 
     setStudentMarks(
-      students.map((student) => ({
-        studentId: student.id,
-        obtainedMarks: "",
-        remarks: "",
-        attendanceStatus: "PRESENT",
-      }))
+      students
+        .filter((student) =>
+          isStudentEligibleForTest(
+            student,
+            new Date()
+              .toISOString()
+              .split("T")[0]
+          )
+        )
+        .map((student) => ({
+          studentId: student.id,
+          subject: "Mathematics",
+          obtainedMarks: "",
+          remarks: "",
+          attendanceStatus: "PRESENT",
+          testImages: [],
+        }))
     );
 
     setSelectedAssessment("");
     setAssessmentError("");
     setAssessmentMessage("");
-  }
-
-  async function uploadAssessmentImages() {
-    if (selectedImages.length === 0) {
-      return [];
-    }
-
-    setUploadingImages(true);
-
-    try {
-      const urls: string[] = [];
-
-      for (const file of selectedImages) {
-        const extension =
-          file.name.split(".").pop() || "jpg";
-
-        const fileName = `assessment-${Date.now()}-${Math.random()
-          .toString(36)
-          .substring(2)}.${extension}`;
-
-        const filePath = `tests/${fileName}`;
-
-        const {
-          error: uploadError,
-        } = await supabase.storage
-          .from("assessment-images")
-          .upload(filePath, file, {
-            cacheControl: "3600",
-            upsert: false,
-          });
-
-        if (uploadError) {
-          throw uploadError;
-        }
-
-        const {
-          data: publicUrlData,
-        } = supabase.storage
-          .from("assessment-images")
-          .getPublicUrl(filePath);
-
-        urls.push(publicUrlData.publicUrl);
-      }
-
-      return urls;
-    } finally {
-      setUploadingImages(false);
-    }
   }
 
   async function saveAssessment() {
@@ -425,25 +489,24 @@ export default function TeacherReportsPage() {
 
     if (eligibleStudents.length === 0) {
       setAssessmentError(
-        "Is test date tak koi eligible student nahi mila."
+        "Is test date ke liye koi eligible student nahi mila."
       );
       return;
     }
 
-    const eligibleMarks = studentMarks.filter(
-      (item) =>
-        eligibleStudents.some(
-          (student) =>
-            student.id === item.studentId
-        )
+    const eligibleIds = new Set(
+      eligibleStudents.map(
+        (student) => student.id
+      )
     );
 
-    const invalidMarks = eligibleMarks.find(
-      (item) => {
-        if (item.attendanceStatus === "ABSENT") {
-          return false;
-        }
+    const validMarks = studentMarks.filter(
+      (item) =>
+        eligibleIds.has(item.studentId)
+    );
 
+    const invalidMarks = validMarks.find(
+      (item) => {
         const value = Number(
           item.obtainedMarks
         );
@@ -477,22 +540,14 @@ export default function TeacherReportsPage() {
     setAssessmentLoading(true);
 
     try {
-      let imageUrls: string[] = [];
-
-      if (selectedImages.length > 0) {
-        imageUrls =
-          await uploadAssessmentImages();
-      }
-
-      const existingRows =
-        assessments.filter(
-          (item) =>
-            item.test_name === trimmedName &&
-            item.test_date === testDate &&
-            item.subject === subject
-        );
-
       if (selectedAssessment) {
+        const existingRows =
+          assessments.filter(
+            (item) =>
+              item.test_name === trimmedName &&
+              item.test_date === testDate
+          );
+
         const deleteIds =
           existingRows.map(
             (item) => item.id
@@ -512,22 +567,21 @@ export default function TeacherReportsPage() {
         }
       }
 
-      const rows = eligibleMarks.map(
+      const rows = validMarks.map(
         (item) => ({
           test_name: trimmedName,
           test_date: testDate,
-          subject,
           total_marks: total,
           student_id: item.studentId,
           obtained_marks:
-            item.attendanceStatus === "ABSENT"
-              ? 0
-              : Number(item.obtainedMarks),
-          attendance_status:
-            item.attendanceStatus,
+            Number(item.obtainedMarks),
           remarks:
             item.remarks.trim() || null,
-          image_urls: imageUrls,
+          subject: item.subject,
+          attendance_status:
+            item.attendanceStatus,
+          test_images:
+            item.testImages || [],
         })
       );
 
@@ -568,16 +622,12 @@ export default function TeacherReportsPage() {
 
   function editAssessment(
     assessmentName: string,
-    assessmentDate: string,
-    assessmentSubject:
-      | "English"
-      | "Mathematics"
+    assessmentDate: string
   ) {
     const rows = assessments.filter(
       (item) =>
         item.test_name === assessmentName &&
-        item.test_date === assessmentDate &&
-        item.subject === assessmentSubject
+        item.test_date === assessmentDate
     );
 
     if (rows.length === 0) return;
@@ -586,35 +636,44 @@ export default function TeacherReportsPage() {
 
     setTestName(first.test_name);
     setTestDate(first.test_date);
-    setSubject(first.subject);
     setTotalMarks(
       String(first.total_marks)
     );
 
-    setSelectedImages([]);
-
     setStudentMarks(
-      students.map((student) => {
-        const row = rows.find(
-          (item) =>
-            item.student_id === student.id
-        );
+      students
+        .filter((student) =>
+          isStudentEligibleForTest(
+            student,
+            first.test_date
+          )
+        )
+        .map((student) => {
+          const row = rows.find(
+            (item) =>
+              item.student_id === student.id
+          );
 
-        return {
-          studentId: student.id,
-          obtainedMarks: row
-            ? String(row.obtained_marks)
-            : "",
-          remarks: row?.remarks || "",
-          attendanceStatus:
-            row?.attendance_status ||
-            "PRESENT",
-        };
-      })
+          return {
+            studentId: student.id,
+            subject:
+              row?.subject ||
+              "Mathematics",
+            obtainedMarks: row
+              ? String(row.obtained_marks)
+              : "",
+            remarks: row?.remarks || "",
+            attendanceStatus:
+              row?.attendance_status ||
+              "PRESENT",
+            testImages:
+              row?.test_images || [],
+          };
+        })
     );
 
     setSelectedAssessment(
-      `${assessmentName}__${assessmentDate}__${assessmentSubject}`
+      `${assessmentName}__${assessmentDate}`
     );
 
     setShowAssessmentForm(true);
@@ -627,13 +686,10 @@ export default function TeacherReportsPage() {
 
   async function deleteAssessment(
     assessmentName: string,
-    assessmentDate: string,
-    assessmentSubject:
-      | "English"
-      | "Mathematics"
+    assessmentDate: string
   ) {
     const confirmed = window.confirm(
-      `Are you sure you want to delete "${assessmentName}" - ${assessmentSubject} assessment?`
+      `Are you sure you want to delete "${assessmentName}" assessment?`
     );
 
     if (!confirmed) return;
@@ -647,8 +703,7 @@ export default function TeacherReportsPage() {
       .from("academy_assessments")
       .delete()
       .eq("test_name", assessmentName)
-      .eq("test_date", assessmentDate)
-      .eq("subject", assessmentSubject);
+      .eq("test_date", assessmentDate);
 
     if (deleteError) {
       setAssessmentError(
@@ -671,7 +726,7 @@ export default function TeacherReportsPage() {
     >();
 
     assessments.forEach((item) => {
-      const key = `${item.test_name}__${item.test_date}__${item.subject}`;
+      const key = `${item.test_name}__${item.test_date}`;
 
       if (!groups.has(key)) {
         groups.set(key, []);
@@ -831,16 +886,17 @@ export default function TeacherReportsPage() {
     const headers = [
       "Student Name",
       "Username",
-      "Subject",
       "Test Name",
       "Test Date",
+      "Subject",
+      "Attendance",
       "Total Marks",
       "Obtained Marks",
-      "Status",
       "Percentage",
       "Grade",
       "Result",
       "Remarks",
+      "Test Images",
     ];
 
     const csvRows = rows.map(
@@ -851,39 +907,29 @@ export default function TeacherReportsPage() {
         );
 
         const percentage =
-          item.attendance_status ===
-          "ABSENT"
-            ? 0
-            : getPercentage(
-                Number(item.obtained_marks),
-                Number(item.total_marks)
-              );
+          getPercentage(
+            Number(item.obtained_marks),
+            Number(item.total_marks)
+          );
 
         return [
           student?.student_name ||
             student?.student_username ||
             "Unknown Student",
           student?.student_username || "",
-          item.subject,
           item.test_name,
           item.test_date,
-          item.total_marks,
-          item.attendance_status === "ABSENT"
-            ? "ABSENT"
-            : item.obtained_marks,
+          item.subject,
           item.attendance_status,
+          item.total_marks,
+          item.obtained_marks,
           `${percentage.toFixed(1)}%`,
-          item.attendance_status ===
-          "ABSENT"
-            ? "—"
-            : getGrade(percentage),
-          item.attendance_status ===
-          "ABSENT"
-            ? "ABSENT"
-            : isPass(percentage)
+          getGrade(percentage),
+          isPass(percentage)
             ? "PASS"
             : "FAIL",
           item.remarks || "",
+          (item.test_images || []).join(" | "),
         ];
       }
     );
@@ -927,428 +973,179 @@ export default function TeacherReportsPage() {
     URL.revokeObjectURL(url);
   }
 
-  function downloadStudentResultPDF(
+  function downloadStudentResult(
     studentId: number,
-    assessmentName: string,
-    assessmentDate: string,
-    assessmentSubject:
-      | "English"
-      | "Mathematics"
+    testNameValue: string,
+    testDateValue: string
   ) {
-    const row = assessments.find(
+    const rows = assessments.filter(
       (item) =>
         item.student_id === studentId &&
-        item.test_name === assessmentName &&
-        item.test_date === assessmentDate &&
-        item.subject === assessmentSubject
+        item.test_name === testNameValue &&
+        item.test_date === testDateValue
     );
 
-    if (!row) return;
+    if (rows.length === 0) return;
 
     const student = students.find(
       (item) => item.id === studentId
     );
 
-    if (!student) return;
-
-    const percentage =
-      row.attendance_status === "ABSENT"
-        ? 0
-        : getPercentage(
-            Number(row.obtained_marks),
-            Number(row.total_marks)
-          );
-
-    const grade =
-      row.attendance_status === "ABSENT"
-        ? "—"
-        : getGrade(percentage);
-
-    const result =
-      row.attendance_status === "ABSENT"
-        ? "ABSENT"
-        : isPass(percentage)
-        ? "PASS"
-        : "FAIL";
-
     const printWindow =
       window.open("", "_blank");
 
-    if (!printWindow) {
-      alert(
-        "Please allow pop-ups to download the PDF."
-      );
-      return;
-    }
+    if (!printWindow) return;
 
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>RACER ACADEMY Result</title>
-        <style>
-          body {
-            font-family: Arial, sans-serif;
-            padding: 40px;
-            color: #172554;
-          }
-
-          .header {
-            text-align: center;
-            border-bottom: 2px solid #2563eb;
-            padding-bottom: 20px;
-            margin-bottom: 30px;
-          }
-
-          .brand {
-            color: #2563eb;
-            font-size: 14px;
-            font-weight: 900;
-            letter-spacing: 4px;
-          }
-
-          h1 {
-            margin: 8px 0;
-          }
-
-          .student {
-            background: #eff6ff;
-            padding: 18px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-          }
-
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-          }
-
-          th, td {
-            border: 1px solid #cbd5e1;
-            padding: 12px;
-            text-align: left;
-          }
-
-          th {
-            background: #eff6ff;
-          }
-
-          .result {
-            margin-top: 25px;
-            padding: 18px;
-            background: #f8fafc;
-            border-radius: 10px;
-          }
-
-          .footer {
-            margin-top: 50px;
-            text-align: center;
-            font-size: 12px;
-            color: #64748b;
-          }
-
-          @media print {
-            body {
-              padding: 20px;
-            }
-          }
-        </style>
-      </head>
-
-      <body>
-
-        <div class="header">
-          <div class="brand">RACER ACADEMY</div>
-          <h1>Student Test Result</h1>
-        </div>
-
-        <div class="student">
-          <strong>Student:</strong>
-          ${student.student_name || student.student_username}
-          <br /><br />
-
-          <strong>Username:</strong>
-          ${student.student_username}
-          <br /><br />
-
-          <strong>Subject:</strong>
-          ${row.subject}
-          <br /><br />
-
-          <strong>Test:</strong>
-          ${row.test_name}
-          <br /><br />
-
-          <strong>Date:</strong>
-          ${row.test_date}
-        </div>
-
-        <table>
-          <tr>
-            <th>Total Marks</th>
-            <th>Obtained Marks</th>
-            <th>Status</th>
-            <th>Percentage</th>
-            <th>Grade</th>
-            <th>Result</th>
-          </tr>
-
-          <tr>
-            <td>${row.total_marks}</td>
-            <td>
-              ${
-                row.attendance_status ===
-                "ABSENT"
-                  ? "ABSENT"
-                  : row.obtained_marks
-              }
-            </td>
-            <td>${row.attendance_status}</td>
-            <td>${percentage.toFixed(1)}%</td>
-            <td>${grade}</td>
-            <td>${result}</td>
-          </tr>
-        </table>
-
-        ${
-          row.remarks
-            ? `
-              <div class="result">
-                <strong>Remarks:</strong>
-                ${row.remarks}
-              </div>
-            `
-            : ""
-        }
-
-        <div class="footer">
-          RACER ACADEMY • Student Result
-        </div>
-
-        <script>
-          window.onload = function() {
-            window.print();
-          };
-        </script>
-
-      </body>
-      </html>
-    `);
-
-    printWindow.document.close();
-  }
-
-  function downloadTeacherResultPDF(
-    group: AssessmentRow[]
-  ) {
-    if (group.length === 0) return;
-
-    const first = group[0];
-
-    const printWindow =
-      window.open("", "_blank");
-
-    if (!printWindow) {
-      alert(
-        "Please allow pop-ups to download the PDF."
-      );
-      return;
-    }
-
-    const rows = group
-      .map((item, index) => {
-        const student = students.find(
-          (s) =>
-            s.id === item.student_id
-        );
-
+    const resultRows = rows
+      .map((item) => {
         const percentage =
-          item.attendance_status === "ABSENT"
-            ? 0
-            : getPercentage(
-                Number(item.obtained_marks),
-                Number(item.total_marks)
-              );
+          getPercentage(
+            Number(item.obtained_marks),
+            Number(item.total_marks)
+          );
 
         return `
           <tr>
-            <td>${index + 1}</td>
-            <td>
-              ${
-                student?.student_name ||
-                student?.student_username ||
-                "Unknown"
-              }
-            </td>
-            <td>
-              ${student?.student_username || ""}
-            </td>
-            <td>
-              ${item.attendance_status}
-            </td>
-            <td>
-              ${
-                item.attendance_status ===
-                "ABSENT"
-                  ? "ABSENT"
-                  : item.obtained_marks
-              }
-            </td>
-            <td>
-              ${percentage.toFixed(1)}%
-            </td>
-            <td>
-              ${
-                item.attendance_status ===
-                "ABSENT"
-                  ? "—"
-                  : getGrade(percentage)
-              }
-            </td>
-            <td>
-              ${
-                item.attendance_status ===
-                "ABSENT"
-                  ? "ABSENT"
-                  : isPass(percentage)
-                  ? "PASS"
-                  : "FAIL"
-              }
-            </td>
+            <td>${item.subject}</td>
+            <td>${item.attendance_status}</td>
+            <td>${item.total_marks}</td>
+            <td>${item.obtained_marks}</td>
+            <td>${percentage.toFixed(1)}%</td>
+            <td>${getGrade(percentage)}</td>
+            <td>${
+              isPass(percentage)
+                ? "PASS"
+                : "FAIL"
+            }</td>
+            <td>${item.remarks || ""}</td>
           </tr>
         `;
       })
       .join("");
 
     printWindow.document.write(`
-      <!DOCTYPE html>
       <html>
-      <head>
-        <title>RACER ACADEMY Test Result</title>
-
-        <style>
-          body {
-            font-family: Arial, sans-serif;
-            padding: 35px;
-            color: #172554;
-          }
-
-          .header {
-            text-align: center;
-            margin-bottom: 25px;
-            border-bottom: 2px solid #2563eb;
-            padding-bottom: 15px;
-          }
-
-          .brand {
-            color: #2563eb;
-            font-size: 13px;
-            font-weight: 900;
-            letter-spacing: 4px;
-          }
-
-          h1 {
-            margin: 8px 0;
-          }
-
-          .meta {
-            text-align: center;
-            margin-bottom: 25px;
-            color: #475569;
-          }
-
-          table {
-            width: 100%;
-            border-collapse: collapse;
-          }
-
-          th, td {
-            border: 1px solid #cbd5e1;
-            padding: 9px;
-            font-size: 12px;
-          }
-
-          th {
-            background: #eff6ff;
-          }
-
-          .footer {
-            margin-top: 35px;
-            text-align: center;
-            font-size: 11px;
-            color: #64748b;
-          }
-
-          @media print {
+        <head>
+          <title>RACER ACADEMY Result</title>
+          <style>
             body {
-              padding: 15px;
+              font-family: Arial, sans-serif;
+              padding: 35px;
+              color: #111827;
             }
-          }
-        </style>
-      </head>
+            h1 {
+              color: #1e3a8a;
+              margin-bottom: 5px;
+            }
+            h2 {
+              margin-top: 25px;
+            }
+            .meta {
+              margin: 8px 0;
+              color: #475569;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 20px;
+            }
+            th, td {
+              border: 1px solid #cbd5e1;
+              padding: 10px;
+              text-align: left;
+            }
+            th {
+              background: #eff6ff;
+              color: #1e3a8a;
+            }
+            .images {
+              margin-top: 25px;
+            }
+            .images img {
+              width: 180px;
+              margin: 8px;
+              border: 1px solid #cbd5e1;
+            }
+            @media print {
+              button {
+                display: none;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>RACER ACADEMY</h1>
+          <h2>Student Result</h2>
 
-      <body>
-
-        <div class="header">
-          <div class="brand">
-            RACER ACADEMY
+          <div class="meta">
+            <strong>Student:</strong>
+            ${
+              student?.student_name ||
+              student?.student_username ||
+              ""
+            }
           </div>
 
-          <h1>Test Result Report</h1>
-        </div>
+          <div class="meta">
+            <strong>Username:</strong>
+            ${student?.student_username || ""}
+          </div>
 
-        <div class="meta">
-          <strong>Test:</strong>
-          ${first.test_name}
-          &nbsp; • &nbsp;
+          <div class="meta">
+            <strong>Test:</strong>
+            ${testNameValue}
+          </div>
 
-          <strong>Subject:</strong>
-          ${first.subject}
-          &nbsp; • &nbsp;
+          <div class="meta">
+            <strong>Date:</strong>
+            ${testDateValue}
+          </div>
 
-          <strong>Date:</strong>
-          ${first.test_date}
-          &nbsp; • &nbsp;
+          <table>
+            <thead>
+              <tr>
+                <th>Subject</th>
+                <th>Attendance</th>
+                <th>Total</th>
+                <th>Obtained</th>
+                <th>Percentage</th>
+                <th>Grade</th>
+                <th>Result</th>
+                <th>Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${resultRows}
+            </tbody>
+          </table>
 
-          <strong>Total Marks:</strong>
-          ${first.total_marks}
-        </div>
+          <div class="images">
+            <h3>Checked Test Images / Photos</h3>
+            ${rows
+              .flatMap(
+                (row) =>
+                  row.test_images || []
+              )
+              .map(
+                (url) =>
+                  `<img src="${url}" />`
+              )
+              .join("")}
+          </div>
 
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Student</th>
-              <th>Username</th>
-              <th>Status</th>
-              <th>Marks</th>
-              <th>%</th>
-              <th>Grade</th>
-              <th>Result</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            ${rows}
-          </tbody>
-        </table>
-
-        <div class="footer">
-          RACER ACADEMY • Teacher Result Report
-        </div>
-
-        <script>
-          window.onload = function() {
-            window.print();
-          };
-        </script>
-
-      </body>
+          <button onclick="window.print()">
+            Print / Save as PDF
+          </button>
+        </body>
       </html>
     `);
 
     printWindow.document.close();
+
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 500);
   }
 
   if (loading) {
@@ -1706,17 +1503,14 @@ export default function TeacherReportsPage() {
               </h2>
 
               <p style={styles.assessmentSubtitle}>
-                Tests, subjects, marks,
-                attendance and results
+                Tests, subjects, marks, results and
+                checked test photos
               </p>
             </div>
 
             <button
               onClick={() => {
-                if (showAssessmentForm) {
-                  resetAssessmentForm();
-                }
-
+                resetAssessmentForm();
                 setShowAssessmentForm(
                   !showAssessmentForm
                 );
@@ -1761,35 +1555,9 @@ export default function TeacherReportsPage() {
                         e.target.value
                       )
                     }
-                    placeholder="Example: Weekly Test 01"
+                    placeholder="Example: Saturday Test 01"
                     style={styles.input}
                   />
-                </div>
-
-                <div>
-                  <label style={styles.label}>
-                    Subject
-                  </label>
-
-                  <select
-                    value={subject}
-                    onChange={(e) =>
-                      setSubject(
-                        e.target.value as
-                          | "English"
-                          | "Mathematics"
-                      )
-                    }
-                    style={styles.input}
-                  >
-                    <option value="English">
-                      English
-                    </option>
-
-                    <option value="Mathematics">
-                      Mathematics
-                    </option>
-                  </select>
                 </div>
 
                 <div>
@@ -1830,426 +1598,466 @@ export default function TeacherReportsPage() {
               </div>
 
               <div style={styles.infoBox}>
-                💡 <strong>Admission Date Rule:</strong>{" "}
-                Test date ke baad admission lene
-                wale students automatically is test
-                mein show nahi honge.
-              </div>
-
-              <div style={styles.infoBox}>
-                📚 <strong>Subject:</strong>{" "}
-                {subject}
-              </div>
-
-              <div style={styles.imageBox}>
-                <label style={styles.label}>
-                  🖼️ Test Pages Images
-                  <span style={styles.optional}>
-                    {" "}
-                    (Optional)
-                  </span>
-                </label>
-
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={(e) =>
-                    setSelectedImages(
-                      Array.from(
-                        e.target.files || []
-                      )
-                    )
-                  }
-                  style={styles.fileInput}
-                />
-
-                {selectedImages.length > 0 && (
-                  <p style={styles.imageText}>
-                    {selectedImages.length} image
-                    {selectedImages.length > 1
-                      ? "s"
-                      : ""}{" "}
-                    selected.
-                  </p>
-                )}
+                💡 <strong>Automatic:</strong>{" "}
+                Admission date ke according students
+                automatically show honge. Test date se
+                baad admission wale students nahi dikhenge.
               </div>
 
               {eligibleStudents.length === 0 ? (
                 <div style={styles.empty}>
-                  No students were admitted on or
-                  before this test date.
+                  Is test date ke liye koi eligible
+                  student nahi mila.
                 </div>
               ) : (
-                <>
-                  <div style={styles.eligibleInfo}>
-                    👨‍🎓{" "}
-                    <strong>
-                      {eligibleStudents.length}
-                    </strong>{" "}
-                    students eligible for this test.
-                  </div>
+                <div style={styles.tableWrapper}>
+                  <table
+                    style={styles.assessmentTable}
+                  >
+                    <thead>
+                      <tr>
+                        <th style={styles.th}>
+                          #
+                        </th>
 
-                  <div style={styles.tableWrapper}>
-                    <table
-                      style={styles.assessmentTable}
-                    >
-                      <thead>
-                        <tr>
-                          <th style={styles.th}>
-                            #
-                          </th>
+                        <th style={styles.th}>
+                          Student
+                        </th>
 
-                          <th style={styles.th}>
-                            Student
-                          </th>
+                        <th style={styles.th}>
+                          Subject
+                        </th>
 
-                          <th style={styles.th}>
-                            Admission Date
-                          </th>
+                        <th style={styles.th}>
+                          Admission Date
+                        </th>
 
-                          <th style={styles.th}>
-                            Username
-                          </th>
+                        <th style={styles.th}>
+                          Attendance
+                        </th>
 
-                          <th style={styles.th}>
-                            Status
-                          </th>
+                        <th style={styles.th}>
+                          Total
+                        </th>
 
-                          <th style={styles.th}>
-                            Total
-                          </th>
+                        <th style={styles.th}>
+                          Obtained
+                        </th>
 
-                          <th style={styles.th}>
-                            Obtained
-                          </th>
+                        <th style={styles.th}>
+                          Percentage
+                        </th>
 
-                          <th style={styles.th}>
-                            Percentage
-                          </th>
+                        <th style={styles.th}>
+                          Grade
+                        </th>
 
-                          <th style={styles.th}>
-                            Grade
-                          </th>
+                        <th style={styles.th}>
+                          Result
+                        </th>
 
-                          <th style={styles.th}>
-                            Result
-                          </th>
+                        <th style={styles.th}>
+                          Remarks
+                        </th>
 
-                          <th style={styles.th}>
-                            Remarks
-                          </th>
-                        </tr>
-                      </thead>
+                        <th style={styles.th}>
+                          Upload Test Images / Photos
+                        </th>
+                      </tr>
+                    </thead>
 
-                      <tbody>
-                        {eligibleStudents.map(
-                          (student, index) => {
-                            const mark =
-                              studentMarks.find(
-                                (item) =>
-                                  item.studentId ===
-                                  student.id
-                              );
+                    <tbody>
+                      {eligibleStudents.map(
+                        (student, index) => {
+                          const mark =
+                            studentMarks.find(
+                              (item) =>
+                                item.studentId ===
+                                student.id
+                            );
 
-                            const total =
-                              Number(
-                                totalMarks || 0
-                              );
+                          const obtained =
+                            Number(
+                              mark?.obtainedMarks ||
+                                0
+                            );
 
-                            const obtained =
-                              Number(
-                                mark?.obtainedMarks ||
-                                  0
-                              );
+                          const total =
+                            Number(
+                              totalMarks || 0
+                            );
 
-                            const percentage =
-                              getPercentage(
-                                obtained,
-                                total
-                              );
+                          const percentage =
+                            getPercentage(
+                              obtained,
+                              total
+                            );
 
-                            const isStudentAbsent =
-                              mark?.attendanceStatus ===
-                              "ABSENT";
+                          const grade =
+                            getGrade(
+                              percentage
+                            );
 
-                            const grade =
-                              isStudentAbsent
-                                ? "—"
-                                : getGrade(
-                                    percentage
-                                  );
+                          return (
+                            <tr
+                              key={
+                                student.id
+                              }
+                            >
+                              <td style={styles.td}>
+                                {index + 1}
+                              </td>
 
-                            return (
-                              <tr
-                                key={
-                                  student.id
-                                }
-                              >
-                                <td
+                              <td style={styles.td}>
+                                <strong>
+                                  {student.student_name ||
+                                    student.student_username}
+                                </strong>
+
+                                <div
                                   style={
-                                    styles.td
-                                  }
-                                >
-                                  {index + 1}
-                                </td>
-
-                                <td
-                                  style={
-                                    styles.td
-                                  }
-                                >
-                                  <strong>
-                                    {student.student_name ||
-                                      student.student_username}
-                                  </strong>
-                                </td>
-
-                                <td
-                                  style={
-                                    styles.td
-                                  }
-                                >
-                                  {student.admission_date ||
-                                    "—"}
-                                </td>
-
-                                <td
-                                  style={
-                                    styles.td
+                                    styles.smallText
                                   }
                                 >
                                   {
                                     student.student_username
                                   }
-                                </td>
+                                </div>
+                              </td>
 
-                                <td
+                              <td style={styles.td}>
+                                <select
+                                  value={
+                                    mark?.subject ||
+                                    "Mathematics"
+                                  }
+                                  onChange={(e) =>
+                                    updateStudentSubject(
+                                      student.id,
+                                      e.target
+                                        .value as
+                                        | "English"
+                                        | "Mathematics"
+                                    )
+                                  }
                                   style={
-                                    styles.td
+                                    styles.subjectSelect
                                   }
                                 >
-                                  <select
-                                    value={
-                                      mark?.attendanceStatus ||
-                                      "PRESENT"
-                                    }
-                                    onChange={(
-                                      e
-                                    ) =>
-                                      updateAttendanceStatus(
-                                        student.id,
-                                        e.target
-                                          .value as
-                                          | "PRESENT"
-                                          | "ABSENT"
-                                      )
-                                    }
-                                    style={{
-                                      ...styles.statusSelect,
-                                      background:
-                                        isStudentAbsent
-                                          ? "#fee2e2"
-                                          : "#dcfce7",
-                                      color:
-                                        isStudentAbsent
-                                          ? "#991b1b"
-                                          : "#166534",
-                                    }}
-                                  >
-                                    <option value="PRESENT">
-                                      PRESENT
-                                    </option>
+                                  <option value="English">
+                                    English
+                                  </option>
 
-                                    <option value="ABSENT">
-                                      ABSENT
-                                    </option>
-                                  </select>
-                                </td>
+                                  <option value="Mathematics">
+                                    Mathematics
+                                  </option>
+                                </select>
+                              </td>
 
-                                <td
+                              <td style={styles.td}>
+                                <span
                                   style={
-                                    styles.td
+                                    styles.admissionBadge
                                   }
                                 >
-                                  {totalMarks ||
+                                  {student.admission_date ||
                                     "—"}
-                                </td>
+                                </span>
+                              </td>
 
-                                <td
-                                  style={
-                                    styles.td
+                              <td style={styles.td}>
+                                <select
+                                  value={
+                                    mark?.attendanceStatus ||
+                                    "PRESENT"
                                   }
+                                  onChange={(e) =>
+                                    updateStudentAttendance(
+                                      student.id,
+                                      e.target
+                                        .value as
+                                        | "PRESENT"
+                                        | "ABSENT"
+                                    )
+                                  }
+                                  style={{
+                                    ...styles.subjectSelect,
+                                    color:
+                                      mark?.attendanceStatus ===
+                                      "ABSENT"
+                                        ? "#991b1b"
+                                        : "#166534",
+                                    fontWeight: 800,
+                                  }}
                                 >
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    max={
-                                      totalMarks ||
-                                      undefined
-                                    }
-                                    disabled={
-                                      isStudentAbsent
-                                    }
-                                    value={
-                                      isStudentAbsent
-                                        ? ""
-                                        : mark?.obtainedMarks ||
-                                          ""
-                                    }
-                                    onChange={(
-                                      e
-                                    ) =>
-                                      updateStudentMarks(
-                                        student.id,
-                                        e.target
-                                          .value
+                                  <option value="PRESENT">
+                                    PRESENT
+                                  </option>
+
+                                  <option value="ABSENT">
+                                    ABSENT
+                                  </option>
+                                </select>
+                              </td>
+
+                              <td style={styles.td}>
+                                {totalMarks ||
+                                  "—"}
+                              </td>
+
+                              <td style={styles.td}>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max={
+                                    totalMarks ||
+                                    undefined
+                                  }
+                                  value={
+                                    mark?.obtainedMarks ||
+                                    ""
+                                  }
+                                  disabled={
+                                    mark?.attendanceStatus ===
+                                    "ABSENT"
+                                  }
+                                  onChange={(e) =>
+                                    updateStudentMarks(
+                                      student.id,
+                                      e.target
+                                        .value
+                                    )
+                                  }
+                                  style={
+                                    styles.marksInput
+                                  }
+                                  placeholder={
+                                    mark?.attendanceStatus ===
+                                    "ABSENT"
+                                      ? "Absent"
+                                      : "Marks"
+                                  }
+                                />
+                              </td>
+
+                              <td style={styles.td}>
+                                <strong>
+                                  {mark?.attendanceStatus ===
+                                  "ABSENT"
+                                    ? "—"
+                                    : total > 0
+                                    ? `${percentage.toFixed(
+                                        1
+                                      )}%`
+                                    : "—"}
+                                </strong>
+                              </td>
+
+                              <td style={styles.td}>
+                                <span
+                                  style={{
+                                    ...styles.gradeBadge,
+                                    background:
+                                      mark?.attendanceStatus ===
+                                      "ABSENT"
+                                        ? "#fee2e2"
+                                        : grade ===
+                                          "F"
+                                        ? "#fee2e2"
+                                        : "#dcfce7",
+                                    color:
+                                      mark?.attendanceStatus ===
+                                      "ABSENT"
+                                        ? "#991b1b"
+                                        : grade ===
+                                          "F"
+                                        ? "#991b1b"
+                                        : "#166534",
+                                  }}
+                                >
+                                  {mark?.attendanceStatus ===
+                                  "ABSENT"
+                                    ? "—"
+                                    : total > 0
+                                    ? grade
+                                    : "—"}
+                                </span>
+                              </td>
+
+                              <td style={styles.td}>
+                                <span
+                                  style={{
+                                    ...styles.resultBadge,
+                                    background:
+                                      mark?.attendanceStatus ===
+                                      "ABSENT"
+                                        ? "#fee2e2"
+                                        : total > 0 &&
+                                          isPass(
+                                            percentage
+                                          )
+                                        ? "#dcfce7"
+                                        : "#fee2e2",
+                                    color:
+                                      mark?.attendanceStatus ===
+                                      "ABSENT"
+                                        ? "#991b1b"
+                                        : total > 0 &&
+                                          isPass(
+                                            percentage
+                                          )
+                                        ? "#166534"
+                                        : "#991b1b",
+                                  }}
+                                >
+                                  {mark?.attendanceStatus ===
+                                  "ABSENT"
+                                    ? "ABSENT"
+                                    : total > 0
+                                    ? isPass(
+                                        percentage
                                       )
-                                    }
-                                    placeholder={
-                                      isStudentAbsent
-                                        ? "Absent"
-                                        : "Marks"
-                                    }
+                                      ? "PASS"
+                                      : "FAIL"
+                                    : "—"}
+                                </span>
+                              </td>
+
+                              <td style={styles.td}>
+                                <input
+                                  type="text"
+                                  value={
+                                    mark?.remarks ||
+                                    ""
+                                  }
+                                  onChange={(e) =>
+                                    updateStudentRemarks(
+                                      student.id,
+                                      e.target
+                                        .value
+                                    )
+                                  }
+                                  placeholder="Optional"
+                                  style={
+                                    styles.remarksInput
+                                  }
+                                />
+                              </td>
+
+                              <td style={styles.td}>
+                                <div
+                                  style={
+                                    styles.uploadBox
+                                  }
+                                >
+                                  <label
                                     style={
-                                      styles.marksInput
+                                      styles.uploadButton
                                     }
-                                  />
-                                </td>
-
-                                <td
-                                  style={
-                                    styles.td
-                                  }
-                                >
-                                  <strong>
-                                    {isStudentAbsent
-                                      ? "—"
-                                      : total > 0
-                                      ? `${percentage.toFixed(
-                                          1
-                                        )}%`
-                                      : "—"}
-                                  </strong>
-                                </td>
-
-                                <td
-                                  style={
-                                    styles.td
-                                  }
-                                >
-                                  <span
-                                    style={{
-                                      ...styles.gradeBadge,
-                                      background:
-                                        grade ===
-                                        "F"
-                                          ? "#fee2e2"
-                                          : "#dcfce7",
-                                      color:
-                                        grade ===
-                                        "F"
-                                          ? "#991b1b"
-                                          : "#166534",
-                                    }}
                                   >
-                                    {total > 0
-                                      ? grade
-                                      : "—"}
-                                  </span>
-                                </td>
+                                    📷 Upload Test
+                                    Images / Photos
 
-                                <td
-                                  style={
-                                    styles.td
-                                  }
-                                >
-                                  <span
-                                    style={{
-                                      ...styles.resultBadge,
-                                      background:
-                                        isStudentAbsent
-                                          ? "#fee2e2"
-                                          : total >
-                                            0 &&
-                                            isPass(
-                                              percentage
-                                            )
-                                          ? "#dcfce7"
-                                          : "#fee2e2",
-                                      color:
-                                        isStudentAbsent
-                                          ? "#991b1b"
-                                          : total >
-                                            0 &&
-                                            isPass(
-                                              percentage
-                                            )
-                                          ? "#166534"
-                                          : "#991b1b",
-                                    }}
-                                  >
-                                    {isStudentAbsent
-                                      ? "ABSENT"
-                                      : total > 0
-                                      ? isPass(
-                                          percentage
-                                        )
-                                        ? "PASS"
-                                        : "FAIL"
-                                      : "—"}
-                                  </span>
-                                </td>
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      multiple
+                                      onChange={(e) => {
+                                        uploadTestImages(
+                                          student.id,
+                                          e.target
+                                            .files
+                                        );
 
-                                <td
-                                  style={
-                                    styles.td
-                                  }
-                                >
-                                  <input
-                                    type="text"
-                                    value={
-                                      mark?.remarks ||
-                                      ""
-                                    }
-                                    onChange={(
-                                      e
-                                    ) =>
-                                      updateStudentRemarks(
-                                        student.id,
-                                        e.target
-                                          .value
-                                      )
-                                    }
-                                    placeholder="Optional"
+                                        e.currentTarget.value =
+                                          "";
+                                      }}
+                                      style={
+                                        styles.hiddenFileInput
+                                      }
+                                    />
+                                  </label>
+
+                                  <small
                                     style={
-                                      styles.remarksInput
+                                      styles.optionalText
                                     }
-                                  />
-                                </td>
-                              </tr>
-                            );
-                          }
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
+                                  >
+                                    Optional
+                                  </small>
+
+                                  {mark &&
+                                    mark.testImages
+                                      .length >
+                                      0 && (
+                                      <div
+                                        style={
+                                          styles.imagePreviewGrid
+                                        }
+                                      >
+                                        {mark.testImages.map(
+                                          (
+                                            imageUrl
+                                          ) => (
+                                            <div
+                                              key={
+                                                imageUrl
+                                              }
+                                              style={
+                                                styles.imagePreview
+                                              }
+                                            >
+                                              <img
+                                                src={
+                                                  imageUrl
+                                                }
+                                                alt="Checked test"
+                                                style={
+                                                  styles.previewImage
+                                                }
+                                              />
+
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  removeTestImage(
+                                                    student.id,
+                                                    imageUrl
+                                                  )
+                                                }
+                                                style={
+                                                  styles.removeImageButton
+                                                }
+                                              >
+                                                ×
+                                              </button>
+                                            </div>
+                                          )
+                                        )}
+                                      </div>
+                                    )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        }
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               )}
 
               <div style={styles.formActions}>
                 <button
                   onClick={saveAssessment}
                   disabled={
-                    assessmentLoading ||
-                    uploadingImages
+                    assessmentLoading
                   }
                   style={
                     styles.saveAssessmentButton
                   }
                 >
-                  {assessmentLoading ||
-                  uploadingImages
+                  {assessmentLoading
                     ? "Saving..."
                     : selectedAssessment
                     ? "💾 Update Assessment"
@@ -2325,32 +2133,18 @@ export default function TeacherReportsPage() {
                         0
                       );
 
-                    const presentStudents =
-                      group.filter(
-                        (item) =>
-                          item.attendance_status !==
-                          "ABSENT"
-                      ).length;
-
-                    const absentStudents =
-                      group.filter(
-                        (item) =>
-                          item.attendance_status ===
-                          "ABSENT"
-                      ).length;
-
                     const average =
-                      presentStudents > 0 &&
+                      group.length > 0 &&
                       total > 0
                         ? (totalObtained /
                             (total *
-                              presentStudents)) *
+                              group.length)) *
                           100
                         : 0;
 
                     return (
                       <div
-                        key={`${first.test_name}-${first.test_date}-${first.subject}`}
+                        key={`${first.test_name}-${first.test_date}`}
                         style={
                           styles.savedCard
                         }
@@ -2366,14 +2160,6 @@ export default function TeacherReportsPage() {
 
                           <div
                             style={
-                              styles.subjectBadge
-                            }
-                          >
-                            📚 {first.subject}
-                          </div>
-
-                          <div
-                            style={
                               styles.savedMeta
                             }
                           >
@@ -2386,17 +2172,61 @@ export default function TeacherReportsPage() {
                             👨‍🎓 Students:{" "}
                             {group.length}
                             {"  •  "}
-                            ✅ Present:{" "}
-                            {presentStudents}
-                            {"  •  "}
-                            ❌ Absent:{" "}
-                            {absentStudents}
-                            {"  •  "}
                             📈 Average:{" "}
                             {average.toFixed(
                               1
                             )}
                             %
+                          </div>
+
+                          <div
+                            style={
+                              styles.subjectSummary
+                            }
+                          >
+                            {Array.from(
+                              new Set(
+                                group.map(
+                                  (item) =>
+                                    item.subject
+                                )
+                              )
+                            ).map(
+                              (subject) => (
+                                <span
+                                  key={
+                                    subject
+                                  }
+                                  style={
+                                    styles.subjectBadge
+                                  }
+                                >
+                                  {subject}
+                                </span>
+                              )
+                            )}
+
+                            <span
+                              style={
+                                styles.imageCountBadge
+                              }
+                            >
+                              📷{" "}
+                              {
+                                group.reduce(
+                                  (
+                                    count,
+                                    item
+                                  ) =>
+                                    count +
+                                    (
+                                      item.test_images ||
+                                      []
+                                    ).length,
+                                  0
+                                )
+                              } Images
+                            </span>
                           </div>
                         </div>
 
@@ -2407,23 +2237,9 @@ export default function TeacherReportsPage() {
                         >
                           <button
                             onClick={() =>
-                              downloadTeacherResultPDF(
-                                group
-                              )
-                            }
-                            style={
-                              styles.pdfButton
-                            }
-                          >
-                            📄 Teacher PDF
-                          </button>
-
-                          <button
-                            onClick={() =>
                               editAssessment(
                                 first.test_name,
-                                first.test_date,
-                                first.subject
+                                first.test_date
                               )
                             }
                             style={
@@ -2435,10 +2251,24 @@ export default function TeacherReportsPage() {
 
                           <button
                             onClick={() =>
+                              downloadStudentResult(
+                                first.student_id,
+                                first.test_name,
+                                first.test_date
+                              )
+                            }
+                            style={
+                              styles.pdfButton
+                            }
+                          >
+                            📄 Result PDF
+                          </button>
+
+                          <button
+                            onClick={() =>
                               deleteAssessment(
                                 first.test_name,
-                                first.test_date,
-                                first.subject
+                                first.test_date
                               )
                             }
                             style={
@@ -2447,58 +2277,6 @@ export default function TeacherReportsPage() {
                           >
                             🗑️ Delete
                           </button>
-                        </div>
-
-                        <div
-                          style={
-                            styles.studentResultsBox
-                          }
-                        >
-                          <strong>
-                            👨‍🎓 Student Results
-                          </strong>
-
-                          <div
-                            style={
-                              styles.studentResultGrid
-                            }
-                          >
-                            {group.map(
-                              (item) => {
-                                const student =
-                                  students.find(
-                                    (s) =>
-                                      s.id ===
-                                      item.student_id
-                                  );
-
-                                return (
-                                  <button
-                                    key={
-                                      item.id
-                                    }
-                                    onClick={() =>
-                                      downloadStudentResultPDF(
-                                        item.student_id,
-                                        first.test_name,
-                                        first.test_date,
-                                        first.subject
-                                      )
-                                    }
-                                    style={
-                                      styles.studentPdfButton
-                                    }
-                                  >
-                                    📄{" "}
-                                    {student?.student_name ||
-                                      student?.student_username ||
-                                      "Student"}{" "}
-                                    PDF
-                                  </button>
-                                );
-                              }
-                            )}
-                          </div>
                         </div>
                       </div>
                     );
@@ -2734,11 +2512,6 @@ const styles: {
     fontWeight: "700",
   },
 
-  optional: {
-    color: "#64748b",
-    fontWeight: "500",
-  },
-
   input: {
     width: "100%",
     boxSizing: "border-box",
@@ -2864,7 +2637,7 @@ const styles: {
 
   assessmentTable: {
     width: "100%",
-    minWidth: "1350px",
+    minWidth: "1700px",
     borderCollapse: "collapse",
   },
 
@@ -2885,6 +2658,7 @@ const styles: {
       "1px solid #e2e8f0",
     color: "#334155",
     fontSize: "14px",
+    verticalAlign: "top",
   },
 
   present: {
@@ -3013,49 +2787,32 @@ const styles: {
     fontSize: "13px",
   },
 
-  imageBox: {
-    marginTop: "15px",
-    background: "#fff",
-    border:
-      "1px solid #e2e8f0",
-    padding: "15px",
-    borderRadius: "10px",
-  },
-
-  fileInput: {
-    width: "100%",
-    padding: "10px",
+  subjectSelect: {
+    minWidth: "145px",
     boxSizing: "border-box",
-    border:
-      "1px dashed #94a3b8",
-    borderRadius: "8px",
-    background: "#f8fafc",
-  },
-
-  imageText: {
-    margin: "8px 0 0",
-    color: "#166534",
-    fontSize: "12px",
-    fontWeight: "700",
-  },
-
-  eligibleInfo: {
-    marginTop: "18px",
-    background: "#ecfdf5",
-    border:
-      "1px solid #a7f3d0",
-    color: "#047857",
-    padding: "12px",
-    borderRadius: "10px",
-    fontSize: "13px",
-  },
-
-  statusSelect: {
-    padding: "8px",
+    padding: "9px",
     border:
       "1px solid #cbd5e1",
     borderRadius: "8px",
-    fontWeight: "800",
+    background: "white",
+    color: "#111827",
+    fontWeight: "700",
+  },
+
+  admissionBadge: {
+    display: "inline-block",
+    background: "#f1f5f9",
+    color: "#334155",
+    padding: "7px 9px",
+    borderRadius: "8px",
+    fontSize: "12px",
+    fontWeight: "700",
+    whiteSpace: "nowrap",
+  },
+
+  smallText: {
+    marginTop: "4px",
+    color: "#64748b",
     fontSize: "11px",
   },
 
@@ -3080,6 +2837,71 @@ const styles: {
     borderRadius: "8px",
     background: "white",
     color: "#111827",
+  },
+
+  uploadBox: {
+    minWidth: "230px",
+  },
+
+  uploadButton: {
+    display: "inline-block",
+    background:
+      "linear-gradient(135deg,#2563eb,#4f46e5)",
+    color: "white",
+    padding: "9px 12px",
+    borderRadius: "8px",
+    fontWeight: "800",
+    fontSize: "12px",
+    cursor: "pointer",
+  },
+
+  hiddenFileInput: {
+    display: "none",
+  },
+
+  optionalText: {
+    display: "block",
+    marginTop: "5px",
+    color: "#64748b",
+    fontSize: "11px",
+  },
+
+  imagePreviewGrid: {
+    display: "flex",
+    gap: "8px",
+    flexWrap: "wrap",
+    marginTop: "10px",
+  },
+
+  imagePreview: {
+    position: "relative",
+    width: "65px",
+    height: "65px",
+  },
+
+  previewImage: {
+    width: "65px",
+    height: "65px",
+    objectFit: "cover",
+    borderRadius: "8px",
+    border:
+      "1px solid #cbd5e1",
+  },
+
+  removeImageButton: {
+    position: "absolute",
+    top: "-7px",
+    right: "-7px",
+    width: "20px",
+    height: "20px",
+    border: "none",
+    borderRadius: "50%",
+    background: "#dc2626",
+    color: "white",
+    fontWeight: "900",
+    cursor: "pointer",
+    lineHeight: "20px",
+    padding: 0,
   },
 
   gradeBadge: {
@@ -3182,21 +3004,35 @@ const styles: {
     fontSize: "16px",
   },
 
-  subjectBadge: {
-    display: "inline-block",
+  savedMeta: {
     marginTop: "7px",
+    color: "#64748b",
+    fontSize: "12px",
+  },
+
+  subjectSummary: {
+    display: "flex",
+    gap: "7px",
+    flexWrap: "wrap",
+    marginTop: "9px",
+  },
+
+  subjectBadge: {
     background: "#ede9fe",
-    color: "#6d28d9",
+    color: "#5b21b6",
     padding: "5px 9px",
     borderRadius: "999px",
     fontSize: "11px",
     fontWeight: "800",
   },
 
-  savedMeta: {
-    marginTop: "7px",
-    color: "#64748b",
-    fontSize: "12px",
+  imageCountBadge: {
+    background: "#dbeafe",
+    color: "#1e3a8a",
+    padding: "5px 9px",
+    borderRadius: "999px",
+    fontSize: "11px",
+    fontWeight: "800",
   },
 
   savedActions: {
@@ -3205,20 +3041,20 @@ const styles: {
     flexWrap: "wrap",
   },
 
-  pdfButton: {
+  editButton: {
     border: "none",
-    background: "#7c3aed",
-    color: "white",
+    background: "#dbeafe",
+    color: "#1e3a8a",
     padding: "9px 13px",
     borderRadius: "8px",
     fontWeight: "800",
     cursor: "pointer",
   },
 
-  editButton: {
+  pdfButton: {
     border: "none",
-    background: "#dbeafe",
-    color: "#1e3a8a",
+    background: "#ede9fe",
+    color: "#6d28d9",
     padding: "9px 13px",
     borderRadius: "8px",
     fontWeight: "800",
@@ -3233,34 +3069,6 @@ const styles: {
     borderRadius: "8px",
     fontWeight: "800",
     cursor: "pointer",
-  },
-
-  studentResultsBox: {
-    width: "100%",
-    background: "white",
-    border:
-      "1px solid #e2e8f0",
-    borderRadius: "10px",
-    padding: "12px",
-    boxSizing: "border-box",
-  },
-
-  studentResultGrid: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "8px",
-    marginTop: "10px",
-  },
-
-  studentPdfButton: {
-    border: "none",
-    background: "#2563eb",
-    color: "white",
-    padding: "8px 11px",
-    borderRadius: "8px",
-    fontWeight: "700",
-    cursor: "pointer",
-    fontSize: "11px",
   },
 
   gradeInfo: {
