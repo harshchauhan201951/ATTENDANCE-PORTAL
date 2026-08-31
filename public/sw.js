@@ -15,21 +15,27 @@ self.addEventListener("push", function (event) {
       data.body ||
       "You have a new announcement.",
 
+    // RACER ACADEMY notification icon
     icon: "/notification-icon.png",
     badge: "/notification-icon.png",
 
+    // Notification silent nahi hogi
     silent: false,
 
+    // Vibration
     vibrate: [300, 150, 300],
 
+    // New notification ko alert karne ke liye
     renotify: true,
 
     tag: "racer-academy-announcement",
 
     requireInteraction: false,
 
+    // Announcement notification ka fixed destination
+    // Server se aane wala URL intentionally ignore kiya gaya hai.
     data: {
-      url: data.url || "/student/dashboard",
+      url: "/student/dashboard",
     },
 
     actions: [
@@ -50,9 +56,9 @@ self.addEventListener(
   function (event) {
     event.notification.close();
 
-    const url =
-      event.notification.data?.url ||
-      "/student/dashboard";
+    // Announcement notification hamesha
+    // Student Dashboard par jayegi.
+    const url = "/student/dashboard";
 
     event.waitUntil(
       clients
