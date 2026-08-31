@@ -15,8 +15,9 @@ self.addEventListener("push", function (event) {
       data.body ||
       "You have a new announcement.",
 
-    icon: "/icon-192.png",
-    badge: "/icon-192.png",
+    // RACER ACADEMY notification icon
+    icon: "/notification-icon.png",
+    badge: "/notification-icon.png",
 
     // Android notification ko silent nahi rakhenge
     silent: false,
@@ -44,13 +45,9 @@ self.addEventListener("push", function (event) {
   };
 
   event.waitUntil(
-    self.registration.showNotification(
-      title,
-      options
-    )
+    self.registration.showNotification(title, options)
   );
 });
-
 
 self.addEventListener(
   "notificationclick",
