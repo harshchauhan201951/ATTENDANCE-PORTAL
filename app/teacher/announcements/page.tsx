@@ -27,6 +27,15 @@ type AnnouncementWithLikes = Announcement & {
   likedStudents: Student[];
 };
 
+type PushResponse = {
+  success?: boolean;
+  sent?: number;
+  failed?: number;
+  total?: number;
+  message?: string;
+  error?: string;
+};
+
 export default function TeacherAnnouncementsPage() {
   const router = useRouter();
 
@@ -34,11 +43,11 @@ export default function TeacherAnnouncementsPage() {
     AnnouncementWithLikes[]
   >([]);
 
-  const [title, setTitle] = useState("");
-  const [message, setMessage] = useState("");
+  const [title, setTitle] = useState<string>("");
+  const [message, setMessage] = useState<string>("");
 
-  const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [creating, setCreating] = useState<boolean>(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const [expandedLikes, setExpandedLikes] = useState<number | null>(
@@ -46,16 +55,13 @@ export default function TeacherAnnouncementsPage() {
   );
 
   useEffect(() => {
-    loadAnnouncements();
+    void loadAnnouncements();
   }, []);
 
-  async function loadAnnouncements() {
+  async function loadAnnouncements(): Promise<void> {
     setLoading(true);
 
     try {
-      /*
-       * LOAD ANNOUNCEMENTS
-       */
       const {
         data: announcementData,
         error: announcementError,
@@ -87,16 +93,10 @@ export default function TeacherAnnouncementsPage() {
         return;
       }
 
-      /*
-       * GET ANNOUNCEMENT IDS
-       */
       const announcementIds = announcementRows.map(
         (announcement) => announcement.id
       );
 
-      /*
-       * LOAD ALL LIKES
-       */
       const {
         data: likesData,
         error: likesError,
@@ -112,11 +112,9 @@ export default function TeacherAnnouncementsPage() {
         );
       }
 
-      const likes: LikeRecord[] = likesData || [];
+      const likes: LikeRecord[] =
+        (likesData as LikeRecord[] | null) || [];
 
-      /*
-       * GET UNIQUE STUDENT IDS WHO LIKED
-       */
       const studentIds = Array.from(
         new Set(
           likes
@@ -127,9 +125,6 @@ export default function TeacherAnnouncementsPage() {
 
       let students: Student[] = [];
 
-      /*
-       * LOAD STUDENT DETAILS
-       */
       if (studentIds.length > 0) {
         const {
           data: studentsData,
@@ -147,16 +142,14 @@ export default function TeacherAnnouncementsPage() {
             studentsError
           );
         } else {
-          students = studentsData || [];
+          students =
+            (studentsData as Student[] | null) || [];
         }
       }
 
-      /*
-       * FORMAT ANNOUNCEMENTS
-       */
-      const formattedAnnouncements =
+      const formattedAnnouncements: AnnouncementWithLikes[] =
         announcementRows.map(
-          (announcement): AnnouncementWithLikes => {
+          (announcement) => {
             const announcementLikes =
               likes.filter(
                 (like) =>
@@ -214,8 +207,13 @@ export default function TeacherAnnouncementsPage() {
 
   /*
    * CREATE ANNOUNCEMENT
+   *
+   * Announcement save hone ke baad:
+   * /api/push/send automatically call hota hai.
+   *
+   * Isliye student ko refresh karne ki zarurat nahi.
    */
-  async function createAnnouncement() {
+  async function createAnnouncement(): Promise<void> {
     const cleanTitle = title.trim();
     const cleanMessage = message.trim();
 
@@ -236,32 +234,110 @@ export default function TeacherAnnouncementsPage() {
     setCreating(true);
 
     try {
-      const { error } = await supabase
+      /*
+       * STEP 1
+       * SAVE ANNOUNCEMENT
+       */
+      const {
+        data: newAnnouncement,
+        error: announcementError,
+      } = await supabase
         .from("announcements")
         .insert({
           title: cleanTitle,
           message: cleanMessage,
-        });
+        })
+        .select(
+          "id, title, message, created_at"
+        )
+        .single();
 
-      if (error) {
+      if (announcementError) {
         console.error(
           "Create announcement error:",
-          error
+          announcementError
         );
 
         alert(
-          `Could not create announcement: ${error.message}`
+          `Could not create announcement: ${announcementError.message}`
         );
 
         return;
       }
 
+      /*
+       * STEP 2
+       * CLEAR FORM
+       */
       setTitle("");
       setMessage("");
 
+      /*
+       * STEP 3
+       * REFRESH TEACHER LIST
+       */
       await loadAnnouncements();
 
-      alert("Announcement published successfully.");
+      /*
+       * STEP 4
+       * SEND PUSH AUTOMATICALLY
+       */
+      try {
+        const pushResponse = await fetch(
+          "/api/push/send",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              title: cleanTitle,
+              message: cleanMessage,
+              announcementId:
+                newAnnouncement?.id ?? null,
+            }),
+          }
+        );
+
+        let pushResult: PushResponse = {};
+
+        try {
+          pushResult =
+            (await pushResponse.json()) as PushResponse;
+        } catch {
+          pushResult = {};
+        }
+
+        console.log(
+          "Push notification response:",
+          pushResult
+        );
+
+        if (!pushResponse.ok) {
+          console.error(
+            "Push notification failed:",
+            pushResult
+          );
+        } else {
+          console.log(
+            `Push sent: ${pushResult.sent ?? 0}/${pushResult.total ?? 0}`
+          );
+        }
+      } catch (pushError) {
+        /*
+         * Announcement already saved hai.
+         * Push fail hone par announcement delete nahi hoga.
+         */
+        console.error(
+          "Automatic push notification error:",
+          pushError
+        );
+      }
+
+      alert(
+        "Announcement published successfully."
+      );
     } catch (error) {
       console.error(
         "Unexpected create announcement error:",
@@ -281,7 +357,7 @@ export default function TeacherAnnouncementsPage() {
    */
   async function deleteAnnouncement(
     announcementId: number
-  ) {
+  ): Promise<void> {
     if (deletingId !== null) {
       return;
     }
@@ -373,7 +449,9 @@ export default function TeacherAnnouncementsPage() {
     }
   }
 
-  function toggleLikes(announcementId: number) {
+  function toggleLikes(
+    announcementId: number
+  ): void {
     setExpandedLikes((current) =>
       current === announcementId
         ? null
@@ -381,7 +459,7 @@ export default function TeacherAnnouncementsPage() {
     );
   }
 
-  function formatDate(date: string) {
+  function formatDate(date: string): string {
     if (!date) {
       return "";
     }
@@ -463,7 +541,8 @@ export default function TeacherAnnouncementsPage() {
 
               <p style={styles.createSubtitle}>
                 Students will see this announcement
-                on their dashboard.
+                on their dashboard and receive a
+                notification automatically.
               </p>
             </div>
           </div>
@@ -505,13 +584,15 @@ export default function TeacherAnnouncementsPage() {
 
             <div style={styles.formBottom}>
               <div style={styles.formHint}>
-                👥 This announcement will be visible
-                to all students.
+                👥 All registered students will receive
+                the push notification automatically.
               </div>
 
               <button
                 type="button"
-                onClick={createAnnouncement}
+                onClick={() =>
+                  void createAnnouncement()
+                }
                 disabled={creating}
                 style={{
                   ...styles.publishButton,
@@ -521,7 +602,7 @@ export default function TeacherAnnouncementsPage() {
                 }}
               >
                 {creating
-                  ? "Publishing..."
+                  ? "Publishing & Sending..."
                   : "📢 Publish Announcement"}
               </button>
             </div>
@@ -590,7 +671,9 @@ export default function TeacherAnnouncementsPage() {
 
             <button
               type="button"
-              onClick={loadAnnouncements}
+              onClick={() =>
+                void loadAnnouncements()
+              }
               disabled={loading}
               style={styles.refreshButton}
             >
@@ -762,7 +845,7 @@ export default function TeacherAnnouncementsPage() {
                           <button
                             type="button"
                             onClick={() =>
-                              deleteAnnouncement(
+                              void deleteAnnouncement(
                                 announcement.id
                               )
                             }
@@ -899,9 +982,7 @@ export default function TeacherAnnouncementsPage() {
                                         student.student_username ||
                                         "S"
                                       )
-                                        .charAt(
-                                          0
-                                        )
+                                        .charAt(0)
                                         .toUpperCase()}
                                     </div>
 
@@ -925,7 +1006,10 @@ export default function TeacherAnnouncementsPage() {
                                             styles.studentUsername
                                           }
                                         >
-                                          @{student.student_username}
+                                          @
+                                          {
+                                            student.student_username
+                                          }
                                         </div>
                                       )}
                                     </div>
