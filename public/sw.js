@@ -15,17 +15,13 @@ self.addEventListener("push", function (event) {
       data.body ||
       "You have a new announcement.",
 
-    // RACER ACADEMY notification icon
     icon: "/notification-icon.png",
     badge: "/notification-icon.png",
 
-    // Android notification ko silent nahi rakhenge
     silent: false,
 
-    // Vibration
     vibrate: [300, 150, 300],
 
-    // New notification ko alert karne ke liye
     renotify: true,
 
     tag: "racer-academy-announcement",
@@ -33,7 +29,7 @@ self.addEventListener("push", function (event) {
     requireInteraction: false,
 
     data: {
-      url: data.url || "/student",
+      url: data.url || "/student/dashboard",
     },
 
     actions: [
@@ -56,7 +52,7 @@ self.addEventListener(
 
     const url =
       event.notification.data?.url ||
-      "/student";
+      "/student/dashboard";
 
     event.waitUntil(
       clients
