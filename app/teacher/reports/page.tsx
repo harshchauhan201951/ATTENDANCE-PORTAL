@@ -32,7 +32,10 @@ type AssessmentRow = {
   remarks: string | null;
   created_at: string;
   subject: "English" | "Mathematics";
-  attendance_status: "PRESENT" | "ABSENT";
+  attendance_status:
+    | "PRESENT"
+    | "ABSENT"
+    | "NO_TEST";
   test_images: string[] | null;
 };
 
@@ -41,7 +44,10 @@ type StudentMark = {
   subject: "English" | "Mathematics";
   obtainedMarks: string;
   remarks: string;
-  attendanceStatus: "PRESENT" | "ABSENT";
+  attendanceStatus:
+    | "PRESENT"
+    | "ABSENT"
+    | "NO_TEST";
   testImages: string[];
 };
 
@@ -293,7 +299,10 @@ export default function TeacherReportsPage() {
 
   function updateStudentAttendance(
     studentId: number,
-    value: "PRESENT" | "ABSENT"
+    value:
+      | "PRESENT"
+      | "ABSENT"
+      | "NO_TEST"
   ) {
     setStudentMarks((current) =>
       current.map((item) =>
@@ -301,6 +310,10 @@ export default function TeacherReportsPage() {
           ? {
               ...item,
               attendanceStatus: value,
+              obtainedMarks:
+                value === "PRESENT"
+                  ? item.obtainedMarks
+                  : "",
             }
           : item
       )
@@ -505,8 +518,20 @@ export default function TeacherReportsPage() {
         eligibleIds.has(item.studentId)
     );
 
+    /*
+     * IMPORTANT:
+     * PRESENT student ke liye marks compulsory hain.
+     * ABSENT / NO_TEST student ke liye marks compulsory nahi hain.
+     */
     const invalidMarks = validMarks.find(
       (item) => {
+        if (
+          item.attendanceStatus === "ABSENT" ||
+          item.attendanceStatus === "NO_TEST"
+        ) {
+          return false;
+        }
+
         const value = Number(
           item.obtainedMarks
         );
@@ -573,13 +598,24 @@ export default function TeacherReportsPage() {
           test_date: testDate,
           total_marks: total,
           student_id: item.studentId,
+
+          /*
+           * ABSENT / NO_TEST ke liye database me 0 save hoga.
+           * Display me marks nahi dikhaye jayenge.
+           */
           obtained_marks:
-            Number(item.obtainedMarks),
+            item.attendanceStatus === "PRESENT"
+              ? Number(item.obtainedMarks)
+              : 0,
+
           remarks:
             item.remarks.trim() || null,
+
           subject: item.subject,
+
           attendance_status:
             item.attendanceStatus,
+
           test_images:
             item.testImages || [],
         })
@@ -659,9 +695,13 @@ export default function TeacherReportsPage() {
             subject:
               row?.subject ||
               "Mathematics",
-            obtainedMarks: row
-              ? String(row.obtained_marks)
-              : "",
+            obtainedMarks:
+              row?.attendance_status === "ABSENT" ||
+              row?.attendance_status === "NO_TEST"
+                ? ""
+                : row
+                ? String(row.obtained_marks)
+                : "",
             remarks: row?.remarks || "",
             attendanceStatus:
               row?.attendance_status ||
@@ -906,11 +946,22 @@ export default function TeacherReportsPage() {
             s.id === item.student_id
         );
 
+        const isAbsentStudent =
+          item.attendance_status ===
+          "ABSENT";
+
+        const isNoTestStudent =
+          item.attendance_status ===
+          "NO_TEST";
+
         const percentage =
-          getPercentage(
-            Number(item.obtained_marks),
-            Number(item.total_marks)
-          );
+          !isAbsentStudent &&
+          !isNoTestStudent
+            ? getPercentage(
+                Number(item.obtained_marks),
+                Number(item.total_marks)
+              )
+            : 0;
 
         return [
           student?.student_name ||
@@ -921,11 +972,23 @@ export default function TeacherReportsPage() {
           item.test_date,
           item.subject,
           item.attendance_status,
-          item.total_marks,
-          item.obtained_marks,
-          `${percentage.toFixed(1)}%`,
-          getGrade(percentage),
-          isPass(percentage)
+          isAbsentStudent || isNoTestStudent
+            ? ""
+            : item.total_marks,
+          isAbsentStudent || isNoTestStudent
+            ? ""
+            : item.obtained_marks,
+          isAbsentStudent || isNoTestStudent
+            ? ""
+            : `${percentage.toFixed(1)}%`,
+          isAbsentStudent || isNoTestStudent
+            ? ""
+            : getGrade(percentage),
+          isAbsentStudent
+            ? "ABSENT"
+            : isNoTestStudent
+            ? "NO TEST"
+            : isPass(percentage)
             ? "PASS"
             : "FAIL",
           item.remarks || "",
@@ -998,22 +1061,64 @@ export default function TeacherReportsPage() {
 
     const resultRows = rows
       .map((item) => {
+        const isAbsentStudent =
+          item.attendance_status ===
+          "ABSENT";
+
+        const isNoTestStudent =
+          item.attendance_status ===
+          "NO_TEST";
+
         const percentage =
-          getPercentage(
-            Number(item.obtained_marks),
-            Number(item.total_marks)
-          );
+          !isAbsentStudent &&
+          !isNoTestStudent
+            ? getPercentage(
+                Number(item.obtained_marks),
+                Number(item.total_marks)
+              )
+            : 0;
+
+        const attendanceText =
+          isAbsentStudent
+            ? "ABSENT"
+            : isNoTestStudent
+            ? "NO TEST"
+            : "PRESENT";
 
         return `
           <tr>
             <td>${item.subject}</td>
-            <td>${item.attendance_status}</td>
-            <td>${item.total_marks}</td>
-            <td>${item.obtained_marks}</td>
-            <td>${percentage.toFixed(1)}%</td>
-            <td>${getGrade(percentage)}</td>
+            <td>${attendanceText}</td>
             <td>${
-              isPass(percentage)
+              isAbsentStudent ||
+              isNoTestStudent
+                ? "—"
+                : item.total_marks
+            }</td>
+            <td>${
+              isAbsentStudent ||
+              isNoTestStudent
+                ? "—"
+                : item.obtained_marks
+            }</td>
+            <td>${
+              isAbsentStudent ||
+              isNoTestStudent
+                ? "—"
+                : `${percentage.toFixed(1)}%`
+            }</td>
+            <td>${
+              isAbsentStudent ||
+              isNoTestStudent
+                ? "—"
+                : getGrade(percentage)
+            }</td>
+            <td>${
+              isAbsentStudent
+                ? "ABSENT"
+                : isNoTestStudent
+                ? "NO TEST"
+                : isPass(percentage)
                 ? "PASS"
                 : "FAIL"
             }</td>
@@ -1687,11 +1792,22 @@ export default function TeacherReportsPage() {
                               totalMarks || 0
                             );
 
+                          const isAbsentStudent =
+                            mark?.attendanceStatus ===
+                            "ABSENT";
+
+                          const isNoTestStudent =
+                            mark?.attendanceStatus ===
+                            "NO_TEST";
+
                           const percentage =
-                            getPercentage(
-                              obtained,
-                              total
-                            );
+                            !isAbsentStudent &&
+                            !isNoTestStudent
+                              ? getPercentage(
+                                  obtained,
+                                  total
+                                )
+                              : 0;
 
                           const grade =
                             getGrade(
@@ -1778,6 +1894,7 @@ export default function TeacherReportsPage() {
                                         .value as
                                         | "PRESENT"
                                         | "ABSENT"
+                                        | "NO_TEST"
                                     )
                                   }
                                   style={{
@@ -1786,6 +1903,9 @@ export default function TeacherReportsPage() {
                                       mark?.attendanceStatus ===
                                       "ABSENT"
                                         ? "#991b1b"
+                                        : mark?.attendanceStatus ===
+                                          "NO_TEST"
+                                        ? "#92400e"
                                         : "#166534",
                                     fontWeight: 800,
                                   }}
@@ -1797,12 +1917,19 @@ export default function TeacherReportsPage() {
                                   <option value="ABSENT">
                                     ABSENT
                                   </option>
+
+                                  <option value="NO_TEST">
+                                    NO TEST
+                                  </option>
                                 </select>
                               </td>
 
                               <td style={styles.td}>
-                                {totalMarks ||
-                                  "—"}
+                                {isAbsentStudent ||
+                                isNoTestStudent
+                                  ? "—"
+                                  : totalMarks ||
+                                    "—"}
                               </td>
 
                               <td style={styles.td}>
@@ -1818,8 +1945,8 @@ export default function TeacherReportsPage() {
                                     ""
                                   }
                                   disabled={
-                                    mark?.attendanceStatus ===
-                                    "ABSENT"
+                                    isAbsentStudent ||
+                                    isNoTestStudent
                                   }
                                   onChange={(e) =>
                                     updateStudentMarks(
@@ -1832,9 +1959,10 @@ export default function TeacherReportsPage() {
                                     styles.marksInput
                                   }
                                   placeholder={
-                                    mark?.attendanceStatus ===
-                                    "ABSENT"
+                                    isAbsentStudent
                                       ? "Absent"
+                                      : isNoTestStudent
+                                      ? "No Test"
                                       : "Marks"
                                   }
                                 />
@@ -1842,9 +1970,10 @@ export default function TeacherReportsPage() {
 
                               <td style={styles.td}>
                                 <strong>
-                                  {mark?.attendanceStatus ===
-                                  "ABSENT"
-                                    ? "—"
+                                  {isAbsentStudent
+                                    ? "ABSENT"
+                                    : isNoTestStudent
+                                    ? "NO TEST"
                                     : total > 0
                                     ? `${percentage.toFixed(
                                         1
@@ -1858,26 +1987,29 @@ export default function TeacherReportsPage() {
                                   style={{
                                     ...styles.gradeBadge,
                                     background:
-                                      mark?.attendanceStatus ===
-                                      "ABSENT"
+                                      isAbsentStudent
                                         ? "#fee2e2"
+                                        : isNoTestStudent
+                                        ? "#fef3c7"
                                         : grade ===
                                           "F"
                                         ? "#fee2e2"
                                         : "#dcfce7",
                                     color:
-                                      mark?.attendanceStatus ===
-                                      "ABSENT"
+                                      isAbsentStudent
                                         ? "#991b1b"
+                                        : isNoTestStudent
+                                        ? "#92400e"
                                         : grade ===
                                           "F"
                                         ? "#991b1b"
                                         : "#166534",
                                   }}
                                 >
-                                  {mark?.attendanceStatus ===
-                                  "ABSENT"
-                                    ? "—"
+                                  {isAbsentStudent
+                                    ? "ABSENT"
+                                    : isNoTestStudent
+                                    ? "NO TEST"
                                     : total > 0
                                     ? grade
                                     : "—"}
@@ -1889,9 +2021,10 @@ export default function TeacherReportsPage() {
                                   style={{
                                     ...styles.resultBadge,
                                     background:
-                                      mark?.attendanceStatus ===
-                                      "ABSENT"
+                                      isAbsentStudent
                                         ? "#fee2e2"
+                                        : isNoTestStudent
+                                        ? "#fef3c7"
                                         : total > 0 &&
                                           isPass(
                                             percentage
@@ -1899,9 +2032,10 @@ export default function TeacherReportsPage() {
                                         ? "#dcfce7"
                                         : "#fee2e2",
                                     color:
-                                      mark?.attendanceStatus ===
-                                      "ABSENT"
+                                      isAbsentStudent
                                         ? "#991b1b"
+                                        : isNoTestStudent
+                                        ? "#92400e"
                                         : total > 0 &&
                                           isPass(
                                             percentage
@@ -1910,9 +2044,10 @@ export default function TeacherReportsPage() {
                                         : "#991b1b",
                                   }}
                                 >
-                                  {mark?.attendanceStatus ===
-                                  "ABSENT"
+                                  {isAbsentStudent
                                     ? "ABSENT"
+                                    : isNoTestStudent
+                                    ? "NO TEST"
                                     : total > 0
                                     ? isPass(
                                         percentage
@@ -2123,8 +2258,20 @@ export default function TeacherReportsPage() {
                         first.total_marks
                       );
 
+                    /*
+                     * ABSENT / NO TEST students
+                     * average calculation me include
+                     * nahi honge.
+                     */
+                    const scoredStudents =
+                      group.filter(
+                        (item) =>
+                          item.attendance_status ===
+                            "PRESENT"
+                      );
+
                     const totalObtained =
-                      group.reduce(
+                      scoredStudents.reduce(
                         (sum, item) =>
                           sum +
                           Number(
@@ -2134,13 +2281,27 @@ export default function TeacherReportsPage() {
                       );
 
                     const average =
-                      group.length > 0 &&
+                      scoredStudents.length > 0 &&
                       total > 0
                         ? (totalObtained /
                             (total *
-                              group.length)) *
+                              scoredStudents.length)) *
                           100
                         : 0;
+
+                    const absentCount =
+                      group.filter(
+                        (item) =>
+                          item.attendance_status ===
+                          "ABSENT"
+                      ).length;
+
+                    const noTestCount =
+                      group.filter(
+                        (item) =>
+                          item.attendance_status ===
+                          "NO_TEST"
+                      ).length;
 
                     return (
                       <div
@@ -2204,6 +2365,32 @@ export default function TeacherReportsPage() {
                                   {subject}
                                 </span>
                               )
+                            )}
+
+                            {absentCount >
+                              0 && (
+                              <span
+                                style={
+                                  styles.absentCountBadge
+                                }
+                              >
+                                ❌{" "}
+                                {absentCount}{" "}
+                                Absent
+                              </span>
+                            )}
+
+                            {noTestCount >
+                              0 && (
+                              <span
+                                style={
+                                  styles.noTestCountBadge
+                                }
+                              >
+                                ⚠️{" "}
+                                {noTestCount}{" "}
+                                No Test
+                              </span>
                             )}
 
                             <span
@@ -3020,6 +3207,24 @@ const styles: {
   subjectBadge: {
     background: "#ede9fe",
     color: "#5b21b6",
+    padding: "5px 9px",
+    borderRadius: "999px",
+    fontSize: "11px",
+    fontWeight: "800",
+  },
+
+  absentCountBadge: {
+    background: "#fee2e2",
+    color: "#991b1b",
+    padding: "5px 9px",
+    borderRadius: "999px",
+    fontSize: "11px",
+    fontWeight: "800",
+  },
+
+  noTestCountBadge: {
+    background: "#fef3c7",
+    color: "#92400e",
     padding: "5px 9px",
     borderRadius: "999px",
     fontSize: "11px",
