@@ -16,6 +16,7 @@ type Fee = {
   year: number;
   amount: number;
   status: string;
+  payment_mode: string | null;
   payment_date: string | null;
   transaction_id: string | null;
   remarks: string | null;
@@ -44,6 +45,8 @@ const statuses = [
   "CANCELLED",
 ];
 
+const paymentModes = ["CASH", "ONLINE"];
+
 export default function TeacherFeesPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [fees, setFees] = useState<Fee[]>([]);
@@ -58,6 +61,7 @@ export default function TeacherFeesPage() {
 
   const [amount, setAmount] = useState("200");
   const [status, setStatus] = useState("PENDING");
+  const [paymentMode, setPaymentMode] = useState("ONLINE");
   const [paymentDate, setPaymentDate] = useState("");
   const [transactionId, setTransactionId] = useState("");
   const [remarks, setRemarks] = useState("");
@@ -70,6 +74,22 @@ export default function TeacherFeesPage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  function handlePaymentModeChange(mode: string) {
+    setPaymentMode(mode);
+
+    if (mode === "CASH") {
+      setStatus("SUBMITTED");
+
+      if (!paymentDate) {
+        setPaymentDate(
+          new Date().toISOString().split("T")[0]
+        );
+      }
+    } else {
+      setStatus("PENDING");
+    }
+  }
 
   async function loadData() {
     try {
@@ -143,6 +163,11 @@ export default function TeacherFeesPage() {
       return;
     }
 
+    if (!paymentMode) {
+      setError("Please select a payment mode.");
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -163,13 +188,27 @@ export default function TeacherFeesPage() {
         return;
       }
 
+      const finalStatus =
+        paymentMode === "CASH"
+          ? "SUBMITTED"
+          : status;
+
+      const finalPaymentDate =
+        paymentMode === "CASH"
+          ? paymentDate ||
+            new Date()
+              .toISOString()
+              .split("T")[0]
+          : paymentDate || null;
+
       const feeData = {
         student_id: Number(studentId),
         month: Number(month),
         year: Number(year),
         amount: Number(amount),
-        status,
-        payment_date: paymentDate || null,
+        status: finalStatus,
+        payment_mode: paymentMode,
+        payment_date: finalPaymentDate,
         transaction_id:
           transactionId.trim() || null,
         remarks: remarks.trim() || null,
@@ -189,7 +228,9 @@ export default function TeacherFeesPage() {
         }
 
         setMessage(
-          "Fee record updated successfully."
+          paymentMode === "CASH"
+            ? "Cash payment saved successfully. Receipt is ready."
+            : "Fee record updated successfully."
         );
       } else {
         const { error: insertError } =
@@ -204,7 +245,9 @@ export default function TeacherFeesPage() {
         }
 
         setMessage(
-          "Fee record added successfully."
+          paymentMode === "CASH"
+            ? "Cash payment saved successfully. Receipt is ready."
+            : "Fee record added successfully."
         );
       }
 
@@ -278,6 +321,31 @@ export default function TeacherFeesPage() {
     );
   }
 
+  function getPaymentMode(fee: Fee) {
+    const mode = String(
+      fee.payment_mode || ""
+    ).toUpperCase();
+
+    if (mode === "CASH") {
+      return "CASH";
+    }
+
+    if (mode === "ONLINE") {
+      return "ONLINE";
+    }
+
+    if (
+      String(fee.status || "").toUpperCase() ===
+        "PAID ONLINE" ||
+      String(fee.status || "").toUpperCase() ===
+        "PAID"
+    ) {
+      return "ONLINE";
+    }
+
+    return "—";
+  }
+
   function downloadReceipt(fee: Fee) {
     const studentName = getStudentName(
       fee.student_id
@@ -288,6 +356,9 @@ export default function TeacherFeesPage() {
     );
 
     const monthName = getMonthName(fee.month);
+
+    const paymentMode =
+      getPaymentMode(fee);
 
     const receiptNumber =
       `RA-${fee.year}-${String(fee.month).padStart(
@@ -402,6 +473,11 @@ export default function TeacherFeesPage() {
     color: #111827;
   }
 
+  .payment-mode {
+    font-size: 16px;
+    font-weight: 900;
+  }
+
   .footer {
     margin-top: 35px;
     padding-top: 20px;
@@ -513,6 +589,13 @@ export default function TeacherFeesPage() {
         <td>Amount Paid</td>
         <td class="amount">
           ₹${Number(fee.amount).toLocaleString("en-IN")}
+        </td>
+      </tr>
+
+      <tr>
+        <td>Payment Mode</td>
+        <td class="payment-mode">
+          ${paymentMode}
         </td>
       </tr>
 
@@ -795,6 +878,56 @@ export default function TeacherFeesPage() {
 
               <div>
                 <label style={styles.label}>
+                  Payment Mode
+                </label>
+
+                <select
+                  value={paymentMode}
+                  onChange={(e) =>
+                    handlePaymentModeChange(
+                      e.target.value
+                    )
+                  }
+                  style={{
+                    ...styles.input,
+                    fontWeight: 700,
+                    border:
+                      paymentMode === "CASH"
+                        ? "2px solid #16a34a"
+                        : "2px solid #2563eb",
+                  }}
+                >
+
+                  {paymentModes.map(
+                    (mode) => (
+                      <option
+                        key={mode}
+                        value={mode}
+                      >
+                        {mode === "CASH"
+                          ? "💵 CASH"
+                          : "💳 ONLINE"}
+                      </option>
+                    )
+                  )}
+
+                </select>
+
+                <div
+                  style={
+                    paymentMode === "CASH"
+                      ? styles.cashHint
+                      : styles.onlineHint
+                  }
+                >
+                  {paymentMode === "CASH"
+                    ? "Cash payment will be saved immediately and receipt will be available."
+                    : "Student can pay this fee online through Razorpay."}
+                </div>
+              </div>
+
+              <div>
+                <label style={styles.label}>
                   Status
                 </label>
 
@@ -803,7 +936,16 @@ export default function TeacherFeesPage() {
                   onChange={(e) =>
                     setStatus(e.target.value)
                   }
-                  style={styles.input}
+                  disabled={
+                    paymentMode === "CASH"
+                  }
+                  style={{
+                    ...styles.input,
+                    opacity:
+                      paymentMode === "CASH"
+                        ? 0.65
+                        : 1,
+                  }}
                 >
 
                   {statuses.map(
@@ -850,7 +992,11 @@ export default function TeacherFeesPage() {
                       e.target.value
                     )
                   }
-                  placeholder="Optional"
+                  placeholder={
+                    paymentMode === "ONLINE"
+                      ? "Optional"
+                      : "Optional"
+                  }
                   style={styles.input}
                 />
               </div>
@@ -882,6 +1028,8 @@ export default function TeacherFeesPage() {
             >
               {saving
                 ? "Saving..."
+                : paymentMode === "CASH"
+                ? "💵 Save CASH Payment + Receipt"
                 : "💾 Save Fee"}
             </button>
 
@@ -950,6 +1098,10 @@ export default function TeacherFeesPage() {
                     </th>
 
                     <th style={styles.th}>
+                      Payment Mode
+                    </th>
+
+                    <th style={styles.th}>
                       Status
                     </th>
 
@@ -985,6 +1137,9 @@ export default function TeacherFeesPage() {
                       String(
                         fee.status || ""
                       ).toUpperCase();
+
+                    const paymentMode =
+                      getPaymentMode(fee);
 
                     const canReceipt =
                       normalizedStatus ===
@@ -1035,6 +1190,31 @@ export default function TeacherFeesPage() {
                               "en-IN"
                             )}
                           </strong>
+                        </td>
+
+                        <td style={styles.td}>
+
+                          {paymentMode === "CASH" ? (
+                            <span
+                              style={
+                                styles.cashBadge
+                              }
+                            >
+                              💵 CASH
+                            </span>
+                          ) : paymentMode ===
+                            "ONLINE" ? (
+                            <span
+                              style={
+                                styles.onlineBadge
+                              }
+                            >
+                              💳 ONLINE
+                            </span>
+                          ) : (
+                            "—"
+                          )}
+
                         </td>
 
                         <td style={styles.td}>
@@ -1216,6 +1396,7 @@ function StatusBadge({
           statusStyles.PENDING),
       }}
     >
+
       {normalized === "SUBMITTED" &&
         "✓ "}
 
@@ -1233,6 +1414,7 @@ function StatusBadge({
         "✓ "}
 
       {normalized}
+
     </span>
   );
 }
@@ -1367,6 +1549,20 @@ const styles: Record<
     background: "white",
   },
 
+  cashHint: {
+    marginTop: "6px",
+    color: "#166534",
+    fontSize: "11px",
+    lineHeight: 1.4,
+  },
+
+  onlineHint: {
+    marginTop: "6px",
+    color: "#1d4ed8",
+    fontSize: "11px",
+    lineHeight: 1.4,
+  },
+
   saveButton: {
     marginTop: "22px",
     border: "none",
@@ -1423,7 +1619,7 @@ const styles: Record<
 
   table: {
     width: "100%",
-    minWidth: "1250px",
+    minWidth: "1400px",
     borderCollapse: "collapse",
   },
 
@@ -1457,6 +1653,28 @@ const styles: Record<
     padding: "7px 11px",
     borderRadius: "999px",
     fontWeight: 700,
+    fontSize: "12px",
+    whiteSpace: "nowrap",
+  },
+
+  cashBadge: {
+    display: "inline-block",
+    background: "#dcfce7",
+    color: "#166534",
+    padding: "7px 10px",
+    borderRadius: "999px",
+    fontWeight: 800,
+    fontSize: "12px",
+    whiteSpace: "nowrap",
+  },
+
+  onlineBadge: {
+    display: "inline-block",
+    background: "#dbeafe",
+    color: "#1d4ed8",
+    padding: "7px 10px",
+    borderRadius: "999px",
+    fontWeight: 800,
     fontSize: "12px",
     whiteSpace: "nowrap",
   },
