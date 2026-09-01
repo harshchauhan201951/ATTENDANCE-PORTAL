@@ -10,10 +10,10 @@ type Fee = {
   year: number;
   amount: number;
   status: string;
-  payment_mode: string | null;
   payment_date: string | null;
   transaction_id: string | null;
   remarks: string | null;
+  payment_mode: string | null;
   created_at: string;
 };
 
@@ -62,7 +62,8 @@ export default function StudentFeesPage() {
       return;
     }
 
-    const script = document.createElement("script");
+    const script =
+      document.createElement("script");
 
     script.id =
       "razorpay-checkout-script";
@@ -152,7 +153,7 @@ export default function StudentFeesPage() {
       } = await supabase
         .from("fees")
         .select(
-          "id, student_id, month, year, amount, status, payment_mode, payment_date, transaction_id, remarks, created_at"
+          "id, student_id, month, year, amount, status, payment_date, transaction_id, remarks, payment_mode, created_at"
         )
         .eq(
           "student_id",
@@ -197,33 +198,6 @@ export default function StudentFeesPage() {
     }
   }
 
-  function getPaymentMode(fee: Fee) {
-    const mode = String(
-      fee.payment_mode || ""
-    ).toUpperCase();
-
-    if (mode === "CASH") {
-      return "CASH";
-    }
-
-    if (mode === "ONLINE") {
-      return "ONLINE";
-    }
-
-    const status = String(
-      fee.status || ""
-    ).toUpperCase();
-
-    if (
-      status === "PAID ONLINE" ||
-      status === "PAID"
-    ) {
-      return "ONLINE";
-    }
-
-    return "—";
-  }
-
   async function handlePayOnline(
     fee: Fee
   ) {
@@ -237,18 +211,6 @@ export default function StudentFeesPage() {
       ) {
         setError(
           "This fee is not available for online payment."
-        );
-
-        setPayingFeeId(null);
-        return;
-      }
-
-      if (
-        getPaymentMode(fee) ===
-        "CASH"
-      ) {
-        setError(
-          "This fee is marked as CASH payment."
         );
 
         setPayingFeeId(null);
@@ -366,6 +328,45 @@ export default function StudentFeesPage() {
                 );
               }
 
+              /*
+                IMPORTANT:
+
+                Razorpay payment was successful.
+                Therefore this payment is ONLINE.
+
+                Update the fee record automatically.
+                Teacher does NOT select ONLINE manually.
+              */
+              const {
+                error: paymentModeError,
+              } = await supabase
+                .from("fees")
+                .update({
+                  payment_mode: "ONLINE",
+                  status: "PAID ONLINE",
+                  transaction_id:
+                    response.razorpay_payment_id,
+                  payment_date:
+                    new Date()
+                      .toISOString()
+                      .split("T")[0],
+                })
+                .eq(
+                  "id",
+                  fee.id
+                );
+
+              if (paymentModeError) {
+                console.error(
+                  "Payment mode update error:",
+                  paymentModeError
+                );
+
+                throw new Error(
+                  "Payment was successful, but payment mode could not be updated."
+                );
+              }
+
               alert(
                 "Payment successful! Your fee has been updated."
               );
@@ -472,7 +473,16 @@ export default function StudentFeesPage() {
       ).toUpperCase();
 
     const paymentMode =
-      getPaymentMode(fee);
+      String(
+        fee.payment_mode || ""
+      ).toUpperCase();
+
+    const paymentModeDisplay =
+      paymentMode === "CASH"
+        ? "CASH"
+        : paymentMode === "ONLINE"
+        ? "ONLINE"
+        : "—";
 
     const receiptWindow =
       window.open(
@@ -589,11 +599,6 @@ export default function StudentFeesPage() {
               text-align: right;
               font-weight: 700;
               color: #111827;
-            }
-
-            .payment-mode {
-              font-size: 16px;
-              font-weight: 900;
             }
 
             .amount {
@@ -734,8 +739,8 @@ export default function StudentFeesPage() {
                 Payment Mode
               </div>
 
-              <div class="value payment-mode">
-                ${paymentMode}
+              <div class="value">
+                ${paymentModeDisplay}
               </div>
 
             </div>
@@ -1177,7 +1182,7 @@ export default function StudentFeesPage() {
                         styles.th
                       }
                     >
-                      Payment Mode
+                      Status
                     </th>
 
                     <th
@@ -1185,7 +1190,7 @@ export default function StudentFeesPage() {
                         styles.th
                       }
                     >
-                      Status
+                      Payment Mode
                     </th>
 
                     <th
@@ -1244,9 +1249,10 @@ export default function StudentFeesPage() {
                         ).toUpperCase();
 
                       const paymentMode =
-                        getPaymentMode(
-                          fee
-                        );
+                        String(
+                          fee.payment_mode ||
+                            ""
+                        ).toUpperCase();
 
                       const isPending =
                         status ===
@@ -1257,12 +1263,6 @@ export default function StudentFeesPage() {
                           "PAID ONLINE" ||
                         status ===
                           "PAID";
-
-                      const isCashPaid =
-                        paymentMode ===
-                          "CASH" &&
-                        status ===
-                          "SUBMITTED";
 
                       const canReceipt =
                         status ===
@@ -1322,40 +1322,6 @@ export default function StudentFeesPage() {
                             }
                           >
 
-                            {paymentMode ===
-                            "CASH" ? (
-
-                              <span
-                                style={
-                                  styles.cashBadge
-                                }
-                              >
-                                💵 CASH
-                              </span>
-
-                            ) : paymentMode ===
-                              "ONLINE" ? (
-
-                              <span
-                                style={
-                                  styles.onlineBadge
-                                }
-                              >
-                                💳 ONLINE
-                              </span>
-
-                            ) : (
-                              "—"
-                            )}
-
-                          </td>
-
-                          <td
-                            style={
-                              styles.td
-                            }
-                          >
-
                             <span
                               style={{
                                 ...styles.status,
@@ -1400,6 +1366,56 @@ export default function StudentFeesPage() {
                               styles.td
                             }
                           >
+
+                            {paymentMode ===
+                            "CASH" ? (
+
+                              <span
+                                style={{
+                                  ...styles.modeBadge,
+                                  background:
+                                    "#fef3c7",
+                                  color:
+                                    "#92400e",
+                                }}
+                              >
+                                💵 CASH
+                              </span>
+
+                            ) : paymentMode ===
+                              "ONLINE" ? (
+
+                              <span
+                                style={{
+                                  ...styles.modeBadge,
+                                  background:
+                                    "#dbeafe",
+                                  color:
+                                    "#1d4ed8",
+                                }}
+                              >
+                                💳 ONLINE
+                              </span>
+
+                            ) : (
+
+                              <span
+                                style={
+                                  styles.noMode
+                                }
+                              >
+                                —
+                              </span>
+
+                            )}
+
+                          </td>
+
+                          <td
+                            style={
+                              styles.td
+                            }
+                          >
                             {fee.payment_date ||
                               "—"}
                           </td>
@@ -1428,9 +1444,7 @@ export default function StudentFeesPage() {
                             }
                           >
 
-                            {isPending &&
-                            paymentMode !==
-                              "CASH" ? (
+                            {isPending ? (
 
                               <button
                                 type="button"
@@ -1459,23 +1473,11 @@ export default function StudentFeesPage() {
                                       : "pointer",
                                 }}
                               >
-
                                 {payingFeeId ===
                                 fee.id
                                   ? "Opening..."
                                   : "💳 Pay Online"}
-
                               </button>
-
-                            ) : isCashPaid ? (
-
-                              <span
-                                style={
-                                  styles.cashPaidText
-                                }
-                              >
-                                💵 Cash Paid
-                              </span>
 
                             ) : isPaid ? (
 
@@ -1484,11 +1486,13 @@ export default function StudentFeesPage() {
                                   styles.paidText
                                 }
                               >
-                                ✓ Paid Online
+                                ✓ Paid
                               </span>
 
                             ) : (
+
                               "—"
+
                             )}
 
                           </td>
@@ -1516,7 +1520,9 @@ export default function StudentFeesPage() {
                               </button>
 
                             ) : (
+
                               "—"
+
                             )}
 
                           </td>
@@ -1549,8 +1555,8 @@ export default function StudentFeesPage() {
 
           <p>
             Fees are assigned and managed by
-            your teacher. Payment mode and
-            receipts are shown for each payment.
+            your teacher. You can only view
+            fees assigned to your account.
           </p>
 
         </div>
@@ -1743,26 +1749,18 @@ const styles: Record<
     whiteSpace: "nowrap",
   },
 
-  cashBadge: {
+  modeBadge: {
     display: "inline-block",
-    background: "#dcfce7",
-    color: "#166534",
-    padding: "7px 10px",
+    padding: "6px 10px",
     borderRadius: "999px",
     fontSize: "12px",
-    fontWeight: 800,
+    fontWeight: 700,
     whiteSpace: "nowrap",
   },
 
-  onlineBadge: {
-    display: "inline-block",
-    background: "#dbeafe",
-    color: "#1d4ed8",
-    padding: "7px 10px",
-    borderRadius: "999px",
-    fontSize: "12px",
-    fontWeight: 800,
-    whiteSpace: "nowrap",
+  noMode: {
+    color: "#94a3b8",
+    fontWeight: 700,
   },
 
   payButton: {
@@ -1780,14 +1778,6 @@ const styles: Record<
     color: "#166534",
     fontWeight: 700,
     fontSize: "13px",
-    whiteSpace: "nowrap",
-  },
-
-  cashPaidText: {
-    color: "#166534",
-    fontWeight: 800,
-    fontSize: "13px",
-    whiteSpace: "nowrap",
   },
 
   receiptButton: {

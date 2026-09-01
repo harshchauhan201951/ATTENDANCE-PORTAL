@@ -16,10 +16,10 @@ type Fee = {
   year: number;
   amount: number;
   status: string;
-  payment_mode: string | null;
   payment_date: string | null;
   transaction_id: string | null;
   remarks: string | null;
+  payment_mode: string | null;
   created_at?: string;
 };
 
@@ -45,8 +45,6 @@ const statuses = [
   "CANCELLED",
 ];
 
-const paymentModes = ["CASH", "ONLINE"];
-
 export default function TeacherFeesPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [fees, setFees] = useState<Fee[]>([]);
@@ -61,10 +59,13 @@ export default function TeacherFeesPage() {
 
   const [amount, setAmount] = useState("200");
   const [status, setStatus] = useState("PENDING");
-  const [paymentMode, setPaymentMode] = useState("ONLINE");
   const [paymentDate, setPaymentDate] = useState("");
   const [transactionId, setTransactionId] = useState("");
   const [remarks, setRemarks] = useState("");
+
+  // IMPORTANT:
+  // No payment mode is selected by default.
+  const [paymentMode, setPaymentMode] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -74,22 +75,6 @@ export default function TeacherFeesPage() {
   useEffect(() => {
     loadData();
   }, []);
-
-  function handlePaymentModeChange(mode: string) {
-    setPaymentMode(mode);
-
-    if (mode === "CASH") {
-      setStatus("SUBMITTED");
-
-      if (!paymentDate) {
-        setPaymentDate(
-          new Date().toISOString().split("T")[0]
-        );
-      }
-    } else {
-      setStatus("PENDING");
-    }
-  }
 
   async function loadData() {
     try {
@@ -110,7 +95,6 @@ export default function TeacherFeesPage() {
 
       if (studentsError) {
         setError(studentsError.message);
-        setLoading(false);
         return;
       }
 
@@ -129,7 +113,6 @@ export default function TeacherFeesPage() {
 
       if (feesError) {
         setError(feesError.message);
-        setLoading(false);
         return;
       }
 
@@ -163,8 +146,17 @@ export default function TeacherFeesPage() {
       return;
     }
 
-    if (!paymentMode) {
-      setError("Please select a payment mode.");
+    /*
+      Payment mode is ONLY required when teacher
+      is marking the fee as received in cash.
+
+      PENDING fee creation does not require
+      payment mode.
+    */
+    if (status === "SUBMITTED" && paymentMode !== "CASH") {
+      setError(
+        "Please select CASH payment mode for a cash payment."
+      );
       return;
     }
 
@@ -172,7 +164,7 @@ export default function TeacherFeesPage() {
 
     try {
       const {
-        data: existingFee,
+        data: existingFees,
         error: existingError,
       } = await supabase
         .from("fees")
@@ -180,77 +172,90 @@ export default function TeacherFeesPage() {
         .eq("student_id", Number(studentId))
         .eq("month", Number(month))
         .eq("year", Number(year))
-        .maybeSingle();
+        .order("id", {
+          ascending: false,
+        })
+        .limit(1);
 
       if (existingError) {
         setError(existingError.message);
-        setSaving(false);
         return;
       }
 
-      const finalStatus =
-        paymentMode === "CASH"
-          ? "SUBMITTED"
-          : status;
+      /*
+        If teacher saves a normal pending fee,
+        payment_mode stays NULL.
 
-      const finalPaymentDate =
-        paymentMode === "CASH"
-          ? paymentDate ||
-            new Date()
-              .toISOString()
-              .split("T")[0]
-          : paymentDate || null;
-
+        If teacher selects CASH and saves as SUBMITTED,
+        payment_mode becomes CASH automatically.
+      */
       const feeData = {
         student_id: Number(studentId),
         month: Number(month),
         year: Number(year),
         amount: Number(amount),
-        status: finalStatus,
-        payment_mode: paymentMode,
-        payment_date: finalPaymentDate,
+        status,
+        payment_date:
+          status === "SUBMITTED"
+            ? paymentDate ||
+              new Date()
+                .toISOString()
+                .split("T")[0]
+            : paymentDate || null,
         transaction_id:
           transactionId.trim() || null,
         remarks: remarks.trim() || null,
+        payment_mode:
+          status === "SUBMITTED" &&
+          paymentMode === "CASH"
+            ? "CASH"
+            : null,
       };
 
+      const existingFee =
+        existingFees &&
+        existingFees.length > 0
+          ? existingFees[0]
+          : null;
+
       if (existingFee) {
-        const { error: updateError } =
-          await supabase
-            .from("fees")
-            .update(feeData)
-            .eq("id", existingFee.id);
+        const {
+          error: updateError,
+        } = await supabase
+          .from("fees")
+          .update(feeData)
+          .eq("id", existingFee.id);
 
         if (updateError) {
           setError(updateError.message);
-          setSaving(false);
           return;
         }
 
         setMessage(
-          paymentMode === "CASH"
+          status === "SUBMITTED"
             ? "Cash payment saved successfully. Receipt is ready."
             : "Fee record updated successfully."
         );
       } else {
-        const { error: insertError } =
-          await supabase
-            .from("fees")
-            .insert(feeData);
+        const {
+          error: insertError,
+        } = await supabase
+          .from("fees")
+          .insert(feeData);
 
         if (insertError) {
           setError(insertError.message);
-          setSaving(false);
           return;
         }
 
         setMessage(
-          paymentMode === "CASH"
+          status === "SUBMITTED"
             ? "Cash payment saved successfully. Receipt is ready."
             : "Fee record added successfully."
         );
       }
 
+      setPaymentMode("");
       await loadData();
     } catch (err) {
       console.error(err);
@@ -275,18 +280,21 @@ export default function TeacherFeesPage() {
     setError("");
     setMessage("");
 
-    const { error: deleteError } =
-      await supabase
-        .from("fees")
-        .delete()
-        .eq("id", id);
+    const {
+      error: deleteError,
+    } = await supabase
+      .from("fees")
+      .delete()
+      .eq("id", id);
 
     if (deleteError) {
       setError(deleteError.message);
       return;
     }
 
-    setMessage("Fee record deleted successfully.");
+    setMessage(
+      "Fee record deleted successfully."
+    );
 
     await loadData();
   }
@@ -321,31 +329,6 @@ export default function TeacherFeesPage() {
     );
   }
 
-  function getPaymentMode(fee: Fee) {
-    const mode = String(
-      fee.payment_mode || ""
-    ).toUpperCase();
-
-    if (mode === "CASH") {
-      return "CASH";
-    }
-
-    if (mode === "ONLINE") {
-      return "ONLINE";
-    }
-
-    if (
-      String(fee.status || "").toUpperCase() ===
-        "PAID ONLINE" ||
-      String(fee.status || "").toUpperCase() ===
-        "PAID"
-    ) {
-      return "ONLINE";
-    }
-
-    return "—";
-  }
-
   function downloadReceipt(fee: Fee) {
     const studentName = getStudentName(
       fee.student_id
@@ -357,14 +340,17 @@ export default function TeacherFeesPage() {
 
     const monthName = getMonthName(fee.month);
 
-    const paymentMode =
-      getPaymentMode(fee);
-
     const receiptNumber =
-      `RA-${fee.year}-${String(fee.month).padStart(
-        2,
-        "0"
-      )}-${fee.id}`;
+      `RA-${fee.year}-${String(
+        fee.month
+      ).padStart(2, "0")}-${fee.id}`;
+
+    const paymentModeText =
+      String(
+        fee.payment_mode || ""
+      ).toUpperCase() === "ONLINE"
+        ? "ONLINE"
+        : "CASH";
 
     const receiptHTML = `
 <!DOCTYPE html>
@@ -374,147 +360,142 @@ export default function TeacherFeesPage() {
 <title>RACER ACADEMY Fee Receipt</title>
 
 <style>
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background: #f1f5f9;
+  margin: 0;
+  padding: 30px;
+}
+
+.receipt {
+  max-width: 760px;
+  margin: auto;
+  background: white;
+  padding: 40px;
+  border-radius: 18px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 2px solid #111827;
+  padding-bottom: 20px;
+}
+
+.academy {
+  font-size: 30px;
+  font-weight: 900;
+  color: #111827;
+}
+
+.tagline {
+  margin-top: 5px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.receipt-title {
+  text-align: right;
+  font-size: 24px;
+  font-weight: 800;
+  color: #1d4ed8;
+}
+
+.receipt-number {
+  text-align: right;
+  margin-top: 6px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.paid {
+  margin: 30px 0;
+  padding: 18px;
+  text-align: center;
+  border-radius: 12px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.section {
+  margin-top: 25px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #111827;
+  margin-bottom: 10px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+td {
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+td:first-child {
+  width: 40%;
+  color: #64748b;
+  font-weight: 700;
+}
+
+td:last-child {
+  color: #111827;
+  font-weight: 600;
+}
+
+.amount {
+  font-size: 24px;
+  font-weight: 900;
+  color: #111827;
+}
+
+.footer {
+  margin-top: 35px;
+  padding-top: 20px;
+  border-top: 1px solid #e5e7eb;
+  text-align: center;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.print-button {
+  display: block;
+  margin: 25px auto 0;
+  background: #111827;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+@media print {
   body {
-    font-family: Arial, Helvetica, sans-serif;
-    background: #f1f5f9;
-    margin: 0;
-    padding: 30px;
+    background: white;
+    padding: 0;
   }
 
   .receipt {
-    max-width: 760px;
-    margin: auto;
-    background: white;
-    padding: 40px;
-    border-radius: 18px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.08);
-  }
-
-  .top {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    border-bottom: 2px solid #111827;
-    padding-bottom: 20px;
-  }
-
-  .academy {
-    font-size: 30px;
-    font-weight: 900;
-    color: #111827;
-  }
-
-  .tagline {
-    margin-top: 5px;
-    color: #6b7280;
-    font-size: 13px;
-  }
-
-  .receipt-title {
-    text-align: right;
-    font-size: 24px;
-    font-weight: 800;
-    color: #1d4ed8;
-  }
-
-  .receipt-number {
-    text-align: right;
-    margin-top: 6px;
-    color: #6b7280;
-    font-size: 13px;
-  }
-
-  .paid {
-    margin: 30px 0;
-    padding: 18px;
-    text-align: center;
-    border-radius: 12px;
-    background: #dcfce7;
-    color: #166534;
-    font-size: 22px;
-    font-weight: 800;
-  }
-
-  .section {
-    margin-top: 25px;
-  }
-
-  .section-title {
-    font-size: 16px;
-    font-weight: 800;
-    color: #111827;
-    margin-bottom: 10px;
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  td {
-    padding: 12px;
-    border-bottom: 1px solid #e5e7eb;
-  }
-
-  td:first-child {
-    width: 40%;
-    color: #64748b;
-    font-weight: 700;
-  }
-
-  td:last-child {
-    color: #111827;
-    font-weight: 600;
-  }
-
-  .amount {
-    font-size: 24px;
-    font-weight: 900;
-    color: #111827;
-  }
-
-  .payment-mode {
-    font-size: 16px;
-    font-weight: 900;
-  }
-
-  .footer {
-    margin-top: 35px;
-    padding-top: 20px;
-    border-top: 1px solid #e5e7eb;
-    text-align: center;
-    color: #64748b;
-    font-size: 12px;
+    box-shadow: none;
+    border-radius: 0;
+    max-width: none;
   }
 
   .print-button {
-    display: block;
-    margin: 25px auto 0;
-    background: #111827;
-    color: white;
-    border: none;
-    padding: 12px 24px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 700;
+    display: none;
   }
-
-  @media print {
-    body {
-      background: white;
-      padding: 0;
-    }
-
-    .receipt {
-      box-shadow: none;
-      border-radius: 0;
-      max-width: none;
-    }
-
-    .print-button {
-      display: none;
-    }
-  }
+}
 </style>
 </head>
 
@@ -522,119 +503,119 @@ export default function TeacherFeesPage() {
 
 <div class="receipt">
 
-  <div class="top">
+<div class="top">
 
-    <div>
-      <div class="academy">
-        RACER ACADEMY
-      </div>
+<div>
+<div class="academy">
+RACER ACADEMY
+</div>
 
-      <div class="tagline">
-        Learn • Grow • Race Ahead
-      </div>
-    </div>
+<div class="tagline">
+Learn • Grow • Race Ahead
+</div>
+</div>
 
-    <div>
-      <div class="receipt-title">
-        FEE RECEIPT
-      </div>
+<div>
+<div class="receipt-title">
+FEE RECEIPT
+</div>
 
-      <div class="receipt-number">
-        Receipt No: ${receiptNumber}
-      </div>
-    </div>
+<div class="receipt-number">
+Receipt No: ${receiptNumber}
+</div>
+</div>
 
-  </div>
+</div>
 
-  <div class="paid">
-    ✓ PAYMENT RECEIVED
-  </div>
+<div class="paid">
+✓ PAYMENT RECEIVED
+</div>
 
-  <div class="section">
+<div class="section">
 
-    <div class="section-title">
-      Student Details
-    </div>
+<div class="section-title">
+Student Details
+</div>
 
-    <table>
+<table>
 
-      <tr>
-        <td>Student Name</td>
-        <td>${studentName}</td>
-      </tr>
+<tr>
+<td>Student Name</td>
+<td>${studentName}</td>
+</tr>
 
-      <tr>
-        <td>Username</td>
-        <td>${username}</td>
-      </tr>
+<tr>
+<td>Username</td>
+<td>${username}</td>
+</tr>
 
-    </table>
+</table>
 
-  </div>
+</div>
 
-  <div class="section">
+<div class="section">
 
-    <div class="section-title">
-      Fee Details
-    </div>
+<div class="section-title">
+Fee Details
+</div>
 
-    <table>
+<table>
 
-      <tr>
-        <td>Fee Month</td>
-        <td>${monthName} ${fee.year}</td>
-      </tr>
+<tr>
+<td>Fee Month</td>
+<td>${monthName} ${fee.year}</td>
+</tr>
 
-      <tr>
-        <td>Amount Paid</td>
-        <td class="amount">
-          ₹${Number(fee.amount).toLocaleString("en-IN")}
-        </td>
-      </tr>
+<tr>
+<td>Amount Paid</td>
+<td class="amount">
+₹${Number(
+      fee.amount
+    ).toLocaleString("en-IN")}
+</td>
+</tr>
 
-      <tr>
-        <td>Payment Mode</td>
-        <td class="payment-mode">
-          ${paymentMode}
-        </td>
-      </tr>
+<tr>
+<td>Status</td>
+<td>${fee.status}</td>
+</tr>
 
-      <tr>
-        <td>Status</td>
-        <td>${fee.status}</td>
-      </tr>
+<tr>
+<td>Payment Mode</td>
+<td>${paymentModeText}</td>
+</tr>
 
-      <tr>
-        <td>Payment Date</td>
-        <td>${fee.payment_date || "—"}</td>
-      </tr>
+<tr>
+<td>Payment Date</td>
+<td>${fee.payment_date || "—"}</td>
+</tr>
 
-      <tr>
-        <td>Transaction ID</td>
-        <td>${fee.transaction_id || "—"}</td>
-      </tr>
+<tr>
+<td>Transaction ID</td>
+<td>${fee.transaction_id || "—"}</td>
+</tr>
 
-      <tr>
-        <td>Remarks</td>
-        <td>${fee.remarks || "—"}</td>
-      </tr>
+<tr>
+<td>Remarks</td>
+<td>${fee.remarks || "—"}</td>
+</tr>
 
-    </table>
+</table>
 
-  </div>
+</div>
 
-  <div class="footer">
-    This is a computer-generated fee receipt.
-    <br />
-    RACER ACADEMY • Attendance & Fee Management
-  </div>
+<div class="footer">
+This is a computer-generated fee receipt.
+<br />
+RACER ACADEMY • Attendance & Fee Management
+</div>
 
-  <button
-    class="print-button"
-    onclick="window.print()"
-  >
-    🖨️ Print / Save PDF
-  </button>
+<button
+class="print-button"
+onclick="window.print()"
+>
+🖨️ Print / Save PDF
+</button>
 
 </div>
 
@@ -642,11 +623,12 @@ export default function TeacherFeesPage() {
 </html>
 `;
 
-    const receiptWindow = window.open(
-      "",
-      "_blank",
-      "width=900,height=900"
-    );
+    const receiptWindow =
+      window.open(
+        "",
+        "_blank",
+        "width=900,height=900"
+      );
 
     if (!receiptWindow) {
       setError(
@@ -665,8 +647,9 @@ export default function TeacherFeesPage() {
   const totalSubmitted = fees
     .filter(
       (fee) =>
-        String(fee.status).toUpperCase() ===
-        "SUBMITTED"
+        String(
+          fee.status
+        ).toUpperCase() === "SUBMITTED"
     )
     .reduce(
       (sum, fee) =>
@@ -677,8 +660,9 @@ export default function TeacherFeesPage() {
   const totalPending = fees
     .filter(
       (fee) =>
-        String(fee.status).toUpperCase() ===
-        "PENDING"
+        String(
+          fee.status
+        ).toUpperCase() === "PENDING"
     )
     .reduce(
       (sum, fee) =>
@@ -689,8 +673,9 @@ export default function TeacherFeesPage() {
   const totalRefunded = fees
     .filter(
       (fee) =>
-        String(fee.status).toUpperCase() ===
-        "REFUNDED"
+        String(
+          fee.status
+        ).toUpperCase() === "REFUNDED"
     )
     .reduce(
       (sum, fee) =>
@@ -793,7 +778,6 @@ export default function TeacherFeesPage() {
                   }
                   style={styles.input}
                 >
-
                   <option value="">
                     Select Student
                   </option>
@@ -814,7 +798,6 @@ export default function TeacherFeesPage() {
                       </option>
                     )
                   )}
-
                 </select>
               </div>
 
@@ -830,7 +813,6 @@ export default function TeacherFeesPage() {
                   }
                   style={styles.input}
                 >
-
                   {months.map(
                     (monthName, index) => (
                       <option
@@ -841,7 +823,6 @@ export default function TeacherFeesPage() {
                       </option>
                     )
                   )}
-
                 </select>
               </div>
 
@@ -878,76 +859,26 @@ export default function TeacherFeesPage() {
 
               <div>
                 <label style={styles.label}>
-                  Payment Mode
-                </label>
-
-                <select
-                  value={paymentMode}
-                  onChange={(e) =>
-                    handlePaymentModeChange(
-                      e.target.value
-                    )
-                  }
-                  style={{
-                    ...styles.input,
-                    fontWeight: 700,
-                    border:
-                      paymentMode === "CASH"
-                        ? "2px solid #16a34a"
-                        : "2px solid #2563eb",
-                  }}
-                >
-
-                  {paymentModes.map(
-                    (mode) => (
-                      <option
-                        key={mode}
-                        value={mode}
-                      >
-                        {mode === "CASH"
-                          ? "💵 CASH"
-                          : "💳 ONLINE"}
-                      </option>
-                    )
-                  )}
-
-                </select>
-
-                <div
-                  style={
-                    paymentMode === "CASH"
-                      ? styles.cashHint
-                      : styles.onlineHint
-                  }
-                >
-                  {paymentMode === "CASH"
-                    ? "Cash payment will be saved immediately and receipt will be available."
-                    : "Student can pay this fee online through Razorpay."}
-                </div>
-              </div>
-
-              <div>
-                <label style={styles.label}>
                   Status
                 </label>
 
                 <select
                   value={status}
-                  onChange={(e) =>
-                    setStatus(e.target.value)
-                  }
-                  disabled={
-                    paymentMode === "CASH"
-                  }
-                  style={{
-                    ...styles.input,
-                    opacity:
-                      paymentMode === "CASH"
-                        ? 0.65
-                        : 1,
-                  }}
-                >
+                  onChange={(e) => {
+                    const newStatus =
+                      e.target.value;
 
+                    setStatus(newStatus);
+
+                    if (
+                      newStatus !==
+                      "SUBMITTED"
+                    ) {
+                      setPaymentMode("");
+                    }
+                  }}
+                  style={styles.input}
+                >
                   {statuses.map(
                     (statusName) => (
                       <option
@@ -958,8 +889,43 @@ export default function TeacherFeesPage() {
                       </option>
                     )
                   )}
-
                 </select>
+              </div>
+
+              <div>
+                <label style={styles.label}>
+                  Payment Mode
+                </label>
+
+                <select
+                  value={paymentMode}
+                  onChange={(e) =>
+                    setPaymentMode(
+                      e.target.value
+                    )
+                  }
+                  style={styles.input}
+                >
+                  <option value="">
+                    Select Payment Mode
+                  </option>
+
+                  <option value="CASH">
+                    CASH
+                  </option>
+                </select>
+
+                <small
+                  style={{
+                    display: "block",
+                    marginTop: "6px",
+                    color: "#64748b",
+                    fontSize: "12px",
+                  }}
+                >
+                  Select CASH only when
+                  student pays cash.
+                </small>
               </div>
 
               <div>
@@ -992,11 +958,7 @@ export default function TeacherFeesPage() {
                       e.target.value
                     )
                   }
-                  placeholder={
-                    paymentMode === "ONLINE"
-                      ? "Optional"
-                      : "Optional"
-                  }
+                  placeholder="Optional"
                   style={styles.input}
                 />
               </div>
@@ -1028,8 +990,6 @@ export default function TeacherFeesPage() {
             >
               {saving
                 ? "Saving..."
-                : paymentMode === "CASH"
-                ? "💵 Save CASH Payment + Receipt"
                 : "💾 Save Fee"}
             </button>
 
@@ -1082,9 +1042,7 @@ export default function TeacherFeesPage() {
               <table style={styles.table}>
 
                 <thead>
-
                   <tr>
-
                     <th style={styles.th}>
                       Student
                     </th>
@@ -1098,11 +1056,11 @@ export default function TeacherFeesPage() {
                     </th>
 
                     <th style={styles.th}>
-                      Payment Mode
+                      Status
                     </th>
 
                     <th style={styles.th}>
-                      Status
+                      Payment Mode
                     </th>
 
                     <th style={styles.th}>
@@ -1124,9 +1082,7 @@ export default function TeacherFeesPage() {
                     <th style={styles.th}>
                       Action
                     </th>
-
                   </tr>
-
                 </thead>
 
                 <tbody>
@@ -1138,8 +1094,11 @@ export default function TeacherFeesPage() {
                         fee.status || ""
                       ).toUpperCase();
 
-                    const paymentMode =
-                      getPaymentMode(fee);
+                    const normalizedMode =
+                      String(
+                        fee.payment_mode ||
+                        ""
+                      ).toUpperCase();
 
                     const canReceipt =
                       normalizedStatus ===
@@ -1193,37 +1152,50 @@ export default function TeacherFeesPage() {
                         </td>
 
                         <td style={styles.td}>
-
-                          {paymentMode === "CASH" ? (
-                            <span
-                              style={
-                                styles.cashBadge
-                              }
-                            >
-                              💵 CASH
-                            </span>
-                          ) : paymentMode ===
-                            "ONLINE" ? (
-                            <span
-                              style={
-                                styles.onlineBadge
-                              }
-                            >
-                              💳 ONLINE
-                            </span>
-                          ) : (
-                            "—"
-                          )}
-
-                        </td>
-
-                        <td style={styles.td}>
-
                           <StatusBadge
                             status={
                               fee.status
                             }
                           />
+                        </td>
+
+                        <td style={styles.td}>
+
+                          {normalizedMode ===
+                          "CASH" ? (
+                            <span
+                              style={{
+                                ...styles.paymentModeBadge,
+                                background:
+                                  "#fef3c7",
+                                color:
+                                  "#92400e",
+                              }}
+                            >
+                              💵 CASH
+                            </span>
+                          ) : normalizedMode ===
+                            "ONLINE" ? (
+                            <span
+                              style={{
+                                ...styles.paymentModeBadge,
+                                background:
+                                  "#dcfce7",
+                                color:
+                                  "#166534",
+                              }}
+                            >
+                              💳 ONLINE
+                            </span>
+                          ) : (
+                            <span
+                              style={
+                                styles.notSelected
+                              }
+                            >
+                              —
+                            </span>
+                          )}
 
                         </td>
 
@@ -1324,7 +1296,6 @@ function SummaryCard({
         background,
       }}
     >
-
       <div style={styles.summaryIcon}>
         {icon}
       </div>
@@ -1340,7 +1311,6 @@ function SummaryCard({
               "en-IN"
             )}`}
       </div>
-
     </div>
   );
 }
@@ -1396,7 +1366,6 @@ function StatusBadge({
           statusStyles.PENDING),
       }}
     >
-
       {normalized === "SUBMITTED" &&
         "✓ "}
 
@@ -1414,7 +1383,6 @@ function StatusBadge({
         "✓ "}
 
       {normalized}
-
     </span>
   );
 }
@@ -1549,20 +1517,6 @@ const styles: Record<
     background: "white",
   },
 
-  cashHint: {
-    marginTop: "6px",
-    color: "#166534",
-    fontSize: "11px",
-    lineHeight: 1.4,
-  },
-
-  onlineHint: {
-    marginTop: "6px",
-    color: "#1d4ed8",
-    fontSize: "11px",
-    lineHeight: 1.4,
-  },
-
   saveButton: {
     marginTop: "22px",
     border: "none",
@@ -1657,26 +1611,18 @@ const styles: Record<
     whiteSpace: "nowrap",
   },
 
-  cashBadge: {
+  paymentModeBadge: {
     display: "inline-block",
-    background: "#dcfce7",
-    color: "#166534",
-    padding: "7px 10px",
+    padding: "7px 11px",
     borderRadius: "999px",
-    fontWeight: 800,
+    fontWeight: 700,
     fontSize: "12px",
     whiteSpace: "nowrap",
   },
 
-  onlineBadge: {
-    display: "inline-block",
-    background: "#dbeafe",
-    color: "#1d4ed8",
-    padding: "7px 10px",
-    borderRadius: "999px",
-    fontWeight: 800,
-    fontSize: "12px",
-    whiteSpace: "nowrap",
+  notSelected: {
+    color: "#94a3b8",
+    fontSize: "13px",
   },
 
   receiptButton: {
