@@ -48,6 +48,31 @@ export default function StudentDashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
+  /*
+   * =====================================================
+   * MOVE LATEST ANNOUNCEMENT AFTER 24 HOURS
+   * =====================================================
+   *
+   * This checks every minute.
+   *
+   * The newest announcement stays in the
+   * "Latest Announcement" section for 24 hours.
+   *
+   * After 24 hours it automatically moves to
+   * the normal "Announcements" section.
+   */
+  useEffect(() => {
+    if (announcements.length === 0) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setAnnouncements((previous) => [...previous]);
+    }, 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [announcements.length]);
+
   async function initializeStudent() {
     const name =
       localStorage.getItem("studentName") ||
@@ -743,6 +768,62 @@ export default function StudentDashboardPage() {
     );
   }
 
+  /*
+   * =====================================================
+   * LATEST ANNOUNCEMENT LOGIC
+   * =====================================================
+   *
+   * ONLY the newest announcement can be shown
+   * in the Latest Announcement section.
+   *
+   * It remains there for exactly 24 hours.
+   *
+   * After 24 hours it is shown normally below.
+   */
+  function isWithinLatest24Hours(
+    createdAt: string
+  ) {
+    const createdTime =
+      new Date(createdAt).getTime();
+
+    if (Number.isNaN(createdTime)) {
+      return false;
+    }
+
+    const now = Date.now();
+
+    const difference =
+      now - createdTime;
+
+    return (
+      difference >= 0 &&
+      difference <=
+        24 * 60 * 60 * 1000
+    );
+  }
+
+  const latestAnnouncement =
+    announcements.length > 0 &&
+    isWithinLatest24Hours(
+      announcements[0].created_at
+    )
+      ? announcements[0]
+      : null;
+
+  /*
+   * The latest announcement is excluded
+   * from the normal list while it is still
+   * inside its 24-hour period.
+   */
+  const normalAnnouncements =
+    latestAnnouncement
+      ? announcements.filter(
+          (announcement) =>
+            announcement.id !==
+            latestAnnouncement.id
+        )
+      : announcements;
+
   const firstLetter =
     studentName
       .charAt(0)
@@ -909,7 +990,198 @@ export default function StudentDashboardPage() {
           </div>
         </section>
 
-        {/* ANNOUNCEMENTS */}
+        {/* =====================================================
+            LATEST ANNOUNCEMENT
+            ===================================================== */}
+
+        {!announcementLoading &&
+          latestAnnouncement && (
+            <section
+              style={
+                styles.latestAnnouncementSection
+              }
+            >
+              <div
+                style={
+                  styles.latestAnnouncementHeader
+                }
+              >
+                <div>
+                  <div
+                    style={
+                      styles.latestAnnouncementEyebrow
+                    }
+                  >
+                    🔔 NEW ANNOUNCEMENT
+                  </div>
+
+                  <h2
+                    style={
+                      styles.latestAnnouncementTitle
+                    }
+                  >
+                    Latest Announcement
+                  </h2>
+
+                  <p
+                    style={
+                      styles.latestAnnouncementSubtitle
+                    }
+                  >
+                    This announcement will stay
+                    here for 24 hours.
+                  </p>
+                </div>
+
+                <div
+                  style={
+                    styles.latestAnnouncementBadge
+                  }
+                >
+                  NEW • 24 HOURS
+                </div>
+              </div>
+
+              <article
+                style={
+                  styles.latestAnnouncementCard
+                }
+              >
+                <div
+                  style={
+                    styles.announcementCardTop
+                  }
+                >
+                  <div
+                    style={
+                      styles.latestAnnouncementIcon
+                    }
+                  >
+                    🔔
+                  </div>
+
+                  <div
+                    style={
+                      styles.announcementCardContent
+                    }
+                  >
+                    <div
+                      style={
+                        styles.announcementMeta
+                      }
+                    >
+                      <span
+                        style={
+                          styles.latestTeacherBadge
+                        }
+                      >
+                        TEACHER
+                      </span>
+
+                      <span
+                        style={
+                          styles.latestTimeBadge
+                        }
+                      >
+                        LATEST
+                      </span>
+
+                      <span
+                        style={
+                          styles.announcementDate
+                        }
+                      >
+                        {formatAnnouncementDate(
+                          latestAnnouncement.created_at
+                        )}
+                      </span>
+                    </div>
+
+                    <h3
+                      style={
+                        styles.latestAnnouncementCardTitle
+                      }
+                    >
+                      {
+                        latestAnnouncement.title
+                      }
+                    </h3>
+
+                    <p
+                      style={
+                        styles.announcementMessage
+                      }
+                    >
+                      {
+                        latestAnnouncement.message
+                      }
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  style={
+                    styles.announcementBottom
+                  }
+                >
+                  <div
+                    style={
+                      styles.everyoneText
+                    }
+                  >
+                    👥 For all students
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      toggleLike(
+                        latestAnnouncement.id
+                      )
+                    }
+                    disabled={
+                      likingId ===
+                      latestAnnouncement.id
+                    }
+                    style={{
+                      ...styles.likeButton,
+                      ...(latestAnnouncement.likedByMe
+                        ? styles.likeButtonActive
+                        : {}),
+                      opacity:
+                        likingId ===
+                        latestAnnouncement.id
+                          ? 0.65
+                          : 1,
+                      cursor:
+                        likingId ===
+                        latestAnnouncement.id
+                          ? "not-allowed"
+                          : "pointer",
+                    }}
+                  >
+                    {latestAnnouncement.likedByMe
+                      ? "❤️ Liked"
+                      : "🤍 Like"}
+
+                    <span
+                      style={
+                        styles.likeCount
+                      }
+                    >
+                      {
+                        latestAnnouncement.likeCount
+                      }
+                    </span>
+                  </button>
+                </div>
+              </article>
+            </section>
+          )}
+
+        {/* =====================================================
+            ANNOUNCEMENTS
+            ===================================================== */}
 
         <section
           style={
@@ -943,8 +1215,8 @@ export default function StudentDashboardPage() {
                   styles.announcementSubtitle
                 }
               >
-                Latest updates from your
-                teacher for all students.
+                All teacher updates are available
+                here.
               </p>
             </div>
 
@@ -953,8 +1225,8 @@ export default function StudentDashboardPage() {
                 styles.announcementBadge
               }
             >
-              {announcements.length}{" "}
-              {announcements.length === 1
+              {normalAnnouncements.length}{" "}
+              {normalAnnouncements.length === 1
                 ? "ANNOUNCEMENT"
                 : "ANNOUNCEMENTS"}
             </div>
@@ -992,7 +1264,7 @@ export default function StudentDashboardPage() {
                 </div>
               </div>
             </div>
-          ) : announcements.length ===
+          ) : normalAnnouncements.length ===
             0 ? (
             <div
               style={
@@ -1013,7 +1285,7 @@ export default function StudentDashboardPage() {
                     styles.noAnnouncementTitle
                   }
                 >
-                  No Announcements Yet
+                  No Previous Announcements
                 </h3>
 
                 <p
@@ -1021,9 +1293,9 @@ export default function StudentDashboardPage() {
                     styles.noAnnouncementText
                   }
                 >
-                  Your teacher has not
-                  published any announcement
-                  yet.
+                  Older teacher announcements will
+                  appear here after their 24-hour
+                  latest period.
                 </p>
               </div>
             </div>
@@ -1033,7 +1305,7 @@ export default function StudentDashboardPage() {
                 styles.announcementList
               }
             >
-              {announcements.map(
+              {normalAnnouncements.map(
                 (announcement) => (
                   <article
                     key={
@@ -1607,6 +1879,123 @@ const styles: {
     fontSize: "10px",
     fontWeight: "700",
   },
+
+  /*
+   * =====================================================
+   * LATEST ANNOUNCEMENT STYLES
+   * =====================================================
+   */
+
+  latestAnnouncementSection: {
+    background:
+      "linear-gradient(135deg,#eff6ff,#ffffff)",
+    border:
+      "2px solid #93c5fd",
+    borderRadius: "20px",
+    padding: "20px",
+    marginBottom: "18px",
+    boxShadow:
+      "0 10px 30px rgba(37,99,235,0.10)",
+  },
+
+  latestAnnouncementHeader: {
+    display: "flex",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: "15px",
+    marginBottom: "16px",
+    flexWrap: "wrap",
+  },
+
+  latestAnnouncementEyebrow: {
+    color: "#2563eb",
+    fontSize: "9px",
+    fontWeight: "1000",
+    letterSpacing: "2px",
+    marginBottom: "4px",
+  },
+
+  latestAnnouncementTitle: {
+    margin: 0,
+    color: "#172554",
+    fontSize: "24px",
+    fontWeight: "1000",
+  },
+
+  latestAnnouncementSubtitle: {
+    margin: "5px 0 0",
+    color: "#64748b",
+    fontSize: "11px",
+    fontWeight: "600",
+  },
+
+  latestAnnouncementBadge: {
+    background: "#2563eb",
+    color: "#ffffff",
+    border:
+      "1px solid #1d4ed8",
+    padding: "8px 11px",
+    borderRadius: "9px",
+    fontSize: "10px",
+    fontWeight: "1000",
+  },
+
+  latestAnnouncementCard: {
+    background: "#ffffff",
+    border:
+      "1px solid #bfdbfe",
+    borderRadius: "16px",
+    padding: "16px",
+    boxShadow:
+      "0 6px 20px rgba(37,99,235,0.07)",
+  },
+
+  latestAnnouncementIcon: {
+    width: "45px",
+    height: "45px",
+    minWidth: "45px",
+    borderRadius: "12px",
+    background:
+      "linear-gradient(135deg,#dbeafe,#bfdbfe)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "21px",
+  },
+
+  latestTeacherBadge: {
+    background: "#dbeafe",
+    color: "#1d4ed8",
+    padding: "4px 7px",
+    borderRadius: "6px",
+    fontSize: "8px",
+    fontWeight: "1000",
+    letterSpacing: "0.7px",
+  },
+
+  latestTimeBadge: {
+    background: "#dcfce7",
+    color: "#15803d",
+    padding: "4px 7px",
+    borderRadius: "6px",
+    fontSize: "8px",
+    fontWeight: "1000",
+    letterSpacing: "0.5px",
+  },
+
+  latestAnnouncementCardTitle: {
+    margin: "7px 0 0",
+    color: "#172554",
+    fontSize: "18px",
+    fontWeight: "1000",
+    wordBreak: "break-word",
+  },
+
+  /*
+   * =====================================================
+   * NORMAL ANNOUNCEMENTS
+   * =====================================================
+   */
 
   announcementSection: {
     background: "#ffffff",
