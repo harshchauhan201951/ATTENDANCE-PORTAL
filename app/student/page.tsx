@@ -222,61 +222,43 @@ export default function StudentDashboardPage() {
         }
 
         const applicationServerKey =
-          urlBase64ToUint8Array(
-            vapidPublicKey
-          );
+          function urlBase64ToUint8Array(
+  base64String: string
+): Uint8Array<ArrayBuffer> {
+  const padding =
+    "=".repeat(
+      (4 -
+        (base64String.length % 4)) %
+        4
+    );
 
-        /*
-         * FIX:
-         * Convert Uint8Array into a normal ArrayBuffer
-         * so Next.js 16 / TypeScript accepts it as
-         * PushSubscriptionOptions.applicationServerKey.
-         */
-        const applicationServerKeyBuffer =
-          applicationServerKey.buffer.slice(
-            applicationServerKey.byteOffset,
-            applicationServerKey.byteOffset +
-              applicationServerKey.byteLength
-          ) as ArrayBuffer;
+  const base64 =
+    (
+      base64String +
+      padding
+    )
+      .replace(/-/g, "+")
+      .replace(/_/g, "/");
 
-        subscription =
-          await registration.pushManager.subscribe(
-            {
-              userVisibleOnly: true,
-              applicationServerKey:
-                applicationServerKeyBuffer,
-            }
-          );
-      }
+  const rawData =
+    window.atob(base64);
 
-      const response = await fetch(
-        "/api/push/subscribe",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            studentId:
-              currentStudentId,
-            subscription:
-              subscription.toJSON(),
-          }),
-        }
-      );
+  const outputArray =
+    new Uint8Array(
+      new ArrayBuffer(rawData.length)
+    );
 
-      if (!response.ok) {
-        const errorText =
-          await response.text();
+  for (
+    let i = 0;
+    i < rawData.length;
+    ++i
+  ) {
+    outputArray[i] =
+      rawData.charCodeAt(i);
+  }
 
-        console.error(
-          "Push subscription API error:",
-          errorText
-        );
-
-        return;
-      }
+  return outputArray;
+}
 
       console.log(
         "Student push notification registration completed."
