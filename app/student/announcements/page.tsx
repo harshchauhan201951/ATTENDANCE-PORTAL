@@ -16,13 +16,20 @@ type Announcement = {
 export default function StudentAnnouncementsPage() {
   const router = useRouter();
 
-  const [studentId, setStudentId] = useState<number | null>(null);
-  const [username, setUsername] = useState("");
-  const [announcements, setAnnouncements] = useState<
-    Announcement[]
-  >([]);
-  const [loading, setLoading] = useState(true);
-  const [likingId, setLikingId] = useState<number | null>(null);
+  const [studentId, setStudentId] =
+    useState<number | null>(null);
+
+  const [username, setUsername] =
+    useState("");
+
+  const [announcements, setAnnouncements] =
+    useState<Announcement[]>([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [likingId, setLikingId] =
+    useState<number | null>(null);
 
   useEffect(() => {
     initialize();
@@ -30,46 +37,71 @@ export default function StudentAnnouncementsPage() {
 
   async function initialize() {
     const savedUsername =
-      localStorage.getItem("student_username") ||
-      localStorage.getItem("studentUsername") ||
+      localStorage.getItem(
+        "student_username"
+      ) ||
+      localStorage.getItem(
+        "studentUsername"
+      ) ||
       "";
 
     const savedStudentId =
-      localStorage.getItem("studentId");
+      localStorage.getItem(
+        "studentId"
+      );
 
     setUsername(savedUsername);
 
-    let resolvedId: number | null = null;
+    let resolvedId:
+      number | null = null;
 
     if (savedUsername) {
-      resolvedId = await resolveStudentId(savedUsername);
+      resolvedId =
+        await resolveStudentId(
+          savedUsername
+        );
     }
 
-    if (resolvedId === null && savedStudentId) {
-      const parsedId = Number(savedStudentId);
+    if (
+      resolvedId === null &&
+      savedStudentId
+    ) {
+      const parsedId =
+        Number(savedStudentId);
 
-      if (!Number.isNaN(parsedId) && parsedId > 0) {
-        resolvedId = parsedId;
+      if (
+        !Number.isNaN(
+          parsedId
+        ) &&
+        parsedId > 0
+      ) {
+        resolvedId =
+          parsedId;
       }
     }
 
-    setStudentId(resolvedId);
+    setStudentId(
+      resolvedId
+    );
 
-    await loadAnnouncements(resolvedId);
+    await loadAnnouncements(
+      resolvedId
+    );
   }
 
   async function resolveStudentId(
     studentUsername: string
   ): Promise<number | null> {
     try {
-      const { data, error } = await supabase
-        .from("students")
-        .select("id")
-        .eq(
-          "student_username",
-          studentUsername
-        )
-        .maybeSingle();
+      const { data, error } =
+        await supabase
+          .from("students")
+          .select("id")
+          .eq(
+            "student_username",
+            studentUsername
+          )
+          .maybeSingle();
 
       if (error) {
         console.error(
@@ -96,7 +128,8 @@ export default function StudentAnnouncementsPage() {
   }
 
   async function loadAnnouncements(
-    currentStudentId: number | null
+    currentStudentId:
+      number | null
   ) {
     setLoading(true);
 
@@ -120,26 +153,32 @@ export default function StudentAnnouncementsPage() {
         );
 
         setAnnouncements([]);
+
         return;
       }
 
-      const rows = announcementData || [];
+      const rows =
+        announcementData || [];
 
       if (rows.length === 0) {
         setAnnouncements([]);
+
         return;
       }
 
-      const ids = rows.map(
-        (announcement) =>
-          announcement.id
-      );
+      const ids =
+        rows.map(
+          (announcement) =>
+            announcement.id
+        );
 
       const {
         data: likesData,
         error: likesError,
       } = await supabase
-        .from("announcement_likes")
+        .from(
+          "announcement_likes"
+        )
         .select(
           "announcement_id, student_id"
         )
@@ -155,47 +194,54 @@ export default function StudentAnnouncementsPage() {
         );
       }
 
-      const likes = likesData || [];
+      const likes =
+        likesData || [];
 
-      const formatted = rows.map(
-        (announcement) => {
-          const announcementLikes =
-            likes.filter(
-              (like) =>
-                Number(
-                  like.announcement_id
-                ) ===
-                Number(
-                  announcement.id
-                )
-            );
+      const formatted =
+        rows.map(
+          (announcement) => {
+            const announcementLikes =
+              likes.filter(
+                (like) =>
+                  Number(
+                    like.announcement_id
+                  ) ===
+                  Number(
+                    announcement.id
+                  )
+              );
 
-          const likedByMe =
-            currentStudentId !== null &&
-            announcementLikes.some(
-              (like) =>
-                Number(
-                  like.student_id
-                ) ===
-                Number(
-                  currentStudentId
-                )
-            );
+            const likedByMe =
+              currentStudentId !==
+                null &&
+              announcementLikes.some(
+                (like) =>
+                  Number(
+                    like.student_id
+                  ) ===
+                  Number(
+                    currentStudentId
+                  )
+              );
 
-          return {
-            id: announcement.id,
-            title: announcement.title,
-            message: announcement.message,
-            created_at:
-              announcement.created_at,
-            likeCount:
-              announcementLikes.length,
-            likedByMe,
-          };
-        }
+            return {
+              id: announcement.id,
+              title:
+                announcement.title,
+              message:
+                announcement.message,
+              created_at:
+                announcement.created_at,
+              likeCount:
+                announcementLikes.length,
+              likedByMe,
+            };
+          }
+        );
+
+      setAnnouncements(
+        formatted
       );
-
-      setAnnouncements(formatted);
     } catch (error) {
       console.error(
         "Unexpected announcements error:",
@@ -223,14 +269,19 @@ export default function StudentAnnouncementsPage() {
           username
         );
 
-      if (currentStudentId !== null) {
+      if (
+        currentStudentId !==
+        null
+      ) {
         setStudentId(
           currentStudentId
         );
 
         localStorage.setItem(
           "studentId",
-          String(currentStudentId)
+          String(
+            currentStudentId
+          )
         );
       }
     }
@@ -243,7 +294,9 @@ export default function StudentAnnouncementsPage() {
       return;
     }
 
-    if (likingId !== null) {
+    if (
+      likingId !== null
+    ) {
       return;
     }
 
@@ -263,7 +316,12 @@ export default function StudentAnnouncementsPage() {
     );
 
     try {
-      if (selected.likedByMe) {
+      /*
+       * UNLIKE
+       */
+      if (
+        selected.likedByMe
+      ) {
         const { error } =
           await supabase
             .from(
@@ -316,6 +374,9 @@ export default function StudentAnnouncementsPage() {
         return;
       }
 
+      /*
+       * LIKE
+       */
       const { error } =
         await supabase
           .from(
@@ -380,6 +441,10 @@ export default function StudentAnnouncementsPage() {
   function formatDate(
     date: string
   ) {
+    if (!date) {
+      return "";
+    }
+
     return new Date(
       date
     ).toLocaleString(
@@ -396,14 +461,32 @@ export default function StudentAnnouncementsPage() {
 
   return (
     <main style={styles.page}>
-      <div style={styles.container}>
-        <nav style={styles.navbar}>
+      <div
+        style={
+          styles.container
+        }
+      >
+        {/* NAVIGATION */}
+
+        <nav
+          style={
+            styles.navbar
+          }
+        >
           <div>
-            <div style={styles.brand}>
+            <div
+              style={
+                styles.brand
+              }
+            >
               📢 STUDENT ANNOUNCEMENTS
             </div>
 
-            <div style={styles.subBrand}>
+            <div
+              style={
+                styles.subBrand
+              }
+            >
               ALL TEACHER UPDATES
             </div>
           </div>
@@ -415,72 +498,139 @@ export default function StudentAnnouncementsPage() {
                 "/student/dashboard"
               )
             }
-            style={styles.backButton}
+            style={
+              styles.backButton
+            }
           >
             ← Dashboard
           </button>
         </nav>
 
-        <section style={styles.hero}>
-          <div style={styles.heroIcon}>
+        {/* HERO */}
+
+        <section
+          style={
+            styles.hero
+          }
+        >
+          <div
+            style={
+              styles.heroIcon
+            }
+          >
             📢
           </div>
 
           <div>
-            <div style={styles.eyebrow}>
+            <div
+              style={
+                styles.eyebrow
+              }
+            >
               STUDENT CENTER
             </div>
 
-            <h1 style={styles.title}>
+            <h1
+              style={
+                styles.title
+              }
+            >
               Announcements
             </h1>
 
-            <p style={styles.subtitle}>
+            <p
+              style={
+                styles.subtitle
+              }
+            >
               All teacher announcements are
               available here.
             </p>
           </div>
 
-          <div style={styles.countBadge}>
+          <div
+            style={
+              styles.countBadge
+            }
+          >
             {announcements.length}{" "}
-            {announcements.length === 1
+            {announcements.length ===
+            1
               ? "ANNOUNCEMENT"
               : "ANNOUNCEMENTS"}
           </div>
         </section>
 
+        {/* ANNOUNCEMENTS */}
+
         {loading ? (
-          <div style={styles.emptyCard}>
-            <div style={styles.emptyIcon}>
+          <div
+            style={
+              styles.emptyCard
+            }
+          >
+            <div
+              style={
+                styles.emptyIcon
+              }
+            >
               ⏳
             </div>
 
-            <h2 style={styles.emptyTitle}>
+            <h2
+              style={
+                styles.emptyTitle
+              }
+            >
               Loading Announcements...
             </h2>
 
-            <p style={styles.emptyText}>
+            <p
+              style={
+                styles.emptyText
+              }
+            >
               Please wait.
             </p>
           </div>
         ) : announcements.length ===
           0 ? (
-          <div style={styles.emptyCard}>
-            <div style={styles.emptyIcon}>
+          <div
+            style={
+              styles.emptyCard
+            }
+          >
+            <div
+              style={
+                styles.emptyIcon
+              }
+            >
               📭
             </div>
 
-            <h2 style={styles.emptyTitle}>
+            <h2
+              style={
+                styles.emptyTitle
+              }
+            >
               No Announcements
             </h2>
 
-            <p style={styles.emptyText}>
+            <p
+              style={
+                styles.emptyText
+              }
+            >
               There are currently no teacher
               announcements.
             </p>
           </div>
         ) : (
-          <div style={styles.list}>
+          <div
+            style={
+              styles.list
+            }
+          >
             {announcements.map(
               (announcement) => (
                 <article
@@ -491,7 +641,11 @@ export default function StudentAnnouncementsPage() {
                     styles.card
                   }
                 >
-                  <div style={styles.cardTop}>
+                  <div
+                    style={
+                      styles.cardTop
+                    }
+                  >
                     <div
                       style={
                         styles.icon
@@ -585,6 +739,11 @@ export default function StudentAnnouncementsPage() {
                           announcement.id
                             ? 0.6
                             : 1,
+                        cursor:
+                          likingId ===
+                          announcement.id
+                            ? "not-allowed"
+                            : "pointer",
                       }}
                     >
                       {announcement.likedByMe

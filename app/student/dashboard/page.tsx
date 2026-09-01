@@ -24,42 +24,51 @@ type Announcement = {
 export default function StudentDashboardPage() {
   const router = useRouter();
 
-  const [studentName, setStudentName] = useState("Student");
-  const [username, setUsername] = useState("");
-  const [studentId, setStudentId] = useState<number | null>(null);
-  const [time, setTime] = useState("");
+  const [studentName, setStudentName] =
+    useState("Student");
 
-  const [announcements, setAnnouncements] = useState<
-    Announcement[]
-  >([]);
+  const [username, setUsername] =
+    useState("");
+
+  const [studentId, setStudentId] =
+    useState<number | null>(null);
+
+  const [time, setTime] =
+    useState("");
+
+  const [announcements, setAnnouncements] =
+    useState<Announcement[]>([]);
 
   const [announcementLoading, setAnnouncementLoading] =
     useState(true);
 
-  const [likingId, setLikingId] = useState<number | null>(null);
+  const [likingId, setLikingId] =
+    useState<number | null>(null);
 
   useEffect(() => {
     initializeStudent();
 
     updateTime();
 
-    const interval = setInterval(updateTime, 1000);
+    const interval = setInterval(
+      updateTime,
+      1000
+    );
 
-    return () => clearInterval(interval);
+    return () =>
+      clearInterval(interval);
   }, []);
 
   /*
    * =====================================================
-   * MOVE LATEST ANNOUNCEMENT AFTER 24 HOURS
+   * CHECK LATEST ANNOUNCEMENT EVERY MINUTE
    * =====================================================
    *
-   * This checks every minute.
+   * This does not change the database.
    *
-   * The newest announcement stays in the
-   * "Latest Announcement" section for 24 hours.
-   *
-   * After 24 hours it automatically moves to
-   * the normal "Announcements" section.
+   * It simply forces the dashboard to recalculate
+   * whether the latest announcement is still inside
+   * its 24-hour period.
    */
   useEffect(() => {
     if (announcements.length === 0) {
@@ -67,10 +76,13 @@ export default function StudentDashboardPage() {
     }
 
     const interval = setInterval(() => {
-      setAnnouncements((previous) => [...previous]);
+      setAnnouncements(
+        (previous) => [...previous]
+      );
     }, 60 * 1000);
 
-    return () => clearInterval(interval);
+    return () =>
+      clearInterval(interval);
   }, [announcements.length]);
 
   async function initializeStudent() {
@@ -80,8 +92,12 @@ export default function StudentDashboardPage() {
       "Student";
 
     const savedUsername =
-      localStorage.getItem("student_username") ||
-      localStorage.getItem("studentUsername") ||
+      localStorage.getItem(
+        "student_username"
+      ) ||
+      localStorage.getItem(
+        "studentUsername"
+      ) ||
       "";
 
     const savedStudentId =
@@ -96,7 +112,9 @@ export default function StudentDashboardPage() {
      */
     if (savedUsername) {
       const resolvedId =
-        await resolveStudentId(savedUsername);
+        await resolveStudentId(
+          savedUsername
+        );
 
       if (resolvedId !== null) {
         setStudentId(resolvedId);
@@ -106,13 +124,13 @@ export default function StudentDashboardPage() {
           String(resolvedId)
         );
 
-        await loadAnnouncements(resolvedId);
+        await loadAnnouncements(
+          resolvedId
+        );
 
-        /*
-         * Register this student's device for
-         * push notifications.
-         */
-        await registerPushNotifications(resolvedId);
+        await registerPushNotifications(
+          resolvedId
+        );
 
         return;
       }
@@ -123,18 +141,22 @@ export default function StudentDashboardPage() {
      * Existing studentId from localStorage.
      */
     if (savedStudentId) {
-      const parsedId = Number(savedStudentId);
+      const parsedId =
+        Number(savedStudentId);
 
-      if (!Number.isNaN(parsedId) && parsedId > 0) {
+      if (
+        !Number.isNaN(parsedId) &&
+        parsedId > 0
+      ) {
         setStudentId(parsedId);
 
-        await loadAnnouncements(parsedId);
+        await loadAnnouncements(
+          parsedId
+        );
 
-        /*
-         * Register this student's device for
-         * push notifications.
-         */
-        await registerPushNotifications(parsedId);
+        await registerPushNotifications(
+          parsedId
+        );
 
         return;
       }
@@ -152,14 +174,15 @@ export default function StudentDashboardPage() {
     studentUsername: string
   ): Promise<number | null> {
     try {
-      const { data, error } = await supabase
-        .from("students")
-        .select("id")
-        .eq(
-          "student_username",
-          studentUsername
-        )
-        .maybeSingle();
+      const { data, error } =
+        await supabase
+          .from("students")
+          .select("id")
+          .eq(
+            "student_username",
+            studentUsername
+          )
+          .maybeSingle();
 
       if (error) {
         console.error(
@@ -194,28 +217,24 @@ export default function StudentDashboardPage() {
    * =====================================================
    * PUSH NOTIFICATION REGISTRATION
    * =====================================================
-   *
-   * This runs automatically after the student ID
-   * has been successfully identified.
-   *
-   * It:
-   * 1. Checks browser support.
-   * 2. Registers /sw.js.
-   * 3. Requests notification permission.
-   * 4. Reuses an existing subscription if available.
-   * 5. Creates a new PushSubscription when required.
-   * 6. Sends the subscription to:
-   *    /api/push/subscribe
    */
   async function registerPushNotifications(
     currentStudentId: number
   ) {
     try {
-      if (typeof window === "undefined") {
+      if (
+        typeof window ===
+        "undefined"
+      ) {
         return;
       }
 
-      if (!("serviceWorker" in navigator)) {
+      if (
+        !(
+          "serviceWorker" in
+          navigator
+        )
+      ) {
         console.warn(
           "Service Worker is not supported by this browser."
         );
@@ -223,7 +242,9 @@ export default function StudentDashboardPage() {
         return;
       }
 
-      if (!("PushManager" in window)) {
+      if (
+        !("PushManager" in window)
+      ) {
         console.warn(
           "Push notifications are not supported by this browser."
         );
@@ -231,7 +252,9 @@ export default function StudentDashboardPage() {
         return;
       }
 
-      if (!("Notification" in window)) {
+      if (
+        !("Notification" in window)
+      ) {
         console.warn(
           "Notifications are not supported by this browser."
         );
@@ -239,9 +262,6 @@ export default function StudentDashboardPage() {
         return;
       }
 
-      /*
-       * Register the existing public/sw.js file.
-       */
       const registration =
         await navigator.serviceWorker.register(
           "/sw.js"
@@ -252,23 +272,21 @@ export default function StudentDashboardPage() {
         registration.scope
       );
 
-      /*
-       * Ask the browser for notification permission.
-       */
       let permission =
         Notification.permission;
 
-      if (permission === "default") {
+      if (
+        permission ===
+        "default"
+      ) {
         permission =
           await Notification.requestPermission();
       }
 
-      /*
-       * Student denied notifications.
-       *
-       * Do not stop the dashboard.
-       */
-      if (permission !== "granted") {
+      if (
+        permission !==
+        "granted"
+      ) {
         console.warn(
           "Notification permission was not granted."
         );
@@ -276,16 +294,9 @@ export default function StudentDashboardPage() {
         return;
       }
 
-      /*
-       * Get an existing push subscription.
-       */
       let subscription =
         await registration.pushManager.getSubscription();
 
-      /*
-       * If there is no existing subscription,
-       * create a new one.
-       */
       if (!subscription) {
         const vapidPublicKey =
           process.env
@@ -313,25 +324,23 @@ export default function StudentDashboardPage() {
           );
       }
 
-      /*
-       * Send the subscription to the API.
-       */
-      const response = await fetch(
-        "/api/push/subscribe",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            studentId:
-              currentStudentId,
-            subscription:
-              subscription.toJSON(),
-          }),
-        }
-      );
+      const response =
+        await fetch(
+          "/api/push/subscribe",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              studentId:
+                currentStudentId,
+              subscription:
+                subscription.toJSON(),
+            }),
+          }
+        );
 
       if (!response.ok) {
         const errorText =
@@ -349,10 +358,6 @@ export default function StudentDashboardPage() {
         "Student push notification registration completed."
       );
     } catch (error) {
-      /*
-       * Push registration must NEVER break
-       * the student dashboard.
-       */
       console.error(
         "Push notification registration error:",
         error
@@ -360,17 +365,14 @@ export default function StudentDashboardPage() {
     }
   }
 
-  /*
-   * Convert VAPID public key from Base64URL
-   * into Uint8Array for PushManager.subscribe().
-   */
   function urlBase64ToUint8Array(
     base64String: string
   ) {
     const padding =
       "=".repeat(
         (4 -
-          (base64String.length % 4)) %
+          (base64String.length %
+            4)) %
           4
       );
 
@@ -415,6 +417,16 @@ export default function StudentDashboardPage() {
     );
   }
 
+  /*
+   * =====================================================
+   * LOAD ANNOUNCEMENTS
+   * =====================================================
+   *
+   * All announcements are loaded from Supabase.
+   *
+   * IMPORTANT:
+   * No announcement is deleted or moved in the database.
+   */
   async function loadAnnouncements(
     currentStudentId: number | null
   ) {
@@ -447,7 +459,10 @@ export default function StudentDashboardPage() {
       const announcementRows =
         announcementData || [];
 
-      if (announcementRows.length === 0) {
+      if (
+        announcementRows.length ===
+        0
+      ) {
         setAnnouncements([]);
 
         return;
@@ -497,7 +512,8 @@ export default function StudentDashboardPage() {
               );
 
             const likedByMe =
-              currentStudentId !== null &&
+              currentStudentId !==
+                null &&
               announcementLikes.some(
                 (like) =>
                   Number(
@@ -510,7 +526,8 @@ export default function StudentDashboardPage() {
 
             return {
               id: announcement.id,
-              title: announcement.title,
+              title:
+                announcement.title,
               message:
                 announcement.message,
               created_at:
@@ -575,7 +592,9 @@ export default function StudentDashboardPage() {
       return;
     }
 
-    if (likingId !== null) {
+    if (
+      likingId !== null
+    ) {
       return;
     }
 
@@ -586,7 +605,9 @@ export default function StudentDashboardPage() {
           announcementId
       );
 
-    if (!selectedAnnouncement) {
+    if (
+      !selectedAnnouncement
+    ) {
       return;
     }
 
@@ -770,156 +791,193 @@ export default function StudentDashboardPage() {
 
   /*
    * =====================================================
-   * LATEST ANNOUNCEMENT LOGIC
+   * LATEST ANNOUNCEMENT
    * =====================================================
    *
-   * ONLY the newest announcement can be shown
-   * in the Latest Announcement section.
+   * ONLY the newest announcement can appear here.
    *
-   * It remains there for exactly 24 hours.
+   * It stays here for 24 hours from created_at.
    *
-   * After 24 hours it is shown normally below.
+   * After 24 hours:
+   * - it disappears from dashboard
+   * - it remains available on /student/announcements
    */
   function isWithinLatest24Hours(
     createdAt: string
   ) {
     const createdTime =
-      new Date(createdAt).getTime();
+      new Date(
+        createdAt
+      ).getTime();
 
-    if (Number.isNaN(createdTime)) {
+    if (
+      Number.isNaN(
+        createdTime
+      )
+    ) {
       return false;
     }
 
-    const now = Date.now();
+    const now =
+      Date.now();
 
     const difference =
-      now - createdTime;
+      now -
+      createdTime;
 
     return (
       difference >= 0 &&
-      difference <=
-        24 * 60 * 60 * 1000
+      difference <
+        24 *
+          60 *
+          60 *
+          1000
     );
   }
 
   const latestAnnouncement =
     announcements.length > 0 &&
     isWithinLatest24Hours(
-      announcements[0].created_at
+      announcements[0]
+        .created_at
     )
       ? announcements[0]
       : null;
-
-  /*
-   * The latest announcement is excluded
-   * from the normal list while it is still
-   * inside its 24-hour period.
-   */
-  const normalAnnouncements =
-    latestAnnouncement
-      ? announcements.filter(
-          (announcement) =>
-            announcement.id !==
-            latestAnnouncement.id
-        )
-      : announcements;
 
   const firstLetter =
     studentName
       .charAt(0)
       .toUpperCase();
 
-  const cards: DashboardCard[] = [
-    {
-      icon: "📊",
-      title: "My Attendance",
-      description:
-        "View your current attendance and attendance percentage.",
-      path: "/student/attendance",
-      className: "blue",
-    },
-    {
-      icon: "📜",
-      title: "Attendance History",
-      description:
-        "Check your previous attendance records and details.",
-      path: "/student/attendance-history",
-      className: "purple",
-    },
-    {
-      icon: "📅",
-      title: "Academic Calendar",
-      description:
-        "View important academic dates and calendar information.",
-      path: "/student/calendar",
-      className: "green",
-    },
-    {
-      icon: "📈",
-      title: "Reports",
-      description:
-        "View your attendance reports and performance details.",
-      path: "/student/reports",
-      className: "orange",
-    },
-    {
-      icon: "💰",
-      title: "Fees",
-      description:
-        "Check your student fee information and payment details.",
-      path: "/student/fees",
-      className: "pink",
-    },
-    {
-      icon: "📚",
-      title: "Homework",
-      description:
-        "View homework assigned to your class by your teacher.",
-      path: "/student/homework",
-      className: "indigo",
-    },
-    {
-      icon: "⚙️",
-      title: "Settings",
-      description:
-        "Manage your account, name and password.",
-      path: "/student/settings",
-      className: "cyan",
-    },
-  ];
+  const cards: DashboardCard[] =
+    [
+      {
+        icon: "📊",
+        title: "My Attendance",
+        description:
+          "View your current attendance and attendance percentage.",
+        path: "/student/attendance",
+        className: "blue",
+      },
+      {
+        icon: "📜",
+        title:
+          "Attendance History",
+        description:
+          "Check your previous attendance records and details.",
+        path: "/student/attendance-history",
+        className: "purple",
+      },
+      {
+        icon: "📅",
+        title:
+          "Academic Calendar",
+        description:
+          "View important academic dates and calendar information.",
+        path: "/student/calendar",
+        className: "green",
+      },
+      {
+        icon: "📈",
+        title: "Reports",
+        description:
+          "View your attendance reports and performance details.",
+        path: "/student/reports",
+        className: "orange",
+      },
+      {
+        icon: "💰",
+        title: "Fees",
+        description:
+          "Check your student fee information and payment details.",
+        path: "/student/fees",
+        className: "pink",
+      },
+      {
+        icon: "📚",
+        title: "Homework",
+        description:
+          "View homework assigned to your class by your teacher.",
+        path: "/student/homework",
+        className: "indigo",
+      },
+      {
+        icon: "⚙️",
+        title: "Settings",
+        description:
+          "Manage your account, name and password.",
+        path: "/student/settings",
+        className: "cyan",
+      },
+    ];
 
   return (
     <main style={styles.page}>
-      <div style={styles.container}>
-
+      <div
+        style={
+          styles.container
+        }
+      >
         {/* TOP NAVIGATION */}
 
-        <nav style={styles.navbar}>
-          <div style={styles.brandArea}>
-            <div style={styles.brandIcon}>
+        <nav
+          style={
+            styles.navbar
+          }
+        >
+          <div
+            style={
+              styles.brandArea
+            }
+          >
+            <div
+              style={
+                styles.brandIcon
+              }
+            >
               🎓
             </div>
 
             <div>
-              <div style={styles.brandName}>
+              <div
+                style={
+                  styles.brandName
+                }
+              >
                 ATTENDANCE PORTAL
               </div>
 
-              <div style={styles.brandSub}>
+              <div
+                style={
+                  styles.brandSub
+                }
+              >
                 STUDENT CENTER
               </div>
             </div>
           </div>
 
-          <div style={styles.navRight}>
-            <div style={styles.clock}>
+          <div
+            style={
+              styles.navRight
+            }
+          >
+            <div
+              style={
+                styles.clock
+              }
+            >
               🕒 {time}
             </div>
 
             <button
               type="button"
-              onClick={logout}
-              style={styles.logoutButton}
+              onClick={
+                logout
+              }
+              style={
+                styles.logoutButton
+              }
             >
               Logout
             </button>
@@ -928,7 +986,11 @@ export default function StudentDashboardPage() {
 
         {/* HERO */}
 
-        <section style={styles.hero}>
+        <section
+          style={
+            styles.hero
+          }
+        >
           <div
             style={
               styles.heroGlowOne
@@ -941,21 +1003,45 @@ export default function StudentDashboardPage() {
             }
           />
 
-          <div style={styles.heroContent}>
-            <div style={styles.avatar}>
+          <div
+            style={
+              styles.heroContent
+            }
+          >
+            <div
+              style={
+                styles.avatar
+              }
+            >
               {firstLetter}
             </div>
 
-            <div style={styles.welcomeArea}>
-              <div style={styles.smallGreeting}>
+            <div
+              style={
+                styles.welcomeArea
+              }
+            >
+              <div
+                style={
+                  styles.smallGreeting
+                }
+              >
                 STUDENT DASHBOARD
               </div>
 
-              <h1 style={styles.welcomeTitle}>
+              <h1
+                style={
+                  styles.welcomeTitle
+                }
+              >
                 Welcome, {studentName}
               </h1>
 
-              <p style={styles.welcomeText}>
+              <p
+                style={
+                  styles.welcomeText
+                }
+              >
                 Manage your attendance,
                 academic information,
                 homework, reports, fees
@@ -969,21 +1055,38 @@ export default function StudentDashboardPage() {
                     styles.usernameBadge
                   }
                 >
-                  Username: {username}
+                  Username:{" "}
+                  {username}
                 </div>
               )}
             </div>
           </div>
 
-          <div style={styles.heroSide}>
-            <div style={styles.statusDot} />
+          <div
+            style={
+              styles.heroSide
+            }
+          >
+            <div
+              style={
+                styles.statusDot
+              }
+            />
 
             <div>
-              <div style={styles.onlineText}>
+              <div
+                style={
+                  styles.onlineText
+                }
+              >
                 ACCOUNT ACTIVE
               </div>
 
-              <div style={styles.onlineSub}>
+              <div
+                style={
+                  styles.onlineSub
+                }
+              >
                 Student Portal
               </div>
             </div>
@@ -1028,8 +1131,8 @@ export default function StudentDashboardPage() {
                       styles.latestAnnouncementSubtitle
                     }
                   >
-                    This announcement will stay
-                    here for 24 hours.
+                    This announcement will
+                    stay here for 24 hours.
                   </p>
                 </div>
 
@@ -1180,7 +1283,7 @@ export default function StudentDashboardPage() {
           )}
 
         {/* =====================================================
-            ANNOUNCEMENTS
+            ANNOUNCEMENTS LINK
             ===================================================== */}
 
         <section
@@ -1220,241 +1323,51 @@ export default function StudentDashboardPage() {
               </p>
             </div>
 
-            <div
-              style={
-                styles.announcementBadge
-              }
-            >
-              {normalAnnouncements.length}{" "}
-              {normalAnnouncements.length === 1
-                ? "ANNOUNCEMENT"
-                : "ANNOUNCEMENTS"}
-            </div>
-          </div>
-
-          {announcementLoading ? (
-            <div
-              style={
-                styles.announcementLoading
-              }
-            >
-              <div
-                style={
-                  styles.loadingIcon
-                }
-              >
-                ⏳
-              </div>
-
-              <div>
-                <div
-                  style={
-                    styles.loadingTitle
-                  }
-                >
-                  Loading Announcements...
-                </div>
-
-                <div
-                  style={
-                    styles.loadingText
-                  }
-                >
-                  Please wait.
-                </div>
-              </div>
-            </div>
-          ) : normalAnnouncements.length ===
-            0 ? (
-            <div
-              style={
-                styles.noAnnouncements
-              }
-            >
-              <div
-                style={
-                  styles.noAnnouncementIcon
-                }
-              >
-                📭
-              </div>
-
-              <div>
-                <h3
-                  style={
-                    styles.noAnnouncementTitle
-                  }
-                >
-                  No Previous Announcements
-                </h3>
-
-                <p
-                  style={
-                    styles.noAnnouncementText
-                  }
-                >
-                  Older teacher announcements will
-                  appear here after their 24-hour
-                  latest period.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div
-              style={
-                styles.announcementList
-              }
-            >
-              {normalAnnouncements.map(
-                (announcement) => (
-                  <article
-                    key={
-                      announcement.id
-                    }
-                    style={
-                      styles.announcementCard
-                    }
-                  >
-                    <div
-                      style={
-                        styles.announcementCardTop
-                      }
-                    >
-                      <div
-                        style={
-                          styles.announcementIcon
-                        }
-                      >
-                        📢
-                      </div>
-
-                      <div
-                        style={
-                          styles.announcementCardContent
-                        }
-                      >
-                        <div
-                          style={
-                            styles.announcementMeta
-                          }
-                        >
-                          <span
-                            style={
-                              styles.teacherBadge
-                            }
-                          >
-                            TEACHER
-                          </span>
-
-                          <span
-                            style={
-                              styles.announcementDate
-                            }
-                          >
-                            {formatAnnouncementDate(
-                              announcement.created_at
-                            )}
-                          </span>
-                        </div>
-
-                        <h3
-                          style={
-                            styles.announcementCardTitle
-                          }
-                        >
-                          {
-                            announcement.title
-                          }
-                        </h3>
-
-                        <p
-                          style={
-                            styles.announcementMessage
-                          }
-                        >
-                          {
-                            announcement.message
-                          }
-                        </p>
-                      </div>
-                    </div>
-
-                    <div
-                      style={
-                        styles.announcementBottom
-                      }
-                    >
-                      <div
-                        style={
-                          styles.everyoneText
-                        }
-                      >
-                        👥 For all students
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          toggleLike(
-                            announcement.id
-                          )
-                        }
-                        disabled={
-                          likingId ===
-                          announcement.id
-                        }
-                        style={{
-                          ...styles.likeButton,
-                          ...(announcement.likedByMe
-                            ? styles.likeButtonActive
-                            : {}),
-                          opacity:
-                            likingId ===
-                            announcement.id
-                              ? 0.65
-                              : 1,
-                          cursor:
-                            likingId ===
-                            announcement.id
-                              ? "not-allowed"
-                              : "pointer",
-                        }}
-                      >
-                        {announcement.likedByMe
-                          ? "❤️ Liked"
-                          : "🤍 Like"}
-
-                        <span
-                          style={
-                            styles.likeCount
-                          }
-                        >
-                          {
-                            announcement.likeCount
-                          }
-                        </span>
-                      </button>
-                    </div>
-                  </article>
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  "/student/announcements"
                 )
-              )}
-            </div>
-          )}
+              }
+              style={
+                styles.viewAnnouncementsButton
+              }
+            >
+              View All Announcements →
+            </button>
+          </div>
         </section>
 
         {/* NOTICE */}
 
-        <section style={styles.notice}>
-          <div style={styles.noticeIcon}>
+        <section
+          style={
+            styles.notice
+          }
+        >
+          <div
+            style={
+              styles.noticeIcon
+            }
+          >
             ℹ️
           </div>
 
           <div>
-            <div style={styles.noticeTitle}>
+            <div
+              style={
+                styles.noticeTitle
+              }
+            >
               Student Information Center
             </div>
 
-            <p style={styles.noticeText}>
+            <p
+              style={
+                styles.noticeText
+              }
+            >
               Use the options below to check
               your attendance, academic
               calendar, homework, reports,
@@ -1466,7 +1379,11 @@ export default function StudentDashboardPage() {
         {/* SERVICES */}
 
         <section>
-          <div style={styles.sectionHeading}>
+          <div
+            style={
+              styles.sectionHeading
+            }
+          >
             <div>
               <div
                 style={
@@ -1476,103 +1393,123 @@ export default function StudentDashboardPage() {
                 STUDENT SERVICES
               </div>
 
-              <h2 style={styles.sectionTitle}>
+              <h2
+                style={
+                  styles.sectionTitle
+                }
+              >
                 Your Dashboard
               </h2>
             </div>
 
-            <div style={styles.serviceCount}>
+            <div
+              style={
+                styles.serviceCount
+              }
+            >
               {cards.length} OPTIONS
             </div>
           </div>
 
-          <div style={styles.cardGrid}>
-            {cards.map((card) => {
-              const styleKey =
-                `card${card.className
-                  .charAt(0)
-                  .toUpperCase()}${card.className.slice(
-                  1
-                )}`;
+          <div
+            style={
+              styles.cardGrid
+            }
+          >
+            {cards.map(
+              (card) => {
+                const styleKey =
+                  `card${card.className
+                    .charAt(0)
+                    .toUpperCase()}${card.className.slice(
+                    1
+                  )}`;
 
-              return (
-                <button
-                  key={card.path}
-                  type="button"
-                  onClick={() =>
-                    router.push(
+                return (
+                  <button
+                    key={
                       card.path
-                    )
-                  }
-                  style={
-                    styles.serviceCard
-                  }
-                >
-                  <div
-                    style={{
-                      ...styles.cardTop,
-                      ...(styles[
-                        styleKey
-                      ] || {}),
-                    }}
-                  >
-                    <div
-                      style={
-                        styles.cardIcon
-                      }
-                    >
-                      {card.icon}
-                    </div>
-
-                    <div
-                      style={
-                        styles.arrow
-                      }
-                    >
-                      →
-                    </div>
-                  </div>
-
-                  <div
+                    }
+                    type="button"
+                    onClick={() =>
+                      router.push(
+                        card.path
+                      )
+                    }
                     style={
-                      styles.cardBody
+                      styles.serviceCard
                     }
                   >
-                    <h3
-                      style={
-                        styles.cardTitle
-                      }
+                    <div
+                      style={{
+                        ...styles.cardTop,
+                        ...(styles[
+                          styleKey
+                        ] || {}),
+                      }}
                     >
-                      {card.title}
-                    </h3>
+                      <div
+                        style={
+                          styles.cardIcon
+                        }
+                      >
+                        {
+                          card.icon
+                        }
+                      </div>
 
-                    <p
-                      style={
-                        styles.cardDescription
-                      }
-                    >
-                      {
-                        card.description
-                      }
-                    </p>
+                      <div
+                        style={
+                          styles.arrow
+                        }
+                      >
+                        →
+                      </div>
+                    </div>
 
                     <div
                       style={
-                        styles.openLink
+                        styles.cardBody
                       }
                     >
-                      <span>
-                        Open
-                      </span>
+                      <h3
+                        style={
+                          styles.cardTitle
+                        }
+                      >
+                        {
+                          card.title
+                        }
+                      </h3>
 
-                      <span>
-                        →
-                      </span>
+                      <p
+                        style={
+                          styles.cardDescription
+                        }
+                      >
+                        {
+                          card.description
+                        }
+                      </p>
+
+                      <div
+                        style={
+                          styles.openLink
+                        }
+                      >
+                        <span>
+                          Open
+                        </span>
+
+                        <span>
+                          →
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                </button>
-              );
-            })}
+                  </button>
+                );
+              }
+            )}
           </div>
         </section>
 
@@ -1583,11 +1520,19 @@ export default function StudentDashboardPage() {
             styles.bottomPanel
           }
         >
-          <div style={styles.bottomIcon}>
+          <div
+            style={
+              styles.bottomIcon
+            }
+          >
             👤
           </div>
 
-          <div style={styles.bottomText}>
+          <div
+            style={
+              styles.bottomText
+            }
+          >
             <h3
               style={
                 styles.bottomTitle
@@ -1624,8 +1569,16 @@ export default function StudentDashboardPage() {
 
         {/* FOOTER */}
 
-        <footer style={styles.footer}>
-          <div style={styles.footerBrand}>
+        <footer
+          style={
+            styles.footer
+          }
+        >
+          <div
+            style={
+              styles.footerBrand
+            }
+          >
             🎓 Attendance Portal
           </div>
 
@@ -1880,12 +1833,6 @@ const styles: {
     fontWeight: "700",
   },
 
-  /*
-   * =====================================================
-   * LATEST ANNOUNCEMENT STYLES
-   * =====================================================
-   */
-
   latestAnnouncementSection: {
     background:
       "linear-gradient(135deg,#eff6ff,#ffffff)",
@@ -1991,12 +1938,6 @@ const styles: {
     wordBreak: "break-word",
   },
 
-  /*
-   * =====================================================
-   * NORMAL ANNOUNCEMENTS
-   * =====================================================
-   */
-
   announcementSection: {
     background: "#ffffff",
     border: "1px solid #dbeafe",
@@ -2009,10 +1950,9 @@ const styles: {
 
   announcementHeader: {
     display: "flex",
-    alignItems: "flex-end",
+    alignItems: "center",
     justifyContent: "space-between",
     gap: "15px",
-    marginBottom: "16px",
     flexWrap: "wrap",
   },
 
@@ -2038,110 +1978,23 @@ const styles: {
     fontWeight: "600",
   },
 
-  announcementBadge: {
-    background: "#eff6ff",
-    color: "#1d4ed8",
-    border: "1px solid #bfdbfe",
-    padding: "8px 11px",
+  viewAnnouncementsButton: {
+    border: "none",
+    background: "#2563eb",
+    color: "#ffffff",
+    padding: "10px 15px",
     borderRadius: "9px",
-    fontSize: "10px",
-    fontWeight: "1000",
-  },
-
-  announcementLoading: {
-    display: "flex",
-    alignItems: "center",
-    gap: "13px",
-    padding: "18px",
-    background: "#f8fafc",
-    borderRadius: "14px",
-    border: "1px dashed #cbd5e1",
-  },
-
-  loadingIcon: {
-    fontSize: "27px",
-  },
-
-  loadingTitle: {
-    color: "#334155",
-    fontSize: "13px",
-    fontWeight: "900",
-  },
-
-  loadingText: {
-    marginTop: "3px",
-    color: "#64748b",
-    fontSize: "10px",
-    fontWeight: "600",
-  },
-
-  noAnnouncements: {
-    display: "flex",
-    alignItems: "center",
-    gap: "14px",
-    padding: "20px",
-    background: "#f8fafc",
-    borderRadius: "14px",
-    border: "1px dashed #cbd5e1",
-  },
-
-  noAnnouncementIcon: {
-    width: "48px",
-    height: "48px",
-    borderRadius: "13px",
-    background: "#eff6ff",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "23px",
-    flexShrink: 0,
-  },
-
-  noAnnouncementTitle: {
-    margin: 0,
-    color: "#334155",
-    fontSize: "14px",
-    fontWeight: "1000",
-  },
-
-  noAnnouncementText: {
-    margin: "4px 0 0",
-    color: "#64748b",
     fontSize: "11px",
-    fontWeight: "600",
-  },
-
-  announcementList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-  },
-
-  announcementCard: {
-    background:
-      "linear-gradient(135deg,#f8fbff,#ffffff)",
-    border: "1px solid #dbeafe",
-    borderRadius: "16px",
-    padding: "16px",
+    fontWeight: "1000",
+    cursor: "pointer",
+    boxShadow:
+      "0 5px 15px rgba(37,99,235,0.18)",
   },
 
   announcementCardTop: {
     display: "flex",
     alignItems: "flex-start",
     gap: "13px",
-  },
-
-  announcementIcon: {
-    width: "45px",
-    height: "45px",
-    minWidth: "45px",
-    borderRadius: "12px",
-    background:
-      "linear-gradient(135deg,#dbeafe,#ede9fe)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "21px",
   },
 
   announcementCardContent: {
@@ -2156,28 +2009,10 @@ const styles: {
     flexWrap: "wrap",
   },
 
-  teacherBadge: {
-    background: "#dbeafe",
-    color: "#1d4ed8",
-    padding: "4px 7px",
-    borderRadius: "6px",
-    fontSize: "8px",
-    fontWeight: "1000",
-    letterSpacing: "0.7px",
-  },
-
   announcementDate: {
     color: "#94a3b8",
     fontSize: "9px",
     fontWeight: "700",
-  },
-
-  announcementCardTitle: {
-    margin: "7px 0 0",
-    color: "#172554",
-    fontSize: "18px",
-    fontWeight: "1000",
-    wordBreak: "break-word",
   },
 
   announcementMessage: {
@@ -2193,7 +2028,8 @@ const styles: {
   announcementBottom: {
     marginTop: "14px",
     paddingTop: "12px",
-    borderTop: "1px solid #e2e8f0",
+    borderTop:
+      "1px solid #e2e8f0",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
@@ -2222,7 +2058,8 @@ const styles: {
 
   likeButtonActive: {
     background: "#fff1f2",
-    border: "1px solid #fecdd3",
+    border:
+      "1px solid #fecdd3",
     color: "#be123c",
   },
 
