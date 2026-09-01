@@ -2,635 +2,2470 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "../../lib/supabase";
 
-export default function StudentSettingsPage() {
+type DashboardCard = {
+  icon: string;
+  title: string;
+  description: string;
+  path: string;
+  className: string;
+};
+
+type Announcement = {
+  id: number;
+  title: string;
+  message: string;
+  created_at: string;
+  likeCount: number;
+  likedByMe: boolean;
+};
+
+export default function StudentDashboardPage() {
   const router = useRouter();
 
+  const [studentName, setStudentName] = useState("Student");
   const [username, setUsername] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [studentId, setStudentId] = useState<number | null>(null);
+  const [time, setTime] = useState("");
 
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [announcements, setAnnouncements] = useState<
+    Announcement[]
+  >([]);
 
-  const [loading, setLoading] = useState(true);
-  const [changing, setChanging] = useState(false);
+  const [announcementLoading, setAnnouncementLoading] =
+    useState(true);
 
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [showAllAnnouncements, setShowAllAnnouncements] =
+    useState(false);
+
+  const [likingId, setLikingId] = useState<number | null>(null);
 
   useEffect(() => {
-    const loadStudent = () => {
-      try {
-        let studentUsername = "";
+    initializeStudent();
 
-        // First try the existing "student" object
-        const storedStudent = localStorage.getItem("student");
+    updateTime();
 
-        if (storedStudent) {
-          try {
-            const student = JSON.parse(storedStudent);
+    const interval = setInterval(updateTime, 1000);
 
-            studentUsername =
-              student?.student_username ||
-              student?.username ||
-              "";
-          } catch (parseError) {
-            console.error(
-              "Unable to parse stored student:",
-              parseError
-            );
-          }
-        }
+    return () => clearInterval(interval);
+  }, []);
 
-        // Fallback to existing localStorage username keys
-        if (!studentUsername) {
-          studentUsername =
-            localStorage.getItem("student_username") ||
-            localStorage.getItem("studentUsername") ||
-            localStorage.getItem("username") ||
-            "";
-        }
+  async function initializeStudent() {
+    const name =
+      localStorage.getItem("studentName") ||
+      localStorage.getItem("student_name") ||
+      "Student";
 
-        if (!studentUsername) {
-          setError(
-            "Student username nahi mila. Please login again."
+    const savedUsername =
+      localStorage.getItem("student_username") ||
+      localStorage.getItem("studentUsername") ||
+      "";
+
+    const savedStudentId =
+      localStorage.getItem("studentId");
+
+    setStudentName(name);
+    setUsername(savedUsername);
+
+    if (savedUsername) {
+      const resolvedId =
+        await resolveStudentId(savedUsername);
+
+      if (resolvedId !== null) {
+        setStudentId(resolvedId);
+
+        localStorage.setItem(
+          "studentId",
+          String(resolvedId)
+        );
+
+        await loadAnnouncements(resolvedId);
+        await registerPushNotifications(resolvedId);
+
+        return;
+      }
+    }
+
+    if (savedStudentId) {
+      const parsedId = Number(savedStudentId);
+
+      if (!Number.isNaN(parsedId) && parsedId > 0) {
+        setStudentId(parsedId);
+
+        await loadAnnouncements(parsedId);
+        await registerPushNotifications(parsedId);
+
+        return;
+      }
+    }
+
+    setStudentId(null);
+
+    await loadAnnouncements(null);
+  }
+
+  async function resolveStudentId(
+    studentUsername: string
+  ): Promise<number | null> {
+    try {
+      const { data, error } = await supabase
+        .from("students")
+        .select("id")
+        .eq("student_username", studentUsername)
+        .maybeSingle();
+
+      if (error) {
+        console.error(
+          "Student ID lookup error:",
+          error
+        );
+
+        return null;
+      }
+
+      if (!data?.id) {
+        console.error(
+          "Student ID not found:",
+          studentUsername
+        );
+
+        return null;
+      }
+
+      return Number(data.id);
+    } catch (error) {
+      console.error(
+        "Unexpected student ID lookup error:",
+        error
+      );
+
+      return null;
+    }
+  }
+
+  async function registerPushNotifications(
+    currentStudentId: number
+  ) {
+    try {
+      if (typeof window === "undefined") {
+        return;
+      }
+
+      if (!("serviceWorker" in navigator)) {
+        return;
+      }
+
+      if (!("PushManager" in window)) {
+        return;
+      }
+
+      if (!("Notification" in window)) {
+        return;
+      }
+
+      const registration =
+        await navigator.serviceWorker.register(
+          "/sw.js"
+        );
+
+      let permission =
+        Notification.permission;
+
+      if (permission === "default") {
+        permission =
+          await Notification.requestPermission();
+      }
+
+      if (permission !== "granted") {
+        return;
+      }
+
+      let subscription =
+        await registration.pushManager.getSubscription();
+
+      if (!subscription) {
+        const vapidPublicKey =
+          process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+
+        if (!vapidPublicKey) {
+          console.error(
+            "NEXT_PUBLIC_VAPID_PUBLIC_KEY is missing."
           );
-          setLoading(false);
+
           return;
         }
 
-        setUsername(studentUsername);
-      } catch (err) {
-        console.error("Student data error:", err);
+        const applicationServerKey =
+          urlBase64ToUint8Array(
+            vapidPublicKey
+          );
 
-        setError(
-          "Student information load nahi ho saki."
-        );
-      } finally {
-        setLoading(false);
+        subscription =
+          await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey,
+          });
       }
-    };
 
-    loadStudent();
-  }, []);
-
-  async function handleChangePassword(
-    e: React.FormEvent<HTMLFormElement>
-  ) {
-    e.preventDefault();
-
-    setMessage("");
-    setError("");
-
-    if (!username) {
-      setError(
-        "Student username nahi mila. Please login again."
+      const response = await fetch(
+        "/api/push/subscribe",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            studentId:
+              currentStudentId,
+            subscription:
+              subscription.toJSON(),
+          }),
+        }
       );
-      return;
-    }
 
-    if (!newPassword || !confirmPassword) {
-      setError(
-        "Please dono password fields fill karein."
-      );
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      setError(
-        "Password kam se kam 6 characters ka hona chahiye."
-      );
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setError(
-        "New Password aur Confirm Password match nahi kar rahe."
-      );
-      return;
-    }
-
-    setChanging(true);
-
-    try {
-      /*
-       * Supabase RPC:
-       *
-       * change_student_password(
-       *   p_username text,
-       *   p_new_password text
-       * ) returns boolean
-       */
-
-      const { data, error: rpcError } =
-        await supabase.rpc(
-          "change_student_password",
-          {
-            p_username: username,
-            p_new_password: newPassword,
-          }
-        );
-
-      if (rpcError) {
+      if (!response.ok) {
         console.error(
-          "Password change RPC error:",
-          rpcError
-        );
-
-        throw new Error(
-          rpcError.message ||
-            "Password change nahi ho saka."
+          "Push subscription API error:",
+          await response.text()
         );
       }
-
-      /*
-       * Database function returns:
-       * TRUE  = password updated
-       * FALSE = username/student not found
-       */
-
-      if (data !== true) {
-        throw new Error(
-          "Password update nahi hua. Student username database mein nahi mila."
-        );
-      }
-
-      setNewPassword("");
-      setConfirmPassword("");
-
-      setShowNewPassword(false);
-      setShowConfirmPassword(false);
-
-      setMessage(
-        "✅ Password successfully change ho gaya."
-      );
-    } catch (err) {
+    } catch (error) {
       console.error(
-        "Unexpected password change error:",
-        err
+        "Push notification registration error:",
+        error
       );
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to change password. Please try again."
-      );
-    } finally {
-      setChanging(false);
     }
   }
 
-  if (loading) {
-    return (
-      <main
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "#f5f7fb",
-          fontFamily: "Arial, sans-serif",
-          padding: "20px",
-          boxSizing: "border-box",
-        }}
-      >
-        <div
-          style={{
-            background: "#ffffff",
-            padding: "25px 35px",
-            borderRadius: "15px",
-            boxShadow:
-              "0 8px 25px rgba(0,0,0,0.08)",
-            fontSize: "16px",
-            fontWeight: 600,
-            color: "#111827",
-          }}
-        >
-          Loading...
-        </div>
-      </main>
+  function urlBase64ToUint8Array(
+    base64String: string
+  ): Uint8Array {
+    const padding =
+      "=".repeat(
+        (4 -
+          (base64String.length % 4)) %
+          4
+      );
+
+    const base64 =
+      (
+        base64String +
+        padding
+      )
+        .replace(/-/g, "+")
+        .replace(/_/g, "/");
+
+    const rawData =
+      window.atob(base64);
+
+    const outputArray =
+      new Uint8Array(
+        rawData.length
+      );
+
+    for (
+      let i = 0;
+      i < rawData.length;
+      i++
+    ) {
+      outputArray[i] =
+        rawData.charCodeAt(i);
+    }
+
+    return outputArray;
+  }
+
+  function updateTime() {
+    setTime(
+      new Date().toLocaleTimeString(
+        "en-IN",
+        {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        }
+      )
     );
   }
 
+  async function loadAnnouncements(
+    currentStudentId: number | null
+  ) {
+    setAnnouncementLoading(true);
+
+    try {
+      const {
+        data: announcementData,
+        error: announcementError,
+      } = await supabase
+        .from("announcements")
+        .select(
+          "id, title, message, created_at"
+        )
+        .order("created_at", {
+          ascending: false,
+        });
+
+      if (announcementError) {
+        console.error(
+          "Announcements loading error:",
+          announcementError
+        );
+
+        setAnnouncements([]);
+        return;
+      }
+
+      const announcementRows =
+        announcementData || [];
+
+      if (announcementRows.length === 0) {
+        setAnnouncements([]);
+        return;
+      }
+
+      const announcementIds =
+        announcementRows.map(
+          (announcement) =>
+            announcement.id
+        );
+
+      const {
+        data: likesData,
+        error: likesError,
+      } = await supabase
+        .from("announcement_likes")
+        .select(
+          "announcement_id, student_id"
+        )
+        .in(
+          "announcement_id",
+          announcementIds
+        );
+
+      if (likesError) {
+        console.error(
+          "Announcement likes loading error:",
+          likesError
+        );
+      }
+
+      const likes =
+        likesData || [];
+
+      const formattedAnnouncements =
+        announcementRows.map(
+          (announcement) => {
+            const announcementLikes =
+              likes.filter(
+                (like) =>
+                  Number(
+                    like.announcement_id
+                  ) ===
+                  Number(
+                    announcement.id
+                  )
+              );
+
+            const likedByMe =
+              currentStudentId !== null &&
+              announcementLikes.some(
+                (like) =>
+                  Number(
+                    like.student_id
+                  ) ===
+                  Number(
+                    currentStudentId
+                  )
+              );
+
+            return {
+              id: Number(
+                announcement.id
+              ),
+              title:
+                announcement.title,
+              message:
+                announcement.message,
+              created_at:
+                announcement.created_at,
+              likeCount:
+                announcementLikes.length,
+              likedByMe,
+            };
+          }
+        );
+
+      setAnnouncements(
+        formattedAnnouncements
+      );
+    } catch (error) {
+      console.error(
+        "Unexpected announcements error:",
+        error
+      );
+
+      setAnnouncements([]);
+    } finally {
+      setAnnouncementLoading(false);
+    }
+  }
+
+  async function toggleLike(
+    announcementId: number
+  ) {
+    let currentStudentId =
+      studentId;
+
+    if (
+      !currentStudentId &&
+      username
+    ) {
+      const resolvedId =
+        await resolveStudentId(
+          username
+        );
+
+      if (resolvedId !== null) {
+        currentStudentId =
+          resolvedId;
+
+        setStudentId(
+          resolvedId
+        );
+
+        localStorage.setItem(
+          "studentId",
+          String(resolvedId)
+        );
+      }
+    }
+
+    if (!currentStudentId) {
+      alert(
+        "Student information could not be found. Please login again."
+      );
+
+      return;
+    }
+
+    if (likingId !== null) {
+      return;
+    }
+
+    const selectedAnnouncement =
+      announcements.find(
+        (item) =>
+          item.id ===
+          announcementId
+      );
+
+    if (!selectedAnnouncement) {
+      return;
+    }
+
+    setLikingId(
+      announcementId
+    );
+
+    try {
+      if (
+        selectedAnnouncement.likedByMe
+      ) {
+        const { error } =
+          await supabase
+            .from(
+              "announcement_likes"
+            )
+            .delete()
+            .eq(
+              "announcement_id",
+              announcementId
+            )
+            .eq(
+              "student_id",
+              currentStudentId
+            );
+
+        if (error) {
+          console.error(
+            "Unlike error:",
+            error
+          );
+
+          alert(
+            `Could not remove like: ${error.message}`
+          );
+
+          return;
+        }
+
+        setAnnouncements(
+          (previous) =>
+            previous.map(
+              (item) =>
+                item.id ===
+                announcementId
+                  ? {
+                      ...item,
+                      likedByMe:
+                        false,
+                      likeCount:
+                        Math.max(
+                          0,
+                          item.likeCount -
+                            1
+                        ),
+                    }
+                  : item
+            )
+        );
+
+        return;
+      }
+
+      const { error } =
+        await supabase
+          .from(
+            "announcement_likes"
+          )
+          .insert({
+            announcement_id:
+              announcementId,
+            student_id:
+              currentStudentId,
+          });
+
+      if (error) {
+        console.error(
+          "Like error:",
+          error
+        );
+
+        if (
+          error.code ===
+          "23505"
+        ) {
+          await loadAnnouncements(
+            currentStudentId
+          );
+        } else {
+          alert(
+            `Could not like announcement: ${error.message}`
+          );
+        }
+
+        return;
+      }
+
+      setAnnouncements(
+        (previous) =>
+          previous.map(
+            (item) =>
+              item.id ===
+              announcementId
+                ? {
+                    ...item,
+                    likedByMe:
+                      true,
+                    likeCount:
+                      item.likeCount +
+                      1,
+                  }
+                : item
+          )
+      );
+    } catch (error) {
+      console.error(
+        "Unexpected like error:",
+        error
+      );
+    } finally {
+      setLikingId(null);
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem(
+      "studentLoggedIn"
+    );
+
+    localStorage.removeItem(
+      "student_username"
+    );
+
+    localStorage.removeItem(
+      "studentUsername"
+    );
+
+    localStorage.removeItem(
+      "studentName"
+    );
+
+    localStorage.removeItem(
+      "student_name"
+    );
+
+    localStorage.removeItem(
+      "studentId"
+    );
+
+    sessionStorage.clear();
+
+    router.push("/");
+  }
+
+  function formatAnnouncementDate(
+    date: string
+  ) {
+    if (!date) {
+      return "";
+    }
+
+    return new Date(
+      date
+    ).toLocaleString(
+      "en-IN",
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }
+    );
+  }
+
+  function openAllAnnouncements() {
+    setShowAllAnnouncements(true);
+
+    setTimeout(() => {
+      document
+        .getElementById(
+          "all-announcements"
+        )
+        ?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+    }, 50);
+  }
+
+  function closeAllAnnouncements() {
+    setShowAllAnnouncements(false);
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }
+
+  const firstLetter =
+    studentName
+      .charAt(0)
+      .toUpperCase();
+
+  const latestAnnouncement =
+    announcements.length > 0
+      ? announcements[0]
+      : null;
+
+  const cards: DashboardCard[] = [
+    {
+      icon: "📊",
+      title: "My Attendance",
+      description:
+        "View your current attendance and attendance percentage.",
+      path: "/student/attendance",
+      className: "blue",
+    },
+    {
+      icon: "📜",
+      title: "Attendance History",
+      description:
+        "Check your previous attendance records and details.",
+      path: "/student/attendance-history",
+      className: "purple",
+    },
+    {
+      icon: "📅",
+      title: "Academic Calendar",
+      description:
+        "View important academic dates and calendar information.",
+      path: "/student/calendar",
+      className: "green",
+    },
+    {
+      icon: "📈",
+      title: "Reports",
+      description:
+        "View your attendance reports and performance details.",
+      path: "/student/reports",
+      className: "orange",
+    },
+    {
+      icon: "💰",
+      title: "Fees",
+      description:
+        "Check your student fee information and payment details.",
+      path: "/student/fees",
+      className: "pink",
+    },
+    {
+      icon: "📚",
+      title: "Homework",
+      description:
+        "View homework assigned to your class by your teacher.",
+      path: "/student/homework",
+      className: "indigo",
+    },
+    {
+      icon: "⚙️",
+      title: "Settings",
+      description:
+        "Manage your account, name and password.",
+      path: "/student/settings",
+      className: "cyan",
+    },
+  ];
+
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "#f5f7fb",
-        padding: "30px 20px",
-        fontFamily: "Arial, sans-serif",
-        boxSizing: "border-box",
-      }}
-    >
-      <div
-        style={{
-          maxWidth: "500px",
-          margin: "0 auto",
-        }}
-      >
-        {/* BACK BUTTON */}
+    <main style={styles.page}>
+      <div style={styles.container}>
 
-        <button
-          type="button"
-          onClick={() => router.back()}
-          style={{
-            border: "none",
-            background: "transparent",
-            fontSize: "16px",
-            cursor: "pointer",
-            marginBottom: "20px",
-            color: "#111827",
-            fontWeight: 600,
-            padding: "5px 0",
-          }}
-        >
-          ← Back
-        </button>
+        {/* TOP NAVIGATION */}
 
-        {/* MAIN CARD */}
-
-        <div
-          style={{
-            background: "#ffffff",
-            borderRadius: "18px",
-            padding: "28px",
-            boxShadow:
-              "0 10px 30px rgba(0,0,0,0.08)",
-          }}
-        >
-          {/* HEADER */}
-
-          <div
-            style={{
-              marginBottom: "25px",
-            }}
-          >
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: "50px",
-                height: "50px",
-                borderRadius: "14px",
-                background: "#eef2ff",
-                fontSize: "24px",
-                marginBottom: "12px",
-              }}
-            >
-              🔐
+        <nav style={styles.navbar}>
+          <div style={styles.brandArea}>
+            <div style={styles.brandIcon}>
+              🎓
             </div>
 
-            <h1
-              style={{
-                margin: 0,
-                fontSize: "25px",
-                fontWeight: 800,
-                color: "#111827",
-              }}
+            <div>
+              <div style={styles.brandName}>
+                ATTENDANCE PORTAL
+              </div>
+
+              <div style={styles.brandSub}>
+                STUDENT CENTER
+              </div>
+            </div>
+          </div>
+
+          <div style={styles.navRight}>
+            <div style={styles.clock}>
+              🕒 {time}
+            </div>
+
+            <button
+              type="button"
+              onClick={logout}
+              style={styles.logoutButton}
             >
-              Change Password
-            </h1>
+              Logout
+            </button>
+          </div>
+        </nav>
+
+        {/* HERO */}
+
+        <section style={styles.hero}>
+          <div
+            style={
+              styles.heroGlowOne
+            }
+          />
+
+          <div
+            style={
+              styles.heroGlowTwo
+            }
+          />
+
+          <div style={styles.heroContent}>
+            <div style={styles.avatar}>
+              {firstLetter}
+            </div>
+
+            <div style={styles.welcomeArea}>
+              <div style={styles.smallGreeting}>
+                STUDENT DASHBOARD
+              </div>
+
+              <h1 style={styles.welcomeTitle}>
+                Welcome, {studentName}
+              </h1>
+
+              <p style={styles.welcomeText}>
+                Your attendance, academic
+                information, homework, fees
+                and account tools are all
+                available here.
+              </p>
+
+              {username && (
+                <div
+                  style={
+                    styles.usernameBadge
+                  }
+                >
+                  Username: {username}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div style={styles.heroSide}>
+            <div style={styles.statusDot} />
+
+            <div>
+              <div style={styles.onlineText}>
+                ACCOUNT ACTIVE
+              </div>
+
+              <div style={styles.onlineSub}>
+                Student Portal
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* LATEST ANNOUNCEMENT */}
+
+        <section
+          style={
+            styles.latestAnnouncementSection
+          }
+        >
+          <div
+            style={
+              styles.latestHeader
+            }
+          >
+            <div>
+              <div
+                style={
+                  styles.latestEyebrow
+                }
+              >
+                📢 NEW UPDATE
+              </div>
+
+              <h2
+                style={
+                  styles.latestTitle
+                }
+              >
+                Latest Announcement
+              </h2>
+
+              <p
+                style={
+                  styles.latestSubtitle
+                }
+              >
+                Only the newest teacher update
+                is shown here.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={
+                openAllAnnouncements
+              }
+              style={
+                styles.allAnnouncementsButton
+              }
+            >
+              📋 All Announcements
+              <span
+                style={
+                  styles.allCount
+                }
+              >
+                {announcements.length}
+              </span>
+            </button>
+          </div>
+
+          {announcementLoading ? (
+            <div
+              style={
+                styles.latestLoading
+              }
+            >
+              <div
+                style={
+                  styles.latestLoadingIcon
+                }
+              >
+                ⏳
+              </div>
+
+              <div>
+                <div
+                  style={
+                    styles.latestLoadingTitle
+                  }
+                >
+                  Checking for new
+                  announcements...
+                </div>
+
+                <div
+                  style={
+                    styles.latestLoadingText
+                  }
+                >
+                  Please wait.
+                </div>
+              </div>
+            </div>
+          ) : latestAnnouncement ? (
+            <article
+              style={
+                styles.latestCard
+              }
+            >
+              <div
+                style={
+                  styles.newRibbon
+                }
+              >
+                NEW
+              </div>
+
+              <div
+                style={
+                  styles.latestCardTop
+                }
+              >
+                <div
+                  style={
+                    styles.latestIcon
+                  }
+                >
+                  📢
+                </div>
+
+                <div
+                  style={
+                    styles.latestContent
+                  }
+                >
+                  <div
+                    style={
+                      styles.latestMeta
+                    }
+                  >
+                    <span
+                      style={
+                        styles.teacherBadge
+                      }
+                    >
+                      TEACHER
+                    </span>
+
+                    <span
+                      style={
+                        styles.latestDate
+                      }
+                    >
+                      {formatAnnouncementDate(
+                        latestAnnouncement.created_at
+                      )}
+                    </span>
+                  </div>
+
+                  <h3
+                    style={
+                      styles.latestCardTitle
+                    }
+                  >
+                    {
+                      latestAnnouncement.title
+                    }
+                  </h3>
+
+                  <p
+                    style={
+                      styles.latestMessage
+                    }
+                  >
+                    {
+                      latestAnnouncement.message
+                    }
+                  </p>
+                </div>
+              </div>
+
+              <div
+                style={
+                  styles.latestBottom
+                }
+              >
+                <div
+                  style={
+                    styles.latestForText
+                  }
+                >
+                  👥 For all students
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    toggleLike(
+                      latestAnnouncement.id
+                    )
+                  }
+                  disabled={
+                    likingId ===
+                    latestAnnouncement.id
+                  }
+                  style={{
+                    ...styles.likeButton,
+                    ...(latestAnnouncement.likedByMe
+                      ? styles.likeButtonActive
+                      : {}),
+                    opacity:
+                      likingId ===
+                      latestAnnouncement.id
+                        ? 0.65
+                        : 1,
+                    cursor:
+                      likingId ===
+                      latestAnnouncement.id
+                        ? "not-allowed"
+                        : "pointer",
+                  }}
+                >
+                  {latestAnnouncement.likedByMe
+                    ? "❤️ Liked"
+                    : "🤍 Like"}
+
+                  <span
+                    style={
+                      styles.likeCount
+                    }
+                  >
+                    {
+                      latestAnnouncement.likeCount
+                    }
+                  </span>
+                </button>
+              </div>
+            </article>
+          ) : (
+            <div
+              style={
+                styles.noLatest
+              }
+            >
+              <div
+                style={
+                  styles.noLatestIcon
+                }
+              >
+                📭
+              </div>
+
+              <div>
+                <h3
+                  style={
+                    styles.noLatestTitle
+                  }
+                >
+                  No New Announcements
+                </h3>
+
+                <p
+                  style={
+                    styles.noLatestText
+                  }
+                >
+                  Your teacher has not
+                  published any announcement
+                  yet.
+                </p>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* ALL ANNOUNCEMENTS */}
+
+        {showAllAnnouncements && (
+          <section
+            id="all-announcements"
+            style={
+              styles.allAnnouncementsSection
+            }
+          >
+            <div
+              style={
+                styles.allAnnouncementsHeader
+              }
+            >
+              <div>
+                <div
+                  style={
+                    styles.allEyebrow
+                  }
+                >
+                  📚 ANNOUNCEMENT CENTER
+                </div>
+
+                <h2
+                  style={
+                    styles.allTitle
+                  }
+                >
+                  All Announcements
+                </h2>
+
+                <p
+                  style={
+                    styles.allSubtitle
+                  }
+                >
+                  View all teacher announcements
+                  and like the updates you find
+                  useful.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={
+                  closeAllAnnouncements
+                }
+                style={
+                  styles.closeAnnouncementsButton
+                }
+              >
+                ↑ Back to Dashboard
+              </button>
+            </div>
+
+            {announcements.length === 0 ? (
+              <div
+                style={
+                  styles.noLatest
+                }
+              >
+                <div
+                  style={
+                    styles.noLatestIcon
+                  }
+                >
+                  📭
+                </div>
+
+                <div>
+                  <h3
+                    style={
+                      styles.noLatestTitle
+                    }
+                  >
+                    No Announcements
+                  </h3>
+
+                  <p
+                    style={
+                      styles.noLatestText
+                    }
+                  >
+                    There are no announcements
+                    available right now.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div
+                style={
+                  styles.announcementList
+                }
+              >
+                {announcements.map(
+                  (
+                    announcement,
+                    index
+                  ) => (
+                    <article
+                      key={
+                        announcement.id
+                      }
+                      style={
+                        styles.announcementCard
+                      }
+                    >
+                      {index === 0 && (
+                        <div
+                          style={
+                            styles.archiveNewBadge
+                          }
+                        >
+                          LATEST
+                        </div>
+                      )}
+
+                      <div
+                        style={
+                          styles.announcementCardTop
+                        }
+                      >
+                        <div
+                          style={
+                            styles.announcementIcon
+                          }
+                        >
+                          📢
+                        </div>
+
+                        <div
+                          style={
+                            styles.announcementCardContent
+                          }
+                        >
+                          <div
+                            style={
+                              styles.announcementMeta
+                            }
+                          >
+                            <span
+                              style={
+                                styles.teacherBadge
+                              }
+                            >
+                              TEACHER
+                            </span>
+
+                            <span
+                              style={
+                                styles.announcementDate
+                              }
+                            >
+                              {formatAnnouncementDate(
+                                announcement.created_at
+                              )}
+                            </span>
+                          </div>
+
+                          <h3
+                            style={
+                              styles.announcementCardTitle
+                            }
+                          >
+                            {
+                              announcement.title
+                            }
+                          </h3>
+
+                          <p
+                            style={
+                              styles.announcementMessage
+                            }
+                          >
+                            {
+                              announcement.message
+                            }
+                          </p>
+                        </div>
+                      </div>
+
+                      <div
+                        style={
+                          styles.announcementBottom
+                        }
+                      >
+                        <div
+                          style={
+                            styles.everyoneText
+                          }
+                        >
+                          👥 For all students
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            toggleLike(
+                              announcement.id
+                            )
+                          }
+                          disabled={
+                            likingId ===
+                            announcement.id
+                          }
+                          style={{
+                            ...styles.likeButton,
+                            ...(announcement.likedByMe
+                              ? styles.likeButtonActive
+                              : {}),
+                            opacity:
+                              likingId ===
+                              announcement.id
+                                ? 0.65
+                                : 1,
+                            cursor:
+                              likingId ===
+                              announcement.id
+                                ? "not-allowed"
+                                : "pointer",
+                          }}
+                        >
+                          {announcement.likedByMe
+                            ? "❤️ Liked"
+                            : "🤍 Like"}
+
+                          <span
+                            style={
+                              styles.likeCount
+                            }
+                          >
+                            {
+                              announcement.likeCount
+                            }
+                          </span>
+                        </button>
+                      </div>
+                    </article>
+                  )
+                )}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* NOTICE */}
+
+        <section style={styles.notice}>
+          <div style={styles.noticeIcon}>
+            ℹ️
+          </div>
+
+          <div>
+            <div style={styles.noticeTitle}>
+              Student Information Center
+            </div>
+
+            <p style={styles.noticeText}>
+              Use the options below to check
+              your attendance, academic
+              calendar, homework, reports,
+              fees and account settings.
+            </p>
+          </div>
+        </section>
+
+        {/* SERVICES */}
+
+        <section>
+          <div style={styles.sectionHeading}>
+            <div>
+              <div
+                style={
+                  styles.sectionEyebrow
+                }
+              >
+                STUDENT SERVICES
+              </div>
+
+              <h2 style={styles.sectionTitle}>
+                Your Dashboard
+              </h2>
+            </div>
+
+            <div style={styles.serviceCount}>
+              {cards.length} OPTIONS
+            </div>
+          </div>
+
+          <div style={styles.cardGrid}>
+            {cards.map((card) => {
+              const styleKey =
+                `card${card.className
+                  .charAt(0)
+                  .toUpperCase()}${card.className.slice(
+                  1
+                )}`;
+
+              return (
+                <button
+                  key={card.path}
+                  type="button"
+                  onClick={() =>
+                    router.push(
+                      card.path
+                    )
+                  }
+                  style={
+                    styles.serviceCard
+                  }
+                >
+                  <div
+                    style={{
+                      ...styles.cardTop,
+                      ...(styles[
+                        styleKey
+                      ] || {}),
+                    }}
+                  >
+                    <div
+                      style={
+                        styles.cardIcon
+                      }
+                    >
+                      {card.icon}
+                    </div>
+
+                    <div
+                      style={
+                        styles.arrow
+                      }
+                    >
+                      →
+                    </div>
+                  </div>
+
+                  <div
+                    style={
+                      styles.cardBody
+                    }
+                  >
+                    <h3
+                      style={
+                        styles.cardTitle
+                      }
+                    >
+                      {card.title}
+                    </h3>
+
+                    <p
+                      style={
+                        styles.cardDescription
+                      }
+                    >
+                      {
+                        card.description
+                      }
+                    </p>
+
+                    <div
+                      style={
+                        styles.openLink
+                      }
+                    >
+                      <span>
+                        Open
+                      </span>
+
+                      <span>
+                        →
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* PROFILE PANEL */}
+
+        <section
+          style={
+            styles.bottomPanel
+          }
+        >
+          <div style={styles.bottomIcon}>
+            👤
+          </div>
+
+          <div style={styles.bottomText}>
+            <h3
+              style={
+                styles.bottomTitle
+              }
+            >
+              Keep your profile updated
+            </h3>
 
             <p
-              style={{
-                margin: "7px 0 0",
-                color: "#6b7280",
-                fontSize: "14px",
-                lineHeight: 1.5,
-              }}
+              style={
+                styles.bottomDescription
+              }
             >
-              Change your student account password
-              securely.
+              Your personal information is
+              managed through your student
+              profile.
             </p>
           </div>
 
-          {/* ERROR MESSAGE */}
-
-          {error && (
-            <div
-              style={{
-                background: "#fef2f2",
-                color: "#b91c1c",
-                border:
-                  "1px solid #fecaca",
-                padding: "12px 15px",
-                borderRadius: "10px",
-                marginBottom: "18px",
-                fontSize: "14px",
-                fontWeight: 600,
-                lineHeight: 1.5,
-              }}
-            >
-              ⚠️ {error}
-            </div>
-          )}
-
-          {/* SUCCESS MESSAGE */}
-
-          {message && (
-            <div
-              style={{
-                background: "#ecfdf5",
-                color: "#047857",
-                border:
-                  "1px solid #a7f3d0",
-                padding: "12px 15px",
-                borderRadius: "10px",
-                marginBottom: "18px",
-                fontSize: "14px",
-                fontWeight: 600,
-                lineHeight: 1.5,
-              }}
-            >
-              {message}
-            </div>
-          )}
-
-          <form onSubmit={handleChangePassword}>
-            {/* USERNAME */}
-
-            <div
-              style={{
-                marginBottom: "18px",
-              }}
-            >
-              <label
-                style={{
-                  display: "block",
-                  fontWeight: 700,
-                  marginBottom: "8px",
-                  color: "#111827",
-                  fontSize: "14px",
-                }}
-              >
-                Username
-              </label>
-
-              <input
-                type="text"
-                value={username}
-                readOnly
-                style={{
-                  width: "100%",
-                  boxSizing: "border-box",
-                  padding: "13px 14px",
-                  borderRadius: "10px",
-                  border:
-                    "1px solid #d1d5db",
-                  background: "#f3f4f6",
-                  color: "#555",
-                  fontSize: "15px",
-                  outline: "none",
-                  cursor: "not-allowed",
-                }}
-              />
-
-              <small
-                style={{
-                  display: "block",
-                  marginTop: "6px",
-                  color: "#9ca3af",
-                  fontSize: "12px",
-                }}
-              >
-                Username cannot be changed.
-              </small>
-            </div>
-
-            {/* NEW PASSWORD */}
-
-            <div
-              style={{
-                marginBottom: "18px",
-              }}
-            >
-              <label
-                style={{
-                  display: "block",
-                  fontWeight: 700,
-                  marginBottom: "8px",
-                  color: "#111827",
-                  fontSize: "14px",
-                }}
-              >
-                New Password
-              </label>
-
-              <div
-                style={{
-                  position: "relative",
-                }}
-              >
-                <input
-                  type={
-                    showNewPassword
-                      ? "text"
-                      : "password"
-                  }
-                  value={newPassword}
-                  onChange={(e) => {
-                    setNewPassword(e.target.value);
-                    setError("");
-                    setMessage("");
-                  }}
-                  placeholder="Enter new password"
-                  autoComplete="new-password"
-                  disabled={changing}
-                  style={{
-                    width: "100%",
-                    boxSizing: "border-box",
-                    padding:
-                      "13px 50px 13px 14px",
-                    borderRadius: "10px",
-                    border:
-                      "1px solid #d1d5db",
-                    fontSize: "15px",
-                    outline: "none",
-                    color: "#111827",
-                    background: changing
-                      ? "#f9fafb"
-                      : "#ffffff",
-                  }}
-                />
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setShowNewPassword(
-                      (previous) => !previous
-                    )
-                  }
-                  disabled={changing}
-                  aria-label={
-                    showNewPassword
-                      ? "Hide new password"
-                      : "Show new password"
-                  }
-                  style={{
-                    position: "absolute",
-                    right: "10px",
-                    top: "50%",
-                    transform:
-                      "translateY(-50%)",
-                    border: "none",
-                    background:
-                      "transparent",
-                    cursor: changing
-                      ? "not-allowed"
-                      : "pointer",
-                    fontSize: "18px",
-                    padding: "5px",
-                  }}
-                >
-                  {showNewPassword
-                    ? "🙈"
-                    : "👁️"}
-                </button>
-              </div>
-            </div>
-
-            {/* CONFIRM PASSWORD */}
-
-            <div
-              style={{
-                marginBottom: "24px",
-              }}
-            >
-              <label
-                style={{
-                  display: "block",
-                  fontWeight: 700,
-                  marginBottom: "8px",
-                  color: "#111827",
-                  fontSize: "14px",
-                }}
-              >
-                Confirm New Password
-              </label>
-
-              <div
-                style={{
-                  position: "relative",
-                }}
-              >
-                <input
-                  type={
-                    showConfirmPassword
-                      ? "text"
-                      : "password"
-                  }
-                  value={confirmPassword}
-                  onChange={(e) => {
-                    setConfirmPassword(
-                      e.target.value
-                    );
-                    setError("");
-                    setMessage("");
-                  }}
-                  placeholder="Confirm new password"
-                  autoComplete="new-password"
-                  disabled={changing}
-                  style={{
-                    width: "100%",
-                    boxSizing: "border-box",
-                    padding:
-                      "13px 50px 13px 14px",
-                    borderRadius: "10px",
-                    border:
-                      "1px solid #d1d5db",
-                    fontSize: "15px",
-                    outline: "none",
-                    color: "#111827",
-                    background: changing
-                      ? "#f9fafb"
-                      : "#ffffff",
-                  }}
-                />
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setShowConfirmPassword(
-                      (previous) => !previous
-                    )
-                  }
-                  disabled={changing}
-                  aria-label={
-                    showConfirmPassword
-                      ? "Hide confirm password"
-                      : "Show confirm password"
-                  }
-                  style={{
-                    position: "absolute",
-                    right: "10px",
-                    top: "50%",
-                    transform:
-                      "translateY(-50%)",
-                    border: "none",
-                    background:
-                      "transparent",
-                    cursor: changing
-                      ? "not-allowed"
-                      : "pointer",
-                    fontSize: "18px",
-                    padding: "5px",
-                  }}
-                >
-                  {showConfirmPassword
-                    ? "🙈"
-                    : "👁️"}
-                </button>
-              </div>
-            </div>
-
-            {/* CHANGE PASSWORD BUTTON */}
-
-            <button
-              type="submit"
-              disabled={changing}
-              style={{
-                width: "100%",
-                padding: "14px",
-                border: "none",
-                borderRadius: "10px",
-                background: changing
-                  ? "#9ca3af"
-                  : "#111827",
-                color: "#ffffff",
-                fontSize: "16px",
-                fontWeight: 700,
-                cursor: changing
-                  ? "not-allowed"
-                  : "pointer",
-                transition: "0.2s",
-              }}
-            >
-              {changing
-                ? "⏳ Updating Password..."
-                : "🔑 Change Password"}
-            </button>
-          </form>
-
-          {/* FOOTER NOTE */}
-
-          <p
-            style={{
-              textAlign: "center",
-              color: "#777",
-              fontSize: "13px",
-              marginTop: "18px",
-              marginBottom: 0,
-              lineHeight: 1.5,
-            }}
+          <button
+            type="button"
+            onClick={() =>
+              router.push(
+                "/student/profile"
+              )
+            }
+            style={
+              styles.profileButton
+            }
           >
-            Password change hone ke baad next
-            login mein new password use karein.
-          </p>
-        </div>
+            View Profile →
+          </button>
+        </section>
+
+        {/* FOOTER */}
+
+        <footer style={styles.footer}>
+          <div style={styles.footerBrand}>
+            🎓 Attendance Portal
+          </div>
+
+          <div>
+            Student Portal • 2026
+          </div>
+        </footer>
       </div>
     </main>
   );
 }
+
+const styles: {
+  [key: string]: React.CSSProperties;
+} = {
+  page: {
+    minHeight: "100vh",
+    background:
+      "linear-gradient(135deg,#f8fafc 0%,#eef2ff 50%,#f0f9ff 100%)",
+    padding: "18px",
+    boxSizing: "border-box",
+    fontFamily:
+      "Arial, Helvetica, sans-serif",
+    color: "#0f172a",
+  },
+
+  container: {
+    width: "100%",
+    maxWidth: "1250px",
+    margin: "0 auto",
+  },
+
+  navbar: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "18px",
+    padding: "14px 18px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "15px",
+    marginBottom: "18px",
+    boxShadow:
+      "0 8px 25px rgba(15,23,42,0.06)",
+    flexWrap: "wrap",
+  },
+
+  brandArea: {
+    display: "flex",
+    alignItems: "center",
+    gap: "11px",
+  },
+
+  brandIcon: {
+    width: "45px",
+    height: "45px",
+    borderRadius: "13px",
+    background:
+      "linear-gradient(135deg,#2563eb,#7c3aed)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "22px",
+  },
+
+  brandName: {
+    fontSize: "13px",
+    fontWeight: 1000,
+    letterSpacing: "1px",
+    color: "#172554",
+  },
+
+  brandSub: {
+    marginTop: "3px",
+    fontSize: "9px",
+    fontWeight: 900,
+    letterSpacing: "2px",
+    color: "#64748b",
+  },
+
+  navRight: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    flexWrap: "wrap",
+  },
+
+  clock: {
+    background: "#f8fafc",
+    border: "1px solid #e2e8f0",
+    padding: "9px 12px",
+    borderRadius: "9px",
+    color: "#475569",
+    fontSize: "11px",
+    fontWeight: 800,
+  },
+
+  logoutButton: {
+    border: "none",
+    background: "#0f172a",
+    color: "#ffffff",
+    padding: "10px 15px",
+    borderRadius: "9px",
+    fontWeight: 900,
+    cursor: "pointer",
+  },
+
+  hero: {
+    position: "relative",
+    overflow: "hidden",
+    background:
+      "linear-gradient(135deg,#172554,#2563eb,#4f46e5)",
+    borderRadius: "25px",
+    padding: "34px",
+    minHeight: "220px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "25px",
+    marginBottom: "18px",
+    boxShadow:
+      "0 18px 45px rgba(37,99,235,0.22)",
+    boxSizing: "border-box",
+  },
+
+  heroGlowOne: {
+    position: "absolute",
+    width: "230px",
+    height: "230px",
+    borderRadius: "50%",
+    background:
+      "rgba(255,255,255,0.08)",
+    right: "120px",
+    top: "-100px",
+  },
+
+  heroGlowTwo: {
+    position: "absolute",
+    width: "180px",
+    height: "180px",
+    borderRadius: "50%",
+    background:
+      "rgba(255,255,255,0.06)",
+    right: "-40px",
+    bottom: "-90px",
+  },
+
+  heroContent: {
+    position: "relative",
+    zIndex: 2,
+    display: "flex",
+    alignItems: "center",
+    gap: "20px",
+    minWidth: 0,
+  },
+
+  avatar: {
+    width: "88px",
+    height: "88px",
+    minWidth: "88px",
+    borderRadius: "24px",
+    background: "#ffffff",
+    color: "#2563eb",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "38px",
+    fontWeight: 1000,
+    boxShadow:
+      "0 12px 30px rgba(0,0,0,0.18)",
+  },
+
+  welcomeArea: {
+    minWidth: 0,
+  },
+
+  smallGreeting: {
+    color: "#bfdbfe",
+    fontSize: "10px",
+    fontWeight: 1000,
+    letterSpacing: "2px",
+    marginBottom: "8px",
+  },
+
+  welcomeTitle: {
+    margin: 0,
+    color: "#ffffff",
+    fontSize: "30px",
+    lineHeight: 1.2,
+    fontWeight: 1000,
+    wordBreak: "break-word",
+  },
+
+  welcomeText: {
+    margin: "9px 0 0",
+    color: "#dbeafe",
+    fontSize: "13px",
+    fontWeight: 600,
+    lineHeight: 1.6,
+    maxWidth: "600px",
+  },
+
+  usernameBadge: {
+    display: "inline-block",
+    marginTop: "13px",
+    padding: "7px 11px",
+    borderRadius: "8px",
+    background:
+      "rgba(255,255,255,0.13)",
+    border:
+      "1px solid rgba(255,255,255,0.22)",
+    color: "#ffffff",
+    fontSize: "11px",
+    fontWeight: 900,
+  },
+
+  heroSide: {
+    position: "relative",
+    zIndex: 2,
+    background:
+      "rgba(255,255,255,0.12)",
+    border:
+      "1px solid rgba(255,255,255,0.2)",
+    borderRadius: "14px",
+    padding: "13px 15px",
+    display: "flex",
+    alignItems: "center",
+    gap: "9px",
+    minWidth: "155px",
+  },
+
+  statusDot: {
+    width: "10px",
+    height: "10px",
+    borderRadius: "50%",
+    background: "#4ade80",
+    boxShadow:
+      "0 0 0 5px rgba(74,222,128,0.15)",
+  },
+
+  onlineText: {
+    color: "#ffffff",
+    fontSize: "10px",
+    fontWeight: 1000,
+    letterSpacing: "1px",
+  },
+
+  onlineSub: {
+    marginTop: "3px",
+    color: "#bfdbfe",
+    fontSize: "10px",
+    fontWeight: 700,
+  },
+
+  latestAnnouncementSection: {
+    background:
+      "linear-gradient(135deg,#ffffff,#f8fbff)",
+    border: "1px solid #dbeafe",
+    borderRadius: "22px",
+    padding: "20px",
+    marginBottom: "20px",
+    boxShadow:
+      "0 10px 30px rgba(15,23,42,0.06)",
+  },
+
+  latestHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "15px",
+    marginBottom: "15px",
+    flexWrap: "wrap",
+  },
+
+  latestEyebrow: {
+    color: "#2563eb",
+    fontSize: "9px",
+    fontWeight: 1000,
+    letterSpacing: "2px",
+    marginBottom: "4px",
+  },
+
+  latestTitle: {
+    margin: 0,
+    color: "#172554",
+    fontSize: "23px",
+    fontWeight: 1000,
+  },
+
+  latestSubtitle: {
+    margin: "5px 0 0",
+    color: "#64748b",
+    fontSize: "11px",
+    fontWeight: 600,
+  },
+
+  allAnnouncementsButton: {
+    border: "1px solid #bfdbfe",
+    background:
+      "linear-gradient(135deg,#eff6ff,#eef2ff)",
+    color: "#1d4ed8",
+    padding: "10px 13px",
+    borderRadius: "11px",
+    fontSize: "11px",
+    fontWeight: 1000,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+
+  allCount: {
+    minWidth: "20px",
+    height: "20px",
+    padding: "0 5px",
+    borderRadius: "999px",
+    background: "#2563eb",
+    color: "#ffffff",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "9px",
+    fontWeight: 1000,
+  },
+
+  latestLoading: {
+    display: "flex",
+    alignItems: "center",
+    gap: "13px",
+    padding: "18px",
+    borderRadius: "15px",
+    background: "#f8fafc",
+    border: "1px dashed #cbd5e1",
+  },
+
+  latestLoadingIcon: {
+    fontSize: "25px",
+  },
+
+  latestLoadingTitle: {
+    color: "#334155",
+    fontSize: "13px",
+    fontWeight: 900,
+  },
+
+  latestLoadingText: {
+    marginTop: "3px",
+    color: "#64748b",
+    fontSize: "10px",
+    fontWeight: 600,
+  },
+
+  latestCard: {
+    position: "relative",
+    overflow: "hidden",
+    background:
+      "linear-gradient(135deg,#eff6ff,#ffffff,#f5f3ff)",
+    border: "1px solid #bfdbfe",
+    borderRadius: "18px",
+    padding: "17px",
+    boxShadow:
+      "0 8px 25px rgba(37,99,235,0.08)",
+  },
+
+  newRibbon: {
+    position: "absolute",
+    top: "0",
+    right: "0",
+    background:
+      "linear-gradient(135deg,#2563eb,#7c3aed)",
+    color: "#ffffff",
+    padding: "6px 11px",
+    borderBottomLeftRadius: "11px",
+    fontSize: "8px",
+    fontWeight: 1000,
+    letterSpacing: "1px",
+  },
+
+  latestCardTop: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "13px",
+  },
+
+  latestIcon: {
+    width: "50px",
+    height: "50px",
+    minWidth: "50px",
+    borderRadius: "15px",
+    background:
+      "linear-gradient(135deg,#dbeafe,#ede9fe)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "23px",
+  },
+
+  latestContent: {
+    minWidth: 0,
+    flex: 1,
+    paddingRight: "40px",
+  },
+
+  latestMeta: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    flexWrap: "wrap",
+  },
+
+  teacherBadge: {
+    background: "#dbeafe",
+    color: "#1d4ed8",
+    padding: "4px 7px",
+    borderRadius: "6px",
+    fontSize: "8px",
+    fontWeight: 1000,
+    letterSpacing: "0.7px",
+  },
+
+  latestDate: {
+    color: "#94a3b8",
+    fontSize: "9px",
+    fontWeight: 700,
+  },
+
+  latestCardTitle: {
+    margin: "7px 0 0",
+    color: "#172554",
+    fontSize: "18px",
+    fontWeight: 1000,
+    wordBreak: "break-word",
+  },
+
+  latestMessage: {
+    margin: "7px 0 0",
+    color: "#475569",
+    fontSize: "12px",
+    lineHeight: 1.65,
+    fontWeight: 600,
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+  },
+
+  latestBottom: {
+    marginTop: "14px",
+    paddingTop: "12px",
+    borderTop: "1px solid #dbeafe",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "10px",
+    flexWrap: "wrap",
+  },
+
+  latestForText: {
+    color: "#64748b",
+    fontSize: "10px",
+    fontWeight: 800,
+  },
+
+  likeButton: {
+    border: "1px solid #cbd5e1",
+    background: "#ffffff",
+    color: "#475569",
+    padding: "8px 11px",
+    borderRadius: "9px",
+    fontSize: "11px",
+    fontWeight: 1000,
+    display: "flex",
+    alignItems: "center",
+    gap: "7px",
+  },
+
+  likeButtonActive: {
+    background: "#fff1f2",
+    border: "1px solid #fecdd3",
+    color: "#be123c",
+  },
+
+  likeCount: {
+    background: "#f1f5f9",
+    color: "#475569",
+    minWidth: "19px",
+    height: "19px",
+    padding: "0 4px",
+    borderRadius: "999px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "9px",
+    fontWeight: 1000,
+  },
+
+  noLatest: {
+    display: "flex",
+    alignItems: "center",
+    gap: "14px",
+    padding: "20px",
+    background: "#f8fafc",
+    borderRadius: "15px",
+    border: "1px dashed #cbd5e1",
+  },
+
+  noLatestIcon: {
+    width: "48px",
+    height: "48px",
+    minWidth: "48px",
+    borderRadius: "13px",
+    background: "#eff6ff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "23px",
+  },
+
+  noLatestTitle: {
+    margin: 0,
+    color: "#334155",
+    fontSize: "14px",
+    fontWeight: 1000,
+  },
+
+  noLatestText: {
+    margin: "4px 0 0",
+    color: "#64748b",
+    fontSize: "11px",
+    fontWeight: 600,
+  },
+
+  allAnnouncementsSection: {
+    background: "#ffffff",
+    border: "1px solid #ddd6fe",
+    borderRadius: "22px",
+    padding: "20px",
+    marginBottom: "25px",
+    boxShadow:
+      "0 12px 32px rgba(79,70,229,0.08)",
+  },
+
+  allAnnouncementsHeader: {
+    display: "flex",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: "15px",
+    marginBottom: "17px",
+    flexWrap: "wrap",
+  },
+
+  allEyebrow: {
+    color: "#7c3aed",
+    fontSize: "9px",
+    fontWeight: 1000,
+    letterSpacing: "2px",
+    marginBottom: "4px",
+  },
+
+  allTitle: {
+    margin: 0,
+    color: "#312e81",
+    fontSize: "23px",
+    fontWeight: 1000,
+  },
+
+  allSubtitle: {
+    margin: "5px 0 0",
+    color: "#64748b",
+    fontSize: "11px",
+    fontWeight: 600,
+  },
+
+  closeAnnouncementsButton: {
+    border: "1px solid #ddd6fe",
+    background: "#f5f3ff",
+    color: "#6d28d9",
+    padding: "10px 13px",
+    borderRadius: "10px",
+    fontSize: "10px",
+    fontWeight: 1000,
+    cursor: "pointer",
+  },
+
+  announcementList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+  },
+
+  announcementCard: {
+    position: "relative",
+    overflow: "hidden",
+    background:
+      "linear-gradient(135deg,#f8fbff,#ffffff)",
+    border: "1px solid #dbeafe",
+    borderRadius: "16px",
+    padding: "16px",
+  },
+
+  archiveNewBadge: {
+    position: "absolute",
+    top: "0",
+    right: "0",
+    background: "#2563eb",
+    color: "#ffffff",
+    padding: "5px 9px",
+    borderBottomLeftRadius: "8px",
+    fontSize: "7px",
+    fontWeight: 1000,
+    letterSpacing: "0.8px",
+  },
+
+  announcementCardTop: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "13px",
+  },
+
+  announcementIcon: {
+    width: "45px",
+    height: "45px",
+    minWidth: "45px",
+    borderRadius: "12px",
+    background:
+      "linear-gradient(135deg,#dbeafe,#ede9fe)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "21px",
+  },
+
+  announcementCardContent: {
+    minWidth: 0,
+    flex: 1,
+  },
+
+  announcementMeta: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    flexWrap: "wrap",
+  },
+
+  announcementDate: {
+    color: "#94a3b8",
+    fontSize: "9px",
+    fontWeight: 700,
+  },
+
+  announcementCardTitle: {
+    margin: "7px 0 0",
+    color: "#172554",
+    fontSize: "18px",
+    fontWeight: 1000,
+    wordBreak: "break-word",
+  },
+
+  announcementMessage: {
+    margin: "7px 0 0",
+    color: "#475569",
+    fontSize: "12px",
+    lineHeight: 1.65,
+    fontWeight: 600,
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+  },
+
+  announcementBottom: {
+    marginTop: "14px",
+    paddingTop: "12px",
+    borderTop: "1px solid #e2e8f0",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "10px",
+    flexWrap: "wrap",
+  },
+
+  everyoneText: {
+    color: "#64748b",
+    fontSize: "10px",
+    fontWeight: 800,
+  },
+
+  notice: {
+    background: "#ffffff",
+    border: "1px solid #dbeafe",
+    borderRadius: "17px",
+    padding: "15px 18px",
+    display: "flex",
+    alignItems: "center",
+    gap: "13px",
+    marginBottom: "25px",
+    boxShadow:
+      "0 7px 22px rgba(15,23,42,0.05)",
+  },
+
+  noticeIcon: {
+    width: "40px",
+    height: "40px",
+    minWidth: "40px",
+    borderRadius: "11px",
+    background: "#eff6ff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "19px",
+  },
+
+  noticeTitle: {
+    color: "#172554",
+    fontSize: "13px",
+    fontWeight: 900,
+  },
+
+  noticeText: {
+    margin: "3px 0 0",
+    color: "#64748b",
+    fontSize: "11px",
+    lineHeight: 1.5,
+    fontWeight: 600,
+  },
+
+  sectionHeading: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    gap: "15px",
+    marginBottom: "15px",
+  },
+
+  sectionEyebrow: {
+    color: "#2563eb",
+    fontSize: "9px",
+    fontWeight: 1000,
+    letterSpacing: "2px",
+    marginBottom: "3px",
+  },
+
+  sectionTitle: {
+    margin: 0,
+    fontSize: "24px",
+    fontWeight: 1000,
+    color: "#172554",
+  },
+
+  serviceCount: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    color: "#64748b",
+    padding: "8px 11px",
+    borderRadius: "9px",
+    fontSize: "10px",
+    fontWeight: 900,
+  },
+
+  cardGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(3,minmax(0,1fr))",
+    gap: "15px",
+  },
+
+  serviceCard: {
+    border: "1px solid #e2e8f0",
+    background: "#ffffff",
+    borderRadius: "19px",
+    overflow: "hidden",
+    padding: 0,
+    textAlign: "left",
+    cursor: "pointer",
+    boxShadow:
+      "0 7px 22px rgba(15,23,42,0.05)",
+  },
+
+  cardTop: {
+    padding: "15px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+
+  cardBlue: {
+    background:
+      "linear-gradient(135deg,#dbeafe,#bfdbfe)",
+  },
+
+  cardPurple: {
+    background:
+      "linear-gradient(135deg,#ede9fe,#ddd6fe)",
+  },
+
+  cardGreen: {
+    background:
+      "linear-gradient(135deg,#dcfce7,#bbf7d0)",
+  },
+
+  cardOrange: {
+    background:
+      "linear-gradient(135deg,#ffedd5,#fed7aa)",
+  },
+
+  cardPink: {
+    background:
+      "linear-gradient(135deg,#fce7f3,#fbcfe8)",
+  },
+
+  cardIndigo: {
+    background:
+      "linear-gradient(135deg,#e0e7ff,#c7d2fe)",
+  },
+
+  cardCyan: {
+    background:
+      "linear-gradient(135deg,#cffafe,#a5f3fc)",
+  },
+
+  cardIcon: {
+    width: "47px",
+    height: "47px",
+    borderRadius: "14px",
+    background:
+      "rgba(255,255,255,0.72)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "23px",
+  },
+
+  arrow: {
+    width: "30px",
+    height: "30px",
+    borderRadius: "50%",
+    background:
+      "rgba(255,255,255,0.65)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#172554",
+    fontWeight: 1000,
+  },
+
+  cardBody: {
+    padding: "17px",
+  },
+
+  cardTitle: {
+    margin: 0,
+    color: "#172554",
+    fontSize: "17px",
+    fontWeight: 1000,
+  },
+
+  cardDescription: {
+    margin: "7px 0 0",
+    color: "#64748b",
+    fontSize: "11px",
+    lineHeight: 1.6,
+    minHeight: "36px",
+    fontWeight: 600,
+  },
+
+  openLink: {
+    marginTop: "13px",
+    color: "#2563eb",
+    fontSize: "11px",
+    fontWeight: 1000,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+
+  bottomPanel: {
+    marginTop: "20px",
+    background:
+      "linear-gradient(135deg,#ffffff,#f8fafc)",
+    border: "1px solid #e2e8f0",
+    borderRadius: "18px",
+    padding: "17px",
+    display: "flex",
+    alignItems: "center",
+    gap: "13px",
+    boxShadow:
+      "0 7px 22px rgba(15,23,42,0.05)",
+    flexWrap: "wrap",
+  },
+
+  bottomIcon: {
+    width: "48px",
+    height: "48px",
+    borderRadius: "13px",
+    background: "#eef2ff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "23px",
+  },
+
+  bottomText: {
+    flex: 1,
+    minWidth: "200px",
+  },
+
+  bottomTitle: {
+    margin: 0,
+    color: "#172554",
+    fontSize: "14px",
+    fontWeight: 1000,
+  },
+
+  bottomDescription: {
+    margin: "4px 0 0",
+    color: "#64748b",
+    fontSize: "11px",
+    fontWeight: 600,
+  },
+
+  profileButton: {
+    border: "none",
+    background: "#2563eb",
+    color: "#ffffff",
+    padding: "10px 15px",
+    borderRadius: "9px",
+    fontWeight: 900,
+    cursor: "pointer",
+  },
+
+  footer: {
+    marginTop: "25px",
+    padding: "18px 5px",
+    borderTop: "1px solid #e2e8f0",
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "10px",
+    color: "#94a3b8",
+    fontSize: "10px",
+    fontWeight: 700,
+    flexWrap: "wrap",
+  },
+
+  footerBrand: {
+    color: "#475569",
+    fontWeight: 900,
+  },
+};
