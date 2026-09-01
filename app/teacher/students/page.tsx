@@ -46,24 +46,35 @@ export default function TeacherStudentsPage() {
   const [editingStudent, setEditingStudent] =
     useState<Student | null>(null);
 
+  const [showAddStudent, setShowAddStudent] =
+    useState(false);
+
   const [saving, setSaving] = useState(false);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(
+    null
+  );
 
   const [editName, setEditName] = useState("");
   const [editUsername, setEditUsername] = useState("");
   const [editPassword, setEditPassword] = useState("");
-  const [editAdmissionDate, setEditAdmissionDate] = useState("");
+  const [editAdmissionDate, setEditAdmissionDate] =
+    useState("");
   const [editDateOfBirth, setEditDateOfBirth] = useState("");
 
   const [editFatherName, setEditFatherName] = useState("");
   const [editMotherName, setEditMotherName] = useState("");
 
-  const [editStudentMobile, setEditStudentMobile] = useState("");
-  const [editFatherMobile, setEditFatherMobile] = useState("");
-  const [editMotherMobile, setEditMotherMobile] = useState("");
+  const [editStudentMobile, setEditStudentMobile] =
+    useState("");
+  const [editFatherMobile, setEditFatherMobile] =
+    useState("");
+  const [editMotherMobile, setEditMotherMobile] =
+    useState("");
 
-  const [editFatherPhone, setEditFatherPhone] = useState("");
-  const [editMotherPhone, setEditMotherPhone] = useState("");
+  const [editFatherPhone, setEditFatherPhone] =
+    useState("");
+  const [editMotherPhone, setEditMotherPhone] =
+    useState("");
 
   const [editClassName, setEditClassName] = useState("");
   const [editSection, setEditSection] = useState("");
@@ -74,7 +85,42 @@ export default function TeacherStudentsPage() {
   const [editCity, setEditCity] = useState("");
   const [editAddress, setEditAddress] = useState("");
   const [editNotes, setEditNotes] = useState("");
-  const [editProfileImageUrl, setEditProfileImageUrl] = useState("");
+  const [editProfileImageUrl, setEditProfileImageUrl] =
+    useState("");
+
+  const [addName, setAddName] = useState("");
+  const [addUsername, setAddUsername] = useState("");
+  const [addPassword, setAddPassword] = useState("");
+  const [addAdmissionDate, setAddAdmissionDate] =
+    useState("");
+  const [addDateOfBirth, setAddDateOfBirth] = useState("");
+
+  const [addFatherName, setAddFatherName] = useState("");
+  const [addMotherName, setAddMotherName] = useState("");
+
+  const [addStudentMobile, setAddStudentMobile] =
+    useState("");
+  const [addFatherMobile, setAddFatherMobile] =
+    useState("");
+  const [addMotherMobile, setAddMotherMobile] =
+    useState("");
+
+  const [addFatherPhone, setAddFatherPhone] =
+    useState("");
+  const [addMotherPhone, setAddMotherPhone] =
+    useState("");
+
+  const [addClassName, setAddClassName] = useState("");
+  const [addSection, setAddSection] = useState("");
+  const [addGender, setAddGender] = useState("");
+  const [addBloodGroup, setAddBloodGroup] = useState("");
+
+  const [addEmail, setAddEmail] = useState("");
+  const [addCity, setAddCity] = useState("");
+  const [addAddress, setAddAddress] = useState("");
+  const [addNotes, setAddNotes] = useState("");
+  const [addProfileImageUrl, setAddProfileImageUrl] =
+    useState("");
 
   useEffect(() => {
     loadStudents();
@@ -124,36 +170,249 @@ export default function TeacherStudentsPage() {
     setLoading(false);
   }
 
+  function resetAddForm() {
+    setAddName("");
+    setAddUsername("");
+    setAddPassword("");
+    setAddAdmissionDate("");
+    setAddDateOfBirth("");
+    setAddFatherName("");
+    setAddMotherName("");
+    setAddStudentMobile("");
+    setAddFatherMobile("");
+    setAddMotherMobile("");
+    setAddFatherPhone("");
+    setAddMotherPhone("");
+    setAddClassName("");
+    setAddSection("");
+    setAddGender("");
+    setAddBloodGroup("");
+    setAddEmail("");
+    setAddCity("");
+    setAddAddress("");
+    setAddNotes("");
+    setAddProfileImageUrl("");
+  }
+
+  function closeAddStudent() {
+    if (saving) return;
+
+    setShowAddStudent(false);
+    resetAddForm();
+  }
+
+  function getNextStudentUsername() {
+    const usedNumbers = students
+      .map((student) => {
+        const match =
+          student.student_username?.match(
+            /^STU(\d+)$/
+          );
+
+        return match ? Number(match[1]) : null;
+      })
+      .filter(
+        (number): number is number =>
+          number !== null && Number.isFinite(number)
+      );
+
+    let nextNumber = 1001;
+
+    while (usedNumbers.includes(nextNumber)) {
+      nextNumber++;
+    }
+
+    return `STU${nextNumber}`;
+  }
+
+  function openAddStudent() {
+    setEditingStudent(null);
+    setError("");
+    setSuccess("");
+
+    resetAddForm();
+
+    setAddAdmissionDate(
+      new Date().toISOString().split("T")[0]
+    );
+
+    setAddUsername(getNextStudentUsername());
+
+    setShowAddStudent(true);
+  }
+
+  async function addStudent(
+    e: React.FormEvent<HTMLFormElement>
+  ) {
+    e.preventDefault();
+
+    if (!addName.trim()) {
+      setError("Student name cannot be empty.");
+      return;
+    }
+
+    if (!addUsername.trim()) {
+      setError("Username cannot be empty.");
+      return;
+    }
+
+    if (!addPassword.trim()) {
+      setError("Password cannot be empty.");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    setSuccess("");
+
+    const username = addUsername.trim();
+
+    const { data: existingStudent, error: checkError } =
+      await supabase
+        .from("students")
+        .select("id")
+        .eq("student_username", username)
+        .maybeSingle();
+
+    if (checkError) {
+      console.error(
+        "Username check error:",
+        checkError
+      );
+      setError(checkError.message);
+      setSaving(false);
+      return;
+    }
+
+    if (existingStudent) {
+      setError(
+        `Username ${username} already exists. Please use another username.`
+      );
+      setSaving(false);
+      return;
+    }
+
+    const { error: insertError } = await supabase
+      .from("students")
+      .insert({
+        student_username: username,
+        password_hash: addPassword.trim(),
+        student_name: addName.trim(),
+        admission_date:
+          addAdmissionDate.trim() || null,
+        date_of_birth:
+          addDateOfBirth.trim() || null,
+        father_name:
+          addFatherName.trim() || null,
+        mother_name:
+          addMotherName.trim() || null,
+        student_mobile:
+          addStudentMobile.trim() || null,
+        father_mobile:
+          addFatherMobile.trim() || null,
+        mother_mobile:
+          addMotherMobile.trim() || null,
+        father_phone:
+          addFatherPhone.trim() || null,
+        mother_phone:
+          addMotherPhone.trim() || null,
+        class_name:
+          addClassName.trim() || null,
+        section:
+          addSection.trim() || null,
+        gender:
+          addGender.trim() || null,
+        blood_group:
+          addBloodGroup.trim() || null,
+        email:
+          addEmail.trim() || null,
+        city:
+          addCity.trim() || null,
+        address:
+          addAddress.trim() || null,
+        notes:
+          addNotes.trim() || null,
+        profile_image_url:
+          addProfileImageUrl.trim() || null,
+      });
+
+    if (insertError) {
+      console.error(
+        "Student insert error:",
+        insertError
+      );
+      setError(insertError.message);
+      setSaving(false);
+      return;
+    }
+
+    const studentName = addName.trim();
+
+    await loadStudents();
+
+    setShowAddStudent(false);
+    resetAddForm();
+
+    setSuccess(
+      `${studentName} added successfully. Login ID ${username} is ready.`
+    );
+
+    setSaving(false);
+
+    setTimeout(() => {
+      setSuccess("");
+    }, 5000);
+  }
+
   function openEdit(student: Student) {
     setEditingStudent(student);
+    setShowAddStudent(false);
 
     setEditName(student.student_name || "");
     setEditUsername(student.student_username || "");
     setEditPassword("");
 
-    setEditAdmissionDate(student.admission_date || "");
-    setEditDateOfBirth(student.date_of_birth || "");
+    setEditAdmissionDate(
+      student.admission_date || ""
+    );
+    setEditDateOfBirth(
+      student.date_of_birth || ""
+    );
 
     setEditFatherName(student.father_name || "");
     setEditMotherName(student.mother_name || "");
 
-    setEditStudentMobile(student.student_mobile || "");
-    setEditFatherMobile(student.father_mobile || "");
-    setEditMotherMobile(student.mother_mobile || "");
+    setEditStudentMobile(
+      student.student_mobile || ""
+    );
+    setEditFatherMobile(
+      student.father_mobile || ""
+    );
+    setEditMotherMobile(
+      student.mother_mobile || ""
+    );
 
-    setEditFatherPhone(student.father_phone || "");
-    setEditMotherPhone(student.mother_phone || "");
+    setEditFatherPhone(
+      student.father_phone || ""
+    );
+    setEditMotherPhone(
+      student.mother_phone || ""
+    );
 
     setEditClassName(student.class_name || "");
     setEditSection(student.section || "");
     setEditGender(student.gender || "");
-    setEditBloodGroup(student.blood_group || "");
+    setEditBloodGroup(
+      student.blood_group || ""
+    );
 
     setEditEmail(student.email || "");
     setEditCity(student.city || "");
     setEditAddress(student.address || "");
     setEditNotes(student.notes || "");
-    setEditProfileImageUrl(student.profile_image_url || "");
+    setEditProfileImageUrl(
+      student.profile_image_url || ""
+    );
 
     setError("");
     setSuccess("");
@@ -163,6 +422,7 @@ export default function TeacherStudentsPage() {
     if (saving) return;
 
     setEditingStudent(null);
+
     setEditName("");
     setEditUsername("");
     setEditPassword("");
@@ -249,7 +509,8 @@ export default function TeacherStudentsPage() {
     };
 
     if (editPassword.trim()) {
-      updateData.password_hash = editPassword.trim();
+      updateData.password_hash =
+        editPassword.trim();
     }
 
     const { error } = await supabase
@@ -258,7 +519,10 @@ export default function TeacherStudentsPage() {
       .eq("id", editingStudent.id);
 
     if (error) {
-      console.error("Student update error:", error);
+      console.error(
+        "Student update error:",
+        error
+      );
       setError(error.message);
       setSaving(false);
       return;
@@ -269,6 +533,7 @@ export default function TeacherStudentsPage() {
     await loadStudents();
 
     setEditingStudent(null);
+
     setEditName("");
     setEditUsername("");
     setEditPassword("");
@@ -323,7 +588,10 @@ export default function TeacherStudentsPage() {
       .eq("id", student.id);
 
     if (error) {
-      console.error("Student delete error:", error);
+      console.error(
+        "Student delete error:",
+        error
+      );
       setError(error.message);
       setDeletingId(null);
       return;
@@ -347,10 +615,18 @@ export default function TeacherStudentsPage() {
   }
 
   function logout() {
-    localStorage.removeItem("teacherLoggedIn");
-    localStorage.removeItem("teacherName");
-    localStorage.removeItem("teacher_name");
-    localStorage.removeItem("teacher_username");
+    localStorage.removeItem(
+      "teacherLoggedIn"
+    );
+    localStorage.removeItem(
+      "teacherName"
+    );
+    localStorage.removeItem(
+      "teacher_name"
+    );
+    localStorage.removeItem(
+      "teacher_username"
+    );
 
     sessionStorage.clear();
 
@@ -380,8 +656,12 @@ export default function TeacherStudentsPage() {
           <div style={styles.headerButtons}>
             <button
               type="button"
-              onClick={() => router.push("/teacher")}
-              style={styles.dashboardButton}
+              onClick={() =>
+                router.push("/teacher")
+              }
+              style={
+                styles.dashboardButton
+              }
             >
               ← Teacher Dashboard
             </button>
@@ -389,9 +669,13 @@ export default function TeacherStudentsPage() {
             <button
               type="button"
               onClick={() =>
-                router.push("/teacher/settings")
+                router.push(
+                  "/teacher/settings"
+                )
               }
-              style={styles.settingsButton}
+              style={
+                styles.settingsButton
+              }
             >
               ⚙️ Settings
             </button>
@@ -445,11 +729,23 @@ export default function TeacherStudentsPage() {
                 All Students
               </h2>
 
-              <p style={styles.sectionSubtitle}>
-                Edit complete profiles or delete student
-                accounts
+              <p
+                style={
+                  styles.sectionSubtitle
+                }
+              >
+                Edit complete profiles or
+                delete student accounts
               </p>
             </div>
+
+            <button
+              type="button"
+              onClick={openAddStudent}
+              style={styles.addButton}
+            >
+              ➕ Add Students
+            </button>
           </div>
 
           {loading ? (
@@ -458,21 +754,37 @@ export default function TeacherStudentsPage() {
             </div>
           ) : students.length === 0 ? (
             <div style={styles.empty}>
-              <div style={styles.emptyIcon}>
+              <div
+                style={styles.emptyIcon}
+              >
                 👨‍🎓
               </div>
 
-              <h3 style={styles.emptyTitle}>
+              <h3
+                style={styles.emptyTitle}
+              >
                 No Students Found
               </h3>
 
-              <p style={styles.emptyText}>
-                There are currently no students in the
-                database.
+              <p
+                style={styles.emptyText}
+              >
+                There are currently no
+                students in the database.
               </p>
+
+              <button
+                type="button"
+                onClick={openAddStudent}
+                style={styles.emptyAddButton}
+              >
+                ➕ Add First Student
+              </button>
             </div>
           ) : (
-            <div style={styles.tableWrapper}>
+            <div
+              style={styles.tableWrapper}
+            >
               <table style={styles.table}>
                 <thead>
                   <tr>
@@ -500,18 +812,33 @@ export default function TeacherStudentsPage() {
 
                 <tbody>
                   {students.map(
-                    (student, index) => (
-                      <tr key={student.id}>
-                        <td style={styles.td}>
+                    (student) => (
+                      <tr
+                        key={
+                          student.id
+                        }
+                      >
+                        <td
+                          style={
+                            styles.td
+                          }
+                        >
                           <span
-                            style={styles.idBadge}
+                            style={
+                              styles.idBadge
+                            }
                           >
-                            {student.student_username ||
-                              `STU${1001 + index}`}
+                            {
+                              student.student_username
+                            }
                           </span>
                         </td>
 
-                        <td style={styles.td}>
+                        <td
+                          style={
+                            styles.td
+                          }
+                        >
                           <div
                             style={
                               styles.studentName
@@ -522,18 +849,30 @@ export default function TeacherStudentsPage() {
                           </div>
                         </td>
 
-                        <td style={styles.td}>
+                        <td
+                          style={
+                            styles.td
+                          }
+                        >
                           {
                             student.student_username
                           }
                         </td>
 
-                        <td style={styles.td}>
+                        <td
+                          style={
+                            styles.td
+                          }
+                        >
                           {student.admission_date ||
                             "Not set"}
                         </td>
 
-                        <td style={styles.td}>
+                        <td
+                          style={
+                            styles.td
+                          }
+                        >
                           <div
                             style={
                               styles.actionButtons
@@ -542,7 +881,9 @@ export default function TeacherStudentsPage() {
                             <button
                               type="button"
                               onClick={() =>
-                                openEdit(student)
+                                openEdit(
+                                  student
+                                )
                               }
                               style={
                                 styles.editButton
@@ -587,39 +928,92 @@ export default function TeacherStudentsPage() {
           )}
         </section>
 
-        {editingStudent && (
-          <div style={styles.modalOverlay}>
+        {showAddStudent && (
+          <div
+            style={
+              styles.modalOverlay
+            }
+          >
             <div style={styles.modal}>
-              <div style={styles.modalHeader}>
+              <div
+                style={
+                  styles.modalHeader
+                }
+              >
                 <div
-                  style={styles.modalHeaderText}
+                  style={
+                    styles.modalHeaderText
+                  }
                 >
-                  <h2 style={styles.modalTitle}>
-                    ✏️ Edit Student Profile
+                  <h2
+                    style={
+                      styles.modalTitle
+                    }
+                  >
+                    ➕ Add Student
                   </h2>
 
-                  <p style={styles.modalSubtitle}>
-                    Update complete student
-                    information
+                  <p
+                    style={
+                      styles.modalSubtitle
+                    }
+                  >
+                    Create a new student
+                    account and complete
+                    profile
                   </p>
                 </div>
 
                 <button
                   type="button"
-                  onClick={closeEdit}
+                  onClick={
+                    closeAddStudent
+                  }
                   disabled={saving}
-                  style={styles.closeButton}
+                  style={
+                    styles.closeButton
+                  }
                 >
                   ✕
                 </button>
               </div>
 
               <form
-                onSubmit={saveStudent}
+                onSubmit={addStudent}
                 style={styles.modalForm}
               >
-                <div style={styles.modalBody}>
-                  <div style={styles.formSection}>
+                <div
+                  style={
+                    styles.modalBody
+                  }
+                >
+                  <div
+                    style={
+                      styles.loginReadyBox
+                    }
+                  >
+                    <div>
+                      <strong>
+                        🆔 Login ID
+                      </strong>
+
+                      <span>
+                        {addUsername ||
+                          "Generating..."}
+                      </span>
+                    </div>
+
+                    <p>
+                      This ID will be used by
+                      the student to login.
+                    </p>
+                  </div>
+
+                  <div
+                    style={
+                      styles.formSection
+                    }
+                  >
                     <h3
                       style={
                         styles.formSectionTitle
@@ -628,58 +1022,79 @@ export default function TeacherStudentsPage() {
                       🔐 Account Details
                     </h3>
 
-                    <div style={styles.formGrid}>
-                      <div style={styles.field}>
+                    <div
+                      style={
+                        styles.formGrid
+                      }
+                    >
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
                         <label
-                          style={styles.label}
+                          style={
+                            styles.label
+                          }
                         >
-                          Username
+                          Username / Student ID *
                         </label>
 
                         <input
                           type="text"
-                          value={editUsername}
+                          value={
+                            addUsername
+                          }
                           onChange={(e) =>
-                            setEditUsername(
+                            setAddUsername(
                               e.target.value
                             )
                           }
-                          style={styles.input}
+                          style={
+                            styles.input
+                          }
+                          required
                         />
                       </div>
 
-                      <div style={styles.field}>
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
                         <label
-                          style={styles.label}
+                          style={
+                            styles.label
+                          }
                         >
-                          New Password
+                          Password *
                         </label>
 
                         <input
                           type="text"
-                          value={editPassword}
+                          value={
+                            addPassword
+                          }
                           onChange={(e) =>
-                            setEditPassword(
+                            setAddPassword(
                               e.target.value
                             )
                           }
-                          placeholder="Leave blank to keep current password"
-                          style={styles.input}
-                        />
-
-                        <p
+                          placeholder="Create login password"
                           style={
-                            styles.helpText
+                            styles.input
                           }
-                        >
-                          Enter a password only if
-                          you want to change it.
-                        </p>
+                          required
+                        />
                       </div>
                     </div>
                   </div>
 
-                  <div style={styles.formSection}>
+                  <div
+                    style={
+                      styles.formSection
+                    }
+                  >
                     <h3
                       style={
                         styles.formSectionTitle
@@ -688,30 +1103,50 @@ export default function TeacherStudentsPage() {
                       👤 Basic Details
                     </h3>
 
-                    <div style={styles.formGrid}>
-                      <div style={styles.field}>
+                    <div
+                      style={
+                        styles.formGrid
+                      }
+                    >
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
                         <label
-                          style={styles.label}
+                          style={
+                            styles.label
+                          }
                         >
                           Student Name *
                         </label>
 
                         <input
                           type="text"
-                          value={editName}
+                          value={
+                            addName
+                          }
                           onChange={(e) =>
-                            setEditName(
+                            setAddName(
                               e.target.value
                             )
                           }
-                          style={styles.input}
+                          style={
+                            styles.input
+                          }
                           required
                         />
                       </div>
 
-                      <div style={styles.field}>
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
                         <label
-                          style={styles.label}
+                          style={
+                            styles.label
+                          }
                         >
                           Date of Birth
                         </label>
@@ -719,20 +1154,28 @@ export default function TeacherStudentsPage() {
                         <input
                           type="date"
                           value={
-                            editDateOfBirth
+                            addDateOfBirth
                           }
                           onChange={(e) =>
-                            setEditDateOfBirth(
+                            setAddDateOfBirth(
                               e.target.value
                             )
                           }
-                          style={styles.input}
+                          style={
+                            styles.input
+                          }
                         />
                       </div>
 
-                      <div style={styles.field}>
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
                         <label
-                          style={styles.label}
+                          style={
+                            styles.label
+                          }
                         >
                           Admission Date
                         </label>
@@ -740,32 +1183,44 @@ export default function TeacherStudentsPage() {
                         <input
                           type="date"
                           value={
-                            editAdmissionDate
+                            addAdmissionDate
                           }
                           onChange={(e) =>
-                            setEditAdmissionDate(
+                            setAddAdmissionDate(
                               e.target.value
                             )
                           }
-                          style={styles.input}
+                          style={
+                            styles.input
+                          }
                         />
                       </div>
 
-                      <div style={styles.field}>
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
                         <label
-                          style={styles.label}
+                          style={
+                            styles.label
+                          }
                         >
                           Gender
                         </label>
 
                         <select
-                          value={editGender}
+                          value={
+                            addGender
+                          }
                           onChange={(e) =>
-                            setEditGender(
+                            setAddGender(
                               e.target.value
                             )
                           }
-                          style={styles.input}
+                          style={
+                            styles.input
+                          }
                         >
                           <option value="">
                             Select Gender
@@ -787,7 +1242,11 @@ export default function TeacherStudentsPage() {
                     </div>
                   </div>
 
-                  <div style={styles.formSection}>
+                  <div
+                    style={
+                      styles.formSection
+                    }
+                  >
                     <h3
                       style={
                         styles.formSectionTitle
@@ -796,10 +1255,20 @@ export default function TeacherStudentsPage() {
                       👨‍👩‍👧 Parent Details
                     </h3>
 
-                    <div style={styles.formGrid}>
-                      <div style={styles.field}>
+                    <div
+                      style={
+                        styles.formGrid
+                      }
+                    >
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
                         <label
-                          style={styles.label}
+                          style={
+                            styles.label
+                          }
                         >
                           Father's Name
                         </label>
@@ -807,20 +1276,28 @@ export default function TeacherStudentsPage() {
                         <input
                           type="text"
                           value={
-                            editFatherName
+                            addFatherName
                           }
                           onChange={(e) =>
-                            setEditFatherName(
+                            setAddFatherName(
                               e.target.value
                             )
                           }
-                          style={styles.input}
+                          style={
+                            styles.input
+                          }
                         />
                       </div>
 
-                      <div style={styles.field}>
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
                         <label
-                          style={styles.label}
+                          style={
+                            styles.label
+                          }
                         >
                           Mother's Name
                         </label>
@@ -828,20 +1305,28 @@ export default function TeacherStudentsPage() {
                         <input
                           type="text"
                           value={
-                            editMotherName
+                            addMotherName
                           }
                           onChange={(e) =>
-                            setEditMotherName(
+                            setAddMotherName(
                               e.target.value
                             )
                           }
-                          style={styles.input}
+                          style={
+                            styles.input
+                          }
                         />
                       </div>
 
-                      <div style={styles.field}>
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
                         <label
-                          style={styles.label}
+                          style={
+                            styles.label
+                          }
                         >
                           Father's Phone
                         </label>
@@ -849,20 +1334,28 @@ export default function TeacherStudentsPage() {
                         <input
                           type="tel"
                           value={
-                            editFatherPhone
+                            addFatherPhone
                           }
                           onChange={(e) =>
-                            setEditFatherPhone(
+                            setAddFatherPhone(
                               e.target.value
                             )
                           }
-                          style={styles.input}
+                          style={
+                            styles.input
+                          }
                         />
                       </div>
 
-                      <div style={styles.field}>
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
                         <label
-                          style={styles.label}
+                          style={
+                            styles.label
+                          }
                         >
                           Mother's Phone
                         </label>
@@ -870,20 +1363,28 @@ export default function TeacherStudentsPage() {
                         <input
                           type="tel"
                           value={
-                            editMotherPhone
+                            addMotherPhone
                           }
                           onChange={(e) =>
-                            setEditMotherPhone(
+                            setAddMotherPhone(
                               e.target.value
                             )
                           }
-                          style={styles.input}
+                          style={
+                            styles.input
+                          }
                         />
                       </div>
 
-                      <div style={styles.field}>
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
                         <label
-                          style={styles.label}
+                          style={
+                            styles.label
+                          }
                         >
                           Father Mobile
                         </label>
@@ -891,20 +1392,28 @@ export default function TeacherStudentsPage() {
                         <input
                           type="tel"
                           value={
-                            editFatherMobile
+                            addFatherMobile
                           }
                           onChange={(e) =>
-                            setEditFatherMobile(
+                            setAddFatherMobile(
                               e.target.value
                             )
                           }
-                          style={styles.input}
+                          style={
+                            styles.input
+                          }
                         />
                       </div>
 
-                      <div style={styles.field}>
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
                         <label
-                          style={styles.label}
+                          style={
+                            styles.label
+                          }
                         >
                           Mother Mobile
                         </label>
@@ -912,20 +1421,26 @@ export default function TeacherStudentsPage() {
                         <input
                           type="tel"
                           value={
-                            editMotherMobile
+                            addMotherMobile
                           }
                           onChange={(e) =>
-                            setEditMotherMobile(
+                            setAddMotherMobile(
                               e.target.value
                             )
                           }
-                          style={styles.input}
+                          style={
+                            styles.input
+                          }
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div style={styles.formSection}>
+                  <div
+                    style={
+                      styles.formSection
+                    }
+                  >
                     <h3
                       style={
                         styles.formSectionTitle
@@ -934,10 +1449,20 @@ export default function TeacherStudentsPage() {
                       📱 Contact Details
                     </h3>
 
-                    <div style={styles.formGrid}>
-                      <div style={styles.field}>
+                    <div
+                      style={
+                        styles.formGrid
+                      }
+                    >
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
                         <label
-                          style={styles.label}
+                          style={
+                            styles.label
+                          }
                         >
                           Student Mobile
                         </label>
@@ -945,39 +1470,55 @@ export default function TeacherStudentsPage() {
                         <input
                           type="tel"
                           value={
-                            editStudentMobile
+                            addStudentMobile
                           }
                           onChange={(e) =>
-                            setEditStudentMobile(
+                            setAddStudentMobile(
                               e.target.value
                             )
                           }
-                          style={styles.input}
+                          style={
+                            styles.input
+                          }
                         />
                       </div>
 
-                      <div style={styles.field}>
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
                         <label
-                          style={styles.label}
+                          style={
+                            styles.label
+                          }
                         >
                           Email
                         </label>
 
                         <input
                           type="email"
-                          value={editEmail}
+                          value={
+                            addEmail
+                          }
                           onChange={(e) =>
-                            setEditEmail(
+                            setAddEmail(
                               e.target.value
                             )
                           }
-                          style={styles.input}
+                          style={
+                            styles.input
+                          }
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div style={styles.formSection}>
+                  <div
+                    style={
+                      styles.formSection
+                    }
+                  >
                     <h3
                       style={
                         styles.formSectionTitle
@@ -986,10 +1527,20 @@ export default function TeacherStudentsPage() {
                       🎓 Academic Details
                     </h3>
 
-                    <div style={styles.formGrid}>
-                      <div style={styles.field}>
+                    <div
+                      style={
+                        styles.formGrid
+                      }
+                    >
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
                         <label
-                          style={styles.label}
+                          style={
+                            styles.label
+                          }
                         >
                           Class
                         </label>
@@ -997,54 +1548,74 @@ export default function TeacherStudentsPage() {
                         <input
                           type="text"
                           value={
-                            editClassName
+                            addClassName
                           }
                           onChange={(e) =>
-                            setEditClassName(
+                            setAddClassName(
                               e.target.value
                             )
                           }
                           placeholder="Example: B.Tech CSE-AIML"
-                          style={styles.input}
+                          style={
+                            styles.input
+                          }
                         />
                       </div>
 
-                      <div style={styles.field}>
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
                         <label
-                          style={styles.label}
+                          style={
+                            styles.label
+                          }
                         >
                           Section
                         </label>
 
                         <input
                           type="text"
-                          value={editSection}
+                          value={
+                            addSection
+                          }
                           onChange={(e) =>
-                            setEditSection(
+                            setAddSection(
                               e.target.value
                             )
                           }
-                          style={styles.input}
+                          style={
+                            styles.input
+                          }
                         />
                       </div>
 
-                      <div style={styles.field}>
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
                         <label
-                          style={styles.label}
+                          style={
+                            styles.label
+                          }
                         >
                           Blood Group
                         </label>
 
                         <select
                           value={
-                            editBloodGroup
+                            addBloodGroup
                           }
                           onChange={(e) =>
-                            setEditBloodGroup(
+                            setAddBloodGroup(
                               e.target.value
                             )
                           }
-                          style={styles.input}
+                          style={
+                            styles.input
+                          }
                         >
                           <option value="">
                             Select Blood Group
@@ -1086,7 +1657,11 @@ export default function TeacherStudentsPage() {
                     </div>
                   </div>
 
-                  <div style={styles.formSection}>
+                  <div
+                    style={
+                      styles.formSection
+                    }
+                  >
                     <h3
                       style={
                         styles.formSectionTitle
@@ -1095,23 +1670,37 @@ export default function TeacherStudentsPage() {
                       📍 Address Details
                     </h3>
 
-                    <div style={styles.formGrid}>
-                      <div style={styles.field}>
+                    <div
+                      style={
+                        styles.formGrid
+                      }
+                    >
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
                         <label
-                          style={styles.label}
+                          style={
+                            styles.label
+                          }
                         >
                           City
                         </label>
 
                         <input
                           type="text"
-                          value={editCity}
+                          value={
+                            addCity
+                          }
                           onChange={(e) =>
-                            setEditCity(
+                            setAddCity(
                               e.target.value
                             )
                           }
-                          style={styles.input}
+                          style={
+                            styles.input
+                          }
                         />
                       </div>
 
@@ -1121,13 +1710,920 @@ export default function TeacherStudentsPage() {
                         }
                       >
                         <label
-                          style={styles.label}
+                          style={
+                            styles.label
+                          }
                         >
                           Complete Address
                         </label>
 
                         <textarea
-                          value={editAddress}
+                          value={
+                            addAddress
+                          }
+                          onChange={(e) =>
+                            setAddAddress(
+                              e.target.value
+                            )
+                          }
+                          rows={4}
+                          style={
+                            styles.textarea
+                          }
+                          placeholder="Enter complete address"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={
+                      styles.formSection
+                    }
+                  >
+                    <h3
+                      style={
+                        styles.formSectionTitle
+                      }
+                    >
+                      📝 Other Information
+                    </h3>
+
+                    <div
+                      style={
+                        styles.fullWidthField
+                      }
+                    >
+                      <label
+                        style={
+                          styles.label
+                        }
+                      >
+                        Profile Image URL
+                      </label>
+
+                      <input
+                        type="url"
+                        value={
+                          addProfileImageUrl
+                        }
+                        onChange={(e) =>
+                          setAddProfileImageUrl(
+                            e.target.value
+                          )
+                        }
+                        style={
+                          styles.input
+                        }
+                        placeholder="https://..."
+                      />
+                    </div>
+
+                    <div
+                      style={
+                        styles.notesField
+                      }
+                    >
+                      <label
+                        style={
+                          styles.label
+                        }
+                      >
+                        Notes
+                      </label>
+
+                      <textarea
+                        value={addNotes}
+                        onChange={(e) =>
+                          setAddNotes(
+                            e.target.value
+                          )
+                        }
+                        rows={4}
+                        style={
+                          styles.textarea
+                        }
+                        placeholder="Additional notes about the student"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  style={
+                    styles.modalFooter
+                  }
+                >
+                  <button
+                    type="button"
+                    onClick={
+                      closeAddStudent
+                    }
+                    disabled={saving}
+                    style={
+                      styles.cancelButton
+                    }
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    style={{
+                      ...styles.saveButton,
+                      opacity:
+                        saving
+                          ? 0.6
+                          : 1,
+                    }}
+                  >
+                    {saving
+                      ? "⏳ Adding..."
+                      : "➕ Add Student & Create Login"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {editingStudent && (
+          <div
+            style={
+              styles.modalOverlay
+            }
+          >
+            <div style={styles.modal}>
+              <div
+                style={
+                  styles.modalHeader
+                }
+              >
+                <div
+                  style={
+                    styles.modalHeaderText
+                  }
+                >
+                  <h2
+                    style={
+                      styles.modalTitle
+                    }
+                  >
+                    ✏️ Edit Student Profile
+                  </h2>
+
+                  <p
+                    style={
+                      styles.modalSubtitle
+                    }
+                  >
+                    Update complete student
+                    information
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeEdit}
+                  disabled={saving}
+                  style={
+                    styles.closeButton
+                  }
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form
+                onSubmit={saveStudent}
+                style={styles.modalForm}
+              >
+                <div
+                  style={
+                    styles.modalBody
+                  }
+                >
+                  <div
+                    style={
+                      styles.formSection
+                    }
+                  >
+                    <h3
+                      style={
+                        styles.formSectionTitle
+                      }
+                    >
+                      🔐 Account Details
+                    </h3>
+
+                    <div
+                      style={
+                        styles.formGrid
+                      }
+                    >
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
+                        <label
+                          style={
+                            styles.label
+                          }
+                        >
+                          Username
+                        </label>
+
+                        <input
+                          type="text"
+                          value={
+                            editUsername
+                          }
+                          onChange={(e) =>
+                            setEditUsername(
+                              e.target.value
+                            )
+                          }
+                          style={
+                            styles.input
+                          }
+                        />
+                      </div>
+
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
+                        <label
+                          style={
+                            styles.label
+                          }
+                        >
+                          New Password
+                        </label>
+
+                        <input
+                          type="text"
+                          value={
+                            editPassword
+                          }
+                          onChange={(e) =>
+                            setEditPassword(
+                              e.target.value
+                            )
+                          }
+                          placeholder="Leave blank to keep current password"
+                          style={
+                            styles.input
+                          }
+                        />
+
+                        <p
+                          style={
+                            styles.helpText
+                          }
+                        >
+                          Enter a password only
+                          if you want to change
+                          it.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={
+                      styles.formSection
+                    }
+                  >
+                    <h3
+                      style={
+                        styles.formSectionTitle
+                      }
+                    >
+                      👤 Basic Details
+                    </h3>
+
+                    <div
+                      style={
+                        styles.formGrid
+                      }
+                    >
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
+                        <label
+                          style={
+                            styles.label
+                          }
+                        >
+                          Student Name *
+                        </label>
+
+                        <input
+                          type="text"
+                          value={
+                            editName
+                          }
+                          onChange={(e) =>
+                            setEditName(
+                              e.target.value
+                            )
+                          }
+                          style={
+                            styles.input
+                          }
+                          required
+                        />
+                      </div>
+
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
+                        <label
+                          style={
+                            styles.label
+                          }
+                        >
+                          Date of Birth
+                        </label>
+
+                        <input
+                          type="date"
+                          value={
+                            editDateOfBirth
+                          }
+                          onChange={(e) =>
+                            setEditDateOfBirth(
+                              e.target.value
+                            )
+                          }
+                          style={
+                            styles.input
+                          }
+                        />
+                      </div>
+
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
+                        <label
+                          style={
+                            styles.label
+                          }
+                        >
+                          Admission Date
+                        </label>
+
+                        <input
+                          type="date"
+                          value={
+                            editAdmissionDate
+                          }
+                          onChange={(e) =>
+                            setEditAdmissionDate(
+                              e.target.value
+                            )
+                          }
+                          style={
+                            styles.input
+                          }
+                        />
+                      </div>
+
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
+                        <label
+                          style={
+                            styles.label
+                          }
+                        >
+                          Gender
+                        </label>
+
+                        <select
+                          value={
+                            editGender
+                          }
+                          onChange={(e) =>
+                            setEditGender(
+                              e.target.value
+                            )
+                          }
+                          style={
+                            styles.input
+                          }
+                        >
+                          <option value="">
+                            Select Gender
+                          </option>
+
+                          <option value="Male">
+                            Male
+                          </option>
+
+                          <option value="Female">
+                            Female
+                          </option>
+
+                          <option value="Other">
+                            Other
+                          </option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={
+                      styles.formSection
+                    }
+                  >
+                    <h3
+                      style={
+                        styles.formSectionTitle
+                      }
+                    >
+                      👨‍👩‍👧 Parent Details
+                    </h3>
+
+                    <div
+                      style={
+                        styles.formGrid
+                      }
+                    >
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
+                        <label
+                          style={
+                            styles.label
+                          }
+                        >
+                          Father's Name
+                        </label>
+
+                        <input
+                          type="text"
+                          value={
+                            editFatherName
+                          }
+                          onChange={(e) =>
+                            setEditFatherName(
+                              e.target.value
+                            )
+                          }
+                          style={
+                            styles.input
+                          }
+                        />
+                      </div>
+
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
+                        <label
+                          style={
+                            styles.label
+                          }
+                        >
+                          Mother's Name
+                        </label>
+
+                        <input
+                          type="text"
+                          value={
+                            editMotherName
+                          }
+                          onChange={(e) =>
+                            setEditMotherName(
+                              e.target.value
+                            )
+                          }
+                          style={
+                            styles.input
+                          }
+                        />
+                      </div>
+
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
+                        <label
+                          style={
+                            styles.label
+                          }
+                        >
+                          Father's Phone
+                        </label>
+
+                        <input
+                          type="tel"
+                          value={
+                            editFatherPhone
+                          }
+                          onChange={(e) =>
+                            setEditFatherPhone(
+                              e.target.value
+                            )
+                          }
+                          style={
+                            styles.input
+                          }
+                        />
+                      </div>
+
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
+                        <label
+                          style={
+                            styles.label
+                          }
+                        >
+                          Mother's Phone
+                        </label>
+
+                        <input
+                          type="tel"
+                          value={
+                            editMotherPhone
+                          }
+                          onChange={(e) =>
+                            setEditMotherPhone(
+                              e.target.value
+                            )
+                          }
+                          style={
+                            styles.input
+                          }
+                        />
+                      </div>
+
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
+                        <label
+                          style={
+                            styles.label
+                          }
+                        >
+                          Father Mobile
+                        </label>
+
+                        <input
+                          type="tel"
+                          value={
+                            editFatherMobile
+                          }
+                          onChange={(e) =>
+                            setEditFatherMobile(
+                              e.target.value
+                            )
+                          }
+                          style={
+                            styles.input
+                          }
+                        />
+                      </div>
+
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
+                        <label
+                          style={
+                            styles.label
+                          }
+                        >
+                          Mother Mobile
+                        </label>
+
+                        <input
+                          type="tel"
+                          value={
+                            editMotherMobile
+                          }
+                          onChange={(e) =>
+                            setEditMotherMobile(
+                              e.target.value
+                            )
+                          }
+                          style={
+                            styles.input
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={
+                      styles.formSection
+                    }
+                  >
+                    <h3
+                      style={
+                        styles.formSectionTitle
+                      }
+                    >
+                      📱 Contact Details
+                    </h3>
+
+                    <div
+                      style={
+                        styles.formGrid
+                      }
+                    >
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
+                        <label
+                          style={
+                            styles.label
+                          }
+                        >
+                          Student Mobile
+                        </label>
+
+                        <input
+                          type="tel"
+                          value={
+                            editStudentMobile
+                          }
+                          onChange={(e) =>
+                            setEditStudentMobile(
+                              e.target.value
+                            )
+                          }
+                          style={
+                            styles.input
+                          }
+                        />
+                      </div>
+
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
+                        <label
+                          style={
+                            styles.label
+                          }
+                        >
+                          Email
+                        </label>
+
+                        <input
+                          type="email"
+                          value={
+                            editEmail
+                          }
+                          onChange={(e) =>
+                            setEditEmail(
+                              e.target.value
+                            )
+                          }
+                          style={
+                            styles.input
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={
+                      styles.formSection
+                    }
+                  >
+                    <h3
+                      style={
+                        styles.formSectionTitle
+                      }
+                    >
+                      🎓 Academic Details
+                    </h3>
+
+                    <div
+                      style={
+                        styles.formGrid
+                      }
+                    >
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
+                        <label
+                          style={
+                            styles.label
+                          }
+                        >
+                          Class
+                        </label>
+
+                        <input
+                          type="text"
+                          value={
+                            editClassName
+                          }
+                          onChange={(e) =>
+                            setEditClassName(
+                              e.target.value
+                            )
+                          }
+                          placeholder="Example: B.Tech CSE-AIML"
+                          style={
+                            styles.input
+                          }
+                        />
+                      </div>
+
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
+                        <label
+                          style={
+                            styles.label
+                          }
+                        >
+                          Section
+                        </label>
+
+                        <input
+                          type="text"
+                          value={
+                            editSection
+                          }
+                          onChange={(e) =>
+                            setEditSection(
+                              e.target.value
+                            )
+                          }
+                          style={
+                            styles.input
+                          }
+                        />
+                      </div>
+
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
+                        <label
+                          style={
+                            styles.label
+                          }
+                        >
+                          Blood Group
+                        </label>
+
+                        <select
+                          value={
+                            editBloodGroup
+                          }
+                          onChange={(e) =>
+                            setEditBloodGroup(
+                              e.target.value
+                            )
+                          }
+                          style={
+                            styles.input
+                          }
+                        >
+                          <option value="">
+                            Select Blood Group
+                          </option>
+
+                          <option value="A+">
+                            A+
+                          </option>
+
+                          <option value="A-">
+                            A-
+                          </option>
+
+                          <option value="B+">
+                            B+
+                          </option>
+
+                          <option value="B-">
+                            B-
+                          </option>
+
+                          <option value="AB+">
+                            AB+
+                          </option>
+
+                          <option value="AB-">
+                            AB-
+                          </option>
+
+                          <option value="O+">
+                            O+
+                          </option>
+
+                          <option value="O-">
+                            O-
+                          </option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={
+                      styles.formSection
+                    }
+                  >
+                    <h3
+                      style={
+                        styles.formSectionTitle
+                      }
+                    >
+                      📍 Address Details
+                    </h3>
+
+                    <div
+                      style={
+                        styles.formGrid
+                      }
+                    >
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
+                        <label
+                          style={
+                            styles.label
+                          }
+                        >
+                          City
+                        </label>
+
+                        <input
+                          type="text"
+                          value={
+                            editCity
+                          }
+                          onChange={(e) =>
+                            setEditCity(
+                              e.target.value
+                            )
+                          }
+                          style={
+                            styles.input
+                          }
+                        />
+                      </div>
+
+                      <div
+                        style={
+                          styles.fullWidthField
+                        }
+                      >
+                        <label
+                          style={
+                            styles.label
+                          }
+                        >
+                          Complete Address
+                        </label>
+
+                        <textarea
+                          value={
+                            editAddress
+                          }
                           onChange={(e) =>
                             setEditAddress(
                               e.target.value
@@ -1143,7 +2639,11 @@ export default function TeacherStudentsPage() {
                     </div>
                   </div>
 
-                  <div style={styles.formSection}>
+                  <div
+                    style={
+                      styles.formSection
+                    }
+                  >
                     <h3
                       style={
                         styles.formSectionTitle
@@ -1158,7 +2658,9 @@ export default function TeacherStudentsPage() {
                       }
                     >
                       <label
-                        style={styles.label}
+                        style={
+                          styles.label
+                        }
                       >
                         Profile Image URL
                       </label>
@@ -1173,34 +2675,50 @@ export default function TeacherStudentsPage() {
                             e.target.value
                           )
                         }
-                        style={styles.input}
+                        style={
+                          styles.input
+                        }
                         placeholder="https://..."
                       />
                     </div>
 
-                    <div style={styles.notesField}>
+                    <div
+                      style={
+                        styles.notesField
+                      }
+                    >
                       <label
-                        style={styles.label}
+                        style={
+                          styles.label
+                        }
                       >
                         Notes
                       </label>
 
                       <textarea
-                        value={editNotes}
+                        value={
+                          editNotes
+                        }
                         onChange={(e) =>
                           setEditNotes(
                             e.target.value
                           )
                         }
                         rows={4}
-                        style={styles.textarea}
+                        style={
+                          styles.textarea
+                        }
                         placeholder="Additional notes about the student"
                       />
                     </div>
                   </div>
                 </div>
 
-                <div style={styles.modalFooter}>
+                <div
+                  style={
+                    styles.modalFooter
+                  }
+                >
                   <button
                     type="button"
                     onClick={closeEdit}
@@ -1217,7 +2735,10 @@ export default function TeacherStudentsPage() {
                     disabled={saving}
                     style={{
                       ...styles.saveButton,
-                      opacity: saving ? 0.6 : 1,
+                      opacity:
+                        saving
+                          ? 0.6
+                          : 1,
                     }}
                   >
                     {saving
@@ -1231,7 +2752,9 @@ export default function TeacherStudentsPage() {
         )}
 
         <footer style={styles.footer}>
-          <strong>Attendance Portal</strong>
+          <strong>
+            Attendance Portal
+          </strong>
 
           <span>
             Students Management • 2026
@@ -1488,6 +3011,7 @@ const styles: {
     gap: "13px",
     marginBottom: "20px",
     minWidth: 0,
+    flexWrap: "wrap",
   },
 
   cardIcon: {
@@ -1505,7 +3029,7 @@ const styles: {
 
   cardHeaderText: {
     minWidth: 0,
-    flex: 1,
+    flex: "1 1 300px",
     wordBreak: "normal",
     overflowWrap: "normal",
   },
@@ -1529,6 +3053,33 @@ const styles: {
     wordBreak: "normal",
     overflowWrap: "normal",
     whiteSpace: "normal",
+  },
+
+  addButton: {
+    border: "none",
+    background:
+      "linear-gradient(135deg, #16a34a, #15803d)",
+    color: "white",
+    padding: "11px 17px",
+    borderRadius: "10px",
+    fontWeight: "800",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    wordBreak: "normal",
+    boxShadow:
+      "0 5px 14px rgba(22, 163, 74, 0.2)",
+  },
+
+  emptyAddButton: {
+    border: "none",
+    background:
+      "linear-gradient(135deg, #2563eb, #4f46e5)",
+    color: "white",
+    padding: "11px 17px",
+    borderRadius: "10px",
+    fontWeight: "800",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
   },
 
   tableWrapper: {
@@ -1662,7 +3213,8 @@ const styles: {
     inset: 0,
     width: "100%",
     height: "100%",
-    background: "rgba(15, 23, 42, 0.55)",
+    background:
+      "rgba(15, 23, 42, 0.55)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -1693,7 +3245,8 @@ const styles: {
     justifyContent: "space-between",
     alignItems: "flex-start",
     gap: "15px",
-    borderBottom: "1px solid #e2e8f0",
+    borderBottom:
+      "1px solid #e2e8f0",
     background: "white",
     minWidth: 0,
   },
@@ -1758,9 +3311,20 @@ const styles: {
     minWidth: 0,
   },
 
+  loginReadyBox: {
+    background:
+      "linear-gradient(135deg, #eff6ff, #eef2ff)",
+    border:
+      "1px solid #bfdbfe",
+    borderRadius: "14px",
+    padding: "15px",
+    color: "#1e3a8a",
+  },
+
   formSection: {
     background: "#f8fafc",
-    border: "1px solid #e2e8f0",
+    border:
+      "1px solid #e2e8f0",
     borderRadius: "15px",
     padding: "17px",
     minWidth: 0,
@@ -1819,7 +3383,8 @@ const styles: {
     width: "100%",
     maxWidth: "100%",
     boxSizing: "border-box",
-    border: "1px solid #cbd5e1",
+    border:
+      "1px solid #cbd5e1",
     borderRadius: "10px",
     padding: "11px 12px",
     fontSize: "14px",
@@ -1833,7 +3398,8 @@ const styles: {
     width: "100%",
     maxWidth: "100%",
     boxSizing: "border-box",
-    border: "1px solid #cbd5e1",
+    border:
+      "1px solid #cbd5e1",
     borderRadius: "10px",
     padding: "11px 12px",
     fontSize: "14px",
@@ -1863,13 +3429,15 @@ const styles: {
     display: "flex",
     justifyContent: "flex-end",
     gap: "10px",
-    borderTop: "1px solid #e2e8f0",
+    borderTop:
+      "1px solid #e2e8f0",
     background: "white",
     flexWrap: "wrap",
   },
 
   cancelButton: {
-    border: "1px solid #cbd5e1",
+    border:
+      "1px solid #cbd5e1",
     background: "#f8fafc",
     color: "#334155",
     padding: "11px 17px",
