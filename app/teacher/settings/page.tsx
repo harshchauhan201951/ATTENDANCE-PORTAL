@@ -455,12 +455,12 @@ export default function TeacherSettingsPage() {
               </span>
             </button>
 
-            {/* STUDENTS - FIXED ROUTE */}
+            {/* ADD STUDENT */}
 
             <button
               type="button"
               onClick={() =>
-                router.push("/teacher/students")
+                router.push("/teacher/students?add=true")
               }
               style={{
                 ...styles.navigationButton,
@@ -470,11 +470,11 @@ export default function TeacherSettingsPage() {
               }}
             >
               <span style={styles.navigationIcon}>
-                👨‍🎓
+                ➕
               </span>
 
               <span>
-                Students
+                Add Student
               </span>
             </button>
 
