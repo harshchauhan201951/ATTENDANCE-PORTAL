@@ -36,10 +36,10 @@ export default function StudentDashboardPage() {
   const [announcementLoading, setAnnouncementLoading] =
     useState(true);
 
+  const [likingId, setLikingId] = useState<number | null>(null);
+
   const [showAllAnnouncements, setShowAllAnnouncements] =
     useState(false);
-
-  const [likingId, setLikingId] = useState<number | null>(null);
 
   useEffect(() => {
     initializeStudent();
@@ -112,7 +112,10 @@ export default function StudentDashboardPage() {
       const { data, error } = await supabase
         .from("students")
         .select("id")
-        .eq("student_username", studentUsername)
+        .eq(
+          "student_username",
+          studentUsername
+        )
         .maybeSingle();
 
       if (error) {
@@ -126,7 +129,7 @@ export default function StudentDashboardPage() {
 
       if (!data?.id) {
         console.error(
-          "Student ID not found:",
+          "Student ID not found for username:",
           studentUsername
         );
 
@@ -153,14 +156,26 @@ export default function StudentDashboardPage() {
       }
 
       if (!("serviceWorker" in navigator)) {
+        console.warn(
+          "Service Worker is not supported by this browser."
+        );
+
         return;
       }
 
       if (!("PushManager" in window)) {
+        console.warn(
+          "Push notifications are not supported by this browser."
+        );
+
         return;
       }
 
       if (!("Notification" in window)) {
+        console.warn(
+          "Notifications are not supported by this browser."
+        );
+
         return;
       }
 
@@ -168,6 +183,11 @@ export default function StudentDashboardPage() {
         await navigator.serviceWorker.register(
           "/sw.js"
         );
+
+      console.log(
+        "Push service worker registered:",
+        registration.scope
+      );
 
       let permission =
         Notification.permission;
@@ -178,6 +198,10 @@ export default function StudentDashboardPage() {
       }
 
       if (permission !== "granted") {
+        console.warn(
+          "Notification permission was not granted."
+        );
+
         return;
       }
 
@@ -186,7 +210,8 @@ export default function StudentDashboardPage() {
 
       if (!subscription) {
         const vapidPublicKey =
-          process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+          process.env
+            .NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
         if (!vapidPublicKey) {
           console.error(
@@ -201,11 +226,27 @@ export default function StudentDashboardPage() {
             vapidPublicKey
           );
 
+        /*
+         * FIX:
+         * Convert Uint8Array into a normal ArrayBuffer
+         * so Next.js 16 / TypeScript accepts it as
+         * PushSubscriptionOptions.applicationServerKey.
+         */
+        const applicationServerKeyBuffer =
+          applicationServerKey.buffer.slice(
+            applicationServerKey.byteOffset,
+            applicationServerKey.byteOffset +
+              applicationServerKey.byteLength
+          ) as ArrayBuffer;
+
         subscription =
-          await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey,
-          });
+          await registration.pushManager.subscribe(
+            {
+              userVisibleOnly: true,
+              applicationServerKey:
+                applicationServerKeyBuffer,
+            }
+          );
       }
 
       const response = await fetch(
@@ -226,11 +267,20 @@ export default function StudentDashboardPage() {
       );
 
       if (!response.ok) {
+        const errorText =
+          await response.text();
+
         console.error(
           "Push subscription API error:",
-          await response.text()
+          errorText
         );
+
+        return;
       }
+
+      console.log(
+        "Student push notification registration completed."
+      );
     } catch (error) {
       console.error(
         "Push notification registration error:",
@@ -268,7 +318,7 @@ export default function StudentDashboardPage() {
     for (
       let i = 0;
       i < rawData.length;
-      i++
+      ++i
     ) {
       outputArray[i] =
         rawData.charCodeAt(i);
@@ -315,6 +365,7 @@ export default function StudentDashboardPage() {
         );
 
         setAnnouncements([]);
+
         return;
       }
 
@@ -323,6 +374,7 @@ export default function StudentDashboardPage() {
 
       if (announcementRows.length === 0) {
         setAnnouncements([]);
+
         return;
       }
 
@@ -382,11 +434,8 @@ export default function StudentDashboardPage() {
               );
 
             return {
-              id: Number(
-                announcement.id
-              ),
-              title:
-                announcement.title,
+              id: announcement.id,
+              title: announcement.title,
               message:
                 announcement.message,
               created_at:
@@ -638,30 +687,6 @@ export default function StudentDashboardPage() {
     );
   }
 
-  function openAllAnnouncements() {
-    setShowAllAnnouncements(true);
-
-    setTimeout(() => {
-      document
-        .getElementById(
-          "all-announcements"
-        )
-        ?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-    }, 50);
-  }
-
-  function closeAllAnnouncements() {
-    setShowAllAnnouncements(false);
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  }
-
   const firstLetter =
     studentName
       .charAt(0)
@@ -671,6 +696,9 @@ export default function StudentDashboardPage() {
     announcements.length > 0
       ? announcements[0]
       : null;
+
+  const olderAnnouncements =
+    announcements.slice(1);
 
   const cards: DashboardCard[] = [
     {
@@ -735,8 +763,6 @@ export default function StudentDashboardPage() {
     <main style={styles.page}>
       <div style={styles.container}>
 
-        {/* TOP NAVIGATION */}
-
         <nav style={styles.navbar}>
           <div style={styles.brandArea}>
             <div style={styles.brandIcon}>
@@ -769,8 +795,6 @@ export default function StudentDashboardPage() {
           </div>
         </nav>
 
-        {/* HERO */}
-
         <section style={styles.hero}>
           <div
             style={
@@ -799,10 +823,11 @@ export default function StudentDashboardPage() {
               </h1>
 
               <p style={styles.welcomeText}>
-                Your attendance, academic
-                information, homework, fees
-                and account tools are all
-                available here.
+                Manage your attendance,
+                academic information,
+                homework, reports, fees
+                and account settings from
+                one place.
               </p>
 
               {username && (
@@ -832,8 +857,6 @@ export default function StudentDashboardPage() {
           </div>
         </section>
 
-        {/* LATEST ANNOUNCEMENT */}
-
         <section
           style={
             styles.latestAnnouncementSection
@@ -841,7 +864,7 @@ export default function StudentDashboardPage() {
         >
           <div
             style={
-              styles.latestHeader
+              styles.latestAnnouncementHeader
             }
           >
             <div>
@@ -850,7 +873,7 @@ export default function StudentDashboardPage() {
                   styles.latestEyebrow
                 }
               >
-                📢 NEW UPDATE
+                ✨ NEW UPDATE
               </div>
 
               <h2
@@ -866,29 +889,28 @@ export default function StudentDashboardPage() {
                   styles.latestSubtitle
                 }
               >
-                Only the newest teacher update
-                is shown here.
+                Your newest teacher update is shown here.
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={
-                openAllAnnouncements
-              }
-              style={
-                styles.allAnnouncementsButton
-              }
-            >
-              📋 All Announcements
-              <span
+            {announcements.length > 1 && (
+              <button
+                type="button"
+                onClick={() =>
+                  setShowAllAnnouncements(
+                    true
+                  )
+                }
                 style={
-                  styles.allCount
+                  styles.viewAllButton
                 }
               >
-                {announcements.length}
-              </span>
-            </button>
+                📢 View All
+                <span>
+                  {announcements.length}
+                </span>
+              </button>
+            )}
           </div>
 
           {announcementLoading ? (
@@ -897,177 +919,17 @@ export default function StudentDashboardPage() {
                 styles.latestLoading
               }
             >
-              <div
-                style={
-                  styles.latestLoadingIcon
-                }
-              >
-                ⏳
-              </div>
-
-              <div>
-                <div
-                  style={
-                    styles.latestLoadingTitle
-                  }
-                >
-                  Checking for new
-                  announcements...
-                </div>
-
-                <div
-                  style={
-                    styles.latestLoadingText
-                  }
-                >
-                  Please wait.
-                </div>
-              </div>
+              ⏳ Loading latest announcement...
             </div>
-          ) : latestAnnouncement ? (
-            <article
-              style={
-                styles.latestCard
-              }
-            >
-              <div
-                style={
-                  styles.newRibbon
-                }
-              >
-                NEW
-              </div>
-
-              <div
-                style={
-                  styles.latestCardTop
-                }
-              >
-                <div
-                  style={
-                    styles.latestIcon
-                  }
-                >
-                  📢
-                </div>
-
-                <div
-                  style={
-                    styles.latestContent
-                  }
-                >
-                  <div
-                    style={
-                      styles.latestMeta
-                    }
-                  >
-                    <span
-                      style={
-                        styles.teacherBadge
-                      }
-                    >
-                      TEACHER
-                    </span>
-
-                    <span
-                      style={
-                        styles.latestDate
-                      }
-                    >
-                      {formatAnnouncementDate(
-                        latestAnnouncement.created_at
-                      )}
-                    </span>
-                  </div>
-
-                  <h3
-                    style={
-                      styles.latestCardTitle
-                    }
-                  >
-                    {
-                      latestAnnouncement.title
-                    }
-                  </h3>
-
-                  <p
-                    style={
-                      styles.latestMessage
-                    }
-                  >
-                    {
-                      latestAnnouncement.message
-                    }
-                  </p>
-                </div>
-              </div>
-
-              <div
-                style={
-                  styles.latestBottom
-                }
-              >
-                <div
-                  style={
-                    styles.latestForText
-                  }
-                >
-                  👥 For all students
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    toggleLike(
-                      latestAnnouncement.id
-                    )
-                  }
-                  disabled={
-                    likingId ===
-                    latestAnnouncement.id
-                  }
-                  style={{
-                    ...styles.likeButton,
-                    ...(latestAnnouncement.likedByMe
-                      ? styles.likeButtonActive
-                      : {}),
-                    opacity:
-                      likingId ===
-                      latestAnnouncement.id
-                        ? 0.65
-                        : 1,
-                    cursor:
-                      likingId ===
-                      latestAnnouncement.id
-                        ? "not-allowed"
-                        : "pointer",
-                  }}
-                >
-                  {latestAnnouncement.likedByMe
-                    ? "❤️ Liked"
-                    : "🤍 Like"}
-
-                  <span
-                    style={
-                      styles.likeCount
-                    }
-                  >
-                    {
-                      latestAnnouncement.likeCount
-                    }
-                  </span>
-                </button>
-              </div>
-            </article>
-          ) : (
+          ) : !latestAnnouncement ? (
             <div
               style={
-                styles.noLatest
+                styles.latestEmpty
               }
             >
               <div
                 style={
-                  styles.noLatestIcon
+                  styles.latestEmptyIcon
                 }
               >
                 📭
@@ -1076,151 +938,241 @@ export default function StudentDashboardPage() {
               <div>
                 <h3
                   style={
-                    styles.noLatestTitle
+                    styles.latestEmptyTitle
                   }
                 >
-                  No New Announcements
+                  No new announcements
                 </h3>
 
                 <p
                   style={
-                    styles.noLatestText
+                    styles.latestEmptyText
                   }
                 >
-                  Your teacher has not
-                  published any announcement
-                  yet.
+                  Your teacher has not published an announcement yet.
                 </p>
               </div>
             </div>
+          ) : (
+            <article
+              style={
+                styles.latestAnnouncementCard
+              }
+            >
+              <div
+                style={
+                  styles.latestCardIcon
+                }
+              >
+                📢
+              </div>
+
+              <div
+                style={
+                  styles.latestCardContent
+                }
+              >
+                <div
+                  style={
+                    styles.latestMeta
+                  }
+                >
+                  <span
+                    style={
+                      styles.newBadge
+                    }
+                  >
+                    NEW
+                  </span>
+
+                  <span
+                    style={
+                      styles.teacherBadge
+                    }
+                  >
+                    TEACHER
+                  </span>
+
+                  <span
+                    style={
+                      styles.latestDate
+                    }
+                  >
+                    {formatAnnouncementDate(
+                      latestAnnouncement.created_at
+                    )}
+                  </span>
+                </div>
+
+                <h3
+                  style={
+                    styles.latestCardTitle
+                  }
+                >
+                  {
+                    latestAnnouncement.title
+                  }
+                </h3>
+
+                <p
+                  style={
+                    styles.latestCardMessage
+                  }
+                >
+                  {
+                    latestAnnouncement.message
+                  }
+                </p>
+
+                <div
+                  style={
+                    styles.latestBottom
+                  }
+                >
+                  <span
+                    style={
+                      styles.everyoneText
+                    }
+                  >
+                    👥 For all students
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      toggleLike(
+                        latestAnnouncement.id
+                      )
+                    }
+                    disabled={
+                      likingId ===
+                      latestAnnouncement.id
+                    }
+                    style={{
+                      ...styles.likeButton,
+                      ...(latestAnnouncement.likedByMe
+                        ? styles.likeButtonActive
+                        : {}),
+                      opacity:
+                        likingId ===
+                        latestAnnouncement.id
+                          ? 0.65
+                          : 1,
+                      cursor:
+                        likingId ===
+                        latestAnnouncement.id
+                          ? "not-allowed"
+                          : "pointer",
+                    }}
+                  >
+                    {latestAnnouncement.likedByMe
+                      ? "❤️ Liked"
+                      : "🤍 Like"}
+
+                    <span
+                      style={
+                        styles.likeCount
+                      }
+                    >
+                      {
+                        latestAnnouncement.likeCount
+                      }
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </article>
           )}
         </section>
 
-        {/* ALL ANNOUNCEMENTS */}
-
         {showAllAnnouncements && (
-          <section
-            id="all-announcements"
+          <div
             style={
-              styles.allAnnouncementsSection
+              styles.modalOverlay
+            }
+            onClick={() =>
+              setShowAllAnnouncements(
+                false
+              )
             }
           >
             <div
               style={
-                styles.allAnnouncementsHeader
+                styles.modal
+              }
+              onClick={(event) =>
+                event.stopPropagation()
               }
             >
-              <div>
-                <div
-                  style={
-                    styles.allEyebrow
-                  }
-                >
-                  📚 ANNOUNCEMENT CENTER
-                </div>
-
-                <h2
-                  style={
-                    styles.allTitle
-                  }
-                >
-                  All Announcements
-                </h2>
-
-                <p
-                  style={
-                    styles.allSubtitle
-                  }
-                >
-                  View all teacher announcements
-                  and like the updates you find
-                  useful.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={
-                  closeAllAnnouncements
-                }
-                style={
-                  styles.closeAnnouncementsButton
-                }
-              >
-                ↑ Back to Dashboard
-              </button>
-            </div>
-
-            {announcements.length === 0 ? (
               <div
                 style={
-                  styles.noLatest
+                  styles.modalHeader
                 }
               >
-                <div
-                  style={
-                    styles.noLatestIcon
-                  }
-                >
-                  📭
-                </div>
-
                 <div>
-                  <h3
+                  <div
                     style={
-                      styles.noLatestTitle
+                      styles.modalEyebrow
                     }
                   >
-                    No Announcements
-                  </h3>
+                    📢 ANNOUNCEMENT CENTER
+                  </div>
+
+                  <h2
+                    style={
+                      styles.modalTitle
+                    }
+                  >
+                    All Announcements
+                  </h2>
 
                   <p
                     style={
-                      styles.noLatestText
+                      styles.modalSubtitle
                     }
                   >
-                    There are no announcements
-                    available right now.
+                    View and like all teacher announcements.
                   </p>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowAllAnnouncements(
+                      false
+                    )
+                  }
+                  style={
+                    styles.closeButton
+                  }
+                >
+                  ✕
+                </button>
               </div>
-            ) : (
+
               <div
                 style={
-                  styles.announcementList
+                  styles.modalList
                 }
               >
                 {announcements.map(
-                  (
-                    announcement,
-                    index
-                  ) => (
+                  (announcement) => (
                     <article
                       key={
                         announcement.id
                       }
                       style={
-                        styles.announcementCard
+                        styles.modalAnnouncementCard
                       }
                     >
-                      {index === 0 && (
-                        <div
-                          style={
-                            styles.archiveNewBadge
-                          }
-                        >
-                          LATEST
-                        </div>
-                      )}
-
                       <div
                         style={
-                          styles.announcementCardTop
+                          styles.modalCardTop
                         }
                       >
                         <div
                           style={
-                            styles.announcementIcon
+                            styles.modalAnnouncementIcon
                           }
                         >
                           📢
@@ -1228,7 +1180,7 @@ export default function StudentDashboardPage() {
 
                         <div
                           style={
-                            styles.announcementCardContent
+                            styles.modalCardContent
                           }
                         >
                           <div
@@ -1238,10 +1190,16 @@ export default function StudentDashboardPage() {
                           >
                             <span
                               style={
-                                styles.teacherBadge
+                                announcement.id ===
+                                latestAnnouncement?.id
+                                  ? styles.newBadge
+                                  : styles.teacherBadge
                               }
                             >
-                              TEACHER
+                              {announcement.id ===
+                              latestAnnouncement?.id
+                                ? "NEW"
+                                : "TEACHER"}
                             </span>
 
                             <span
@@ -1337,11 +1295,9 @@ export default function StudentDashboardPage() {
                   )
                 )}
               </div>
-            )}
-          </section>
+            </div>
+          </div>
         )}
-
-        {/* NOTICE */}
 
         <section style={styles.notice}>
           <div style={styles.noticeIcon}>
@@ -1361,8 +1317,6 @@ export default function StudentDashboardPage() {
             </p>
           </div>
         </section>
-
-        {/* SERVICES */}
 
         <section>
           <div style={styles.sectionHeading}>
@@ -1475,8 +1429,6 @@ export default function StudentDashboardPage() {
           </div>
         </section>
 
-        {/* PROFILE PANEL */}
-
         <section
           style={
             styles.bottomPanel
@@ -1520,8 +1472,6 @@ export default function StudentDashboardPage() {
             View Profile →
           </button>
         </section>
-
-        {/* FOOTER */}
 
         <footer style={styles.footer}>
           <div style={styles.footerBrand}>
@@ -1592,7 +1542,7 @@ const styles: {
 
   brandName: {
     fontSize: "13px",
-    fontWeight: 1000,
+    fontWeight: "1000",
     letterSpacing: "1px",
     color: "#172554",
   },
@@ -1600,7 +1550,7 @@ const styles: {
   brandSub: {
     marginTop: "3px",
     fontSize: "9px",
-    fontWeight: 900,
+    fontWeight: "900",
     letterSpacing: "2px",
     color: "#64748b",
   },
@@ -1619,7 +1569,7 @@ const styles: {
     borderRadius: "9px",
     color: "#475569",
     fontSize: "11px",
-    fontWeight: 800,
+    fontWeight: "800",
   },
 
   logoutButton: {
@@ -1628,7 +1578,7 @@ const styles: {
     color: "#ffffff",
     padding: "10px 15px",
     borderRadius: "9px",
-    fontWeight: 900,
+    fontWeight: "900",
     cursor: "pointer",
   },
 
@@ -1692,7 +1642,7 @@ const styles: {
     alignItems: "center",
     justifyContent: "center",
     fontSize: "38px",
-    fontWeight: 1000,
+    fontWeight: "1000",
     boxShadow:
       "0 12px 30px rgba(0,0,0,0.18)",
   },
@@ -1704,7 +1654,7 @@ const styles: {
   smallGreeting: {
     color: "#bfdbfe",
     fontSize: "10px",
-    fontWeight: 1000,
+    fontWeight: "1000",
     letterSpacing: "2px",
     marginBottom: "8px",
   },
@@ -1714,7 +1664,7 @@ const styles: {
     color: "#ffffff",
     fontSize: "30px",
     lineHeight: 1.2,
-    fontWeight: 1000,
+    fontWeight: "1000",
     wordBreak: "break-word",
   },
 
@@ -1722,7 +1672,7 @@ const styles: {
     margin: "9px 0 0",
     color: "#dbeafe",
     fontSize: "13px",
-    fontWeight: 600,
+    fontWeight: "600",
     lineHeight: 1.6,
     maxWidth: "600px",
   },
@@ -1738,7 +1688,7 @@ const styles: {
       "1px solid rgba(255,255,255,0.22)",
     color: "#ffffff",
     fontSize: "11px",
-    fontWeight: 900,
+    fontWeight: "900",
   },
 
   heroSide: {
@@ -1768,7 +1718,7 @@ const styles: {
   onlineText: {
     color: "#ffffff",
     fontSize: "10px",
-    fontWeight: 1000,
+    fontWeight: "1000",
     letterSpacing: "1px",
   },
 
@@ -1776,21 +1726,22 @@ const styles: {
     marginTop: "3px",
     color: "#bfdbfe",
     fontSize: "10px",
-    fontWeight: 700,
+    fontWeight: "700",
   },
 
   latestAnnouncementSection: {
     background:
       "linear-gradient(135deg,#ffffff,#f8fbff)",
-    border: "1px solid #dbeafe",
+    border:
+      "1px solid #bfdbfe",
     borderRadius: "22px",
     padding: "20px",
     marginBottom: "20px",
     boxShadow:
-      "0 10px 30px rgba(15,23,42,0.06)",
+      "0 10px 30px rgba(37,99,235,0.08)",
   },
 
-  latestHeader: {
+  latestAnnouncementHeader: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
@@ -1802,7 +1753,7 @@ const styles: {
   latestEyebrow: {
     color: "#2563eb",
     fontSize: "9px",
-    fontWeight: 1000,
+    fontWeight: "1000",
     letterSpacing: "2px",
     marginBottom: "4px",
   },
@@ -1811,109 +1762,95 @@ const styles: {
     margin: 0,
     color: "#172554",
     fontSize: "23px",
-    fontWeight: 1000,
+    fontWeight: "1000",
   },
 
   latestSubtitle: {
     margin: "5px 0 0",
     color: "#64748b",
     fontSize: "11px",
-    fontWeight: 600,
+    fontWeight: "600",
   },
 
-  allAnnouncementsButton: {
-    border: "1px solid #bfdbfe",
+  viewAllButton: {
+    border:
+      "1px solid #bfdbfe",
     background:
-      "linear-gradient(135deg,#eff6ff,#eef2ff)",
+      "#eff6ff",
     color: "#1d4ed8",
     padding: "10px 13px",
     borderRadius: "11px",
     fontSize: "11px",
-    fontWeight: 1000,
+    fontWeight: "1000",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     gap: "8px",
   },
 
-  allCount: {
-    minWidth: "20px",
-    height: "20px",
-    padding: "0 5px",
-    borderRadius: "999px",
-    background: "#2563eb",
-    color: "#ffffff",
-    display: "inline-flex",
+  latestLoading: {
+    padding: "20px",
+    background: "#f8fafc",
+    borderRadius: "14px",
+    color: "#64748b",
+    fontSize: "12px",
+    fontWeight: "800",
+  },
+
+  latestEmpty: {
+    display: "flex",
+    alignItems: "center",
+    gap: "14px",
+    padding: "18px",
+    background: "#f8fafc",
+    borderRadius: "15px",
+    border:
+      "1px dashed #cbd5e1",
+  },
+
+  latestEmptyIcon: {
+    width: "48px",
+    height: "48px",
+    borderRadius: "13px",
+    background: "#eef2ff",
+    display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "9px",
-    fontWeight: 1000,
+    fontSize: "23px",
+    flexShrink: 0,
   },
 
-  latestLoading: {
-    display: "flex",
-    alignItems: "center",
-    gap: "13px",
-    padding: "18px",
-    borderRadius: "15px",
-    background: "#f8fafc",
-    border: "1px dashed #cbd5e1",
-  },
-
-  latestLoadingIcon: {
-    fontSize: "25px",
-  },
-
-  latestLoadingTitle: {
+  latestEmptyTitle: {
+    margin: 0,
     color: "#334155",
-    fontSize: "13px",
-    fontWeight: 900,
+    fontSize: "14px",
+    fontWeight: "1000",
   },
 
-  latestLoadingText: {
-    marginTop: "3px",
+  latestEmptyText: {
+    margin: "4px 0 0",
     color: "#64748b",
-    fontSize: "10px",
-    fontWeight: 600,
+    fontSize: "11px",
+    fontWeight: "600",
   },
 
-  latestCard: {
-    position: "relative",
-    overflow: "hidden",
-    background:
-      "linear-gradient(135deg,#eff6ff,#ffffff,#f5f3ff)",
-    border: "1px solid #bfdbfe",
-    borderRadius: "18px",
-    padding: "17px",
-    boxShadow:
-      "0 8px 25px rgba(37,99,235,0.08)",
-  },
-
-  newRibbon: {
-    position: "absolute",
-    top: "0",
-    right: "0",
-    background:
-      "linear-gradient(135deg,#2563eb,#7c3aed)",
-    color: "#ffffff",
-    padding: "6px 11px",
-    borderBottomLeftRadius: "11px",
-    fontSize: "8px",
-    fontWeight: 1000,
-    letterSpacing: "1px",
-  },
-
-  latestCardTop: {
+  latestAnnouncementCard: {
     display: "flex",
     alignItems: "flex-start",
-    gap: "13px",
+    gap: "14px",
+    padding: "18px",
+    borderRadius: "17px",
+    background:
+      "linear-gradient(135deg,#eff6ff,#ffffff)",
+    border:
+      "1px solid #dbeafe",
   },
 
-  latestIcon: {
+  latestCardIcon: {
     width: "50px",
     height: "50px",
     minWidth: "50px",
-    borderRadius: "15px",
+    borderRadius: "14px",
     background:
       "linear-gradient(135deg,#dbeafe,#ede9fe)",
     display: "flex",
@@ -1922,17 +1859,27 @@ const styles: {
     fontSize: "23px",
   },
 
-  latestContent: {
-    minWidth: 0,
+  latestCardContent: {
     flex: 1,
-    paddingRight: "40px",
+    minWidth: 0,
   },
 
   latestMeta: {
     display: "flex",
     alignItems: "center",
-    gap: "8px",
+    gap: "7px",
     flexWrap: "wrap",
+  },
+
+  newBadge: {
+    background:
+      "linear-gradient(135deg,#2563eb,#4f46e5)",
+    color: "#ffffff",
+    padding: "4px 8px",
+    borderRadius: "6px",
+    fontSize: "8px",
+    fontWeight: "1000",
+    letterSpacing: "0.8px",
   },
 
   teacherBadge: {
@@ -1941,30 +1888,30 @@ const styles: {
     padding: "4px 7px",
     borderRadius: "6px",
     fontSize: "8px",
-    fontWeight: 1000,
+    fontWeight: "1000",
     letterSpacing: "0.7px",
   },
 
   latestDate: {
     color: "#94a3b8",
     fontSize: "9px",
-    fontWeight: 700,
+    fontWeight: "700",
   },
 
   latestCardTitle: {
-    margin: "7px 0 0",
+    margin: "8px 0 0",
     color: "#172554",
     fontSize: "18px",
-    fontWeight: 1000,
+    fontWeight: "1000",
     wordBreak: "break-word",
   },
 
-  latestMessage: {
+  latestCardMessage: {
     margin: "7px 0 0",
     color: "#475569",
     fontSize: "12px",
     lineHeight: 1.65,
-    fontWeight: 600,
+    fontWeight: "600",
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
   },
@@ -1972,7 +1919,8 @@ const styles: {
   latestBottom: {
     marginTop: "14px",
     paddingTop: "12px",
-    borderTop: "1px solid #dbeafe",
+    borderTop:
+      "1px solid #dbeafe",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
@@ -1980,20 +1928,21 @@ const styles: {
     flexWrap: "wrap",
   },
 
-  latestForText: {
+  everyoneText: {
     color: "#64748b",
     fontSize: "10px",
-    fontWeight: 800,
+    fontWeight: "800",
   },
 
   likeButton: {
-    border: "1px solid #cbd5e1",
+    border:
+      "1px solid #cbd5e1",
     background: "#ffffff",
     color: "#475569",
     padding: "8px 11px",
     borderRadius: "9px",
     fontSize: "11px",
-    fontWeight: 1000,
+    fontWeight: "1000",
     display: "flex",
     alignItems: "center",
     gap: "7px",
@@ -2001,7 +1950,8 @@ const styles: {
 
   likeButtonActive: {
     background: "#fff1f2",
-    border: "1px solid #fecdd3",
+    border:
+      "1px solid #fecdd3",
     color: "#be123c",
   },
 
@@ -2016,133 +1966,104 @@ const styles: {
     alignItems: "center",
     justifyContent: "center",
     fontSize: "9px",
-    fontWeight: 1000,
+    fontWeight: "1000",
   },
 
-  noLatest: {
-    display: "flex",
-    alignItems: "center",
-    gap: "14px",
+  modalOverlay: {
+    position: "fixed",
+    inset: 0,
+    background:
+      "rgba(15,23,42,0.58)",
+    zIndex: 1000,
     padding: "20px",
-    background: "#f8fafc",
-    borderRadius: "15px",
-    border: "1px dashed #cbd5e1",
-  },
-
-  noLatestIcon: {
-    width: "48px",
-    height: "48px",
-    minWidth: "48px",
-    borderRadius: "13px",
-    background: "#eff6ff",
+    boxSizing: "border-box",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "23px",
   },
 
-  noLatestTitle: {
-    margin: 0,
-    color: "#334155",
-    fontSize: "14px",
-    fontWeight: 1000,
-  },
-
-  noLatestText: {
-    margin: "4px 0 0",
-    color: "#64748b",
-    fontSize: "11px",
-    fontWeight: 600,
-  },
-
-  allAnnouncementsSection: {
+  modal: {
+    width: "100%",
+    maxWidth: "850px",
+    maxHeight: "90vh",
+    overflow: "hidden",
     background: "#ffffff",
-    border: "1px solid #ddd6fe",
     borderRadius: "22px",
-    padding: "20px",
-    marginBottom: "25px",
     boxShadow:
-      "0 12px 32px rgba(79,70,229,0.08)",
+      "0 25px 70px rgba(15,23,42,0.25)",
+    display: "flex",
+    flexDirection: "column",
   },
 
-  allAnnouncementsHeader: {
+  modalHeader: {
+    padding: "20px",
+    borderBottom:
+      "1px solid #e2e8f0",
     display: "flex",
-    alignItems: "flex-end",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     gap: "15px",
-    marginBottom: "17px",
-    flexWrap: "wrap",
   },
 
-  allEyebrow: {
-    color: "#7c3aed",
+  modalEyebrow: {
+    color: "#2563eb",
     fontSize: "9px",
-    fontWeight: 1000,
+    fontWeight: "1000",
     letterSpacing: "2px",
     marginBottom: "4px",
   },
 
-  allTitle: {
+  modalTitle: {
     margin: 0,
-    color: "#312e81",
+    color: "#172554",
     fontSize: "23px",
-    fontWeight: 1000,
+    fontWeight: "1000",
   },
 
-  allSubtitle: {
+  modalSubtitle: {
     margin: "5px 0 0",
     color: "#64748b",
     fontSize: "11px",
-    fontWeight: 600,
+    fontWeight: "600",
   },
 
-  closeAnnouncementsButton: {
-    border: "1px solid #ddd6fe",
-    background: "#f5f3ff",
-    color: "#6d28d9",
-    padding: "10px 13px",
-    borderRadius: "10px",
-    fontSize: "10px",
-    fontWeight: 1000,
+  closeButton: {
+    width: "35px",
+    height: "35px",
+    border: "none",
+    borderRadius: "9px",
+    background: "#f1f5f9",
+    color: "#475569",
     cursor: "pointer",
+    fontWeight: "1000",
+    fontSize: "14px",
+    flexShrink: 0,
   },
 
-  announcementList: {
+  modalList: {
+    overflowY: "auto",
+    padding: "15px 20px 20px",
     display: "flex",
     flexDirection: "column",
     gap: "12px",
   },
 
-  announcementCard: {
-    position: "relative",
-    overflow: "hidden",
+  modalAnnouncementCard: {
     background:
       "linear-gradient(135deg,#f8fbff,#ffffff)",
-    border: "1px solid #dbeafe",
+    border:
+      "1px solid #dbeafe",
     borderRadius: "16px",
     padding: "16px",
   },
 
-  archiveNewBadge: {
-    position: "absolute",
-    top: "0",
-    right: "0",
-    background: "#2563eb",
-    color: "#ffffff",
-    padding: "5px 9px",
-    borderBottomLeftRadius: "8px",
-    fontSize: "7px",
-    fontWeight: 1000,
-    letterSpacing: "0.8px",
-  },
-
-  announcementCardTop: {
+  modalCardTop: {
     display: "flex",
     alignItems: "flex-start",
     gap: "13px",
   },
 
-  announcementIcon: {
+  modalAnnouncementIcon: {
     width: "45px",
     height: "45px",
     minWidth: "45px",
@@ -2155,7 +2076,7 @@ const styles: {
     fontSize: "21px",
   },
 
-  announcementCardContent: {
+  modalCardContent: {
     minWidth: 0,
     flex: 1,
   },
@@ -2170,14 +2091,14 @@ const styles: {
   announcementDate: {
     color: "#94a3b8",
     fontSize: "9px",
-    fontWeight: 700,
+    fontWeight: "700",
   },
 
   announcementCardTitle: {
     margin: "7px 0 0",
     color: "#172554",
     fontSize: "18px",
-    fontWeight: 1000,
+    fontWeight: "1000",
     wordBreak: "break-word",
   },
 
@@ -2186,7 +2107,7 @@ const styles: {
     color: "#475569",
     fontSize: "12px",
     lineHeight: 1.65,
-    fontWeight: 600,
+    fontWeight: "600",
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
   },
@@ -2194,7 +2115,8 @@ const styles: {
   announcementBottom: {
     marginTop: "14px",
     paddingTop: "12px",
-    borderTop: "1px solid #e2e8f0",
+    borderTop:
+      "1px solid #e2e8f0",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
@@ -2202,15 +2124,10 @@ const styles: {
     flexWrap: "wrap",
   },
 
-  everyoneText: {
-    color: "#64748b",
-    fontSize: "10px",
-    fontWeight: 800,
-  },
-
   notice: {
     background: "#ffffff",
-    border: "1px solid #dbeafe",
+    border:
+      "1px solid #dbeafe",
     borderRadius: "17px",
     padding: "15px 18px",
     display: "flex",
@@ -2236,7 +2153,7 @@ const styles: {
   noticeTitle: {
     color: "#172554",
     fontSize: "13px",
-    fontWeight: 900,
+    fontWeight: "900",
   },
 
   noticeText: {
@@ -2244,7 +2161,7 @@ const styles: {
     color: "#64748b",
     fontSize: "11px",
     lineHeight: 1.5,
-    fontWeight: 600,
+    fontWeight: "600",
   },
 
   sectionHeading: {
@@ -2258,7 +2175,7 @@ const styles: {
   sectionEyebrow: {
     color: "#2563eb",
     fontSize: "9px",
-    fontWeight: 1000,
+    fontWeight: "1000",
     letterSpacing: "2px",
     marginBottom: "3px",
   },
@@ -2266,18 +2183,19 @@ const styles: {
   sectionTitle: {
     margin: 0,
     fontSize: "24px",
-    fontWeight: 1000,
+    fontWeight: "1000",
     color: "#172554",
   },
 
   serviceCount: {
     background: "#ffffff",
-    border: "1px solid #e2e8f0",
+    border:
+      "1px solid #e2e8f0",
     color: "#64748b",
     padding: "8px 11px",
     borderRadius: "9px",
     fontSize: "10px",
-    fontWeight: 900,
+    fontWeight: "900",
   },
 
   cardGrid: {
@@ -2288,7 +2206,8 @@ const styles: {
   },
 
   serviceCard: {
-    border: "1px solid #e2e8f0",
+    border:
+      "1px solid #e2e8f0",
     background: "#ffffff",
     borderRadius: "19px",
     overflow: "hidden",
@@ -2363,7 +2282,7 @@ const styles: {
     alignItems: "center",
     justifyContent: "center",
     color: "#172554",
-    fontWeight: 1000,
+    fontWeight: "1000",
   },
 
   cardBody: {
@@ -2374,7 +2293,7 @@ const styles: {
     margin: 0,
     color: "#172554",
     fontSize: "17px",
-    fontWeight: 1000,
+    fontWeight: "1000",
   },
 
   cardDescription: {
@@ -2383,14 +2302,14 @@ const styles: {
     fontSize: "11px",
     lineHeight: 1.6,
     minHeight: "36px",
-    fontWeight: 600,
+    fontWeight: "600",
   },
 
   openLink: {
     marginTop: "13px",
     color: "#2563eb",
     fontSize: "11px",
-    fontWeight: 1000,
+    fontWeight: "1000",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
@@ -2400,7 +2319,8 @@ const styles: {
     marginTop: "20px",
     background:
       "linear-gradient(135deg,#ffffff,#f8fafc)",
-    border: "1px solid #e2e8f0",
+    border:
+      "1px solid #e2e8f0",
     borderRadius: "18px",
     padding: "17px",
     display: "flex",
@@ -2431,14 +2351,14 @@ const styles: {
     margin: 0,
     color: "#172554",
     fontSize: "14px",
-    fontWeight: 1000,
+    fontWeight: "1000",
   },
 
   bottomDescription: {
     margin: "4px 0 0",
     color: "#64748b",
     fontSize: "11px",
-    fontWeight: 600,
+    fontWeight: "600",
   },
 
   profileButton: {
@@ -2447,25 +2367,26 @@ const styles: {
     color: "#ffffff",
     padding: "10px 15px",
     borderRadius: "9px",
-    fontWeight: 900,
+    fontWeight: "900",
     cursor: "pointer",
   },
 
   footer: {
     marginTop: "25px",
     padding: "18px 5px",
-    borderTop: "1px solid #e2e8f0",
+    borderTop:
+      "1px solid #e2e8f0",
     display: "flex",
     justifyContent: "space-between",
     gap: "10px",
     color: "#94a3b8",
     fontSize: "10px",
-    fontWeight: 700,
+    fontWeight: "700",
     flexWrap: "wrap",
   },
 
   footerBrand: {
     color: "#475569",
-    fontWeight: 900,
+    fontWeight: "900",
   },
 };
