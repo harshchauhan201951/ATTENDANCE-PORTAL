@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -37,25 +37,17 @@ type Student = {
 
 export default function TeacherStudentsPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
-
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   const [editingStudent, setEditingStudent] =
     useState<Student | null>(null);
 
-  const [showAddModal, setShowAddModal] = useState(false);
-
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
-
-  /* =========================
-     EDIT STUDENT STATES
-  ========================= */
 
   const [editName, setEditName] = useState("");
   const [editUsername, setEditUsername] = useState("");
@@ -84,47 +76,9 @@ export default function TeacherStudentsPage() {
   const [editNotes, setEditNotes] = useState("");
   const [editProfileImageUrl, setEditProfileImageUrl] = useState("");
 
-  /* =========================
-     ADD STUDENT STATES
-  ========================= */
-
-  const [addName, setAddName] = useState("");
-  const [addUsername, setAddUsername] = useState("");
-  const [addPassword, setAddPassword] = useState("");
-
-  const [addAdmissionDate, setAddAdmissionDate] = useState("");
-  const [addDateOfBirth, setAddDateOfBirth] = useState("");
-
-  const [addFatherName, setAddFatherName] = useState("");
-  const [addMotherName, setAddMotherName] = useState("");
-
-  const [addStudentMobile, setAddStudentMobile] = useState("");
-  const [addFatherMobile, setAddFatherMobile] = useState("");
-  const [addMotherMobile, setAddMotherMobile] = useState("");
-
-  const [addFatherPhone, setAddFatherPhone] = useState("");
-  const [addMotherPhone, setAddMotherPhone] = useState("");
-
-  const [addClassName, setAddClassName] = useState("");
-  const [addSection, setAddSection] = useState("");
-  const [addGender, setAddGender] = useState("");
-  const [addBloodGroup, setAddBloodGroup] = useState("");
-
-  const [addEmail, setAddEmail] = useState("");
-  const [addCity, setAddCity] = useState("");
-  const [addAddress, setAddAddress] = useState("");
-  const [addNotes, setAddNotes] = useState("");
-  const [addProfileImageUrl, setAddProfileImageUrl] = useState("");
-
   useEffect(() => {
     loadStudents();
   }, []);
-
-  useEffect(() => {
-    if (searchParams.get("add") === "true") {
-      setShowAddModal(true);
-    }
-  }, [searchParams]);
 
   async function loadStudents() {
     setLoading(true);
@@ -170,196 +124,6 @@ export default function TeacherStudentsPage() {
     setLoading(false);
   }
 
-  /* =========================
-     ADD STUDENT
-  ========================= */
-
-  function openAddStudent() {
-    setError("");
-    setSuccess("");
-
-    setAddName("");
-    setAddUsername("");
-    setAddPassword("");
-
-    setAddAdmissionDate("");
-    setAddDateOfBirth("");
-
-    setAddFatherName("");
-    setAddMotherName("");
-
-    setAddStudentMobile("");
-    setAddFatherMobile("");
-    setAddMotherMobile("");
-
-    setAddFatherPhone("");
-    setAddMotherPhone("");
-
-    setAddClassName("");
-    setAddSection("");
-    setAddGender("");
-    setAddBloodGroup("");
-
-    setAddEmail("");
-    setAddCity("");
-    setAddAddress("");
-    setAddNotes("");
-    setAddProfileImageUrl("");
-
-    setShowAddModal(true);
-  }
-
-  function closeAddStudent() {
-    if (saving) return;
-
-    setShowAddModal(false);
-
-    if (searchParams.get("add") === "true") {
-      router.replace("/teacher/students");
-    }
-  }
-
-  async function createStudent(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-
-    if (!addName.trim()) {
-      setError("Student name cannot be empty.");
-      return;
-    }
-
-    if (!addUsername.trim()) {
-      setError("Student username / ID cannot be empty.");
-      return;
-    }
-
-    if (!addPassword.trim()) {
-      setError("Student password cannot be empty.");
-      return;
-    }
-
-    setSaving(true);
-    setError("");
-    setSuccess("");
-
-    const { data: existingStudent, error: existingError } =
-      await supabase
-        .from("students")
-        .select("id")
-        .eq("student_username", addUsername.trim())
-        .maybeSingle();
-
-    if (existingError) {
-      console.error(
-        "Username checking error:",
-        existingError
-      );
-
-      setError(existingError.message);
-      setSaving(false);
-      return;
-    }
-
-    if (existingStudent) {
-      setError(
-        "This student username / ID already exists. Please use another one."
-      );
-      setSaving(false);
-      return;
-    }
-
-    const newStudent = {
-      student_username: addUsername.trim(),
-      password_hash: addPassword.trim(),
-
-      student_name: addName.trim(),
-      admission_date:
-        addAdmissionDate.trim() || null,
-      date_of_birth:
-        addDateOfBirth.trim() || null,
-
-      father_name:
-        addFatherName.trim() || null,
-      mother_name:
-        addMotherName.trim() || null,
-
-      student_mobile:
-        addStudentMobile.trim() || null,
-      father_mobile:
-        addFatherMobile.trim() || null,
-      mother_mobile:
-        addMotherMobile.trim() || null,
-
-      father_phone:
-        addFatherPhone.trim() || null,
-      mother_phone:
-        addMotherPhone.trim() || null,
-
-      class_name:
-        addClassName.trim() || null,
-      section:
-        addSection.trim() || null,
-      gender:
-        addGender.trim() || null,
-      blood_group:
-        addBloodGroup.trim() || null,
-
-      email:
-        addEmail.trim() || null,
-      city:
-        addCity.trim() || null,
-      address:
-        addAddress.trim() || null,
-
-      notes:
-        addNotes.trim() || null,
-
-      profile_image_url:
-        addProfileImageUrl.trim() || null,
-    };
-
-    const { data, error } = await supabase
-      .from("students")
-      .insert(newStudent)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Student creation error:", error);
-
-      setError(error.message);
-      setSaving(false);
-      return;
-    }
-
-    const createdStudent = data as Student;
-
-    setStudents((current) =>
-      [...current, createdStudent].sort(
-        (a, b) => a.id - b.id
-      )
-    );
-
-    setShowAddModal(false);
-
-    if (searchParams.get("add") === "true") {
-      router.replace("/teacher/students");
-    }
-
-    setSuccess(
-      `${addName.trim()} has been added successfully. Student ID: ${addUsername.trim()}`
-    );
-
-    setSaving(false);
-
-    setTimeout(() => {
-      setSuccess("");
-    }, 5000);
-  }
-
-  /* =========================
-     EDIT STUDENT
-  ========================= */
-
   function openEdit(student: Student) {
     setEditingStudent(student);
 
@@ -389,9 +153,7 @@ export default function TeacherStudentsPage() {
     setEditCity(student.city || "");
     setEditAddress(student.address || "");
     setEditNotes(student.notes || "");
-    setEditProfileImageUrl(
-      student.profile_image_url || ""
-    );
+    setEditProfileImageUrl(student.profile_image_url || "");
 
     setError("");
     setSuccess("");
@@ -401,28 +163,22 @@ export default function TeacherStudentsPage() {
     if (saving) return;
 
     setEditingStudent(null);
-
     setEditName("");
     setEditUsername("");
     setEditPassword("");
     setEditAdmissionDate("");
     setEditDateOfBirth("");
-
     setEditFatherName("");
     setEditMotherName("");
-
     setEditStudentMobile("");
     setEditFatherMobile("");
     setEditMotherMobile("");
-
     setEditFatherPhone("");
     setEditMotherPhone("");
-
     setEditClassName("");
     setEditSection("");
     setEditGender("");
     setEditBloodGroup("");
-
     setEditEmail("");
     setEditCity("");
     setEditAddress("");
@@ -451,60 +207,27 @@ export default function TeacherStudentsPage() {
     setError("");
     setSuccess("");
 
-    const usernameChanged =
-      editUsername.trim() !==
-      editingStudent.student_username;
-
-    if (usernameChanged) {
-      const { data: existingStudent, error: existingError } =
-        await supabase
-          .from("students")
-          .select("id")
-          .eq("student_username", editUsername.trim())
-          .neq("id", editingStudent.id)
-          .maybeSingle();
-
-      if (existingError) {
-        setError(existingError.message);
-        setSaving(false);
-        return;
-      }
-
-      if (existingStudent) {
-        setError(
-          "This username / ID is already being used by another student."
-        );
-        setSaving(false);
-        return;
-      }
-    }
-
     const updateData: Partial<Student> = {
       student_name: editName.trim(),
       student_username: editUsername.trim(),
-
       admission_date:
         editAdmissionDate.trim() || null,
       date_of_birth:
         editDateOfBirth.trim() || null,
-
       father_name:
         editFatherName.trim() || null,
       mother_name:
         editMotherName.trim() || null,
-
       student_mobile:
         editStudentMobile.trim() || null,
       father_mobile:
         editFatherMobile.trim() || null,
       mother_mobile:
         editMotherMobile.trim() || null,
-
       father_phone:
         editFatherPhone.trim() || null,
       mother_phone:
         editMotherPhone.trim() || null,
-
       class_name:
         editClassName.trim() || null,
       section:
@@ -513,24 +236,20 @@ export default function TeacherStudentsPage() {
         editGender.trim() || null,
       blood_group:
         editBloodGroup.trim() || null,
-
       email:
         editEmail.trim() || null,
       city:
         editCity.trim() || null,
       address:
         editAddress.trim() || null,
-
       notes:
         editNotes.trim() || null,
-
       profile_image_url:
         editProfileImageUrl.trim() || null,
     };
 
     if (editPassword.trim()) {
-      updateData.password_hash =
-        editPassword.trim();
+      updateData.password_hash = editPassword.trim();
     }
 
     const { error } = await supabase
@@ -539,11 +258,7 @@ export default function TeacherStudentsPage() {
       .eq("id", editingStudent.id);
 
     if (error) {
-      console.error(
-        "Student update error:",
-        error
-      );
-
+      console.error("Student update error:", error);
       setError(error.message);
       setSaving(false);
       return;
@@ -553,7 +268,28 @@ export default function TeacherStudentsPage() {
 
     await loadStudents();
 
-    closeEdit();
+    setEditingStudent(null);
+    setEditName("");
+    setEditUsername("");
+    setEditPassword("");
+    setEditAdmissionDate("");
+    setEditDateOfBirth("");
+    setEditFatherName("");
+    setEditMotherName("");
+    setEditStudentMobile("");
+    setEditFatherMobile("");
+    setEditMotherMobile("");
+    setEditFatherPhone("");
+    setEditMotherPhone("");
+    setEditClassName("");
+    setEditSection("");
+    setEditGender("");
+    setEditBloodGroup("");
+    setEditEmail("");
+    setEditCity("");
+    setEditAddress("");
+    setEditNotes("");
+    setEditProfileImageUrl("");
 
     setSuccess(
       `${updatedName} profile updated successfully.`
@@ -565,10 +301,6 @@ export default function TeacherStudentsPage() {
       setSuccess("");
     }, 4000);
   }
-
-  /* =========================
-     DELETE STUDENT
-  ========================= */
 
   async function deleteStudent(student: Student) {
     const studentName =
@@ -591,11 +323,7 @@ export default function TeacherStudentsPage() {
       .eq("id", student.id);
 
     if (error) {
-      console.error(
-        "Student delete error:",
-        error
-      );
-
+      console.error("Student delete error:", error);
       setError(error.message);
       setDeletingId(null);
       return;
@@ -618,10 +346,6 @@ export default function TeacherStudentsPage() {
     }, 4000);
   }
 
-  /* =========================
-     LOGOUT
-  ========================= */
-
   function logout() {
     localStorage.removeItem("teacherLoggedIn");
     localStorage.removeItem("teacherName");
@@ -636,9 +360,6 @@ export default function TeacherStudentsPage() {
   return (
     <main style={styles.page}>
       <div style={styles.container}>
-
-        {/* HEADER */}
-
         <header style={styles.header}>
           <div style={styles.headerLeft}>
             <div style={styles.iconBox}>
@@ -651,7 +372,7 @@ export default function TeacherStudentsPage() {
               </h1>
 
               <p style={styles.subtitle}>
-                Add and manage complete student profiles
+                Manage complete student profiles
               </p>
             </div>
           </div>
@@ -659,20 +380,10 @@ export default function TeacherStudentsPage() {
           <div style={styles.headerButtons}>
             <button
               type="button"
-              onClick={() =>
-                router.push("/teacher")
-              }
+              onClick={() => router.push("/teacher")}
               style={styles.dashboardButton}
             >
               ← Teacher Dashboard
-            </button>
-
-            <button
-              type="button"
-              onClick={openAddStudent}
-              style={styles.addHeaderButton}
-            >
-              ➕ Add Student
             </button>
 
             <button
@@ -695,23 +406,17 @@ export default function TeacherStudentsPage() {
           </div>
         </header>
 
-        {/* ERROR */}
-
         {error && (
           <div style={styles.error}>
             ❌ {error}
           </div>
         )}
 
-        {/* SUCCESS */}
-
         {success && (
           <div style={styles.success}>
             ✅ {success}
           </div>
         )}
-
-        {/* SUMMARY */}
 
         <section style={styles.summaryCard}>
           <div style={styles.summaryIcon}>
@@ -727,17 +432,7 @@ export default function TeacherStudentsPage() {
               {students.length}
             </h2>
           </div>
-
-          <button
-            type="button"
-            onClick={openAddStudent}
-            style={styles.summaryAddButton}
-          >
-            ➕ Add New Student
-          </button>
         </section>
-
-        {/* STUDENTS */}
 
         <section style={styles.card}>
           <div style={styles.cardHeader}>
@@ -772,17 +467,9 @@ export default function TeacherStudentsPage() {
               </h3>
 
               <p style={styles.emptyText}>
-                There are currently no students in
-                the database.
+                There are currently no students in the
+                database.
               </p>
-
-              <button
-                type="button"
-                onClick={openAddStudent}
-                style={styles.emptyAddButton}
-              >
-                ➕ Add First Student
-              </button>
             </div>
           ) : (
             <div style={styles.tableWrapper}>
@@ -900,671 +587,13 @@ export default function TeacherStudentsPage() {
           )}
         </section>
 
-        {/* =========================
-            ADD STUDENT MODAL
-        ========================= */}
-
-        {showAddModal && (
-          <div style={styles.modalOverlay}>
-            <div style={styles.modal}>
-
-              <div style={styles.modalHeader}>
-                <div style={styles.modalHeaderText}>
-                  <h2 style={styles.modalTitle}>
-                    ➕ Add New Student
-                  </h2>
-
-                  <p style={styles.modalSubtitle}>
-                    Create a new student account with
-                    complete details
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={closeAddStudent}
-                  disabled={saving}
-                  style={styles.closeButton}
-                >
-                  ✕
-                </button>
-              </div>
-
-              <form
-                onSubmit={createStudent}
-                style={styles.modalForm}
-              >
-                <div style={styles.modalBody}>
-
-                  {/* ACCOUNT */}
-
-                  <div style={styles.formSection}>
-                    <h3
-                      style={
-                        styles.formSectionTitle
-                      }
-                    >
-                      🔐 Account Details
-                    </h3>
-
-                    <div style={styles.formGrid}>
-
-                      <div style={styles.field}>
-                        <label
-                          style={styles.label}
-                        >
-                          Student ID / Username *
-                        </label>
-
-                        <input
-                          type="text"
-                          value={addUsername}
-                          onChange={(e) =>
-                            setAddUsername(
-                              e.target.value
-                            )
-                          }
-                          placeholder="Example: STU1001"
-                          style={styles.input}
-                          required
-                        />
-
-                        <p
-                          style={
-                            styles.helpText
-                          }
-                        >
-                          This will be used by the
-                          student to log in.
-                        </p>
-                      </div>
-
-                      <div style={styles.field}>
-                        <label
-                          style={styles.label}
-                        >
-                          Password *
-                        </label>
-
-                        <input
-                          type="text"
-                          value={addPassword}
-                          onChange={(e) =>
-                            setAddPassword(
-                              e.target.value
-                            )
-                          }
-                          placeholder="Create student password"
-                          style={styles.input}
-                          required
-                        />
-                      </div>
-
-                    </div>
-                  </div>
-
-                  {/* BASIC DETAILS */}
-
-                  <div style={styles.formSection}>
-                    <h3
-                      style={
-                        styles.formSectionTitle
-                      }
-                    >
-                      👤 Basic Details
-                    </h3>
-
-                    <div style={styles.formGrid}>
-
-                      <div style={styles.field}>
-                        <label
-                          style={styles.label}
-                        >
-                          Student Name *
-                        </label>
-
-                        <input
-                          type="text"
-                          value={addName}
-                          onChange={(e) =>
-                            setAddName(
-                              e.target.value
-                            )
-                          }
-                          placeholder="Enter student name"
-                          style={styles.input}
-                          required
-                        />
-                      </div>
-
-                      <div style={styles.field}>
-                        <label
-                          style={styles.label}
-                        >
-                          Date of Birth
-                        </label>
-
-                        <input
-                          type="date"
-                          value={addDateOfBirth}
-                          onChange={(e) =>
-                            setAddDateOfBirth(
-                              e.target.value
-                            )
-                          }
-                          style={styles.input}
-                        />
-                      </div>
-
-                      <div style={styles.field}>
-                        <label
-                          style={styles.label}
-                        >
-                          Admission Date
-                        </label>
-
-                        <input
-                          type="date"
-                          value={addAdmissionDate}
-                          onChange={(e) =>
-                            setAddAdmissionDate(
-                              e.target.value
-                            )
-                          }
-                          style={styles.input}
-                        />
-                      </div>
-
-                      <div style={styles.field}>
-                        <label
-                          style={styles.label}
-                        >
-                          Gender
-                        </label>
-
-                        <select
-                          value={addGender}
-                          onChange={(e) =>
-                            setAddGender(
-                              e.target.value
-                            )
-                          }
-                          style={styles.input}
-                        >
-                          <option value="">
-                            Select Gender
-                          </option>
-
-                          <option value="Male">
-                            Male
-                          </option>
-
-                          <option value="Female">
-                            Female
-                          </option>
-
-                          <option value="Other">
-                            Other
-                          </option>
-                        </select>
-                      </div>
-
-                    </div>
-                  </div>
-
-                  {/* PARENTS */}
-
-                  <div style={styles.formSection}>
-                    <h3
-                      style={
-                        styles.formSectionTitle
-                      }
-                    >
-                      👨‍👩‍👧 Parent Details
-                    </h3>
-
-                    <div style={styles.formGrid}>
-
-                      <div style={styles.field}>
-                        <label
-                          style={styles.label}
-                        >
-                          Father's Name
-                        </label>
-
-                        <input
-                          type="text"
-                          value={addFatherName}
-                          onChange={(e) =>
-                            setAddFatherName(
-                              e.target.value
-                            )
-                          }
-                          style={styles.input}
-                        />
-                      </div>
-
-                      <div style={styles.field}>
-                        <label
-                          style={styles.label}
-                        >
-                          Mother's Name
-                        </label>
-
-                        <input
-                          type="text"
-                          value={addMotherName}
-                          onChange={(e) =>
-                            setAddMotherName(
-                              e.target.value
-                            )
-                          }
-                          style={styles.input}
-                        />
-                      </div>
-
-                      <div style={styles.field}>
-                        <label
-                          style={styles.label}
-                        >
-                          Father's Phone
-                        </label>
-
-                        <input
-                          type="tel"
-                          value={addFatherPhone}
-                          onChange={(e) =>
-                            setAddFatherPhone(
-                              e.target.value
-                            )
-                          }
-                          style={styles.input}
-                        />
-                      </div>
-
-                      <div style={styles.field}>
-                        <label
-                          style={styles.label}
-                        >
-                          Mother's Phone
-                        </label>
-
-                        <input
-                          type="tel"
-                          value={addMotherPhone}
-                          onChange={(e) =>
-                            setAddMotherPhone(
-                              e.target.value
-                            )
-                          }
-                          style={styles.input}
-                        />
-                      </div>
-
-                      <div style={styles.field}>
-                        <label
-                          style={styles.label}
-                        >
-                          Father Mobile
-                        </label>
-
-                        <input
-                          type="tel"
-                          value={addFatherMobile}
-                          onChange={(e) =>
-                            setAddFatherMobile(
-                              e.target.value
-                            )
-                          }
-                          style={styles.input}
-                        />
-                      </div>
-
-                      <div style={styles.field}>
-                        <label
-                          style={styles.label}
-                        >
-                          Mother Mobile
-                        </label>
-
-                        <input
-                          type="tel"
-                          value={addMotherMobile}
-                          onChange={(e) =>
-                            setAddMotherMobile(
-                              e.target.value
-                            )
-                          }
-                          style={styles.input}
-                        />
-                      </div>
-
-                    </div>
-                  </div>
-
-                  {/* CONTACT */}
-
-                  <div style={styles.formSection}>
-                    <h3
-                      style={
-                        styles.formSectionTitle
-                      }
-                    >
-                      📱 Contact Details
-                    </h3>
-
-                    <div style={styles.formGrid}>
-
-                      <div style={styles.field}>
-                        <label
-                          style={styles.label}
-                        >
-                          Student Mobile
-                        </label>
-
-                        <input
-                          type="tel"
-                          value={addStudentMobile}
-                          onChange={(e) =>
-                            setAddStudentMobile(
-                              e.target.value
-                            )
-                          }
-                          style={styles.input}
-                        />
-                      </div>
-
-                      <div style={styles.field}>
-                        <label
-                          style={styles.label}
-                        >
-                          Email
-                        </label>
-
-                        <input
-                          type="email"
-                          value={addEmail}
-                          onChange={(e) =>
-                            setAddEmail(
-                              e.target.value
-                            )
-                          }
-                          style={styles.input}
-                        />
-                      </div>
-
-                    </div>
-                  </div>
-
-                  {/* ACADEMIC */}
-
-                  <div style={styles.formSection}>
-                    <h3
-                      style={
-                        styles.formSectionTitle
-                      }
-                    >
-                      🎓 Academic Details
-                    </h3>
-
-                    <div style={styles.formGrid}>
-
-                      <div style={styles.field}>
-                        <label
-                          style={styles.label}
-                        >
-                          Class
-                        </label>
-
-                        <input
-                          type="text"
-                          value={addClassName}
-                          onChange={(e) =>
-                            setAddClassName(
-                              e.target.value
-                            )
-                          }
-                          placeholder="Example: B.Tech CSE-AIML"
-                          style={styles.input}
-                        />
-                      </div>
-
-                      <div style={styles.field}>
-                        <label
-                          style={styles.label}
-                        >
-                          Section
-                        </label>
-
-                        <input
-                          type="text"
-                          value={addSection}
-                          onChange={(e) =>
-                            setAddSection(
-                              e.target.value
-                            )
-                          }
-                          placeholder="Example: A"
-                          style={styles.input}
-                        />
-                      </div>
-
-                      <div style={styles.field}>
-                        <label
-                          style={styles.label}
-                        >
-                          Blood Group
-                        </label>
-
-                        <select
-                          value={addBloodGroup}
-                          onChange={(e) =>
-                            setAddBloodGroup(
-                              e.target.value
-                            )
-                          }
-                          style={styles.input}
-                        >
-                          <option value="">
-                            Select Blood Group
-                          </option>
-
-                          <option value="A+">
-                            A+
-                          </option>
-
-                          <option value="A-">
-                            A-
-                          </option>
-
-                          <option value="B+">
-                            B+
-                          </option>
-
-                          <option value="B-">
-                            B-
-                          </option>
-
-                          <option value="AB+">
-                            AB+
-                          </option>
-
-                          <option value="AB-">
-                            AB-
-                          </option>
-
-                          <option value="O+">
-                            O+
-                          </option>
-
-                          <option value="O-">
-                            O-
-                          </option>
-                        </select>
-                      </div>
-
-                    </div>
-                  </div>
-
-                  {/* ADDRESS */}
-
-                  <div style={styles.formSection}>
-                    <h3
-                      style={
-                        styles.formSectionTitle
-                      }
-                    >
-                      📍 Address Details
-                    </h3>
-
-                    <div style={styles.formGrid}>
-
-                      <div style={styles.field}>
-                        <label
-                          style={styles.label}
-                        >
-                          City
-                        </label>
-
-                        <input
-                          type="text"
-                          value={addCity}
-                          onChange={(e) =>
-                            setAddCity(
-                              e.target.value
-                            )
-                          }
-                          style={styles.input}
-                        />
-                      </div>
-
-                      <div
-                        style={
-                          styles.fullWidthField
-                        }
-                      >
-                        <label
-                          style={styles.label}
-                        >
-                          Complete Address
-                        </label>
-
-                        <textarea
-                          value={addAddress}
-                          onChange={(e) =>
-                            setAddAddress(
-                              e.target.value
-                            )
-                          }
-                          rows={4}
-                          style={styles.textarea}
-                          placeholder="Enter complete address"
-                        />
-                      </div>
-
-                    </div>
-                  </div>
-
-                  {/* OTHER */}
-
-                  <div style={styles.formSection}>
-                    <h3
-                      style={
-                        styles.formSectionTitle
-                      }
-                    >
-                      📝 Other Information
-                    </h3>
-
-                    <div
-                      style={
-                        styles.fullWidthField
-                      }
-                    >
-                      <label
-                        style={styles.label}
-                      >
-                        Profile Image URL
-                      </label>
-
-                      <input
-                        type="url"
-                        value={
-                          addProfileImageUrl
-                        }
-                        onChange={(e) =>
-                          setAddProfileImageUrl(
-                            e.target.value
-                          )
-                        }
-                        style={styles.input}
-                        placeholder="https://..."
-                      />
-                    </div>
-
-                    <div style={styles.notesField}>
-                      <label
-                        style={styles.label}
-                      >
-                        Notes
-                      </label>
-
-                      <textarea
-                        value={addNotes}
-                        onChange={(e) =>
-                          setAddNotes(
-                            e.target.value
-                          )
-                        }
-                        rows={4}
-                        style={styles.textarea}
-                        placeholder="Additional notes about the student"
-                      />
-                    </div>
-                  </div>
-
-                </div>
-
-                <div style={styles.modalFooter}>
-
-                  <button
-                    type="button"
-                    onClick={closeAddStudent}
-                    disabled={saving}
-                    style={styles.cancelButton}
-                  >
-                    Cancel
-                  </button>
-
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    style={{
-                      ...styles.addSaveButton,
-                      opacity: saving ? 0.6 : 1,
-                    }}
-                  >
-                    {saving
-                      ? "⏳ Creating Student..."
-                      : "➕ Create Student Account"}
-                  </button>
-
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* =========================
-            EDIT STUDENT MODAL
-        ========================= */}
-
         {editingStudent && (
           <div style={styles.modalOverlay}>
             <div style={styles.modal}>
-
               <div style={styles.modalHeader}>
-                <div style={styles.modalHeaderText}>
+                <div
+                  style={styles.modalHeaderText}
+                >
                   <h2 style={styles.modalTitle}>
                     ✏️ Edit Student Profile
                   </h2>
@@ -1590,9 +619,6 @@ export default function TeacherStudentsPage() {
                 style={styles.modalForm}
               >
                 <div style={styles.modalBody}>
-
-                  {/* ACCOUNT */}
-
                   <div style={styles.formSection}>
                     <h3
                       style={
@@ -1603,12 +629,11 @@ export default function TeacherStudentsPage() {
                     </h3>
 
                     <div style={styles.formGrid}>
-
                       <div style={styles.field}>
                         <label
                           style={styles.label}
                         >
-                          Username / ID
+                          Username
                         </label>
 
                         <input
@@ -1651,11 +676,8 @@ export default function TeacherStudentsPage() {
                           you want to change it.
                         </p>
                       </div>
-
                     </div>
                   </div>
-
-                  {/* BASIC */}
 
                   <div style={styles.formSection}>
                     <h3
@@ -1667,7 +689,6 @@ export default function TeacherStudentsPage() {
                     </h3>
 
                     <div style={styles.formGrid}>
-
                       <div style={styles.field}>
                         <label
                           style={styles.label}
@@ -1763,11 +784,8 @@ export default function TeacherStudentsPage() {
                           </option>
                         </select>
                       </div>
-
                     </div>
                   </div>
-
-                  {/* PARENTS */}
 
                   <div style={styles.formSection}>
                     <h3
@@ -1779,7 +797,6 @@ export default function TeacherStudentsPage() {
                     </h3>
 
                     <div style={styles.formGrid}>
-
                       <div style={styles.field}>
                         <label
                           style={styles.label}
@@ -1905,11 +922,8 @@ export default function TeacherStudentsPage() {
                           style={styles.input}
                         />
                       </div>
-
                     </div>
                   </div>
-
-                  {/* CONTACT */}
 
                   <div style={styles.formSection}>
                     <h3
@@ -1921,7 +935,6 @@ export default function TeacherStudentsPage() {
                     </h3>
 
                     <div style={styles.formGrid}>
-
                       <div style={styles.field}>
                         <label
                           style={styles.label}
@@ -1945,8 +958,7 @@ export default function TeacherStudentsPage() {
 
                       <div style={styles.field}>
                         <label
-                          style={styles.label
-                          }
+                          style={styles.label}
                         >
                           Email
                         </label>
@@ -1962,11 +974,8 @@ export default function TeacherStudentsPage() {
                           style={styles.input}
                         />
                       </div>
-
                     </div>
                   </div>
-
-                  {/* ACADEMIC */}
 
                   <div style={styles.formSection}>
                     <h3
@@ -1978,7 +987,6 @@ export default function TeacherStudentsPage() {
                     </h3>
 
                     <div style={styles.formGrid}>
-
                       <div style={styles.field}>
                         <label
                           style={styles.label}
@@ -2075,11 +1083,8 @@ export default function TeacherStudentsPage() {
                           </option>
                         </select>
                       </div>
-
                     </div>
                   </div>
-
-                  {/* ADDRESS */}
 
                   <div style={styles.formSection}>
                     <h3
@@ -2091,11 +1096,9 @@ export default function TeacherStudentsPage() {
                     </h3>
 
                     <div style={styles.formGrid}>
-
                       <div style={styles.field}>
                         <label
-                          style={styles.label
-                          }
+                          style={styles.label}
                         >
                           City
                         </label>
@@ -2131,15 +1134,14 @@ export default function TeacherStudentsPage() {
                             )
                           }
                           rows={4}
-                          style={styles.textarea}
+                          style={
+                            styles.textarea
+                          }
                           placeholder="Enter complete address"
                         />
                       </div>
-
                     </div>
                   </div>
-
-                  {/* OTHER */}
 
                   <div style={styles.formSection}>
                     <h3
@@ -2196,16 +1198,16 @@ export default function TeacherStudentsPage() {
                       />
                     </div>
                   </div>
-
                 </div>
 
                 <div style={styles.modalFooter}>
-
                   <button
                     type="button"
                     onClick={closeEdit}
                     disabled={saving}
-                    style={styles.cancelButton}
+                    style={
+                      styles.cancelButton
+                    }
                   >
                     Cancel
                   </button>
@@ -2222,25 +1224,19 @@ export default function TeacherStudentsPage() {
                       ? "⏳ Saving..."
                       : "💾 Save Complete Profile"}
                   </button>
-
                 </div>
               </form>
             </div>
           </div>
         )}
 
-        {/* FOOTER */}
-
         <footer style={styles.footer}>
-          <strong>
-            Attendance Portal
-          </strong>
+          <strong>Attendance Portal</strong>
 
           <span>
             Students Management • 2026
           </span>
         </footer>
-
       </div>
     </main>
   );
@@ -2258,7 +1254,8 @@ const styles: {
     background:
       "linear-gradient(135deg, #eef2ff, #f8fafc, #eff6ff)",
     padding: "20px",
-    fontFamily: "Arial, Helvetica, sans-serif",
+    fontFamily:
+      "Arial, Helvetica, sans-serif",
     wordBreak: "normal",
     overflowWrap: "normal",
     whiteSpace: "normal",
@@ -2365,19 +1362,6 @@ const styles: {
     wordBreak: "normal",
   },
 
-  addHeaderButton: {
-    border: "none",
-    background:
-      "linear-gradient(135deg,#2563eb,#4f46e5)",
-    color: "white",
-    padding: "11px 15px",
-    borderRadius: "10px",
-    fontWeight: "700",
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    wordBreak: "normal",
-  },
-
   settingsButton: {
     border: "none",
     background: "#475569",
@@ -2447,7 +1431,6 @@ const styles: {
       "0 8px 25px rgba(15, 23, 42, 0.07)",
     marginBottom: "20px",
     minWidth: 0,
-    flexWrap: "wrap",
   },
 
   summaryIcon: {
@@ -2485,18 +1468,6 @@ const styles: {
     fontSize: "28px",
     fontWeight: "800",
     lineHeight: 1.2,
-  },
-
-  summaryAddButton: {
-    border: "none",
-    background:
-      "linear-gradient(135deg,#2563eb,#4f46e5)",
-    color: "white",
-    padding: "12px 17px",
-    borderRadius: "10px",
-    fontWeight: "800",
-    cursor: "pointer",
-    whiteSpace: "nowrap",
   },
 
   card: {
@@ -2684,18 +1655,6 @@ const styles: {
     lineHeight: 1.5,
     wordBreak: "normal",
     overflowWrap: "normal",
-  },
-
-  emptyAddButton: {
-    marginTop: "10px",
-    border: "none",
-    background:
-      "linear-gradient(135deg,#2563eb,#4f46e5)",
-    color: "white",
-    padding: "12px 18px",
-    borderRadius: "10px",
-    fontWeight: "800",
-    cursor: "pointer",
   },
 
   modalOverlay: {
@@ -2925,19 +1884,6 @@ const styles: {
     border: "none",
     background:
       "linear-gradient(135deg, #2563eb, #4f46e5)",
-    color: "white",
-    padding: "11px 17px",
-    borderRadius: "9px",
-    fontWeight: "700",
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    wordBreak: "normal",
-  },
-
-  addSaveButton: {
-    border: "none",
-    background:
-      "linear-gradient(135deg, #16a34a, #15803d)",
     color: "white",
     padding: "11px 17px",
     borderRadius: "9px",
