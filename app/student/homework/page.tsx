@@ -44,7 +44,9 @@ export default function StudentHomeworkPage() {
         "";
 
       if (!username) {
-        setError("Student session not found. Please login again.");
+        setError(
+          "Student session not found. Please login again."
+        );
         setLoading(false);
         return;
       }
@@ -59,8 +61,15 @@ export default function StudentHomeworkPage() {
           .single();
 
       if (studentError) {
-        console.error("Student loading error:", studentError);
-        setError("Unable to load your student information.");
+        console.error(
+          "Student loading error:",
+          studentError
+        );
+
+        setError(
+          "Unable to load your student information."
+        );
+
         setLoading(false);
         return;
       }
@@ -76,27 +85,11 @@ export default function StudentHomeworkPage() {
         setError(
           "Your class is not assigned yet. Please contact your teacher."
         );
+
         setHomework([]);
         setLoading(false);
         return;
       }
-
-      /*
-       * IMPORTANT
-       *
-       * Teacher homework can now contain multiple classes.
-       *
-       * Example:
-       *
-       * Class 9
-       *
-       * OR
-       *
-       * Class 9, Class 10, Class 11
-       *
-       * So we fetch homework and then check whether
-       * the student's class is included in the selected classes.
-       */
 
       const { data: homeworkData, error: homeworkError } =
         await supabase
@@ -196,392 +189,787 @@ export default function StudentHomeworkPage() {
   }
 
   return (
-    <main style={styles.page}>
-      <div style={styles.container}>
+    <>
+      <main
+        className="student-homework-page"
+        style={styles.page}
+      >
+        <div
+          className="student-homework-container"
+          style={styles.container}
+        >
+          {/* HEADER */}
 
-        {/* HEADER */}
-
-        <header style={styles.header}>
-          <div style={styles.headerLeft}>
-
-            <div style={styles.logo}>
-              📚
-            </div>
-
-            <div>
-              <div style={styles.portalBadge}>
-                STUDENT PORTAL
-              </div>
-
-              <h1 style={styles.title}>
-                My Homework
-              </h1>
-
-              <p style={styles.subtitle}>
-                View homework assigned by your teacher
-              </p>
-            </div>
-
-          </div>
-
-          <div style={styles.headerActions}>
-
-            <button
-              type="button"
-              onClick={() =>
-                router.push("/student/dashboard")
-              }
-              style={styles.dashboardButton}
+          <header
+            className="homework-header"
+            style={styles.header}
+          >
+            <div
+              className="homework-header-left"
+              style={styles.headerLeft}
             >
-              ← Dashboard
-            </button>
-
-            <button
-              type="button"
-              onClick={logout}
-              style={styles.logoutButton}
-            >
-              Logout
-            </button>
-
-          </div>
-        </header>
-
-        {/* STUDENT INFORMATION */}
-
-        {student && (
-          <section style={styles.studentCard}>
-
-            <div style={styles.studentAvatar}>
-              {(student.student_name || "S")
-                .charAt(0)
-                .toUpperCase()}
-            </div>
-
-            <div style={styles.studentInfo}>
-
-              <div style={styles.infoLabel}>
-                STUDENT
+              <div style={styles.logo}>
+                📚
               </div>
 
-              <div style={styles.studentName}>
-                {student.student_name || "Student"}
-              </div>
-
-              <div style={styles.username}>
-                @{student.student_username}
-              </div>
-
-            </div>
-
-            <div style={styles.classBox}>
-
-              <div style={styles.infoLabel}>
-                MY CLASS
-              </div>
-
-              <div style={styles.className}>
-                {student.class_name || "Not Assigned"}
-              </div>
-
-            </div>
-
-            <div style={styles.homeworkCountBox}>
-
-              <div style={styles.infoLabel}>
-                HOMEWORK
-              </div>
-
-              <div style={styles.homeworkCount}>
-                {homework.length}
-              </div>
-
-            </div>
-
-          </section>
-        )}
-
-        {/* ERROR */}
-
-        {error && (
-          <div style={styles.errorBox}>
-
-            <div style={styles.errorIcon}>
-              ⚠️
-            </div>
-
-            <div>
-
-              <div style={styles.errorTitle}>
-                Unable to Load Homework
-              </div>
-
-              <div style={styles.errorText}>
-                {error}
-              </div>
-
-            </div>
-
-          </div>
-        )}
-
-        {/* LOADING */}
-
-        {loading ? (
-          <section style={styles.emptyCard}>
-
-            <div style={styles.loadingIcon}>
-              ⏳
-            </div>
-
-            <h2 style={styles.emptyTitle}>
-              Loading Your Homework...
-            </h2>
-
-            <p style={styles.emptyText}>
-              Please wait while we load homework
-              assigned to your class.
-            </p>
-
-          </section>
-        ) : !error && homework.length === 0 ? (
-
-          /* NO HOMEWORK */
-
-          <section style={styles.emptyCard}>
-
-            <div style={styles.emptyIcon}>
-              📚
-            </div>
-
-            <h2 style={styles.emptyTitle}>
-              No Homework Assigned
-            </h2>
-
-            <p style={styles.emptyText}>
-              There is currently no homework assigned
-              to your class.
-            </p>
-
-            {student?.class_name && (
-              <div style={styles.emptyClass}>
-                Class: {student.class_name}
-              </div>
-            )}
-
-          </section>
-
-        ) : (
-
-          /* HOMEWORK LIST */
-
-          <section>
-
-            <div style={styles.sectionHeader}>
-
-              <div>
-
-                <div style={styles.sectionEyebrow}>
-                  ACADEMIC WORK
+              <div className="homework-heading-content">
+                <div style={styles.portalBadge}>
+                  STUDENT PORTAL
                 </div>
 
-                <h2 style={styles.sectionTitle}>
-                  Assigned Homework
-                </h2>
+                <h1 style={styles.title}>
+                  My Homework
+                </h1>
 
-                <p style={styles.sectionSubtitle}>
-                  Homework assigned to your class by
-                  your teacher.
+                <p style={styles.subtitle}>
+                  View homework assigned by your teacher
                 </p>
-
               </div>
-
-              <div style={styles.readOnlyBadge}>
-                🔒 READ ONLY
-              </div>
-
             </div>
 
-            <div style={styles.homeworkList}>
+            <div
+              className="homework-header-actions"
+              style={styles.headerActions}
+            >
+              <button
+                type="button"
+                onClick={() =>
+                  router.push("/student/dashboard")
+                }
+                style={styles.dashboardButton}
+              >
+                ← Dashboard
+              </button>
 
-              {homework.map((item) => {
+              <button
+                type="button"
+                onClick={logout}
+                style={styles.logoutButton}
+              >
+                Logout
+              </button>
+            </div>
+          </header>
 
-                const overdue = isOverdue(
-                  item.due_date
-                );
+          {/* STUDENT INFORMATION */}
 
-                return (
-                  <article
-                    key={item.id}
-                    style={styles.homeworkCard}
-                  >
+          {student && (
+            <section
+              className="homework-student-card"
+              style={styles.studentCard}
+            >
+              <div style={styles.studentAvatar}>
+                {(student.student_name || "S")
+                  .charAt(0)
+                  .toUpperCase()}
+              </div>
 
-                    <div style={styles.homeworkHeader}>
+              <div
+                className="homework-student-info"
+                style={styles.studentInfo}
+              >
+                <div style={styles.infoLabel}>
+                  STUDENT
+                </div>
 
-                      <div style={styles.badges}>
+                <div style={styles.studentName}>
+                  {student.student_name || "Student"}
+                </div>
 
-                        <span
-                          style={
-                            styles.subjectBadge
-                          }
-                        >
-                          {item.subject}
-                        </span>
+                <div style={styles.username}>
+                  @{student.student_username}
+                </div>
+              </div>
 
-                        <span
-                          style={
-                            styles.classBadge
-                          }
-                        >
-                          {student?.class_name}
-                        </span>
+              <div
+                className="homework-class-box"
+                style={styles.classBox}
+              >
+                <div style={styles.infoLabel}>
+                  MY CLASS
+                </div>
 
-                      </div>
+                <div style={styles.className}>
+                  {student.class_name || "Not Assigned"}
+                </div>
+              </div>
 
+              <div
+                className="homework-count-box"
+                style={styles.homeworkCountBox}
+              >
+                <div style={styles.infoLabel}>
+                  HOMEWORK
+                </div>
+
+                <div style={styles.homeworkCount}>
+                  {homework.length}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* ERROR */}
+
+          {error && (
+            <div
+              className="homework-error-box"
+              style={styles.errorBox}
+            >
+              <div style={styles.errorIcon}>
+                ⚠️
+              </div>
+
+              <div className="homework-error-content">
+                <div style={styles.errorTitle}>
+                  Unable to Load Homework
+                </div>
+
+                <div style={styles.errorText}>
+                  {error}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* LOADING */}
+
+          {loading ? (
+            <section
+              style={styles.emptyCard}
+            >
+              <div style={styles.loadingIcon}>
+                ⏳
+              </div>
+
+              <h2 style={styles.emptyTitle}>
+                Loading Your Homework...
+              </h2>
+
+              <p style={styles.emptyText}>
+                Please wait while we load homework
+                assigned to your class.
+              </p>
+            </section>
+          ) : !error && homework.length === 0 ? (
+            /* NO HOMEWORK */
+
+            <section
+              style={styles.emptyCard}
+            >
+              <div style={styles.emptyIcon}>
+                📚
+              </div>
+
+              <h2 style={styles.emptyTitle}>
+                No Homework Assigned
+              </h2>
+
+              <p style={styles.emptyText}>
+                There is currently no homework assigned
+                to your class.
+              </p>
+
+              {student?.class_name && (
+                <div style={styles.emptyClass}>
+                  Class: {student.class_name}
+                </div>
+              )}
+            </section>
+          ) : (
+            /* HOMEWORK LIST */
+
+            <section>
+              <div
+                className="homework-section-header"
+                style={styles.sectionHeader}
+              >
+                <div className="homework-section-heading">
+                  <div style={styles.sectionEyebrow}>
+                    ACADEMIC WORK
+                  </div>
+
+                  <h2 style={styles.sectionTitle}>
+                    Assigned Homework
+                  </h2>
+
+                  <p style={styles.sectionSubtitle}>
+                    Homework assigned to your class by
+                    your teacher.
+                  </p>
+                </div>
+
+                <div style={styles.readOnlyBadge}>
+                  🔒 READ ONLY
+                </div>
+              </div>
+
+              <div
+                className="homework-list"
+                style={styles.homeworkList}
+              >
+                {homework.map((item) => {
+                  const overdue = isOverdue(
+                    item.due_date
+                  );
+
+                  return (
+                    <article
+                      key={item.id}
+                      className="homework-card"
+                      style={styles.homeworkCard}
+                    >
                       <div
-                        style={{
-                          ...styles.statusBadge,
-                          ...(overdue
-                            ? styles.overdueBadge
-                            : styles.pendingBadge),
-                        }}
+                        className="homework-card-header"
+                        style={styles.homeworkHeader}
                       >
-                        {overdue
-                          ? "OVERDUE"
-                          : "ACTIVE"}
-                      </div>
-
-                    </div>
-
-                    <h3 style={styles.homeworkTitle}>
-                      {item.title}
-                    </h3>
-
-                    <div style={styles.descriptionBox}>
-
-                      <div
-                        style={
-                          styles.descriptionLabel
-                        }
-                      >
-                        HOMEWORK
-                      </div>
-
-                      <p
-                        style={
-                          styles.homeworkDescription
-                        }
-                      >
-                        {item.description}
-                      </p>
-
-                    </div>
-
-                    <div style={styles.homeworkFooter}>
-
-                      <div style={styles.dueBox}>
-
-                        <div style={styles.dueIcon}>
-                          📅
-                        </div>
-
-                        <div>
-
-                          <div
+                        <div
+                          className="homework-badges"
+                          style={styles.badges}
+                        >
+                          <span
                             style={
-                              styles.dueLabel
+                              styles.subjectBadge
                             }
                           >
-                            DUE DATE
-                          </div>
+                            {item.subject}
+                          </span>
 
-                          <div
+                          <span
                             style={
-                              styles.dueDate
+                              styles.classBadge
                             }
                           >
-                            {formatDate(
-                              item.due_date
-                            )}
-                          </div>
-
-                        </div>
-
-                      </div>
-
-                      <div style={styles.classVisibility}>
-
-                        <span
-                          style={
-                            styles.visibilityIcon
-                          }
-                        >
-                          👥
-                        </span>
-
-                        <span>
-                          Assigned to your class{" "}
-                          <strong>
                             {student?.class_name}
-                          </strong>
-                        </span>
+                          </span>
+                        </div>
 
+                        <div
+                          style={{
+                            ...styles.statusBadge,
+                            ...(overdue
+                              ? styles.overdueBadge
+                              : styles.pendingBadge),
+                          }}
+                        >
+                          {overdue
+                            ? "OVERDUE"
+                            : "ACTIVE"}
+                        </div>
                       </div>
 
-                    </div>
+                      <h3
+                        className="homework-title"
+                        style={styles.homeworkTitle}
+                      >
+                        {item.title}
+                      </h3>
 
-                  </article>
-                );
-              })}
+                      <div
+                        className="homework-description-box"
+                        style={styles.descriptionBox}
+                      >
+                        <div
+                          style={
+                            styles.descriptionLabel
+                          }
+                        >
+                          HOMEWORK
+                        </div>
 
-            </div>
+                        <p
+                          className="homework-description"
+                          style={
+                            styles.homeworkDescription
+                          }
+                        >
+                          {item.description}
+                        </p>
+                      </div>
 
-          </section>
-        )}
+                      <div
+                        className="homework-footer"
+                        style={styles.homeworkFooter}
+                      >
+                        <div
+                          className="homework-due-box"
+                          style={styles.dueBox}
+                        >
+                          <div style={styles.dueIcon}>
+                            📅
+                          </div>
 
-        {/* INFORMATION */}
+                          <div>
+                            <div
+                              style={
+                                styles.dueLabel
+                              }
+                            >
+                              DUE DATE
+                            </div>
 
-        {!loading && !error && (
-          <section style={styles.infoCard}>
+                            <div
+                              style={
+                                styles.dueDate
+                              }
+                            >
+                              {formatDate(
+                                item.due_date
+                              )}
+                            </div>
+                          </div>
+                        </div>
 
-            <div style={styles.infoCardIcon}>
-              ℹ️
+                        <div
+                          className="homework-class-visibility"
+                          style={
+                            styles.classVisibility
+                          }
+                        >
+                          <span
+                            style={
+                              styles.visibilityIcon
+                            }
+                          >
+                            👥
+                          </span>
+
+                          <span className="visibility-text">
+                            Assigned to your class{" "}
+                            <strong>
+                              {student?.class_name}
+                            </strong>
+                          </span>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* INFORMATION */}
+
+          {!loading && !error && (
+            <section
+              className="homework-info-card"
+              style={styles.infoCard}
+            >
+              <div style={styles.infoCardIcon}>
+                ℹ️
+              </div>
+
+              <div className="homework-info-content">
+                <div style={styles.infoCardTitle}>
+                  Homework Information
+                </div>
+
+                <p style={styles.infoCardText}>
+                  This page is view-only. Homework is
+                  assigned and managed by your teacher.
+                  You can only view homework assigned to
+                  your own class.
+                </p>
+              </div>
+            </section>
+          )}
+
+          {/* FOOTER */}
+
+          <footer
+            className="homework-footer-page"
+            style={styles.footer}
+          >
+            <div style={styles.footerBrand}>
+              🎓 Attendance Portal
             </div>
 
             <div>
-
-              <div style={styles.infoCardTitle}>
-                Homework Information
-              </div>
-
-              <p style={styles.infoCardText}>
-                This page is view-only. Homework is
-                assigned and managed by your teacher.
-                You can only view homework assigned to
-                your own class.
-              </p>
-
+              Student Portal • Homework • 2026
             </div>
+          </footer>
+        </div>
+      </main>
 
-          </section>
-        )}
+      <style jsx global>{`
+        html,
+        body {
+          margin: 0;
+          padding: 0;
+          width: 100%;
+          max-width: 100%;
+          overflow-x: hidden !important;
+        }
 
-        {/* FOOTER */}
+        *,
+        *::before,
+        *::after {
+          box-sizing: border-box;
+        }
 
-        <footer style={styles.footer}>
+        .student-homework-page {
+          width: 100%;
+          max-width: 100vw;
+          overflow-x: hidden;
+        }
 
-          <div style={styles.footerBrand}>
-            🎓 Attendance Portal
-          </div>
+        .student-homework-container {
+          width: 100%;
+          max-width: 1150px;
+          min-width: 0;
+        }
 
-          <div>
-            Student Portal • Homework • 2026
-          </div>
+        .homework-header-left {
+          min-width: 0;
+          flex: 1 1 auto;
+        }
 
-        </footer>
+        .homework-heading-content {
+          min-width: 0;
+        }
 
-      </div>
-    </main>
+        .homework-heading-content,
+        .homework-section-heading,
+        .homework-error-content,
+        .homework-info-content {
+          overflow-wrap: anywhere;
+          word-break: break-word;
+        }
+
+        .homework-title,
+        .homework-description,
+        .visibility-text {
+          overflow-wrap: anywhere;
+          word-break: break-word;
+        }
+
+        .homework-card {
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
+        }
+
+        @media (max-width: 768px) {
+          .student-homework-page {
+            padding: 12px !important;
+          }
+
+          .student-homework-container {
+            width: 100%;
+            max-width: 100%;
+          }
+
+          .homework-header {
+            padding: 15px !important;
+            border-radius: 16px !important;
+            align-items: stretch !important;
+          }
+
+          .homework-header-left {
+            width: 100%;
+            align-items: flex-start !important;
+          }
+
+          .homework-header-left > div:last-child {
+            flex: 1;
+            min-width: 0;
+          }
+
+          .homework-header-actions {
+            width: 100%;
+            display: grid !important;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 8px !important;
+          }
+
+          .homework-header-actions button {
+            width: 100%;
+            min-width: 0;
+            min-height: 42px;
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+          }
+
+          .homework-header-left > div:first-child {
+            width: 44px !important;
+            height: 44px !important;
+            min-width: 44px !important;
+            border-radius: 12px !important;
+            font-size: 21px !important;
+          }
+
+          .homework-heading-content h1 {
+            font-size: 23px !important;
+            line-height: 1.2 !important;
+          }
+
+          .homework-heading-content p {
+            font-size: 11px !important;
+            line-height: 1.45 !important;
+          }
+
+          .homework-student-card {
+            padding: 15px !important;
+            border-radius: 16px !important;
+            gap: 11px !important;
+            align-items: center !important;
+          }
+
+          .homework-student-info {
+            flex: 1 1 calc(100% - 75px);
+            min-width: 0 !important;
+          }
+
+          .homework-class-box,
+          .homework-count-box {
+            flex: 1 1 0;
+            min-width: 0 !important;
+            padding: 10px !important;
+          }
+
+          .homework-class-box {
+            margin-left: 73px;
+          }
+
+          .homework-count-box {
+            margin-left: 0;
+          }
+
+          .homework-student-card
+            .homework-student-info
+            .student-name {
+            font-size: 18px !important;
+          }
+
+          .homework-student-card
+            .homework-student-info
+            .username {
+            overflow-wrap: anywhere;
+            word-break: break-word;
+          }
+
+          .homework-error-box {
+            align-items: flex-start !important;
+            padding: 12px !important;
+          }
+
+          .homework-section-header {
+            align-items: flex-start !important;
+            flex-direction: column !important;
+            margin-bottom: 13px !important;
+          }
+
+          .homework-section-heading {
+            width: 100%;
+          }
+
+          .homework-section-heading h2 {
+            font-size: 21px !important;
+          }
+
+          .homework-section-heading p {
+            line-height: 1.5 !important;
+          }
+
+          .homework-section-header > div:last-child {
+            align-self: flex-start;
+          }
+
+          .homework-card {
+            padding: 15px !important;
+            border-radius: 15px !important;
+          }
+
+          .homework-card-header {
+            align-items: flex-start !important;
+          }
+
+          .homework-badges {
+            min-width: 0;
+            flex: 1 1 100%;
+          }
+
+          .homework-card-header > div:last-child {
+            margin-top: 2px;
+          }
+
+          .homework-title {
+            font-size: 18px !important;
+            line-height: 1.35 !important;
+            margin-top: 11px !important;
+          }
+
+          .homework-description-box {
+            padding: 11px !important;
+            margin-top: 11px !important;
+          }
+
+          .homework-description {
+            font-size: 11px !important;
+            line-height: 1.65 !important;
+          }
+
+          .homework-footer {
+            align-items: flex-start !important;
+            flex-direction: column !important;
+            gap: 11px !important;
+          }
+
+          .homework-due-box {
+            width: 100%;
+          }
+
+          .homework-class-visibility {
+            width: 100%;
+            align-items: flex-start !important;
+          }
+
+          .homework-info-card {
+            align-items: flex-start !important;
+            padding: 12px !important;
+          }
+
+          .homework-footer-page {
+            flex-direction: column !important;
+            align-items: center !important;
+            text-align: center;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .student-homework-page {
+            padding: 8px !important;
+          }
+
+          .homework-header {
+            padding: 12px !important;
+          }
+
+          .homework-header-left {
+            gap: 9px !important;
+          }
+
+          .homework-header-left > div:first-child {
+            width: 40px !important;
+            height: 40px !important;
+            min-width: 40px !important;
+            font-size: 19px !important;
+          }
+
+          .homework-heading-content h1 {
+            font-size: 21px !important;
+          }
+
+          .homework-heading-content p {
+            font-size: 10px !important;
+          }
+
+          .homework-header-actions {
+            grid-template-columns: 1fr;
+          }
+
+          .homework-student-card {
+            display: grid !important;
+            grid-template-columns: 52px minmax(0, 1fr);
+            gap: 10px !important;
+          }
+
+          .homework-student-card > .homework-student-info {
+            min-width: 0;
+          }
+
+          .homework-student-card > .homework-class-box,
+          .homework-student-card > .homework-count-box {
+            margin-left: 0 !important;
+            width: 100%;
+            min-width: 0;
+          }
+
+          .homework-student-card > .homework-class-box {
+            grid-column: 1 / 2;
+          }
+
+          .homework-student-card > .homework-count-box {
+            grid-column: 2 / 3;
+          }
+
+          .homework-card {
+            padding: 13px !important;
+          }
+
+          .homework-title {
+            font-size: 17px !important;
+          }
+
+          .subjectBadge,
+          .classBadge,
+          .statusBadge {
+            font-size: 8px !important;
+            padding: 5px 7px !important;
+          }
+
+          .homework-info-card {
+            gap: 8px !important;
+          }
+
+          .homework-info-card
+            > div:first-child {
+            width: 30px !important;
+            height: 30px !important;
+            min-width: 30px !important;
+            font-size: 14px !important;
+          }
+
+          .homework-info-content {
+            min-width: 0;
+          }
+
+          .homework-info-content p {
+            font-size: 9px !important;
+            line-height: 1.5 !important;
+          }
+
+          .homework-footer-page {
+            font-size: 9px !important;
+          }
+        }
+
+        @media (max-width: 360px) {
+          .student-homework-page {
+            padding: 6px !important;
+          }
+
+          .homework-header {
+            padding: 10px !important;
+          }
+
+          .homework-student-card {
+            padding: 12px !important;
+          }
+
+          .homework-card {
+            padding: 11px !important;
+          }
+
+          .homework-section-heading h2 {
+            font-size: 19px !important;
+          }
+
+          .homework-title {
+            font-size: 16px !important;
+          }
+
+          .homework-description {
+            font-size: 10px !important;
+          }
+
+          .homework-class-visibility {
+            font-size: 9px !important;
+          }
+        }
+      `}</style>
+    </>
   );
 }
 
@@ -590,6 +978,8 @@ const styles: {
 } = {
   page: {
     minHeight: "100vh",
+    width: "100%",
+    maxWidth: "100vw",
     background:
       "linear-gradient(135deg,#f8fafc 0%,#eef2ff 50%,#f0f9ff 100%)",
     padding: "18px",
@@ -597,12 +987,14 @@ const styles: {
     fontFamily:
       "Arial, Helvetica, sans-serif",
     color: "#0f172a",
+    overflowX: "hidden",
   },
 
   container: {
     width: "100%",
     maxWidth: "1150px",
     margin: "0 auto",
+    boxSizing: "border-box",
   },
 
   header: {
@@ -618,17 +1010,21 @@ const styles: {
     boxShadow:
       "0 8px 25px rgba(15,23,42,0.06)",
     flexWrap: "wrap",
+    width: "100%",
+    boxSizing: "border-box",
   },
 
   headerLeft: {
     display: "flex",
     alignItems: "center",
     gap: "12px",
+    minWidth: 0,
   },
 
   logo: {
     width: "50px",
     height: "50px",
+    minWidth: "50px",
     borderRadius: "14px",
     background:
       "linear-gradient(135deg,#2563eb,#7c3aed)",
@@ -654,6 +1050,8 @@ const styles: {
     color: "#172554",
     fontSize: "27px",
     fontWeight: "1000",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
 
   subtitle: {
@@ -661,6 +1059,8 @@ const styles: {
     color: "#64748b",
     fontSize: "12px",
     fontWeight: "600",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
 
   headerActions: {
@@ -704,6 +1104,8 @@ const styles: {
     boxShadow:
       "0 15px 35px rgba(37,99,235,0.18)",
     flexWrap: "wrap",
+    width: "100%",
+    boxSizing: "border-box",
   },
 
   studentAvatar: {
@@ -737,6 +1139,8 @@ const styles: {
     color: "#ffffff",
     fontSize: "20px",
     fontWeight: "1000",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
 
   username: {
@@ -744,6 +1148,8 @@ const styles: {
     fontSize: "10px",
     fontWeight: "700",
     marginTop: "3px",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
 
   classBox: {
@@ -760,6 +1166,8 @@ const styles: {
     color: "#ffffff",
     fontSize: "17px",
     fontWeight: "1000",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
 
   homeworkCountBox: {
@@ -787,10 +1195,14 @@ const styles: {
     alignItems: "center",
     gap: "12px",
     marginBottom: "18px",
+    width: "100%",
+    minWidth: 0,
+    boxSizing: "border-box",
   },
 
   errorIcon: {
     fontSize: "22px",
+    flexShrink: 0,
   },
 
   errorTitle: {
@@ -804,6 +1216,8 @@ const styles: {
     fontSize: "11px",
     fontWeight: "600",
     marginTop: "3px",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
 
   emptyCard: {
@@ -814,6 +1228,10 @@ const styles: {
     textAlign: "center",
     boxShadow:
       "0 8px 25px rgba(15,23,42,0.05)",
+    width: "100%",
+    maxWidth: "100%",
+    boxSizing: "border-box",
+    overflow: "hidden",
   },
 
   loadingIcon: {
@@ -831,6 +1249,7 @@ const styles: {
     color: "#172554",
     fontSize: "20px",
     fontWeight: "1000",
+    overflowWrap: "anywhere",
   },
 
   emptyText: {
@@ -840,6 +1259,7 @@ const styles: {
     fontSize: "12px",
     lineHeight: 1.6,
     fontWeight: "600",
+    overflowWrap: "anywhere",
   },
 
   emptyClass: {
@@ -851,6 +1271,8 @@ const styles: {
     color: "#2563eb",
     fontSize: "11px",
     fontWeight: "900",
+    maxWidth: "100%",
+    overflowWrap: "anywhere",
   },
 
   sectionHeader: {
@@ -875,6 +1297,7 @@ const styles: {
     color: "#172554",
     fontSize: "24px",
     fontWeight: "1000",
+    overflowWrap: "anywhere",
   },
 
   sectionSubtitle: {
@@ -882,6 +1305,7 @@ const styles: {
     color: "#64748b",
     fontSize: "11px",
     fontWeight: "600",
+    overflowWrap: "anywhere",
   },
 
   readOnlyBadge: {
@@ -893,12 +1317,15 @@ const styles: {
     fontSize: "9px",
     fontWeight: "1000",
     letterSpacing: "0.5px",
+    whiteSpace: "nowrap",
   },
 
   homeworkList: {
     display: "flex",
     flexDirection: "column",
     gap: "14px",
+    width: "100%",
+    minWidth: 0,
   },
 
   homeworkCard: {
@@ -908,6 +1335,11 @@ const styles: {
     padding: "19px",
     boxShadow:
       "0 7px 22px rgba(15,23,42,0.05)",
+    width: "100%",
+    maxWidth: "100%",
+    minWidth: 0,
+    boxSizing: "border-box",
+    overflow: "hidden",
   },
 
   homeworkHeader: {
@@ -916,12 +1348,15 @@ const styles: {
     justifyContent: "space-between",
     gap: "10px",
     flexWrap: "wrap",
+    width: "100%",
+    minWidth: 0,
   },
 
   badges: {
     display: "flex",
     gap: "7px",
     flexWrap: "wrap",
+    minWidth: 0,
   },
 
   subjectBadge: {
@@ -932,6 +1367,9 @@ const styles: {
     fontSize: "9px",
     fontWeight: "1000",
     textTransform: "uppercase",
+    maxWidth: "100%",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
 
   classBadge: {
@@ -941,6 +1379,9 @@ const styles: {
     borderRadius: "7px",
     fontSize: "9px",
     fontWeight: "1000",
+    maxWidth: "100%",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
 
   statusBadge: {
@@ -948,6 +1389,8 @@ const styles: {
     borderRadius: "7px",
     fontSize: "9px",
     fontWeight: "1000",
+    whiteSpace: "nowrap",
+    flexShrink: 0,
   },
 
   pendingBadge: {
@@ -965,6 +1408,8 @@ const styles: {
     color: "#172554",
     fontSize: "20px",
     fontWeight: "1000",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
 
   descriptionBox: {
@@ -973,6 +1418,9 @@ const styles: {
     borderRadius: "11px",
     background: "#f8fafc",
     border: "1px solid #e2e8f0",
+    width: "100%",
+    minWidth: 0,
+    boxSizing: "border-box",
   },
 
   descriptionLabel: {
@@ -990,6 +1438,8 @@ const styles: {
     lineHeight: 1.7,
     fontWeight: "600",
     whiteSpace: "pre-wrap",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
 
   homeworkFooter: {
@@ -1001,17 +1451,21 @@ const styles: {
     alignItems: "center",
     gap: "12px",
     flexWrap: "wrap",
+    width: "100%",
+    minWidth: 0,
   },
 
   dueBox: {
     display: "flex",
     alignItems: "center",
     gap: "9px",
+    minWidth: 0,
   },
 
   dueIcon: {
     width: "35px",
     height: "35px",
+    minWidth: "35px",
     borderRadius: "9px",
     background: "#eff6ff",
     display: "flex",
@@ -1032,6 +1486,8 @@ const styles: {
     color: "#172554",
     fontSize: "11px",
     fontWeight: "900",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
 
   classVisibility: {
@@ -1041,10 +1497,14 @@ const styles: {
     display: "flex",
     alignItems: "center",
     gap: "5px",
+    minWidth: 0,
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
 
   visibilityIcon: {
     fontSize: "14px",
+    flexShrink: 0,
   },
 
   infoCard: {
@@ -1056,6 +1516,10 @@ const styles: {
     display: "flex",
     alignItems: "flex-start",
     gap: "11px",
+    width: "100%",
+    maxWidth: "100%",
+    minWidth: 0,
+    boxSizing: "border-box",
   },
 
   infoCardIcon: {
@@ -1082,6 +1546,8 @@ const styles: {
     fontSize: "10px",
     lineHeight: 1.5,
     fontWeight: "600",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
 
   footer: {
@@ -1095,6 +1561,8 @@ const styles: {
     fontSize: "10px",
     fontWeight: "700",
     flexWrap: "wrap",
+    width: "100%",
+    boxSizing: "border-box",
   },
 
   footerBrand: {
