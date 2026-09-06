@@ -3,11 +3,25 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
+import type { CSSProperties } from "react";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    "Supabase environment variables are missing. Check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY."
+  );
+}
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  supabaseUrl,
+  supabaseAnonKey
 );
+
+/* =========================================================
+   TYPES
+========================================================= */
 
 type AttendanceRow = {
   id: number;
@@ -46,6 +60,12 @@ type AssessmentRow = {
   test_images?: unknown;
 };
 
+type PdfAssessment = AssessmentRow;
+
+/* =========================================================
+   CONSTANTS
+========================================================= */
+
 const months = [
   "January",
   "February",
@@ -61,78 +81,161 @@ const months = [
   "December",
 ];
 
-function getPercentage(obtained: number, total: number) {
-  if (!total || total <= 0) return 0;
+const years = [2025, 2026, 2027, 2028, 2029, 2030];
+
+/* =========================================================
+   HELPER FUNCTIONS
+========================================================= */
+
+function getPercentage(
+  obtained: number,
+  total: number
+): number {
+  if (!Number.isFinite(total) || total <= 0) {
+    return 0;
+  }
+
+  if (!Number.isFinite(obtained)) {
+    return 0;
+  }
+
   return (obtained / total) * 100;
 }
 
-function getGrade(percentage: number) {
+function getGrade(percentage: number): string {
   if (percentage >= 90) return "A+";
   if (percentage >= 80) return "A";
   if (percentage >= 70) return "B+";
   if (percentage >= 60) return "B";
   if (percentage >= 50) return "C";
   if (percentage >= 40) return "D";
+
   return "F";
 }
 
-function isPass(percentage: number) {
+function isPass(percentage: number): boolean {
   return percentage >= 40;
 }
 
-function getSubjectLabel(subject?: string | null) {
-  if (subject === "Mathematics") return "📐 Mathematics";
-  if (subject === "English") return "📚 English";
+function getSubjectLabel(
+  subject?: string | null
+): string {
+  if (subject === "Mathematics") {
+    return "📐 Mathematics";
+  }
+
+  if (subject === "English") {
+    return "📚 English";
+  }
+
   return "📖 Subject Not Specified";
 }
 
+/* =========================================================
+   IMAGE URL HANDLER
+========================================================= */
+
 function getImageUrls(value: unknown): string[] {
-  if (!value) return [];
+  if (!value) {
+    return [];
+  }
 
   if (Array.isArray(value)) {
     return value
-      .map((item) => {
-        if (typeof item === "string") return item;
-
-        if (
-          typeof item === "object" &&
-          item !== null &&
-          "url" in item
-        ) {
-          const url = (item as { url?: unknown }).url;
-          return typeof url === "string" ? url : "";
+      .map((item): string => {
+        if (typeof item === "string") {
+          return item;
         }
 
         if (
           typeof item === "object" &&
-          item !== null &&
-          "path" in item
+          item !== null
         ) {
-          const path = (item as { path?: unknown }).path;
-          return typeof path === "string" ? path : "";
+          if ("url" in item) {
+            const url = (
+              item as { url?: unknown }
+            ).url;
+
+            if (typeof url === "string") {
+              return url;
+            }
+          }
+
+          if ("path" in item) {
+            const path = (
+              item as { path?: unknown }
+            ).path;
+
+            if (typeof path === "string") {
+              return path;
+            }
+          }
         }
 
         return "";
       })
-      .filter(Boolean);
+      .filter(
+        (url): url is string =>
+          typeof url === "string" &&
+          url.trim().length > 0
+      );
   }
 
   if (typeof value === "string") {
     const trimmed = value.trim();
 
-    if (!trimmed) return [];
+    if (!trimmed) {
+      return [];
+    }
 
     try {
-      const parsed = JSON.parse(trimmed);
+      const parsed: unknown =
+        JSON.parse(trimmed);
 
       if (Array.isArray(parsed)) {
-        return parsed.filter(
-          (item): item is string =>
-            typeof item === "string"
-        );
+        return parsed
+          .map((item): string => {
+            if (typeof item === "string") {
+              return item;
+            }
+
+            if (
+              typeof item === "object" &&
+              item !== null
+            ) {
+              if ("url" in item) {
+                const url = (
+                  item as {
+                    url?: unknown;
+                  }
+                ).url;
+
+                return typeof url ===
+                  "string"
+                  ? url
+                  : "";
+              }
+
+              if ("path" in item) {
+                const path = (
+                  item as {
+                    path?: unknown;
+                  }
+                ).path;
+
+                return typeof path ===
+                  "string"
+                  ? path
+                  : "";
+              }
+            }
+
+            return "";
+          })
+          .filter(Boolean);
       }
     } catch {
-      // Not JSON. Continue below.
+      // Value is not JSON.
     }
 
     return [trimmed];
@@ -141,8 +244,16 @@ function getImageUrls(value: unknown): string[] {
   return [];
 }
 
-function formatDate(dateString: string) {
-  if (!dateString) return "—";
+/* =========================================================
+   DATE FORMAT
+========================================================= */
+
+function formatDate(
+  dateString: string | null | undefined
+): string {
+  if (!dateString) {
+    return "—";
+  }
 
   const date = new Date(dateString);
 
@@ -150,71 +261,133 @@ function formatDate(dateString: string) {
     return dateString;
   }
 
-  return date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  return date.toLocaleDateString(
+    "en-IN",
+    {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }
+  );
 }
+
+/* =========================================================
+   HTML ESCAPE FOR PDF WINDOW
+========================================================= */
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+/* =========================================================
+   CREATE PDF / PRINT WINDOW
+========================================================= */
 
 function createPdfWindow(
   student: Student,
-  assessments: AssessmentRow[],
+  assessments: PdfAssessment[],
   selectedSubject: string
-) {
+): void {
   const printableAssessments =
     selectedSubject === "All"
       ? assessments
       : assessments.filter(
           (item) =>
-            (item.subject || "Not Specified") ===
+            (item.subject ||
+              "Not Specified") ===
             selectedSubject
         );
 
-  if (printableAssessments.length === 0) {
-    alert("No test results available for PDF.");
+  if (
+    printableAssessments.length === 0
+  ) {
+    window.alert(
+      "No test results available for PDF."
+    );
+
     return;
   }
 
   const rows = printableAssessments
     .map((item, index) => {
-      const percentage = getPercentage(
-        Number(item.obtained_marks),
-        Number(item.total_marks)
-      );
+      const percentage =
+        getPercentage(
+          Number(item.obtained_marks),
+          Number(item.total_marks)
+        );
 
-      const grade = getGrade(percentage);
-      const passed = isPass(percentage);
+      const grade =
+        getGrade(percentage);
+
+      const passed =
+        isPass(percentage);
 
       return `
         <tr>
           <td>${index + 1}</td>
-          <td>${item.subject || "—"}</td>
-          <td>${item.test_name || "—"}</td>
-          <td>${formatDate(item.test_date)}</td>
-          <td>${item.total_marks}</td>
-          <td>${item.obtained_marks}</td>
+          <td>${escapeHtml(
+            item.subject || "—"
+          )}</td>
+          <td>${escapeHtml(
+            item.test_name || "—"
+          )}</td>
+          <td>${escapeHtml(
+            formatDate(item.test_date)
+          )}</td>
+          <td>${escapeHtml(
+            item.total_marks
+          )}</td>
+          <td>${escapeHtml(
+            item.obtained_marks
+          )}</td>
           <td>${percentage.toFixed(1)}%</td>
-          <td>${grade}</td>
-          <td>${passed ? "PASS" : "FAIL"}</td>
-          <td>${item.remarks || "—"}</td>
+          <td>${escapeHtml(
+            grade
+          )}</td>
+          <td class="${
+            passed
+              ? "pass"
+              : "fail"
+          }">
+            ${
+              passed
+                ? "PASS"
+                : "FAIL"
+            }
+          </td>
+          <td>${escapeHtml(
+            item.remarks || "—"
+          )}</td>
         </tr>
       `;
     })
     .join("");
 
-  const totalTests = printableAssessments.length;
+  const totalTests =
+    printableAssessments.length;
 
-  const passedTests = printableAssessments.filter((item) =>
-    isPass(
-      getPercentage(
-        Number(item.obtained_marks),
-        Number(item.total_marks)
-      )
-    )
-  ).length;
+  const passedTests =
+    printableAssessments.filter(
+      (item) =>
+        isPass(
+          getPercentage(
+            Number(
+              item.obtained_marks
+            ),
+            Number(
+              item.total_marks
+            )
+          )
+        )
+    ).length;
 
-  const failedTests = totalTests - passedTests;
+  const failedTests =
+    totalTests - passedTests;
 
   const average =
     totalTests > 0
@@ -222,29 +395,47 @@ function createPdfWindow(
           (sum, item) =>
             sum +
             getPercentage(
-              Number(item.obtained_marks),
-              Number(item.total_marks)
+              Number(
+                item.obtained_marks
+              ),
+              Number(
+                item.total_marks
+              )
             ),
           0
         ) / totalTests
       : 0;
 
-  const popup = window.open("", "_blank");
+  const popup =
+    window.open("", "_blank");
 
   if (!popup) {
-    alert(
+    window.alert(
       "Please allow pop-ups for downloading the Result PDF."
     );
+
     return;
   }
+
+  const studentName =
+    student.student_name ||
+    student.student_username;
+
+  const subjectLabel =
+    selectedSubject === "All"
+      ? "All Subjects"
+      : selectedSubject;
 
   popup.document.write(`
     <!DOCTYPE html>
     <html>
       <head>
-        <title>RACER ACADEMY Result - ${
-          student.student_name || student.student_username
-        }</title>
+        <meta charset="UTF-8" />
+
+        <title>
+          RACER ACADEMY Result -
+          ${escapeHtml(studentName)}
+        </title>
 
         <style>
           * {
@@ -254,14 +445,18 @@ function createPdfWindow(
           body {
             margin: 0;
             padding: 30px;
-            font-family: Arial, Helvetica, sans-serif;
+            font-family:
+              Arial,
+              Helvetica,
+              sans-serif;
             color: #172554;
             background: white;
           }
 
           .header {
             text-align: center;
-            border-bottom: 3px solid #2563eb;
+            border-bottom:
+              3px solid #2563eb;
             padding-bottom: 18px;
             margin-bottom: 25px;
           }
@@ -282,17 +477,20 @@ function createPdfWindow(
             margin-top: 8px;
             color: #475569;
             font-size: 14px;
+            line-height: 1.7;
           }
 
           .summary {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns:
+              repeat(4, 1fr);
             gap: 10px;
             margin-bottom: 25px;
           }
 
           .summary-box {
-            border: 1px solid #dbeafe;
+            border:
+              1px solid #dbeafe;
             border-radius: 10px;
             padding: 14px;
             text-align: center;
@@ -313,21 +511,33 @@ function createPdfWindow(
           table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 11px;
+            font-size: 10px;
           }
 
           th {
             background: #eff6ff;
             color: #1e3a8a;
             padding: 9px;
-            border: 1px solid #cbd5e1;
+            border:
+              1px solid #cbd5e1;
             text-align: left;
           }
 
           td {
             padding: 9px;
-            border: 1px solid #cbd5e1;
+            border:
+              1px solid #cbd5e1;
             color: #334155;
+          }
+
+          .pass {
+            color: #166534;
+            font-weight: 800;
+          }
+
+          .fail {
+            color: #991b1b;
+            font-weight: 800;
           }
 
           .footer {
@@ -350,49 +560,89 @@ function createPdfWindow(
       </head>
 
       <body>
-        <div class="header">
-          <div class="brand">RACER ACADEMY</div>
 
-          <h1>🏆 Academy Test Result</h1>
+        <div class="header">
+
+          <div class="brand">
+            RACER ACADEMY
+          </div>
+
+          <h1>
+            🏆 Academy Test Result
+          </h1>
 
           <div class="student">
+
             <strong>
-              ${student.student_name || "Student"}
+              ${escapeHtml(
+                studentName
+              )}
             </strong>
+
             <br />
-            Username: ${student.student_username}
+
+            Username:
+            ${escapeHtml(
+              student.student_username
+            )}
+
             <br />
-            Subject: ${
-              selectedSubject === "All"
-                ? "All Subjects"
-                : selectedSubject
-            }
+
+            Subject:
+            ${escapeHtml(
+              subjectLabel
+            )}
+
           </div>
+
         </div>
 
         <div class="summary">
+
           <div class="summary-box">
-            <span>Total Tests</span>
-            <strong>${totalTests}</strong>
+            <span>
+              Total Tests
+            </span>
+
+            <strong>
+              ${totalTests}
+            </strong>
           </div>
 
           <div class="summary-box">
-            <span>Passed</span>
-            <strong>${passedTests}</strong>
+            <span>
+              Passed
+            </span>
+
+            <strong>
+              ${passedTests}
+            </strong>
           </div>
 
           <div class="summary-box">
-            <span>Failed</span>
-            <strong>${failedTests}</strong>
+            <span>
+              Failed
+            </span>
+
+            <strong>
+              ${failedTests}
+            </strong>
           </div>
 
           <div class="summary-box">
-            <span>Average</span>
-            <strong>${average.toFixed(1)}%</strong>
+            <span>
+              Average
+            </span>
+
+            <strong>
+              ${average.toFixed(1)}%
+            </strong>
           </div>
+
         </div>
 
         <table>
+
           <thead>
             <tr>
               <th>#</th>
@@ -411,10 +661,12 @@ function createPdfWindow(
           <tbody>
             ${rows}
           </tbody>
+
         </table>
 
         <div class="footer">
-          RACER ACADEMY • Student Result Report
+          RACER ACADEMY •
+          Student Result Report
         </div>
 
         <script>
@@ -424,12 +676,17 @@ function createPdfWindow(
             }, 500);
           };
         </script>
+
       </body>
     </html>
   `);
 
   popup.document.close();
 }
+
+/* =========================================================
+   MAIN PAGE
+========================================================= */
 
 export default function StudentReportsPage() {
   const router = useRouter();
@@ -447,32 +704,40 @@ export default function StudentReportsPage() {
     useState<AssessmentRow[]>([]);
 
   const [loading, setLoading] =
-    useState(true);
+    useState<boolean>(true);
 
   const [error, setError] =
-    useState("");
+    useState<string>("");
 
   const [selectedMonth, setSelectedMonth] =
-    useState(
-      String(new Date().getMonth() + 1)
+    useState<string>(
+      String(
+        new Date().getMonth() + 1
+      )
     );
 
   const [selectedYear, setSelectedYear] =
-    useState(
-      String(new Date().getFullYear())
+    useState<string>(
+      String(
+        new Date().getFullYear()
+      )
     );
 
   const [selectedSubject, setSelectedSubject] =
-    useState("All");
+    useState<string>("All");
 
   const [expandedImages, setExpandedImages] =
     useState<number | null>(null);
 
+  /* =======================================================
+     LOAD REPORT
+  ======================================================= */
+
   useEffect(() => {
-    loadReport();
+    void loadReport();
   }, []);
 
-  async function loadReport() {
+  async function loadReport(): Promise<void> {
     setLoading(true);
     setError("");
 
@@ -484,29 +749,60 @@ export default function StudentReportsPage() {
         localStorage.getItem(
           "studentUsername"
         ) ||
-        localStorage.getItem("username");
+        localStorage.getItem(
+          "username"
+        );
 
       const storedStudent =
-        localStorage.getItem("student");
+        localStorage.getItem(
+          "student"
+        );
 
-      if (!username && storedStudent) {
+      if (
+        !username &&
+        storedStudent
+      ) {
         try {
-          const parsed =
-            JSON.parse(storedStudent);
+          const parsed: unknown =
+            JSON.parse(
+              storedStudent
+            );
 
-          username =
-            parsed.student_username ||
-            parsed.username ||
-            "";
+          if (
+            typeof parsed ===
+              "object" &&
+            parsed !== null
+          ) {
+            const studentObject =
+              parsed as {
+                student_username?: unknown;
+                username?: unknown;
+              };
+
+            if (
+              typeof studentObject.student_username ===
+              "string"
+            ) {
+              username =
+                studentObject.student_username;
+            } else if (
+              typeof studentObject.username ===
+              "string"
+            ) {
+              username =
+                studentObject.username;
+            }
+          }
         } catch {
-          // Ignore invalid stored data.
+          // Invalid localStorage JSON.
         }
       }
 
-      if (!username) {
+      if (!username?.trim()) {
         setError(
           "Student login information not found."
         );
+
         setLoading(false);
         return;
       }
@@ -514,19 +810,23 @@ export default function StudentReportsPage() {
       const {
         data: studentData,
         error: studentError,
-      } = await supabase
-        .from("students")
-        .select(
-          "id, student_name, student_username"
-        )
-        .ilike(
-          "student_username",
-          username.trim()
-        )
-        .maybeSingle();
+      } =
+        await supabase
+          .from("students")
+          .select(
+            "id, student_name, student_username"
+          )
+          .ilike(
+            "student_username",
+            username.trim()
+          )
+          .maybeSingle();
 
       if (studentError) {
-        setError(studentError.message);
+        setError(
+          studentError.message
+        );
+
         setLoading(false);
         return;
       }
@@ -535,109 +835,153 @@ export default function StudentReportsPage() {
         setError(
           "Student record not found."
         );
+
         setLoading(false);
         return;
       }
 
-      setStudent(studentData);
+      const currentStudent =
+        studentData as Student;
+
+      setStudent(
+        currentStudent
+      );
+
+      /* ================================================
+         ATTENDANCE
+      ================================================= */
 
       const {
         data: attendanceData,
         error: attendanceError,
-      } = await supabase
-        .from("attendance")
-        .select(
-          "id, student_id, attendance_date, status"
-        )
-        .eq(
-          "student_id",
-          studentData.id
-        )
-        .order("attendance_date", {
-          ascending: false,
-        });
+      } =
+        await supabase
+          .from("attendance")
+          .select(
+            "id, student_id, attendance_date, status"
+          )
+          .eq(
+            "student_id",
+            currentStudent.id
+          )
+          .order(
+            "attendance_date",
+            {
+              ascending: false,
+            }
+          );
 
       if (attendanceError) {
         setError(
           attendanceError.message
         );
+
         setLoading(false);
         return;
       }
+
+      /* ================================================
+         FEES
+      ================================================= */
 
       const {
         data: feesData,
         error: feesError,
-      } = await supabase
-        .from("fees")
-        .select(
-          "id, student_id, month, year, amount, status, payment_date"
-        )
-        .eq(
-          "student_id",
-          studentData.id
-        )
-        .order("year", {
-          ascending: false,
-        })
-        .order("month", {
-          ascending: false,
-        });
+      } =
+        await supabase
+          .from("fees")
+          .select(
+            "id, student_id, month, year, amount, status, payment_date"
+          )
+          .eq(
+            "student_id",
+            currentStudent.id
+          )
+          .order("year", {
+            ascending: false,
+          })
+          .order("month", {
+            ascending: false,
+          });
 
       if (feesError) {
-        setError(feesError.message);
+        setError(
+          feesError.message
+        );
+
         setLoading(false);
         return;
       }
 
+      /* ================================================
+         ACADEMY ASSESSMENTS
+      ================================================= */
+
       const {
         data: assessmentData,
         error: assessmentError,
-      } = await supabase
-        .from("academy_assessments")
-        .select("*")
-        .eq(
-          "student_id",
-          studentData.id
-        )
-        .order("test_date", {
-          ascending: false,
-        })
-        .order("created_at", {
-          ascending: false,
-        });
+      } =
+        await supabase
+          .from(
+            "academy_assessments"
+          )
+          .select("*")
+          .eq(
+            "student_id",
+            currentStudent.id
+          )
+          .order(
+            "test_date",
+            {
+              ascending: false,
+            }
+          )
+          .order(
+            "created_at",
+            {
+              ascending: false,
+            }
+          );
 
       if (assessmentError) {
         setError(
           assessmentError.message
         );
+
         setLoading(false);
         return;
       }
 
       setAttendance(
-        attendanceData || []
+        (attendanceData ||
+          []) as AttendanceRow[]
       );
 
       setFees(
-        feesData || []
+        (feesData ||
+          []) as FeeRow[]
       );
 
       setAssessments(
-        (assessmentData || []) as AssessmentRow[]
+        (assessmentData ||
+          []) as AssessmentRow[]
       );
-    } catch (err) {
+    } catch (err: unknown) {
       setError(
         err instanceof Error
           ? err.message
           : "Something went wrong."
       );
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }
 
-  function logout() {
+  /* =======================================================
+     LOGOUT
+  ======================================================= */
+
+  function logout(): void {
     localStorage.removeItem(
       "student_username"
     );
@@ -667,19 +1011,28 @@ export default function StudentReportsPage() {
     router.push("/");
   }
 
+  /* =======================================================
+     ATTENDANCE FILTER
+  ======================================================= */
+
   const filteredAttendance =
-    useMemo(() => {
+    useMemo<AttendanceRow[]>(() => {
       return attendance.filter(
         (record) => {
-          const date = new Date(
-            record.attendance_date
-          );
+          const date =
+            new Date(
+              record.attendance_date
+            );
 
           return (
             date.getMonth() + 1 ===
-              Number(selectedMonth) &&
+              Number(
+                selectedMonth
+              ) &&
             date.getFullYear() ===
-              Number(selectedYear)
+              Number(
+                selectedYear
+              )
           );
         }
       );
@@ -693,7 +1046,9 @@ export default function StudentReportsPage() {
     filteredAttendance.filter(
       (record) => {
         const status =
-          record.status.toUpperCase();
+          String(
+            record.status || ""
+          ).toUpperCase();
 
         return (
           status === "PRESENT" ||
@@ -706,7 +1061,9 @@ export default function StudentReportsPage() {
     filteredAttendance.filter(
       (record) => {
         const status =
-          record.status.toUpperCase();
+          String(
+            record.status || ""
+          ).toUpperCase();
 
         return (
           status === "ABSENT" ||
@@ -716,7 +1073,8 @@ export default function StudentReportsPage() {
     ).length;
 
   const totalClasses =
-    presentCount + absentCount;
+    presentCount +
+    absentCount;
 
   const attendancePercentage =
     totalClasses > 0
@@ -725,20 +1083,36 @@ export default function StudentReportsPage() {
         100
       : 0;
 
+  /* =======================================================
+     FEES FILTER
+  ======================================================= */
+
   const filteredFees =
-    fees.filter(
-      (fee) =>
-        fee.month ===
-          Number(selectedMonth) &&
-        fee.year ===
-          Number(selectedYear)
-    );
+    useMemo<FeeRow[]>(() => {
+      return fees.filter(
+        (fee) =>
+          Number(fee.month) ===
+            Number(
+              selectedMonth
+            ) &&
+          Number(fee.year) ===
+            Number(
+              selectedYear
+            )
+      );
+    }, [
+      fees,
+      selectedMonth,
+      selectedYear,
+    ]);
 
   const totalFee =
     filteredFees.reduce(
       (sum, fee) =>
         sum +
-        Number(fee.amount || 0),
+        Number(
+          fee.amount || 0
+        ),
       0
     );
 
@@ -746,7 +1120,9 @@ export default function StudentReportsPage() {
     filteredFees
       .filter((fee) => {
         const status =
-          fee.status.toUpperCase();
+          String(
+            fee.status || ""
+          ).toUpperCase();
 
         return (
           status === "SUBMITTED" ||
@@ -756,7 +1132,9 @@ export default function StudentReportsPage() {
       .reduce(
         (sum, fee) =>
           sum +
-          Number(fee.amount || 0),
+          Number(
+            fee.amount || 0
+          ),
         0
       );
 
@@ -764,18 +1142,26 @@ export default function StudentReportsPage() {
     filteredFees
       .filter(
         (fee) =>
-          fee.status.toUpperCase() ===
+          String(
+            fee.status || ""
+          ).toUpperCase() ===
           "PENDING"
       )
       .reduce(
         (sum, fee) =>
           sum +
-          Number(fee.amount || 0),
+          Number(
+            fee.amount || 0
+          ),
         0
       );
 
+  /* =======================================================
+     SUBJECTS
+  ======================================================= */
+
   const availableSubjects =
-    useMemo(() => {
+    useMemo<string[]>(() => {
       const subjects =
         assessments
           .map(
@@ -798,7 +1184,7 @@ export default function StudentReportsPage() {
     }, [assessments]);
 
   const filteredAssessments =
-    useMemo(() => {
+    useMemo<AssessmentRow[]>(() => {
       if (
         selectedSubject ===
         "All"
@@ -815,6 +1201,10 @@ export default function StudentReportsPage() {
       assessments,
       selectedSubject,
     ]);
+
+  /* =======================================================
+     ASSESSMENT STATS
+  ======================================================= */
 
   const assessmentStats =
     useMemo(() => {
@@ -843,7 +1233,10 @@ export default function StudentReportsPage() {
       const averagePercentage =
         totalTests > 0
           ? filteredAssessments.reduce(
-              (sum, item) =>
+              (
+                sum,
+                item
+              ) =>
                 sum +
                 getPercentage(
                   Number(
@@ -863,10 +1256,18 @@ export default function StudentReportsPage() {
         failedTests,
         averagePercentage,
       };
-    }, [filteredAssessments]);
+    }, [
+      filteredAssessments,
+    ]);
 
-  function downloadAllResults() {
-    if (!student) return;
+  /* =======================================================
+     PDF FUNCTIONS
+  ======================================================= */
+
+  function downloadAllResults(): void {
+    if (!student) {
+      return;
+    }
 
     createPdfWindow(
       student,
@@ -877,8 +1278,10 @@ export default function StudentReportsPage() {
 
   function downloadSingleResult(
     assessment: AssessmentRow
-  ) {
-    if (!student) return;
+  ): void {
+    if (!student) {
+      return;
+    }
 
     createPdfWindow(
       student,
@@ -887,6 +1290,10 @@ export default function StudentReportsPage() {
         "All"
     );
   }
+
+  /* =======================================================
+     LOADING
+  ======================================================= */
 
   if (loading) {
     return (
@@ -898,6 +1305,10 @@ export default function StudentReportsPage() {
     );
   }
 
+  /* =======================================================
+     PAGE
+  ======================================================= */
+
   return (
     <main style={styles.page}>
       <div style={styles.container}>
@@ -906,22 +1317,38 @@ export default function StudentReportsPage() {
 
         <header style={styles.header}>
           <div>
-            <div style={styles.smallTitle}>
+            <div
+              style={
+                styles.smallTitle
+              }
+            >
               RACER ACADEMY
             </div>
 
-            <h1 style={styles.title}>
+            <h1
+              style={styles.title}
+            >
               📊 My Reports
             </h1>
 
-            <p style={styles.subtitle}>
-              Attendance, fees and academy
-              assessment reports
+            <p
+              style={
+                styles.subtitle
+              }
+            >
+              Attendance, fees and
+              academy assessment
+              reports
             </p>
           </div>
 
-          <div style={styles.headerButtons}>
+          <div
+            style={
+              styles.headerButtons
+            }
+          >
             <button
+              type="button"
               onClick={() =>
                 router.push(
                   "/student/dashboard"
@@ -935,6 +1362,7 @@ export default function StudentReportsPage() {
             </button>
 
             <button
+              type="button"
               onClick={logout}
               style={
                 styles.logoutButton
@@ -947,23 +1375,43 @@ export default function StudentReportsPage() {
 
         {/* STUDENT INFO */}
 
-        <section style={styles.studentCard}>
-          <div style={styles.studentIcon}>
+        <section
+          style={
+            styles.studentCard
+          }
+        >
+          <div
+            style={
+              styles.studentIcon
+            }
+          >
             👨‍🎓
           </div>
 
           <div>
-            <p style={styles.infoLabel}>
+            <p
+              style={
+                styles.infoLabel
+              }
+            >
               STUDENT
             </p>
 
-            <h2 style={styles.studentName}>
+            <h2
+              style={
+                styles.studentName
+              }
+            >
               {student?.student_name ||
                 student?.student_username ||
                 "Student"}
             </h2>
 
-            <p style={styles.username}>
+            <p
+              style={
+                styles.username
+              }
+            >
               Username:{" "}
               {
                 student?.student_username
@@ -974,20 +1422,38 @@ export default function StudentReportsPage() {
 
         {/* FILTER */}
 
-        <section style={styles.filterCard}>
+        <section
+          style={
+            styles.filterCard
+          }
+        >
           <div>
-            <h2 style={styles.sectionTitle}>
+            <h2
+              style={
+                styles.sectionTitle
+              }
+            >
               📅 Report Period
             </h2>
 
-            <p style={styles.sectionSubtitle}>
+            <p
+              style={
+                styles.sectionSubtitle
+              }
+            >
               Select month and year
             </p>
           </div>
 
-          <div style={styles.filterGrid}>
+          <div
+            style={
+              styles.filterGrid
+            }
+          >
             <div>
-              <label style={styles.label}>
+              <label
+                style={styles.label}
+              >
                 Month
               </label>
 
@@ -1021,7 +1487,9 @@ export default function StudentReportsPage() {
             </div>
 
             <div>
-              <label style={styles.label}>
+              <label
+                style={styles.label}
+              >
                 Year
               </label>
 
@@ -1036,11 +1504,7 @@ export default function StudentReportsPage() {
                 }
                 style={styles.input}
               >
-                {[
-                  2025,
-                  2026,
-                  2027,
-                ].map(
+                {years.map(
                   (year) => (
                     <option
                       key={year}
@@ -1055,16 +1519,26 @@ export default function StudentReportsPage() {
           </div>
         </section>
 
+        {/* ERROR */}
+
         {error && (
-          <div style={styles.error}>
+          <div
+            style={styles.error}
+          >
             ❌ {error}
           </div>
         )}
 
         {/* ATTENDANCE */}
 
-        <section style={styles.card}>
-          <div style={styles.sectionHeader}>
+        <section
+          style={styles.card}
+        >
+          <div
+            style={
+              styles.sectionHeader
+            }
+          >
             <div>
               <h2
                 style={
@@ -1091,7 +1565,11 @@ export default function StudentReportsPage() {
             </div>
           </div>
 
-          <div style={styles.statsGrid}>
+          <div
+            style={
+              styles.statsGrid
+            }
+          >
             <div
               style={{
                 ...styles.statCard,
@@ -1099,16 +1577,28 @@ export default function StudentReportsPage() {
                   "linear-gradient(135deg,#2563eb,#4f46e5)",
               }}
             >
-              <div style={styles.statIcon}>
+              <div
+                style={
+                  styles.statIcon
+                }
+              >
                 📚
               </div>
 
               <div>
-                <p style={styles.statLabel}>
+                <p
+                  style={
+                    styles.statLabel
+                  }
+                >
                   Total Classes
                 </p>
 
-                <h3 style={styles.statValue}>
+                <h3
+                  style={
+                    styles.statValue
+                  }
+                >
                   {totalClasses}
                 </h3>
               </div>
@@ -1121,16 +1611,28 @@ export default function StudentReportsPage() {
                   "linear-gradient(135deg,#16a34a,#22c55e)",
               }}
             >
-              <div style={styles.statIcon}>
+              <div
+                style={
+                  styles.statIcon
+                }
+              >
                 ✅
               </div>
 
               <div>
-                <p style={styles.statLabel}>
+                <p
+                  style={
+                    styles.statLabel
+                  }
+                >
                   Present
                 </p>
 
-                <h3 style={styles.statValue}>
+                <h3
+                  style={
+                    styles.statValue
+                  }
+                >
                   {presentCount}
                 </h3>
               </div>
@@ -1143,16 +1645,28 @@ export default function StudentReportsPage() {
                   "linear-gradient(135deg,#dc2626,#ef4444)",
               }}
             >
-              <div style={styles.statIcon}>
+              <div
+                style={
+                  styles.statIcon
+                }
+              >
                 ❌
               </div>
 
               <div>
-                <p style={styles.statLabel}>
+                <p
+                  style={
+                    styles.statLabel
+                  }
+                >
                   Absent
                 </p>
 
-                <h3 style={styles.statValue}>
+                <h3
+                  style={
+                    styles.statValue
+                  }
+                >
                   {absentCount}
                 </h3>
               </div>
@@ -1165,16 +1679,28 @@ export default function StudentReportsPage() {
                   "linear-gradient(135deg,#7c3aed,#9333ea)",
               }}
             >
-              <div style={styles.statIcon}>
+              <div
+                style={
+                  styles.statIcon
+                }
+              >
                 📈
               </div>
 
               <div>
-                <p style={styles.statLabel}>
+                <p
+                  style={
+                    styles.statLabel
+                  }
+                >
                   Attendance
                 </p>
 
-                <h3 style={styles.statValue}>
+                <h3
+                  style={
+                    styles.statValue
+                  }
+                >
                   {attendancePercentage.toFixed(
                     1
                   )}
@@ -1184,8 +1710,18 @@ export default function StudentReportsPage() {
             </div>
           </div>
 
-          <div style={styles.progressBox}>
-            <div style={styles.progressHeader}>
+          {/* PROGRESS */}
+
+          <div
+            style={
+              styles.progressBox
+            }
+          >
+            <div
+              style={
+                styles.progressHeader
+              }
+            >
               <strong>
                 Attendance Percentage
               </strong>
@@ -1207,14 +1743,21 @@ export default function StudentReportsPage() {
                 style={{
                   ...styles.progressBar,
                   width: `${Math.min(
-                    attendancePercentage,
+                    Math.max(
+                      attendancePercentage,
+                      0
+                    ),
                     100
                   )}%`,
                 }}
               />
             </div>
 
-            <p style={styles.progressText}>
+            <p
+              style={
+                styles.progressText
+              }
+            >
               {attendancePercentage >=
               75
                 ? "🎉 Good attendance! Keep it up."
@@ -1225,9 +1768,13 @@ export default function StudentReportsPage() {
             </p>
           </div>
 
+          {/* ATTENDANCE TABLE */}
+
           {filteredAttendance.length ===
           0 ? (
-            <div style={styles.empty}>
+            <div
+              style={styles.empty}
+            >
               📭 No attendance records
               found for this month.
             </div>
@@ -1237,18 +1784,26 @@ export default function StudentReportsPage() {
                 styles.tableWrapper
               }
             >
-              <table style={styles.table}>
+              <table
+                style={styles.table}
+              >
                 <thead>
                   <tr>
-                    <th style={styles.th}>
+                    <th
+                      style={styles.th}
+                    >
                       Date
                     </th>
 
-                    <th style={styles.th}>
+                    <th
+                      style={styles.th}
+                    >
                       Day
                     </th>
 
-                    <th style={styles.th}>
+                    <th
+                      style={styles.th}
+                    >
                       Status
                     </th>
                   </tr>
@@ -1263,7 +1818,15 @@ export default function StudentReportsPage() {
                         );
 
                       const status =
-                        record.status.toUpperCase();
+                        String(
+                          record.status ||
+                            ""
+                        ).toUpperCase();
+
+                      const isPresent =
+                        status ===
+                          "PRESENT" ||
+                        status === "P";
 
                       return (
                         <tr
@@ -1271,13 +1834,21 @@ export default function StudentReportsPage() {
                             record.id
                           }
                         >
-                          <td style={styles.td}>
+                          <td
+                            style={
+                              styles.td
+                            }
+                          >
                             {date.toLocaleDateString(
                               "en-IN"
                             )}
                           </td>
 
-                          <td style={styles.td}>
+                          <td
+                            style={
+                              styles.td
+                            }
+                          >
                             {date.toLocaleDateString(
                               "en-IN",
                               {
@@ -1287,18 +1858,20 @@ export default function StudentReportsPage() {
                             )}
                           </td>
 
-                          <td style={styles.td}>
+                          <td
+                            style={
+                              styles.td
+                            }
+                          >
                             <span
                               style={{
                                 ...styles.badge,
-                                ...(status ===
-                                "PRESENT"
+                                ...(isPresent
                                   ? styles.presentBadge
                                   : styles.absentBadge),
                               }}
                             >
-                              {status ===
-                              "PRESENT"
+                              {isPresent
                                 ? "✓ PRESENT"
                                 : "✕ ABSENT"}
                             </span>
@@ -1313,7 +1886,9 @@ export default function StudentReportsPage() {
           )}
         </section>
 
-        {/* RACER ACADEMY TESTS ZONE */}
+        {/* =================================================
+            RACER ACADEMY TESTS
+        ================================================= */}
 
         <section
           style={
@@ -1347,13 +1922,16 @@ export default function StudentReportsPage() {
                   styles.assessmentSubtitle
                 }
               >
-                Your English & Mathematics
-                test results
+                Your English &
+                Mathematics test
+                results
               </p>
             </div>
 
-            {assessments.length > 0 && (
+            {assessments.length >
+              0 && (
               <button
+                type="button"
                 onClick={
                   downloadAllResults
                 }
@@ -1368,7 +1946,11 @@ export default function StudentReportsPage() {
 
           {/* SUBJECT SELECTOR */}
 
-          <div style={styles.subjectArea}>
+          <div
+            style={
+              styles.subjectArea
+            }
+          >
             <div>
               <label
                 style={
@@ -1383,8 +1965,8 @@ export default function StudentReportsPage() {
                   styles.subjectHint
                 }
               >
-                See the tests given in each
-                subject.
+                See the tests given
+                in each subject.
               </p>
             </div>
 
@@ -1427,7 +2009,9 @@ export default function StudentReportsPage() {
                 styles.subjectSummary
               }
             >
-              <span>📚 English</span>
+              <span>
+                📚 English
+              </span>
 
               <strong>
                 {
@@ -1449,7 +2033,9 @@ export default function StudentReportsPage() {
                 styles.subjectSummary
               }
             >
-              <span>📐 Mathematics</span>
+              <span>
+                📐 Mathematics
+              </span>
 
               <strong>
                 {
@@ -1570,7 +2156,9 @@ export default function StudentReportsPage() {
 
           {assessments.length ===
           0 ? (
-            <div style={styles.empty}>
+            <div
+              style={styles.empty}
+            >
               <div
                 style={
                   styles.emptyIcon
@@ -1580,7 +2168,8 @@ export default function StudentReportsPage() {
               </div>
 
               <strong>
-                No Academy Test Results Yet
+                No Academy Test
+                Results Yet
               </strong>
 
               <p
@@ -1588,17 +2177,20 @@ export default function StudentReportsPage() {
                   styles.emptySmall
                 }
               >
-                Your test results will appear
-                here after the teacher enters
-                your marks.
+                Your test results
+                will appear here
+                after the teacher
+                enters your marks.
               </p>
             </div>
           ) : filteredAssessments.length ===
             0 ? (
-            <div style={styles.empty}>
+            <div
+              style={styles.empty}
+            >
               📭 No{" "}
-              {selectedSubject} test results
-              available.
+              {selectedSubject} test
+              results available.
             </div>
           ) : (
             <div
@@ -1607,7 +2199,10 @@ export default function StudentReportsPage() {
               }
             >
               {filteredAssessments.map(
-                (item, index) => {
+                (
+                  item,
+                  index
+                ) => {
                   const percentage =
                     getPercentage(
                       Number(
@@ -1646,6 +2241,8 @@ export default function StudentReportsPage() {
                         styles.testCard
                       }
                     >
+                      {/* TEST TOP */}
+
                       <div
                         style={
                           styles.testTop
@@ -1657,7 +2254,9 @@ export default function StudentReportsPage() {
                               styles.testNumber
                             }
                           >
-                            TEST #{index + 1}
+                            TEST #
+                            {index +
+                              1}
                           </span>
 
                           <h3
@@ -1682,6 +2281,7 @@ export default function StudentReportsPage() {
                         </div>
 
                         <button
+                          type="button"
                           onClick={() =>
                             downloadSingleResult(
                               item
@@ -1694,6 +2294,8 @@ export default function StudentReportsPage() {
                           📄 PDF
                         </button>
                       </div>
+
+                      {/* TEST META */}
 
                       <div
                         style={
@@ -1803,6 +2405,8 @@ export default function StudentReportsPage() {
                         </div>
                       </div>
 
+                      {/* REMARKS */}
+
                       <div
                         style={
                           styles.remarksBox
@@ -1818,7 +2422,7 @@ export default function StudentReportsPage() {
                         </p>
                       </div>
 
-                      {/* OPTIONAL UPLOADED TEST IMAGES */}
+                      {/* TEST IMAGES */}
 
                       <div
                         style={
@@ -1833,7 +2437,8 @@ export default function StudentReportsPage() {
                           <div>
                             <strong>
                               📸 Uploaded Test
-                              Images & Photos
+                              Images &
+                              Photos
                             </strong>
 
                             <p
@@ -1850,6 +2455,7 @@ export default function StudentReportsPage() {
                           {imageUrls.length >
                             0 && (
                             <button
+                              type="button"
                               onClick={() =>
                                 setExpandedImages(
                                   imagesOpen
@@ -1875,11 +2481,14 @@ export default function StudentReportsPage() {
                               styles.noImages
                             }
                           >
-                            📭 No test images
+                            📭 No test
+                            images
                             uploaded.
+
                             <span>
                               Teacher may
-                              upload them
+                              upload
+                              them
                               optionally.
                             </span>
                           </div>
@@ -1897,7 +2506,9 @@ export default function StudentReportsPage() {
                                 ) => (
                                   <a
                                     key={`${item.id}-${imageIndex}`}
-                                    href={url}
+                                    href={
+                                      url
+                                    }
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     style={
@@ -1905,7 +2516,9 @@ export default function StudentReportsPage() {
                                     }
                                   >
                                     <img
-                                      src={url}
+                                      src={
+                                        url
+                                      }
                                       alt={`Checked test ${
                                         imageIndex +
                                         1
@@ -1963,28 +2576,26 @@ export default function StudentReportsPage() {
                 ["40–49%", "D"],
                 ["Below 40%", "F"],
               ].map(
-                (item) => (
+                ([range, grade]) => (
                   <div
-                    key={
-                      item[1]
-                    }
+                    key={grade}
                     style={
                       styles.gradeInfoItem
                     }
                   >
                     <strong>
-                      {item[0]}
+                      {range}
                     </strong>
 
                     <span>
                       Grade{" "}
-                      {item[1]}
+                      {grade}
                     </span>
 
                     <small
                       style={{
                         color:
-                          item[1] ===
+                          grade ===
                           "F"
                             ? "#991b1b"
                             : "#166534",
@@ -1992,7 +2603,7 @@ export default function StudentReportsPage() {
                           800,
                       }}
                     >
-                      {item[1] ===
+                      {grade ===
                       "F"
                         ? "FAIL"
                         : "PASS"}
@@ -2006,7 +2617,9 @@ export default function StudentReportsPage() {
 
         {/* FEES */}
 
-        <section style={styles.card}>
+        <section
+          style={styles.card}
+        >
           <div
             style={
               styles.sectionHeader
@@ -2038,6 +2651,7 @@ export default function StudentReportsPage() {
             </div>
 
             <button
+              type="button"
               onClick={() =>
                 router.push(
                   "/student/fees"
@@ -2051,18 +2665,32 @@ export default function StudentReportsPage() {
             </button>
           </div>
 
-          <div style={styles.feeGrid}>
-            <div style={styles.feeCard}>
-              <div style={styles.feeIcon}>
+          <div
+            style={styles.feeGrid}
+          >
+            <div
+              style={styles.feeCard}
+            >
+              <div
+                style={styles.feeIcon}
+              >
                 💰
               </div>
 
               <div>
-                <p style={styles.feeLabel}>
+                <p
+                  style={
+                    styles.feeLabel
+                  }
+                >
                   Total
                 </p>
 
-                <h3 style={styles.feeValue}>
+                <h3
+                  style={
+                    styles.feeValue
+                  }
+                >
                   ₹
                   {totalFee.toLocaleString(
                     "en-IN"
@@ -2071,17 +2699,29 @@ export default function StudentReportsPage() {
               </div>
             </div>
 
-            <div style={styles.feeCard}>
-              <div style={styles.feeIcon}>
+            <div
+              style={styles.feeCard}
+            >
+              <div
+                style={styles.feeIcon}
+              >
                 ✅
               </div>
 
               <div>
-                <p style={styles.feeLabel}>
+                <p
+                  style={
+                    styles.feeLabel
+                  }
+                >
                   Paid
                 </p>
 
-                <h3 style={styles.feeValue}>
+                <h3
+                  style={
+                    styles.feeValue
+                  }
+                >
                   ₹
                   {paidFee.toLocaleString(
                     "en-IN"
@@ -2090,17 +2730,29 @@ export default function StudentReportsPage() {
               </div>
             </div>
 
-            <div style={styles.feeCard}>
-              <div style={styles.feeIcon}>
+            <div
+              style={styles.feeCard}
+            >
+              <div
+                style={styles.feeIcon}
+              >
                 ⏳
               </div>
 
               <div>
-                <p style={styles.feeLabel}>
+                <p
+                  style={
+                    styles.feeLabel
+                  }
+                >
                   Pending
                 </p>
 
-                <h3 style={styles.feeValue}>
+                <h3
+                  style={
+                    styles.feeValue
+                  }
+                >
                   ₹
                   {pendingFee.toLocaleString(
                     "en-IN"
@@ -2112,9 +2764,12 @@ export default function StudentReportsPage() {
 
           {filteredFees.length ===
           0 ? (
-            <div style={styles.empty}>
-              📭 No fee records found
-              for this month.
+            <div
+              style={styles.empty}
+            >
+              📭 No fee records
+              found for this
+              month.
             </div>
           ) : (
             <div
@@ -2122,22 +2777,32 @@ export default function StudentReportsPage() {
                 styles.tableWrapper
               }
             >
-              <table style={styles.table}>
+              <table
+                style={styles.table}
+              >
                 <thead>
                   <tr>
-                    <th style={styles.th}>
+                    <th
+                      style={styles.th}
+                    >
                       Month
                     </th>
 
-                    <th style={styles.th}>
+                    <th
+                      style={styles.th}
+                    >
                       Amount
                     </th>
 
-                    <th style={styles.th}>
+                    <th
+                      style={styles.th}
+                    >
                       Status
                     </th>
 
-                    <th style={styles.th}>
+                    <th
+                      style={styles.th}
+                    >
                       Payment Date
                     </th>
                   </tr>
@@ -2145,60 +2810,92 @@ export default function StudentReportsPage() {
 
                 <tbody>
                   {filteredFees.map(
-                    (fee) => (
-                      <tr
-                        key={
-                          fee.id
-                        }
-                      >
-                        <td style={styles.td}>
-                          {
-                            months[
-                              fee.month -
-                                1
-                            ]
-                          }{" "}
-                          {
-                            fee.year
+                    (fee) => {
+                      const status =
+                        String(
+                          fee.status ||
+                            ""
+                        ).toUpperCase();
+
+                      const isPaid =
+                        status ===
+                          "SUBMITTED" ||
+                        status ===
+                          "PAID";
+
+                      const isRefunded =
+                        status ===
+                        "REFUNDED";
+
+                      return (
+                        <tr
+                          key={
+                            fee.id
                           }
-                        </td>
-
-                        <td style={styles.td}>
-                          ₹
-                          {Number(
-                            fee.amount
-                          ).toLocaleString(
-                            "en-IN"
-                          )}
-                        </td>
-
-                        <td style={styles.td}>
-                          <span
-                            style={{
-                              ...styles.badge,
-                              ...(fee.status.toUpperCase() ===
-                                "SUBMITTED" ||
-                              fee.status.toUpperCase() ===
-                                "PAID"
-                                ? styles.presentBadge
-                                : fee.status.toUpperCase() ===
-                                  "REFUNDED"
-                                ? styles.refundedBadge
-                                : styles.pendingBadge),
-                            }}
+                        >
+                          <td
+                            style={
+                              styles.td
+                            }
                           >
                             {
-                              fee.status
+                              months[
+                                Number(
+                                  fee.month
+                                ) -
+                                  1
+                              ]
+                            }{" "}
+                            {
+                              fee.year
                             }
-                          </span>
-                        </td>
+                          </td>
 
-                        <td style={styles.td}>
-                          {fee.payment_date ||
-                            "—"}
-                        </td>
-                      </tr>
-                    )
+                          <td
+                            style={
+                              styles.td
+                            }
+                          >
+                            ₹
+                            {Number(
+                              fee.amount ||
+                                0
+                            ).toLocaleString(
+                              "en-IN"
+                            )}
+                          </td>
+
+                          <td
+                            style={
+                              styles.td
+                            }
+                          >
+                            <span
+                              style={{
+                                ...styles.badge,
+                                ...(isPaid
+                                  ? styles.presentBadge
+                                  : isRefunded
+                                  ? styles.refundedBadge
+                                  : styles.pendingBadge),
+                              }}
+                            >
+                              {fee.status}
+                            </span>
+                          </td>
+
+                          <td
+                            style={
+                              styles.td
+                            }
+                          >
+                            {formatDate(
+                              fee.payment_date
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    }
                   )}
                 </tbody>
               </table>
@@ -2208,7 +2905,9 @@ export default function StudentReportsPage() {
 
         {/* OVERALL */}
 
-        <section style={styles.card}>
+        <section
+          style={styles.card}
+        >
           <h2
             style={
               styles.sectionTitle
@@ -2222,7 +2921,8 @@ export default function StudentReportsPage() {
               styles.sectionSubtitle
             }
           >
-            Your overall portal performance
+            Your overall portal
+            performance
           </p>
 
           <div
@@ -2236,7 +2936,8 @@ export default function StudentReportsPage() {
               }
             >
               <span>
-                Total Attendance Records
+                Total Attendance
+                Records
               </span>
 
               <strong>
@@ -2295,7 +2996,11 @@ export default function StudentReportsPage() {
           </div>
         </section>
 
-        <footer style={styles.footer}>
+        {/* FOOTER */}
+
+        <footer
+          style={styles.footer}
+        >
           <strong>
             RACER ACADEMY
           </strong>
@@ -2305,14 +3010,20 @@ export default function StudentReportsPage() {
             {new Date().getFullYear()}
           </span>
         </footer>
+
       </div>
     </main>
   );
 }
 
-const styles: {
-  [key: string]: React.CSSProperties;
-} = {
+/* =========================================================
+   STYLES
+========================================================= */
+
+const styles: Record<
+  string,
+  CSSProperties
+> = {
   page: {
     minHeight: "100vh",
     background:
@@ -2335,7 +3046,8 @@ const styles: {
     padding: "20px",
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     gap: "15px",
     marginBottom: "20px",
     boxShadow:
@@ -2444,7 +3156,8 @@ const styles: {
     boxShadow:
       "0 8px 25px rgba(15,23,42,0.07)",
     display: "flex",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     alignItems: "center",
     gap: "20px",
     flexWrap: "wrap",
@@ -2480,7 +3193,8 @@ const styles: {
   input: {
     minWidth: "150px",
     padding: "11px 12px",
-    border: "1px solid #cbd5e1",
+    border:
+      "1px solid #cbd5e1",
     borderRadius: "10px",
     background: "white",
     color: "#111827",
@@ -2507,7 +3221,8 @@ const styles: {
 
   sectionHeader: {
     display: "flex",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     alignItems: "center",
     gap: "15px",
     marginBottom: "20px",
@@ -2566,7 +3281,8 @@ const styles: {
 
   progressHeader: {
     display: "flex",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     color: "#334155",
     fontSize: "14px",
     marginBottom: "10px",
@@ -2604,7 +3320,8 @@ const styles: {
   table: {
     width: "100%",
     minWidth: "600px",
-    borderCollapse: "collapse",
+    borderCollapse:
+      "collapse",
   },
 
   th: {
@@ -2615,7 +3332,8 @@ const styles: {
     borderBottom:
       "2px solid #dbeafe",
     fontSize: "13px",
-    whiteSpace: "nowrap",
+    whiteSpace:
+      "nowrap",
   },
 
   td: {
@@ -2654,7 +3372,7 @@ const styles: {
     color: "#5b21b6",
   },
 
-  /* RACER ACADEMY TESTS */
+  /* ASSESSMENTS */
 
   assessmentCard: {
     background: "white",
@@ -2669,7 +3387,8 @@ const styles: {
 
   assessmentHeader: {
     display: "flex",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     alignItems: "center",
     gap: "15px",
     flexWrap: "wrap",
@@ -2719,7 +3438,8 @@ const styles: {
     borderRadius: "9px",
     fontWeight: "800",
     cursor: "pointer",
-    whiteSpace: "nowrap",
+    whiteSpace:
+      "nowrap",
   },
 
   subjectArea: {
@@ -2732,7 +3452,8 @@ const styles: {
     borderRadius: "15px",
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     gap: "15px",
     flexWrap: "wrap",
   },
@@ -2821,8 +3542,10 @@ const styles: {
 
   testTop: {
     display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
+    justifyContent:
+      "space-between",
+    alignItems:
+      "flex-start",
     gap: "15px",
     flexWrap: "wrap",
     paddingBottom: "15px",
@@ -2886,7 +3609,8 @@ const styles: {
 
   imagesHeader: {
     display: "flex",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     alignItems: "center",
     gap: "12px",
     flexWrap: "wrap",
@@ -2927,7 +3651,8 @@ const styles: {
 
   imageLink: {
     display: "block",
-    textDecoration: "none",
+    textDecoration:
+      "none",
     color: "#1e3a8a",
     fontSize: "11px",
     fontWeight: "800",
@@ -2993,7 +3718,8 @@ const styles: {
     borderRadius: "10px",
     padding: "12px",
     display: "flex",
-    flexDirection: "column",
+    flexDirection:
+      "column",
     gap: "4px",
     fontSize: "12px",
     color: "#475569",
@@ -3078,7 +3804,8 @@ const styles: {
     borderRadius: "12px",
     padding: "16px",
     display: "flex",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     alignItems: "center",
     gap: "10px",
     color: "#475569",
@@ -3107,10 +3834,12 @@ const styles: {
   },
 
   footer: {
-    padding: "25px 10px 10px",
+    padding:
+      "25px 10px 10px",
     textAlign: "center",
     display: "flex",
-    justifyContent: "center",
+    justifyContent:
+      "center",
     gap: "8px",
     flexWrap: "wrap",
     color: "#64748b",
