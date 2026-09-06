@@ -23,6 +23,21 @@ export default function StudentAttendanceHistoryPage() {
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    function checkScreenSize() {
+      setIsMobile(window.innerWidth <= 700);
+    }
+
+    checkScreenSize();
+
+    window.addEventListener("resize", checkScreenSize);
+
+    return () => {
+      window.removeEventListener("resize", checkScreenSize);
+    };
+  }, []);
 
   useEffect(() => {
     loadStudentAttendance();
@@ -54,12 +69,6 @@ export default function StudentAttendanceHistoryPage() {
         return;
       }
 
-      /*
-       * IMPORTANT:
-       * Pehle logged-in username se student ID nikali ja rahi hai.
-       * Iske baad attendance sirf usi student_id ki load hogi.
-       */
-
       const { data: student, error: studentError } =
         await supabase
           .from("students")
@@ -75,33 +84,19 @@ export default function StudentAttendanceHistoryPage() {
       }
 
       if (!student) {
-        setErrorMessage(
-          "Logged-in student account nahi mila."
-        );
+        setErrorMessage("Logged-in student account nahi mila.");
         setLoading(false);
         return;
       }
 
-      setStudentName(
-        student.student_name || savedName
-      );
-
-      /*
-       * ONLY THIS STUDENT'S ATTENDANCE
-       *
-       * No search.
-       * No other students.
-       * No delete.
-       */
+      setStudentName(student.student_name || savedName);
 
       const {
         data: attendance,
         error: attendanceError,
       } = await supabase
         .from("attendance")
-        .select(
-          "student_id, attendance_date, status"
-        )
+        .select("student_id, attendance_date, status")
         .eq("student_id", student.id)
         .order("attendance_date", {
           ascending: false,
@@ -134,14 +129,15 @@ export default function StudentAttendanceHistoryPage() {
   }
 
   function formatDate(date: string) {
-    return new Date(
-      `${date}T00:00:00`
-    ).toLocaleDateString("en-IN", {
-      weekday: "short",
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    return new Date(`${date}T00:00:00`).toLocaleDateString(
+      "en-IN",
+      {
+        weekday: "short",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }
+    );
   }
 
   const presentCount = records.filter(
@@ -158,61 +154,128 @@ export default function StudentAttendanceHistoryPage() {
 
   const percentage =
     totalCount > 0
-      ? Math.round(
-          (presentCount / totalCount) * 100
-        )
+      ? Math.round((presentCount / totalCount) * 100)
       : 0;
 
   return (
-    <main style={styles.page}>
+    <main
+      style={{
+        ...styles.page,
+        padding: isMobile ? "8px" : "16px",
+      }}
+    >
       <div style={styles.container}>
 
         {/* HEADER */}
 
-        <header style={styles.header}>
-          <div>
-            <div style={styles.badge}>
-              STUDENT PORTAL
+        <header
+          style={{
+            ...styles.header,
+            padding: isMobile ? "15px" : "22px",
+            borderRadius: isMobile ? "16px" : "20px",
+          }}
+        >
+          <div
+            style={{
+              ...styles.headerContent,
+              flexDirection: isMobile ? "column" : "row",
+              alignItems: isMobile ? "stretch" : "center",
+            }}
+          >
+            <div
+              style={{
+                minWidth: 0,
+                width: isMobile ? "100%" : "auto",
+              }}
+            >
+              <div style={styles.badge}>
+                STUDENT PORTAL
+              </div>
+
+              <h1
+                style={{
+                  ...styles.title,
+                  fontSize: isMobile ? "21px" : "28px",
+                }}
+              >
+                My Attendance History
+              </h1>
+
+              <p
+                style={{
+                  ...styles.subtitle,
+                  fontSize: isMobile ? "11px" : "13px",
+                }}
+              >
+                Your personal attendance records
+              </p>
             </div>
 
-            <h1 style={styles.title}>
-              📋 My Attendance History
-            </h1>
-
-            <p style={styles.subtitle}>
-              Your personal attendance records
-            </p>
+            <button
+              onClick={() =>
+                router.push("/student/dashboard")
+              }
+              style={{
+                ...styles.backButton,
+                width: isMobile ? "100%" : "auto",
+                padding: isMobile
+                  ? "12px"
+                  : "11px 16px",
+              }}
+            >
+              Back to Dashboard
+            </button>
           </div>
-
-          <button
-            onClick={() =>
-              router.push("/student/dashboard")
-            }
-            style={styles.backButton}
-          >
-            ← Dashboard
-          </button>
         </header>
 
         {/* STUDENT INFORMATION */}
 
-        <section style={styles.studentCard}>
-          <div style={styles.avatar}>
-            {studentName
-              .charAt(0)
-              .toUpperCase()}
+        <section
+          style={{
+            ...styles.studentCard,
+            padding: isMobile ? "14px" : "22px",
+            borderRadius: isMobile ? "16px" : "20px",
+            gap: isMobile ? "11px" : "15px",
+          }}
+        >
+          <div
+            style={{
+              ...styles.avatar,
+              width: isMobile ? "50px" : "62px",
+              height: isMobile ? "50px" : "62px",
+              minWidth: isMobile ? "50px" : "62px",
+              borderRadius: isMobile ? "14px" : "18px",
+              fontSize: isMobile ? "22px" : "27px",
+            }}
+          >
+            {studentName.charAt(0).toUpperCase()}
           </div>
 
           <div style={styles.studentInfo}>
-            <div style={styles.studentLabel}>
+            <div
+              style={{
+                ...styles.studentLabel,
+                fontSize: isMobile ? "8px" : "9px",
+              }}
+            >
               LOGGED-IN STUDENT
             </div>
 
-            <div style={styles.studentName}>
+            <div
+              style={{
+                ...styles.studentName,
+                fontSize: isMobile ? "16px" : "22px",
+              }}
+            >
               {studentName}
             </div>
 
-            <div style={styles.username}>
+            <div
+              style={{
+                ...styles.username,
+                fontSize: isMobile ? "10px" : "11px",
+              }}
+            >
               @{username || "student"}
             </div>
           </div>
@@ -222,154 +285,295 @@ export default function StudentAttendanceHistoryPage() {
 
         {errorMessage && (
           <div style={styles.errorBox}>
-            ⚠️ {errorMessage}
+            Error: {errorMessage}
           </div>
         )}
 
         {/* ATTENDANCE SUMMARY */}
 
-        <section style={styles.statsGrid}>
+        <section
+          style={{
+            ...styles.statsGrid,
+            gridTemplateColumns: isMobile
+              ? "repeat(2, minmax(0, 1fr))"
+              : "repeat(4, minmax(0, 1fr))",
+            gap: isMobile ? "8px" : "13px",
+          }}
+        >
+          {/* TOTAL */}
 
-          <div style={styles.statCard}>
+          <div
+            style={{
+              ...styles.statCard,
+              padding: isMobile
+                ? "11px 9px"
+                : "17px",
+              gap: isMobile ? "7px" : "12px",
+            }}
+          >
             <div
               style={{
                 ...styles.statIcon,
+                width: isMobile ? "34px" : "48px",
+                height: isMobile ? "34px" : "48px",
+                minWidth: isMobile ? "34px" : "48px",
+                borderRadius: isMobile ? "10px" : "13px",
+                fontSize: isMobile ? "8px" : "11px",
                 background: "#dbeafe",
               }}
             >
-              📋
+              TOTAL
             </div>
 
-            <div>
-              <div style={styles.statLabel}>
+            <div style={styles.statContent}>
+              <div
+                style={{
+                  ...styles.statLabel,
+                  fontSize: isMobile ? "8px" : "9px",
+                }}
+              >
                 TOTAL
               </div>
 
-              <div style={styles.statValue}>
+              <div
+                style={{
+                  ...styles.statValue,
+                  fontSize: isMobile ? "18px" : "22px",
+                }}
+              >
                 {totalCount}
               </div>
 
-              <div style={styles.statText}>
+              <div
+                style={{
+                  ...styles.statText,
+                  fontSize: isMobile ? "7px" : "9px",
+                }}
+              >
                 Attendance records
               </div>
             </div>
           </div>
 
-          <div style={styles.statCard}>
+          {/* PRESENT */}
+
+          <div
+            style={{
+              ...styles.statCard,
+              padding: isMobile
+                ? "11px 9px"
+                : "17px",
+              gap: isMobile ? "7px" : "12px",
+            }}
+          >
             <div
               style={{
                 ...styles.statIcon,
+                width: isMobile ? "34px" : "48px",
+                height: isMobile ? "34px" : "48px",
+                minWidth: isMobile ? "34px" : "48px",
+                borderRadius: isMobile ? "10px" : "13px",
+                fontSize: isMobile ? "8px" : "11px",
                 background: "#dcfce7",
               }}
             >
-              ✓
+              P
             </div>
 
-            <div>
-              <div style={styles.statLabel}>
+            <div style={styles.statContent}>
+              <div
+                style={{
+                  ...styles.statLabel,
+                  fontSize: isMobile ? "8px" : "9px",
+                }}
+              >
                 PRESENT
               </div>
 
               <div
                 style={{
                   ...styles.statValue,
+                  fontSize: isMobile ? "18px" : "22px",
                   color: "#15803d",
                 }}
               >
                 {presentCount}
               </div>
 
-              <div style={styles.statText}>
+              <div
+                style={{
+                  ...styles.statText,
+                  fontSize: isMobile ? "7px" : "9px",
+                }}
+              >
                 Classes attended
               </div>
             </div>
           </div>
 
-          <div style={styles.statCard}>
+          {/* ABSENT */}
+
+          <div
+            style={{
+              ...styles.statCard,
+              padding: isMobile
+                ? "11px 9px"
+                : "17px",
+              gap: isMobile ? "7px" : "12px",
+            }}
+          >
             <div
               style={{
                 ...styles.statIcon,
+                width: isMobile ? "34px" : "48px",
+                height: isMobile ? "34px" : "48px",
+                minWidth: isMobile ? "34px" : "48px",
+                borderRadius: isMobile ? "10px" : "13px",
+                fontSize: isMobile ? "8px" : "11px",
                 background: "#fee2e2",
               }}
             >
-              ✕
+              A
             </div>
 
-            <div>
-              <div style={styles.statLabel}>
+            <div style={styles.statContent}>
+              <div
+                style={{
+                  ...styles.statLabel,
+                  fontSize: isMobile ? "8px" : "9px",
+                }}
+              >
                 ABSENT
               </div>
 
               <div
                 style={{
                   ...styles.statValue,
+                  fontSize: isMobile ? "18px" : "22px",
                   color: "#dc2626",
                 }}
               >
                 {absentCount}
               </div>
 
-              <div style={styles.statText}>
+              <div
+                style={{
+                  ...styles.statText,
+                  fontSize: isMobile ? "7px" : "9px",
+                }}
+              >
                 Classes missed
               </div>
             </div>
           </div>
 
-          <div style={styles.statCard}>
+          {/* ATTENDANCE */}
+
+          <div
+            style={{
+              ...styles.statCard,
+              padding: isMobile
+                ? "11px 9px"
+                : "17px",
+              gap: isMobile ? "7px" : "12px",
+            }}
+          >
             <div
               style={{
                 ...styles.statIcon,
+                width: isMobile ? "34px" : "48px",
+                height: isMobile ? "34px" : "48px",
+                minWidth: isMobile ? "34px" : "48px",
+                borderRadius: isMobile ? "10px" : "13px",
+                fontSize: isMobile ? "12px" : "15px",
                 background: "#fef3c7",
               }}
             >
               %
             </div>
 
-            <div>
-              <div style={styles.statLabel}>
+            <div style={styles.statContent}>
+              <div
+                style={{
+                  ...styles.statLabel,
+                  fontSize: isMobile ? "8px" : "9px",
+                }}
+              >
                 ATTENDANCE
               </div>
 
               <div
                 style={{
                   ...styles.statValue,
+                  fontSize: isMobile ? "18px" : "22px",
                   color: "#b45309",
                 }}
               >
                 {percentage}%
               </div>
 
-              <div style={styles.statText}>
+              <div
+                style={{
+                  ...styles.statText,
+                  fontSize: isMobile ? "7px" : "9px",
+                }}
+              >
                 Overall attendance
               </div>
             </div>
           </div>
-
         </section>
 
         {/* HISTORY */}
 
-        <section style={styles.historyCard}>
-
+        <section
+          style={{
+            ...styles.historyCard,
+            padding: isMobile ? "12px" : "20px",
+            borderRadius: isMobile ? "16px" : "20px",
+          }}
+        >
           <div style={styles.historyHeader}>
-            <div>
-              <h2 style={styles.historyTitle}>
-                📅 My Attendance Records
+            <div style={styles.historyHeaderContent}>
+              <h2
+                style={{
+                  ...styles.historyTitle,
+                  fontSize: isMobile ? "17px" : "20px",
+                }}
+              >
+                My Attendance Records
               </h2>
 
-              <p style={styles.historySubtitle}>
+              <p
+                style={{
+                  ...styles.historySubtitle,
+                  fontSize: isMobile ? "10px" : "11px",
+                }}
+              >
                 Only your attendance records are shown here.
               </p>
             </div>
           </div>
 
           {loading ? (
-            <div style={styles.loadingBox}>
+            <div
+              style={{
+                ...styles.loadingBox,
+                padding: isMobile
+                  ? "40px 15px"
+                  : "55px 20px",
+              }}
+            >
               <div style={styles.loadingIcon}>
-                ⏳
+                Loading...
               </div>
 
-              <h3 style={styles.loadingTitle}>
+              <h3
+                style={{
+                  ...styles.loadingTitle,
+                  fontSize: isMobile ? "15px" : "17px",
+                }}
+              >
                 Loading your attendance...
               </h3>
 
@@ -378,12 +582,24 @@ export default function StudentAttendanceHistoryPage() {
               </p>
             </div>
           ) : records.length === 0 ? (
-            <div style={styles.emptyBox}>
+            <div
+              style={{
+                ...styles.emptyBox,
+                padding: isMobile
+                  ? "40px 15px"
+                  : "50px 20px",
+              }}
+            >
               <div style={styles.emptyIcon}>
-                📭
+                No Records
               </div>
 
-              <h3 style={styles.emptyTitle}>
+              <h3
+                style={{
+                  ...styles.emptyTitle,
+                  fontSize: isMobile ? "16px" : "18px",
+                }}
+              >
                 No Attendance Records
               </h3>
 
@@ -392,10 +608,84 @@ export default function StudentAttendanceHistoryPage() {
                 available nahi hai.
               </p>
             </div>
+          ) : isMobile ? (
+            /* MOBILE ATTENDANCE CARDS */
+
+            <div style={styles.mobileRecords}>
+              {records.map((record, index) => {
+                const isPresent =
+                  record.status.toLowerCase() ===
+                  "present";
+
+                return (
+                  <div
+                    key={`${record.student_id}-${record.attendance_date}`}
+                    style={styles.mobileRecordCard}
+                  >
+                    <div
+                      style={
+                        styles.mobileRecordNumber
+                      }
+                    >
+                      #{index + 1}
+                    </div>
+
+                    <div
+                      style={
+                        styles.mobileRecordInfo
+                      }
+                    >
+                      <div
+                        style={
+                          styles.mobileRecordLabel
+                        }
+                      >
+                        DATE
+                      </div>
+
+                      <div
+                        style={
+                          styles.mobileRecordDate
+                        }
+                      >
+                        {formatDate(
+                          record.attendance_date
+                        )}
+                      </div>
+                    </div>
+
+                    <div
+                      style={
+                        styles.mobileRecordStatus
+                      }
+                    >
+                      {isPresent ? (
+                        <span
+                          style={
+                            styles.presentBadge
+                          }
+                        >
+                          Present
+                        </span>
+                      ) : (
+                        <span
+                          style={
+                            styles.absentBadge
+                          }
+                        >
+                          Absent
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           ) : (
+            /* DESKTOP TABLE */
+
             <div style={styles.tableWrapper}>
               <table style={styles.table}>
-
                 <thead>
                   <tr>
                     <th style={styles.th}>
@@ -447,7 +737,7 @@ export default function StudentAttendanceHistoryPage() {
                                   styles.presentBadge
                                 }
                               >
-                                ✓ Present
+                                Present
                               </span>
                             ) : (
                               <span
@@ -455,7 +745,7 @@ export default function StudentAttendanceHistoryPage() {
                                   styles.absentBadge
                                 }
                               >
-                                ✕ Absent
+                                Absent
                               </span>
                             )}
                           </td>
@@ -464,19 +754,23 @@ export default function StudentAttendanceHistoryPage() {
                     }
                   )}
                 </tbody>
-
               </table>
             </div>
           )}
-
         </section>
 
         {/* FOOTER */}
 
-        <footer style={styles.footer}>
-          Attendance Portal • My Attendance • 2026
+        <footer
+          style={{
+            ...styles.footer,
+            padding: isMobile
+              ? "18px 8px"
+              : "22px 10px",
+          }}
+        >
+          Attendance Portal - My Attendance - 2026
         </footer>
-
       </div>
     </main>
   );
@@ -485,35 +779,43 @@ export default function StudentAttendanceHistoryPage() {
 const styles: {
   [key: string]: React.CSSProperties;
 } = {
-
   page: {
     minHeight: "100vh",
+    width: "100%",
     background:
       "linear-gradient(135deg,#eef2ff,#f8fafc,#eff6ff)",
-    padding: "22px 14px",
+    padding: "16px",
     boxSizing: "border-box",
     fontFamily:
       "Arial, Helvetica, sans-serif",
     color: "#0f172a",
+    overflowX: "hidden",
   },
 
   container: {
     width: "100%",
     maxWidth: "1100px",
     margin: "0 auto",
+    boxSizing: "border-box",
   },
 
   header: {
+    width: "100%",
     background: "#ffffff",
     borderRadius: "20px",
-    padding: "24px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "18px",
+    padding: "22px",
+    boxSizing: "border-box",
     marginBottom: "18px",
     boxShadow:
       "0 8px 25px rgba(15,23,42,0.07)",
+  },
+
+  headerContent: {
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "16px",
     flexWrap: "wrap",
   },
 
@@ -532,8 +834,10 @@ const styles: {
   title: {
     margin: 0,
     fontSize: "28px",
+    lineHeight: 1.2,
     fontWeight: "900",
     color: "#0f172a",
+    wordBreak: "break-word",
   },
 
   subtitle: {
@@ -541,6 +845,7 @@ const styles: {
     color: "#64748b",
     fontSize: "13px",
     fontWeight: "600",
+    lineHeight: 1.4,
   },
 
   backButton: {
@@ -552,13 +857,18 @@ const styles: {
     fontWeight: "800",
     cursor: "pointer",
     fontSize: "13px",
+    whiteSpace: "nowrap",
+    flexShrink: 0,
+    boxSizing: "border-box",
   },
 
   studentCard: {
+    width: "100%",
     background:
       "linear-gradient(135deg,#172554,#2563eb,#4f46e5)",
     borderRadius: "20px",
     padding: "22px",
+    boxSizing: "border-box",
     display: "flex",
     alignItems: "center",
     gap: "15px",
@@ -579,10 +889,12 @@ const styles: {
     justifyContent: "center",
     fontSize: "27px",
     fontWeight: "900",
+    flexShrink: 0,
   },
 
   studentInfo: {
     minWidth: 0,
+    flex: 1,
   },
 
   studentLabel: {
@@ -598,6 +910,7 @@ const styles: {
     fontWeight: "900",
     marginTop: "4px",
     wordBreak: "break-word",
+    overflowWrap: "anywhere",
   },
 
   username: {
@@ -605,9 +918,13 @@ const styles: {
     fontSize: "11px",
     fontWeight: "700",
     marginTop: "3px",
+    wordBreak: "break-word",
+    overflowWrap: "anywhere",
   },
 
   errorBox: {
+    width: "100%",
+    boxSizing: "border-box",
     background: "#fee2e2",
     color: "#991b1b",
     border: "1px solid #fecaca",
@@ -616,9 +933,12 @@ const styles: {
     marginBottom: "18px",
     fontWeight: "700",
     fontSize: "13px",
+    overflowWrap: "anywhere",
+    lineHeight: 1.5,
   },
 
   statsGrid: {
+    width: "100%",
     display: "grid",
     gridTemplateColumns:
       "repeat(4,minmax(0,1fr))",
@@ -627,6 +947,9 @@ const styles: {
   },
 
   statCard: {
+    width: "100%",
+    minWidth: 0,
+    boxSizing: "border-box",
     background: "#ffffff",
     borderRadius: "17px",
     padding: "17px",
@@ -635,7 +958,6 @@ const styles: {
     gap: "12px",
     boxShadow:
       "0 7px 22px rgba(15,23,42,0.06)",
-    minWidth: 0,
   },
 
   statIcon: {
@@ -646,8 +968,16 @@ const styles: {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "21px",
+    fontSize: "11px",
     fontWeight: "900",
+    color: "#1e3a8a",
+    flexShrink: 0,
+    boxSizing: "border-box",
+  },
+
+  statContent: {
+    minWidth: 0,
+    flex: 1,
   },
 
   statLabel: {
@@ -655,6 +985,7 @@ const styles: {
     fontSize: "9px",
     fontWeight: "900",
     letterSpacing: "1px",
+    overflowWrap: "anywhere",
   },
 
   statValue: {
@@ -669,31 +1000,38 @@ const styles: {
     fontSize: "9px",
     marginTop: "2px",
     fontWeight: "600",
+    lineHeight: 1.3,
+    overflowWrap: "anywhere",
   },
 
   historyCard: {
+    width: "100%",
     background: "#ffffff",
     borderRadius: "20px",
     padding: "20px",
+    boxSizing: "border-box",
     boxShadow:
       "0 9px 28px rgba(15,23,42,0.07)",
     overflow: "hidden",
   },
 
   historyHeader: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "12px",
+    width: "100%",
     marginBottom: "17px",
-    flexWrap: "wrap",
+  },
+
+  historyHeaderContent: {
+    minWidth: 0,
+    width: "100%",
   },
 
   historyTitle: {
     margin: 0,
     fontSize: "20px",
+    lineHeight: 1.3,
     color: "#172554",
     fontWeight: "900",
+    wordBreak: "break-word",
   },
 
   historySubtitle: {
@@ -701,19 +1039,24 @@ const styles: {
     color: "#64748b",
     fontSize: "11px",
     fontWeight: "600",
+    lineHeight: 1.5,
+    overflowWrap: "anywhere",
   },
 
   tableWrapper: {
     width: "100%",
-    overflowX: "auto",
+    maxWidth: "100%",
+    overflow: "hidden",
     border: "1px solid #e2e8f0",
     borderRadius: "13px",
+    boxSizing: "border-box",
   },
 
   table: {
     width: "100%",
     borderCollapse: "collapse",
     background: "#ffffff",
+    tableLayout: "fixed",
   },
 
   th: {
@@ -723,7 +1066,6 @@ const styles: {
     textAlign: "left",
     fontSize: "11px",
     fontWeight: "900",
-    whiteSpace: "nowrap",
   },
 
   td: {
@@ -733,7 +1075,7 @@ const styles: {
     color: "#334155",
     fontSize: "12px",
     fontWeight: "600",
-    whiteSpace: "nowrap",
+    overflowWrap: "anywhere",
   },
 
   dateText: {
@@ -749,6 +1091,7 @@ const styles: {
     borderRadius: "999px",
     fontSize: "10px",
     fontWeight: "900",
+    whiteSpace: "nowrap",
   },
 
   absentBadge: {
@@ -759,9 +1102,71 @@ const styles: {
     borderRadius: "999px",
     fontSize: "10px",
     fontWeight: "900",
+    whiteSpace: "nowrap",
+  },
+
+  mobileRecords: {
+    width: "100%",
+    display: "flex",
+    flexDirection: "column",
+    gap: "9px",
+  },
+
+  mobileRecordCard: {
+    width: "100%",
+    boxSizing: "border-box",
+    display: "flex",
+    alignItems: "center",
+    gap: "9px",
+    padding: "11px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "12px",
+    background: "#f8fafc",
+  },
+
+  mobileRecordNumber: {
+    width: "32px",
+    minWidth: "32px",
+    height: "32px",
+    borderRadius: "9px",
+    background: "#dbeafe",
+    color: "#1d4ed8",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "9px",
+    fontWeight: "900",
+    flexShrink: 0,
+  },
+
+  mobileRecordInfo: {
+    minWidth: 0,
+    flex: 1,
+  },
+
+  mobileRecordLabel: {
+    color: "#94a3b8",
+    fontSize: "7px",
+    fontWeight: "900",
+    letterSpacing: "1px",
+    marginBottom: "2px",
+  },
+
+  mobileRecordDate: {
+    color: "#172554",
+    fontSize: "11px",
+    fontWeight: "800",
+    lineHeight: 1.35,
+    overflowWrap: "anywhere",
+  },
+
+  mobileRecordStatus: {
+    flexShrink: 0,
   },
 
   loadingBox: {
+    width: "100%",
+    boxSizing: "border-box",
     textAlign: "center",
     padding: "55px 20px",
     background: "#f8fafc",
@@ -769,7 +1174,9 @@ const styles: {
   },
 
   loadingIcon: {
-    fontSize: "35px",
+    fontSize: "20px",
+    fontWeight: "800",
+    color: "#2563eb",
   },
 
   loadingTitle: {
@@ -786,6 +1193,8 @@ const styles: {
   },
 
   emptyBox: {
+    width: "100%",
+    boxSizing: "border-box",
     textAlign: "center",
     padding: "50px 20px",
     background: "#f8fafc",
@@ -793,7 +1202,9 @@ const styles: {
   },
 
   emptyIcon: {
-    fontSize: "42px",
+    fontSize: "18px",
+    fontWeight: "900",
+    color: "#64748b",
   },
 
   emptyTitle: {
@@ -808,6 +1219,7 @@ const styles: {
     color: "#64748b",
     fontSize: "12px",
     lineHeight: 1.6,
+    overflowWrap: "anywhere",
   },
 
   footer: {
@@ -816,5 +1228,7 @@ const styles: {
     color: "#94a3b8",
     fontSize: "10px",
     fontWeight: "700",
+    overflowWrap: "anywhere",
+    lineHeight: 1.5,
   },
 };
