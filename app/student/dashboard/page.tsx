@@ -224,10 +224,26 @@ export default function StudentDashboardPage() {
         return;
       }
 
-      const registration =
-        await navigator.serviceWorker.register("/sw.js");
+      await navigator.serviceWorker.register("/sw.js", {
+        scope: "/",
+      });
 
-      let permission = Notification.permission;
+      /*
+       * Wait until the Service Worker is actually ready
+       * and active before using PushManager.
+       */
+      const registration =
+        await navigator.serviceWorker.ready;
+
+      if (!registration.active) {
+        console.warn(
+          "Service Worker is still not active."
+        );
+        return;
+      }
+
+      let permission =
+        Notification.permission;
 
       if (permission === "default") {
         permission =
@@ -241,6 +257,10 @@ export default function StudentDashboardPage() {
         return;
       }
 
+      /*
+       * Check whether the student already has
+       * an existing push subscription.
+       */
       let subscription =
         await registration.pushManager.getSubscription();
 
@@ -255,10 +275,32 @@ export default function StudentDashboardPage() {
           return;
         }
 
-        const applicationServerKey =
+        /*
+         * Convert VAPID public key to Uint8Array.
+         */
+        const decodedKey =
           urlBase64ToUint8Array(
             vapidPublicKey
           );
+
+        /*
+         * IMPORTANT:
+         *
+         * Current TypeScript/lib.dom types can return
+         * Uint8Array<ArrayBufferLike>, while PushManager
+         * expects a BufferSource backed by ArrayBuffer.
+         *
+         * Creating a fresh ArrayBuffer here fixes the
+         * Vercel TypeScript build error.
+         */
+        const applicationServerKey =
+          new ArrayBuffer(
+            decodedKey.byteLength
+          );
+
+        new Uint8Array(
+          applicationServerKey
+        ).set(decodedKey);
 
         subscription =
           await registration.pushManager.subscribe({
@@ -276,13 +318,15 @@ export default function StudentDashboardPage() {
           },
           body: JSON.stringify({
             studentId: currentStudentId,
-            subscription: subscription.toJSON(),
+            subscription:
+              subscription.toJSON(),
           }),
         }
       );
 
       if (!response.ok) {
-        const errorText = await response.text();
+        const errorText =
+          await response.text();
 
         console.error(
           "Push subscription API error:",
@@ -293,9 +337,23 @@ export default function StudentDashboardPage() {
       }
 
       console.log(
-        "Student push notification registration completed."
+        "Student push notification registration completed successfully."
       );
     } catch (error) {
+      /*
+       * Push notification failure should never
+       * break the Student Dashboard.
+       */
+      if (
+        error instanceof DOMException &&
+        error.name === "AbortError"
+      ) {
+        console.warn(
+          "Push subscription was aborted because the Service Worker was not ready."
+        );
+        return;
+      }
+
       console.error(
         "Push notification registration error:",
         error
@@ -828,8 +886,6 @@ export default function StudentDashboardPage() {
             max-width: 100% !important;
           }
 
-          /* NAVBAR */
-
           nav.student-navbar {
             padding: 10px !important;
             border-radius: 14px !important;
@@ -882,8 +938,6 @@ export default function StudentDashboardPage() {
             font-size: 9px !important;
             white-space: nowrap !important;
           }
-
-          /* HERO */
 
           section.student-hero {
             min-height: auto !important;
@@ -952,8 +1006,6 @@ export default function StudentDashboardPage() {
           .student-online-sub {
             font-size: 8px !important;
           }
-
-          /* LATEST ANNOUNCEMENT */
 
           section.student-latest-announcement {
             padding: 12px !important;
@@ -1052,8 +1104,6 @@ export default function StudentDashboardPage() {
             font-size: 7px !important;
           }
 
-          /* ANNOUNCEMENT LINK */
-
           section.student-announcement-section {
             padding: 12px !important;
             border-radius: 15px !important;
@@ -1086,8 +1136,6 @@ export default function StudentDashboardPage() {
             white-space: nowrap !important;
           }
 
-          /* NOTICE */
-
           section.student-notice {
             padding: 10px !important;
             border-radius: 13px !important;
@@ -1112,8 +1160,6 @@ export default function StudentDashboardPage() {
             line-height: 1.4 !important;
             margin-top: 2px !important;
           }
-
-          /* SERVICES */
 
           .student-section-heading {
             margin-bottom: 8px !important;
@@ -1184,8 +1230,6 @@ export default function StudentDashboardPage() {
             font-size: 8px !important;
           }
 
-          /* BOTTOM PROFILE */
-
           section.student-bottom-panel {
             margin-top: 12px !important;
             padding: 10px !important;
@@ -1220,8 +1264,6 @@ export default function StudentDashboardPage() {
             font-size: 8px !important;
             white-space: nowrap !important;
           }
-
-          /* FOOTER */
 
           footer.student-footer {
             margin-top: 12px !important;
@@ -1281,7 +1323,7 @@ export default function StudentDashboardPage() {
           .student-card-grid {
             grid-template-columns: repeat(
               2,
-              minmax(0, 1fr)
+              minmax(0,1fr)
             ) !important;
           }
 
@@ -1300,8 +1342,6 @@ export default function StudentDashboardPage() {
         style={styles.page}
       >
         <div style={styles.container}>
-          {/* NAVIGATION */}
-
           <nav
             className="student-navbar"
             style={styles.navbar}
@@ -1355,8 +1395,6 @@ export default function StudentDashboardPage() {
               </button>
             </div>
           </nav>
-
-          {/* HERO */}
 
           <section
             className="student-hero"
@@ -1450,8 +1488,6 @@ export default function StudentDashboardPage() {
               </div>
             </div>
           </section>
-
-          {/* LATEST ANNOUNCEMENT */}
 
           {!announcementLoading &&
             latestAnnouncement && (
@@ -1657,8 +1693,6 @@ export default function StudentDashboardPage() {
               </section>
             )}
 
-          {/* ANNOUNCEMENTS */}
-
           <section
             className="student-announcement-section"
             style={
@@ -1718,8 +1752,6 @@ export default function StudentDashboardPage() {
             </div>
           </section>
 
-          {/* NOTICE */}
-
           <section
             className="student-notice"
             style={styles.notice}
@@ -1750,8 +1782,6 @@ export default function StudentDashboardPage() {
               </p>
             </div>
           </section>
-
-          {/* SERVICES */}
 
           <section>
             <div
@@ -1881,8 +1911,6 @@ export default function StudentDashboardPage() {
             </div>
           </section>
 
-          {/* PROFILE */}
-
           <section
             className="student-bottom-panel"
             style={
@@ -1940,8 +1968,6 @@ export default function StudentDashboardPage() {
               View Profile →
             </button>
           </section>
-
-          {/* FOOTER */}
 
           <footer
             className="student-footer"
