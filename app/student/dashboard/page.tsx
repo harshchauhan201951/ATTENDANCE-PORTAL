@@ -33,6 +33,9 @@ export default function StudentDashboardPage() {
   const [studentId, setStudentId] =
     useState<number | null>(null);
 
+  const [profileImage, setProfileImage] =
+    useState<string | null>(null);
+
   const [time, setTime] =
     useState("");
 
@@ -63,12 +66,6 @@ export default function StudentDashboardPage() {
    * =====================================================
    * CHECK LATEST ANNOUNCEMENT EVERY MINUTE
    * =====================================================
-   *
-   * This does not change the database.
-   *
-   * It simply forces the dashboard to recalculate
-   * whether the latest announcement is still inside
-   * its 24-hour period.
    */
   useEffect(() => {
     if (announcements.length === 0) {
@@ -124,6 +121,11 @@ export default function StudentDashboardPage() {
           String(resolvedId)
         );
 
+        await loadStudentProfile(
+          resolvedId,
+          savedUsername
+        );
+
         await loadAnnouncements(
           resolvedId
         );
@@ -150,6 +152,11 @@ export default function StudentDashboardPage() {
       ) {
         setStudentId(parsedId);
 
+        await loadStudentProfile(
+          parsedId,
+          savedUsername
+        );
+
         await loadAnnouncements(
           parsedId
         );
@@ -166,6 +173,7 @@ export default function StudentDashboardPage() {
      * No student identity found.
      */
     setStudentId(null);
+    setProfileImage(null);
 
     await loadAnnouncements(null);
   }
@@ -210,6 +218,120 @@ export default function StudentDashboardPage() {
       );
 
       return null;
+    }
+  }
+
+  /*
+   * =====================================================
+   * LOAD STUDENT PROFILE IMAGE
+   * =====================================================
+   *
+   * Reads the student's existing profile record.
+   *
+   * We check common profile-image field names so that
+   * the dashboard can use the same uploaded image
+   * without changing the existing profile system.
+   */
+  async function loadStudentProfile(
+    currentStudentId: number,
+    currentUsername: string
+  ) {
+    try {
+      let query = supabase
+        .from("students")
+        .select("*");
+
+      if (currentStudentId) {
+        query = query.eq(
+          "id",
+          currentStudentId
+        );
+      } else if (currentUsername) {
+        query = query.eq(
+          "student_username",
+          currentUsername
+        );
+      } else {
+        setProfileImage(null);
+        return;
+      }
+
+      const {
+        data,
+        error,
+      } = await query.maybeSingle();
+
+      if (error) {
+        console.error(
+          "Student profile loading error:",
+          error
+        );
+
+        setProfileImage(null);
+        return;
+      }
+
+      if (!data) {
+        setProfileImage(null);
+        return;
+      }
+
+      /*
+       * Possible profile-image column names.
+       *
+       * The first available non-empty value is used.
+       */
+      const possibleImageFields = [
+        "profile_image",
+        "profile_picture",
+        "profile_photo",
+        "profile_pic",
+        "avatar_url",
+        "image_url",
+        "photo_url",
+        "profileImage",
+        "profilePicture",
+        "profilePhoto",
+        "avatar",
+        "image",
+        "photo",
+      ];
+
+      let imageUrl: string | null =
+        null;
+
+      for (
+        const field of possibleImageFields
+      ) {
+        const value =
+          data[field];
+
+        if (
+          typeof value === "string" &&
+          value.trim() !== ""
+        ) {
+          imageUrl =
+            value.trim();
+
+          break;
+        }
+      }
+
+      setProfileImage(
+        imageUrl
+      );
+
+      console.log(
+        "Student profile image loaded:",
+        imageUrl
+      );
+    } catch (error) {
+      console.error(
+        "Unexpected student profile loading error:",
+        error
+      );
+
+      setProfileImage(null);
     }
   }
 
@@ -421,11 +543,6 @@ export default function StudentDashboardPage() {
    * =====================================================
    * LOAD ANNOUNCEMENTS
    * =====================================================
-   *
-   * All announcements are loaded from Supabase.
-   *
-   * IMPORTANT:
-   * No announcement is deleted or moved in the database.
    */
   async function loadAnnouncements(
     currentStudentId: number | null
@@ -793,14 +910,6 @@ export default function StudentDashboardPage() {
    * =====================================================
    * LATEST ANNOUNCEMENT
    * =====================================================
-   *
-   * ONLY the newest announcement can appear here.
-   *
-   * It stays here for 24 hours from created_at.
-   *
-   * After 24 hours:
-   * - it disappears from dashboard
-   * - it remains available on /student/announcements
    */
   function isWithinLatest24Hours(
     createdAt: string
@@ -1013,7 +1122,24 @@ export default function StudentDashboardPage() {
                 styles.avatar
               }
             >
-              {firstLetter}
+              {profileImage ? (
+                <img
+                  src={
+                    profileImage
+                  }
+                  alt={`${studentName} profile`}
+                  style={
+                    styles.profileImage
+                  }
+                  onError={() =>
+                    setProfileImage(
+                      null
+                    )
+                  }
+                />
+              ) : (
+                firstLetter
+              )}
             </div>
 
             <div
@@ -1749,6 +1875,14 @@ const styles: {
     fontWeight: "1000",
     boxShadow:
       "0 12px 30px rgba(0,0,0,0.18)",
+    overflow: "hidden",
+  },
+
+  profileImage: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    display: "block",
   },
 
   welcomeArea: {
