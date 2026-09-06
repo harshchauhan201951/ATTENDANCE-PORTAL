@@ -35,7 +35,6 @@ export default function StudentDashboardPage() {
 
   useEffect(() => {
     initializeStudent();
-
     updateTime();
 
     const interval = setInterval(updateTime, 1000);
@@ -43,11 +42,6 @@ export default function StudentDashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
-  /*
-   * =====================================================
-   * CHECK LATEST ANNOUNCEMENT EVERY MINUTE
-   * =====================================================
-   */
   useEffect(() => {
     if (announcements.length === 0) {
       return;
@@ -76,10 +70,6 @@ export default function StudentDashboardPage() {
     setStudentName(name);
     setUsername(savedUsername);
 
-    /*
-     * FIRST:
-     * Resolve the real student ID from username.
-     */
     if (savedUsername) {
       const resolvedId = await resolveStudentId(savedUsername);
 
@@ -89,19 +79,13 @@ export default function StudentDashboardPage() {
         localStorage.setItem("studentId", String(resolvedId));
 
         await loadStudentProfile(resolvedId, savedUsername);
-
         await loadAnnouncements(resolvedId);
-
         await registerPushNotifications(resolvedId);
 
         return;
       }
     }
 
-    /*
-     * FALLBACK:
-     * Existing studentId from localStorage.
-     */
     if (savedStudentId) {
       const parsedId = Number(savedStudentId);
 
@@ -109,18 +93,13 @@ export default function StudentDashboardPage() {
         setStudentId(parsedId);
 
         await loadStudentProfile(parsedId, savedUsername);
-
         await loadAnnouncements(parsedId);
-
         await registerPushNotifications(parsedId);
 
         return;
       }
     }
 
-    /*
-     * No student identity found.
-     */
     setStudentId(null);
     setProfileImage(null);
 
@@ -139,7 +118,6 @@ export default function StudentDashboardPage() {
 
       if (error) {
         console.error("Student ID lookup error:", error);
-
         return null;
       }
 
@@ -148,7 +126,6 @@ export default function StudentDashboardPage() {
           "Student ID not found for username:",
           studentUsername
         );
-
         return null;
       }
 
@@ -163,16 +140,6 @@ export default function StudentDashboardPage() {
     }
   }
 
-  /*
-   * =====================================================
-   * LOAD STUDENT PROFILE IMAGE
-   * =====================================================
-   *
-   * The student's uploaded profile image is stored in:
-   * students.profile_image_url
-   *
-   * This function directly reads that exact column.
-   */
   async function loadStudentProfile(
     currentStudentId: number,
     currentUsername: string
@@ -218,11 +185,6 @@ export default function StudentDashboardPage() {
           : null;
 
       setProfileImage(imageUrl);
-
-      console.log(
-        "Student profile image loaded:",
-        imageUrl
-      );
     } catch (error) {
       console.error(
         "Unexpected student profile image loading error:",
@@ -233,11 +195,6 @@ export default function StudentDashboardPage() {
     }
   }
 
-  /*
-   * =====================================================
-   * PUSH NOTIFICATION REGISTRATION
-   * =====================================================
-   */
   async function registerPushNotifications(
     currentStudentId: number
   ) {
@@ -250,7 +207,6 @@ export default function StudentDashboardPage() {
         console.warn(
           "Service Worker is not supported by this browser."
         );
-
         return;
       }
 
@@ -258,7 +214,6 @@ export default function StudentDashboardPage() {
         console.warn(
           "Push notifications are not supported by this browser."
         );
-
         return;
       }
 
@@ -266,17 +221,11 @@ export default function StudentDashboardPage() {
         console.warn(
           "Notifications are not supported by this browser."
         );
-
         return;
       }
 
       const registration =
         await navigator.serviceWorker.register("/sw.js");
-
-      console.log(
-        "Push service worker registered:",
-        registration.scope
-      );
 
       let permission = Notification.permission;
 
@@ -289,7 +238,6 @@ export default function StudentDashboardPage() {
         console.warn(
           "Notification permission was not granted."
         );
-
         return;
       }
 
@@ -304,7 +252,6 @@ export default function StudentDashboardPage() {
           console.error(
             "NEXT_PUBLIC_VAPID_PUBLIC_KEY is missing."
           );
-
           return;
         }
 
@@ -325,20 +272,17 @@ export default function StudentDashboardPage() {
         {
           method: "POST",
           headers: {
-            "Content-Type":
-              "application/json",
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             studentId: currentStudentId,
-            subscription:
-              subscription.toJSON(),
+            subscription: subscription.toJSON(),
           }),
         }
       );
 
       if (!response.ok) {
-        const errorText =
-          await response.text();
+        const errorText = await response.text();
 
         console.error(
           "Push subscription API error:",
@@ -361,12 +305,10 @@ export default function StudentDashboardPage() {
 
   function urlBase64ToUint8Array(
     base64String: string
-  ) {
+  ): Uint8Array {
     const padding =
       "=".repeat(
-        (4 -
-          (base64String.length % 4)) %
-          4
+        (4 - (base64String.length % 4)) % 4
       );
 
     const base64 =
@@ -378,9 +320,7 @@ export default function StudentDashboardPage() {
       window.atob(base64);
 
     const outputArray =
-      new Uint8Array(
-        rawData.length
-      );
+      new Uint8Array(rawData.length);
 
     for (
       let i = 0;
@@ -407,11 +347,6 @@ export default function StudentDashboardPage() {
     );
   }
 
-  /*
-   * =====================================================
-   * LOAD ANNOUNCEMENTS
-   * =====================================================
-   */
   async function loadAnnouncements(
     currentStudentId: number | null
   ) {
@@ -437,7 +372,6 @@ export default function StudentDashboardPage() {
         );
 
         setAnnouncements([]);
-
         return;
       }
 
@@ -446,7 +380,6 @@ export default function StudentDashboardPage() {
 
       if (announcementRows.length === 0) {
         setAnnouncements([]);
-
         return;
       }
 
@@ -592,9 +525,6 @@ export default function StudentDashboardPage() {
     );
 
     try {
-      /*
-       * UNLIKE
-       */
       if (
         selectedAnnouncement.likedByMe
       ) {
@@ -639,8 +569,7 @@ export default function StudentDashboardPage() {
                       likeCount:
                         Math.max(
                           0,
-                          item.likeCount -
-                            1
+                          item.likeCount - 1
                         ),
                     }
                   : item
@@ -650,9 +579,6 @@ export default function StudentDashboardPage() {
         return;
       }
 
-      /*
-       * LIKE
-       */
       const { error } =
         await supabase
           .from(
@@ -765,11 +691,6 @@ export default function StudentDashboardPage() {
     );
   }
 
-  /*
-   * =====================================================
-   * LATEST ANNOUNCEMENT
-   * =====================================================
-   */
   function isWithinLatest24Hours(
     createdAt: string
   ) {
@@ -829,8 +750,7 @@ export default function StudentDashboardPage() {
       },
       {
         icon: "📜",
-        title:
-          "Attendance History",
+        title: "Attendance History",
         description:
           "Check your previous attendance records and details.",
         path: "/student/attendance-history",
@@ -838,8 +758,7 @@ export default function StudentDashboardPage() {
       },
       {
         icon: "📅",
-        title:
-          "Academic Calendar",
+        title: "Academic Calendar",
         description:
           "View important academic dates and calendar information.",
         path: "/student/calendar",
@@ -880,333 +799,1129 @@ export default function StudentDashboardPage() {
     ];
 
   return (
-    <main style={styles.page}>
-      <div style={styles.container}>
-        {/* TOP NAVIGATION */}
+    <>
+      <style jsx global>{`
+        * {
+          box-sizing: border-box;
+        }
 
-        <nav style={styles.navbar}>
-          <div style={styles.brandArea}>
-            <div style={styles.brandIcon}>
-              🎓
-            </div>
+        html,
+        body {
+          margin: 0;
+          padding: 0;
+          width: 100%;
+          overflow-x: hidden;
+        }
 
-            <div>
-              <div style={styles.brandName}>
-                ATTENDANCE PORTAL
-              </div>
+        button {
+          -webkit-tap-highlight-color: transparent;
+          touch-action: manipulation;
+        }
 
-              <div style={styles.brandSub}>
-                STUDENT CENTER
-              </div>
-            </div>
-          </div>
+        @media (max-width: 768px) {
+          main.student-dashboard-page {
+            padding: 8px !important;
+          }
 
-          <div style={styles.navRight}>
-            <div style={styles.clock}>
-              🕒 {time}
-            </div>
+          main.student-dashboard-page > div {
+            width: 100% !important;
+            max-width: 100% !important;
+          }
 
-            <button
-              type="button"
-              onClick={logout}
-              style={styles.logoutButton}
-            >
-              Logout
-            </button>
-          </div>
-        </nav>
+          /* NAVBAR */
 
-        {/* HERO */}
+          nav.student-navbar {
+            padding: 10px !important;
+            border-radius: 14px !important;
+            margin-bottom: 10px !important;
+            gap: 8px !important;
+            flex-wrap: nowrap !important;
+          }
 
-        <section style={styles.hero}>
-          <div style={styles.heroGlowOne} />
+          .student-brand-area {
+            min-width: 0 !important;
+            flex: 1 !important;
+            gap: 7px !important;
+          }
 
-          <div style={styles.heroGlowTwo} />
+          .student-brand-icon {
+            width: 36px !important;
+            height: 36px !important;
+            min-width: 36px !important;
+            border-radius: 10px !important;
+            font-size: 18px !important;
+          }
 
-          <div style={styles.heroContent}>
-            <div style={styles.avatar}>
-              {profileImage ? (
-                <img
-                  src={profileImage}
-                  alt={`${studentName} profile`}
-                  style={styles.profileImage}
-                  onError={() =>
-                    setProfileImage(null)
-                  }
-                />
-              ) : (
-                firstLetter
-              )}
-            </div>
+          .student-brand-name {
+            font-size: 10px !important;
+            letter-spacing: 0.6px !important;
+            white-space: nowrap !important;
+          }
 
-            <div style={styles.welcomeArea}>
-              <div style={styles.smallGreeting}>
-                STUDENT DASHBOARD
-              </div>
+          .student-brand-sub {
+            font-size: 7px !important;
+            letter-spacing: 1.2px !important;
+            margin-top: 2px !important;
+          }
 
-              <h1 style={styles.welcomeTitle}>
-                Welcome, {studentName}
-              </h1>
+          .student-nav-right {
+            gap: 5px !important;
+            flex-wrap: nowrap !important;
+          }
 
-              <p style={styles.welcomeText}>
-                Manage your attendance,
-                academic information,
-                homework, reports, fees
-                and account settings from
-                one place.
-              </p>
+          .student-clock {
+            padding: 7px 8px !important;
+            border-radius: 8px !important;
+            font-size: 8px !important;
+            white-space: nowrap !important;
+          }
 
-              {username && (
-                <div style={styles.usernameBadge}>
-                  Username:{" "}
-                  {username}
-                </div>
-              )}
-            </div>
-          </div>
+          .student-logout {
+            padding: 8px 9px !important;
+            border-radius: 8px !important;
+            font-size: 9px !important;
+            white-space: nowrap !important;
+          }
 
-          <div style={styles.heroSide}>
-            <div style={styles.statusDot} />
+          /* HERO */
 
-            <div>
-              <div style={styles.onlineText}>
-                ACCOUNT ACTIVE
-              </div>
+          section.student-hero {
+            min-height: auto !important;
+            padding: 18px !important;
+            border-radius: 18px !important;
+            margin-bottom: 10px !important;
+            display: block !important;
+          }
 
-              <div style={styles.onlineSub}>
-                Student Portal
-              </div>
-            </div>
-          </div>
-        </section>
+          .student-hero-content {
+            gap: 11px !important;
+            display: flex !important;
+            align-items: center !important;
+          }
 
-        {/* =====================================================
-            LATEST ANNOUNCEMENT
-            ===================================================== */}
+          .student-avatar {
+            width: 58px !important;
+            height: 58px !important;
+            min-width: 58px !important;
+            border-radius: 17px !important;
+            font-size: 25px !important;
+          }
 
-        {!announcementLoading &&
-          latestAnnouncement && (
-            <section
-              style={
-                styles.latestAnnouncementSection
-              }
+          .student-small-greeting {
+            font-size: 7px !important;
+            letter-spacing: 1.2px !important;
+            margin-bottom: 4px !important;
+          }
+
+          .student-welcome-title {
+            font-size: 20px !important;
+            line-height: 1.15 !important;
+          }
+
+          .student-welcome-text {
+            margin-top: 5px !important;
+            font-size: 9px !important;
+            line-height: 1.45 !important;
+          }
+
+          .student-username {
+            margin-top: 7px !important;
+            padding: 5px 7px !important;
+            font-size: 8px !important;
+            border-radius: 6px !important;
+            max-width: 100% !important;
+          }
+
+          .student-hero-side {
+            margin-top: 12px !important;
+            min-width: 0 !important;
+            width: 100% !important;
+            padding: 8px 10px !important;
+            border-radius: 10px !important;
+          }
+
+          .student-status-dot {
+            width: 8px !important;
+            height: 8px !important;
+          }
+
+          .student-online-text {
+            font-size: 8px !important;
+          }
+
+          .student-online-sub {
+            font-size: 8px !important;
+          }
+
+          /* LATEST ANNOUNCEMENT */
+
+          section.student-latest-announcement {
+            padding: 12px !important;
+            border-radius: 15px !important;
+            margin-bottom: 10px !important;
+          }
+
+          .student-latest-header {
+            align-items: flex-start !important;
+            margin-bottom: 9px !important;
+            gap: 8px !important;
+          }
+
+          .student-latest-eyebrow {
+            font-size: 7px !important;
+            letter-spacing: 1.2px !important;
+          }
+
+          .student-latest-title {
+            font-size: 17px !important;
+          }
+
+          .student-latest-subtitle {
+            font-size: 8px !important;
+            margin-top: 3px !important;
+          }
+
+          .student-latest-badge {
+            padding: 6px 7px !important;
+            font-size: 7px !important;
+            border-radius: 6px !important;
+          }
+
+          .student-latest-card {
+            padding: 10px !important;
+            border-radius: 12px !important;
+          }
+
+          .student-announcement-icon {
+            width: 34px !important;
+            height: 34px !important;
+            min-width: 34px !important;
+            border-radius: 9px !important;
+            font-size: 16px !important;
+          }
+
+          .student-announcement-card-top {
+            gap: 8px !important;
+          }
+
+          .student-announcement-meta {
+            gap: 4px !important;
+          }
+
+          .student-teacher-badge,
+          .student-time-badge {
+            padding: 3px 5px !important;
+            font-size: 6px !important;
+          }
+
+          .student-announcement-date {
+            font-size: 7px !important;
+          }
+
+          .student-latest-card-title {
+            font-size: 14px !important;
+            margin-top: 5px !important;
+          }
+
+          .student-announcement-message {
+            font-size: 9px !important;
+            line-height: 1.5 !important;
+            margin-top: 5px !important;
+          }
+
+          .student-announcement-bottom {
+            margin-top: 9px !important;
+            padding-top: 8px !important;
+            gap: 7px !important;
+          }
+
+          .student-everyone-text {
+            font-size: 7px !important;
+          }
+
+          .student-like-button {
+            padding: 6px 8px !important;
+            border-radius: 7px !important;
+            font-size: 8px !important;
+            gap: 4px !important;
+          }
+
+          .student-like-count {
+            min-width: 15px !important;
+            height: 15px !important;
+            font-size: 7px !important;
+          }
+
+          /* ANNOUNCEMENT LINK */
+
+          section.student-announcement-section {
+            padding: 12px !important;
+            border-radius: 15px !important;
+            margin-bottom: 10px !important;
+          }
+
+          .student-announcement-header {
+            gap: 8px !important;
+            align-items: center !important;
+          }
+
+          .student-announcement-eyebrow {
+            font-size: 7px !important;
+            letter-spacing: 1.2px !important;
+          }
+
+          .student-announcement-title {
+            font-size: 17px !important;
+          }
+
+          .student-announcement-subtitle {
+            font-size: 8px !important;
+            margin-top: 3px !important;
+          }
+
+          .student-view-announcements {
+            padding: 8px 9px !important;
+            font-size: 8px !important;
+            border-radius: 7px !important;
+            white-space: nowrap !important;
+          }
+
+          /* NOTICE */
+
+          section.student-notice {
+            padding: 10px !important;
+            border-radius: 13px !important;
+            margin-bottom: 12px !important;
+            gap: 8px !important;
+          }
+
+          .student-notice-icon {
+            width: 32px !important;
+            height: 32px !important;
+            min-width: 32px !important;
+            border-radius: 8px !important;
+            font-size: 15px !important;
+          }
+
+          .student-notice-title {
+            font-size: 9px !important;
+          }
+
+          .student-notice-text {
+            font-size: 7px !important;
+            line-height: 1.4 !important;
+            margin-top: 2px !important;
+          }
+
+          /* SERVICES */
+
+          .student-section-heading {
+            margin-bottom: 8px !important;
+            gap: 7px !important;
+          }
+
+          .student-section-eyebrow {
+            font-size: 7px !important;
+            letter-spacing: 1.2px !important;
+          }
+
+          .student-section-title {
+            font-size: 18px !important;
+          }
+
+          .student-service-count {
+            padding: 6px 7px !important;
+            border-radius: 7px !important;
+            font-size: 7px !important;
+            white-space: nowrap !important;
+          }
+
+          .student-card-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 8px !important;
+          }
+
+          .student-service-card {
+            border-radius: 13px !important;
+            min-width: 0 !important;
+          }
+
+          .student-card-top {
+            padding: 9px !important;
+          }
+
+          .student-card-icon {
+            width: 34px !important;
+            height: 34px !important;
+            border-radius: 10px !important;
+            font-size: 17px !important;
+          }
+
+          .student-card-arrow {
+            width: 23px !important;
+            height: 23px !important;
+            font-size: 12px !important;
+          }
+
+          .student-card-body {
+            padding: 10px !important;
+          }
+
+          .student-card-title {
+            font-size: 11px !important;
+            line-height: 1.2 !important;
+          }
+
+          .student-card-description {
+            margin-top: 4px !important;
+            font-size: 7px !important;
+            line-height: 1.4 !important;
+            min-height: 30px !important;
+          }
+
+          .student-open-link {
+            margin-top: 7px !important;
+            font-size: 8px !important;
+          }
+
+          /* BOTTOM PROFILE */
+
+          section.student-bottom-panel {
+            margin-top: 12px !important;
+            padding: 10px !important;
+            border-radius: 13px !important;
+            gap: 8px !important;
+          }
+
+          .student-bottom-icon {
+            width: 34px !important;
+            height: 34px !important;
+            border-radius: 9px !important;
+            font-size: 16px !important;
+          }
+
+          .student-bottom-text {
+            min-width: 0 !important;
+          }
+
+          .student-bottom-title {
+            font-size: 9px !important;
+          }
+
+          .student-bottom-description {
+            font-size: 7px !important;
+            line-height: 1.35 !important;
+            margin-top: 2px !important;
+          }
+
+          .student-profile-button {
+            padding: 7px 8px !important;
+            border-radius: 7px !important;
+            font-size: 8px !important;
+            white-space: nowrap !important;
+          }
+
+          /* FOOTER */
+
+          footer.student-footer {
+            margin-top: 12px !important;
+            padding: 10px 2px !important;
+            font-size: 7px !important;
+          }
+        }
+
+        @media (max-width: 380px) {
+          main.student-dashboard-page {
+            padding: 6px !important;
+          }
+
+          .student-brand-name {
+            font-size: 9px !important;
+          }
+
+          .student-clock {
+            display: none !important;
+          }
+
+          .student-welcome-title {
+            font-size: 18px !important;
+          }
+
+          .student-welcome-text {
+            font-size: 8px !important;
+          }
+
+          .student-card-grid {
+            gap: 6px !important;
+          }
+
+          .student-card-top {
+            padding: 8px !important;
+          }
+
+          .student-card-body {
+            padding: 9px !important;
+          }
+
+          .student-card-title {
+            font-size: 10px !important;
+          }
+
+          .student-card-description {
+            font-size: 6.5px !important;
+          }
+
+          .student-view-announcements {
+            font-size: 7px !important;
+            padding: 7px 8px !important;
+          }
+        }
+
+        @media (min-width: 769px) and (max-width: 1050px) {
+          .student-card-grid {
+            grid-template-columns: repeat(
+              2,
+              minmax(0, 1fr)
+            ) !important;
+          }
+
+          .student-hero {
+            padding: 25px !important;
+          }
+
+          .student-welcome-title {
+            font-size: 26px !important;
+          }
+        }
+      `}</style>
+
+      <main
+        className="student-dashboard-page"
+        style={styles.page}
+      >
+        <div style={styles.container}>
+          {/* NAVIGATION */}
+
+          <nav
+            className="student-navbar"
+            style={styles.navbar}
+          >
+            <div
+              className="student-brand-area"
+              style={styles.brandArea}
             >
               <div
-                style={
-                  styles.latestAnnouncementHeader
-                }
+                className="student-brand-icon"
+                style={styles.brandIcon}
               >
-                <div>
-                  <div
-                    style={
-                      styles.latestAnnouncementEyebrow
-                    }
-                  >
-                    🔔 NEW ANNOUNCEMENT
-                  </div>
-
-                  <h2
-                    style={
-                      styles.latestAnnouncementTitle
-                    }
-                  >
-                    Latest Announcement
-                  </h2>
-
-                  <p
-                    style={
-                      styles.latestAnnouncementSubtitle
-                    }
-                  >
-                    This announcement will
-                    stay here for 24 hours.
-                  </p>
-                </div>
-
-                <div
-                  style={
-                    styles.latestAnnouncementBadge
-                  }
-                >
-                  NEW • 24 HOURS
-                </div>
+                🎓
               </div>
 
-              <article
+              <div>
+                <div
+                  className="student-brand-name"
+                  style={styles.brandName}
+                >
+                  ATTENDANCE PORTAL
+                </div>
+
+                <div
+                  className="student-brand-sub"
+                  style={styles.brandSub}
+                >
+                  STUDENT CENTER
+                </div>
+              </div>
+            </div>
+
+            <div
+              className="student-nav-right"
+              style={styles.navRight}
+            >
+              <div
+                className="student-clock"
+                style={styles.clock}
+              >
+                🕒 {time}
+              </div>
+
+              <button
+                type="button"
+                onClick={logout}
+                className="student-logout"
+                style={styles.logoutButton}
+              >
+                Logout
+              </button>
+            </div>
+          </nav>
+
+          {/* HERO */}
+
+          <section
+            className="student-hero"
+            style={styles.hero}
+          >
+            <div style={styles.heroGlowOne} />
+            <div style={styles.heroGlowTwo} />
+
+            <div
+              className="student-hero-content"
+              style={styles.heroContent}
+            >
+              <div
+                className="student-avatar"
+                style={styles.avatar}
+              >
+                {profileImage ? (
+                  <img
+                    src={profileImage}
+                    alt={`${studentName} profile`}
+                    style={styles.profileImage}
+                    onError={() =>
+                      setProfileImage(null)
+                    }
+                  />
+                ) : (
+                  firstLetter
+                )}
+              </div>
+
+              <div style={styles.welcomeArea}>
+                <div
+                  className="student-small-greeting"
+                  style={styles.smallGreeting}
+                >
+                  STUDENT DASHBOARD
+                </div>
+
+                <h1
+                  className="student-welcome-title"
+                  style={styles.welcomeTitle}
+                >
+                  Welcome, {studentName}
+                </h1>
+
+                <p
+                  className="student-welcome-text"
+                  style={styles.welcomeText}
+                >
+                  Manage your attendance,
+                  academic information,
+                  homework, reports, fees
+                  and account settings from
+                  one place.
+                </p>
+
+                {username && (
+                  <div
+                    className="student-username"
+                    style={styles.usernameBadge}
+                  >
+                    Username: {username}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div
+              className="student-hero-side"
+              style={styles.heroSide}
+            >
+              <div
+                className="student-status-dot"
+                style={styles.statusDot}
+              />
+
+              <div>
+                <div
+                  className="student-online-text"
+                  style={styles.onlineText}
+                >
+                  ACCOUNT ACTIVE
+                </div>
+
+                <div
+                  className="student-online-sub"
+                  style={styles.onlineSub}
+                >
+                  Student Portal
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* LATEST ANNOUNCEMENT */}
+
+          {!announcementLoading &&
+            latestAnnouncement && (
+              <section
+                className="student-latest-announcement"
                 style={
-                  styles.latestAnnouncementCard
+                  styles.latestAnnouncementSection
                 }
               >
                 <div
+                  className="student-latest-header"
                   style={
-                    styles.announcementCardTop
+                    styles.latestAnnouncementHeader
                   }
                 >
-                  <div
-                    style={
-                      styles.latestAnnouncementIcon
-                    }
-                  >
-                    🔔
+                  <div>
+                    <div
+                      className="student-latest-eyebrow"
+                      style={
+                        styles.latestAnnouncementEyebrow
+                      }
+                    >
+                      🔔 NEW ANNOUNCEMENT
+                    </div>
+
+                    <h2
+                      className="student-latest-title"
+                      style={
+                        styles.latestAnnouncementTitle
+                      }
+                    >
+                      Latest Announcement
+                    </h2>
+
+                    <p
+                      className="student-latest-subtitle"
+                      style={
+                        styles.latestAnnouncementSubtitle
+                      }
+                    >
+                      This announcement will stay
+                      here for 24 hours.
+                    </p>
                   </div>
 
                   <div
+                    className="student-latest-badge"
                     style={
-                      styles.announcementCardContent
+                      styles.latestAnnouncementBadge
+                    }
+                  >
+                    NEW • 24 HOURS
+                  </div>
+                </div>
+
+                <article
+                  className="student-latest-card"
+                  style={
+                    styles.latestAnnouncementCard
+                  }
+                >
+                  <div
+                    className="student-announcement-card-top"
+                    style={
+                      styles.announcementCardTop
                     }
                   >
                     <div
+                      className="student-announcement-icon"
                       style={
-                        styles.announcementMeta
+                        styles.latestAnnouncementIcon
                       }
                     >
-                      <span
-                        style={
-                          styles.latestTeacherBadge
-                        }
-                      >
-                        TEACHER
-                      </span>
-
-                      <span
-                        style={
-                          styles.latestTimeBadge
-                        }
-                      >
-                        LATEST
-                      </span>
-
-                      <span
-                        style={
-                          styles.announcementDate
-                        }
-                      >
-                        {formatAnnouncementDate(
-                          latestAnnouncement.created_at
-                        )}
-                      </span>
+                      🔔
                     </div>
 
-                    <h3
+                    <div
                       style={
-                        styles.latestAnnouncementCardTitle
+                        styles.announcementCardContent
                       }
                     >
-                      {
-                        latestAnnouncement.title
-                      }
-                    </h3>
+                      <div
+                        className="student-announcement-meta"
+                        style={
+                          styles.announcementMeta
+                        }
+                      >
+                        <span
+                          className="student-teacher-badge"
+                          style={
+                            styles.latestTeacherBadge
+                          }
+                        >
+                          TEACHER
+                        </span>
 
-                    <p
-                      style={
-                        styles.announcementMessage
-                      }
-                    >
-                      {
-                        latestAnnouncement.message
-                      }
-                    </p>
+                        <span
+                          className="student-time-badge"
+                          style={
+                            styles.latestTimeBadge
+                          }
+                        >
+                          LATEST
+                        </span>
+
+                        <span
+                          className="student-announcement-date"
+                          style={
+                            styles.announcementDate
+                          }
+                        >
+                          {formatAnnouncementDate(
+                            latestAnnouncement.created_at
+                          )}
+                        </span>
+                      </div>
+
+                      <h3
+                        className="student-latest-card-title"
+                        style={
+                          styles.latestAnnouncementCardTitle
+                        }
+                      >
+                        {
+                          latestAnnouncement.title
+                        }
+                      </h3>
+
+                      <p
+                        className="student-announcement-message"
+                        style={
+                          styles.announcementMessage
+                        }
+                      >
+                        {
+                          latestAnnouncement.message
+                        }
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                <div
-                  style={
-                    styles.announcementBottom
-                  }
-                >
                   <div
+                    className="student-announcement-bottom"
                     style={
-                      styles.everyoneText
+                      styles.announcementBottom
                     }
                   >
-                    👥 For all students
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      toggleLike(
-                        latestAnnouncement.id
-                      )
-                    }
-                    disabled={
-                      likingId ===
-                      latestAnnouncement.id
-                    }
-                    style={{
-                      ...styles.likeButton,
-                      ...(latestAnnouncement.likedByMe
-                        ? styles.likeButtonActive
-                        : {}),
-                      opacity:
-                        likingId ===
-                        latestAnnouncement.id
-                          ? 0.65
-                          : 1,
-                      cursor:
-                        likingId ===
-                        latestAnnouncement.id
-                          ? "not-allowed"
-                          : "pointer",
-                    }}
-                  >
-                    {latestAnnouncement.likedByMe
-                      ? "❤️ Liked"
-                      : "🤍 Like"}
-
-                    <span
+                    <div
+                      className="student-everyone-text"
                       style={
-                        styles.likeCount
+                        styles.everyoneText
                       }
                     >
-                      {
-                        latestAnnouncement.likeCount
+                      👥 For all students
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        toggleLike(
+                          latestAnnouncement.id
+                        )
                       }
-                    </span>
-                  </button>
-                </div>
-              </article>
-            </section>
-          )}
+                      disabled={
+                        likingId ===
+                        latestAnnouncement.id
+                      }
+                      className="student-like-button"
+                      style={{
+                        ...styles.likeButton,
+                        ...(latestAnnouncement.likedByMe
+                          ? styles.likeButtonActive
+                          : {}),
+                        opacity:
+                          likingId ===
+                          latestAnnouncement.id
+                            ? 0.65
+                            : 1,
+                        cursor:
+                          likingId ===
+                          latestAnnouncement.id
+                            ? "not-allowed"
+                            : "pointer",
+                      }}
+                    >
+                      {latestAnnouncement.likedByMe
+                        ? "❤️ Liked"
+                        : "🤍 Like"}
 
-        {/* =====================================================
-            ANNOUNCEMENTS LINK
-            ===================================================== */}
+                      <span
+                        className="student-like-count"
+                        style={
+                          styles.likeCount
+                        }
+                      >
+                        {
+                          latestAnnouncement.likeCount
+                        }
+                      </span>
+                    </button>
+                  </div>
+                </article>
+              </section>
+            )}
 
-        <section
-          style={
-            styles.announcementSection
-          }
-        >
-          <div
+          {/* ANNOUNCEMENTS */}
+
+          <section
+            className="student-announcement-section"
             style={
-              styles.announcementHeader
+              styles.announcementSection
             }
           >
-            <div>
-              <div
-                style={
-                  styles.announcementEyebrow
-                }
-              >
-                📢 IMPORTANT
+            <div
+              className="student-announcement-header"
+              style={
+                styles.announcementHeader
+              }
+            >
+              <div>
+                <div
+                  className="student-announcement-eyebrow"
+                  style={
+                    styles.announcementEyebrow
+                  }
+                >
+                  📢 IMPORTANT
+                </div>
+
+                <h2
+                  className="student-announcement-title"
+                  style={
+                    styles.announcementTitle
+                  }
+                >
+                  Announcements
+                </h2>
+
+                <p
+                  className="student-announcement-subtitle"
+                  style={
+                    styles.announcementSubtitle
+                  }
+                >
+                  All teacher updates are
+                  available here.
+                </p>
               </div>
 
-              <h2
+              <button
+                type="button"
+                onClick={() =>
+                  router.push(
+                    "/student/announcements"
+                  )
+                }
+                className="student-view-announcements"
                 style={
-                  styles.announcementTitle
+                  styles.viewAnnouncementsButton
                 }
               >
-                Announcements
-              </h2>
+                View All →
+              </button>
+            </div>
+          </section>
+
+          {/* NOTICE */}
+
+          <section
+            className="student-notice"
+            style={styles.notice}
+          >
+            <div
+              className="student-notice-icon"
+              style={styles.noticeIcon}
+            >
+              ℹ️
+            </div>
+
+            <div>
+              <div
+                className="student-notice-title"
+                style={styles.noticeTitle}
+              >
+                Student Information Center
+              </div>
 
               <p
+                className="student-notice-text"
+                style={styles.noticeText}
+              >
+                Use the options below to check
+                your attendance, academic
+                calendar, homework, reports,
+                fees and account settings.
+              </p>
+            </div>
+          </section>
+
+          {/* SERVICES */}
+
+          <section>
+            <div
+              className="student-section-heading"
+              style={styles.sectionHeading}
+            >
+              <div>
+                <div
+                  className="student-section-eyebrow"
+                  style={styles.sectionEyebrow}
+                >
+                  STUDENT SERVICES
+                </div>
+
+                <h2
+                  className="student-section-title"
+                  style={styles.sectionTitle}
+                >
+                  Your Dashboard
+                </h2>
+              </div>
+
+              <div
+                className="student-service-count"
+                style={styles.serviceCount}
+              >
+                {cards.length} OPTIONS
+              </div>
+            </div>
+
+            <div
+              className="student-card-grid"
+              style={styles.cardGrid}
+            >
+              {cards.map((card) => {
+                const styleKey =
+                  `card${card.className
+                    .charAt(0)
+                    .toUpperCase()}${card.className.slice(
+                    1
+                  )}`;
+
+                return (
+                  <button
+                    key={card.path}
+                    type="button"
+                    onClick={() =>
+                      router.push(
+                        card.path
+                      )
+                    }
+                    className="student-service-card"
+                    style={
+                      styles.serviceCard
+                    }
+                  >
+                    <div
+                      className="student-card-top"
+                      style={{
+                        ...styles.cardTop,
+                        ...(styles[
+                          styleKey
+                        ] || {}),
+                      }}
+                    >
+                      <div
+                        className="student-card-icon"
+                        style={
+                          styles.cardIcon
+                        }
+                      >
+                        {card.icon}
+                      </div>
+
+                      <div
+                        className="student-card-arrow"
+                        style={
+                          styles.arrow
+                        }
+                      >
+                        →
+                      </div>
+                    </div>
+
+                    <div
+                      className="student-card-body"
+                      style={
+                        styles.cardBody
+                      }
+                    >
+                      <h3
+                        className="student-card-title"
+                        style={
+                          styles.cardTitle
+                        }
+                      >
+                        {card.title}
+                      </h3>
+
+                      <p
+                        className="student-card-description"
+                        style={
+                          styles.cardDescription
+                        }
+                      >
+                        {card.description}
+                      </p>
+
+                      <div
+                        className="student-open-link"
+                        style={
+                          styles.openLink
+                        }
+                      >
+                        <span>
+                          Open
+                        </span>
+
+                        <span>
+                          →
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* PROFILE */}
+
+          <section
+            className="student-bottom-panel"
+            style={
+              styles.bottomPanel
+            }
+          >
+            <div
+              className="student-bottom-icon"
+              style={
+                styles.bottomIcon
+              }
+            >
+              👤
+            </div>
+
+            <div
+              className="student-bottom-text"
+              style={
+                styles.bottomText
+              }
+            >
+              <h3
+                className="student-bottom-title"
                 style={
-                  styles.announcementSubtitle
+                  styles.bottomTitle
                 }
               >
-                All teacher updates are available
-                here.
+                Keep your profile updated
+              </h3>
+
+              <p
+                className="student-bottom-description"
+                style={
+                  styles.bottomDescription
+                }
+              >
+                Your personal information is
+                managed through your student
+                profile.
               </p>
             </div>
 
@@ -1214,221 +1929,37 @@ export default function StudentDashboardPage() {
               type="button"
               onClick={() =>
                 router.push(
-                  "/student/announcements"
+                  "/student/profile"
                 )
               }
+              className="student-profile-button"
               style={
-                styles.viewAnnouncementsButton
+                styles.profileButton
               }
             >
-              View All Announcements →
+              View Profile →
             </button>
-          </div>
-        </section>
+          </section>
 
-        {/* NOTICE */}
+          {/* FOOTER */}
 
-        <section style={styles.notice}>
-          <div style={styles.noticeIcon}>
-            ℹ️
-          </div>
-
-          <div>
-            <div style={styles.noticeTitle}>
-              Student Information Center
+          <footer
+            className="student-footer"
+            style={styles.footer}
+          >
+            <div
+              style={styles.footerBrand}
+            >
+              🎓 Attendance Portal
             </div>
 
-            <p style={styles.noticeText}>
-              Use the options below to check
-              your attendance, academic
-              calendar, homework, reports,
-              fees and account settings.
-            </p>
-          </div>
-        </section>
-
-        {/* SERVICES */}
-
-        <section>
-          <div style={styles.sectionHeading}>
             <div>
-              <div style={styles.sectionEyebrow}>
-                STUDENT SERVICES
-              </div>
-
-              <h2 style={styles.sectionTitle}>
-                Your Dashboard
-              </h2>
+              Student Portal • 2026
             </div>
-
-            <div style={styles.serviceCount}>
-              {cards.length} OPTIONS
-            </div>
-          </div>
-
-          <div style={styles.cardGrid}>
-            {cards.map((card) => {
-              const styleKey =
-                `card${card.className
-                  .charAt(0)
-                  .toUpperCase()}${card.className.slice(
-                  1
-                )}`;
-
-              return (
-                <button
-                  key={card.path}
-                  type="button"
-                  onClick={() =>
-                    router.push(
-                      card.path
-                    )
-                  }
-                  style={
-                    styles.serviceCard
-                  }
-                >
-                  <div
-                    style={{
-                      ...styles.cardTop,
-                      ...(styles[
-                        styleKey
-                      ] || {}),
-                    }}
-                  >
-                    <div
-                      style={
-                        styles.cardIcon
-                      }
-                    >
-                      {card.icon}
-                    </div>
-
-                    <div
-                      style={
-                        styles.arrow
-                      }
-                    >
-                      →
-                    </div>
-                  </div>
-
-                  <div
-                    style={
-                      styles.cardBody
-                    }
-                  >
-                    <h3
-                      style={
-                        styles.cardTitle
-                      }
-                    >
-                      {card.title}
-                    </h3>
-
-                    <p
-                      style={
-                        styles.cardDescription
-                      }
-                    >
-                      {card.description}
-                    </p>
-
-                    <div
-                      style={
-                        styles.openLink
-                      }
-                    >
-                      <span>
-                        Open
-                      </span>
-
-                      <span>
-                        →
-                      </span>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* PROFILE PANEL */}
-
-        <section
-          style={
-            styles.bottomPanel
-          }
-        >
-          <div
-            style={
-              styles.bottomIcon
-            }
-          >
-            👤
-          </div>
-
-          <div
-            style={
-              styles.bottomText
-            }
-          >
-            <h3
-              style={
-                styles.bottomTitle
-              }
-            >
-              Keep your profile updated
-            </h3>
-
-            <p
-              style={
-                styles.bottomDescription
-              }
-            >
-              Your personal information is
-              managed through your student
-              profile.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() =>
-              router.push(
-                "/student/profile"
-              )
-            }
-            style={
-              styles.profileButton
-            }
-          >
-            View Profile →
-          </button>
-        </section>
-
-        {/* FOOTER */}
-
-        <footer
-          style={
-            styles.footer
-          }
-        >
-          <div
-            style={
-              styles.footerBrand
-            }
-          >
-            🎓 Attendance Portal
-          </div>
-
-          <div>
-            Student Portal • 2026
-          </div>
-        </footer>
-      </div>
-    </main>
+          </footer>
+        </div>
+      </main>
+    </>
   );
 }
 
@@ -1437,6 +1968,7 @@ const styles: {
 } = {
   page: {
     minHeight: "100vh",
+    width: "100%",
     background:
       "linear-gradient(135deg,#f8fafc 0%,#eef2ff 50%,#f0f9ff 100%)",
     padding: "18px",
@@ -1444,6 +1976,7 @@ const styles: {
     fontFamily:
       "Arial, Helvetica, sans-serif",
     color: "#0f172a",
+    overflowX: "hidden",
   },
 
   container: {
@@ -1487,7 +2020,7 @@ const styles: {
 
   brandName: {
     fontSize: "13px",
-    fontWeight: "1000",
+    fontWeight: 1000,
     letterSpacing: "1px",
     color: "#172554",
   },
@@ -1495,7 +2028,7 @@ const styles: {
   brandSub: {
     marginTop: "3px",
     fontSize: "9px",
-    fontWeight: "900",
+    fontWeight: 900,
     letterSpacing: "2px",
     color: "#64748b",
   },
@@ -1514,7 +2047,7 @@ const styles: {
     borderRadius: "9px",
     color: "#475569",
     fontSize: "11px",
-    fontWeight: "800",
+    fontWeight: 800,
   },
 
   logoutButton: {
@@ -1523,7 +2056,7 @@ const styles: {
     color: "#ffffff",
     padding: "10px 15px",
     borderRadius: "9px",
-    fontWeight: "900",
+    fontWeight: 900,
     cursor: "pointer",
   },
 
@@ -1587,7 +2120,7 @@ const styles: {
     alignItems: "center",
     justifyContent: "center",
     fontSize: "38px",
-    fontWeight: "1000",
+    fontWeight: 1000,
     boxShadow:
       "0 12px 30px rgba(0,0,0,0.18)",
     overflow: "hidden",
@@ -1607,7 +2140,7 @@ const styles: {
   smallGreeting: {
     color: "#bfdbfe",
     fontSize: "10px",
-    fontWeight: "1000",
+    fontWeight: 1000,
     letterSpacing: "2px",
     marginBottom: "8px",
   },
@@ -1617,7 +2150,7 @@ const styles: {
     color: "#ffffff",
     fontSize: "30px",
     lineHeight: 1.2,
-    fontWeight: "1000",
+    fontWeight: 1000,
     wordBreak: "break-word",
   },
 
@@ -1625,7 +2158,7 @@ const styles: {
     margin: "9px 0 0",
     color: "#dbeafe",
     fontSize: "13px",
-    fontWeight: "600",
+    fontWeight: 600,
     lineHeight: 1.6,
     maxWidth: "600px",
   },
@@ -1641,7 +2174,9 @@ const styles: {
       "1px solid rgba(255,255,255,0.22)",
     color: "#ffffff",
     fontSize: "11px",
-    fontWeight: "900",
+    fontWeight: 900,
+    maxWidth: "100%",
+    wordBreak: "break-word",
   },
 
   heroSide: {
@@ -1671,7 +2206,7 @@ const styles: {
   onlineText: {
     color: "#ffffff",
     fontSize: "10px",
-    fontWeight: "1000",
+    fontWeight: 1000,
     letterSpacing: "1px",
   },
 
@@ -1679,7 +2214,7 @@ const styles: {
     marginTop: "3px",
     color: "#bfdbfe",
     fontSize: "10px",
-    fontWeight: "700",
+    fontWeight: 700,
   },
 
   latestAnnouncementSection: {
@@ -1706,7 +2241,7 @@ const styles: {
   latestAnnouncementEyebrow: {
     color: "#2563eb",
     fontSize: "9px",
-    fontWeight: "1000",
+    fontWeight: 1000,
     letterSpacing: "2px",
     marginBottom: "4px",
   },
@@ -1715,14 +2250,14 @@ const styles: {
     margin: 0,
     color: "#172554",
     fontSize: "24px",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   latestAnnouncementSubtitle: {
     margin: "5px 0 0",
     color: "#64748b",
     fontSize: "11px",
-    fontWeight: "600",
+    fontWeight: 600,
   },
 
   latestAnnouncementBadge: {
@@ -1733,7 +2268,7 @@ const styles: {
     padding: "8px 11px",
     borderRadius: "9px",
     fontSize: "10px",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   latestAnnouncementCard: {
@@ -1765,7 +2300,7 @@ const styles: {
     padding: "4px 7px",
     borderRadius: "6px",
     fontSize: "8px",
-    fontWeight: "1000",
+    fontWeight: 1000,
     letterSpacing: "0.7px",
   },
 
@@ -1775,7 +2310,7 @@ const styles: {
     padding: "4px 7px",
     borderRadius: "6px",
     fontSize: "8px",
-    fontWeight: "1000",
+    fontWeight: 1000,
     letterSpacing: "0.5px",
   },
 
@@ -1783,7 +2318,7 @@ const styles: {
     margin: "7px 0 0",
     color: "#172554",
     fontSize: "18px",
-    fontWeight: "1000",
+    fontWeight: 1000,
     wordBreak: "break-word",
   },
 
@@ -1808,7 +2343,7 @@ const styles: {
   announcementEyebrow: {
     color: "#2563eb",
     fontSize: "9px",
-    fontWeight: "1000",
+    fontWeight: 1000,
     letterSpacing: "2px",
     marginBottom: "4px",
   },
@@ -1817,14 +2352,14 @@ const styles: {
     margin: 0,
     color: "#172554",
     fontSize: "24px",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   announcementSubtitle: {
     margin: "5px 0 0",
     color: "#64748b",
     fontSize: "11px",
-    fontWeight: "600",
+    fontWeight: 600,
   },
 
   viewAnnouncementsButton: {
@@ -1834,7 +2369,7 @@ const styles: {
     padding: "10px 15px",
     borderRadius: "9px",
     fontSize: "11px",
-    fontWeight: "1000",
+    fontWeight: 1000,
     cursor: "pointer",
     boxShadow:
       "0 5px 15px rgba(37,99,235,0.18)",
@@ -1861,7 +2396,7 @@ const styles: {
   announcementDate: {
     color: "#94a3b8",
     fontSize: "9px",
-    fontWeight: "700",
+    fontWeight: 700,
   },
 
   announcementMessage: {
@@ -1869,7 +2404,7 @@ const styles: {
     color: "#475569",
     fontSize: "12px",
     lineHeight: 1.65,
-    fontWeight: "600",
+    fontWeight: 600,
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
   },
@@ -1889,7 +2424,7 @@ const styles: {
   everyoneText: {
     color: "#64748b",
     fontSize: "10px",
-    fontWeight: "800",
+    fontWeight: 800,
   },
 
   likeButton: {
@@ -1899,7 +2434,7 @@ const styles: {
     padding: "8px 11px",
     borderRadius: "9px",
     fontSize: "11px",
-    fontWeight: "1000",
+    fontWeight: 1000,
     display: "flex",
     alignItems: "center",
     gap: "7px",
@@ -1923,7 +2458,7 @@ const styles: {
     alignItems: "center",
     justifyContent: "center",
     fontSize: "9px",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   notice: {
@@ -1954,7 +2489,7 @@ const styles: {
   noticeTitle: {
     color: "#172554",
     fontSize: "13px",
-    fontWeight: "900",
+    fontWeight: 900,
   },
 
   noticeText: {
@@ -1962,7 +2497,7 @@ const styles: {
     color: "#64748b",
     fontSize: "11px",
     lineHeight: 1.5,
-    fontWeight: "600",
+    fontWeight: 600,
   },
 
   sectionHeading: {
@@ -1976,7 +2511,7 @@ const styles: {
   sectionEyebrow: {
     color: "#2563eb",
     fontSize: "9px",
-    fontWeight: "1000",
+    fontWeight: 1000,
     letterSpacing: "2px",
     marginBottom: "3px",
   },
@@ -1984,7 +2519,7 @@ const styles: {
   sectionTitle: {
     margin: 0,
     fontSize: "24px",
-    fontWeight: "1000",
+    fontWeight: 1000,
     color: "#172554",
   },
 
@@ -1995,7 +2530,7 @@ const styles: {
     padding: "8px 11px",
     borderRadius: "9px",
     fontSize: "10px",
-    fontWeight: "900",
+    fontWeight: 900,
   },
 
   cardGrid: {
@@ -2015,6 +2550,7 @@ const styles: {
     cursor: "pointer",
     boxShadow:
       "0 7px 22px rgba(15,23,42,0.05)",
+    minWidth: 0,
   },
 
   cardTop: {
@@ -2081,7 +2617,7 @@ const styles: {
     alignItems: "center",
     justifyContent: "center",
     color: "#172554",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   cardBody: {
@@ -2092,7 +2628,7 @@ const styles: {
     margin: 0,
     color: "#172554",
     fontSize: "17px",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   cardDescription: {
@@ -2101,14 +2637,14 @@ const styles: {
     fontSize: "11px",
     lineHeight: 1.6,
     minHeight: "36px",
-    fontWeight: "600",
+    fontWeight: 600,
   },
 
   openLink: {
     marginTop: "13px",
     color: "#2563eb",
     fontSize: "11px",
-    fontWeight: "1000",
+    fontWeight: 1000,
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
@@ -2149,14 +2685,14 @@ const styles: {
     margin: 0,
     color: "#172554",
     fontSize: "14px",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   bottomDescription: {
     margin: "4px 0 0",
     color: "#64748b",
     fontSize: "11px",
-    fontWeight: "600",
+    fontWeight: 600,
   },
 
   profileButton: {
@@ -2165,7 +2701,7 @@ const styles: {
     color: "#ffffff",
     padding: "10px 15px",
     borderRadius: "9px",
-    fontWeight: "900",
+    fontWeight: 900,
     cursor: "pointer",
   },
 
@@ -2178,12 +2714,12 @@ const styles: {
     gap: "10px",
     color: "#94a3b8",
     fontSize: "10px",
-    fontWeight: "700",
+    fontWeight: 700,
     flexWrap: "wrap",
   },
 
   footerBrand: {
     color: "#475569",
-    fontWeight: "900",
+    fontWeight: 900,
   },
 };
