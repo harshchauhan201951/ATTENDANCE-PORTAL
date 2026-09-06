@@ -739,7 +739,7 @@ const styles: {
   table: {
     width: "100%",
     minWidth: "650px",
-    borderCollapse: "collapse",`r`n    tableLayout: "fixed",
+    borderCollapse: "collapse",`n    tableLayout: "fixed",
   },
 
   th: {
@@ -818,3 +818,4 @@ const styles: {
     fontSize: "12px",
   },
 };
+
