@@ -24,42 +24,23 @@ type Announcement = {
 export default function StudentDashboardPage() {
   const router = useRouter();
 
-  const [studentName, setStudentName] =
-    useState("Student");
-
-  const [username, setUsername] =
-    useState("");
-
-  const [studentId, setStudentId] =
-    useState<number | null>(null);
-
-  const [profileImage, setProfileImage] =
-    useState<string | null>(null);
-
-  const [time, setTime] =
-    useState("");
-
-  const [announcements, setAnnouncements] =
-    useState<Announcement[]>([]);
-
-  const [announcementLoading, setAnnouncementLoading] =
-    useState(true);
-
-  const [likingId, setLikingId] =
-    useState<number | null>(null);
+  const [studentName, setStudentName] = useState("Student");
+  const [username, setUsername] = useState("");
+  const [studentId, setStudentId] = useState<number | null>(null);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [time, setTime] = useState("");
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [announcementLoading, setAnnouncementLoading] = useState(true);
+  const [likingId, setLikingId] = useState<number | null>(null);
 
   useEffect(() => {
     initializeStudent();
 
     updateTime();
 
-    const interval = setInterval(
-      updateTime,
-      1000
-    );
+    const interval = setInterval(updateTime, 1000);
 
-    return () =>
-      clearInterval(interval);
+    return () => clearInterval(interval);
   }, []);
 
   /*
@@ -73,13 +54,10 @@ export default function StudentDashboardPage() {
     }
 
     const interval = setInterval(() => {
-      setAnnouncements(
-        (previous) => [...previous]
-      );
+      setAnnouncements((previous) => [...previous]);
     }, 60 * 1000);
 
-    return () =>
-      clearInterval(interval);
+    return () => clearInterval(interval);
   }, [announcements.length]);
 
   async function initializeStudent() {
@@ -89,16 +67,11 @@ export default function StudentDashboardPage() {
       "Student";
 
     const savedUsername =
-      localStorage.getItem(
-        "student_username"
-      ) ||
-      localStorage.getItem(
-        "studentUsername"
-      ) ||
+      localStorage.getItem("student_username") ||
+      localStorage.getItem("studentUsername") ||
       "";
 
-    const savedStudentId =
-      localStorage.getItem("studentId");
+    const savedStudentId = localStorage.getItem("studentId");
 
     setStudentName(name);
     setUsername(savedUsername);
@@ -108,31 +81,18 @@ export default function StudentDashboardPage() {
      * Resolve the real student ID from username.
      */
     if (savedUsername) {
-      const resolvedId =
-        await resolveStudentId(
-          savedUsername
-        );
+      const resolvedId = await resolveStudentId(savedUsername);
 
       if (resolvedId !== null) {
         setStudentId(resolvedId);
 
-        localStorage.setItem(
-          "studentId",
-          String(resolvedId)
-        );
+        localStorage.setItem("studentId", String(resolvedId));
 
-        await loadStudentProfile(
-          resolvedId,
-          savedUsername
-        );
+        await loadStudentProfile(resolvedId, savedUsername);
 
-        await loadAnnouncements(
-          resolvedId
-        );
+        await loadAnnouncements(resolvedId);
 
-        await registerPushNotifications(
-          resolvedId
-        );
+        await registerPushNotifications(resolvedId);
 
         return;
       }
@@ -143,27 +103,16 @@ export default function StudentDashboardPage() {
      * Existing studentId from localStorage.
      */
     if (savedStudentId) {
-      const parsedId =
-        Number(savedStudentId);
+      const parsedId = Number(savedStudentId);
 
-      if (
-        !Number.isNaN(parsedId) &&
-        parsedId > 0
-      ) {
+      if (!Number.isNaN(parsedId) && parsedId > 0) {
         setStudentId(parsedId);
 
-        await loadStudentProfile(
-          parsedId,
-          savedUsername
-        );
+        await loadStudentProfile(parsedId, savedUsername);
 
-        await loadAnnouncements(
-          parsedId
-        );
+        await loadAnnouncements(parsedId);
 
-        await registerPushNotifications(
-          parsedId
-        );
+        await registerPushNotifications(parsedId);
 
         return;
       }
@@ -182,21 +131,14 @@ export default function StudentDashboardPage() {
     studentUsername: string
   ): Promise<number | null> {
     try {
-      const { data, error } =
-        await supabase
-          .from("students")
-          .select("id")
-          .eq(
-            "student_username",
-            studentUsername
-          )
-          .maybeSingle();
+      const { data, error } = await supabase
+        .from("students")
+        .select("id")
+        .eq("student_username", studentUsername)
+        .maybeSingle();
 
       if (error) {
-        console.error(
-          "Student ID lookup error:",
-          error
-        );
+        console.error("Student ID lookup error:", error);
 
         return null;
       }
@@ -226,11 +168,10 @@ export default function StudentDashboardPage() {
    * LOAD STUDENT PROFILE IMAGE
    * =====================================================
    *
-   * Reads the student's existing profile record.
+   * The student's uploaded profile image is stored in:
+   * students.profile_image_url
    *
-   * We check common profile-image field names so that
-   * the dashboard can use the same uploaded image
-   * without changing the existing profile system.
+   * This function directly reads that exact column.
    */
   async function loadStudentProfile(
     currentStudentId: number,
@@ -239,13 +180,10 @@ export default function StudentDashboardPage() {
     try {
       let query = supabase
         .from("students")
-        .select("*");
+        .select("profile_image_url");
 
       if (currentStudentId) {
-        query = query.eq(
-          "id",
-          currentStudentId
-        );
+        query = query.eq("id", currentStudentId);
       } else if (currentUsername) {
         query = query.eq(
           "student_username",
@@ -256,14 +194,11 @@ export default function StudentDashboardPage() {
         return;
       }
 
-      const {
-        data,
-        error,
-      } = await query.maybeSingle();
+      const { data, error } = await query.maybeSingle();
 
       if (error) {
         console.error(
-          "Student profile loading error:",
+          "Student profile image loading error:",
           error
         );
 
@@ -276,50 +211,13 @@ export default function StudentDashboardPage() {
         return;
       }
 
-      /*
-       * Possible profile-image column names.
-       *
-       * The first available non-empty value is used.
-       */
-      const possibleImageFields = [
-        "profile_image",
-        "profile_picture",
-        "profile_photo",
-        "profile_pic",
-        "avatar_url",
-        "image_url",
-        "photo_url",
-        "profileImage",
-        "profilePicture",
-        "profilePhoto",
-        "avatar",
-        "image",
-        "photo",
-      ];
+      const imageUrl =
+        typeof data.profile_image_url === "string" &&
+        data.profile_image_url.trim() !== ""
+          ? data.profile_image_url.trim()
+          : null;
 
-      let imageUrl: string | null =
-        null;
-
-      for (
-        const field of possibleImageFields
-      ) {
-        const value =
-          data[field];
-
-        if (
-          typeof value === "string" &&
-          value.trim() !== ""
-        ) {
-          imageUrl =
-            value.trim();
-
-          break;
-        }
-      }
-
-      setProfileImage(
-        imageUrl
-      );
+      setProfileImage(imageUrl);
 
       console.log(
         "Student profile image loaded:",
@@ -327,7 +225,7 @@ export default function StudentDashboardPage() {
       );
     } catch (error) {
       console.error(
-        "Unexpected student profile loading error:",
+        "Unexpected student profile image loading error:",
         error
       );
 
@@ -344,19 +242,11 @@ export default function StudentDashboardPage() {
     currentStudentId: number
   ) {
     try {
-      if (
-        typeof window ===
-        "undefined"
-      ) {
+      if (typeof window === "undefined") {
         return;
       }
 
-      if (
-        !(
-          "serviceWorker" in
-          navigator
-        )
-      ) {
+      if (!("serviceWorker" in navigator)) {
         console.warn(
           "Service Worker is not supported by this browser."
         );
@@ -364,9 +254,7 @@ export default function StudentDashboardPage() {
         return;
       }
 
-      if (
-        !("PushManager" in window)
-      ) {
+      if (!("PushManager" in window)) {
         console.warn(
           "Push notifications are not supported by this browser."
         );
@@ -374,9 +262,7 @@ export default function StudentDashboardPage() {
         return;
       }
 
-      if (
-        !("Notification" in window)
-      ) {
+      if (!("Notification" in window)) {
         console.warn(
           "Notifications are not supported by this browser."
         );
@@ -385,30 +271,21 @@ export default function StudentDashboardPage() {
       }
 
       const registration =
-        await navigator.serviceWorker.register(
-          "/sw.js"
-        );
+        await navigator.serviceWorker.register("/sw.js");
 
       console.log(
         "Push service worker registered:",
         registration.scope
       );
 
-      let permission =
-        Notification.permission;
+      let permission = Notification.permission;
 
-      if (
-        permission ===
-        "default"
-      ) {
+      if (permission === "default") {
         permission =
           await Notification.requestPermission();
       }
 
-      if (
-        permission !==
-        "granted"
-      ) {
+      if (permission !== "granted") {
         console.warn(
           "Notification permission was not granted."
         );
@@ -421,8 +298,7 @@ export default function StudentDashboardPage() {
 
       if (!subscription) {
         const vapidPublicKey =
-          process.env
-            .NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+          process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
         if (!vapidPublicKey) {
           console.error(
@@ -438,31 +314,27 @@ export default function StudentDashboardPage() {
           );
 
         subscription =
-          await registration.pushManager.subscribe(
-            {
-              userVisibleOnly: true,
-              applicationServerKey,
-            }
-          );
+          await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey,
+          });
       }
 
-      const response =
-        await fetch(
-          "/api/push/subscribe",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify({
-              studentId:
-                currentStudentId,
-              subscription:
-                subscription.toJSON(),
-            }),
-          }
-        );
+      const response = await fetch(
+        "/api/push/subscribe",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            studentId: currentStudentId,
+            subscription:
+              subscription.toJSON(),
+          }),
+        }
+      );
 
       if (!response.ok) {
         const errorText =
@@ -493,16 +365,12 @@ export default function StudentDashboardPage() {
     const padding =
       "=".repeat(
         (4 -
-          (base64String.length %
-            4)) %
+          (base64String.length % 4)) %
           4
       );
 
     const base64 =
-      (
-        base64String +
-        padding
-      )
+      (base64String + padding)
         .replace(/-/g, "+")
         .replace(/_/g, "/");
 
@@ -576,10 +444,7 @@ export default function StudentDashboardPage() {
       const announcementRows =
         announcementData || [];
 
-      if (
-        announcementRows.length ===
-        0
-      ) {
+      if (announcementRows.length === 0) {
         setAnnouncements([]);
 
         return;
@@ -611,8 +476,7 @@ export default function StudentDashboardPage() {
         );
       }
 
-      const likes =
-        likesData || [];
+      const likes = likesData || [];
 
       const formattedAnnouncements =
         announcementRows.map(
@@ -629,8 +493,7 @@ export default function StudentDashboardPage() {
               );
 
             const likedByMe =
-              currentStudentId !==
-                null &&
+              currentStudentId !== null &&
               announcementLikes.some(
                 (like) =>
                   Number(
@@ -709,9 +572,7 @@ export default function StudentDashboardPage() {
       return;
     }
 
-    if (
-      likingId !== null
-    ) {
+    if (likingId !== null) {
       return;
     }
 
@@ -722,9 +583,7 @@ export default function StudentDashboardPage() {
           announcementId
       );
 
-    if (
-      !selectedAnnouncement
-    ) {
+    if (!selectedAnnouncement) {
       return;
     }
 
@@ -1022,71 +881,35 @@ export default function StudentDashboardPage() {
 
   return (
     <main style={styles.page}>
-      <div
-        style={
-          styles.container
-        }
-      >
+      <div style={styles.container}>
         {/* TOP NAVIGATION */}
 
-        <nav
-          style={
-            styles.navbar
-          }
-        >
-          <div
-            style={
-              styles.brandArea
-            }
-          >
-            <div
-              style={
-                styles.brandIcon
-              }
-            >
+        <nav style={styles.navbar}>
+          <div style={styles.brandArea}>
+            <div style={styles.brandIcon}>
               🎓
             </div>
 
             <div>
-              <div
-                style={
-                  styles.brandName
-                }
-              >
+              <div style={styles.brandName}>
                 ATTENDANCE PORTAL
               </div>
 
-              <div
-                style={
-                  styles.brandSub
-                }
-              >
+              <div style={styles.brandSub}>
                 STUDENT CENTER
               </div>
             </div>
           </div>
 
-          <div
-            style={
-              styles.navRight
-            }
-          >
-            <div
-              style={
-                styles.clock
-              }
-            >
+          <div style={styles.navRight}>
+            <div style={styles.clock}>
               🕒 {time}
             </div>
 
             <button
               type="button"
-              onClick={
-                logout
-              }
-              style={
-                styles.logoutButton
-              }
+              onClick={logout}
+              style={styles.logoutButton}
             >
               Logout
             </button>
@@ -1095,46 +918,20 @@ export default function StudentDashboardPage() {
 
         {/* HERO */}
 
-        <section
-          style={
-            styles.hero
-          }
-        >
-          <div
-            style={
-              styles.heroGlowOne
-            }
-          />
+        <section style={styles.hero}>
+          <div style={styles.heroGlowOne} />
 
-          <div
-            style={
-              styles.heroGlowTwo
-            }
-          />
+          <div style={styles.heroGlowTwo} />
 
-          <div
-            style={
-              styles.heroContent
-            }
-          >
-            <div
-              style={
-                styles.avatar
-              }
-            >
+          <div style={styles.heroContent}>
+            <div style={styles.avatar}>
               {profileImage ? (
                 <img
-                  src={
-                    profileImage
-                  }
+                  src={profileImage}
                   alt={`${studentName} profile`}
-                  style={
-                    styles.profileImage
-                  }
+                  style={styles.profileImage}
                   onError={() =>
-                    setProfileImage(
-                      null
-                    )
+                    setProfileImage(null)
                   }
                 />
               ) : (
@@ -1142,32 +939,16 @@ export default function StudentDashboardPage() {
               )}
             </div>
 
-            <div
-              style={
-                styles.welcomeArea
-              }
-            >
-              <div
-                style={
-                  styles.smallGreeting
-                }
-              >
+            <div style={styles.welcomeArea}>
+              <div style={styles.smallGreeting}>
                 STUDENT DASHBOARD
               </div>
 
-              <h1
-                style={
-                  styles.welcomeTitle
-                }
-              >
+              <h1 style={styles.welcomeTitle}>
                 Welcome, {studentName}
               </h1>
 
-              <p
-                style={
-                  styles.welcomeText
-                }
-              >
+              <p style={styles.welcomeText}>
                 Manage your attendance,
                 academic information,
                 homework, reports, fees
@@ -1176,11 +957,7 @@ export default function StudentDashboardPage() {
               </p>
 
               {username && (
-                <div
-                  style={
-                    styles.usernameBadge
-                  }
-                >
+                <div style={styles.usernameBadge}>
                   Username:{" "}
                   {username}
                 </div>
@@ -1188,31 +965,15 @@ export default function StudentDashboardPage() {
             </div>
           </div>
 
-          <div
-            style={
-              styles.heroSide
-            }
-          >
-            <div
-              style={
-                styles.statusDot
-              }
-            />
+          <div style={styles.heroSide}>
+            <div style={styles.statusDot} />
 
             <div>
-              <div
-                style={
-                  styles.onlineText
-                }
-              >
+              <div style={styles.onlineText}>
                 ACCOUNT ACTIVE
               </div>
 
-              <div
-                style={
-                  styles.onlineSub
-                }
-              >
+              <div style={styles.onlineSub}>
                 Student Portal
               </div>
             </div>
@@ -1467,33 +1228,17 @@ export default function StudentDashboardPage() {
 
         {/* NOTICE */}
 
-        <section
-          style={
-            styles.notice
-          }
-        >
-          <div
-            style={
-              styles.noticeIcon
-            }
-          >
+        <section style={styles.notice}>
+          <div style={styles.noticeIcon}>
             ℹ️
           </div>
 
           <div>
-            <div
-              style={
-                styles.noticeTitle
-              }
-            >
+            <div style={styles.noticeTitle}>
               Student Information Center
             </div>
 
-            <p
-              style={
-                styles.noticeText
-              }
-            >
+            <p style={styles.noticeText}>
               Use the options below to check
               your attendance, academic
               calendar, homework, reports,
@@ -1505,137 +1250,107 @@ export default function StudentDashboardPage() {
         {/* SERVICES */}
 
         <section>
-          <div
-            style={
-              styles.sectionHeading
-            }
-          >
+          <div style={styles.sectionHeading}>
             <div>
-              <div
-                style={
-                  styles.sectionEyebrow
-                }
-              >
+              <div style={styles.sectionEyebrow}>
                 STUDENT SERVICES
               </div>
 
-              <h2
-                style={
-                  styles.sectionTitle
-                }
-              >
+              <h2 style={styles.sectionTitle}>
                 Your Dashboard
               </h2>
             </div>
 
-            <div
-              style={
-                styles.serviceCount
-              }
-            >
+            <div style={styles.serviceCount}>
               {cards.length} OPTIONS
             </div>
           </div>
 
-          <div
-            style={
-              styles.cardGrid
-            }
-          >
-            {cards.map(
-              (card) => {
-                const styleKey =
-                  `card${card.className
-                    .charAt(0)
-                    .toUpperCase()}${card.className.slice(
-                    1
-                  )}`;
+          <div style={styles.cardGrid}>
+            {cards.map((card) => {
+              const styleKey =
+                `card${card.className
+                  .charAt(0)
+                  .toUpperCase()}${card.className.slice(
+                  1
+                )}`;
 
-                return (
-                  <button
-                    key={
+              return (
+                <button
+                  key={card.path}
+                  type="button"
+                  onClick={() =>
+                    router.push(
                       card.path
-                    }
-                    type="button"
-                    onClick={() =>
-                      router.push(
-                        card.path
-                      )
-                    }
-                    style={
-                      styles.serviceCard
-                    }
+                    )
+                  }
+                  style={
+                    styles.serviceCard
+                  }
+                >
+                  <div
+                    style={{
+                      ...styles.cardTop,
+                      ...(styles[
+                        styleKey
+                      ] || {}),
+                    }}
                   >
                     <div
-                      style={{
-                        ...styles.cardTop,
-                        ...(styles[
-                          styleKey
-                        ] || {}),
-                      }}
+                      style={
+                        styles.cardIcon
+                      }
                     >
-                      <div
-                        style={
-                          styles.cardIcon
-                        }
-                      >
-                        {
-                          card.icon
-                        }
-                      </div>
-
-                      <div
-                        style={
-                          styles.arrow
-                        }
-                      >
-                        →
-                      </div>
+                      {card.icon}
                     </div>
 
                     <div
                       style={
-                        styles.cardBody
+                        styles.arrow
                       }
                     >
-                      <h3
-                        style={
-                          styles.cardTitle
-                        }
-                      >
-                        {
-                          card.title
-                        }
-                      </h3>
-
-                      <p
-                        style={
-                          styles.cardDescription
-                        }
-                      >
-                        {
-                          card.description
-                        }
-                      </p>
-
-                      <div
-                        style={
-                          styles.openLink
-                        }
-                      >
-                        <span>
-                          Open
-                        </span>
-
-                        <span>
-                          →
-                        </span>
-                      </div>
+                      →
                     </div>
-                  </button>
-                );
-              }
-            )}
+                  </div>
+
+                  <div
+                    style={
+                      styles.cardBody
+                    }
+                  >
+                    <h3
+                      style={
+                        styles.cardTitle
+                      }
+                    >
+                      {card.title}
+                    </h3>
+
+                    <p
+                      style={
+                        styles.cardDescription
+                      }
+                    >
+                      {card.description}
+                    </p>
+
+                    <div
+                      style={
+                        styles.openLink
+                      }
+                    >
+                      <span>
+                        Open
+                      </span>
+
+                      <span>
+                        →
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </section>
 
