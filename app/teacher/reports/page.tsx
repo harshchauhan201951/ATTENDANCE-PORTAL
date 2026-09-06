@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+} from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -36,7 +41,7 @@ type AssessmentRow = {
     | "PRESENT"
     | "ABSENT"
     | "NO_TEST";
-  test_images: string[] | null;
+  test_images: unknown;
 };
 
 type StudentMark = {
@@ -67,21 +72,20 @@ const months = [
 ];
 
 function isPresent(status: string) {
-  return (
-    status.toLowerCase() === "present" ||
-    status.toLowerCase() === "p"
-  );
+  const value = String(status || "").toLowerCase();
+
+  return value === "present" || value === "p";
 }
 
 function isAbsent(status: string) {
-  return (
-    status.toLowerCase() === "absent" ||
-    status.toLowerCase() === "a"
-  );
+  const value = String(status || "").toLowerCase();
+
+  return value === "absent" || value === "a";
 }
 
 function getPercentage(obtained: number, total: number) {
   if (!total || total <= 0) return 0;
+
   return (obtained / total) * 100;
 }
 
@@ -92,6 +96,7 @@ function getGrade(percentage: number) {
   if (percentage >= 60) return "B";
   if (percentage >= 50) return "C";
   if (percentage >= 40) return "D";
+
   return "F";
 }
 
@@ -99,12 +104,135 @@ function isPass(percentage: number) {
   return percentage >= 40;
 }
 
+/*
+ * Converts test_images into a clean string[].
+ *
+ * Supports:
+ * - ["url1", "url2"]
+ * - [{ url: "..." }]
+ * - [{ path: "..." }]
+ * - JSON string containing arrays
+ * - single URL string
+ */
+function getImageUrls(value: unknown): string[] {
+  if (!value) return [];
+
+  if (Array.isArray(value)) {
+    return value
+      .flatMap((item) => getImageUrls(item))
+      .filter(Boolean);
+  }
+
+  if (typeof value === "object") {
+    const item = value as {
+      url?: unknown;
+      path?: unknown;
+    };
+
+    if (typeof item.url === "string") {
+      return item.url.trim()
+        ? [item.url.trim()]
+        : [];
+    }
+
+    if (typeof item.path === "string") {
+      return item.path.trim()
+        ? [item.path.trim()]
+        : [];
+    }
+
+    return [];
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+
+    if (!trimmed) return [];
+
+    try {
+      const parsed = JSON.parse(trimmed);
+
+      if (parsed !== value) {
+        return getImageUrls(parsed);
+      }
+    } catch {
+      // Normal URL/string.
+    }
+
+    return [trimmed];
+  }
+
+  return [];
+}
+
+function escapeHtml(value: unknown) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function waitForImagesToLoad(
+  printWindow: Window
+): Promise<void> {
+  return new Promise((resolve) => {
+    const images = Array.from(
+      printWindow.document.images
+    );
+
+    if (images.length === 0) {
+      resolve();
+      return;
+    }
+
+    let completed = 0;
+
+    const finish = () => {
+      completed += 1;
+
+      if (completed >= images.length) {
+        resolve();
+      }
+    };
+
+    images.forEach((image) => {
+      if (image.complete) {
+        finish();
+      } else {
+        image.addEventListener(
+          "load",
+          finish,
+          { once: true }
+        );
+
+        image.addEventListener(
+          "error",
+          finish,
+          { once: true }
+        );
+      }
+    });
+
+    setTimeout(resolve, 5000);
+  });
+}
+
 export default function TeacherReportsPage() {
   const currentDate = new Date();
 
-  const [students, setStudents] = useState<Student[]>([]);
-  const [attendance, setAttendance] = useState<Attendance[]>([]);
-  const [assessments, setAssessments] = useState<AssessmentRow[]>([]);
+  const [students, setStudents] = useState<Student[]>(
+    []
+  );
+
+  const [attendance, setAttendance] = useState<
+    Attendance[]
+  >([]);
+
+  const [assessments, setAssessments] = useState<
+    AssessmentRow[]
+  >([]);
 
   const [month, setMonth] = useState(
     String(currentDate.getMonth() + 1)
@@ -115,19 +243,24 @@ export default function TeacherReportsPage() {
   );
 
   const [loading, setLoading] = useState(true);
+
   const [assessmentLoading, setAssessmentLoading] =
     useState(false);
 
   const [error, setError] = useState("");
+
   const [assessmentMessage, setAssessmentMessage] =
     useState("");
+
   const [assessmentError, setAssessmentError] =
     useState("");
 
   const [testName, setTestName] = useState("");
+
   const [testDate, setTestDate] = useState(
     new Date().toISOString().split("T")[0]
   );
+
   const [totalMarks, setTotalMarks] = useState("");
 
   const [studentMarks, setStudentMarks] = useState<
@@ -141,8 +274,8 @@ export default function TeacherReportsPage() {
     useState(true);
 
   useEffect(() => {
-    loadReport();
-    loadAssessments();
+    void loadReport();
+    void loadAssessments();
   }, []);
 
   async function loadReport() {
@@ -205,7 +338,9 @@ export default function TeacherReportsPage() {
       []) as Student[];
 
     setStudents(loadedStudents);
-    setAttendance(attendanceData || []);
+    setAttendance(
+      (attendanceData || []) as Attendance[]
+    );
 
     setStudentMarks(
       loadedStudents.map((student) => ({
@@ -343,6 +478,7 @@ export default function TeacherReportsPage() {
     if (!files || files.length === 0) return;
 
     setAssessmentError("");
+    setAssessmentMessage("");
 
     const uploadedUrls: string[] = [];
 
@@ -355,9 +491,14 @@ export default function TeacherReportsPage() {
         const extension =
           file.name.split(".").pop() || "jpg";
 
+        const safeExtension =
+          extension
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, "") || "jpg";
+
         const fileName = `${studentId}-${Date.now()}-${Math.random()
           .toString(36)
-          .substring(2)}.${extension}`;
+          .substring(2)}.${safeExtension}`;
 
         const filePath = `tests/${fileName}`;
 
@@ -368,6 +509,7 @@ export default function TeacherReportsPage() {
           .upload(filePath, file, {
             cacheControl: "3600",
             upsert: false,
+            contentType: file.type,
           });
 
         if (uploadError) {
@@ -380,11 +522,23 @@ export default function TeacherReportsPage() {
           .from("test-images")
           .getPublicUrl(filePath);
 
-        if (publicUrlData?.publicUrl) {
-          uploadedUrls.push(
-            publicUrlData.publicUrl
+        const publicUrl =
+          publicUrlData?.publicUrl;
+
+        if (!publicUrl) {
+          throw new Error(
+            "Uploaded image ka public URL nahi mila."
           );
         }
+
+        uploadedUrls.push(publicUrl);
+      }
+
+      if (uploadedUrls.length === 0) {
+        setAssessmentError(
+          "Koi valid image upload nahi hui."
+        );
+        return;
       }
 
       setStudentMarks((current) =>
@@ -401,11 +555,9 @@ export default function TeacherReportsPage() {
         )
       );
 
-      if (uploadedUrls.length > 0) {
-        setAssessmentMessage(
-          `${uploadedUrls.length} test image(s) uploaded successfully.`
-        );
-      }
+      setAssessmentMessage(
+        `${uploadedUrls.length} test image(s) uploaded successfully. Save Assessment par click karke images result ke saath save karein.`
+      );
     } catch (err) {
       console.error(
         "Test image upload error:",
@@ -447,14 +599,16 @@ export default function TeacherReportsPage() {
 
     setTotalMarks("");
 
+    const today = new Date()
+      .toISOString()
+      .split("T")[0];
+
     setStudentMarks(
       students
         .filter((student) =>
           isStudentEligibleForTest(
             student,
-            new Date()
-              .toISOString()
-              .split("T")[0]
+            today
           )
         )
         .map((student) => ({
@@ -518,11 +672,6 @@ export default function TeacherReportsPage() {
         eligibleIds.has(item.studentId)
     );
 
-    /*
-     * IMPORTANT:
-     * PRESENT student ke liye marks compulsory hain.
-     * ABSENT / NO_TEST student ke liye marks compulsory nahi hain.
-     */
     const invalidMarks = validMarks.find(
       (item) => {
         if (
@@ -599,10 +748,6 @@ export default function TeacherReportsPage() {
           total_marks: total,
           student_id: item.studentId,
 
-          /*
-           * ABSENT / NO_TEST ke liye database me 0 save hoga.
-           * Display me marks nahi dikhaye jayenge.
-           */
           obtained_marks:
             item.attendanceStatus === "PRESENT"
               ? Number(item.obtainedMarks)
@@ -617,7 +762,9 @@ export default function TeacherReportsPage() {
             item.attendanceStatus,
 
           test_images:
-            item.testImages || [],
+            Array.isArray(item.testImages)
+              ? item.testImages
+              : [],
         })
       );
 
@@ -692,22 +839,34 @@ export default function TeacherReportsPage() {
 
           return {
             studentId: student.id,
+
             subject:
               row?.subject ||
               "Mathematics",
+
             obtainedMarks:
-              row?.attendance_status === "ABSENT" ||
-              row?.attendance_status === "NO_TEST"
+              row?.attendance_status ===
+                "ABSENT" ||
+              row?.attendance_status ===
+                "NO_TEST"
                 ? ""
                 : row
                 ? String(row.obtained_marks)
                 : "",
+
             remarks: row?.remarks || "",
+
             attendanceStatus:
               row?.attendance_status ||
               "PRESENT",
-            testImages:
-              row?.test_images || [],
+
+            /*
+             * Existing uploaded images are loaded
+             * back when editing the assessment.
+             */
+            testImages: getImageUrls(
+              row?.test_images
+            ),
           };
         })
     );
@@ -967,23 +1126,30 @@ export default function TeacherReportsPage() {
           student?.student_name ||
             student?.student_username ||
             "Unknown Student",
+
           student?.student_username || "",
+
           item.test_name,
           item.test_date,
           item.subject,
           item.attendance_status,
+
           isAbsentStudent || isNoTestStudent
             ? ""
             : item.total_marks,
+
           isAbsentStudent || isNoTestStudent
             ? ""
             : item.obtained_marks,
+
           isAbsentStudent || isNoTestStudent
             ? ""
             : `${percentage.toFixed(1)}%`,
+
           isAbsentStudent || isNoTestStudent
             ? ""
             : getGrade(percentage),
+
           isAbsentStudent
             ? "ABSENT"
             : isNoTestStudent
@@ -991,8 +1157,12 @@ export default function TeacherReportsPage() {
             : isPass(percentage)
             ? "PASS"
             : "FAIL",
+
           item.remarks || "",
-          (item.test_images || []).join(" | "),
+
+          getImageUrls(item.test_images).join(
+            " | "
+          ),
         ];
       }
     );
@@ -1036,6 +1206,20 @@ export default function TeacherReportsPage() {
     URL.revokeObjectURL(url);
   }
 
+  /*
+   * Teacher Result PDF
+   *
+   * IMPORTANT:
+   * Every uploaded image gets its own NEW PDF page.
+   *
+   * Result table
+   *      ↓
+   * Image 1 = new page
+   *      ↓
+   * Image 2 = new page
+   *      ↓
+   * Image 3 = new page
+   */
   function downloadStudentResult(
     studentId: number,
     testNameValue: string,
@@ -1048,7 +1232,12 @@ export default function TeacherReportsPage() {
         item.test_date === testDateValue
     );
 
-    if (rows.length === 0) return;
+    if (rows.length === 0) {
+      window.alert(
+        "Is student ka result nahi mila."
+      );
+      return;
+    }
 
     const student = students.find(
       (item) => item.id === studentId
@@ -1057,7 +1246,12 @@ export default function TeacherReportsPage() {
     const printWindow =
       window.open("", "_blank");
 
-    if (!printWindow) return;
+    if (!printWindow) {
+      window.alert(
+        "Popup blocked hai. Please browser me popup allow karein."
+      );
+      return;
+    }
 
     const resultRows = rows
       .map((item) => {
@@ -1087,170 +1281,530 @@ export default function TeacherReportsPage() {
 
         return `
           <tr>
-            <td>${item.subject}</td>
+            <td>${escapeHtml(
+              item.subject
+            )}</td>
+
             <td>${attendanceText}</td>
-            <td>${
-              isAbsentStudent ||
-              isNoTestStudent
-                ? "—"
-                : item.total_marks
-            }</td>
-            <td>${
-              isAbsentStudent ||
-              isNoTestStudent
-                ? "—"
-                : item.obtained_marks
-            }</td>
-            <td>${
-              isAbsentStudent ||
-              isNoTestStudent
-                ? "—"
-                : `${percentage.toFixed(1)}%`
-            }</td>
-            <td>${
-              isAbsentStudent ||
-              isNoTestStudent
-                ? "—"
-                : getGrade(percentage)
-            }</td>
-            <td>${
-              isAbsentStudent
-                ? "ABSENT"
-                : isNoTestStudent
-                ? "NO TEST"
-                : isPass(percentage)
-                ? "PASS"
-                : "FAIL"
-            }</td>
-            <td>${item.remarks || ""}</td>
+
+            <td>
+              ${
+                isAbsentStudent ||
+                isNoTestStudent
+                  ? "—"
+                  : escapeHtml(
+                      item.total_marks
+                    )
+              }
+            </td>
+
+            <td>
+              ${
+                isAbsentStudent ||
+                isNoTestStudent
+                  ? "—"
+                  : escapeHtml(
+                      item.obtained_marks
+                    )
+              }
+            </td>
+
+            <td>
+              ${
+                isAbsentStudent ||
+                isNoTestStudent
+                  ? "—"
+                  : `${percentage.toFixed(
+                      1
+                    )}%`
+              }
+            </td>
+
+            <td>
+              ${
+                isAbsentStudent ||
+                isNoTestStudent
+                  ? "—"
+                  : getGrade(percentage)
+              }
+            </td>
+
+            <td>
+              ${
+                isAbsentStudent
+                  ? "ABSENT"
+                  : isNoTestStudent
+                  ? "NO TEST"
+                  : isPass(percentage)
+                  ? "PASS"
+                  : "FAIL"
+              }
+            </td>
+
+            <td>
+              ${escapeHtml(
+                item.remarks || ""
+              )}
+            </td>
           </tr>
         `;
       })
       .join("");
 
+    /*
+     * Collect ALL images from the student's
+     * rows and make each image a separate page.
+     */
+    const imagePages = rows
+      .flatMap((row) => {
+        return getImageUrls(
+          row.test_images
+        ).map((imageUrl) => ({
+          imageUrl,
+          subject: row.subject,
+          remarks: row.remarks || "",
+        }));
+      })
+      .map(
+        (
+          image,
+          index
+        ) => `
+          <section class="pdf-image-page">
+            <div class="image-page-header">
+              <div class="brand">
+                RACER ACADEMY
+              </div>
+
+              <h2>
+                Checked Test Paper / Photo
+              </h2>
+
+              <div class="image-meta">
+                <strong>Student:</strong>
+                ${escapeHtml(
+                  student?.student_name ||
+                    student?.student_username ||
+                    ""
+                )}
+              </div>
+
+              <div class="image-meta">
+                <strong>Test:</strong>
+                ${escapeHtml(
+                  testNameValue
+                )}
+              </div>
+
+              <div class="image-meta">
+                <strong>Date:</strong>
+                ${escapeHtml(
+                  testDateValue
+                )}
+              </div>
+
+              <div class="image-meta">
+                <strong>Subject:</strong>
+                ${escapeHtml(
+                  image.subject
+                )}
+              </div>
+
+              <div class="image-number">
+                Image ${index + 1}
+              </div>
+            </div>
+
+            <div class="image-container">
+              <img
+                src="${escapeHtml(
+                  image.imageUrl
+                )}"
+                alt="Checked test paper"
+              />
+            </div>
+
+            ${
+              image.remarks
+                ? `
+                  <div class="image-remarks">
+                    <strong>Remarks:</strong>
+                    ${escapeHtml(
+                      image.remarks
+                    )}
+                  </div>
+                `
+                : ""
+            }
+          </section>
+        `
+      )
+      .join("");
+
+    /*
+     * If there are NO images:
+     * imagePages = ""
+     * therefore NO extra blank image page.
+     */
     printWindow.document.write(`
       <html>
         <head>
-          <title>RACER ACADEMY Result</title>
+          <title>
+            RACER ACADEMY Result -
+            ${escapeHtml(
+              student?.student_name ||
+                student?.student_username ||
+                ""
+            )}
+          </title>
+
           <style>
-            body {
-              font-family: Arial, sans-serif;
-              padding: 35px;
-              color: #111827;
+            @page {
+              size: A4;
+              margin: 12mm;
             }
+
+            * {
+              box-sizing: border-box;
+            }
+
+            body {
+              font-family:
+                Arial,
+                Helvetica,
+                sans-serif;
+              padding: 25px;
+              color: #111827;
+              margin: 0;
+              background: white;
+            }
+
             h1 {
               color: #1e3a8a;
               margin-bottom: 5px;
             }
+
             h2 {
               margin-top: 25px;
             }
+
+            h3 {
+              color: #1e3a8a;
+            }
+
+            .brand {
+              color: #2563eb;
+              font-size: 11px;
+              font-weight: 900;
+              letter-spacing: 3px;
+              margin-bottom: 6px;
+            }
+
             .meta {
               margin: 8px 0;
               color: #475569;
+              font-size: 14px;
             }
+
             table {
               width: 100%;
               border-collapse: collapse;
               margin-top: 20px;
+              font-size: 12px;
             }
-            th, td {
+
+            th,
+            td {
               border: 1px solid #cbd5e1;
-              padding: 10px;
+              padding: 9px;
               text-align: left;
+              vertical-align: top;
             }
+
             th {
               background: #eff6ff;
               color: #1e3a8a;
+              font-weight: 800;
             }
-            .images {
-              margin-top: 25px;
+
+            .summary {
+              margin-top: 20px;
+              display: grid;
+              grid-template-columns:
+                repeat(3, 1fr);
+              gap: 10px;
             }
-            .images img {
-              width: 180px;
-              margin: 8px;
+
+            .summary-box {
+              border: 1px solid #dbeafe;
+              background: #f8fafc;
+              border-radius: 10px;
+              padding: 12px;
+            }
+
+            .summary-label {
+              font-size: 10px;
+              color: #64748b;
+              text-transform: uppercase;
+            }
+
+            .summary-value {
+              margin-top: 4px;
+              font-size: 18px;
+              font-weight: 800;
+              color: #172554;
+            }
+
+            .result-section {
+              margin-bottom: 20px;
+            }
+
+            /*
+             * Each image starts on a completely
+             * separate PDF page.
+             */
+            .pdf-image-page {
+              break-before: page;
+              page-break-before: always;
+
+              min-height:
+                calc(297mm - 24mm);
+
+              display: flex;
+              flex-direction: column;
+              padding: 10px 0;
+            }
+
+            .image-page-header {
+              border-bottom:
+                1px solid #cbd5e1;
+              padding-bottom: 12px;
+              margin-bottom: 15px;
+            }
+
+            .image-page-header h2 {
+              color: #172554;
+              margin: 4px 0 12px;
+              font-size: 21px;
+            }
+
+            .image-meta {
+              color: #475569;
+              font-size: 12px;
+              margin-top: 4px;
+            }
+
+            .image-number {
+              display: inline-block;
+              margin-top: 10px;
+              padding: 6px 10px;
+              border-radius: 999px;
+              background: #dbeafe;
+              color: #1e3a8a;
+              font-size: 11px;
+              font-weight: 800;
+            }
+
+            .image-container {
+              flex: 1;
+              min-height: 0;
+
+              display: flex;
+              align-items: center;
+              justify-content: center;
+
+              width: 100%;
+              overflow: hidden;
+              padding: 10px;
+            }
+
+            .image-container img {
+              display: block;
+
+              max-width: 100%;
+              max-height: 215mm;
+
+              width: auto;
+              height: auto;
+
+              object-fit: contain;
+
               border: 1px solid #cbd5e1;
             }
+
+            .image-remarks {
+              margin-top: 12px;
+              padding: 10px;
+              border-radius: 8px;
+              background: #f8fafc;
+              border: 1px solid #e2e8f0;
+              color: #475569;
+              font-size: 12px;
+            }
+
+            .print-button {
+              margin-top: 25px;
+              border: none;
+              background: #1e3a8a;
+              color: white;
+              padding: 12px 18px;
+              border-radius: 8px;
+              font-weight: 800;
+              cursor: pointer;
+            }
+
             @media print {
-              button {
-                display: none;
+              body {
+                padding: 0;
+              }
+
+              .print-button {
+                display: none !important;
+              }
+
+              .pdf-image-page {
+                break-before: page;
+                page-break-before: always;
               }
             }
           </style>
         </head>
+
         <body>
-          <h1>RACER ACADEMY</h1>
-          <h2>Student Result</h2>
 
-          <div class="meta">
-            <strong>Student:</strong>
-            ${
-              student?.student_name ||
-              student?.student_username ||
-              ""
-            }
+          <div class="result-section">
+
+            <div class="brand">
+              RACER ACADEMY
+            </div>
+
+            <h1>
+              Student Result
+            </h1>
+
+            <div class="meta">
+              <strong>Student:</strong>
+              ${escapeHtml(
+                student?.student_name ||
+                  student?.student_username ||
+                  ""
+              )}
+            </div>
+
+            <div class="meta">
+              <strong>Username:</strong>
+              ${escapeHtml(
+                student?.student_username ||
+                  ""
+              )}
+            </div>
+
+            <div class="meta">
+              <strong>Test:</strong>
+              ${escapeHtml(
+                testNameValue
+              )}
+            </div>
+
+            <div class="meta">
+              <strong>Date:</strong>
+              ${escapeHtml(
+                testDateValue
+              )}
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Subject</th>
+                  <th>Attendance</th>
+                  <th>Total</th>
+                  <th>Obtained</th>
+                  <th>Percentage</th>
+                  <th>Grade</th>
+                  <th>Result</th>
+                  <th>Remarks</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                ${resultRows}
+              </tbody>
+            </table>
+
+            <div class="summary">
+
+              <div class="summary-box">
+                <div class="summary-label">
+                  Total Subjects
+                </div>
+
+                <div class="summary-value">
+                  ${rows.length}
+                </div>
+              </div>
+
+              <div class="summary-box">
+                <div class="summary-label">
+                  Uploaded Images
+                </div>
+
+                <div class="summary-value">
+                  ${rows.reduce(
+                    (
+                      count,
+                      row
+                    ) =>
+                      count +
+                      getImageUrls(
+                        row.test_images
+                      ).length,
+                    0
+                  )}
+                </div>
+              </div>
+
+              <div class="summary-box">
+                <div class="summary-label">
+                  Academy
+                </div>
+
+                <div class="summary-value">
+                  RACER ACADEMY
+                </div>
+              </div>
+
+            </div>
+
+            <button
+              class="print-button"
+              onclick="window.print()"
+            >
+              Print / Save as PDF
+            </button>
+
           </div>
 
-          <div class="meta">
-            <strong>Username:</strong>
-            ${student?.student_username || ""}
-          </div>
+          ${imagePages}
 
-          <div class="meta">
-            <strong>Test:</strong>
-            ${testNameValue}
-          </div>
-
-          <div class="meta">
-            <strong>Date:</strong>
-            ${testDateValue}
-          </div>
-
-          <table>
-            <thead>
-              <tr>
-                <th>Subject</th>
-                <th>Attendance</th>
-                <th>Total</th>
-                <th>Obtained</th>
-                <th>Percentage</th>
-                <th>Grade</th>
-                <th>Result</th>
-                <th>Remarks</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${resultRows}
-            </tbody>
-          </table>
-
-          <div class="images">
-            <h3>Checked Test Images / Photos</h3>
-            ${rows
-              .flatMap(
-                (row) =>
-                  row.test_images || []
-              )
-              .map(
-                (url) =>
-                  `<img src="${url}" />`
-              )
-              .join("")}
-          </div>
-
-          <button onclick="window.print()">
-            Print / Save as PDF
-          </button>
         </body>
       </html>
     `);
 
     printWindow.document.close();
 
-    setTimeout(() => {
-      printWindow.focus();
-      printWindow.print();
-    }, 500);
+    /*
+     * Wait until every test image has loaded.
+     * This prevents blank images in the PDF.
+     */
+    void waitForImagesToLoad(
+      printWindow
+    ).then(() => {
+      setTimeout(() => {
+        printWindow.focus();
+        printWindow.print();
+      }, 300);
+    });
   }
 
   if (loading) {
@@ -1489,21 +2043,27 @@ export default function TeacherReportsPage() {
                 <thead>
                   <tr>
                     <th style={styles.th}>#</th>
+
                     <th style={styles.th}>
                       Student
                     </th>
+
                     <th style={styles.th}>
                       Username
                     </th>
+
                     <th style={styles.th}>
                       Total Classes
                     </th>
+
                     <th style={styles.th}>
                       Present
                     </th>
+
                     <th style={styles.th}>
                       Absent
                     </th>
+
                     <th style={styles.th}>
                       Attendance %
                     </th>
@@ -1616,6 +2176,7 @@ export default function TeacherReportsPage() {
             <button
               onClick={() => {
                 resetAssessmentForm();
+
                 setShowAssessmentForm(
                   !showAssessmentForm
                 );
@@ -2098,9 +2659,9 @@ export default function TeacherReportsPage() {
                                       accept="image/*"
                                       multiple
                                       onChange={(e) => {
-                                        uploadTestImages(
+                                        void uploadTestImages(
                                           student.id,
-                                          e.target
+                                          e.currentTarget
                                             .files
                                         );
 
@@ -2258,16 +2819,11 @@ export default function TeacherReportsPage() {
                         first.total_marks
                       );
 
-                    /*
-                     * ABSENT / NO TEST students
-                     * average calculation me include
-                     * nahi honge.
-                     */
                     const scoredStudents =
                       group.filter(
                         (item) =>
                           item.attendance_status ===
-                            "PRESENT"
+                          "PRESENT"
                       );
 
                     const totalObtained =
@@ -2302,6 +2858,19 @@ export default function TeacherReportsPage() {
                           item.attendance_status ===
                           "NO_TEST"
                       ).length;
+
+                    const imageCount =
+                      group.reduce(
+                        (
+                          count,
+                          item
+                        ) =>
+                          count +
+                          getImageUrls(
+                            item.test_images
+                          ).length,
+                        0
+                      );
 
                     return (
                       <div
@@ -2399,20 +2968,7 @@ export default function TeacherReportsPage() {
                               }
                             >
                               📷{" "}
-                              {
-                                group.reduce(
-                                  (
-                                    count,
-                                    item
-                                  ) =>
-                                    count +
-                                    (
-                                      item.test_images ||
-                                      []
-                                    ).length,
-                                  0
-                                )
-                              } Images
+                              {imageCount} Images
                             </span>
                           </div>
                         </div>
@@ -2598,9 +3154,10 @@ export default function TeacherReportsPage() {
   );
 }
 
-const styles: {
-  [key: string]: React.CSSProperties;
-} = {
+const styles: Record<
+  string,
+  CSSProperties
+> = {
   page: {
     minHeight: "100vh",
     background:

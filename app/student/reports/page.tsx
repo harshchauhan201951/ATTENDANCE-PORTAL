@@ -81,7 +81,14 @@ const months = [
   "December",
 ];
 
-const years = [2025, 2026, 2027, 2028, 2029, 2030];
+const years = [
+  2025,
+  2026,
+  2027,
+  2028,
+  2029,
+  2030,
+];
 
 /* =========================================================
    HELPER FUNCTIONS
@@ -91,7 +98,10 @@ function getPercentage(
   obtained: number,
   total: number
 ): number {
-  if (!Number.isFinite(total) || total <= 0) {
+  if (
+    !Number.isFinite(total) ||
+    total <= 0
+  ) {
     return 0;
   }
 
@@ -102,7 +112,9 @@ function getPercentage(
   return (obtained / total) * 100;
 }
 
-function getGrade(percentage: number): string {
+function getGrade(
+  percentage: number
+): string {
   if (percentage >= 90) return "A+";
   if (percentage >= 80) return "A";
   if (percentage >= 70) return "B+";
@@ -113,7 +125,9 @@ function getGrade(percentage: number): string {
   return "F";
 }
 
-function isPass(percentage: number): boolean {
+function isPass(
+  percentage: number
+): boolean {
   return percentage >= 40;
 }
 
@@ -135,7 +149,9 @@ function getSubjectLabel(
    IMAGE URL HANDLER
 ========================================================= */
 
-function getImageUrls(value: unknown): string[] {
+function getImageUrls(
+  value: unknown
+): string[] {
   if (!value) {
     return [];
   }
@@ -153,20 +169,28 @@ function getImageUrls(value: unknown): string[] {
         ) {
           if ("url" in item) {
             const url = (
-              item as { url?: unknown }
+              item as {
+                url?: unknown;
+              }
             ).url;
 
-            if (typeof url === "string") {
+            if (
+              typeof url === "string"
+            ) {
               return url;
             }
           }
 
           if ("path" in item) {
             const path = (
-              item as { path?: unknown }
+              item as {
+                path?: unknown;
+              }
             ).path;
 
-            if (typeof path === "string") {
+            if (
+              typeof path === "string"
+            ) {
               return path;
             }
           }
@@ -195,7 +219,9 @@ function getImageUrls(value: unknown): string[] {
       if (Array.isArray(parsed)) {
         return parsed
           .map((item): string => {
-            if (typeof item === "string") {
+            if (
+              typeof item === "string"
+            ) {
               return item;
             }
 
@@ -249,15 +275,23 @@ function getImageUrls(value: unknown): string[] {
 ========================================================= */
 
 function formatDate(
-  dateString: string | null | undefined
+  dateString:
+    | string
+    | null
+    | undefined
 ): string {
   if (!dateString) {
     return "—";
   }
 
-  const date = new Date(dateString);
+  const date =
+    new Date(dateString);
 
-  if (Number.isNaN(date.getTime())) {
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
     return dateString;
   }
 
@@ -275,17 +309,35 @@ function formatDate(
    HTML ESCAPE FOR PDF WINDOW
 ========================================================= */
 
-function escapeHtml(value: unknown): string {
+function escapeHtml(
+  value: unknown
+): string {
   return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+    .replace(
+      /&/g,
+      "&amp;"
+    )
+    .replace(
+      /</g,
+      "&lt;"
+    )
+    .replace(
+      />/g,
+      "&gt;"
+    )
+    .replace(
+      /"/g,
+      "&quot;"
+    )
+    .replace(
+      /'/g,
+      "&#039;"
+    );
 }
 
 /* =========================================================
    CREATE PDF / PRINT WINDOW
+   IMAGE SUPPORT INCLUDED
 ========================================================= */
 
 function createPdfWindow(
@@ -313,61 +365,6 @@ function createPdfWindow(
     return;
   }
 
-  const rows = printableAssessments
-    .map((item, index) => {
-      const percentage =
-        getPercentage(
-          Number(item.obtained_marks),
-          Number(item.total_marks)
-        );
-
-      const grade =
-        getGrade(percentage);
-
-      const passed =
-        isPass(percentage);
-
-      return `
-        <tr>
-          <td>${index + 1}</td>
-          <td>${escapeHtml(
-            item.subject || "—"
-          )}</td>
-          <td>${escapeHtml(
-            item.test_name || "—"
-          )}</td>
-          <td>${escapeHtml(
-            formatDate(item.test_date)
-          )}</td>
-          <td>${escapeHtml(
-            item.total_marks
-          )}</td>
-          <td>${escapeHtml(
-            item.obtained_marks
-          )}</td>
-          <td>${percentage.toFixed(1)}%</td>
-          <td>${escapeHtml(
-            grade
-          )}</td>
-          <td class="${
-            passed
-              ? "pass"
-              : "fail"
-          }">
-            ${
-              passed
-                ? "PASS"
-                : "FAIL"
-            }
-          </td>
-          <td>${escapeHtml(
-            item.remarks || "—"
-          )}</td>
-        </tr>
-      `;
-    })
-    .join("");
-
   const totalTests =
     printableAssessments.length;
 
@@ -392,7 +389,10 @@ function createPdfWindow(
   const average =
     totalTests > 0
       ? printableAssessments.reduce(
-          (sum, item) =>
+          (
+            sum,
+            item
+          ) =>
             sum +
             getPercentage(
               Number(
@@ -406,17 +406,6 @@ function createPdfWindow(
         ) / totalTests
       : 0;
 
-  const popup =
-    window.open("", "_blank");
-
-  if (!popup) {
-    window.alert(
-      "Please allow pop-ups for downloading the Result PDF."
-    );
-
-    return;
-  }
-
   const studentName =
     student.student_name ||
     student.student_username;
@@ -426,31 +415,326 @@ function createPdfWindow(
       ? "All Subjects"
       : selectedSubject;
 
+  /* =======================================================
+     CREATE TEST SECTIONS WITH IMAGES
+  ======================================================= */
+
+  const testSections =
+    printableAssessments
+      .map(
+        (
+          item,
+          index
+        ) => {
+          const percentage =
+            getPercentage(
+              Number(
+                item.obtained_marks
+              ),
+              Number(
+                item.total_marks
+              )
+            );
+
+          const grade =
+            getGrade(
+              percentage
+            );
+
+          const passed =
+            isPass(
+              percentage
+            );
+
+          /*
+           * Get ALL images from test_images.
+           * This supports old and newly uploaded images.
+           */
+          const imageUrls =
+            getImageUrls(
+              item.test_images
+            );
+
+          const imagesHtml =
+            imageUrls.length > 0
+              ? `
+                <div class="images-section">
+
+                  <div class="images-heading">
+                    📸 Checked Test Images
+                  </div>
+
+                  <div class="images-count">
+                    ${imageUrls.length}
+                    ${
+                      imageUrls.length ===
+                      1
+                        ? "image"
+                        : "images"
+                    }
+                    uploaded by teacher
+                  </div>
+
+                  <div class="image-grid">
+
+                    ${imageUrls
+                      .map(
+                        (
+                          imageUrl,
+                          imageIndex
+                        ) => `
+                          <div class="image-card">
+
+                            <div class="image-number">
+                              Image ${
+                                imageIndex +
+                                1
+                              }
+                            </div>
+
+                            <img
+                              src="${escapeHtml(
+                                imageUrl
+                              )}"
+                              alt="Checked Test Image ${
+                                imageIndex +
+                                1
+                              }"
+                              class="pdf-test-image"
+                            />
+
+                          </div>
+                        `
+                      )
+                      .join("")}
+
+                  </div>
+
+                </div>
+              `
+              : `
+                <div class="no-images">
+                  📭 No test images uploaded for this test.
+                </div>
+              `;
+
+          return `
+            <section class="test-section">
+
+              <div class="test-header">
+
+                <div>
+
+                  <div class="test-number">
+                    TEST #${index + 1}
+                  </div>
+
+                  <h2 class="test-title">
+                    ${escapeHtml(
+                      item.test_name ||
+                        "Test"
+                    )}
+                  </h2>
+
+                  <div class="subject-badge">
+                    ${escapeHtml(
+                      item.subject ||
+                        "Subject Not Specified"
+                    )}
+                  </div>
+
+                </div>
+
+                <div
+                  class="result-badge ${
+                    passed
+                      ? "result-pass"
+                      : "result-fail"
+                  }"
+                >
+                  ${
+                    passed
+                      ? "PASS"
+                      : "FAIL"
+                  }
+                </div>
+
+              </div>
+
+              <div class="test-details">
+
+                <div class="detail-box">
+                  <span>
+                    Test Date
+                  </span>
+
+                  <strong>
+                    ${escapeHtml(
+                      formatDate(
+                        item.test_date
+                      )
+                    )}
+                  </strong>
+                </div>
+
+                <div class="detail-box">
+                  <span>
+                    Total Marks
+                  </span>
+
+                  <strong>
+                    ${escapeHtml(
+                      item.total_marks
+                    )}
+                  </strong>
+                </div>
+
+                <div class="detail-box">
+                  <span>
+                    Obtained Marks
+                  </span>
+
+                  <strong>
+                    ${escapeHtml(
+                      item.obtained_marks
+                    )}
+                  </strong>
+                </div>
+
+                <div class="detail-box">
+                  <span>
+                    Percentage
+                  </span>
+
+                  <strong>
+                    ${percentage.toFixed(
+                      1
+                    )}%
+                  </strong>
+                </div>
+
+                <div class="detail-box">
+                  <span>
+                    Grade
+                  </span>
+
+                  <strong>
+                    ${escapeHtml(
+                      grade
+                    )}
+                  </strong>
+                </div>
+
+                <div class="detail-box">
+
+                  <span>
+                    Result
+                  </span>
+
+                  <strong
+                    class="${
+                      passed
+                        ? "pass-text"
+                        : "fail-text"
+                    }"
+                  >
+                    ${
+                      passed
+                        ? "PASS"
+                        : "FAIL"
+                    }
+                  </strong>
+
+                </div>
+
+              </div>
+
+              <div class="remarks-box">
+
+                <strong>
+                  📝 Remarks
+                </strong>
+
+                <p>
+                  ${escapeHtml(
+                    item.remarks ||
+                      "No remarks added by teacher."
+                  )}
+                </p>
+
+              </div>
+
+              ${imagesHtml}
+
+            </section>
+          `;
+        }
+      )
+      .join("");
+
+  /* =======================================================
+     OPEN PRINT WINDOW
+  ======================================================= */
+
+  const popup =
+    window.open(
+      "",
+      "_blank"
+    );
+
+  if (!popup) {
+    window.alert(
+      "Please allow pop-ups for downloading the Result PDF."
+    );
+
+    return;
+  }
+
+  /* =======================================================
+     WRITE PDF HTML
+  ======================================================= */
+
   popup.document.write(`
     <!DOCTYPE html>
+
     <html>
+
       <head>
+
         <meta charset="UTF-8" />
+
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1.0"
+        />
 
         <title>
           RACER ACADEMY Result -
-          ${escapeHtml(studentName)}
+          ${escapeHtml(
+            studentName
+          )}
         </title>
 
         <style>
+
           * {
             box-sizing: border-box;
           }
 
+          html,
           body {
             margin: 0;
+            padding: 0;
+            background: white;
+          }
+
+          body {
             padding: 30px;
             font-family:
               Arial,
               Helvetica,
               sans-serif;
             color: #172554;
-            background: white;
           }
 
           .header {
@@ -508,58 +792,399 @@ function createPdfWindow(
             font-size: 20px;
           }
 
+          /* =================================================
+             TEST SECTION
+          ================================================= */
+
+          .test-section {
+            margin-top: 25px;
+            border:
+              1px solid #cbd5e1;
+            border-radius: 15px;
+            padding: 18px;
+            page-break-inside: auto;
+            break-inside: auto;
+          }
+
+          .test-header {
+            display: flex;
+            justify-content:
+              space-between;
+            align-items:
+              flex-start;
+            gap: 15px;
+            border-bottom:
+              1px solid #e2e8f0;
+            padding-bottom: 15px;
+          }
+
+          .test-number {
+            color: #7c3aed;
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: 2px;
+          }
+
+          .test-title {
+            margin:
+              5px 0 8px;
+            font-size: 21px;
+            color: #172554;
+          }
+
+          .subject-badge {
+            display: inline-block;
+            padding:
+              6px 10px;
+            border-radius:
+              999px;
+            background:
+              #eff6ff;
+            color:
+              #1e3a8a;
+            border:
+              1px solid #bfdbfe;
+            font-size: 11px;
+            font-weight: 800;
+          }
+
+          .result-badge {
+            padding:
+              9px 13px;
+            border-radius:
+              999px;
+            font-weight:
+              900;
+            font-size:
+              12px;
+            white-space:
+              nowrap;
+          }
+
+          .result-pass {
+            background:
+              #dcfce7;
+            color:
+              #166534;
+          }
+
+          .result-fail {
+            background:
+              #fee2e2;
+            color:
+              #991b1b;
+          }
+
+          /* =================================================
+             TEST DETAILS
+          ================================================= */
+
+          .test-details {
+            display: grid;
+            grid-template-columns:
+              repeat(6, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+          }
+
+          .detail-box {
+            background:
+              #f8fafc;
+            border:
+              1px solid #e2e8f0;
+            border-radius:
+              10px;
+            padding:
+              10px;
+          }
+
+          .detail-box span {
+            display: block;
+            color:
+              #64748b;
+            font-size:
+              9px;
+            margin-bottom:
+              5px;
+          }
+
+          .detail-box strong {
+            font-size:
+              13px;
+            color:
+              #172554;
+          }
+
+          .pass-text {
+            color:
+              #166534 !important;
+          }
+
+          .fail-text {
+            color:
+              #991b1b !important;
+          }
+
+          /* =================================================
+             REMARKS
+          ================================================= */
+
+          .remarks-box {
+            margin-top:
+              15px;
+            padding:
+              14px;
+            border-radius:
+              12px;
+            background:
+              #f8fafc;
+            border:
+              1px solid #e2e8f0;
+          }
+
+          .remarks-box p {
+            margin:
+              7px 0 0;
+            color:
+              #475569;
+            font-size:
+              12px;
+            line-height:
+              1.6;
+          }
+
+          /* =================================================
+             IMAGES SECTION
+          ================================================= */
+
+          .images-section {
+            margin-top:
+              20px;
+            padding:
+              15px;
+            border-radius:
+              13px;
+            background:
+              #fff7ed;
+            border:
+              1px solid #fed7aa;
+          }
+
+          .images-heading {
+            font-size:
+              16px;
+            font-weight:
+              900;
+            color:
+              #9a3412;
+          }
+
+          .images-count {
+            margin-top:
+              4px;
+            color:
+              #64748b;
+            font-size:
+              11px;
+          }
+
+          .image-grid {
+            display: grid;
+            grid-template-columns:
+              repeat(2, minmax(0, 1fr));
+            gap:
+              15px;
+            margin-top:
+              15px;
+          }
+
+          .image-card {
+            background:
+              white;
+            border:
+              1px solid #fed7aa;
+            border-radius:
+              10px;
+            padding:
+              8px;
+            text-align:
+              center;
+            page-break-inside:
+              avoid;
+            break-inside:
+              avoid;
+          }
+
+          .image-number {
+            margin-bottom:
+              7px;
+            font-size:
+              10px;
+            font-weight:
+              800;
+            color:
+              #9a3412;
+          }
+
+          .pdf-test-image {
+            width:
+              100%;
+            max-width:
+              100%;
+            max-height:
+              650px;
+            height:
+              auto;
+            object-fit:
+              contain;
+            display:
+              block;
+            margin:
+              0 auto;
+            border-radius:
+              7px;
+            background:
+              #f8fafc;
+          }
+
+          .no-images {
+            margin-top:
+              15px;
+            padding:
+              12px;
+            border-radius:
+              10px;
+            background:
+              #f8fafc;
+            color:
+              #64748b;
+            font-size:
+              12px;
+          }
+
+          /* =================================================
+             TABLE
+          ================================================= */
+
           table {
             width: 100%;
-            border-collapse: collapse;
-            font-size: 10px;
+            border-collapse:
+              collapse;
+            font-size:
+              10px;
           }
 
           th {
-            background: #eff6ff;
-            color: #1e3a8a;
-            padding: 9px;
+            background:
+              #eff6ff;
+            color:
+              #1e3a8a;
+            padding:
+              9px;
             border:
               1px solid #cbd5e1;
-            text-align: left;
+            text-align:
+              left;
           }
 
           td {
-            padding: 9px;
+            padding:
+              9px;
             border:
               1px solid #cbd5e1;
-            color: #334155;
+            color:
+              #334155;
+            vertical-align:
+              top;
           }
 
           .pass {
-            color: #166534;
-            font-weight: 800;
+            color:
+              #166534;
+            font-weight:
+              800;
           }
 
           .fail {
-            color: #991b1b;
-            font-weight: 800;
+            color:
+              #991b1b;
+            font-weight:
+              800;
           }
+
+          /* =================================================
+             FOOTER
+          ================================================= */
 
           .footer {
-            margin-top: 30px;
-            text-align: center;
-            font-size: 11px;
-            color: #64748b;
+            margin-top:
+              30px;
+            padding-top:
+              15px;
+            border-top:
+              1px solid #e2e8f0;
+            text-align:
+              center;
+            font-size:
+              11px;
+            color:
+              #64748b;
           }
+
+          /* =================================================
+             PRINT
+          ================================================= */
 
           @media print {
-            body {
-              padding: 10px;
+
+            @page {
+              size: A4;
+              margin: 10mm;
             }
 
-            .no-print {
-              display: none;
+            body {
+              padding: 0;
             }
+
+            .test-section {
+              page-break-inside:
+                auto;
+              break-inside:
+                auto;
+            }
+
+            .image-card {
+              page-break-inside:
+                avoid;
+              break-inside:
+                avoid;
+            }
+
+            .images-section {
+              page-break-inside:
+                auto;
+              break-inside:
+                auto;
+            }
+
+            img {
+              print-color-adjust:
+                exact;
+              -webkit-print-color-adjust:
+                exact;
+            }
+
           }
+
         </style>
+
       </head>
 
       <body>
+
+        <!-- ===============================================
+             HEADER
+        ================================================ -->
 
         <div class="header">
 
@@ -597,9 +1222,14 @@ function createPdfWindow(
 
         </div>
 
+        <!-- ===============================================
+             SUMMARY
+        ================================================ -->
+
         <div class="summary">
 
           <div class="summary-box">
+
             <span>
               Total Tests
             </span>
@@ -607,9 +1237,11 @@ function createPdfWindow(
             <strong>
               ${totalTests}
             </strong>
+
           </div>
 
           <div class="summary-box">
+
             <span>
               Passed
             </span>
@@ -617,9 +1249,11 @@ function createPdfWindow(
             <strong>
               ${passedTests}
             </strong>
+
           </div>
 
           <div class="summary-box">
+
             <span>
               Failed
             </span>
@@ -627,9 +1261,11 @@ function createPdfWindow(
             <strong>
               ${failedTests}
             </strong>
+
           </div>
 
           <div class="summary-box">
+
             <span>
               Average
             </span>
@@ -637,47 +1273,185 @@ function createPdfWindow(
             <strong>
               ${average.toFixed(1)}%
             </strong>
+
           </div>
 
         </div>
 
-        <table>
+        <!-- ===============================================
+             ALL TESTS + IMAGES
+        ================================================ -->
 
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Subject</th>
-              <th>Test</th>
-              <th>Date</th>
-              <th>Total</th>
-              <th>Obtained</th>
-              <th>%</th>
-              <th>Grade</th>
-              <th>Result</th>
-              <th>Remarks</th>
-            </tr>
-          </thead>
+        ${testSections}
 
-          <tbody>
-            ${rows}
-          </tbody>
-
-        </table>
+        <!-- ===============================================
+             FOOTER
+        ================================================ -->
 
         <div class="footer">
-          RACER ACADEMY •
+
+          RACER ACADEMY
+          •
           Student Result Report
+
         </div>
 
+        <!-- ===============================================
+             IMAGE LOAD + PRINT SCRIPT
+        ================================================ -->
+
         <script>
-          window.onload = function () {
-            setTimeout(function () {
-              window.print();
-            }, 500);
-          };
+
+          (function () {
+
+            function printWhenImagesReady() {
+
+              var images =
+                Array.prototype.slice.call(
+                  document.images
+                );
+
+              /*
+               * No images.
+               * Print normally.
+               */
+              if (
+                images.length === 0
+              ) {
+
+                setTimeout(
+                  function () {
+                    window.print();
+                  },
+                  700
+                );
+
+                return;
+              }
+
+              var finished = 0;
+
+              var printed = false;
+
+              function finishOneImage() {
+
+                finished++;
+
+                if (
+                  finished >=
+                  images.length &&
+                  !printed
+                ) {
+
+                  printed = true;
+
+                  setTimeout(
+                    function () {
+                      window.print();
+                    },
+                    700
+                  );
+
+                }
+
+              }
+
+              images.forEach(
+                function (image) {
+
+                  /*
+                   * Already loaded.
+                   */
+                  if (
+                    image.complete
+                  ) {
+
+                    finishOneImage();
+
+                    return;
+
+                  }
+
+                  /*
+                   * Successfully loaded.
+                   */
+                  image.addEventListener(
+                    "load",
+                    finishOneImage,
+                    {
+                      once: true
+                    }
+                  );
+
+                  /*
+                   * Failed image should not
+                   * stop the complete PDF.
+                   */
+                  image.addEventListener(
+                    "error",
+                    finishOneImage,
+                    {
+                      once: true
+                    }
+                  );
+
+                }
+              );
+
+              /*
+               * Safety fallback.
+               *
+               * If a remote/storage image
+               * takes too long, still print
+               * the PDF after 15 seconds.
+               */
+              setTimeout(
+                function () {
+
+                  if (
+                    !printed
+                  ) {
+
+                    printed = true;
+
+                    window.print();
+
+                  }
+
+                },
+                15000
+              );
+
+            }
+
+            /*
+             * Wait until popup document is ready.
+             */
+            if (
+              document.readyState ===
+              "complete"
+            ) {
+
+              printWhenImagesReady();
+
+            } else {
+
+              window.addEventListener(
+                "load",
+                printWhenImagesReady,
+                {
+                  once: true
+                }
+              );
+
+            }
+
+          })();
+
         </script>
 
       </body>
+
     </html>
   `);
 
@@ -689,22 +1463,33 @@ function createPdfWindow(
 ========================================================= */
 
 export default function StudentReportsPage() {
-  const router = useRouter();
+  const router =
+    useRouter();
 
   const [student, setStudent] =
-    useState<Student | null>(null);
+    useState<Student | null>(
+      null
+    );
 
   const [attendance, setAttendance] =
-    useState<AttendanceRow[]>([]);
+    useState<
+      AttendanceRow[]
+    >([]);
 
   const [fees, setFees] =
-    useState<FeeRow[]>([]);
+    useState<FeeRow[]>(
+      []
+    );
 
   const [assessments, setAssessments] =
-    useState<AssessmentRow[]>([]);
+    useState<
+      AssessmentRow[]
+    >([]);
 
   const [loading, setLoading] =
-    useState<boolean>(true);
+    useState<boolean>(
+      true
+    );
 
   const [error, setError] =
     useState<string>("");
@@ -724,10 +1509,14 @@ export default function StudentReportsPage() {
     );
 
   const [selectedSubject, setSelectedSubject] =
-    useState<string>("All");
+    useState<string>(
+      "All"
+    );
 
   const [expandedImages, setExpandedImages] =
-    useState<number | null>(null);
+    useState<number | null>(
+      null
+    );
 
   /* =======================================================
      LOAD REPORT
@@ -798,12 +1587,15 @@ export default function StudentReportsPage() {
         }
       }
 
-      if (!username?.trim()) {
+      if (
+        !username?.trim()
+      ) {
         setError(
           "Student login information not found."
         );
 
         setLoading(false);
+
         return;
       }
 
@@ -828,6 +1620,7 @@ export default function StudentReportsPage() {
         );
 
         setLoading(false);
+
         return;
       }
 
@@ -837,6 +1630,7 @@ export default function StudentReportsPage() {
         );
 
         setLoading(false);
+
         return;
       }
 
@@ -867,7 +1661,8 @@ export default function StudentReportsPage() {
           .order(
             "attendance_date",
             {
-              ascending: false,
+              ascending:
+                false,
             }
           );
 
@@ -877,6 +1672,7 @@ export default function StudentReportsPage() {
         );
 
         setLoading(false);
+
         return;
       }
 
@@ -897,12 +1693,20 @@ export default function StudentReportsPage() {
             "student_id",
             currentStudent.id
           )
-          .order("year", {
-            ascending: false,
-          })
-          .order("month", {
-            ascending: false,
-          });
+          .order(
+            "year",
+            {
+              ascending:
+                false,
+            }
+          )
+          .order(
+            "month",
+            {
+              ascending:
+                false,
+            }
+          );
 
       if (feesError) {
         setError(
@@ -910,6 +1714,7 @@ export default function StudentReportsPage() {
         );
 
         setLoading(false);
+
         return;
       }
 
@@ -933,13 +1738,15 @@ export default function StudentReportsPage() {
           .order(
             "test_date",
             {
-              ascending: false,
+              ascending:
+                false,
             }
           )
           .order(
             "created_at",
             {
-              ascending: false,
+              ascending:
+                false,
             }
           );
 
@@ -949,6 +1756,7 @@ export default function StudentReportsPage() {
         );
 
         setLoading(false);
+
         return;
       }
 
@@ -1016,31 +1824,35 @@ export default function StudentReportsPage() {
   ======================================================= */
 
   const filteredAttendance =
-    useMemo<AttendanceRow[]>(() => {
-      return attendance.filter(
-        (record) => {
-          const date =
-            new Date(
-              record.attendance_date
-            );
+    useMemo<AttendanceRow[]>(
+      () => {
+        return attendance.filter(
+          (record) => {
+            const date =
+              new Date(
+                record.attendance_date
+              );
 
-          return (
-            date.getMonth() + 1 ===
-              Number(
-                selectedMonth
-              ) &&
-            date.getFullYear() ===
-              Number(
-                selectedYear
-              )
-          );
-        }
-      );
-    }, [
-      attendance,
-      selectedMonth,
-      selectedYear,
-    ]);
+            return (
+              date.getMonth() +
+                1 ===
+                Number(
+                  selectedMonth
+                ) &&
+              date.getFullYear() ===
+                Number(
+                  selectedYear
+                )
+            );
+          }
+        );
+      },
+      [
+        attendance,
+        selectedMonth,
+        selectedYear,
+      ]
+    );
 
   const presentCount =
     filteredAttendance.filter(
@@ -1051,7 +1863,8 @@ export default function StudentReportsPage() {
           ).toUpperCase();
 
         return (
-          status === "PRESENT" ||
+          status ===
+            "PRESENT" ||
           status === "P"
         );
       }
@@ -1066,7 +1879,8 @@ export default function StudentReportsPage() {
           ).toUpperCase();
 
         return (
-          status === "ABSENT" ||
+          status ===
+            "ABSENT" ||
           status === "A"
         );
       }
@@ -1088,23 +1902,30 @@ export default function StudentReportsPage() {
   ======================================================= */
 
   const filteredFees =
-    useMemo<FeeRow[]>(() => {
-      return fees.filter(
-        (fee) =>
-          Number(fee.month) ===
+    useMemo<FeeRow[]>(
+      () => {
+        return fees.filter(
+          (fee) =>
             Number(
-              selectedMonth
-            ) &&
-          Number(fee.year) ===
+              fee.month
+            ) ===
+              Number(
+                selectedMonth
+              ) &&
             Number(
-              selectedYear
-            )
-      );
-    }, [
-      fees,
-      selectedMonth,
-      selectedYear,
-    ]);
+              fee.year
+            ) ===
+              Number(
+                selectedYear
+              )
+        );
+      },
+      [
+        fees,
+        selectedMonth,
+        selectedYear,
+      ]
+    );
 
   const totalFee =
     filteredFees.reduce(
@@ -1118,17 +1939,20 @@ export default function StudentReportsPage() {
 
   const paidFee =
     filteredFees
-      .filter((fee) => {
-        const status =
-          String(
-            fee.status || ""
-          ).toUpperCase();
+      .filter(
+        (fee) => {
+          const status =
+            String(
+              fee.status || ""
+            ).toUpperCase();
 
-        return (
-          status === "SUBMITTED" ||
-          status === "PAID"
-        );
-      })
+          return (
+            status ===
+              "SUBMITTED" ||
+            status === "PAID"
+          );
+        }
+      )
       .reduce(
         (sum, fee) =>
           sum +
@@ -1161,83 +1985,69 @@ export default function StudentReportsPage() {
   ======================================================= */
 
   const availableSubjects =
-    useMemo<string[]>(() => {
-      const subjects =
-        assessments
-          .map(
-            (item) =>
-              item.subject
-          )
-          .filter(
-            (
-              subject
-            ): subject is string =>
-              subject ===
-                "English" ||
-              subject ===
-                "Mathematics"
-          );
+    useMemo<string[]>(
+      () => {
+        const subjects =
+          assessments
+            .map(
+              (item) =>
+                item.subject
+            )
+            .filter(
+              (
+                subject
+              ): subject is string =>
+                subject ===
+                  "English" ||
+                subject ===
+                  "Mathematics"
+            );
 
-      return Array.from(
-        new Set(subjects)
-      );
-    }, [assessments]);
+        return Array.from(
+          new Set(subjects)
+        );
+      },
+      [assessments]
+    );
+
+  void availableSubjects;
 
   const filteredAssessments =
-    useMemo<AssessmentRow[]>(() => {
-      if (
-        selectedSubject ===
-        "All"
-      ) {
-        return assessments;
-      }
+    useMemo<AssessmentRow[]>(
+      () => {
+        if (
+          selectedSubject ===
+          "All"
+        ) {
+          return assessments;
+        }
 
-      return assessments.filter(
-        (item) =>
-          item.subject ===
-          selectedSubject
-      );
-    }, [
-      assessments,
-      selectedSubject,
-    ]);
+        return assessments.filter(
+          (item) =>
+            item.subject ===
+            selectedSubject
+        );
+      },
+      [
+        assessments,
+        selectedSubject,
+      ]
+    );
 
   /* =======================================================
      ASSESSMENT STATS
   ======================================================= */
 
   const assessmentStats =
-    useMemo(() => {
-      const totalTests =
-        filteredAssessments.length;
+    useMemo(
+      () => {
+        const totalTests =
+          filteredAssessments.length;
 
-      const passedTests =
-        filteredAssessments.filter(
-          (item) =>
-            isPass(
-              getPercentage(
-                Number(
-                  item.obtained_marks
-                ),
-                Number(
-                  item.total_marks
-                )
-              )
-            )
-        ).length;
-
-      const failedTests =
-        totalTests -
-        passedTests;
-
-      const averagePercentage =
-        totalTests > 0
-          ? filteredAssessments.reduce(
-              (
-                sum,
-                item
-              ) =>
-                sum +
+        const passedTests =
+          filteredAssessments.filter(
+            (item) =>
+              isPass(
                 getPercentage(
                   Number(
                     item.obtained_marks
@@ -1245,20 +2055,45 @@ export default function StudentReportsPage() {
                   Number(
                     item.total_marks
                   )
-                ),
-              0
-            ) / totalTests
-          : 0;
+                )
+              )
+          ).length;
 
-      return {
-        totalTests,
-        passedTests,
-        failedTests,
-        averagePercentage,
-      };
-    }, [
-      filteredAssessments,
-    ]);
+        const failedTests =
+          totalTests -
+          passedTests;
+
+        const averagePercentage =
+          totalTests > 0
+            ? filteredAssessments.reduce(
+                (
+                  sum,
+                  item
+                ) =>
+                  sum +
+                  getPercentage(
+                    Number(
+                      item.obtained_marks
+                    ),
+                    Number(
+                      item.total_marks
+                    )
+                  ),
+                0
+              ) / totalTests
+            : 0;
+
+        return {
+          totalTests,
+          passedTests,
+          failedTests,
+          averagePercentage,
+        };
+      },
+      [
+        filteredAssessments,
+      ]
+    );
 
   /* =======================================================
      PDF FUNCTIONS
@@ -1297,8 +2132,16 @@ export default function StudentReportsPage() {
 
   if (loading) {
     return (
-      <main style={styles.page}>
-        <div style={styles.loading}>
+      <main
+        style={
+          styles.page
+        }
+      >
+        <div
+          style={
+            styles.loading
+          }
+        >
           📊 Loading Student Reports...
         </div>
       </main>
@@ -1310,13 +2153,26 @@ export default function StudentReportsPage() {
   ======================================================= */
 
   return (
-    <main style={styles.page}>
-      <div style={styles.container}>
+    <main
+      style={
+        styles.page
+      }
+    >
+      <div
+        style={
+          styles.container
+        }
+      >
 
         {/* HEADER */}
 
-        <header style={styles.header}>
+        <header
+          style={
+            styles.header
+          }
+        >
           <div>
+
             <div
               style={
                 styles.smallTitle
@@ -1326,7 +2182,9 @@ export default function StudentReportsPage() {
             </div>
 
             <h1
-              style={styles.title}
+              style={
+                styles.title
+              }
             >
               📊 My Reports
             </h1>
@@ -1340,6 +2198,7 @@ export default function StudentReportsPage() {
               academy assessment
               reports
             </p>
+
           </div>
 
           <div
@@ -1347,6 +2206,7 @@ export default function StudentReportsPage() {
               styles.headerButtons
             }
           >
+
             <button
               type="button"
               onClick={() =>
@@ -1363,14 +2223,18 @@ export default function StudentReportsPage() {
 
             <button
               type="button"
-              onClick={logout}
+              onClick={
+                logout
+              }
               style={
                 styles.logoutButton
               }
             >
               🚪 Logout
             </button>
+
           </div>
+
         </header>
 
         {/* STUDENT INFO */}
@@ -1380,6 +2244,7 @@ export default function StudentReportsPage() {
             styles.studentCard
           }
         >
+
           <div
             style={
               styles.studentIcon
@@ -1389,6 +2254,7 @@ export default function StudentReportsPage() {
           </div>
 
           <div>
+
             <p
               style={
                 styles.infoLabel
@@ -1417,7 +2283,9 @@ export default function StudentReportsPage() {
                 student?.student_username
               }
             </p>
+
           </div>
+
         </section>
 
         {/* FILTER */}
@@ -1427,7 +2295,9 @@ export default function StudentReportsPage() {
             styles.filterCard
           }
         >
+
           <div>
+
             <h2
               style={
                 styles.sectionTitle
@@ -1443,6 +2313,7 @@ export default function StudentReportsPage() {
             >
               Select month and year
             </p>
+
           </div>
 
           <div
@@ -1450,9 +2321,13 @@ export default function StudentReportsPage() {
               styles.filterGrid
             }
           >
+
             <div>
+
               <label
-                style={styles.label}
+                style={
+                  styles.label
+                }
               >
                 Month
               </label>
@@ -1466,29 +2341,40 @@ export default function StudentReportsPage() {
                     e.target.value
                   )
                 }
-                style={styles.input}
+                style={
+                  styles.input
+                }
               >
+
                 {months.map(
                   (
                     month,
                     index
                   ) => (
                     <option
-                      key={month}
+                      key={
+                        month
+                      }
                       value={
-                        index + 1
+                        index +
+                        1
                       }
                     >
                       {month}
                     </option>
                   )
                 )}
+
               </select>
+
             </div>
 
             <div>
+
               <label
-                style={styles.label}
+                style={
+                  styles.label
+                }
               >
                 Year
               </label>
@@ -1502,28 +2388,43 @@ export default function StudentReportsPage() {
                     e.target.value
                   )
                 }
-                style={styles.input}
+                style={
+                  styles.input
+                }
               >
+
                 {years.map(
-                  (year) => (
+                  (
+                    year
+                  ) => (
                     <option
-                      key={year}
-                      value={year}
+                      key={
+                        year
+                      }
+                      value={
+                        year
+                      }
                     >
                       {year}
                     </option>
                   )
                 )}
+
               </select>
+
             </div>
+
           </div>
+
         </section>
 
         {/* ERROR */}
 
         {error && (
           <div
-            style={styles.error}
+            style={
+              styles.error
+            }
           >
             ❌ {error}
           </div>
@@ -1532,14 +2433,19 @@ export default function StudentReportsPage() {
         {/* ATTENDANCE */}
 
         <section
-          style={styles.card}
+          style={
+            styles.card
+          }
         >
+
           <div
             style={
               styles.sectionHeader
             }
           >
+
             <div>
+
               <h2
                 style={
                   styles.sectionTitle
@@ -1562,7 +2468,9 @@ export default function StudentReportsPage() {
                 }{" "}
                 {selectedYear}
               </p>
+
             </div>
+
           </div>
 
           <div
@@ -1570,6 +2478,7 @@ export default function StudentReportsPage() {
               styles.statsGrid
             }
           >
+
             <div
               style={{
                 ...styles.statCard,
@@ -1577,6 +2486,7 @@ export default function StudentReportsPage() {
                   "linear-gradient(135deg,#2563eb,#4f46e5)",
               }}
             >
+
               <div
                 style={
                   styles.statIcon
@@ -1586,6 +2496,7 @@ export default function StudentReportsPage() {
               </div>
 
               <div>
+
                 <p
                   style={
                     styles.statLabel
@@ -1599,9 +2510,13 @@ export default function StudentReportsPage() {
                     styles.statValue
                   }
                 >
-                  {totalClasses}
+                  {
+                    totalClasses
+                  }
                 </h3>
+
               </div>
+
             </div>
 
             <div
@@ -1611,6 +2526,7 @@ export default function StudentReportsPage() {
                   "linear-gradient(135deg,#16a34a,#22c55e)",
               }}
             >
+
               <div
                 style={
                   styles.statIcon
@@ -1620,6 +2536,7 @@ export default function StudentReportsPage() {
               </div>
 
               <div>
+
                 <p
                   style={
                     styles.statLabel
@@ -1633,9 +2550,13 @@ export default function StudentReportsPage() {
                     styles.statValue
                   }
                 >
-                  {presentCount}
+                  {
+                    presentCount
+                  }
                 </h3>
+
               </div>
+
             </div>
 
             <div
@@ -1645,6 +2566,7 @@ export default function StudentReportsPage() {
                   "linear-gradient(135deg,#dc2626,#ef4444)",
               }}
             >
+
               <div
                 style={
                   styles.statIcon
@@ -1654,6 +2576,7 @@ export default function StudentReportsPage() {
               </div>
 
               <div>
+
                 <p
                   style={
                     styles.statLabel
@@ -1667,9 +2590,13 @@ export default function StudentReportsPage() {
                     styles.statValue
                   }
                 >
-                  {absentCount}
+                  {
+                    absentCount
+                  }
                 </h3>
+
               </div>
+
             </div>
 
             <div
@@ -1679,6 +2606,7 @@ export default function StudentReportsPage() {
                   "linear-gradient(135deg,#7c3aed,#9333ea)",
               }}
             >
+
               <div
                 style={
                   styles.statIcon
@@ -1688,6 +2616,7 @@ export default function StudentReportsPage() {
               </div>
 
               <div>
+
                 <p
                   style={
                     styles.statLabel
@@ -1706,8 +2635,11 @@ export default function StudentReportsPage() {
                   )}
                   %
                 </h3>
+
               </div>
+
             </div>
+
           </div>
 
           {/* PROGRESS */}
@@ -1717,11 +2649,13 @@ export default function StudentReportsPage() {
               styles.progressBox
             }
           >
+
             <div
               style={
                 styles.progressHeader
               }
             >
+
               <strong>
                 Attendance Percentage
               </strong>
@@ -1732,6 +2666,7 @@ export default function StudentReportsPage() {
                 )}
                 %
               </strong>
+
             </div>
 
             <div
@@ -1739,6 +2674,7 @@ export default function StudentReportsPage() {
                 styles.progressBackground
               }
             >
+
               <div
                 style={{
                   ...styles.progressBar,
@@ -1751,6 +2687,7 @@ export default function StudentReportsPage() {
                   )}%`,
                 }}
               />
+
             </div>
 
             <p
@@ -1766,6 +2703,7 @@ export default function StudentReportsPage() {
                 ? "⚠️ Attendance is below 75%."
                 : "No attendance records for this month."}
             </p>
+
           </div>
 
           {/* ATTENDANCE TABLE */}
@@ -1773,7 +2711,9 @@ export default function StudentReportsPage() {
           {filteredAttendance.length ===
           0 ? (
             <div
-              style={styles.empty}
+              style={
+                styles.empty
+              }
             >
               📭 No attendance records
               found for this month.
@@ -1784,34 +2724,52 @@ export default function StudentReportsPage() {
                 styles.tableWrapper
               }
             >
+
               <table
-                style={styles.table}
+                style={
+                  styles.table
+                }
               >
+
                 <thead>
+
                   <tr>
+
                     <th
-                      style={styles.th}
+                      style={
+                        styles.th
+                      }
                     >
                       Date
                     </th>
 
                     <th
-                      style={styles.th}
+                      style={
+                        styles.th
+                      }
                     >
                       Day
                     </th>
 
                     <th
-                      style={styles.th}
+                      style={
+                        styles.th
+                      }
                     >
                       Status
                     </th>
+
                   </tr>
+
                 </thead>
 
                 <tbody>
+
                   {filteredAttendance.map(
-                    (record) => {
+                    (
+                      record
+                    ) => {
+
                       const date =
                         new Date(
                           record.attendance_date
@@ -1826,7 +2784,8 @@ export default function StudentReportsPage() {
                       const isPresent =
                         status ===
                           "PRESENT" ||
-                        status === "P";
+                        status ===
+                          "P";
 
                       return (
                         <tr
@@ -1834,6 +2793,7 @@ export default function StudentReportsPage() {
                             record.id
                           }
                         >
+
                           <td
                             style={
                               styles.td
@@ -1863,6 +2823,7 @@ export default function StudentReportsPage() {
                               styles.td
                             }
                           >
+
                             <span
                               style={{
                                 ...styles.badge,
@@ -1875,15 +2836,21 @@ export default function StudentReportsPage() {
                                 ? "✓ PRESENT"
                                 : "✕ ABSENT"}
                             </span>
+
                           </td>
+
                         </tr>
                       );
                     }
                   )}
+
                 </tbody>
+
               </table>
+
             </div>
           )}
+
         </section>
 
         {/* =================================================
@@ -1895,12 +2862,15 @@ export default function StudentReportsPage() {
             styles.assessmentCard
           }
         >
+
           <div
             style={
               styles.assessmentHeader
             }
           >
+
             <div>
+
               <div
                 style={
                   styles.assessmentBrand
@@ -1926,6 +2896,7 @@ export default function StudentReportsPage() {
                 Mathematics test
                 results
               </p>
+
             </div>
 
             {assessments.length >
@@ -1942,6 +2913,7 @@ export default function StudentReportsPage() {
                 📄 Download Result PDF
               </button>
             )}
+
           </div>
 
           {/* SUBJECT SELECTOR */}
@@ -1951,7 +2923,9 @@ export default function StudentReportsPage() {
               styles.subjectArea
             }
           >
+
             <div>
+
               <label
                 style={
                   styles.subjectLabel
@@ -1968,6 +2942,7 @@ export default function StudentReportsPage() {
                 See the tests given
                 in each subject.
               </p>
+
             </div>
 
             <select
@@ -1983,6 +2958,7 @@ export default function StudentReportsPage() {
                 styles.subjectSelect
               }
             >
+
               <option value="All">
                 All Subjects
               </option>
@@ -1994,7 +2970,9 @@ export default function StudentReportsPage() {
               <option value="Mathematics">
                 📐 Mathematics
               </option>
+
             </select>
+
           </div>
 
           {/* SUBJECT SUMMARY */}
@@ -2004,11 +2982,13 @@ export default function StudentReportsPage() {
               styles.subjectSummaryGrid
             }
           >
+
             <div
               style={
                 styles.subjectSummary
               }
             >
+
               <span>
                 📚 English
               </span>
@@ -2026,6 +3006,7 @@ export default function StudentReportsPage() {
               <small>
                 Tests
               </small>
+
             </div>
 
             <div
@@ -2033,6 +3014,7 @@ export default function StudentReportsPage() {
                 styles.subjectSummary
               }
             >
+
               <span>
                 📐 Mathematics
               </span>
@@ -2050,7 +3032,9 @@ export default function StudentReportsPage() {
               <small>
                 Tests
               </small>
+
             </div>
+
           </div>
 
           {/* TEST STATS */}
@@ -2060,14 +3044,19 @@ export default function StudentReportsPage() {
               styles.assessmentStatsGrid
             }
           >
+
             <div
               style={
                 styles.assessmentStat
               }
             >
-              <span>📝</span>
+
+              <span>
+                📝
+              </span>
 
               <div>
+
                 <small>
                   Total Tests
                 </small>
@@ -2077,7 +3066,9 @@ export default function StudentReportsPage() {
                     assessmentStats.totalTests
                   }
                 </strong>
+
               </div>
+
             </div>
 
             <div
@@ -2085,9 +3076,13 @@ export default function StudentReportsPage() {
                 styles.assessmentStat
               }
             >
-              <span>✅</span>
+
+              <span>
+                ✅
+              </span>
 
               <div>
+
                 <small>
                   Passed
                 </small>
@@ -2102,7 +3097,9 @@ export default function StudentReportsPage() {
                     assessmentStats.passedTests
                   }
                 </strong>
+
               </div>
+
             </div>
 
             <div
@@ -2110,9 +3107,13 @@ export default function StudentReportsPage() {
                 styles.assessmentStat
               }
             >
-              <span>❌</span>
+
+              <span>
+                ❌
+              </span>
 
               <div>
+
                 <small>
                   Failed
                 </small>
@@ -2127,7 +3128,9 @@ export default function StudentReportsPage() {
                     assessmentStats.failedTests
                   }
                 </strong>
+
               </div>
+
             </div>
 
             <div
@@ -2135,9 +3138,13 @@ export default function StudentReportsPage() {
                 styles.assessmentStat
               }
             >
-              <span>📈</span>
+
+              <span>
+                📈
+              </span>
 
               <div>
+
                 <small>
                   Average
                 </small>
@@ -2148,8 +3155,11 @@ export default function StudentReportsPage() {
                   )}
                   %
                 </strong>
+
               </div>
+
             </div>
+
           </div>
 
           {/* RESULTS */}
@@ -2157,8 +3167,11 @@ export default function StudentReportsPage() {
           {assessments.length ===
           0 ? (
             <div
-              style={styles.empty}
+              style={
+                styles.empty
+              }
             >
+
               <div
                 style={
                   styles.emptyIcon
@@ -2182,14 +3195,20 @@ export default function StudentReportsPage() {
                 after the teacher
                 enters your marks.
               </p>
+
             </div>
           ) : filteredAssessments.length ===
             0 ? (
             <div
-              style={styles.empty}
+              style={
+                styles.empty
+              }
             >
               📭 No{" "}
-              {selectedSubject} test
+              {
+                selectedSubject
+              }{" "}
+              test
               results available.
             </div>
           ) : (
@@ -2198,11 +3217,13 @@ export default function StudentReportsPage() {
                 styles.testCards
               }
             >
+
               {filteredAssessments.map(
                 (
                   item,
                   index
                 ) => {
+
                   const percentage =
                     getPercentage(
                       Number(
@@ -2241,6 +3262,7 @@ export default function StudentReportsPage() {
                         styles.testCard
                       }
                     >
+
                       {/* TEST TOP */}
 
                       <div
@@ -2248,7 +3270,9 @@ export default function StudentReportsPage() {
                           styles.testTop
                         }
                       >
+
                         <div>
+
                           <span
                             style={
                               styles.testNumber
@@ -2278,6 +3302,7 @@ export default function StudentReportsPage() {
                               item.subject
                             )}
                           </div>
+
                         </div>
 
                         <button
@@ -2293,6 +3318,7 @@ export default function StudentReportsPage() {
                         >
                           📄 PDF
                         </button>
+
                       </div>
 
                       {/* TEST META */}
@@ -2302,7 +3328,9 @@ export default function StudentReportsPage() {
                           styles.testMeta
                         }
                       >
+
                         <div>
+
                           <small>
                             Test Date
                           </small>
@@ -2312,9 +3340,11 @@ export default function StudentReportsPage() {
                               item.test_date
                             )}
                           </strong>
+
                         </div>
 
                         <div>
+
                           <small>
                             Total Marks
                           </small>
@@ -2324,9 +3354,11 @@ export default function StudentReportsPage() {
                               item.total_marks
                             }
                           </strong>
+
                         </div>
 
                         <div>
+
                           <small>
                             Obtained
                           </small>
@@ -2341,9 +3373,11 @@ export default function StudentReportsPage() {
                               item.obtained_marks
                             }
                           </strong>
+
                         </div>
 
                         <div>
+
                           <small>
                             Percentage
                           </small>
@@ -2354,9 +3388,11 @@ export default function StudentReportsPage() {
                             )}
                             %
                           </strong>
+
                         </div>
 
                         <div>
+
                           <small>
                             Grade
                           </small>
@@ -2376,11 +3412,15 @@ export default function StudentReportsPage() {
                                   : "#166534",
                             }}
                           >
-                            {grade}
+                            {
+                              grade
+                            }
                           </span>
+
                         </div>
 
                         <div>
+
                           <small>
                             Result
                           </small>
@@ -2402,7 +3442,9 @@ export default function StudentReportsPage() {
                               ? "PASS"
                               : "FAIL"}
                           </span>
+
                         </div>
+
                       </div>
 
                       {/* REMARKS */}
@@ -2412,6 +3454,7 @@ export default function StudentReportsPage() {
                           styles.remarksBox
                         }
                       >
+
                         <strong>
                           📝 Remarks
                         </strong>
@@ -2420,6 +3463,7 @@ export default function StudentReportsPage() {
                           {item.remarks ||
                             "No remarks added by teacher."}
                         </p>
+
                       </div>
 
                       {/* TEST IMAGES */}
@@ -2429,12 +3473,15 @@ export default function StudentReportsPage() {
                           styles.imagesSection
                         }
                       >
+
                         <div
                           style={
                             styles.imagesHeader
                           }
                         >
+
                           <div>
+
                             <strong>
                               📸 Uploaded Test
                               Images &
@@ -2450,6 +3497,7 @@ export default function StudentReportsPage() {
                               images uploaded
                               by teacher
                             </p>
+
                           </div>
 
                           {imageUrls.length >
@@ -2472,6 +3520,7 @@ export default function StudentReportsPage() {
                                 : `View Images (${imageUrls.length})`}
                             </button>
                           )}
+
                         </div>
 
                         {imageUrls.length ===
@@ -2499,6 +3548,7 @@ export default function StudentReportsPage() {
                                 styles.imageGrid
                               }
                             >
+
                               {imageUrls.map(
                                 (
                                   url,
@@ -2515,6 +3565,7 @@ export default function StudentReportsPage() {
                                       styles.imageLink
                                     }
                                   >
+
                                     <img
                                       src={
                                         url
@@ -2533,17 +3584,22 @@ export default function StudentReportsPage() {
                                       {imageIndex +
                                         1}
                                     </span>
+
                                   </a>
                                 )
                               )}
+
                             </div>
                           )
                         )}
+
                       </div>
+
                     </article>
                   );
                 }
               )}
+
             </div>
           )}
 
@@ -2554,6 +3610,7 @@ export default function StudentReportsPage() {
               styles.gradeInfo
             }
           >
+
             <h3
               style={
                 styles.gradeInfoTitle
@@ -2567,29 +3624,61 @@ export default function StudentReportsPage() {
                 styles.gradeGrid
               }
             >
+
               {[
-                ["90–100%", "A+"],
-                ["80–89%", "A"],
-                ["70–79%", "B+"],
-                ["60–69%", "B"],
-                ["50–59%", "C"],
-                ["40–49%", "D"],
-                ["Below 40%", "F"],
+                [
+                  "90–100%",
+                  "A+",
+                ],
+                [
+                  "80–89%",
+                  "A",
+                ],
+                [
+                  "70–79%",
+                  "B+",
+                ],
+                [
+                  "60–69%",
+                  "B",
+                ],
+                [
+                  "50–59%",
+                  "C",
+                ],
+                [
+                  "40–49%",
+                  "D",
+                ],
+                [
+                  "Below 40%",
+                  "F",
+                ],
               ].map(
-                ([range, grade]) => (
+                ([
+                  range,
+                  grade,
+                ]) => (
                   <div
-                    key={grade}
+                    key={
+                      grade
+                    }
                     style={
                       styles.gradeInfoItem
                     }
                   >
+
                     <strong>
-                      {range}
+                      {
+                        range
+                      }
                     </strong>
 
                     <span>
                       Grade{" "}
-                      {grade}
+                      {
+                        grade
+                      }
                     </span>
 
                     <small
@@ -2608,24 +3697,33 @@ export default function StudentReportsPage() {
                         ? "FAIL"
                         : "PASS"}
                     </small>
+
                   </div>
                 )
               )}
+
             </div>
+
           </div>
+
         </section>
 
         {/* FEES */}
 
         <section
-          style={styles.card}
+          style={
+            styles.card
+          }
         >
+
           <div
             style={
               styles.sectionHeader
             }
           >
+
             <div>
+
               <h2
                 style={
                   styles.sectionTitle
@@ -2648,6 +3746,7 @@ export default function StudentReportsPage() {
                 }{" "}
                 {selectedYear}
               </p>
+
             </div>
 
             <button
@@ -2663,21 +3762,31 @@ export default function StudentReportsPage() {
             >
               View Fees →
             </button>
+
           </div>
 
           <div
-            style={styles.feeGrid}
+            style={
+              styles.feeGrid
+            }
           >
+
             <div
-              style={styles.feeCard}
+              style={
+                styles.feeCard
+              }
             >
+
               <div
-                style={styles.feeIcon}
+                style={
+                  styles.feeIcon
+                }
               >
                 💰
               </div>
 
               <div>
+
                 <p
                   style={
                     styles.feeLabel
@@ -2696,19 +3805,27 @@ export default function StudentReportsPage() {
                     "en-IN"
                   )}
                 </h3>
+
               </div>
+
             </div>
 
             <div
-              style={styles.feeCard}
+              style={
+                styles.feeCard
+              }
             >
+
               <div
-                style={styles.feeIcon}
+                style={
+                  styles.feeIcon
+                }
               >
                 ✅
               </div>
 
               <div>
+
                 <p
                   style={
                     styles.feeLabel
@@ -2727,19 +3844,27 @@ export default function StudentReportsPage() {
                     "en-IN"
                   )}
                 </h3>
+
               </div>
+
             </div>
 
             <div
-              style={styles.feeCard}
+              style={
+                styles.feeCard
+              }
             >
+
               <div
-                style={styles.feeIcon}
+                style={
+                  styles.feeIcon
+                }
               >
                 ⏳
               </div>
 
               <div>
+
                 <p
                   style={
                     styles.feeLabel
@@ -2758,14 +3883,19 @@ export default function StudentReportsPage() {
                     "en-IN"
                   )}
                 </h3>
+
               </div>
+
             </div>
+
           </div>
 
           {filteredFees.length ===
           0 ? (
             <div
-              style={styles.empty}
+              style={
+                styles.empty
+              }
             >
               📭 No fee records
               found for this
@@ -2777,40 +3907,60 @@ export default function StudentReportsPage() {
                 styles.tableWrapper
               }
             >
+
               <table
-                style={styles.table}
+                style={
+                  styles.table
+                }
               >
+
                 <thead>
+
                   <tr>
+
                     <th
-                      style={styles.th}
+                      style={
+                        styles.th
+                      }
                     >
                       Month
                     </th>
 
                     <th
-                      style={styles.th}
+                      style={
+                        styles.th
+                      }
                     >
                       Amount
                     </th>
 
                     <th
-                      style={styles.th}
+                      style={
+                        styles.th
+                      }
                     >
                       Status
                     </th>
 
                     <th
-                      style={styles.th}
+                      style={
+                        styles.th
+                      }
                     >
                       Payment Date
                     </th>
+
                   </tr>
+
                 </thead>
 
                 <tbody>
+
                   {filteredFees.map(
-                    (fee) => {
+                    (
+                      fee
+                    ) => {
+
                       const status =
                         String(
                           fee.status ||
@@ -2833,6 +3983,7 @@ export default function StudentReportsPage() {
                             fee.id
                           }
                         >
+
                           <td
                             style={
                               styles.td
@@ -2870,6 +4021,7 @@ export default function StudentReportsPage() {
                               styles.td
                             }
                           >
+
                             <span
                               style={{
                                 ...styles.badge,
@@ -2880,8 +4032,11 @@ export default function StudentReportsPage() {
                                   : styles.pendingBadge),
                               }}
                             >
-                              {fee.status}
+                              {
+                                fee.status
+                              }
                             </span>
+
                           </td>
 
                           <td
@@ -2893,21 +4048,29 @@ export default function StudentReportsPage() {
                               fee.payment_date
                             )}
                           </td>
+
                         </tr>
                       );
                     }
                   )}
+
                 </tbody>
+
               </table>
+
             </div>
           )}
+
         </section>
 
         {/* OVERALL */}
 
         <section
-          style={styles.card}
+          style={
+            styles.card
+          }
         >
+
           <h2
             style={
               styles.sectionTitle
@@ -2930,11 +4093,13 @@ export default function StudentReportsPage() {
               styles.overallGrid
             }
           >
+
             <div
               style={
                 styles.overallItem
               }
             >
+
               <span>
                 Total Attendance
                 Records
@@ -2945,6 +4110,7 @@ export default function StudentReportsPage() {
                   attendance.length
                 }
               </strong>
+
             </div>
 
             <div
@@ -2952,13 +4118,17 @@ export default function StudentReportsPage() {
                 styles.overallItem
               }
             >
+
               <span>
                 Total Fee Records
               </span>
 
               <strong>
-                {fees.length}
+                {
+                  fees.length
+                }
               </strong>
+
             </div>
 
             <div
@@ -2966,6 +4136,7 @@ export default function StudentReportsPage() {
                 styles.overallItem
               }
             >
+
               <span>
                 Academy Tests
               </span>
@@ -2975,6 +4146,7 @@ export default function StudentReportsPage() {
                   assessments.length
                 }
               </strong>
+
             </div>
 
             <div
@@ -2982,6 +4154,7 @@ export default function StudentReportsPage() {
                 styles.overallItem
               }
             >
+
               <span>
                 Test Average
               </span>
@@ -2992,23 +4165,32 @@ export default function StudentReportsPage() {
                 )}
                 %
               </strong>
+
             </div>
+
           </div>
+
         </section>
 
         {/* FOOTER */}
 
         <footer
-          style={styles.footer}
+          style={
+            styles.footer
+          }
         >
+
           <strong>
             RACER ACADEMY
           </strong>
 
           <span>
             Student Reports •{" "}
-            {new Date().getFullYear()}
+            {
+              new Date().getFullYear()
+            }
           </span>
+
         </footer>
 
       </div>
@@ -3024,361 +4206,544 @@ const styles: Record<
   string,
   CSSProperties
 > = {
+
   page: {
-    minHeight: "100vh",
+    minHeight:
+      "100vh",
     background:
       "linear-gradient(135deg,#eef2ff,#f8fafc,#eff6ff)",
-    padding: "20px 15px",
-    boxSizing: "border-box",
+    padding:
+      "20px 15px",
+    boxSizing:
+      "border-box",
     fontFamily:
       "Arial, Helvetica, sans-serif",
   },
 
   container: {
-    width: "100%",
-    maxWidth: "1200px",
-    margin: "0 auto",
+    width:
+      "100%",
+    maxWidth:
+      "1200px",
+    margin:
+      "0 auto",
   },
 
   header: {
-    background: "white",
-    borderRadius: "18px",
-    padding: "20px",
-    display: "flex",
-    alignItems: "center",
+    background:
+      "white",
+    borderRadius:
+      "18px",
+    padding:
+      "20px",
+    display:
+      "flex",
+    alignItems:
+      "center",
     justifyContent:
       "space-between",
-    gap: "15px",
-    marginBottom: "20px",
+    gap:
+      "15px",
+    marginBottom:
+      "20px",
     boxShadow:
       "0 8px 25px rgba(15,23,42,0.08)",
-    flexWrap: "wrap",
+    flexWrap:
+      "wrap",
   },
 
   smallTitle: {
-    color: "#2563eb",
-    fontSize: "11px",
-    fontWeight: "800",
-    letterSpacing: "3px",
+    color:
+      "#2563eb",
+    fontSize:
+      "11px",
+    fontWeight:
+      "800",
+    letterSpacing:
+      "3px",
   },
 
   title: {
-    margin: "5px 0 0",
-    color: "#172554",
-    fontSize: "30px",
-    fontWeight: "800",
+    margin:
+      "5px 0 0",
+    color:
+      "#172554",
+    fontSize:
+      "30px",
+    fontWeight:
+      "800",
   },
 
   subtitle: {
-    margin: "5px 0 0",
-    color: "#64748b",
-    fontSize: "13px",
+    margin:
+      "5px 0 0",
+    color:
+      "#64748b",
+    fontSize:
+      "13px",
   },
 
   headerButtons: {
-    display: "flex",
-    gap: "10px",
-    flexWrap: "wrap",
+    display:
+      "flex",
+    gap:
+      "10px",
+    flexWrap:
+      "wrap",
   },
 
   dashboardButton: {
-    border: "none",
-    background: "#1e3a8a",
-    color: "white",
-    padding: "11px 16px",
-    borderRadius: "10px",
-    fontWeight: "700",
-    cursor: "pointer",
+    border:
+      "none",
+    background:
+      "#1e3a8a",
+    color:
+      "white",
+    padding:
+      "11px 16px",
+    borderRadius:
+      "10px",
+    fontWeight:
+      "700",
+    cursor:
+      "pointer",
   },
 
   logoutButton: {
-    border: "none",
-    background: "#dc2626",
-    color: "white",
-    padding: "11px 16px",
-    borderRadius: "10px",
-    fontWeight: "700",
-    cursor: "pointer",
+    border:
+      "none",
+    background:
+      "#dc2626",
+    color:
+      "white",
+    padding:
+      "11px 16px",
+    borderRadius:
+      "10px",
+    fontWeight:
+      "700",
+    cursor:
+      "pointer",
   },
 
   studentCard: {
     background:
       "linear-gradient(135deg,#2563eb,#4f46e5,#7c3aed)",
-    color: "white",
-    borderRadius: "20px",
-    padding: "25px",
-    display: "flex",
-    alignItems: "center",
-    gap: "18px",
-    marginBottom: "20px",
+    color:
+      "white",
+    borderRadius:
+      "20px",
+    padding:
+      "25px",
+    display:
+      "flex",
+    alignItems:
+      "center",
+    gap:
+      "18px",
+    marginBottom:
+      "20px",
     boxShadow:
       "0 15px 35px rgba(37,99,235,0.20)",
   },
 
   studentIcon: {
-    width: "70px",
-    height: "70px",
-    borderRadius: "20px",
+    width:
+      "70px",
+    height:
+      "70px",
+    borderRadius:
+      "20px",
     background:
       "rgba(255,255,255,0.16)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "38px",
-    flexShrink: 0,
+    display:
+      "flex",
+    alignItems:
+      "center",
+    justifyContent:
+      "center",
+    fontSize:
+      "38px",
+    flexShrink:
+      0,
   },
 
   infoLabel: {
-    margin: 0,
-    fontSize: "11px",
-    letterSpacing: "2px",
-    fontWeight: "800",
-    opacity: 0.8,
+    margin:
+      0,
+    fontSize:
+      "11px",
+    letterSpacing:
+      "2px",
+    fontWeight:
+      "800",
+    opacity:
+      0.8,
   },
 
   studentName: {
-    margin: "4px 0",
-    fontSize: "25px",
-    fontWeight: "800",
+    margin:
+      "4px 0",
+    fontSize:
+      "25px",
+    fontWeight:
+      "800",
   },
 
   username: {
-    margin: 0,
-    fontSize: "13px",
-    opacity: 0.85,
+    margin:
+      0,
+    fontSize:
+      "13px",
+    opacity:
+      0.85,
   },
 
   filterCard: {
-    background: "white",
-    borderRadius: "18px",
-    padding: "22px",
-    marginBottom: "20px",
+    background:
+      "white",
+    borderRadius:
+      "18px",
+    padding:
+      "22px",
+    marginBottom:
+      "20px",
     boxShadow:
       "0 8px 25px rgba(15,23,42,0.07)",
-    display: "flex",
+    display:
+      "flex",
     justifyContent:
       "space-between",
-    alignItems: "center",
-    gap: "20px",
-    flexWrap: "wrap",
+    alignItems:
+      "center",
+    gap:
+      "20px",
+    flexWrap:
+      "wrap",
   },
 
   sectionTitle: {
-    margin: 0,
-    color: "#172554",
-    fontSize: "21px",
-    fontWeight: "800",
+    margin:
+      0,
+    color:
+      "#172554",
+    fontSize:
+      "21px",
+    fontWeight:
+      "800",
   },
 
   sectionSubtitle: {
-    margin: "5px 0 0",
-    color: "#64748b",
-    fontSize: "13px",
+    margin:
+      "5px 0 0",
+    color:
+      "#64748b",
+    fontSize:
+      "13px",
   },
 
   filterGrid: {
-    display: "flex",
-    gap: "12px",
-    flexWrap: "wrap",
+    display:
+      "flex",
+    gap:
+      "12px",
+    flexWrap:
+      "wrap",
   },
 
   label: {
-    display: "block",
-    marginBottom: "6px",
-    color: "#334155",
-    fontSize: "12px",
-    fontWeight: "700",
+    display:
+      "block",
+    marginBottom:
+      "6px",
+    color:
+      "#334155",
+    fontSize:
+      "12px",
+    fontWeight:
+      "700",
   },
 
   input: {
-    minWidth: "150px",
-    padding: "11px 12px",
+    minWidth:
+      "150px",
+    padding:
+      "11px 12px",
     border:
       "1px solid #cbd5e1",
-    borderRadius: "10px",
-    background: "white",
-    color: "#111827",
-    fontSize: "14px",
+    borderRadius:
+      "10px",
+    background:
+      "white",
+    color:
+      "#111827",
+    fontSize:
+      "14px",
   },
 
   error: {
-    background: "#fee2e2",
-    color: "#991b1b",
-    padding: "14px",
-    borderRadius: "12px",
-    marginBottom: "20px",
-    fontWeight: "600",
+    background:
+      "#fee2e2",
+    color:
+      "#991b1b",
+    padding:
+      "14px",
+    borderRadius:
+      "12px",
+    marginBottom:
+      "20px",
+    fontWeight:
+      "600",
   },
 
   card: {
-    background: "white",
-    borderRadius: "20px",
-    padding: "24px",
-    marginBottom: "20px",
+    background:
+      "white",
+    borderRadius:
+      "20px",
+    padding:
+      "24px",
+    marginBottom:
+      "20px",
     boxShadow:
       "0 8px 25px rgba(15,23,42,0.07)",
   },
 
   sectionHeader: {
-    display: "flex",
+    display:
+      "flex",
     justifyContent:
       "space-between",
-    alignItems: "center",
-    gap: "15px",
-    marginBottom: "20px",
-    flexWrap: "wrap",
+    alignItems:
+      "center",
+    gap:
+      "15px",
+    marginBottom:
+      "20px",
+    flexWrap:
+      "wrap",
   },
 
   statsGrid: {
-    display: "grid",
+    display:
+      "grid",
     gridTemplateColumns:
       "repeat(auto-fit,minmax(190px,1fr))",
-    gap: "15px",
+    gap:
+      "15px",
   },
 
   statCard: {
-    color: "white",
-    borderRadius: "17px",
-    padding: "18px",
-    display: "flex",
-    alignItems: "center",
-    gap: "13px",
+    color:
+      "white",
+    borderRadius:
+      "17px",
+    padding:
+      "18px",
+    display:
+      "flex",
+    alignItems:
+      "center",
+    gap:
+      "13px",
   },
 
   statIcon: {
-    width: "48px",
-    height: "48px",
-    borderRadius: "14px",
+    width:
+      "48px",
+    height:
+      "48px",
+    borderRadius:
+      "14px",
     background:
       "rgba(255,255,255,0.16)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "23px",
-    flexShrink: 0,
+    display:
+      "flex",
+    alignItems:
+      "center",
+    justifyContent:
+      "center",
+    fontSize:
+      "23px",
+    flexShrink:
+      0,
   },
 
   statLabel: {
-    margin: 0,
-    fontSize: "12px",
-    opacity: 0.85,
+    margin:
+      0,
+    fontSize:
+      "12px",
+    opacity:
+      0.85,
   },
 
   statValue: {
-    margin: "4px 0 0",
-    fontSize: "24px",
-    fontWeight: "800",
+    margin:
+      "4px 0 0",
+    fontSize:
+      "24px",
+    fontWeight:
+      "800",
   },
 
   progressBox: {
-    marginTop: "22px",
-    padding: "18px",
-    background: "#f8fafc",
-    borderRadius: "15px",
+    marginTop:
+      "22px",
+    padding:
+      "18px",
+    background:
+      "#f8fafc",
+    borderRadius:
+      "15px",
     border:
       "1px solid #e2e8f0",
   },
 
   progressHeader: {
-    display: "flex",
+    display:
+      "flex",
     justifyContent:
       "space-between",
-    color: "#334155",
-    fontSize: "14px",
-    marginBottom: "10px",
+    color:
+      "#334155",
+    fontSize:
+      "14px",
+    marginBottom:
+      "10px",
   },
 
   progressBackground: {
-    width: "100%",
-    height: "14px",
-    background: "#e2e8f0",
-    borderRadius: "999px",
-    overflow: "hidden",
+    width:
+      "100%",
+    height:
+      "14px",
+    background:
+      "#e2e8f0",
+    borderRadius:
+      "999px",
+    overflow:
+      "hidden",
   },
 
   progressBar: {
-    height: "100%",
+    height:
+      "100%",
     background:
       "linear-gradient(90deg,#2563eb,#7c3aed)",
-    borderRadius: "999px",
+    borderRadius:
+      "999px",
     transition:
       "width 0.4s ease",
   },
 
   progressText: {
-    margin: "10px 0 0",
-    color: "#64748b",
-    fontSize: "12px",
+    margin:
+      "10px 0 0",
+    color:
+      "#64748b",
+    fontSize:
+      "12px",
   },
 
   tableWrapper: {
-    width: "100%",
-    overflowX: "auto",
-    marginTop: "20px",
+    width:
+      "100%",
+    overflowX:
+      "auto",
+    marginTop:
+      "20px",
   },
 
   table: {
-    width: "100%",
-    minWidth: "600px",
+    width:
+      "100%",
+    minWidth:
+      "600px",
     borderCollapse:
       "collapse",
   },
 
   th: {
-    background: "#eff6ff",
-    color: "#1e3a8a",
-    padding: "13px",
-    textAlign: "left",
+    background:
+      "#eff6ff",
+    color:
+      "#1e3a8a",
+    padding:
+      "13px",
+    textAlign:
+      "left",
     borderBottom:
       "2px solid #dbeafe",
-    fontSize: "13px",
+    fontSize:
+      "13px",
     whiteSpace:
       "nowrap",
   },
 
   td: {
-    padding: "13px",
+    padding:
+      "13px",
     borderBottom:
       "1px solid #e2e8f0",
-    color: "#334155",
-    fontSize: "14px",
+    color:
+      "#334155",
+    fontSize:
+      "14px",
   },
 
   badge: {
-    display: "inline-block",
-    padding: "7px 11px",
-    borderRadius: "999px",
-    fontWeight: "800",
-    fontSize: "11px",
+    display:
+      "inline-block",
+    padding:
+      "7px 11px",
+    borderRadius:
+      "999px",
+    fontWeight:
+      "800",
+    fontSize:
+      "11px",
   },
 
   presentBadge: {
-    background: "#dcfce7",
-    color: "#166534",
+    background:
+      "#dcfce7",
+    color:
+      "#166534",
   },
 
   absentBadge: {
-    background: "#fee2e2",
-    color: "#991b1b",
+    background:
+      "#fee2e2",
+    color:
+      "#991b1b",
   },
 
   pendingBadge: {
-    background: "#fef3c7",
-    color: "#92400e",
+    background:
+      "#fef3c7",
+    color:
+      "#92400e",
   },
 
   refundedBadge: {
-    background: "#ede9fe",
-    color: "#5b21b6",
+    background:
+      "#ede9fe",
+    color:
+      "#5b21b6",
   },
 
   /* ASSESSMENTS */
 
   assessmentCard: {
-    background: "white",
-    borderRadius: "22px",
-    padding: "24px",
-    marginBottom: "20px",
+    background:
+      "white",
+    borderRadius:
+      "22px",
+    padding:
+      "24px",
+    marginBottom:
+      "20px",
     boxShadow:
       "0 10px 30px rgba(15,23,42,0.10)",
     border:
@@ -3386,221 +4751,326 @@ const styles: Record<
   },
 
   assessmentHeader: {
-    display: "flex",
+    display:
+      "flex",
     justifyContent:
       "space-between",
-    alignItems: "center",
-    gap: "15px",
-    flexWrap: "wrap",
-    paddingBottom: "20px",
+    alignItems:
+      "center",
+    gap:
+      "15px",
+    flexWrap:
+      "wrap",
+    paddingBottom:
+      "20px",
     borderBottom:
       "1px solid #e2e8f0",
   },
 
   assessmentBrand: {
-    color: "#7c3aed",
-    fontSize: "11px",
-    fontWeight: "900",
-    letterSpacing: "3px",
+    color:
+      "#7c3aed",
+    fontSize:
+      "11px",
+    fontWeight:
+      "900",
+    letterSpacing:
+      "3px",
   },
 
   assessmentTitle: {
-    margin: "5px 0 0",
-    color: "#172554",
-    fontSize: "24px",
-    fontWeight: "900",
+    margin:
+      "5px 0 0",
+    color:
+      "#172554",
+    fontSize:
+      "24px",
+    fontWeight:
+      "900",
   },
 
   assessmentSubtitle: {
-    margin: "5px 0 0",
-    color: "#64748b",
-    fontSize: "13px",
+    margin:
+      "5px 0 0",
+    color:
+      "#64748b",
+    fontSize:
+      "13px",
   },
 
   pdfButton: {
-    border: "none",
+    border:
+      "none",
     background:
       "linear-gradient(135deg,#dc2626,#ef4444)",
-    color: "white",
-    padding: "12px 17px",
-    borderRadius: "11px",
-    fontWeight: "800",
-    cursor: "pointer",
+    color:
+      "white",
+    padding:
+      "12px 17px",
+    borderRadius:
+      "11px",
+    fontWeight:
+      "800",
+    cursor:
+      "pointer",
     boxShadow:
       "0 7px 18px rgba(220,38,38,0.18)",
   },
 
   smallPdfButton: {
-    border: "none",
-    background: "#1e3a8a",
-    color: "white",
-    padding: "9px 13px",
-    borderRadius: "9px",
-    fontWeight: "800",
-    cursor: "pointer",
+    border:
+      "none",
+    background:
+      "#1e3a8a",
+    color:
+      "white",
+    padding:
+      "9px 13px",
+    borderRadius:
+      "9px",
+    fontWeight:
+      "800",
+    cursor:
+      "pointer",
     whiteSpace:
       "nowrap",
   },
 
   subjectArea: {
-    marginTop: "20px",
-    padding: "18px",
+    marginTop:
+      "20px",
+    padding:
+      "18px",
     background:
       "linear-gradient(135deg,#f5f3ff,#eff6ff)",
     border:
       "1px solid #ddd6fe",
-    borderRadius: "15px",
-    display: "flex",
-    alignItems: "center",
+    borderRadius:
+      "15px",
+    display:
+      "flex",
+    alignItems:
+      "center",
     justifyContent:
       "space-between",
-    gap: "15px",
-    flexWrap: "wrap",
+    gap:
+      "15px",
+    flexWrap:
+      "wrap",
   },
 
   subjectLabel: {
-    display: "block",
-    color: "#312e81",
-    fontSize: "15px",
-    fontWeight: "900",
+    display:
+      "block",
+    color:
+      "#312e81",
+    fontSize:
+      "15px",
+    fontWeight:
+      "900",
   },
 
   subjectHint: {
-    margin: "5px 0 0",
-    color: "#64748b",
-    fontSize: "12px",
+    margin:
+      "5px 0 0",
+    color:
+      "#64748b",
+    fontSize:
+      "12px",
   },
 
   subjectSelect: {
-    minWidth: "200px",
-    padding: "12px 14px",
+    minWidth:
+      "200px",
+    padding:
+      "12px 14px",
     border:
       "1px solid #c4b5fd",
-    borderRadius: "10px",
-    background: "white",
-    color: "#172554",
-    fontWeight: "800",
-    fontSize: "14px",
-    cursor: "pointer",
+    borderRadius:
+      "10px",
+    background:
+      "white",
+    color:
+      "#172554",
+    fontWeight:
+      "800",
+    fontSize:
+      "14px",
+    cursor:
+      "pointer",
   },
 
   subjectSummaryGrid: {
-    display: "grid",
+    display:
+      "grid",
     gridTemplateColumns:
       "repeat(auto-fit,minmax(200px,1fr))",
-    gap: "12px",
-    marginTop: "15px",
+    gap:
+      "12px",
+    marginTop:
+      "15px",
   },
 
   subjectSummary: {
-    background: "#f8fafc",
+    background:
+      "#f8fafc",
     border:
       "1px solid #e2e8f0",
-    borderRadius: "13px",
-    padding: "15px",
-    display: "grid",
+    borderRadius:
+      "13px",
+    padding:
+      "15px",
+    display:
+      "grid",
     gridTemplateColumns:
       "1fr auto",
-    alignItems: "center",
-    gap: "4px 10px",
+    alignItems:
+      "center",
+    gap:
+      "4px 10px",
   },
 
   assessmentStatsGrid: {
-    display: "grid",
+    display:
+      "grid",
     gridTemplateColumns:
       "repeat(auto-fit,minmax(180px,1fr))",
-    gap: "12px",
-    marginTop: "15px",
+    gap:
+      "12px",
+    marginTop:
+      "15px",
   },
 
   assessmentStat: {
-    background: "#f8fafc",
+    background:
+      "#f8fafc",
     border:
       "1px solid #e2e8f0",
-    borderRadius: "14px",
-    padding: "16px",
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
+    borderRadius:
+      "14px",
+    padding:
+      "16px",
+    display:
+      "flex",
+    alignItems:
+      "center",
+    gap:
+      "12px",
   },
 
   testCards: {
-    display: "grid",
-    gap: "18px",
-    marginTop: "20px",
+    display:
+      "grid",
+    gap:
+      "18px",
+    marginTop:
+      "20px",
   },
 
   testCard: {
     border:
       "1px solid #e2e8f0",
-    borderRadius: "18px",
-    padding: "20px",
-    background: "#ffffff",
+    borderRadius:
+      "18px",
+    padding:
+      "20px",
+    background:
+      "#ffffff",
     boxShadow:
       "0 5px 18px rgba(15,23,42,0.05)",
   },
 
   testTop: {
-    display: "flex",
+    display:
+      "flex",
     justifyContent:
       "space-between",
     alignItems:
       "flex-start",
-    gap: "15px",
-    flexWrap: "wrap",
-    paddingBottom: "15px",
+    gap:
+      "15px",
+    flexWrap:
+      "wrap",
+    paddingBottom:
+      "15px",
     borderBottom:
       "1px solid #e2e8f0",
   },
 
   testNumber: {
-    display: "inline-block",
-    color: "#7c3aed",
-    fontSize: "10px",
-    fontWeight: "900",
-    letterSpacing: "2px",
+    display:
+      "inline-block",
+    color:
+      "#7c3aed",
+    fontSize:
+      "10px",
+    fontWeight:
+      "900",
+    letterSpacing:
+      "2px",
   },
 
   testName: {
-    margin: "5px 0 8px",
-    color: "#172554",
-    fontSize: "20px",
-    fontWeight: "900",
+    margin:
+      "5px 0 8px",
+    color:
+      "#172554",
+    fontSize:
+      "20px",
+    fontWeight:
+      "900",
   },
 
   subjectBadge: {
-    display: "inline-block",
-    background: "#eff6ff",
-    color: "#1e3a8a",
+    display:
+      "inline-block",
+    background:
+      "#eff6ff",
+    color:
+      "#1e3a8a",
     border:
       "1px solid #bfdbfe",
-    padding: "7px 10px",
-    borderRadius: "999px",
-    fontSize: "11px",
-    fontWeight: "800",
+    padding:
+      "7px 10px",
+    borderRadius:
+      "999px",
+    fontSize:
+      "11px",
+    fontWeight:
+      "800",
   },
 
   testMeta: {
-    display: "grid",
+    display:
+      "grid",
     gridTemplateColumns:
       "repeat(auto-fit,minmax(130px,1fr))",
-    gap: "10px",
-    marginTop: "15px",
+    gap:
+      "10px",
+    marginTop:
+      "15px",
   },
 
   remarksBox: {
-    marginTop: "15px",
-    padding: "14px",
-    borderRadius: "12px",
-    background: "#f8fafc",
+    marginTop:
+      "15px",
+    padding:
+      "14px",
+    borderRadius:
+      "12px",
+    background:
+      "#f8fafc",
     border:
       "1px solid #e2e8f0",
   },
 
   imagesSection: {
-    marginTop: "15px",
-    padding: "15px",
-    borderRadius: "13px",
+    marginTop:
+      "15px",
+    padding:
+      "15px",
+    borderRadius:
+      "13px",
     background:
       "linear-gradient(135deg,#fff7ed,#f8fafc)",
     border:
@@ -3608,241 +5078,372 @@ const styles: Record<
   },
 
   imagesHeader: {
-    display: "flex",
+    display:
+      "flex",
     justifyContent:
       "space-between",
-    alignItems: "center",
-    gap: "12px",
-    flexWrap: "wrap",
+    alignItems:
+      "center",
+    gap:
+      "12px",
+    flexWrap:
+      "wrap",
   },
 
   imageHint: {
-    margin: "4px 0 0",
-    color: "#64748b",
-    fontSize: "11px",
+    margin:
+      "4px 0 0",
+    color:
+      "#64748b",
+    fontSize:
+      "11px",
   },
 
   imageButton: {
-    border: "none",
-    background: "#ea580c",
-    color: "white",
-    padding: "9px 13px",
-    borderRadius: "9px",
-    fontWeight: "800",
-    cursor: "pointer",
+    border:
+      "none",
+    background:
+      "#ea580c",
+    color:
+      "white",
+    padding:
+      "9px 13px",
+    borderRadius:
+      "9px",
+    fontWeight:
+      "800",
+    cursor:
+      "pointer",
   },
 
   noImages: {
-    marginTop: "12px",
-    padding: "12px",
-    borderRadius: "10px",
-    background: "white",
-    color: "#64748b",
-    fontSize: "12px",
+    marginTop:
+      "12px",
+    padding:
+      "12px",
+    borderRadius:
+      "10px",
+    background:
+      "white",
+    color:
+      "#64748b",
+    fontSize:
+      "12px",
   },
 
   imageGrid: {
-    display: "grid",
+    display:
+      "grid",
     gridTemplateColumns:
       "repeat(auto-fill,minmax(180px,1fr))",
-    gap: "12px",
-    marginTop: "15px",
+    gap:
+      "12px",
+    marginTop:
+      "15px",
   },
 
   imageLink: {
-    display: "block",
+    display:
+      "block",
     textDecoration:
       "none",
-    color: "#1e3a8a",
-    fontSize: "11px",
-    fontWeight: "800",
+    color:
+      "#1e3a8a",
+    fontSize:
+      "11px",
+    fontWeight:
+      "800",
   },
 
   testImage: {
-    width: "100%",
-    height: "180px",
-    objectFit: "cover",
-    borderRadius: "10px",
+    width:
+      "100%",
+    height:
+      "180px",
+    objectFit:
+      "cover",
+    borderRadius:
+      "10px",
     border:
       "1px solid #cbd5e1",
-    display: "block",
-    marginBottom: "6px",
-    background: "#f1f5f9",
+    display:
+      "block",
+    marginBottom:
+      "6px",
+    background:
+      "#f1f5f9",
   },
 
   gradeBadge: {
-    display: "inline-block",
-    minWidth: "38px",
-    textAlign: "center",
-    padding: "7px 9px",
-    borderRadius: "8px",
-    fontWeight: "900",
-    fontSize: "12px",
+    display:
+      "inline-block",
+    minWidth:
+      "38px",
+    textAlign:
+      "center",
+    padding:
+      "7px 9px",
+    borderRadius:
+      "8px",
+    fontWeight:
+      "900",
+    fontSize:
+      "12px",
   },
 
   resultBadge: {
-    display: "inline-block",
-    padding: "7px 10px",
-    borderRadius: "999px",
-    fontWeight: "900",
-    fontSize: "11px",
+    display:
+      "inline-block",
+    padding:
+      "7px 10px",
+    borderRadius:
+      "999px",
+    fontWeight:
+      "900",
+    fontSize:
+      "11px",
   },
 
   gradeInfo: {
-    marginTop: "20px",
+    marginTop:
+      "20px",
     background:
       "linear-gradient(135deg,#f5f3ff,#eff6ff)",
     border:
       "1px solid #ddd6fe",
-    borderRadius: "15px",
-    padding: "18px",
+    borderRadius:
+      "15px",
+    padding:
+      "18px",
   },
 
   gradeInfoTitle: {
-    margin: 0,
-    color: "#312e81",
-    fontSize: "17px",
-    fontWeight: "800",
+    margin:
+      0,
+    color:
+      "#312e81",
+    fontSize:
+      "17px",
+    fontWeight:
+      "800",
   },
 
   gradeGrid: {
-    display: "grid",
+    display:
+      "grid",
     gridTemplateColumns:
       "repeat(auto-fit,minmax(130px,1fr))",
-    gap: "10px",
-    marginTop: "14px",
+    gap:
+      "10px",
+    marginTop:
+      "14px",
   },
 
   gradeInfoItem: {
-    background: "white",
-    borderRadius: "10px",
-    padding: "12px",
-    display: "flex",
+    background:
+      "white",
+    borderRadius:
+      "10px",
+    padding:
+      "12px",
+    display:
+      "flex",
     flexDirection:
       "column",
-    gap: "4px",
-    fontSize: "12px",
-    color: "#475569",
+    gap:
+      "4px",
+    fontSize:
+      "12px",
+    color:
+      "#475569",
   },
 
   emptyIcon: {
-    fontSize: "40px",
-    marginBottom: "8px",
+    fontSize:
+      "40px",
+    marginBottom:
+      "8px",
   },
 
   emptySmall: {
-    margin: "7px 0 0",
-    fontSize: "12px",
-    color: "#64748b",
+    margin:
+      "7px 0 0",
+    fontSize:
+      "12px",
+    color:
+      "#64748b",
   },
 
   feeGrid: {
-    display: "grid",
+    display:
+      "grid",
     gridTemplateColumns:
       "repeat(auto-fit,minmax(200px,1fr))",
-    gap: "15px",
-    marginBottom: "10px",
+    gap:
+      "15px",
+    marginBottom:
+      "10px",
   },
 
   feeCard: {
-    background: "#f8fafc",
+    background:
+      "#f8fafc",
     border:
       "1px solid #e2e8f0",
-    borderRadius: "15px",
-    padding: "18px",
-    display: "flex",
-    alignItems: "center",
-    gap: "13px",
+    borderRadius:
+      "15px",
+    padding:
+      "18px",
+    display:
+      "flex",
+    alignItems:
+      "center",
+    gap:
+      "13px",
   },
 
   feeIcon: {
-    width: "48px",
-    height: "48px",
-    borderRadius: "14px",
-    background: "#eff6ff",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "23px",
+    width:
+      "48px",
+    height:
+      "48px",
+    borderRadius:
+      "14px",
+    background:
+      "#eff6ff",
+    display:
+      "flex",
+    alignItems:
+      "center",
+    justifyContent:
+      "center",
+    fontSize:
+      "23px",
   },
 
   feeLabel: {
-    margin: 0,
-    color: "#64748b",
-    fontSize: "12px",
-    fontWeight: "700",
+    margin:
+      0,
+    color:
+      "#64748b",
+    fontSize:
+      "12px",
+    fontWeight:
+      "700",
   },
 
   feeValue: {
-    margin: "4px 0 0",
-    color: "#172554",
-    fontSize: "22px",
+    margin:
+      "4px 0 0",
+    color:
+      "#172554",
+    fontSize:
+      "22px",
   },
 
   viewButton: {
-    border: "none",
-    background: "#2563eb",
-    color: "white",
-    padding: "10px 15px",
-    borderRadius: "10px",
-    fontWeight: "700",
-    cursor: "pointer",
+    border:
+      "none",
+    background:
+      "#2563eb",
+    color:
+      "white",
+    padding:
+      "10px 15px",
+    borderRadius:
+      "10px",
+    fontWeight:
+      "700",
+    cursor:
+      "pointer",
   },
 
   overallGrid: {
-    display: "grid",
+    display:
+      "grid",
     gridTemplateColumns:
       "repeat(auto-fit,minmax(220px,1fr))",
-    gap: "12px",
-    marginTop: "20px",
+    gap:
+      "12px",
+    marginTop:
+      "20px",
   },
 
   overallItem: {
-    background: "#f8fafc",
+    background:
+      "#f8fafc",
     border:
       "1px solid #e2e8f0",
-    borderRadius: "12px",
-    padding: "16px",
-    display: "flex",
+    borderRadius:
+      "12px",
+    padding:
+      "16px",
+    display:
+      "flex",
     justifyContent:
       "space-between",
-    alignItems: "center",
-    gap: "10px",
-    color: "#475569",
-    fontSize: "13px",
+    alignItems:
+      "center",
+    gap:
+      "10px",
+    color:
+      "#475569",
+    fontSize:
+      "13px",
   },
 
   empty: {
-    textAlign: "center",
-    padding: "35px 15px",
-    color: "#64748b",
-    background: "#f8fafc",
-    borderRadius: "12px",
-    marginTop: "20px",
+    textAlign:
+      "center",
+    padding:
+      "35px 15px",
+    color:
+      "#64748b",
+    background:
+      "#f8fafc",
+    borderRadius:
+      "12px",
+    marginTop:
+      "20px",
   },
 
   loading: {
-    background: "white",
-    maxWidth: "450px",
-    margin: "100px auto",
-    padding: "40px",
-    borderRadius: "18px",
-    textAlign: "center",
-    fontSize: "18px",
-    fontWeight: "700",
-    color: "#172554",
+    background:
+      "white",
+    maxWidth:
+      "450px",
+    margin:
+      "100px auto",
+    padding:
+      "40px",
+    borderRadius:
+      "18px",
+    textAlign:
+      "center",
+    fontSize:
+      "18px",
+    fontWeight:
+      "700",
+    color:
+      "#172554",
   },
 
   footer: {
     padding:
       "25px 10px 10px",
-    textAlign: "center",
-    display: "flex",
+    textAlign:
+      "center",
+    display:
+      "flex",
     justifyContent:
       "center",
-    gap: "8px",
-    flexWrap: "wrap",
-    color: "#64748b",
-    fontSize: "12px",
+    gap:
+      "8px",
+    flexWrap:
+      "wrap",
+    color:
+      "#64748b",
+    fontSize:
+      "12px",
   },
 };
