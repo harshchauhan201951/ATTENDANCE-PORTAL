@@ -150,7 +150,7 @@ export default function StudentAttendancePage() {
     return (
       <main style={styles.page}>
         <div style={styles.loading}>
-          ðŸ“š Loading Attendance...
+          Loading Attendance...
         </div>
       </main>
     );
@@ -169,7 +169,7 @@ export default function StudentAttendancePage() {
             </div>
 
             <h1 style={styles.title}>
-              ðŸ“… Attendance
+              Attendance
             </h1>
 
             <p style={styles.subtitle}>
@@ -181,7 +181,7 @@ export default function StudentAttendancePage() {
             href="/student/dashboard"
             style={styles.backButton}
           >
-            â† Dashboard
+            Back to Dashboard
           </Link>
         </header>
 
@@ -189,7 +189,7 @@ export default function StudentAttendancePage() {
 
         <section style={styles.studentCard}>
           <div style={styles.avatar}>
-            ðŸ‘¨â€ðŸŽ“
+            STUDENT
           </div>
 
           <div>
@@ -212,7 +212,7 @@ export default function StudentAttendancePage() {
 
         {error && (
           <div style={styles.error}>
-            âŒ {error}
+            Error: {error}
           </div>
         )}
 
@@ -222,7 +222,7 @@ export default function StudentAttendancePage() {
 
           <div style={styles.statCard}>
             <div style={styles.statIcon}>
-              ðŸ“š
+              TC
             </div>
 
             <div>
@@ -238,7 +238,7 @@ export default function StudentAttendancePage() {
 
           <div style={styles.statCard}>
             <div style={styles.statIcon}>
-              âœ…
+              P
             </div>
 
             <div>
@@ -259,7 +259,7 @@ export default function StudentAttendancePage() {
 
           <div style={styles.statCard}>
             <div style={styles.statIcon}>
-              âŒ
+              A
             </div>
 
             <div>
@@ -280,7 +280,7 @@ export default function StudentAttendancePage() {
 
           <div style={styles.statCard}>
             <div style={styles.statIcon}>
-              ðŸ“Š
+              %
             </div>
 
             <div>
@@ -311,7 +311,7 @@ export default function StudentAttendancePage() {
           <div style={styles.progressHeader}>
             <div>
               <h2 style={styles.sectionTitle}>
-                ðŸ“Š Attendance Overview
+                Attendance Overview
               </h2>
 
               <p style={styles.sectionSubtitle}>
@@ -350,20 +350,20 @@ export default function StudentAttendancePage() {
 
           <div style={styles.progressMessage}>
             {percentage >= 75
-              ? "âœ… Your attendance is good."
-              : "âš ï¸ Your attendance is below 75%. Try to attend more classes."}
+              ? "Your attendance is good."
+              : "Your attendance is below 75%. Try to attend more classes."}
           </div>
 
         </section>
 
-        {/* HISTORY */}
+        {/* ATTENDANCE RECORDS ON THIS PAGE */}
 
         <section style={styles.card}>
 
           <div style={styles.historyHeader}>
             <div>
               <h2 style={styles.sectionTitle}>
-                ðŸ“‹ Attendance History
+                Attendance Records
               </h2>
 
               <p style={styles.sectionSubtitle}>
@@ -375,14 +375,14 @@ export default function StudentAttendancePage() {
               onClick={loadAttendance}
               style={styles.refreshButton}
             >
-              ðŸ”„ Refresh
+              Refresh
             </button>
           </div>
 
           {records.length === 0 ? (
             <div style={styles.empty}>
               <div style={styles.emptyIcon}>
-                ðŸ“­
+                --
               </div>
 
               <h3 style={styles.emptyTitle}>
@@ -467,12 +467,12 @@ export default function StudentAttendancePage() {
                               {record.status
                                 .toUpperCase() ===
                                 "PRESENT" &&
-                                "âœ“ "}
+                                "✓ "}
 
                               {record.status
                                 .toUpperCase() ===
                                 "ABSENT" &&
-                                "âœ• "}
+                                "✕ "}
 
                               {record.status}
                             </span>
@@ -501,7 +501,7 @@ export default function StudentAttendancePage() {
           </strong>
 
           <span>
-            Student Attendance â€¢ 2026
+            Student Attendance - 2026
           </span>
         </footer>
 
@@ -596,7 +596,8 @@ const styles: {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "38px",
+    fontSize: "14px",
+    fontWeight: "800",
   },
 
   infoLabel: {
@@ -644,7 +645,9 @@ const styles: {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "25px",
+    fontSize: "18px",
+    fontWeight: "800",
+    color: "#1e3a8a",
     flexShrink: 0,
   },
 
@@ -733,7 +736,7 @@ const styles: {
 
   tableWrapper: {
     width: "100%",
-    overflowX: "hidden",
+    overflowX: "auto",
   },
 
   table: {
@@ -774,6 +777,8 @@ const styles: {
 
   emptyIcon: {
     fontSize: "45px",
+    fontWeight: "800",
+    color: "#64748b",
   },
 
   emptyTitle: {
@@ -819,5 +824,3 @@ const styles: {
     fontSize: "12px",
   },
 };
-
-
