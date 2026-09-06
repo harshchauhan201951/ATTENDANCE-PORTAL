@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -150,7 +150,7 @@ export default function StudentAttendancePage() {
     return (
       <main style={styles.page}>
         <div style={styles.loading}>
-          📚 Loading Attendance...
+          ðŸ“š Loading Attendance...
         </div>
       </main>
     );
@@ -169,7 +169,7 @@ export default function StudentAttendancePage() {
             </div>
 
             <h1 style={styles.title}>
-              📅 Attendance
+              ðŸ“… Attendance
             </h1>
 
             <p style={styles.subtitle}>
@@ -181,7 +181,7 @@ export default function StudentAttendancePage() {
             href="/student/dashboard"
             style={styles.backButton}
           >
-            ← Dashboard
+            â† Dashboard
           </Link>
         </header>
 
@@ -189,7 +189,7 @@ export default function StudentAttendancePage() {
 
         <section style={styles.studentCard}>
           <div style={styles.avatar}>
-            👨‍🎓
+            ðŸ‘¨â€ðŸŽ“
           </div>
 
           <div>
@@ -212,7 +212,7 @@ export default function StudentAttendancePage() {
 
         {error && (
           <div style={styles.error}>
-            ❌ {error}
+            âŒ {error}
           </div>
         )}
 
@@ -222,7 +222,7 @@ export default function StudentAttendancePage() {
 
           <div style={styles.statCard}>
             <div style={styles.statIcon}>
-              📚
+              ðŸ“š
             </div>
 
             <div>
@@ -238,7 +238,7 @@ export default function StudentAttendancePage() {
 
           <div style={styles.statCard}>
             <div style={styles.statIcon}>
-              ✅
+              âœ…
             </div>
 
             <div>
@@ -259,7 +259,7 @@ export default function StudentAttendancePage() {
 
           <div style={styles.statCard}>
             <div style={styles.statIcon}>
-              ❌
+              âŒ
             </div>
 
             <div>
@@ -280,7 +280,7 @@ export default function StudentAttendancePage() {
 
           <div style={styles.statCard}>
             <div style={styles.statIcon}>
-              📊
+              ðŸ“Š
             </div>
 
             <div>
@@ -311,7 +311,7 @@ export default function StudentAttendancePage() {
           <div style={styles.progressHeader}>
             <div>
               <h2 style={styles.sectionTitle}>
-                📊 Attendance Overview
+                ðŸ“Š Attendance Overview
               </h2>
 
               <p style={styles.sectionSubtitle}>
@@ -350,8 +350,8 @@ export default function StudentAttendancePage() {
 
           <div style={styles.progressMessage}>
             {percentage >= 75
-              ? "✅ Your attendance is good."
-              : "⚠️ Your attendance is below 75%. Try to attend more classes."}
+              ? "âœ… Your attendance is good."
+              : "âš ï¸ Your attendance is below 75%. Try to attend more classes."}
           </div>
 
         </section>
@@ -363,7 +363,7 @@ export default function StudentAttendancePage() {
           <div style={styles.historyHeader}>
             <div>
               <h2 style={styles.sectionTitle}>
-                📋 Attendance History
+                ðŸ“‹ Attendance History
               </h2>
 
               <p style={styles.sectionSubtitle}>
@@ -375,14 +375,14 @@ export default function StudentAttendancePage() {
               onClick={loadAttendance}
               style={styles.refreshButton}
             >
-              🔄 Refresh
+              ðŸ”„ Refresh
             </button>
           </div>
 
           {records.length === 0 ? (
             <div style={styles.empty}>
               <div style={styles.emptyIcon}>
-                📭
+                ðŸ“­
               </div>
 
               <h3 style={styles.emptyTitle}>
@@ -467,12 +467,12 @@ export default function StudentAttendancePage() {
                               {record.status
                                 .toUpperCase() ===
                                 "PRESENT" &&
-                                "✓ "}
+                                "âœ“ "}
 
                               {record.status
                                 .toUpperCase() ===
                                 "ABSENT" &&
-                                "✕ "}
+                                "âœ• "}
 
                               {record.status}
                             </span>
@@ -501,7 +501,7 @@ export default function StudentAttendancePage() {
           </strong>
 
           <span>
-            Student Attendance • 2026
+            Student Attendance â€¢ 2026
           </span>
         </footer>
 
@@ -733,13 +733,13 @@ const styles: {
 
   tableWrapper: {
     width: "100%",
-    overflowX: "auto",
+    overflowX: "hidden",
   },
 
   table: {
     width: "100%",
     minWidth: "650px",
-    borderCollapse: "collapse",
+    borderCollapse: "collapse",`r`n    tableLayout: "fixed",
   },
 
   th: {
