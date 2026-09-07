@@ -45,8 +45,7 @@ export default function StudentFeesPage() {
   const [studentUsername, setStudentUsername] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [payingFeeId, setPayingFeeId] =
-    useState<number | null>(null);
+  const [payingFeeId, setPayingFeeId] = useState<number | null>(null);
 
   useEffect(() => {
     loadFees();
@@ -54,23 +53,14 @@ export default function StudentFeesPage() {
   }, []);
 
   function loadRazorpayScript() {
-    if (
-      document.getElementById(
-        "razorpay-checkout-script"
-      )
-    ) {
+    if (document.getElementById("razorpay-checkout-script")) {
       return;
     }
 
-    const script =
-      document.createElement("script");
+    const script = document.createElement("script");
 
-    script.id =
-      "razorpay-checkout-script";
-
-    script.src =
-      "https://checkout.razorpay.com/v1/checkout.js";
-
+    script.id = "razorpay-checkout-script";
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.async = true;
 
     document.body.appendChild(script);
@@ -82,70 +72,44 @@ export default function StudentFeesPage() {
       setError("");
 
       const username =
-        localStorage.getItem(
-          "studentUsername"
-        ) ||
-        localStorage.getItem(
-          "student_username"
-        );
+        localStorage.getItem("studentUsername") ||
+        localStorage.getItem("student_username");
 
       if (!username) {
         setError(
           "Student login information not found. Please login again."
         );
-
         setLoading(false);
         return;
       }
 
-      const cleanUsername =
-        username.trim().toUpperCase();
+      const cleanUsername = username.trim().toUpperCase();
 
       const {
         data: student,
         error: studentError,
       } = await supabase
         .from("students")
-        .select(
-          "id, student_name, student_username"
-        )
-        .eq(
-          "student_username",
-          cleanUsername
-        )
+        .select("id, student_name, student_username")
+        .eq("student_username", cleanUsername)
         .maybeSingle();
 
       if (studentError) {
-        console.error(
-          "Student lookup error:",
-          studentError
-        );
+        console.error("Student lookup error:", studentError);
 
-        setError(
-          "Unable to find student account."
-        );
-
+        setError("Unable to find student account.");
         setLoading(false);
         return;
       }
 
       if (!student) {
-        setError(
-          "Student account not found."
-        );
-
+        setError("Student account not found.");
         setLoading(false);
         return;
       }
 
-      setStudentName(
-        student.student_name ||
-          "Student"
-      );
-
-      setStudentUsername(
-        student.student_username
-      );
+      setStudentName(student.student_name || "Student");
+      setStudentUsername(student.student_username);
 
       const {
         data: feeData,
@@ -155,10 +119,7 @@ export default function StudentFeesPage() {
         .select(
           "id, student_id, month, year, amount, status, payment_date, transaction_id, remarks, payment_mode, created_at"
         )
-        .eq(
-          "student_id",
-          student.id
-        )
+        .eq("student_id", student.id)
         .order("year", {
           ascending: false,
         })
@@ -167,15 +128,9 @@ export default function StudentFeesPage() {
         });
 
       if (feeError) {
-        console.error(
-          "Fee loading error:",
-          feeError
-        );
+        console.error("Fee loading error:", feeError);
 
-        setError(
-          "Unable to load fee information."
-        );
-
+        setError("Unable to load fee information.");
         setFees([]);
         setLoading(false);
         return;
@@ -183,32 +138,21 @@ export default function StudentFeesPage() {
 
       setFees(feeData || []);
     } catch (err) {
-      console.error(
-        "Unexpected fee error:",
-        err
-      );
+      console.error("Unexpected fee error:", err);
 
-      setError(
-        "Something went wrong while loading fees."
-      );
-
+      setError("Something went wrong while loading fees.");
       setFees([]);
     } finally {
       setLoading(false);
     }
   }
 
-  async function handlePayOnline(
-    fee: Fee
-  ) {
+  async function handlePayOnline(fee: Fee) {
     try {
       setError("");
       setPayingFeeId(fee.id);
 
-      if (
-        String(fee.status).toUpperCase() !==
-        "PENDING"
-      ) {
+      if (String(fee.status).toUpperCase() !== "PENDING") {
         setError(
           "This fee is not available for online payment."
         );
@@ -228,28 +172,22 @@ export default function StudentFeesPage() {
         return;
       }
 
-      const orderResponse =
-        await fetch(
-          "/api/fees/create-order",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify({
-              feeId: fee.id,
-            }),
-          }
-        );
+      const orderResponse = await fetch(
+        "/api/fees/create-order",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            feeId: fee.id,
+          }),
+        }
+      );
 
-      const orderData =
-        await orderResponse.json();
+      const orderData = await orderResponse.json();
 
-      if (
-        !orderResponse.ok ||
-        !orderData.success
-      ) {
+      if (!orderResponse.ok || !orderData.success) {
         throw new Error(
           orderData.error ||
             "Unable to create Razorpay order."
@@ -259,23 +197,19 @@ export default function StudentFeesPage() {
       const options = {
         key: orderData.keyId,
 
-        amount:
-          orderData.order.amount,
+        amount: orderData.order.amount,
 
         currency:
-          orderData.order.currency ||
-          "INR",
+          orderData.order.currency || "INR",
 
         name: "RACER ACADEMY",
 
-        description:
-          `${
-            months[fee.month] ||
-            `Month ${fee.month}`
-          } ${fee.year} Fees`,
+        description: `${
+          months[fee.month] ||
+          `Month ${fee.month}`
+        } ${fee.year} Fees`,
 
-        order_id:
-          orderData.order.id,
+        order_id: orderData.order.id,
 
         prefill: {
           name: studentName,
@@ -285,137 +219,114 @@ export default function StudentFeesPage() {
           color: "#111827",
         },
 
-        handler:
-          async function (
-            response: any
-          ) {
-            try {
-              const verifyResponse =
-                await fetch(
-                  "/api/fees/verify-payment",
-                  {
-                    method: "POST",
-                    headers: {
-                      "Content-Type":
-                        "application/json",
-                    },
-                    body: JSON.stringify({
-                      feeId: fee.id,
+        handler: async function (response: any) {
+          try {
+            const verifyResponse =
+              await fetch(
+                "/api/fees/verify-payment",
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type":
+                      "application/json",
+                  },
+                  body: JSON.stringify({
+                    feeId: fee.id,
 
-                      razorpay_order_id:
-                        response.razorpay_order_id,
+                    razorpay_order_id:
+                      response.razorpay_order_id,
 
-                      razorpay_payment_id:
-                        response.razorpay_payment_id,
+                    razorpay_payment_id:
+                      response.razorpay_payment_id,
 
-                      razorpay_signature:
-                        response.razorpay_signature,
-                    }),
-                  }
-                );
-
-              const verifyData =
-                await verifyResponse.json();
-
-              if (
-                !verifyResponse.ok ||
-                !verifyData.success
-              ) {
-                throw new Error(
-                  verifyData.error ||
-                    verifyData.message ||
-                    "Payment verification failed."
-                );
-              }
-
-              /*
-                IMPORTANT:
-
-                Razorpay payment was successful.
-                Therefore this payment is ONLINE.
-
-                Update the fee record automatically.
-                Teacher does NOT select ONLINE manually.
-              */
-              const {
-                error: paymentModeError,
-              } = await supabase
-                .from("fees")
-                .update({
-                  payment_mode: "ONLINE",
-                  status: "PAID ONLINE",
-                  transaction_id:
-                    response.razorpay_payment_id,
-                  payment_date:
-                    new Date()
-                      .toISOString()
-                      .split("T")[0],
-                })
-                .eq(
-                  "id",
-                  fee.id
-                );
-
-              if (paymentModeError) {
-                console.error(
-                  "Payment mode update error:",
-                  paymentModeError
-                );
-
-                throw new Error(
-                  "Payment was successful, but payment mode could not be updated."
-                );
-              }
-
-              alert(
-                "Payment successful! Your fee has been updated."
+                    razorpay_signature:
+                      response.razorpay_signature,
+                  }),
+                }
               );
 
-              await loadFees();
-            } catch (
-              verifyError
+            const verifyData =
+              await verifyResponse.json();
+
+            if (
+              !verifyResponse.ok ||
+              !verifyData.success
             ) {
+              throw new Error(
+                verifyData.error ||
+                  verifyData.message ||
+                  "Payment verification failed."
+              );
+            }
+
+            const {
+              error: paymentModeError,
+            } = await supabase
+              .from("fees")
+              .update({
+                payment_mode: "ONLINE",
+                status: "PAID ONLINE",
+                transaction_id:
+                  response.razorpay_payment_id,
+                payment_date:
+                  new Date()
+                    .toISOString()
+                    .split("T")[0],
+              })
+              .eq("id", fee.id);
+
+            if (paymentModeError) {
               console.error(
-                "Payment verification error:",
-                verifyError
+                "Payment mode update error:",
+                paymentModeError
               );
 
-              setError(
-                verifyError instanceof Error
-                  ? verifyError.message
-                  : "Payment verification failed."
+              throw new Error(
+                "Payment was successful, but payment mode could not be updated."
               );
-            } finally {
-              setPayingFeeId(null);
             }
-          },
+
+            alert(
+              "Payment successful! Your fee has been updated."
+            );
+
+            await loadFees();
+          } catch (verifyError) {
+            console.error(
+              "Payment verification error:",
+              verifyError
+            );
+
+            setError(
+              verifyError instanceof Error
+                ? verifyError.message
+                : "Payment verification failed."
+            );
+          } finally {
+            setPayingFeeId(null);
+          }
+        },
 
         modal: {
-          ondismiss:
-            function () {
-              setPayingFeeId(null);
-            },
+          ondismiss: function () {
+            setPayingFeeId(null);
+          },
         },
       };
 
       const razorpay =
-        new window.Razorpay(
-          options
-        );
+        new window.Razorpay(options);
 
       razorpay.on(
         "payment.failed",
-        function (
-          response: any
-        ) {
+        function (response: any) {
           console.error(
             "Razorpay payment failed:",
             response
           );
 
           setError(
-            response?.error
-              ?.description ||
+            response?.error?.description ||
               "Payment failed. Please try again."
           );
 
@@ -440,9 +351,7 @@ export default function StudentFeesPage() {
     }
   }
 
-  function printReceipt(
-    fee: Fee
-  ) {
+  function printReceipt(fee: Fee) {
     const monthName =
       months[fee.month] ||
       `Month ${fee.month}`;
@@ -456,16 +365,12 @@ export default function StudentFeesPage() {
         .toISOString()
         .split("T")[0];
 
-    const amount =
-      Number(
-        fee.amount || 0
-      ).toLocaleString(
-        "en-IN"
-      );
+    const amount = Number(
+      fee.amount || 0
+    ).toLocaleString("en-IN");
 
     const transactionId =
-      fee.transaction_id ||
-      "—";
+      fee.transaction_id || "—";
 
     const status =
       String(
@@ -495,7 +400,6 @@ export default function StudentFeesPage() {
       setError(
         "Please allow pop-ups in your browser to print the receipt."
       );
-
       return;
     }
 
@@ -504,13 +408,9 @@ export default function StudentFeesPage() {
 
       <html>
         <head>
-
-          <title>
-            ${receiptNumber}
-          </title>
+          <title>${receiptNumber}</title>
 
           <style>
-
             * {
               box-sizing: border-box;
             }
@@ -582,8 +482,7 @@ export default function StudentFeesPage() {
 
             .row {
               display: flex;
-              justify-content:
-                space-between;
+              justify-content: space-between;
               gap: 20px;
               padding: 13px 0;
               border-bottom:
@@ -599,6 +498,7 @@ export default function StudentFeesPage() {
               text-align: right;
               font-weight: 700;
               color: #111827;
+              overflow-wrap: anywhere;
             }
 
             .amount {
@@ -645,7 +545,6 @@ export default function StudentFeesPage() {
             }
 
             @media print {
-
               body {
                 padding: 0;
                 background: white;
@@ -660,15 +559,43 @@ export default function StudentFeesPage() {
               .print-button {
                 display: none;
               }
-
             }
 
-          </style>
+            @media (max-width: 600px) {
+              body {
+                padding: 10px;
+              }
 
+              .receipt {
+                padding: 22px 16px;
+                border-radius: 12px;
+              }
+
+              .academy {
+                font-size: 24px;
+              }
+
+              .receipt-title {
+                font-size: 19px;
+              }
+
+              .row {
+                gap: 12px;
+              }
+
+              .label,
+              .value {
+                font-size: 13px;
+              }
+
+              .amount-value {
+                font-size: 27px;
+              }
+            }
+          </style>
         </head>
 
         <body>
-
           <div class="receipt">
 
             <div class="header">
@@ -697,7 +624,6 @@ export default function StudentFeesPage() {
             </div>
 
             <div class="row">
-
               <div class="label">
                 Student Name
               </div>
@@ -705,11 +631,9 @@ export default function StudentFeesPage() {
               <div class="value">
                 ${studentName}
               </div>
-
             </div>
 
             <div class="row">
-
               <div class="label">
                 Username
               </div>
@@ -717,11 +641,9 @@ export default function StudentFeesPage() {
               <div class="value">
                 ${studentUsername}
               </div>
-
             </div>
 
             <div class="row">
-
               <div class="label">
                 Fee Month
               </div>
@@ -730,11 +652,9 @@ export default function StudentFeesPage() {
                 ${monthName}
                 ${fee.year}
               </div>
-
             </div>
 
             <div class="row">
-
               <div class="label">
                 Payment Mode
               </div>
@@ -742,11 +662,9 @@ export default function StudentFeesPage() {
               <div class="value">
                 ${paymentModeDisplay}
               </div>
-
             </div>
 
             <div class="row">
-
               <div class="label">
                 Payment Date
               </div>
@@ -754,11 +672,9 @@ export default function StudentFeesPage() {
               <div class="value">
                 ${paymentDate}
               </div>
-
             </div>
 
             <div class="row">
-
               <div class="label">
                 Payment Status
               </div>
@@ -766,11 +682,9 @@ export default function StudentFeesPage() {
               <div class="value">
                 ${status}
               </div>
-
             </div>
 
             <div class="row">
-
               <div class="label">
                 Transaction ID
               </div>
@@ -778,11 +692,9 @@ export default function StudentFeesPage() {
               <div class="value">
                 ${transactionId}
               </div>
-
             </div>
 
             <div class="amount">
-
               <div class="amount-label">
                 Amount Paid
               </div>
@@ -790,14 +702,12 @@ export default function StudentFeesPage() {
               <div class="amount-value">
                 ₹${amount}
               </div>
-
             </div>
 
             ${
               fee.remarks
                 ? `
                   <div class="row">
-
                     <div class="label">
                       Remarks
                     </div>
@@ -805,20 +715,17 @@ export default function StudentFeesPage() {
                     <div class="value">
                       ${fee.remarks}
                     </div>
-
                   </div>
                 `
                 : ""
             }
 
             <div class="footer">
-
               This is a computer-generated
               fee receipt.<br />
 
               RACER ACADEMY •
               Student Fee Management
-
             </div>
 
             <button
@@ -829,9 +736,7 @@ export default function StudentFeesPage() {
             </button>
 
           </div>
-
         </body>
-
       </html>
     `);
 
@@ -839,489 +744,559 @@ export default function StudentFeesPage() {
     receiptWindow.focus();
   }
 
-  const totalFees =
-    fees.reduce(
+  const totalFees = fees.reduce(
+    (sum, fee) =>
+      sum + Number(fee.amount || 0),
+    0
+  );
+
+  const submittedFees = fees
+    .filter(
+      (fee) =>
+        String(
+          fee.status
+        ).toUpperCase() === "SUBMITTED"
+    )
+    .reduce(
       (sum, fee) =>
-        sum +
-        Number(
-          fee.amount || 0
-        ),
+        sum + Number(fee.amount || 0),
       0
     );
 
-  const submittedFees =
-    fees
-      .filter(
-        (fee) =>
-          String(
-            fee.status
-          ).toUpperCase() ===
-          "SUBMITTED"
-      )
-      .reduce(
-        (sum, fee) =>
-          sum +
-          Number(
-            fee.amount || 0
-          ),
-        0
-      );
-
-  const pendingFees =
-    fees
-      .filter(
-        (fee) =>
-          String(
-            fee.status
-          ).toUpperCase() ===
-          "PENDING"
-      )
-      .reduce(
-        (sum, fee) =>
-          sum +
-          Number(
-            fee.amount || 0
-          ),
-        0
-      );
+  const pendingFees = fees
+    .filter(
+      (fee) =>
+        String(
+          fee.status
+        ).toUpperCase() === "PENDING"
+    )
+    .reduce(
+      (sum, fee) =>
+        sum + Number(fee.amount || 0),
+      0
+    );
 
   if (loading) {
     return (
-      <main
-        style={
-          styles.loadingPage
-        }
-      >
-        <div
-          style={
-            styles.loadingBox
+      <>
+        <main style={styles.loadingPage}>
+          <div style={styles.loadingBox}>
+            <div>💳</div>
+
+            <h2>Loading Fees...</h2>
+          </div>
+        </main>
+
+        <style jsx global>{`
+          html,
+          body {
+            margin: 0;
+            padding: 0;
+            max-width: 100%;
+            overflow-x: hidden;
           }
-        >
-          💳
 
-          <h2>
-            Loading Fees...
-          </h2>
-
-        </div>
-      </main>
+          * {
+            box-sizing: border-box;
+          }
+        `}</style>
+      </>
     );
   }
 
   return (
-    <main style={styles.page}>
-
-      <div
-        style={
-          styles.container
-        }
+    <>
+      <main
+        className="student-fees-page"
+        style={styles.page}
       >
-
         <div
-          style={
-            styles.header
-          }
+          className="student-fees-container"
+          style={styles.container}
         >
-
-          <div>
-
-            <h1
-              style={
-                styles.title
-              }
-            >
-              💳 My Fees
-            </h1>
-
-            <p
-              style={
-                styles.subtitle
-              }
-            >
-              {studentName}
-
-              {studentUsername
-                ? ` • ${studentUsername}`
-                : ""}
-            </p>
-
-          </div>
-
-          <button
-            type="button"
-            onClick={loadFees}
-            style={
-              styles.refreshButton
-            }
-          >
-            🔄 Refresh
-          </button>
-
-        </div>
-
-        {error && (
           <div
-            style={
-              styles.error
-            }
+            className="fees-header"
+            style={styles.header}
           >
-            ⚠️ {error}
-          </div>
-        )}
+            <div className="fees-header-content">
+              <h1 style={styles.title}>
+                💳 My Fees
+              </h1>
 
-        <div
-          style={
-            styles.summaryGrid
-          }
-        >
+              <p style={styles.subtitle}>
+                {studentName}
 
-          <div
-            style={
-              styles.summaryCard
-            }
-          >
-
-            <div
-              style={
-                styles.icon
-              }
-            >
-              💰
-            </div>
-
-            <div>
-
-              <p
-                style={
-                  styles.label
-                }
-              >
-                Total Fees
+                {studentUsername
+                  ? ` • ${studentUsername}`
+                  : ""}
               </p>
-
-              <h2
-                style={
-                  styles.amount
-                }
-              >
-                ₹
-                {totalFees.toLocaleString(
-                  "en-IN"
-                )}
-              </h2>
-
             </div>
 
+            <button
+              type="button"
+              onClick={loadFees}
+              style={styles.refreshButton}
+            >
+              🔄 Refresh
+            </button>
           </div>
+
+          {error && (
+            <div style={styles.error}>
+              ⚠️ {error}
+            </div>
+          )}
 
           <div
-            style={
-              styles.summaryCard
-            }
+            className="fees-summary-grid"
+            style={styles.summaryGrid}
           >
-
-            <div
-              style={
-                styles.icon
-              }
-            >
-              ✅
-            </div>
-
-            <div>
-
-              <p
-                style={
-                  styles.label
-                }
-              >
-                Submitted
-              </p>
-
-              <h2
-                style={
-                  styles.amount
-                }
-              >
-                ₹
-                {submittedFees.toLocaleString(
-                  "en-IN"
-                )}
-              </h2>
-
-            </div>
-
-          </div>
-
-          <div
-            style={
-              styles.summaryCard
-            }
-          >
-
-            <div
-              style={
-                styles.icon
-              }
-            >
-              ⏳
-            </div>
-
-            <div>
-
-              <p
-                style={
-                  styles.label
-                }
-              >
-                Pending
-              </p>
-
-              <h2
-                style={
-                  styles.amount
-                }
-              >
-                ₹
-                {pendingFees.toLocaleString(
-                  "en-IN"
-                )}
-              </h2>
-
-            </div>
-
-          </div>
-
-        </div>
-
-        <section
-          style={
-            styles.card
-          }
-        >
-
-          <h2
-            style={
-              styles.sectionTitle
-            }
-          >
-            📋 Fee Details
-          </h2>
-
-          <p
-            style={
-              styles.sectionSubtitle
-            }
-          >
-            Fees assigned by your teacher
-          </p>
-
-          {fees.length === 0 ? (
-
-            <div
-              style={
-                styles.empty
-              }
-            >
-
-              <div
-                style={
-                  styles.emptyIcon
-                }
-              >
-                💳
+            <div style={styles.summaryCard}>
+              <div style={styles.icon}>
+                💰
               </div>
 
-              <h3>
-                No Fees Assigned
-              </h3>
+              <div>
+                <p style={styles.label}>
+                  Total Fees
+                </p>
 
-              <p>
-                Your teacher has not assigned
-                any fees yet.
-              </p>
-
+                <h2 style={styles.amount}>
+                  ₹
+                  {totalFees.toLocaleString(
+                    "en-IN"
+                  )}
+                </h2>
+              </div>
             </div>
 
-          ) : (
+            <div style={styles.summaryCard}>
+              <div style={styles.icon}>
+                ✅
+              </div>
 
-            <div
-              style={
-                styles.tableWrapper
-              }
-            >
+              <div>
+                <p style={styles.label}>
+                  Submitted
+                </p>
 
-              <table
-                style={
-                  styles.table
-                }
-              >
+                <h2 style={styles.amount}>
+                  ₹
+                  {submittedFees.toLocaleString(
+                    "en-IN"
+                  )}
+                </h2>
+              </div>
+            </div>
 
-                <thead>
+            <div style={styles.summaryCard}>
+              <div style={styles.icon}>
+                ⏳
+              </div>
 
-                  <tr>
+              <div>
+                <p style={styles.label}>
+                  Pending
+                </p>
 
-                    <th
-                      style={
-                        styles.th
-                      }
-                    >
-                      Month
-                    </th>
+                <h2 style={styles.amount}>
+                  ₹
+                  {pendingFees.toLocaleString(
+                    "en-IN"
+                  )}
+                </h2>
+              </div>
+            </div>
+          </div>
 
-                    <th
-                      style={
-                        styles.th
-                      }
-                    >
-                      Amount
-                    </th>
+          <section style={styles.card}>
+            <h2 style={styles.sectionTitle}>
+              📋 Fee Details
+            </h2>
 
-                    <th
-                      style={
-                        styles.th
-                      }
-                    >
-                      Status
-                    </th>
+            <p style={styles.sectionSubtitle}>
+              Fees assigned by your teacher
+            </p>
 
-                    <th
-                      style={
-                        styles.th
-                      }
-                    >
-                      Payment Mode
-                    </th>
+            {fees.length === 0 ? (
+              <div style={styles.empty}>
+                <div style={styles.emptyIcon}>
+                  💳
+                </div>
 
-                    <th
-                      style={
-                        styles.th
-                      }
-                    >
-                      Payment Date
-                    </th>
+                <h3>
+                  No Fees Assigned
+                </h3>
 
-                    <th
-                      style={
-                        styles.th
-                      }
-                    >
-                      Transaction ID
-                    </th>
+                <p>
+                  Your teacher has not assigned
+                  any fees yet.
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* DESKTOP TABLE */}
+                <div
+                  className="fees-table-wrapper desktop-fees-table"
+                  style={styles.tableWrapper}
+                >
+                  <table
+                    className="fees-table"
+                    style={styles.table}
+                  >
+                    <thead>
+                      <tr>
+                        <th style={styles.th}>
+                          Month
+                        </th>
 
-                    <th
-                      style={
-                        styles.th
-                      }
-                    >
-                      Remarks
-                    </th>
+                        <th style={styles.th}>
+                          Amount
+                        </th>
 
-                    <th
-                      style={
-                        styles.th
-                      }
-                    >
-                      Payment
-                    </th>
+                        <th style={styles.th}>
+                          Status
+                        </th>
 
-                    <th
-                      style={
-                        styles.th
-                      }
-                    >
-                      Receipt
-                    </th>
+                        <th style={styles.th}>
+                          Payment Mode
+                        </th>
 
-                  </tr>
+                        <th style={styles.th}>
+                          Payment Date
+                        </th>
 
-                </thead>
+                        <th style={styles.th}>
+                          Transaction ID
+                        </th>
 
-                <tbody>
+                        <th style={styles.th}>
+                          Remarks
+                        </th>
 
-                  {fees.map(
-                    (fee) => {
+                        <th style={styles.th}>
+                          Payment
+                        </th>
 
-                      const status =
-                        String(
-                          fee.status ||
-                            ""
-                        ).toUpperCase();
+                        <th style={styles.th}>
+                          Receipt
+                        </th>
+                      </tr>
+                    </thead>
 
-                      const paymentMode =
-                        String(
-                          fee.payment_mode ||
-                            ""
-                        ).toUpperCase();
+                    <tbody>
+                      {fees.map((fee) => {
+                        const status =
+                          String(
+                            fee.status || ""
+                          ).toUpperCase();
 
-                      const isPending =
-                        status ===
-                        "PENDING";
+                        const paymentMode =
+                          String(
+                            fee.payment_mode || ""
+                          ).toUpperCase();
 
-                      const isPaid =
-                        status ===
-                          "PAID ONLINE" ||
-                        status ===
-                          "PAID";
+                        const isPending =
+                          status === "PENDING";
 
-                      const canReceipt =
-                        status ===
-                          "SUBMITTED" ||
-                        status ===
-                          "PAID" ||
-                        status ===
-                          "PAID ONLINE";
+                        const isPaid =
+                          status === "PAID ONLINE" ||
+                          status === "PAID";
 
-                      return (
+                        const canReceipt =
+                          status === "SUBMITTED" ||
+                          status === "PAID" ||
+                          status === "PAID ONLINE";
 
-                        <tr
-                          key={
-                            fee.id
-                          }
-                        >
-
-                          <td
-                            style={
-                              styles.td
-                            }
+                        return (
+                          <tr
+                            key={fee.id}
+                            className="fee-row"
                           >
-
-                            <strong>
-                              {
-                                months[
+                            <td
+                              className="fee-cell"
+                              data-label="Month"
+                              style={styles.td}
+                            >
+                              <strong>
+                                {months[
                                   fee.month
                                 ] ||
-                                `Month ${fee.month}`
-                              }
-                            </strong>{" "}
-                            {fee.year}
+                                  `Month ${fee.month}`}
+                              </strong>{" "}
+                              {fee.year}
+                            </td>
 
-                          </td>
+                            <td
+                              className="fee-cell"
+                              data-label="Amount"
+                              style={styles.td}
+                            >
+                              <strong>
+                                ₹
+                                {Number(
+                                  fee.amount || 0
+                                ).toLocaleString(
+                                  "en-IN"
+                                )}
+                              </strong>
+                            </td>
 
-                          <td
-                            style={
-                              styles.td
-                            }
-                          >
+                            <td
+                              className="fee-cell"
+                              data-label="Status"
+                              style={styles.td}
+                            >
+                              <span
+                                style={{
+                                  ...styles.status,
 
-                            <strong>
-                              ₹
-                              {Number(
-                                fee.amount ||
-                                  0
-                              ).toLocaleString(
-                                "en-IN"
+                                  background:
+                                    status ===
+                                    "SUBMITTED"
+                                      ? "#dcfce7"
+                                      : status ===
+                                        "PENDING"
+                                      ? "#fef3c7"
+                                      : isPaid
+                                      ? "#dcfce7"
+                                      : "#e5e7eb",
+
+                                  color:
+                                    status ===
+                                    "SUBMITTED"
+                                      ? "#166534"
+                                      : status ===
+                                        "PENDING"
+                                      ? "#92400e"
+                                      : isPaid
+                                      ? "#166534"
+                                      : "#374151",
+                                }}
+                              >
+                                {status ===
+                                "SUBMITTED"
+                                  ? "✓ SUBMITTED"
+                                  : isPaid
+                                  ? "✓ PAID ONLINE"
+                                  : status}
+                              </span>
+                            </td>
+
+                            <td
+                              className="fee-cell"
+                              data-label="Payment Mode"
+                              style={styles.td}
+                            >
+                              {paymentMode ===
+                              "CASH" ? (
+                                <span
+                                  style={{
+                                    ...styles.modeBadge,
+                                    background:
+                                      "#fef3c7",
+                                    color:
+                                      "#92400e",
+                                  }}
+                                >
+                                  💵 CASH
+                                </span>
+                              ) : paymentMode ===
+                                "ONLINE" ? (
+                                <span
+                                  style={{
+                                    ...styles.modeBadge,
+                                    background:
+                                      "#dbeafe",
+                                    color:
+                                      "#1d4ed8",
+                                  }}
+                                >
+                                  💳 ONLINE
+                                </span>
+                              ) : (
+                                <span
+                                  style={
+                                    styles.noMode
+                                  }
+                                >
+                                  —
+                                </span>
                               )}
-                            </strong>
+                            </td>
 
-                          </td>
+                            <td
+                              className="fee-cell"
+                              data-label="Payment Date"
+                              style={styles.td}
+                            >
+                              {fee.payment_date ||
+                                "—"}
+                            </td>
 
-                          <td
-                            style={
-                              styles.td
-                            }
-                          >
+                            <td
+                              className="fee-cell"
+                              data-label="Transaction ID"
+                              style={styles.td}
+                            >
+                              <span className="breakable-text">
+                                {fee.transaction_id ||
+                                  "—"}
+                              </span>
+                            </td>
 
+                            <td
+                              className="fee-cell"
+                              data-label="Remarks"
+                              style={styles.td}
+                            >
+                              <span className="breakable-text">
+                                {fee.remarks ||
+                                  "—"}
+                              </span>
+                            </td>
+
+                            <td
+                              className="fee-cell"
+                              data-label="Payment"
+                              style={styles.td}
+                            >
+                              {isPending ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handlePayOnline(
+                                      fee
+                                    )
+                                  }
+                                  disabled={
+                                    payingFeeId ===
+                                    fee.id
+                                  }
+                                  style={{
+                                    ...styles.payButton,
+
+                                    opacity:
+                                      payingFeeId ===
+                                      fee.id
+                                        ? 0.7
+                                        : 1,
+
+                                    cursor:
+                                      payingFeeId ===
+                                      fee.id
+                                        ? "not-allowed"
+                                        : "pointer",
+                                  }}
+                                >
+                                  {payingFeeId ===
+                                  fee.id
+                                    ? "Opening..."
+                                    : "💳 Pay Online"}
+                                </button>
+                              ) : isPaid ? (
+                                <span
+                                  style={
+                                    styles.paidText
+                                  }
+                                >
+                                  ✓ Paid
+                                </span>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+
+                            <td
+                              className="fee-cell"
+                              data-label="Receipt"
+                              style={styles.td}
+                            >
+                              {canReceipt ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    printReceipt(
+                                      fee
+                                    )
+                                  }
+                                  style={
+                                    styles.receiptButton
+                                  }
+                                >
+                                  🧾 Receipt
+                                </button>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* MOBILE FEES */}
+                <div className="mobile-fees-list">
+                  {fees.map((fee) => {
+                    const status =
+                      String(
+                        fee.status || ""
+                      ).toUpperCase();
+
+                    const paymentMode =
+                      String(
+                        fee.payment_mode || ""
+                      ).toUpperCase();
+
+                    const isPending =
+                      status === "PENDING";
+
+                    const isPaid =
+                      status === "PAID ONLINE" ||
+                      status === "PAID";
+
+                    const canReceipt =
+                      status === "SUBMITTED" ||
+                      status === "PAID" ||
+                      status === "PAID ONLINE";
+
+                    return (
+                      <div
+                        key={fee.id}
+                        className="mobile-fee-card"
+                      >
+                        <div className="mobile-fee-top">
+                          <div>
+                            <div className="mobile-fee-month">
+                              {months[
+                                fee.month
+                              ] ||
+                                `Month ${fee.month}`}
+                            </div>
+
+                            <div className="mobile-fee-year">
+                              {fee.year}
+                            </div>
+                          </div>
+
+                          <div className="mobile-fee-amount">
+                            ₹
+                            {Number(
+                              fee.amount || 0
+                            ).toLocaleString(
+                              "en-IN"
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="mobile-fee-divider" />
+
+                        <div className="mobile-fee-detail">
+                          <span>Status</span>
+
+                          <span className="mobile-fee-value">
                             <span
                               style={{
                                 ...styles.status,
@@ -1347,29 +1322,32 @@ export default function StudentFeesPage() {
                                     : isPaid
                                     ? "#166534"
                                     : "#374151",
+
+                                whiteSpace:
+                                  "normal",
+
+                                textAlign:
+                                  "center",
                               }}
                             >
-
                               {status ===
                               "SUBMITTED"
                                 ? "✓ SUBMITTED"
                                 : isPaid
                                 ? "✓ PAID ONLINE"
                                 : status}
-
                             </span>
+                          </span>
+                        </div>
 
-                          </td>
+                        <div className="mobile-fee-detail">
+                          <span>
+                            Payment Mode
+                          </span>
 
-                          <td
-                            style={
-                              styles.td
-                            }
-                          >
-
+                          <span className="mobile-fee-value">
                             {paymentMode ===
                             "CASH" ? (
-
                               <span
                                 style={{
                                   ...styles.modeBadge,
@@ -1377,14 +1355,16 @@ export default function StudentFeesPage() {
                                     "#fef3c7",
                                   color:
                                     "#92400e",
+                                  whiteSpace:
+                                    "normal",
+                                  textAlign:
+                                    "center",
                                 }}
                               >
                                 💵 CASH
                               </span>
-
                             ) : paymentMode ===
                               "ONLINE" ? (
-
                               <span
                                 style={{
                                   ...styles.modeBadge,
@@ -1392,13 +1372,15 @@ export default function StudentFeesPage() {
                                     "#dbeafe",
                                   color:
                                     "#1d4ed8",
+                                  whiteSpace:
+                                    "normal",
+                                  textAlign:
+                                    "center",
                                 }}
                               >
                                 💳 ONLINE
                               </span>
-
                             ) : (
-
                               <span
                                 style={
                                   styles.noMode
@@ -1406,188 +1388,565 @@ export default function StudentFeesPage() {
                               >
                                 —
                               </span>
-
                             )}
+                          </span>
+                        </div>
 
-                          </td>
+                        <div className="mobile-fee-detail">
+                          <span>
+                            Payment Date
+                          </span>
 
-                          <td
-                            style={
-                              styles.td
-                            }
-                          >
+                          <span className="mobile-fee-value">
                             {fee.payment_date ||
                               "—"}
-                          </td>
+                          </span>
+                        </div>
 
-                          <td
-                            style={
-                              styles.td
-                            }
-                          >
+                        <div className="mobile-fee-detail">
+                          <span>
+                            Transaction ID
+                          </span>
+
+                          <span className="mobile-fee-value breakable-text">
                             {fee.transaction_id ||
                               "—"}
-                          </td>
+                          </span>
+                        </div>
 
-                          <td
-                            style={
-                              styles.td
-                            }
-                          >
+                        <div className="mobile-fee-detail">
+                          <span>
+                            Remarks
+                          </span>
+
+                          <span className="mobile-fee-value breakable-text">
                             {fee.remarks ||
                               "—"}
-                          </td>
+                          </span>
+                        </div>
 
-                          <td
-                            style={
-                              styles.td
-                            }
-                          >
+                        <div className="mobile-fee-actions">
+                          {isPending ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handlePayOnline(
+                                  fee
+                                )
+                              }
+                              disabled={
+                                payingFeeId ===
+                                fee.id
+                              }
+                              style={{
+                                ...styles.payButton,
 
-                            {isPending ? (
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handlePayOnline(
-                                    fee
-                                  )
-                                }
-                                disabled={
+                                opacity:
                                   payingFeeId ===
                                   fee.id
-                                }
-                                style={{
-                                  ...styles.payButton,
+                                    ? 0.7
+                                    : 1,
 
-                                  opacity:
-                                    payingFeeId ===
-                                    fee.id
-                                      ? 0.7
-                                      : 1,
+                                cursor:
+                                  payingFeeId ===
+                                  fee.id
+                                    ? "not-allowed"
+                                    : "pointer",
+                              }}
+                            >
+                              {payingFeeId ===
+                              fee.id
+                                ? "Opening..."
+                                : "💳 Pay Online"}
+                            </button>
+                          ) : isPaid ? (
+                            <span
+                              style={
+                                styles.paidText
+                              }
+                            >
+                              ✓ Paid
+                            </span>
+                          ) : (
+                            <span>—</span>
+                          )}
 
-                                  cursor:
-                                    payingFeeId ===
-                                    fee.id
-                                      ? "not-allowed"
-                                      : "pointer",
-                                }}
-                              >
-                                {payingFeeId ===
-                                fee.id
-                                  ? "Opening..."
-                                  : "💳 Pay Online"}
-                              </button>
+                          {canReceipt ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                printReceipt(
+                                  fee
+                                )
+                              }
+                              style={
+                                styles.receiptButton
+                              }
+                            >
+                              🧾 Receipt
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </section>
 
-                            ) : isPaid ? (
+          <div style={styles.info}>
+            <strong>
+              💡 Fee Information
+            </strong>
 
-                              <span
-                                style={
-                                  styles.paidText
-                                }
-                              >
-                                ✓ Paid
-                              </span>
+            <p>
+              Fees are assigned and managed by
+              your teacher. You can only view
+              fees assigned to your account.
+            </p>
+          </div>
 
-                            ) : (
-
-                              "—"
-
-                            )}
-
-                          </td>
-
-                          <td
-                            style={
-                              styles.td
-                            }
-                          >
-
-                            {canReceipt ? (
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  printReceipt(
-                                    fee
-                                  )
-                                }
-                                style={
-                                  styles.receiptButton
-                                }
-                              >
-                                🧾 Receipt
-                              </button>
-
-                            ) : (
-
-                              "—"
-
-                            )}
-
-                          </td>
-
-                        </tr>
-
-                      );
-                    }
-                  )}
-
-                </tbody>
-
-              </table>
-
-            </div>
-
-          )}
-
-        </section>
-
-        <div
-          style={
-            styles.info
-          }
-        >
-
-          <strong>
-            💡 Fee Information
-          </strong>
-
-          <p>
-            Fees are assigned and managed by
-            your teacher. You can only view
-            fees assigned to your account.
-          </p>
-
+          <footer style={styles.footer}>
+            Attendance Portal • Student Fees •
+            2026
+          </footer>
         </div>
+      </main>
 
-        <footer
-          style={
-            styles.footer
+      <style jsx global>{`
+        html,
+        body {
+          margin: 0;
+          padding: 0;
+          max-width: 100%;
+          overflow-x: hidden !important;
+        }
+
+        *,
+        *::before,
+        *::after {
+          box-sizing: border-box;
+        }
+
+        .student-fees-page {
+          width: 100%;
+          max-width: 100vw;
+          overflow-x: hidden;
+        }
+
+        .student-fees-container {
+          min-width: 0;
+        }
+
+        .fees-header-content {
+          min-width: 0;
+          flex: 1 1 auto;
+        }
+
+        .fees-header-content h1,
+        .fees-header-content p {
+          overflow-wrap: anywhere;
+          word-break: break-word;
+        }
+
+        .fees-table-wrapper {
+          width: 100%;
+          max-width: 100%;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .mobile-fees-list {
+          display: none;
+        }
+
+        .mobile-fee-card,
+        .mobile-fee-card * {
+          box-sizing: border-box;
+          min-width: 0;
+          max-width: 100%;
+        }
+
+        .fees-table {
+          width: 100%;
+        }
+
+        .breakable-text {
+          overflow-wrap: anywhere;
+          word-break: break-word;
+        }
+
+        @media (max-width: 768px) {
+          .student-fees-page {
+            padding: 16px !important;
           }
-        >
-          Attendance Portal • Student Fees • 2026
-        </footer>
 
-      </div>
+          .student-fees-container {
+            width: 100%;
+            max-width: 100%;
+          }
 
-    </main>
+          .fees-header {
+            align-items: stretch !important;
+            margin-bottom: 18px !important;
+          }
+
+          .fees-header-content {
+            width: 100%;
+          }
+
+          .fees-header-content h1 {
+            font-size: 27px !important;
+            line-height: 1.2;
+          }
+
+          .fees-header-content p {
+            font-size: 13px !important;
+          }
+
+          .fees-header > button {
+            width: 100%;
+            min-height: 44px;
+          }
+
+          .fees-summary-grid {
+            grid-template-columns:
+              repeat(
+                2,
+                minmax(0, 1fr)
+              ) !important;
+            gap: 10px !important;
+            margin-bottom: 18px !important;
+          }
+
+          .fees-summary-grid > div {
+            min-width: 0 !important;
+            padding: 15px !important;
+            gap: 10px !important;
+          }
+
+          .fees-summary-grid > div:last-child {
+            grid-column: 1 / -1;
+          }
+
+          .fees-summary-grid h2 {
+            font-size: 20px !important;
+            overflow-wrap: anywhere;
+          }
+
+          .fees-summary-grid p {
+            font-size: 12px !important;
+          }
+
+          .fees-summary-grid > div > div:first-child {
+            font-size: 25px !important;
+            flex-shrink: 0;
+          }
+
+          section[style*="background: white"] {
+            min-width: 0 !important;
+          }
+
+          /* Desktop table hidden on mobile */
+          .desktop-fees-table {
+            display: none !important;
+          }
+
+          /* Mobile cards shown */
+          .mobile-fees-list {
+            display: flex !important;
+            flex-direction: column;
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            gap: 12px;
+          }
+
+          .mobile-fee-card {
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            overflow: hidden;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 15px;
+            box-shadow:
+              0 3px 12px
+              rgba(0, 0, 0, 0.05);
+          }
+
+          .mobile-fee-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            width: 100%;
+            min-width: 0;
+          }
+
+          .mobile-fee-month {
+            color: #111827;
+            font-size: 17px;
+            font-weight: 800;
+            overflow-wrap: anywhere;
+          }
+
+          .mobile-fee-year {
+            margin-top: 3px;
+            color: #6b7280;
+            font-size: 12px;
+          }
+
+          .mobile-fee-amount {
+            flex: 0 0 auto;
+            max-width: 45%;
+            color: #111827;
+            font-size: 19px;
+            font-weight: 900;
+            text-align: right;
+            overflow-wrap: anywhere;
+          }
+
+          .mobile-fee-divider {
+            height: 1px;
+            width: 100%;
+            background: #e5e7eb;
+            margin: 12px 0 4px;
+          }
+
+          .mobile-fee-detail {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            width: 100%;
+            min-width: 0;
+            padding: 11px 0;
+            border-bottom:
+              1px solid #f1f5f9;
+            color: #64748b;
+            font-size: 12px;
+            line-height: 1.4;
+          }
+
+          .mobile-fee-detail > span:first-child {
+            flex: 0 0 38%;
+            max-width: 38%;
+            font-weight: 700;
+          }
+
+          .mobile-fee-value {
+            flex: 1 1 auto;
+            max-width: 62%;
+            min-width: 0;
+            color: #374151;
+            text-align: right;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+          }
+
+          .mobile-fee-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            width: 100%;
+            min-width: 0;
+            padding-top: 13px;
+          }
+
+          .mobile-fee-actions button {
+            max-width: 100%;
+            white-space: normal !important;
+          }
+
+          .student-fees-page section {
+            padding: 18px !important;
+            border-radius: 14px !important;
+          }
+
+          .student-fees-page h2 {
+            overflow-wrap: anywhere;
+          }
+
+          .student-fees-page p {
+            overflow-wrap: anywhere;
+          }
+
+          .student-fees-page [style*="padding: 18px"] {
+            max-width: 100%;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .student-fees-page {
+            padding: 11px !important;
+          }
+
+          .fees-header-content h1 {
+            font-size: 24px !important;
+          }
+
+          .fees-summary-grid {
+            grid-template-columns: 1fr !important;
+          }
+
+          .fees-summary-grid > div:last-child {
+            grid-column: auto;
+          }
+
+          .fees-summary-grid > div {
+            padding: 14px !important;
+          }
+
+          .fees-summary-grid h2 {
+            font-size: 19px !important;
+          }
+
+          .student-fees-page section {
+            padding: 14px !important;
+          }
+
+          .mobile-fee-card {
+            padding: 13px;
+          }
+
+          .mobile-fee-month {
+            font-size: 16px;
+          }
+
+          .mobile-fee-amount {
+            font-size: 17px;
+          }
+
+          .mobile-fee-detail {
+            gap: 8px;
+          }
+
+          .mobile-fee-detail > span:first-child {
+            flex-basis: 40%;
+            max-width: 40%;
+          }
+
+          .mobile-fee-value {
+            max-width: 60%;
+          }
+
+          .mobile-fee-actions {
+            align-items: stretch;
+            flex-wrap: wrap;
+          }
+
+          .mobile-fee-actions button {
+            flex: 1 1 auto;
+          }
+
+          .fees-table .fee-cell {
+            padding: 11px 10px !important;
+            gap: 8px;
+            font-size: 12px !important;
+          }
+
+          .fees-table .fee-cell::before {
+            flex-basis: 40%;
+            max-width: 40%;
+            font-size: 11px;
+          }
+
+          .fees-table .fee-cell > * {
+            max-width: 60%;
+          }
+
+          .fees-table .payButton,
+          .fees-table .receiptButton {
+            font-size: 11px !important;
+            padding: 8px 8px !important;
+          }
+
+          .fees-table .status,
+          .fees-table .modeBadge {
+            font-size: 10px !important;
+            padding: 5px 7px !important;
+          }
+
+          .info {
+            overflow-wrap: anywhere;
+          }
+        }
+
+        @media (max-width: 360px) {
+          .student-fees-page {
+            padding: 8px !important;
+          }
+
+          .student-fees-page section {
+            padding: 12px !important;
+          }
+
+          .fees-header-content h1 {
+            font-size: 22px !important;
+          }
+
+          .mobile-fee-card {
+            padding: 12px;
+          }
+
+          .mobile-fee-top {
+            gap: 8px;
+          }
+
+          .mobile-fee-month {
+            font-size: 15px;
+          }
+
+          .mobile-fee-amount {
+            font-size: 16px;
+            max-width: 50%;
+          }
+
+          .mobile-fee-detail {
+            font-size: 11px;
+          }
+
+          .mobile-fee-detail > span:first-child {
+            flex-basis: 42%;
+            max-width: 42%;
+          }
+
+          .mobile-fee-value {
+            max-width: 58%;
+          }
+
+          .fees-table .fee-cell {
+            padding: 10px 8px !important;
+          }
+
+          .fees-table .fee-cell::before {
+            flex-basis: 38%;
+            max-width: 38%;
+          }
+
+          .fees-table .fee-cell > * {
+            max-width: 62%;
+          }
+        }
+      `}</style>
+    </>
   );
 }
 
-const styles: Record<
-  string,
-  React.CSSProperties
-> = {
-
+const styles: Record<string, React.CSSProperties> = {
   loadingPage: {
     minHeight: "100vh",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     background: "#f5f7fb",
-    fontFamily:
-      "Arial, sans-serif",
+    fontFamily: "Arial, sans-serif",
+    padding: "20px",
+    boxSizing: "border-box",
   },
 
   loadingBox: {
@@ -1598,6 +1957,7 @@ const styles: Record<
     boxShadow:
       "0 8px 25px rgba(0,0,0,0.08)",
     fontSize: "40px",
+    maxWidth: "100%",
   },
 
   page: {
@@ -1607,12 +1967,16 @@ const styles: Record<
     fontFamily:
       "Arial, Helvetica, sans-serif",
     boxSizing: "border-box",
+    width: "100%",
+    maxWidth: "100vw",
+    overflowX: "hidden",
   },
 
   container: {
     width: "100%",
     maxWidth: "1200px",
     margin: "0 auto",
+    boxSizing: "border-box",
   },
 
   header: {
@@ -1629,12 +1993,15 @@ const styles: Record<
     color: "#111827",
     fontSize: "32px",
     fontWeight: 800,
+    overflowWrap: "anywhere",
   },
 
   subtitle: {
     margin: "7px 0 0",
     color: "#6b7280",
     fontSize: "15px",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
 
   refreshButton: {
@@ -1645,6 +2012,7 @@ const styles: Record<
     borderRadius: "9px",
     cursor: "pointer",
     fontWeight: 700,
+    minHeight: "42px",
   },
 
   error: {
@@ -1654,6 +2022,8 @@ const styles: Record<
     borderRadius: "10px",
     marginBottom: "20px",
     fontWeight: 600,
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
 
   summaryGrid: {
@@ -1662,6 +2032,7 @@ const styles: Record<
       "repeat(auto-fit,minmax(220px,1fr))",
     gap: "16px",
     marginBottom: "25px",
+    width: "100%",
   },
 
   summaryCard: {
@@ -1673,10 +2044,13 @@ const styles: Record<
     gap: "15px",
     boxShadow:
       "0 4px 14px rgba(0,0,0,0.06)",
+    minWidth: 0,
+    boxSizing: "border-box",
   },
 
   icon: {
     fontSize: "30px",
+    flexShrink: 0,
   },
 
   label: {
@@ -1689,6 +2063,7 @@ const styles: Record<
     margin: "5px 0 0",
     color: "#111827",
     fontSize: "25px",
+    overflowWrap: "anywhere",
   },
 
   card: {
@@ -1697,29 +2072,38 @@ const styles: Record<
     padding: "25px",
     boxShadow:
       "0 4px 14px rgba(0,0,0,0.06)",
+    width: "100%",
+    maxWidth: "100%",
+    minWidth: 0,
+    boxSizing: "border-box",
   },
 
   sectionTitle: {
     margin: 0,
     color: "#111827",
     fontSize: "23px",
+    overflowWrap: "anywhere",
   },
 
   sectionSubtitle: {
     color: "#6b7280",
     marginTop: "7px",
     marginBottom: "20px",
+    overflowWrap: "anywhere",
   },
 
   tableWrapper: {
     width: "100%",
+    maxWidth: "100%",
     overflowX: "auto",
+    boxSizing: "border-box",
   },
 
   table: {
     width: "100%",
     minWidth: "1250px",
     borderCollapse: "collapse",
+    boxSizing: "border-box",
   },
 
   th: {
@@ -1738,6 +2122,9 @@ const styles: Record<
       "1px solid #e5e7eb",
     color: "#374151",
     fontSize: "14px",
+    verticalAlign: "top",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
 
   status: {
@@ -1772,6 +2159,8 @@ const styles: Record<
     fontSize: "13px",
     fontWeight: 700,
     whiteSpace: "nowrap",
+    cursor: "pointer",
+    maxWidth: "100%",
   },
 
   paidText: {
@@ -1790,12 +2179,14 @@ const styles: Record<
     fontWeight: 700,
     whiteSpace: "nowrap",
     cursor: "pointer",
+    maxWidth: "100%",
   },
 
   empty: {
     textAlign: "center",
     padding: "50px 10px",
     color: "#6b7280",
+    overflowWrap: "anywhere",
   },
 
   emptyIcon: {
@@ -1808,6 +2199,8 @@ const styles: Record<
     color: "#1e40af",
     padding: "18px",
     borderRadius: "12px",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
 
   footer: {
@@ -1815,5 +2208,6 @@ const styles: Record<
     color: "#9ca3af",
     marginTop: "25px",
     fontSize: "13px",
+    overflowWrap: "anywhere",
   },
 };
