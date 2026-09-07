@@ -63,8 +63,8 @@ export default function TeacherFeesPage() {
   const [transactionId, setTransactionId] = useState("");
   const [remarks, setRemarks] = useState("");
 
-  // IMPORTANT:
-  // No payment mode is selected by default.
+  // No payment mode selected by default.
+  // CASH is selected only when teacher confirms a cash payment.
   const [paymentMode, setPaymentMode] = useState("");
 
   const [loading, setLoading] = useState(true);
@@ -120,6 +120,7 @@ export default function TeacherFeesPage() {
       setFees(feesData || []);
     } catch (err) {
       console.error(err);
+
       setError(
         "Unable to load fee management data."
       );
@@ -147,13 +148,15 @@ export default function TeacherFeesPage() {
     }
 
     /*
-      Payment mode is ONLY required when teacher
-      is marking the fee as received in cash.
+      CASH is required only when teacher marks
+      the fee as SUBMITTED.
 
-      PENDING fee creation does not require
-      payment mode.
+      PENDING fees do NOT have a payment mode.
     */
-    if (status === "SUBMITTED" && paymentMode !== "CASH") {
+    if (
+      status === "SUBMITTED" &&
+      paymentMode !== "CASH"
+    ) {
       setError(
         "Please select CASH payment mode for a cash payment."
       );
@@ -183,11 +186,18 @@ export default function TeacherFeesPage() {
       }
 
       /*
-        If teacher saves a normal pending fee,
-        payment_mode stays NULL.
+        IMPORTANT PAYMENT MODE LOGIC:
 
-        If teacher selects CASH and saves as SUBMITTED,
-        payment_mode becomes CASH automatically.
+        PENDING:
+          payment_mode = NULL
+
+        SUBMITTED + CASH:
+          payment_mode = CASH
+
+        ONLINE:
+          payment_mode is NOT manually selected
+          by teacher. Razorpay success will set it
+          to ONLINE automatically.
       */
       const feeData = {
         student_id: Number(studentId),
@@ -195,6 +205,7 @@ export default function TeacherFeesPage() {
         year: Number(year),
         amount: Number(amount),
         status,
+
         payment_date:
           status === "SUBMITTED"
             ? paymentDate ||
@@ -202,9 +213,13 @@ export default function TeacherFeesPage() {
                 .toISOString()
                 .split("T")[0]
             : paymentDate || null,
+
         transaction_id:
           transactionId.trim() || null,
-        remarks: remarks.trim() || null,
+
+        remarks:
+          remarks.trim() || null,
+
         payment_mode:
           status === "SUBMITTED" &&
           paymentMode === "CASH"
@@ -345,12 +360,22 @@ export default function TeacherFeesPage() {
         fee.month
       ).padStart(2, "0")}-${fee.id}`;
 
-    const paymentModeText =
+    /*
+      IMPORTANT:
+      NULL must remain NULL/—.
+      It must never automatically become CASH.
+    */
+    const normalizedPaymentMode =
       String(
         fee.payment_mode || ""
-      ).toUpperCase() === "ONLINE"
+      ).toUpperCase();
+
+    const paymentModeText =
+      normalizedPaymentMode === "ONLINE"
         ? "ONLINE"
-        : "CASH";
+        : normalizedPaymentMode === "CASH"
+        ? "CASH"
+        : "—";
 
     const receiptHTML = `
 <!DOCTYPE html>
