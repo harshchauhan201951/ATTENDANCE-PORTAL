@@ -108,13 +108,6 @@ export default function TeacherDashboard() {
       path: "/teacher/fees",
     },
     {
-      number: "06",
-      title: "Payments",
-      description: "Manage cash and online fee payments",
-      icon: "💳",
-      path: "/teacher/payments",
-    },
-    {
       number: "07",
       title: "Homework",
       description: "Create and manage student homework",
