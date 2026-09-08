@@ -149,6 +149,15 @@ export default function TeacherDashboard() {
       icon: "🔐",
       path: "/teacher/login-activity",
     },
+
+    // OPTION 12
+    {
+      number: "12",
+      title: "Student Directory",
+      description: "View and export complete student details",
+      icon: "👨‍🎓",
+      path: "/teacher/student-directory",
+    },
   ];
 
   return (
@@ -359,6 +368,8 @@ export default function TeacherDashboard() {
                         ? "linear-gradient(135deg,#fef3c7,#fde68a)"
                         : item.title === "Student Login Activity"
                         ? "linear-gradient(135deg,#dcfce7,#bbf7d0)"
+                        : item.title === "Student Directory"
+                        ? "linear-gradient(135deg,#dbeafe,#bfdbfe)"
                         : "#eef2ff",
                     color:
                       item.title === "Homework"
@@ -367,6 +378,8 @@ export default function TeacherDashboard() {
                         ? "#d97706"
                         : item.title === "Student Login Activity"
                         ? "#16a34a"
+                        : item.title === "Student Directory"
+                        ? "#2563eb"
                         : "#4f46e5",
                     display: "flex",
                     alignItems: "center",
@@ -419,6 +432,8 @@ export default function TeacherDashboard() {
                       ? "#d97706"
                       : item.title === "Student Login Activity"
                       ? "#16a34a"
+                      : item.title === "Student Directory"
+                      ? "#2563eb"
                       : "#4f46e5",
                   fontSize: "12px",
                   fontWeight: 900,
