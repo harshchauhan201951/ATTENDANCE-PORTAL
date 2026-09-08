@@ -15,17 +15,105 @@ export default function TeacherDashboard() {
   const router = useRouter();
 
   const [teacherName, setTeacherName] = useState("Teacher");
+  const [profileImage, setProfileImage] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
-    const savedTeacherName =
-      localStorage.getItem("teacherName") ||
-      localStorage.getItem("teacher_name") ||
-      localStorage.getItem("teacherUsername") ||
-      localStorage.getItem("teacher_username") ||
-      "Teacher";
+    try {
+      const savedProfileUsername =
+        localStorage.getItem("teacherProfileUsername");
 
-    setTeacherName(savedTeacherName);
+      const savedTeacherName =
+        localStorage.getItem("teacherName") ||
+        localStorage.getItem("teacher_name") ||
+        localStorage.getItem("teacherUsername") ||
+        localStorage.getItem("teacher_username") ||
+        "Teacher";
+
+      const finalTeacherName =
+        savedProfileUsername?.trim() ||
+        savedTeacherName ||
+        "Teacher";
+
+      setTeacherName(finalTeacherName);
+
+      const savedImage =
+        localStorage.getItem("teacherProfileImage");
+
+      if (savedImage) {
+        setProfileImage(savedImage);
+      }
+
+      // Listen for profile updates made from Teacher Profile page.
+      const handleStorageChange = (event: StorageEvent) => {
+        if (event.key === "teacherProfileUsername") {
+          setTeacherName(
+            event.newValue?.trim() ||
+              savedTeacherName ||
+              "Teacher"
+          );
+        }
+
+        if (event.key === "teacherProfileImage") {
+          setProfileImage(event.newValue || null);
+        }
+      };
+
+      window.addEventListener(
+        "storage",
+        handleStorageChange
+      );
+
+      // Also refresh values when the page becomes active again.
+      const handleVisibilityChange = () => {
+        if (document.visibilityState !== "visible") {
+          return;
+        }
+
+        const latestUsername =
+          localStorage.getItem(
+            "teacherProfileUsername"
+          );
+
+        const latestImage =
+          localStorage.getItem(
+            "teacherProfileImage"
+          );
+
+        setTeacherName(
+          latestUsername?.trim() ||
+            localStorage.getItem("teacherName") ||
+            localStorage.getItem("teacher_name") ||
+            localStorage.getItem("teacherUsername") ||
+            localStorage.getItem(
+              "teacher_username"
+            ) ||
+            "Teacher"
+        );
+
+        setProfileImage(latestImage || null);
+      };
+
+      document.addEventListener(
+        "visibilitychange",
+        handleVisibilityChange
+      );
+
+      return () => {
+        window.removeEventListener(
+          "storage",
+          handleStorageChange
+        );
+
+        document.removeEventListener(
+          "visibilitychange",
+          handleVisibilityChange
+        );
+      };
+    } catch {
+      setTeacherName("Teacher");
+      setProfileImage(null);
+    }
   }, []);
 
   async function handleLogout() {
@@ -55,6 +143,14 @@ export default function TeacherDashboard() {
       "student_name",
     ];
 
+    /*
+     * IMPORTANT:
+     * Do not remove teacherProfileUsername
+     * or teacherProfileImage here.
+     *
+     * These are profile settings and should remain
+     * saved on this browser even after logout.
+     */
     authKeys.forEach((key) => {
       localStorage.removeItem(key);
     });
@@ -185,7 +281,8 @@ export default function TeacherDashboard() {
             borderRadius: "22px",
             padding: "28px",
             marginBottom: "28px",
-            boxShadow: "0 10px 35px rgba(15,23,42,0.08)",
+            boxShadow:
+              "0 10px 35px rgba(15,23,42,0.08)",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
@@ -193,44 +290,99 @@ export default function TeacherDashboard() {
             flexWrap: "wrap",
           }}
         >
-          <div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "16px",
+              minWidth: 0,
+            }}
+          >
+            {/* PROFILE PHOTO */}
+
             <div
               style={{
-                display: "inline-block",
-                background: "#eef2ff",
-                color: "#4f46e5",
-                padding: "7px 12px",
-                borderRadius: "999px",
-                fontSize: "11px",
-                fontWeight: 900,
-                letterSpacing: "1px",
-                marginBottom: "10px",
+                width: "72px",
+                height: "72px",
+                minWidth: "72px",
+                borderRadius: "50%",
+                overflow: "hidden",
+                background:
+                  "linear-gradient(135deg,#dbeafe,#e0e7ff)",
+                border:
+                  "3px solid rgba(79,70,229,0.16)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow:
+                  "0 8px 20px rgba(37,99,235,0.12)",
               }}
             >
-              TEACHER PORTAL
+              {profileImage ? (
+                <img
+                  src={profileImage}
+                  alt="Teacher profile"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                  }}
+                />
+              ) : (
+                <span
+                  style={{
+                    color: "#4f46e5",
+                    fontSize: "25px",
+                    fontWeight: 900,
+                  }}
+                >
+                  {teacherName
+                    .charAt(0)
+                    .toUpperCase()}
+                </span>
+              )}
             </div>
 
-            <h1
-              style={{
-                margin: 0,
-                color: "#0f172a",
-                fontSize: "30px",
-                fontWeight: 900,
-              }}
-            >
-              Welcome, {teacherName} 👋
-            </h1>
+            <div style={{ minWidth: 0 }}>
+              <div
+                style={{
+                  display: "inline-block",
+                  background: "#eef2ff",
+                  color: "#4f46e5",
+                  padding: "7px 12px",
+                  borderRadius: "999px",
+                  fontSize: "11px",
+                  fontWeight: 900,
+                  letterSpacing: "1px",
+                  marginBottom: "10px",
+                }}
+              >
+                TEACHER PORTAL
+              </div>
 
-            <p
-              style={{
-                margin: "8px 0 0",
-                color: "#64748b",
-                fontSize: "14px",
-                fontWeight: 600,
-              }}
-            >
-              Manage attendance, homework, students, fees and more.
-            </p>
+              <h1
+                style={{
+                  margin: 0,
+                  color: "#0f172a",
+                  fontSize: "30px",
+                  fontWeight: 900,
+                  overflowWrap: "anywhere",
+                }}
+              >
+                Welcome, {teacherName} 👋
+              </h1>
+
+              <p
+                style={{
+                  margin: "8px 0 0",
+                  color: "#64748b",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                }}
+              >
+                Manage attendance, homework, students, fees and more.
+              </p>
+            </div>
           </div>
 
           <button
@@ -239,17 +391,25 @@ export default function TeacherDashboard() {
             disabled={loggingOut}
             style={{
               border: "none",
-              background: loggingOut ? "#94a3b8" : "#ef4444",
+              background:
+                loggingOut
+                  ? "#94a3b8"
+                  : "#ef4444",
               color: "#ffffff",
               padding: "12px 20px",
               borderRadius: "12px",
               fontWeight: 800,
               fontSize: "14px",
-              cursor: loggingOut ? "not-allowed" : "pointer",
+              cursor:
+                loggingOut
+                  ? "not-allowed"
+                  : "pointer",
               minWidth: "115px",
             }}
           >
-            {loggingOut ? "Logging out..." : "Logout"}
+            {loggingOut
+              ? "Logging out..."
+              : "Logout"}
           </button>
         </header>
 
@@ -307,7 +467,9 @@ export default function TeacherDashboard() {
             <button
               key={item.path}
               type="button"
-              onClick={() => router.push(item.path)}
+              onClick={() =>
+                router.push(item.path)
+              }
               style={{
                 border: "none",
                 background: "#ffffff",
@@ -366,11 +528,14 @@ export default function TeacherDashboard() {
                         ? "linear-gradient(135deg,#ede9fe,#ddd6fe)"
                         : item.title === "Announcements"
                         ? "linear-gradient(135deg,#fef3c7,#fde68a)"
-                        : item.title === "Student Login Activity"
+                        : item.title ===
+                          "Student Login Activity"
                         ? "linear-gradient(135deg,#dcfce7,#bbf7d0)"
-                        : item.title === "Student Directory"
+                        : item.title ===
+                          "Student Directory"
                         ? "linear-gradient(135deg,#dbeafe,#bfdbfe)"
-                        : item.title === "Extra Classes"
+                        : item.title ===
+                          "Extra Classes"
                         ? "linear-gradient(135deg,#fce7f3,#fbcfe8)"
                         : "#eef2ff",
                     color:
@@ -378,11 +543,14 @@ export default function TeacherDashboard() {
                         ? "#7c3aed"
                         : item.title === "Announcements"
                         ? "#d97706"
-                        : item.title === "Student Login Activity"
+                        : item.title ===
+                          "Student Login Activity"
                         ? "#16a34a"
-                        : item.title === "Student Directory"
+                        : item.title ===
+                          "Student Directory"
                         ? "#2563eb"
-                        : item.title === "Extra Classes"
+                        : item.title ===
+                          "Extra Classes"
                         ? "#db2777"
                         : "#4f46e5",
                     display: "flex",
@@ -434,11 +602,14 @@ export default function TeacherDashboard() {
                       ? "#7c3aed"
                       : item.title === "Announcements"
                       ? "#d97706"
-                      : item.title === "Student Login Activity"
+                      : item.title ===
+                        "Student Login Activity"
                       ? "#16a34a"
-                      : item.title === "Student Directory"
+                      : item.title ===
+                        "Student Directory"
                       ? "#2563eb"
-                      : item.title === "Extra Classes"
+                      : item.title ===
+                        "Extra Classes"
                       ? "#db2777"
                       : "#4f46e5",
                   fontSize: "12px",

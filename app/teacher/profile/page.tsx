@@ -27,9 +27,15 @@ export default function TeacherProfilePage() {
 
   const [teacherId, setTeacherId] = useState("");
   const [teacherName, setTeacherName] = useState("Teacher");
-  const [teacherUsername, setTeacherUsername] = useState("");
+  const [teacherUsername, setTeacherUsername] =
+    useState("");
   const [profileImage, setProfileImage] =
     useState<string | null>(null);
+
+  const [usernameInput, setUsernameInput] =
+    useState("");
+  const [usernameSaved, setUsernameSaved] =
+    useState(false);
 
   const [activeSection, setActiveSection] =
     useState<
@@ -126,6 +132,19 @@ export default function TeacherProfilePage() {
         localStorage.getItem("teacherId") ||
         "";
 
+      /*
+       * The custom saved profile username always gets
+       * priority over the original login username.
+       */
+      const savedProfileUsername =
+        localStorage.getItem(
+          "teacherProfileUsername"
+        );
+
+      if (savedProfileUsername?.trim()) {
+        username = savedProfileUsername.trim();
+      }
+
       let cleanName = savedName;
 
       if (cleanName) {
@@ -156,10 +175,22 @@ export default function TeacherProfilePage() {
         }
       }
 
+      const finalUsername =
+        username || "Teacher Account";
+
       setTeacherId(id);
-      setTeacherName(cleanName || "Teacher");
-      setTeacherUsername(
-        username || "Teacher Account"
+
+      setTeacherName(
+        cleanName ||
+          finalUsername ||
+          "Teacher"
+      );
+
+      setTeacherUsername(finalUsername);
+      setUsernameInput(
+        finalUsername === "Teacher Account"
+          ? ""
+          : finalUsername
       );
 
       const savedImage =
@@ -195,8 +226,90 @@ export default function TeacherProfilePage() {
     } catch {
       setTeacherName("Teacher");
       setTeacherUsername("Teacher Account");
+      setUsernameInput("");
     }
   }, []);
+
+  const showSavedMessage = () => {
+    setProfileSaved(true);
+
+    window.setTimeout(() => {
+      setProfileSaved(false);
+    }, 2500);
+  };
+
+  const handleUsernameSave = () => {
+    const cleanedUsername =
+      usernameInput.trim();
+
+    if (!cleanedUsername) {
+      alert(
+        "Please enter a teacher username."
+      );
+      return;
+    }
+
+    if (cleanedUsername.length < 2) {
+      alert(
+        "Teacher username must contain at least 2 characters."
+      );
+      return;
+    }
+
+    try {
+      /*
+       * Store the profile/display username.
+       *
+       * Existing authentication username remains untouched.
+       * This value is specifically used for the teacher profile
+       * and dashboard welcome message.
+       */
+      localStorage.setItem(
+        "teacherProfileUsername",
+        cleanedUsername
+      );
+
+      /*
+       * Also update the existing local teacher display keys
+       * so older pages that read teacherName/teacherUsername
+       * continue to work.
+       */
+      localStorage.setItem(
+        "teacherName",
+        cleanedUsername
+      );
+
+      localStorage.setItem(
+        "teacher_name",
+        cleanedUsername
+      );
+
+      localStorage.setItem(
+        "teacherUsername",
+        cleanedUsername
+      );
+
+      localStorage.setItem(
+        "teacher_username",
+        cleanedUsername
+      );
+
+      setTeacherUsername(cleanedUsername);
+      setTeacherName(cleanedUsername);
+      setUsernameInput(cleanedUsername);
+
+      setUsernameSaved(true);
+      showSavedMessage();
+
+      window.setTimeout(() => {
+        setUsernameSaved(false);
+      }, 2500);
+    } catch {
+      alert(
+        "Unable to save teacher username on this device."
+      );
+    }
+  };
 
   const handleImageChange = (
     event: ChangeEvent<HTMLInputElement>
@@ -209,11 +322,13 @@ export default function TeacherProfilePage() {
 
     if (!file.type.startsWith("image/")) {
       alert("Please select an image file.");
+      event.target.value = "";
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
       alert("Image size must be less than 5 MB.");
+      event.target.value = "";
       return;
     }
 
@@ -223,9 +338,9 @@ export default function TeacherProfilePage() {
       if (
         typeof reader.result === "string"
       ) {
-        setProfileImage(reader.result);
-
         try {
+          setProfileImage(reader.result);
+
           localStorage.setItem(
             "teacherProfileImage",
             reader.result
@@ -233,18 +348,24 @@ export default function TeacherProfilePage() {
 
           setProfileSaved(true);
 
-          setTimeout(() => {
+          window.setTimeout(() => {
             setProfileSaved(false);
           }, 2500);
         } catch {
           alert(
-            "Unable to save the profile picture."
+            "Unable to save the profile picture. The image may be too large for browser storage."
           );
         }
       }
     };
 
+    reader.onerror = () => {
+      alert("Unable to read the selected image.");
+    };
+
     reader.readAsDataURL(file);
+
+    event.target.value = "";
   };
 
   const removeImage = () => {
@@ -257,7 +378,7 @@ export default function TeacherProfilePage() {
 
       setProfileSaved(true);
 
-      setTimeout(() => {
+      window.setTimeout(() => {
         setProfileSaved(false);
       }, 2500);
     } catch {
@@ -335,18 +456,6 @@ export default function TeacherProfilePage() {
       return;
     }
 
-    /*
-     * Your project currently authenticates teachers
-     * through its existing authentication system.
-     *
-     * No password-update database RPC/API was supplied
-     * in the current profile source, so we deliberately
-     * do not write an invented database column here.
-     *
-     * This prevents accidentally corrupting the teacher
-     * authentication system.
-     */
-
     setSavingPassword(true);
 
     await new Promise((resolve) =>
@@ -393,11 +502,12 @@ export default function TeacherProfilePage() {
   };
 
   const displayName =
-    teacherName &&
-    teacherName !== "Teacher"
-      ? teacherName
-      : teacherUsername !== "Teacher Account"
+    teacherUsername &&
+    teacherUsername !== "Teacher Account"
       ? teacherUsername
+      : teacherName &&
+        teacherName !== "Teacher"
+      ? teacherName
       : "Teacher";
 
   const avatarLetter =
@@ -421,9 +531,7 @@ export default function TeacherProfilePage() {
       <div className="ambient ambient-two" />
 
       <div className="profile-shell">
-        {/* ================================================= */}
         {/* TOP BAR */}
-        {/* ================================================= */}
 
         <header className="topbar">
           <button
@@ -447,9 +555,7 @@ export default function TeacherProfilePage() {
           </div>
         </header>
 
-        {/* ================================================= */}
         {/* PROFILE HERO */}
-        {/* ================================================= */}
 
         <section className="profile-hero">
           <div className="hero-glow" />
@@ -513,9 +619,7 @@ export default function TeacherProfilePage() {
           </div>
         </section>
 
-        {/* ================================================= */}
         {/* NAVIGATION */}
-        {/* ================================================= */}
 
         <nav className="section-nav">
           <button
@@ -579,9 +683,7 @@ export default function TeacherProfilePage() {
           </button>
         </nav>
 
-        {/* ================================================= */}
         {/* PROFILE SECTION */}
-        {/* ================================================= */}
 
         {activeSection === "profile" && (
           <section className="main-card">
@@ -596,8 +698,8 @@ export default function TeacherProfilePage() {
                 </h2>
 
                 <p>
-                  Manage your profile picture and
-                  view your account information.
+                  Set your teacher username and
+                  manage your profile picture.
                 </p>
               </div>
 
@@ -631,7 +733,8 @@ export default function TeacherProfilePage() {
 
                 <p>
                   Your profile picture is stored
-                  locally on this device.
+                  on this device and shown on the
+                  Teacher Dashboard.
                 </p>
 
                 <div className="image-actions">
@@ -682,6 +785,45 @@ export default function TeacherProfilePage() {
               <div className="details-panel">
                 <div className="panel-label">
                   ACCOUNT INFORMATION
+                </div>
+
+                {/* USERNAME EDIT */}
+
+                <div className="username-editor">
+                  <label>
+                    TEACHER USERNAME
+                  </label>
+
+                  <div className="username-input-row">
+                    <input
+                      type="text"
+                      value={usernameInput}
+                      onChange={(event) =>
+                        setUsernameInput(
+                          event.target.value
+                        )
+                      }
+                      placeholder="Enter teacher username"
+                      maxLength={50}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={
+                        handleUsernameSave
+                      }
+                    >
+                      {usernameSaved
+                        ? "✓ Saved"
+                        : "Save"}
+                    </button>
+                  </div>
+
+                  <p>
+                    This username will be shown
+                    beside “Welcome” on the
+                    Teacher Dashboard.
+                  </p>
                 </div>
 
                 <div className="detail-list">
@@ -749,15 +891,14 @@ export default function TeacherProfilePage() {
 
                   <div>
                     <strong>
-                      Your account is connected
+                      Profile connected to dashboard
                     </strong>
 
                     <p>
-                      You can manage attendance,
-                      tests, fees, announcements
-                      and other teacher modules
-                      from the Teacher Control
-                      Centre.
+                      Your saved username and
+                      profile picture are used
+                      automatically on the Teacher
+                      Control Centre.
                     </p>
                   </div>
                 </div>
@@ -854,9 +995,7 @@ export default function TeacherProfilePage() {
           </section>
         )}
 
-        {/* ================================================= */}
         {/* SECURITY SECTION */}
-        {/* ================================================= */}
 
         {activeSection === "security" && (
           <section className="main-card">
@@ -1153,9 +1292,7 @@ export default function TeacherProfilePage() {
           </section>
         )}
 
-        {/* ================================================= */}
         {/* PREFERENCES SECTION */}
-        {/* ================================================= */}
 
         {activeSection === "preferences" && (
           <section className="main-card">
@@ -1252,8 +1389,8 @@ export default function TeacherProfilePage() {
                   </strong>
 
                   <span>
-                    Profile picture is stored only
-                    on this device.
+                    Username and profile picture
+                    are stored on this device.
                   </span>
                 </div>
 
@@ -1300,15 +1437,13 @@ export default function TeacherProfilePage() {
               <p>
                 These options are saved locally on
                 this browser/device and do not change
-                your teacher account credentials.
+                your teacher authentication password.
               </p>
             </div>
           </section>
         )}
 
-        {/* ================================================= */}
         {/* BOTTOM ACTIONS */}
-        {/* ================================================= */}
 
         <section className="bottom-actions">
           <button
@@ -1332,10 +1467,6 @@ export default function TeacherProfilePage() {
           <button
             type="button"
             onClick={() => {
-              localStorage.removeItem(
-                "teacherProfileImage"
-              );
-
               router.push("/teacher");
             }}
           >
@@ -1343,9 +1474,7 @@ export default function TeacherProfilePage() {
           </button>
         </section>
 
-        {/* ================================================= */}
         {/* FOOTER */}
-        {/* ================================================= */}
 
         <footer>
           <span>
@@ -1373,9 +1502,6 @@ export default function TeacherProfilePage() {
           overflow-x: hidden;
           color: #172033;
 
-          /*
-           * ONLY BACKGROUND CHANGED
-           */
           background:
             radial-gradient(
               circle at 8% 8%,
@@ -2075,6 +2201,100 @@ export default function TeacherProfilePage() {
           font-size: 8px;
         }
 
+        /* USERNAME EDITOR */
+
+        .username-editor {
+          padding: 14px;
+          margin-bottom: 12px;
+
+          border-radius: 12px;
+
+          background:
+            linear-gradient(
+              135deg,
+              #eff6ff,
+              #f5f3ff
+            );
+
+          border: 1px solid
+            #dbeafe;
+        }
+
+        .username-editor label {
+          display: block;
+          margin-bottom: 7px;
+
+          color: #475569;
+          font-size: 8px;
+          font-weight: 900;
+          letter-spacing: 1.2px;
+        }
+
+        .username-input-row {
+          display: flex;
+          gap: 8px;
+        }
+
+        .username-input-row input {
+          flex: 1;
+          min-width: 0;
+
+          height: 42px;
+          border-radius: 10px;
+
+          border: 1px solid #cbd5e1;
+          outline: none;
+
+          padding: 0 12px;
+
+          background: #ffffff;
+          color: #172033;
+
+          font-size: 11px;
+          font-weight: 700;
+        }
+
+        .username-input-row input:focus {
+          border-color: #93c5fd;
+
+          box-shadow:
+            0 0 0 3px
+              rgba(59, 130, 246, 0.08);
+        }
+
+        .username-input-row button {
+          border: 0;
+
+          height: 42px;
+          min-width: 82px;
+
+          padding: 0 14px;
+
+          border-radius: 10px;
+
+          color: white;
+
+          background:
+            linear-gradient(
+              135deg,
+              #2563eb,
+              #4f46e5
+            );
+
+          cursor: pointer;
+
+          font-size: 10px;
+          font-weight: 900;
+        }
+
+        .username-editor > p {
+          margin: 7px 0 0;
+
+          color: #64748b;
+          font-size: 8px;
+          line-height: 1.5;
+        }
+
         .detail-list {
           display: flex;
           flex-direction: column;
@@ -2627,7 +2847,8 @@ export default function TeacherProfilePage() {
           background: #ffffff;
 
           transition: 0.2s ease;
-          box-shadow: 0 1px 4px rgba(15, 23, 42, 0.18);
+          box-shadow: 0 1px 4px
+            rgba(15, 23, 42, 0.18);
         }
 
         .switch-on {
@@ -2846,6 +3067,14 @@ export default function TeacherProfilePage() {
             gap: 8px;
             padding: 20px 0;
             text-align: center;
+          }
+
+          .username-input-row {
+            flex-direction: column;
+          }
+
+          .username-input-row button {
+            width: 100%;
           }
         }
 
