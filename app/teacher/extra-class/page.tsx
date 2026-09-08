@@ -5,9 +5,12 @@ import { supabase } from "../../../lib/supabase";
 
 type Student = {
   id: number;
-  username?: string | null;
-  name?: string | null;
-  full_name?: string | null;
+  student_name?: string | null;
+  student_username?: string | null;
+  father_name?: string | null;
+  mother_name?: string | null;
+  admission_date?: string | null;
+  date_of_birth?: string | null;
 };
 
 type Status = "Present" | "Absent";
@@ -38,12 +41,11 @@ type ExtraClassAttendance = {
 type StatusMap = Record<number, Status>;
 
 function getStudentName(student: Student) {
-  return (
-    student.full_name?.trim() ||
-    student.name?.trim() ||
-    student.username?.trim() ||
-    `Student #${student.id}`
-  );
+  return student.student_name?.trim() || `Student #${student.id}`;
+}
+
+function getStudentUsername(student: Student) {
+  return student.student_username?.trim() || "No username";
 }
 
 function formatDate(date: string) {
@@ -169,6 +171,7 @@ export default function ExtraClassPage() {
           ? error.message
           : "Unable to load Extra Class data."
       );
+
       setMessageType("error");
     } finally {
       setLoading(false);
@@ -257,7 +260,6 @@ export default function ExtraClassPage() {
     });
 
     setStatusMap(newStatusMap);
-
     setStudentSearch("");
 
     window.scrollTo({
@@ -277,7 +279,11 @@ export default function ExtraClassPage() {
 
     return students.filter((student) => {
       const name = getStudentName(student).toLowerCase();
-      const username = (student.username || "").toLowerCase();
+
+      const username = (
+        student.student_username || ""
+      ).toLowerCase();
+
       const id = String(student.id);
 
       return (
@@ -326,7 +332,9 @@ export default function ExtraClassPage() {
   }
 
   function deselectAllFilteredStudents() {
-    const ids = new Set(filteredStudents.map((student) => student.id));
+    const ids = new Set(
+      filteredStudents.map((student) => student.id)
+    );
 
     setSelectedStudents((current) =>
       current.filter((id) => !ids.has(id))
@@ -408,7 +416,10 @@ export default function ExtraClassPage() {
     }
 
     if (selectedStudents.length === 0) {
-      showMessage("Please select at least one student.", "error");
+      showMessage(
+        "Please select at least one student.",
+        "error"
+      );
       return;
     }
 
@@ -459,7 +470,6 @@ export default function ExtraClassPage() {
           throw new Error(error.message);
         }
 
-        // Delete old attendance records for this class.
         const { error: deleteAttendanceError } = await supabase
           .from("extra_class_attendance")
           .delete()
@@ -500,18 +510,26 @@ export default function ExtraClassPage() {
         "success"
       );
 
+      // Reload data before editing the saved class.
       await loadData();
 
-      // Keep class selected after saving.
-      setSelectedClassId(classId);
+      if (classId !== null) {
+        setSelectedClassId(classId);
 
-      setTimeout(() => {
-        const updatedClass = classes.find((item) => item.id === classId);
+        const savedClass =
+          classes.find((item) => item.id === classId) || {
+            id: classId,
+            class_date: classDate,
+            class_time: classTime || null,
+            subject: subject.trim(),
+            topic: topic.trim(),
+            remarks: remarks.trim() || null,
+          };
 
-        if (updatedClass) {
-          editClass(updatedClass);
-        }
-      }, 100);
+        setTimeout(() => {
+          editClass(savedClass);
+        }, 150);
+      }
     } catch (error) {
       console.error("Save extra class error:", error);
 
@@ -532,9 +550,11 @@ export default function ExtraClassPage() {
 
   async function deleteClass(extraClass: ExtraClass) {
     const confirmed = window.confirm(
-      `Delete this Extra Class?\n\n${extraClass.subject || "Extra Class"}\n${
-        extraClass.topic || ""
-      }\n${formatDate(extraClass.class_date)} ${
+      `Delete this Extra Class?\n\n${
+        extraClass.subject || "Extra Class"
+      }\n${extraClass.topic || ""}\n${formatDate(
+        extraClass.class_date
+      )} ${
         extraClass.class_time
           ? `at ${formatTime(extraClass.class_time)}`
           : ""
@@ -561,7 +581,10 @@ export default function ExtraClassPage() {
 
       await loadData();
 
-      showMessage("Extra Class deleted successfully.", "success");
+      showMessage(
+        "Extra Class deleted successfully.",
+        "success"
+      );
     } catch (error) {
       console.error("Delete extra class error:", error);
 
@@ -582,7 +605,11 @@ export default function ExtraClassPage() {
 
   const availableMonths = useMemo(() => {
     const months = Array.from(
-      new Set(classes.map((item) => item.class_date.slice(0, 7)))
+      new Set(
+        classes.map((item) =>
+          item.class_date.slice(0, 7)
+        )
+      )
     );
 
     return months.sort((a, b) => b.localeCompare(a));
@@ -599,7 +626,8 @@ export default function ExtraClassPage() {
 
     if (historyMonth) {
       result = result.filter(
-        (item) => item.class_date.slice(0, 7) === historyMonth
+        (item) =>
+          item.class_date.slice(0, 7) === historyMonth
       );
     }
 
@@ -608,9 +636,15 @@ export default function ExtraClassPage() {
     if (query) {
       result = result.filter((item) => {
         return (
-          (item.subject || "").toLowerCase().includes(query) ||
-          (item.topic || "").toLowerCase().includes(query) ||
-          (item.remarks || "").toLowerCase().includes(query) ||
+          (item.subject || "")
+            .toLowerCase()
+            .includes(query) ||
+          (item.topic || "")
+            .toLowerCase()
+            .includes(query) ||
+          (item.remarks || "")
+            .toLowerCase()
+            .includes(query) ||
           item.class_date.includes(query)
         );
       });
@@ -626,7 +660,8 @@ export default function ExtraClassPage() {
   }
 
   function getClassStats(classId: number) {
-    const classAttendance = getClassAttendance(classId);
+    const classAttendance =
+      getClassAttendance(classId);
 
     const total = classAttendance.length;
 
@@ -639,7 +674,9 @@ export default function ExtraClassPage() {
     ).length;
 
     const percentage =
-      total > 0 ? Math.round((present / total) * 100) : 0;
+      total > 0
+        ? Math.round((present / total) * 100)
+        : 0;
 
     return {
       total,
@@ -667,16 +704,23 @@ export default function ExtraClassPage() {
         {/* HEADER */}
         <header className="top-header">
           <div>
-            <div className="brand-small">RACER ACADEMY</div>
+            <div className="brand-small">
+              RACER ACADEMY
+            </div>
+
             <h1>Extra Classes</h1>
+
             <p>
-              Create extra classes, select students and manage attendance
-              class-wise.
+              Create extra classes, select students and
+              manage attendance class-wise.
             </p>
           </div>
 
           <div className="header-actions">
-            <a href="/teacher" className="back-button">
+            <a
+              href="/teacher"
+              className="back-button"
+            >
               ← Teacher Dashboard
             </a>
 
@@ -718,7 +762,9 @@ export default function ExtraClassPage() {
           <div className="section-heading">
             <div>
               <span className="section-kicker">
-                {isEditing ? "EDIT MODE" : "CREATE MODE"}
+                {isEditing
+                  ? "EDIT MODE"
+                  : "CREATE MODE"}
               </span>
 
               <h2>
@@ -728,8 +774,9 @@ export default function ExtraClassPage() {
               </h2>
 
               <p>
-                First create the class details, then select the students
-                who attended this Extra Class.
+                First create the class details, then
+                select the students who attended this
+                Extra Class.
               </p>
             </div>
 
@@ -747,47 +794,62 @@ export default function ExtraClassPage() {
           <div className="details-grid">
             <label className="field">
               <span>Date *</span>
+
               <input
                 type="date"
                 value={classDate}
-                onChange={(e) => setClassDate(e.target.value)}
+                onChange={(e) =>
+                  setClassDate(e.target.value)
+                }
               />
             </label>
 
             <label className="field">
               <span>Time</span>
+
               <input
                 type="time"
                 value={classTime}
-                onChange={(e) => setClassTime(e.target.value)}
+                onChange={(e) =>
+                  setClassTime(e.target.value)
+                }
               />
             </label>
 
             <label className="field">
               <span>Subject *</span>
+
               <input
                 type="text"
                 value={subject}
-                onChange={(e) => setSubject(e.target.value)}
+                onChange={(e) =>
+                  setSubject(e.target.value)
+                }
                 placeholder="e.g. Mathematics"
               />
             </label>
 
             <label className="field">
               <span>Topic *</span>
+
               <input
                 type="text"
                 value={topic}
-                onChange={(e) => setTopic(e.target.value)}
+                onChange={(e) =>
+                  setTopic(e.target.value)
+                }
                 placeholder="e.g. Trigonometry"
               />
             </label>
 
             <label className="field full-width">
               <span>Remarks / Instructions</span>
+
               <textarea
                 value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
+                onChange={(e) =>
+                  setRemarks(e.target.value)
+                }
                 placeholder="Extra class instructions, homework, important notes..."
                 rows={3}
               />
@@ -798,7 +860,10 @@ export default function ExtraClassPage() {
         {/* SUMMARY */}
         <section className="summary-grid">
           <div className="summary-card">
-            <div className="summary-icon blue">👨‍🎓</div>
+            <div className="summary-icon blue">
+              👨‍🎓
+            </div>
+
             <div>
               <span>Selected</span>
               <strong>{selectedTotal}</strong>
@@ -806,7 +871,10 @@ export default function ExtraClassPage() {
           </div>
 
           <div className="summary-card">
-            <div className="summary-icon green">✓</div>
+            <div className="summary-icon green">
+              ✓
+            </div>
+
             <div>
               <span>Present</span>
               <strong>{selectedPresent}</strong>
@@ -814,7 +882,10 @@ export default function ExtraClassPage() {
           </div>
 
           <div className="summary-card">
-            <div className="summary-icon red">×</div>
+            <div className="summary-icon red">
+              ×
+            </div>
+
             <div>
               <span>Absent</span>
               <strong>{selectedAbsent}</strong>
@@ -830,6 +901,7 @@ export default function ExtraClassPage() {
                   cy="21"
                   r="15.9155"
                 />
+
                 <circle
                   className="circle-value"
                   cx="21"
@@ -847,6 +919,7 @@ export default function ExtraClassPage() {
 
             <div>
               <span>Attendance</span>
+
               <strong className="percentage-number">
                 {selectedPercentage}%
               </strong>
@@ -858,10 +931,17 @@ export default function ExtraClassPage() {
         <section className="attendance-card">
           <div className="section-heading student-heading">
             <div>
-              <span className="section-kicker">STEP 2</span>
-              <h2>Select Students & Attendance</h2>
+              <span className="section-kicker">
+                STEP 2
+              </span>
+
+              <h2>
+                Select Students & Attendance
+              </h2>
+
               <p>
-                Select only the students who attended this Extra Class.
+                Select only the students who attended
+                this Extra Class.
               </p>
             </div>
 
@@ -893,14 +973,18 @@ export default function ExtraClassPage() {
               <input
                 type="text"
                 value={studentSearch}
-                onChange={(e) => setStudentSearch(e.target.value)}
+                onChange={(e) =>
+                  setStudentSearch(e.target.value)
+                }
                 placeholder="Search student by name, username or ID..."
               />
 
               {studentSearch && (
                 <button
                   type="button"
-                  onClick={() => setStudentSearch("")}
+                  onClick={() =>
+                    setStudentSearch("")
+                  }
                 >
                   ×
                 </button>
@@ -910,16 +994,24 @@ export default function ExtraClassPage() {
             <div className="selection-actions">
               <button
                 type="button"
-                onClick={selectAllFilteredStudents}
-                disabled={filteredStudents.length === 0}
+                onClick={
+                  selectAllFilteredStudents
+                }
+                disabled={
+                  filteredStudents.length === 0
+                }
               >
                 Select All
               </button>
 
               <button
                 type="button"
-                onClick={deselectAllFilteredStudents}
-                disabled={filteredStudents.length === 0}
+                onClick={
+                  deselectAllFilteredStudents
+                }
+                disabled={
+                  filteredStudents.length === 0
+                }
               >
                 Clear
               </button>
@@ -928,11 +1020,16 @@ export default function ExtraClassPage() {
 
           <div className="selection-info">
             <span>
-              <strong>{selectedTotal}</strong> students selected
+              <strong>{selectedTotal}</strong>{" "}
+              students selected
             </span>
 
             <span>
-              Showing <strong>{filteredStudents.length}</strong> of{" "}
+              Showing{" "}
+              <strong>
+                {filteredStudents.length}
+              </strong>{" "}
+              of{" "}
               <strong>{students.length}</strong>
             </span>
           </div>
@@ -940,91 +1037,132 @@ export default function ExtraClassPage() {
           {loading ? (
             <div className="loading-box">
               <div className="loader" />
+
               <p>Loading students...</p>
             </div>
           ) : filteredStudents.length === 0 ? (
             <div className="empty-box">
               <div>👨‍🎓</div>
+
               <h3>No students found</h3>
-              <p>Try another search.</p>
+
+              <p>
+                Try another search.
+              </p>
             </div>
           ) : (
             <div className="students-list">
-              {filteredStudents.map((student, index) => {
-                const selected = selectedStudents.includes(student.id);
-                const status = statusMap[student.id] || "Present";
+              {filteredStudents.map(
+                (student, index) => {
+                  const selected =
+                    selectedStudents.includes(
+                      student.id
+                    );
 
-                return (
-                  <div
-                    key={student.id}
-                    className={`student-row ${
-                      selected ? "selected" : ""
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      className="student-select-area"
-                      onClick={() => toggleStudent(student.id)}
+                  const status =
+                    statusMap[student.id] ||
+                    "Present";
+
+                  const studentName =
+                    getStudentName(student);
+
+                  const studentUsername =
+                    getStudentUsername(student);
+
+                  return (
+                    <div
+                      key={student.id}
+                      className={`student-row ${
+                        selected
+                          ? "selected"
+                          : ""
+                      }`}
                     >
-                      <div className="student-checkbox">
-                        {selected ? "✓" : ""}
-                      </div>
+                      <button
+                        type="button"
+                        className="student-select-area"
+                        onClick={() =>
+                          toggleStudent(
+                            student.id
+                          )
+                        }
+                      >
+                        <div className="student-checkbox">
+                          {selected ? "✓" : ""}
+                        </div>
 
-                      <div className="student-avatar">
-                        {getStudentName(student)
-                          .charAt(0)
-                          .toUpperCase()}
-                      </div>
+                        <div className="student-avatar">
+                          {studentName
+                            .charAt(0)
+                            .toUpperCase()}
+                        </div>
 
-                      <div className="student-information">
-                        <strong>{getStudentName(student)}</strong>
+                        <div className="student-information">
+                          <strong>
+                            {studentName}
+                          </strong>
 
-                        <span>
-                          {student.username
-                            ? `@${student.username}`
-                            : `Student ID: ${student.id}`}
+                          <div className="student-details">
+                            <span className="student-username">
+                              Username:{" "}
+                              <b>
+                                {studentUsername}
+                              </b>
+                            </span>
+
+                            <span className="student-id">
+                              Student ID:{" "}
+                              <b>{student.id}</b>
+                            </span>
+                          </div>
+                        </div>
+
+                        <span className="serial-number">
+                          #{index + 1}
                         </span>
-                      </div>
+                      </button>
 
-                      <span className="serial-number">
-                        #{index + 1}
-                      </span>
-                    </button>
+                      {selected && (
+                        <div className="status-buttons">
+                          <button
+                            type="button"
+                            className={
+                              status === "Present"
+                                ? "status-present active"
+                                : "status-present"
+                            }
+                            onClick={() =>
+                              updateStatus(
+                                student.id,
+                                "Present"
+                              )
+                            }
+                          >
+                            ✓ Present
+                          </button>
 
-                    {selected && (
-                      <div className="status-buttons">
-                        <button
-                          type="button"
-                          className={
-                            status === "Present"
-                              ? "status-present active"
-                              : "status-present"
-                          }
-                          onClick={() =>
-                            updateStatus(student.id, "Present")
-                          }
-                        >
-                          ✓ Present
-                        </button>
-
-                        <button
-                          type="button"
-                          className={
-                            status === "Absent"
-                              ? "status-absent active"
-                              : "status-absent"
-                          }
-                          onClick={() =>
-                            updateStatus(student.id, "Absent")
-                          }
-                        >
-                          × Absent
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                          <button
+                            type="button"
+                            className={
+                              status === "Absent"
+                                ? "status-absent active"
+                                : "status-absent"
+                            }
+                            onClick={() =>
+                              updateStatus(
+                                student.id,
+                                "Absent"
+                              )
+                            }
+                          >
+                            × Absent
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+              )}
             </div>
           )}
 
@@ -1038,7 +1176,8 @@ export default function ExtraClassPage() {
               </strong>
 
               <span>
-                {selectedTotal} students · {selectedPresent} present ·{" "}
+                {selectedTotal} students ·{" "}
+                {selectedPresent} present ·{" "}
                 {selectedAbsent} absent
               </span>
             </div>
@@ -1062,29 +1201,43 @@ export default function ExtraClassPage() {
         <section className="history-card">
           <div className="section-heading">
             <div>
-              <span className="section-kicker">HISTORY</span>
+              <span className="section-kicker">
+                HISTORY
+              </span>
+
               <h2>Extra Class History</h2>
+
               <p>
-                Every Extra Class is shown separately, even when multiple
-                classes happen on the same date.
+                Every Extra Class is shown separately,
+                even when multiple classes happen on
+                the same date.
               </p>
             </div>
 
             <div className="history-count">
               {historyClasses.length}{" "}
-              {historyClasses.length === 1 ? "Class" : "Classes"}
+              {historyClasses.length === 1
+                ? "Class"
+                : "Classes"}
             </div>
           </div>
 
           <div className="history-toolbar">
             <select
               value={historyMonth}
-              onChange={(e) => setHistoryMonth(e.target.value)}
+              onChange={(e) =>
+                setHistoryMonth(e.target.value)
+              }
             >
-              <option value="">All Months</option>
+              <option value="">
+                All Months
+              </option>
 
               {availableMonths.map((month) => (
-                <option key={month} value={month}>
+                <option
+                  key={month}
+                  value={month}
+                >
                   {getMonthName(month)}
                 </option>
               ))}
@@ -1096,7 +1249,9 @@ export default function ExtraClassPage() {
               <input
                 type="text"
                 value={historySearch}
-                onChange={(e) => setHistorySearch(e.target.value)}
+                onChange={(e) =>
+                  setHistorySearch(e.target.value)
+                }
                 placeholder="Search subject, topic or date..."
               />
             </div>
@@ -1104,127 +1259,160 @@ export default function ExtraClassPage() {
 
           {historyClasses.length === 0 ? (
             <div className="empty-history">
-              <div className="empty-history-icon">📚</div>
+              <div className="empty-history-icon">
+                📚
+              </div>
+
               <h3>No Extra Classes Found</h3>
+
               <p>
-                Create your first Extra Class and its history will appear
-                here.
+                Create your first Extra Class and its
+                history will appear here.
               </p>
             </div>
           ) : (
             <div className="history-list">
-              {historyClasses.map((extraClass) => {
-                const stats = getClassStats(extraClass.id);
+              {historyClasses.map(
+                (extraClass) => {
+                  const stats =
+                    getClassStats(
+                      extraClass.id
+                    );
 
-                return (
-                  <article
-                    key={extraClass.id}
-                    className="history-class"
-                  >
-                    <div className="history-date">
-                      <span>
-                        {new Date(
-                          `${extraClass.class_date}T00:00:00`
-                        ).toLocaleDateString("en-IN", {
-                          weekday: "short",
-                        })}
-                      </span>
-
-                      <strong>
-                        {new Date(
-                          `${extraClass.class_date}T00:00:00`
-                        ).getDate()}
-                      </strong>
-
-                      <small>
-                        {new Date(
-                          `${extraClass.class_date}T00:00:00`
-                        ).toLocaleDateString("en-IN", {
-                          month: "short",
-                        })}
-                      </small>
-                    </div>
-
-                    <div className="history-main">
-                      <div className="history-title-row">
-                        <div>
-                          <div className="history-subject">
-                            {extraClass.subject ||
-                              "Extra Class"}
-                          </div>
-
-                          <h3>
-                            {extraClass.topic || "No topic"}
-                          </h3>
-                        </div>
-
-                        <span className="class-id">
-                          CLASS #{extraClass.id}
-                        </span>
-                      </div>
-
-                      <div className="history-meta">
-                        <span>🕐 {formatTime(extraClass.class_time)}</span>
-
+                  return (
+                    <article
+                      key={extraClass.id}
+                      className="history-class"
+                    >
+                      <div className="history-date">
                         <span>
-                          👨‍🎓 {stats.total} Students
+                          {new Date(
+                            `${extraClass.class_date}T00:00:00`
+                          ).toLocaleDateString(
+                            "en-IN",
+                            {
+                              weekday: "short",
+                            }
+                          )}
                         </span>
 
-                        <span className="meta-present">
-                          ✓ {stats.present} Present
-                        </span>
+                        <strong>
+                          {new Date(
+                            `${extraClass.class_date}T00:00:00`
+                          ).getDate()}
+                        </strong>
 
-                        <span className="meta-absent">
-                          × {stats.absent} Absent
-                        </span>
+                        <small>
+                          {new Date(
+                            `${extraClass.class_date}T00:00:00`
+                          ).toLocaleDateString(
+                            "en-IN",
+                            {
+                              month: "short",
+                            }
+                          )}
+                        </small>
                       </div>
 
-                      {extraClass.remarks && (
-                        <div className="history-remarks">
-                          <strong>Note:</strong>{" "}
-                          {extraClass.remarks}
-                        </div>
-                      )}
+                      <div className="history-main">
+                        <div className="history-title-row">
+                          <div>
+                            <div className="history-subject">
+                              {extraClass.subject ||
+                                "Extra Class"}
+                            </div>
 
-                      <div className="history-bottom">
-                        <div className="history-progress">
-                          <div className="progress-track">
-                            <div
-                              className="progress-fill"
-                              style={{
-                                width: `${stats.percentage}%`,
-                              }}
-                            />
+                            <h3>
+                              {extraClass.topic ||
+                                "No topic"}
+                            </h3>
                           </div>
 
-                          <strong>
-                            {stats.percentage}% Attendance
-                          </strong>
+                          <span className="class-id">
+                            CLASS #
+                            {extraClass.id}
+                          </span>
                         </div>
 
-                        <div className="history-actions">
-                          <button
-                            type="button"
-                            className="view-button"
-                            onClick={() => viewClass(extraClass)}
-                          >
-                            View / Edit
-                          </button>
+                        <div className="history-meta">
+                          <span>
+                            🕐{" "}
+                            {formatTime(
+                              extraClass.class_time
+                            )}
+                          </span>
 
-                          <button
-                            type="button"
-                            className="delete-button"
-                            onClick={() => deleteClass(extraClass)}
-                            disabled={deleting}
-                          >
-                            🗑 Delete
-                          </button>
+                          <span>
+                            👨‍🎓 {stats.total} Students
+                          </span>
+
+                          <span className="meta-present">
+                            ✓ {stats.present} Present
+                          </span>
+
+                          <span className="meta-absent">
+                            × {stats.absent} Absent
+                          </span>
+                        </div>
+
+                        {extraClass.remarks && (
+                          <div className="history-remarks">
+                            <strong>
+                              Note:
+                            </strong>{" "}
+                            {extraClass.remarks}
+                          </div>
+                        )}
+
+                        <div className="history-bottom">
+                          <div className="history-progress">
+                            <div className="progress-track">
+                              <div
+                                className="progress-fill"
+                                style={{
+                                  width: `${stats.percentage}%`,
+                                }}
+                              />
+                            </div>
+
+                            <strong>
+                              {stats.percentage}%
+                              Attendance
+                            </strong>
+                          </div>
+
+                          <div className="history-actions">
+                            <button
+                              type="button"
+                              className="view-button"
+                              onClick={() =>
+                                viewClass(
+                                  extraClass
+                                )
+                              }
+                            >
+                              View / Edit
+                            </button>
+
+                            <button
+                              type="button"
+                              className="delete-button"
+                              onClick={() =>
+                                deleteClass(
+                                  extraClass
+                                )
+                              }
+                              disabled={deleting}
+                            >
+                              🗑 Delete
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </article>
-                );
-              })}
+                    </article>
+                  );
+                }
+              )}
             </div>
           )}
         </section>
@@ -1232,7 +1420,10 @@ export default function ExtraClassPage() {
         {/* FOOTER */}
         <footer className="page-footer">
           <strong>RACER ACADEMY</strong>
-          <span>Extra Class Management System</span>
+
+          <span>
+            Extra Class Management System
+          </span>
         </footer>
       </div>
 
@@ -1322,9 +1513,14 @@ export default function ExtraClassPage() {
 
         .new-class-button {
           border: 0;
-          background: linear-gradient(135deg, #2563eb, #4f46e5);
+          background: linear-gradient(
+            135deg,
+            #2563eb,
+            #4f46e5
+          );
           color: white;
-          box-shadow: 0 10px 25px rgba(37, 99, 235, 0.22);
+          box-shadow: 0 10px 25px
+            rgba(37, 99, 235, 0.22);
         }
 
         .new-class-button:hover {
@@ -1402,7 +1598,8 @@ export default function ExtraClassPage() {
           border: 1px solid #e5eaf1;
           border-radius: 22px;
           padding: 24px;
-          box-shadow: 0 12px 40px rgba(15, 23, 42, 0.055);
+          box-shadow: 0 12px 40px
+            rgba(15, 23, 42, 0.055);
           margin-bottom: 20px;
         }
 
@@ -1445,7 +1642,10 @@ export default function ExtraClassPage() {
 
         .details-grid {
           display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-template-columns: repeat(
+            4,
+            minmax(0, 1fr)
+          );
           gap: 16px;
         }
 
@@ -1488,7 +1688,8 @@ export default function ExtraClassPage() {
         .history-search input:focus {
           border-color: #60a5fa;
           background: white;
-          box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
+          box-shadow: 0 0 0 4px
+            rgba(37, 99, 235, 0.08);
         }
 
         .field textarea {
@@ -1498,7 +1699,10 @@ export default function ExtraClassPage() {
 
         .summary-grid {
           display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-template-columns: repeat(
+            4,
+            minmax(0, 1fr)
+          );
           gap: 14px;
           margin-bottom: 20px;
         }
@@ -1512,7 +1716,8 @@ export default function ExtraClassPage() {
           background: white;
           border: 1px solid #e5eaf1;
           border-radius: 18px;
-          box-shadow: 0 10px 28px rgba(15, 23, 42, 0.045);
+          box-shadow: 0 10px 28px
+            rgba(15, 23, 42, 0.045);
         }
 
         .summary-icon {
@@ -1717,7 +1922,7 @@ export default function ExtraClassPage() {
         .student-row {
           display: flex;
           align-items: center;
-          min-height: 72px;
+          min-height: 78px;
           border-bottom: 1px solid #edf1f5;
           background: white;
           transition: 0.18s ease;
@@ -1768,22 +1973,27 @@ export default function ExtraClassPage() {
         }
 
         .student-avatar {
-          width: 40px;
-          height: 40px;
+          width: 42px;
+          height: 42px;
           border-radius: 12px;
-          background: linear-gradient(135deg, #dbeafe, #ede9fe);
+          background: linear-gradient(
+            135deg,
+            #dbeafe,
+            #ede9fe
+          );
           color: #3730a3;
           display: grid;
           place-items: center;
           font-weight: 900;
           flex-shrink: 0;
+          font-size: 16px;
         }
 
         .student-information {
           min-width: 0;
           display: flex;
           flex-direction: column;
-          gap: 3px;
+          gap: 5px;
         }
 
         .student-information strong {
@@ -1794,9 +2004,27 @@ export default function ExtraClassPage() {
           white-space: nowrap;
         }
 
+        .student-details {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
         .student-information span {
-          color: #94a3b8;
           font-size: 11px;
+        }
+
+        .student-username {
+          color: #2563eb;
+        }
+
+        .student-id {
+          color: #64748b;
+        }
+
+        .student-information b {
+          font-weight: 900;
         }
 
         .serial-number {
@@ -1880,12 +2108,17 @@ export default function ExtraClassPage() {
         .save-button {
           border: 0;
           border-radius: 11px;
-          background: linear-gradient(135deg, #2563eb, #4f46e5);
+          background: linear-gradient(
+            135deg,
+            #2563eb,
+            #4f46e5
+          );
           color: white;
           padding: 13px 20px;
           font-weight: 900;
           cursor: pointer;
-          box-shadow: 0 8px 20px rgba(37, 99, 235, 0.2);
+          box-shadow: 0 8px 20px
+            rgba(37, 99, 235, 0.2);
         }
 
         .save-button:disabled {
@@ -1979,7 +2212,8 @@ export default function ExtraClassPage() {
 
         .history-class:hover {
           border-color: #bfdbfe;
-          box-shadow: 0 10px 25px rgba(37, 99, 235, 0.07);
+          box-shadow: 0 10px 25px
+            rgba(37, 99, 235, 0.07);
           transform: translateY(-1px);
         }
 
@@ -1987,7 +2221,11 @@ export default function ExtraClassPage() {
           width: 72px;
           height: 80px;
           border-radius: 14px;
-          background: linear-gradient(145deg, #eff6ff, #eef2ff);
+          background: linear-gradient(
+            145deg,
+            #eff6ff,
+            #eef2ff
+          );
           color: #1d4ed8;
           display: flex;
           flex-direction: column;
@@ -2103,7 +2341,11 @@ export default function ExtraClassPage() {
 
         .progress-fill {
           height: 100%;
-          background: linear-gradient(90deg, #2563eb, #4f46e5);
+          background: linear-gradient(
+            90deg,
+            #2563eb,
+            #4f46e5
+          );
           border-radius: inherit;
         }
 
@@ -2161,11 +2403,17 @@ export default function ExtraClassPage() {
 
         @media (max-width: 1050px) {
           .details-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(
+              2,
+              minmax(0, 1fr)
+            );
           }
 
           .summary-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(
+              2,
+              minmax(0, 1fr)
+            );
           }
         }
 
@@ -2205,7 +2453,10 @@ export default function ExtraClassPage() {
           }
 
           .summary-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(
+              2,
+              minmax(0, 1fr)
+            );
           }
 
           .summary-card {
@@ -2251,7 +2502,7 @@ export default function ExtraClassPage() {
           }
 
           .student-select-area {
-            min-height: 67px;
+            min-height: 72px;
           }
 
           .serial-number {
@@ -2356,6 +2607,12 @@ export default function ExtraClassPage() {
           .circle-progress {
             width: 45px;
             height: 45px;
+          }
+
+          .student-details {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 2px;
           }
 
           .history-class {
