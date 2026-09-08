@@ -108,6 +108,13 @@ export default function TeacherDashboard() {
       path: "/teacher/fees",
     },
     {
+      number: "06",
+      title: "Extra Classes",
+      description: "Create and manage extra class attendance",
+      icon: "⭐",
+      path: "/teacher/extra-class",
+    },
+    {
       number: "07",
       title: "Homework",
       description: "Create and manage student homework",
@@ -143,7 +150,7 @@ export default function TeacherDashboard() {
       path: "/teacher/login-activity",
     },
 
-    // OPTION 12
+    // OPTION 12 — EXISTING, UNCHANGED
     {
       number: "12",
       title: "Student Directory",
@@ -363,6 +370,8 @@ export default function TeacherDashboard() {
                         ? "linear-gradient(135deg,#dcfce7,#bbf7d0)"
                         : item.title === "Student Directory"
                         ? "linear-gradient(135deg,#dbeafe,#bfdbfe)"
+                        : item.title === "Extra Classes"
+                        ? "linear-gradient(135deg,#fce7f3,#fbcfe8)"
                         : "#eef2ff",
                     color:
                       item.title === "Homework"
@@ -373,6 +382,8 @@ export default function TeacherDashboard() {
                         ? "#16a34a"
                         : item.title === "Student Directory"
                         ? "#2563eb"
+                        : item.title === "Extra Classes"
+                        ? "#db2777"
                         : "#4f46e5",
                     display: "flex",
                     alignItems: "center",
@@ -427,6 +438,8 @@ export default function TeacherDashboard() {
                       ? "#16a34a"
                       : item.title === "Student Directory"
                       ? "#2563eb"
+                      : item.title === "Extra Classes"
+                      ? "#db2777"
                       : "#4f46e5",
                   fontSize: "12px",
                   fontWeight: 900,
