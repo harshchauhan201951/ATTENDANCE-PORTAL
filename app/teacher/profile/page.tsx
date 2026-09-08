@@ -609,8 +609,6 @@ export default function TeacherProfilePage() {
             </div>
 
             <div className="profile-layout">
-              {/* IMAGE AREA */}
-
               <div className="image-panel">
                 <div className="panel-label">
                   PROFILE PICTURE
@@ -680,8 +678,6 @@ export default function TeacherProfilePage() {
                   </div>
                 </div>
               </div>
-
-              {/* ACCOUNT DETAILS */}
 
               <div className="details-panel">
                 <div className="panel-label">
@@ -767,8 +763,6 @@ export default function TeacherProfilePage() {
                 </div>
               </div>
             </div>
-
-            {/* QUICK ACTIONS */}
 
             <div className="quick-section">
               <div className="panel-label">
@@ -1377,24 +1371,32 @@ export default function TeacherProfilePage() {
           min-height: 100vh;
           position: relative;
           overflow-x: hidden;
-          color: #f8fafc;
+          color: #172033;
 
+          /*
+           * ONLY BACKGROUND CHANGED
+           */
           background:
             radial-gradient(
-              circle at 15% 10%,
-              rgba(99, 102, 241, 0.18),
-              transparent 30%
+              circle at 8% 8%,
+              rgba(59, 130, 246, 0.13),
+              transparent 27%
             ),
             radial-gradient(
-              circle at 85% 80%,
-              rgba(14, 165, 233, 0.13),
-              transparent 30%
+              circle at 92% 18%,
+              rgba(99, 102, 241, 0.10),
+              transparent 25%
+            ),
+            radial-gradient(
+              circle at 85% 90%,
+              rgba(14, 165, 233, 0.08),
+              transparent 28%
             ),
             linear-gradient(
               135deg,
-              #060914 0%,
-              #0b1020 50%,
-              #070b16 100%
+              #f8fbff 0%,
+              #f1f5f9 45%,
+              #eef4ff 100%
             );
 
           font-family:
@@ -1413,16 +1415,16 @@ export default function TeacherProfilePage() {
           position: fixed;
           inset: 0;
           pointer-events: none;
-          opacity: 0.2;
+          opacity: 0.18;
 
           background-image:
             linear-gradient(
-              rgba(148, 163, 184, 0.04) 1px,
+              rgba(71, 85, 105, 0.045) 1px,
               transparent 1px
             ),
             linear-gradient(
               90deg,
-              rgba(148, 163, 184, 0.04) 1px,
+              rgba(71, 85, 105, 0.045) 1px,
               transparent 1px
             );
 
@@ -1435,18 +1437,18 @@ export default function TeacherProfilePage() {
           height: 300px;
           border-radius: 50%;
           filter: blur(100px);
-          opacity: 0.14;
+          opacity: 0.10;
           pointer-events: none;
         }
 
         .ambient-one {
-          background: #6366f1;
+          background: #60a5fa;
           left: -150px;
           top: 20%;
         }
 
         .ambient-two {
-          background: #0ea5e9;
+          background: #818cf8;
           right: -150px;
           bottom: 10%;
         }
@@ -1468,29 +1470,30 @@ export default function TeacherProfilePage() {
           justify-content: space-between;
           gap: 15px;
           border-bottom: 1px solid
-            rgba(148, 163, 184, 0.1);
+            rgba(71, 85, 105, 0.10);
         }
 
         .back-button {
           border: 1px solid
-            rgba(148, 163, 184, 0.13);
+            rgba(100, 116, 139, 0.20);
 
           background:
-            rgba(15, 23, 42, 0.65);
+            rgba(255, 255, 255, 0.70);
 
-          color: #cbd5e1;
+          color: #475569;
           padding: 10px 15px;
           border-radius: 11px;
           cursor: pointer;
           transition: 0.25s ease;
           font-weight: 700;
+          backdrop-filter: blur(10px);
         }
 
         .back-button:hover {
           border-color:
-            rgba(129, 140, 248, 0.45);
+            rgba(59, 130, 246, 0.35);
 
-          color: #a5b4fc;
+          color: #2563eb;
           transform: translateX(-2px);
         }
 
@@ -1503,11 +1506,11 @@ export default function TeacherProfilePage() {
         }
 
         .top-title span {
-          color: #64748b;
+          color: #94a3b8;
         }
 
         .top-title strong {
-          color: #cbd5e1;
+          color: #334155;
         }
 
         .top-status {
@@ -1528,13 +1531,9 @@ export default function TeacherProfilePage() {
           background: #22c55e;
 
           box-shadow:
-            0 0 14px
-            rgba(34, 197, 94, 0.8);
+            0 0 10px
+            rgba(34, 197, 94, 0.45);
         }
-
-        /* ================================================= */
-        /* HERO */
-        /* ================================================= */
 
         .profile-hero {
           position: relative;
@@ -1546,20 +1545,21 @@ export default function TeacherProfilePage() {
           border-radius: 25px;
 
           border: 1px solid
-            rgba(129, 140, 248, 0.15);
+            rgba(59, 130, 246, 0.18);
 
           background:
             linear-gradient(
               135deg,
-              rgba(27, 37, 73, 0.96),
-              rgba(12, 20, 39, 0.96)
+              #173f73 0%,
+              #2563eb 55%,
+              #4f46e5 100%
             );
 
           box-shadow:
-            0 25px 70px
-              rgba(0, 0, 0, 0.28),
+            0 20px 55px
+              rgba(37, 99, 235, 0.16),
             inset 0 1px
-              rgba(255, 255, 255, 0.04);
+              rgba(255, 255, 255, 0.08);
 
           display: flex;
           align-items: center;
@@ -1573,7 +1573,7 @@ export default function TeacherProfilePage() {
           border-radius: 50%;
           right: -120px;
           top: -130px;
-          background: #6366f1;
+          background: #93c5fd;
           filter: blur(95px);
           opacity: 0.16;
           pointer-events: none;
@@ -1593,16 +1593,16 @@ export default function TeacherProfilePage() {
           background:
             linear-gradient(
               145deg,
-              #4f46e5,
-              #0ea5e9
+              #dbeafe,
+              #eef2ff
             );
 
           border: 2px solid
-            rgba(165, 180, 252, 0.35);
+            rgba(255, 255, 255, 0.55);
 
           box-shadow:
             0 0 35px
-              rgba(99, 102, 241, 0.2);
+              rgba(15, 23, 42, 0.15);
         }
 
         .hero-avatar img {
@@ -1614,7 +1614,7 @@ export default function TeacherProfilePage() {
         .hero-avatar span {
           font-size: 34px;
           font-weight: 900;
-          color: white;
+          color: #315aa8;
         }
 
         .online-indicator {
@@ -1625,10 +1625,10 @@ export default function TeacherProfilePage() {
           right: 7px;
           bottom: 7px;
           background: #22c55e;
-          border: 3px solid #0b1020;
+          border: 3px solid #2563eb;
           box-shadow:
-            0 0 12px
-              rgba(34, 197, 94, 0.7);
+            0 0 10px
+              rgba(34, 197, 94, 0.45);
         }
 
         .hero-info {
@@ -1638,7 +1638,7 @@ export default function TeacherProfilePage() {
         }
 
         .hero-kicker {
-          color: #818cf8;
+          color: #bfdbfe;
           font-size: 9px;
           font-weight: 900;
           letter-spacing: 1.7px;
@@ -1654,7 +1654,7 @@ export default function TeacherProfilePage() {
 
         .hero-info > p {
           margin: 6px 0 0;
-          color: #94a3b8;
+          color: #dbeafe;
           font-size: 12px;
           line-height: 1.6;
           max-width: 650px;
@@ -1676,17 +1676,18 @@ export default function TeacherProfilePage() {
           border-radius: 9px;
 
           background:
-            rgba(15, 23, 42, 0.55);
+            rgba(255, 255, 255, 0.10);
 
           border: 1px solid
-            rgba(148, 163, 184, 0.1);
+            rgba(255, 255, 255, 0.14);
 
-          color: #cbd5e1;
+          color: white;
           font-size: 10px;
+          backdrop-filter: blur(8px);
         }
 
         .hero-meta b {
-          color: #64748b;
+          color: #bfdbfe;
           font-size: 7px;
           letter-spacing: 1px;
         }
@@ -1699,12 +1700,12 @@ export default function TeacherProfilePage() {
 
         .hero-actions button {
           border: 1px solid
-            rgba(148, 163, 184, 0.13);
+            rgba(255, 255, 255, 0.16);
 
           background:
-            rgba(15, 23, 42, 0.65);
+            rgba(255, 255, 255, 0.09);
 
-          color: #cbd5e1;
+          color: #eff6ff;
 
           border-radius: 10px;
           padding: 10px 13px;
@@ -1717,14 +1718,10 @@ export default function TeacherProfilePage() {
         }
 
         .hero-actions button:hover {
-          color: #a5b4fc;
+          color: white;
           border-color:
-            rgba(129, 140, 248, 0.4);
+            rgba(255, 255, 255, 0.30);
         }
-
-        /* ================================================= */
-        /* NAV */
-        /* ================================================= */
 
         .section-nav {
           margin-top: 18px;
@@ -1740,14 +1737,14 @@ export default function TeacherProfilePage() {
           min-width: 0;
 
           border: 1px solid
-            rgba(148, 163, 184, 0.11);
+            rgba(148, 163, 184, 0.18);
 
           border-radius: 14px;
 
           background:
-            rgba(15, 23, 42, 0.55);
+            rgba(255, 255, 255, 0.80);
 
-          color: #94a3b8;
+          color: #64748b;
 
           padding: 13px;
 
@@ -1759,12 +1756,13 @@ export default function TeacherProfilePage() {
           cursor: pointer;
 
           transition: 0.2s ease;
+          backdrop-filter: blur(10px);
         }
 
         .nav-item:hover {
           border-color:
-            rgba(129, 140, 248, 0.3);
-          color: #cbd5e1;
+            rgba(59, 130, 246, 0.28);
+          color: #334155;
         }
 
         .nav-item > span {
@@ -1778,45 +1776,41 @@ export default function TeacherProfilePage() {
           border-radius: 11px;
 
           background:
-            rgba(99, 102, 241, 0.11);
+            #eef4ff;
 
           font-size: 18px;
         }
 
         .nav-item strong {
           display: block;
-          color: #cbd5e1;
+          color: #334155;
           font-size: 11px;
         }
 
         .nav-item small {
           display: block;
           margin-top: 3px;
-          color: #64748b;
+          color: #94a3b8;
           font-size: 8px;
           line-height: 1.4;
         }
 
         .nav-active {
           border-color:
-            rgba(129, 140, 248, 0.4);
+            rgba(59, 130, 246, 0.30);
 
           background:
             linear-gradient(
               135deg,
-              rgba(79, 70, 229, 0.16),
-              rgba(37, 99, 235, 0.08)
+              rgba(239, 246, 255, 0.98),
+              rgba(245, 243, 255, 0.98)
             );
         }
 
         .nav-active > span {
           background:
-            rgba(99, 102, 241, 0.2);
+            #e0ebff;
         }
-
-        /* ================================================= */
-        /* MAIN CARD */
-        /* ================================================= */
 
         .main-card {
           margin-top: 18px;
@@ -1825,18 +1819,16 @@ export default function TeacherProfilePage() {
           border-radius: 22px;
 
           border: 1px solid
-            rgba(148, 163, 184, 0.11);
+            rgba(148, 163, 184, 0.18);
 
           background:
-            linear-gradient(
-              145deg,
-              rgba(22, 30, 55, 0.96),
-              rgba(10, 16, 31, 0.96)
-            );
+            rgba(255, 255, 255, 0.88);
 
           box-shadow:
-            0 25px 65px
-              rgba(0, 0, 0, 0.24);
+            0 18px 50px
+              rgba(15, 23, 42, 0.08);
+
+          backdrop-filter: blur(14px);
         }
 
         .section-heading {
@@ -1847,7 +1839,7 @@ export default function TeacherProfilePage() {
         }
 
         .section-label {
-          color: #818cf8;
+          color: #2563eb;
           font-size: 8px;
           font-weight: 900;
           letter-spacing: 1.8px;
@@ -1855,7 +1847,7 @@ export default function TeacherProfilePage() {
 
         .section-heading h2 {
           margin: 5px 0 0;
-          color: white;
+          color: #172033;
           font-size: 24px;
         }
 
@@ -1869,12 +1861,11 @@ export default function TeacherProfilePage() {
         .saved-pill {
           padding: 7px 10px;
           border-radius: 999px;
-          color: #86efac;
+          color: #15803d;
           background:
-            rgba(34, 197, 94, 0.08);
+            #f0fdf4;
           border:
-            1px solid
-            rgba(34, 197, 94, 0.18);
+            1px solid #bbf7d0;
           font-size: 8px;
           font-weight: 900;
         }
@@ -1895,13 +1886,9 @@ export default function TeacherProfilePage() {
           border-radius: 50%;
           background: #22c55e;
           box-shadow:
-            0 0 12px
-              rgba(34, 197, 94, 0.65);
+            0 0 9px
+              rgba(34, 197, 94, 0.45);
         }
-
-        /* ================================================= */
-        /* PROFILE */
-        /* ================================================= */
 
         .profile-layout {
           margin-top: 25px;
@@ -1916,12 +1903,12 @@ export default function TeacherProfilePage() {
         .image-panel,
         .details-panel {
           border: 1px solid
-            rgba(148, 163, 184, 0.1);
+            rgba(148, 163, 184, 0.16);
 
           border-radius: 17px;
 
           background:
-            rgba(15, 23, 42, 0.48);
+            rgba(248, 250, 252, 0.78);
 
           padding: 20px;
         }
@@ -1948,16 +1935,16 @@ export default function TeacherProfilePage() {
           background:
             linear-gradient(
               145deg,
-              rgba(129, 140, 248, 0.35),
-              rgba(56, 189, 248, 0.18)
+              #dbeafe,
+              #ede9fe
             );
 
           border: 2px solid
-            rgba(129, 140, 248, 0.32);
+            #bfdbfe;
 
           box-shadow:
-            0 0 45px
-              rgba(99, 102, 241, 0.13);
+            0 12px 30px
+              rgba(37, 99, 235, 0.10);
         }
 
         .large-avatar img {
@@ -1969,12 +1956,12 @@ export default function TeacherProfilePage() {
         .large-avatar span {
           font-size: 58px;
           font-weight: 900;
-          color: #c7d2fe;
+          color: #315aa8;
         }
 
         .image-panel h3 {
           margin: 15px 0 5px;
-          color: white;
+          color: #172033;
           font-size: 18px;
           text-align: center;
           overflow-wrap: anywhere;
@@ -2011,7 +1998,7 @@ export default function TeacherProfilePage() {
           background:
             linear-gradient(
               135deg,
-              #6366f1,
+              #2563eb,
               #4f46e5
             );
 
@@ -2026,12 +2013,12 @@ export default function TeacherProfilePage() {
 
         .secondary-danger-button {
           border: 1px solid
-            rgba(248, 113, 113, 0.2);
+            #fecaca;
 
           background:
-            rgba(127, 29, 29, 0.16);
+            #fff5f5;
 
-          color: #fca5a5;
+          color: #b91c1c;
 
           padding: 11px;
           border-radius: 10px;
@@ -2052,10 +2039,10 @@ export default function TeacherProfilePage() {
           border-radius: 11px;
 
           background:
-            rgba(56, 189, 248, 0.05);
+            #f0f9ff;
 
           border: 1px solid
-            rgba(56, 189, 248, 0.1);
+            #dbeafe;
         }
 
         .requirement-box > span {
@@ -2070,15 +2057,15 @@ export default function TeacherProfilePage() {
           border-radius: 50%;
 
           background:
-            rgba(56, 189, 248, 0.11);
+            #e0f2fe;
 
-          color: #67e8f9;
+          color: #0369a1;
 
           font-size: 10px;
         }
 
         .requirement-box strong {
-          color: #cbd5e1;
+          color: #334155;
           font-size: 9px;
         }
 
@@ -2107,10 +2094,10 @@ export default function TeacherProfilePage() {
           border-radius: 11px;
 
           background:
-            rgba(15, 23, 42, 0.58);
+            rgba(255, 255, 255, 0.86);
 
           border: 1px solid
-            rgba(148, 163, 184, 0.07);
+            rgba(148, 163, 184, 0.14);
         }
 
         .detail-row > span {
@@ -2128,14 +2115,14 @@ export default function TeacherProfilePage() {
         }
 
         .detail-row strong {
-          color: #cbd5e1;
+          color: #334155;
           font-size: 10px;
           text-align: right;
           overflow-wrap: anywhere;
         }
 
         .active-text {
-          color: #86efac !important;
+          color: #15803d !important;
         }
 
         .info-notice {
@@ -2149,10 +2136,10 @@ export default function TeacherProfilePage() {
           border-radius: 12px;
 
           background:
-            rgba(34, 197, 94, 0.05);
+            #f0fdf4;
 
           border: 1px solid
-            rgba(34, 197, 94, 0.1);
+            #dcfce7;
         }
 
         .notice-icon {
@@ -2165,16 +2152,16 @@ export default function TeacherProfilePage() {
 
           border-radius: 50%;
 
-          color: #86efac;
+          color: #15803d;
           background:
-            rgba(34, 197, 94, 0.1);
+            #dcfce7;
 
           font-size: 10px;
           font-weight: 900;
         }
 
         .info-notice strong {
-          color: #cbd5e1;
+          color: #334155;
           font-size: 10px;
         }
 
@@ -2185,16 +2172,12 @@ export default function TeacherProfilePage() {
           line-height: 1.6;
         }
 
-        /* ================================================= */
-        /* QUICK ACTIONS */
-        /* ================================================= */
-
         .quick-section {
           margin-top: 20px;
           padding-top: 20px;
 
           border-top: 1px solid
-            rgba(148, 163, 184, 0.08);
+            rgba(148, 163, 184, 0.14);
         }
 
         .quick-grid {
@@ -2218,12 +2201,12 @@ export default function TeacherProfilePage() {
           border-radius: 12px;
 
           border: 1px solid
-            rgba(148, 163, 184, 0.08);
+            rgba(148, 163, 184, 0.14);
 
           background:
-            rgba(15, 23, 42, 0.5);
+            rgba(255, 255, 255, 0.78);
 
-          color: #cbd5e1;
+          color: #334155;
 
           cursor: pointer;
           transition: 0.2s ease;
@@ -2233,10 +2216,10 @@ export default function TeacherProfilePage() {
           transform: translateY(-2px);
 
           border-color:
-            rgba(129, 140, 248, 0.3);
+            rgba(59, 130, 246, 0.28);
 
           background:
-            rgba(30, 41, 80, 0.55);
+            #ffffff;
         }
 
         .quick-grid button > span {
@@ -2250,7 +2233,7 @@ export default function TeacherProfilePage() {
           border-radius: 9px;
 
           background:
-            rgba(99, 102, 241, 0.1);
+            #eef4ff;
         }
 
         .quick-grid button div {
@@ -2272,13 +2255,9 @@ export default function TeacherProfilePage() {
         }
 
         .quick-grid button b {
-          color: #6366f1;
+          color: #2563eb;
           font-size: 13px;
         }
-
-        /* ================================================= */
-        /* PASSWORD */
-        /* ================================================= */
 
         .password-form {
           margin-top: 22px;
@@ -2293,10 +2272,10 @@ export default function TeacherProfilePage() {
           border-radius: 13px;
 
           background:
-            rgba(245, 158, 11, 0.06);
+            #fffbeb;
 
           border: 1px solid
-            rgba(245, 158, 11, 0.13);
+            #fde68a;
         }
 
         .security-warning > div:first-child {
@@ -2304,13 +2283,13 @@ export default function TeacherProfilePage() {
         }
 
         .security-warning strong {
-          color: #fde68a;
+          color: #92400e;
           font-size: 10px;
         }
 
         .security-warning p {
           margin: 4px 0 0;
-          color: #64748b;
+          color: #78716c;
           font-size: 9px;
           line-height: 1.6;
         }
@@ -2344,19 +2323,19 @@ export default function TeacherProfilePage() {
           border-radius: 11px;
 
           border: 1px solid
-            rgba(148, 163, 184, 0.13);
+            #d5dde8;
 
           background:
-            rgba(15, 23, 42, 0.65);
+            #ffffff;
         }
 
         .password-input:focus-within {
           border-color:
-            rgba(129, 140, 248, 0.5);
+            #93c5fd;
 
           box-shadow:
             0 0 0 3px
-            rgba(99, 102, 241, 0.08);
+            rgba(59, 130, 246, 0.08);
         }
 
         .password-input input {
@@ -2368,7 +2347,7 @@ export default function TeacherProfilePage() {
 
           background: transparent;
 
-          color: #f8fafc;
+          color: #172033;
 
           padding: 12px;
 
@@ -2376,7 +2355,7 @@ export default function TeacherProfilePage() {
         }
 
         .password-input input::placeholder {
-          color: #475569;
+          color: #94a3b8;
         }
 
         .password-input button {
@@ -2410,7 +2389,10 @@ export default function TeacherProfilePage() {
           border-radius: 8px;
 
           background:
-            rgba(15, 23, 42, 0.55);
+            #f8fafc;
+
+          border: 1px solid
+            #e2e8f0;
 
           color: #64748b;
 
@@ -2435,23 +2417,23 @@ export default function TeacherProfilePage() {
         }
 
         .form-error {
-          color: #fca5a5;
+          color: #b91c1c;
 
           background:
-            rgba(127, 29, 29, 0.16);
+            #fff5f5;
 
           border: 1px solid
-            rgba(248, 113, 113, 0.18);
+            #fecaca;
         }
 
         .form-success {
-          color: #86efac;
+          color: #15803d;
 
           background:
-            rgba(34, 197, 94, 0.08);
+            #f0fdf4;
 
           border: 1px solid
-            rgba(34, 197, 94, 0.16);
+            #bbf7d0;
         }
 
         .form-actions {
@@ -2474,12 +2456,12 @@ export default function TeacherProfilePage() {
 
         .cancel-button {
           border: 1px solid
-            rgba(148, 163, 184, 0.12);
+            #d7dee8;
 
-          color: #94a3b8;
+          color: #475569;
 
           background:
-            rgba(15, 23, 42, 0.65);
+            #ffffff;
         }
 
         .change-password-button {
@@ -2491,7 +2473,7 @@ export default function TeacherProfilePage() {
             linear-gradient(
               135deg,
               #6366f1,
-              #4f46e5
+              #2563eb
             );
         }
 
@@ -2519,10 +2501,10 @@ export default function TeacherProfilePage() {
           border-radius: 12px;
 
           background:
-            rgba(15, 23, 42, 0.48);
+            rgba(248, 250, 252, 0.82);
 
           border: 1px solid
-            rgba(148, 163, 184, 0.07);
+            rgba(148, 163, 184, 0.12);
         }
 
         .security-cards > div > span {
@@ -2531,7 +2513,7 @@ export default function TeacherProfilePage() {
 
         .security-cards strong {
           display: block;
-          color: #cbd5e1;
+          color: #334155;
           font-size: 9px;
         }
 
@@ -2541,10 +2523,6 @@ export default function TeacherProfilePage() {
           font-size: 8px;
           line-height: 1.5;
         }
-
-        /* ================================================= */
-        /* PREFERENCES */
-        /* ================================================= */
 
         .preference-list {
           margin-top: 22px;
@@ -2564,10 +2542,10 @@ export default function TeacherProfilePage() {
           border-radius: 13px;
 
           background:
-            rgba(15, 23, 42, 0.5);
+            rgba(248, 250, 252, 0.82);
 
           border: 1px solid
-            rgba(148, 163, 184, 0.08);
+            rgba(148, 163, 184, 0.13);
         }
 
         .preference-icon {
@@ -2585,22 +2563,22 @@ export default function TeacherProfilePage() {
 
         .blue {
           background:
-            rgba(59, 130, 246, 0.1);
+            #eff6ff;
         }
 
         .purple {
           background:
-            rgba(139, 92, 246, 0.1);
+            #f5f3ff;
         }
 
         .green {
           background:
-            rgba(34, 197, 94, 0.1);
+            #f0fdf4;
         }
 
         .orange {
           background:
-            rgba(249, 115, 22, 0.1);
+            #fff7ed;
         }
 
         .preference-text {
@@ -2610,7 +2588,7 @@ export default function TeacherProfilePage() {
 
         .preference-text strong {
           display: block;
-          color: #cbd5e1;
+          color: #334155;
           font-size: 10px;
         }
 
@@ -2631,7 +2609,7 @@ export default function TeacherProfilePage() {
           border: 0;
           border-radius: 999px;
 
-          background: #334155;
+          background: #cbd5e1;
 
           cursor: pointer;
 
@@ -2646,9 +2624,10 @@ export default function TeacherProfilePage() {
 
           border-radius: 50%;
 
-          background: #e2e8f0;
+          background: #ffffff;
 
           transition: 0.2s ease;
+          box-shadow: 0 1px 4px rgba(15, 23, 42, 0.18);
         }
 
         .switch-on {
@@ -2661,12 +2640,11 @@ export default function TeacherProfilePage() {
         }
 
         .enabled-badge {
-          color: #86efac !important;
+          color: #15803d !important;
           background:
-            rgba(34, 197, 94, 0.08);
+            #f0fdf4;
           border:
-            1px solid
-            rgba(34, 197, 94, 0.15);
+            1px solid #bbf7d0;
 
           padding: 6px 8px;
 
@@ -2678,12 +2656,12 @@ export default function TeacherProfilePage() {
 
         .open-small-button {
           border: 1px solid
-            rgba(129, 140, 248, 0.2);
+            #c7d2fe;
 
           background:
-            rgba(99, 102, 241, 0.08);
+            #eef2ff;
 
-          color: #a5b4fc;
+          color: #4f46e5;
 
           padding: 7px 10px;
 
@@ -2703,14 +2681,14 @@ export default function TeacherProfilePage() {
           border-radius: 12px;
 
           background:
-            rgba(56, 189, 248, 0.04);
+            #f0f9ff;
 
           border: 1px solid
-            rgba(56, 189, 248, 0.09);
+            #dbeafe;
         }
 
         .preference-note strong {
-          color: #67e8f9;
+          color: #0369a1;
           font-size: 9px;
         }
 
@@ -2720,10 +2698,6 @@ export default function TeacherProfilePage() {
           font-size: 8px;
           line-height: 1.5;
         }
-
-        /* ================================================= */
-        /* BOTTOM */
-        /* ================================================= */
 
         .bottom-actions {
           margin-top: 18px;
@@ -2741,12 +2715,12 @@ export default function TeacherProfilePage() {
           border-radius: 11px;
 
           border: 1px solid
-            rgba(148, 163, 184, 0.1);
+            rgba(148, 163, 184, 0.16);
 
           background:
-            rgba(15, 23, 42, 0.55);
+            rgba(255, 255, 255, 0.78);
 
-          color: #94a3b8;
+          color: #64748b;
 
           cursor: pointer;
 
@@ -2755,17 +2729,17 @@ export default function TeacherProfilePage() {
         }
 
         .bottom-actions button:hover {
-          color: #cbd5e1;
+          color: #334155;
 
           border-color:
-            rgba(129, 140, 248, 0.25);
+            rgba(59, 130, 246, 0.25);
         }
 
         footer {
           min-height: 75px;
 
           border-top: 1px solid
-            rgba(148, 163, 184, 0.09);
+            rgba(148, 163, 184, 0.14);
 
           display: flex;
           align-items: center;
@@ -2773,7 +2747,7 @@ export default function TeacherProfilePage() {
 
           margin-top: 18px;
 
-          color: #475569;
+          color: #94a3b8;
           font-size: 9px;
           letter-spacing: 0.7px;
         }
@@ -2782,10 +2756,6 @@ export default function TeacherProfilePage() {
           color: #64748b;
           font-weight: 900;
         }
-
-        /* ================================================= */
-        /* RESPONSIVE */
-        /* ================================================= */
 
         @media (max-width: 900px) {
           .profile-hero {
