@@ -170,6 +170,17 @@ export default function TeacherDashboard() {
       icon: "⚙️",
       path: "/teacher/settings",
     },
+
+    /*
+     * STUDENT DIRECTORY - OPTION 12
+     */
+    {
+      title: "Student Directory",
+      description:
+        "View and export complete student details",
+      icon: "👨‍🎓",
+      path: "/teacher/student-directory",
+    },
   ];
 
   return (
