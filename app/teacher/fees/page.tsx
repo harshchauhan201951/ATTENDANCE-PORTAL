@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 type Student = {
@@ -39,12 +39,7 @@ const months = [
   "December",
 ];
 
-const statuses = [
-  "PENDING",
-  "SUBMITTED",
-  "REFUNDED",
-  "CANCELLED",
-];
+const statuses = ["PENDING", "SUBMITTED", "REFUNDED", "CANCELLED"];
 
 const AUTOMATIC_FEE_REMARK =
   "Automatic monthly fee based on admission date.";
@@ -81,9 +76,7 @@ function getStudentClass(student: Student): string {
 }
 
 function isClassNineOrTen(student: Student): boolean {
-  const studentClass = normalizeText(
-    getStudentClass(student)
-  );
+  const studentClass = normalizeText(getStudentClass(student));
 
   return (
     studentClass === "9" ||
@@ -100,9 +93,7 @@ function isClassNineOrTen(student: Student): boolean {
 }
 
 function getFeeAmount(student: Student): number {
-  return isClassNineOrTen(student)
-    ? 300
-    : 200;
+  return isClassNineOrTen(student) ? 300 : 200;
 }
 
 function getAdmissionDate(student: Student): string {
@@ -137,21 +128,14 @@ function parseLocalDate(value: string): Date | null {
 
   const cleanValue = value.trim();
 
-  const isoMatch =
-    /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(
-      cleanValue
-    );
+  const isoMatch = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(cleanValue);
 
   if (isoMatch) {
     const year = Number(isoMatch[1]);
     const month = Number(isoMatch[2]);
     const day = Number(isoMatch[3]);
 
-    const date = new Date(
-      year,
-      month - 1,
-      day
-    );
+    const date = new Date(year, month - 1, day);
 
     if (
       date.getFullYear() === year &&
@@ -165,17 +149,11 @@ function parseLocalDate(value: string): Date | null {
   }
 
   const textMatch =
-    /^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/.exec(
-      cleanValue
-    );
+    /^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/.exec(cleanValue);
 
   if (textMatch) {
     const day = Number(textMatch[1]);
-
-    const monthText = textMatch[2]
-      .toLowerCase()
-      .slice(0, 3);
-
+    const monthText = textMatch[2].toLowerCase().slice(0, 3);
     const year = Number(textMatch[3]);
 
     const monthMap: Record<string, number> = {
@@ -196,11 +174,7 @@ function parseLocalDate(value: string): Date | null {
     const month = monthMap[monthText];
 
     if (month !== undefined) {
-      const date = new Date(
-        year,
-        month,
-        day
-      );
+      const date = new Date(year, month, day);
 
       if (
         date.getFullYear() === year &&
@@ -213,24 +187,14 @@ function parseLocalDate(value: string): Date | null {
   }
 
   const slashMatch =
-    /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/.exec(
-      cleanValue
-    );
+    /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/.exec(cleanValue);
 
   if (slashMatch) {
     const first = Number(slashMatch[1]);
     const second = Number(slashMatch[2]);
     const year = Number(slashMatch[3]);
 
-    /*
-     * Treat dd/mm/yyyy as the primary format.
-     * Example: 09/09/2026
-     */
-    const ddmmyyyy = new Date(
-      year,
-      second - 1,
-      first
-    );
+    const ddmmyyyy = new Date(year, second - 1, first);
 
     if (
       ddmmyyyy.getFullYear() === year &&
@@ -259,22 +223,14 @@ function createDateOnly(
   monthIndex: number,
   day: number
 ): Date {
-  return new Date(
-    year,
-    monthIndex,
-    day
-  );
+  return new Date(year, monthIndex, day);
 }
 
 function getDaysInMonth(
   year: number,
   monthIndex: number
 ): number {
-  return new Date(
-    year,
-    monthIndex + 1,
-    0
-  ).getDate();
+  return new Date(year, monthIndex + 1, 0).getDate();
 }
 
 function getMonthlyAnniversary(
@@ -282,10 +238,7 @@ function getMonthlyAnniversary(
   year: number,
   monthIndex: number
 ): Date {
-  const daysInMonth = getDaysInMonth(
-    year,
-    monthIndex
-  );
+  const daysInMonth = getDaysInMonth(year, monthIndex);
 
   const billingDay = Math.min(
     admissionDate.getDate(),
@@ -300,21 +253,21 @@ function getMonthlyAnniversary(
 }
 
 /*
- * IMPORTANT BUSINESS RULE
+ * BUSINESS RULE
  *
- * Admission: 09 Sep 2026
+ * Admission: 10 Aug 2026
  *
- * First complete month:
- * 09 Oct 2026
+ * One complete month:
+ * 10 Sep 2026
  *
- * Fee generation date:
- * 07 Oct 2026
+ * Automatic fee generation:
+ * 08 Sep 2026
  *
- * Therefore the automatic fee belongs
- * to the month that is about to complete,
- * and it is generated exactly two days
- * before that next monthly anniversary.
+ * Therefore:
+ * Admission date + 1 monthly cycle = completion date
+ * Completion date - 2 days = automatic fee trigger date
  */
+
 function getNextFeeCycle(
   admissionDate: Date,
   today: Date
@@ -324,11 +277,8 @@ function getNextFeeCycle(
   dueDate: Date;
   triggerDate: Date;
 } {
-  const admissionYear =
-    admissionDate.getFullYear();
-
-  const admissionMonth =
-    admissionDate.getMonth();
+  const admissionYear = admissionDate.getFullYear();
+  const admissionMonth = admissionDate.getMonth();
 
   const todayOnly = createDateOnly(
     today.getFullYear(),
@@ -336,36 +286,33 @@ function getNextFeeCycle(
     today.getDate()
   );
 
-  /*
-   * First cycle after admission:
-   *
-   * Admission 09 Sep
-   * Due 09 Oct
-   * Fee month = October
-   */
-  let dueYear =
-    admissionYear;
-
-  let dueMonth =
-    admissionMonth + 1;
+  let dueYear = admissionYear;
+  let dueMonth = admissionMonth + 1;
 
   if (dueMonth > 11) {
     dueMonth = 0;
     dueYear += 1;
   }
 
-  let dueDate =
-    getMonthlyAnniversary(
-      admissionDate,
-      dueYear,
-      dueMonth
-    );
+  let dueDate = getMonthlyAnniversary(
+    admissionDate,
+    dueYear,
+    dueMonth
+  );
 
   /*
-   * Keep moving to the next monthly anniversary
-   * until we find the next due date after today.
+   * Find the next monthly completion date.
+   *
+   * IMPORTANT:
+   * We use <= here.
+   *
+   * On 08 Sep for an admission of 10 Aug:
+   * dueDate = 10 Sep
+   * therefore triggerDate = 08 Sep
+   *
+   * So automatic fee is created TODAY.
    */
-  while (dueDate <= todayOnly) {
+  while (dueDate < todayOnly) {
     dueMonth += 1;
 
     if (dueMonth > 11) {
@@ -373,27 +320,50 @@ function getNextFeeCycle(
       dueYear += 1;
     }
 
-    dueDate =
-      getMonthlyAnniversary(
-        admissionDate,
-        dueYear,
-        dueMonth
-      );
+    dueDate = getMonthlyAnniversary(
+      admissionDate,
+      dueYear,
+      dueMonth
+    );
   }
 
-  const triggerDate =
-    createDateOnly(
-      dueDate.getFullYear(),
-      dueDate.getMonth(),
-      dueDate.getDate() - 2
+  /*
+   * If today itself is the due/completion date,
+   * that cycle's trigger date has already passed.
+   * Move to the next cycle.
+   */
+  const triggerDate = createDateOnly(
+    dueDate.getFullYear(),
+    dueDate.getMonth(),
+    dueDate.getDate() - 2
+  );
+
+  if (todayOnly > triggerDate) {
+    dueMonth += 1;
+
+    if (dueMonth > 11) {
+      dueMonth = 0;
+      dueYear += 1;
+    }
+
+    dueDate = getMonthlyAnniversary(
+      admissionDate,
+      dueYear,
+      dueMonth
     );
+  }
+
+  const finalTriggerDate = createDateOnly(
+    dueDate.getFullYear(),
+    dueDate.getMonth(),
+    dueDate.getDate() - 2
+  );
 
   return {
     feeMonth: dueDate.getMonth() + 1,
-    feeYear:
-      dueDate.getFullYear(),
+    feeYear: dueDate.getFullYear(),
     dueDate,
-    triggerDate,
+    triggerDate: finalTriggerDate,
   };
 }
 
@@ -402,12 +372,9 @@ function isSameCalendarDate(
   second: Date
 ): boolean {
   return (
-    first.getFullYear() ===
-      second.getFullYear() &&
-    first.getMonth() ===
-      second.getMonth() &&
-    first.getDate() ===
-      second.getDate()
+    first.getFullYear() === second.getFullYear() &&
+    first.getMonth() === second.getMonth() &&
+    first.getDate() === second.getDate()
   );
 }
 
@@ -416,9 +383,7 @@ function shouldGenerateAutomaticFeeToday(
   today: Date
 ): boolean {
   const admissionDate =
-    parseLocalDate(
-      admissionDateString
-    );
+    parseLocalDate(admissionDateString);
 
   if (!admissionDate) {
     return false;
@@ -430,31 +395,15 @@ function shouldGenerateAutomaticFeeToday(
     today.getDate()
   );
 
-  /*
-   * If today is before the admission date,
-   * there cannot be a completed month yet.
-   */
-  if (
-    todayOnly <
-    admissionDate
-  ) {
+  if (todayOnly < admissionDate) {
     return false;
   }
 
-  const cycle =
-    getNextFeeCycle(
-      admissionDate,
-      todayOnly
-    );
+  const cycle = getNextFeeCycle(
+    admissionDate,
+    todayOnly
+  );
 
-  /*
-   * Automatic generation happens ONLY on
-   * the exact trigger date.
-   *
-   * Example:
-   * Due 09 Oct
-   * Trigger 07 Oct
-   */
   return isSameCalendarDate(
     todayOnly,
     cycle.triggerDate
@@ -471,9 +420,7 @@ function getAutomaticFeeCycle(
   triggerDate: Date;
 } | null {
   const admissionDate =
-    parseLocalDate(
-      admissionDateString
-    );
+    parseLocalDate(admissionDateString);
 
   if (!admissionDate) {
     return null;
@@ -495,19 +442,13 @@ export default function TeacherFeesPage() {
   const [studentId, setStudentId] =
     useState("");
 
-  const [month, setMonth] =
-    useState(
-      String(
-        new Date().getMonth() + 1
-      )
-    );
+  const [month, setMonth] = useState(
+    String(new Date().getMonth() + 1)
+  );
 
-  const [year, setYear] =
-    useState(
-      String(
-        new Date().getFullYear()
-      )
-    );
+  const [year, setYear] = useState(
+    String(new Date().getFullYear())
+  );
 
   const [amount, setAmount] =
     useState("200");
@@ -515,23 +456,17 @@ export default function TeacherFeesPage() {
   const [status, setStatus] =
     useState("PENDING");
 
-  const [
-    paymentDate,
-    setPaymentDate,
-  ] = useState("");
+  const [paymentDate, setPaymentDate] =
+    useState("");
 
-  const [
-    transactionId,
-    setTransactionId,
-  ] = useState("");
+  const [transactionId, setTransactionId] =
+    useState("");
 
   const [remarks, setRemarks] =
     useState("");
 
-  const [
-    paymentMode,
-    setPaymentMode,
-  ] = useState("");
+  const [paymentMode, setPaymentMode] =
+    useState("");
 
   const [loading, setLoading] =
     useState(true);
@@ -545,9 +480,29 @@ export default function TeacherFeesPage() {
   const [error, setError] =
     useState("");
 
+  /*
+   * IMPORTANT DELETE FIX
+   *
+   * When an automatic fee is deleted today,
+   * loadData() must NOT recreate the same fee.
+   *
+   * This Set remembers deleted automatic fee keys
+   * during the current page session.
+   */
+  const deletedAutomaticFeeKeysRef =
+    useRef<Set<string>>(new Set());
+
   useEffect(() => {
-    loadData();
+    loadData(true);
   }, []);
+
+  function getAutomaticFeeKey(
+    studentIdValue: number,
+    feeMonth: number,
+    feeYear: number
+  ): string {
+    return `${studentIdValue}-${feeMonth}-${feeYear}`;
+  }
 
   async function ensureAutomaticFees(
     studentList: Student[],
@@ -569,19 +524,12 @@ export default function TeacherFeesPage() {
 
     for (const student of studentList) {
       const admissionDateString =
-        getAdmissionDate(
-          student
-        );
+        getAdmissionDate(student);
 
       if (!admissionDateString) {
         continue;
       }
 
-      /*
-       * Generate ONLY on the exact date
-       * which is two days before the next
-       * monthly completion date.
-       */
       if (
         !shouldGenerateAutomaticFeeToday(
           admissionDateString,
@@ -601,79 +549,62 @@ export default function TeacherFeesPage() {
         continue;
       }
 
-      const alreadyExists =
-        existingFees.some(
-          (fee) =>
-            Number(
-              fee.student_id
-            ) ===
-              Number(
-                student.id
-              ) &&
-            Number(
-              fee.month
-            ) ===
-              cycle.feeMonth &&
-            Number(
-              fee.year
-            ) ===
-              cycle.feeYear
+      const automaticFeeKey =
+        getAutomaticFeeKey(
+          Number(student.id),
+          cycle.feeMonth,
+          cycle.feeYear
         );
 
       /*
-       * Never create a duplicate fee.
+       * If teacher deleted this exact automatic fee
+       * during this session, do not immediately
+       * recreate it.
        */
+      if (
+        deletedAutomaticFeeKeysRef.current.has(
+          automaticFeeKey
+        )
+      ) {
+        continue;
+      }
+
+      const alreadyExists =
+        existingFees.some(
+          (fee) =>
+            Number(fee.student_id) ===
+              Number(student.id) &&
+            Number(fee.month) ===
+              cycle.feeMonth &&
+            Number(fee.year) ===
+              cycle.feeYear
+        );
+
       if (alreadyExists) {
         continue;
       }
 
       inserts.push({
-        student_id:
-          Number(
-            student.id
-          ),
-
-        month:
-          cycle.feeMonth,
-
-        year:
-          cycle.feeYear,
-
-        amount:
-          getFeeAmount(
-            student
-          ),
-
-        status:
-          "PENDING",
-
-        payment_date:
-          null,
-
-        transaction_id:
-          null,
-
-        remarks:
-          AUTOMATIC_FEE_REMARK,
-
-        payment_mode:
-          null,
+        student_id: Number(student.id),
+        month: cycle.feeMonth,
+        year: cycle.feeYear,
+        amount: getFeeAmount(student),
+        status: "PENDING",
+        payment_date: null,
+        transaction_id: null,
+        remarks: AUTOMATIC_FEE_REMARK,
+        payment_mode: null,
       });
     }
 
-    if (
-      inserts.length === 0
-    ) {
+    if (inserts.length === 0) {
       return;
     }
 
-    const {
-      error: insertError,
-    } = await supabase
-      .from("fees")
-      .insert(
-        inserts
-      );
+    const { error: insertError } =
+      await supabase
+        .from("fees")
+        .insert(inserts);
 
     if (insertError) {
       console.error(
@@ -683,131 +614,96 @@ export default function TeacherFeesPage() {
     }
   }
 
-  async function loadData() {
+  /*
+   * generateAutomatic = true
+   *
+   * Normal load/refresh:
+   * automatic fee logic runs.
+   *
+   * Deleted automatic fee:
+   * Set already blocks the deleted key,
+   * so it will not come back.
+   */
+  async function loadData(
+    generateAutomatic = true
+  ) {
     try {
       setLoading(true);
       setError("");
 
-      /*
-       * TEACHER SIDE:
-       * Get ALL students.
-       */
       const {
         data: studentsData,
-        error:
-          studentsError,
+        error: studentsError,
       } = await supabase
         .from("students")
         .select("*")
-        .order(
-          "student_name",
-          {
-            ascending: true,
-          }
-        );
+        .order("student_name", {
+          ascending: true,
+        });
 
       if (studentsError) {
-        setError(
-          studentsError.message
-        );
+        setError(studentsError.message);
         return;
       }
 
       const studentList =
-        (studentsData ||
-          []) as Student[];
+        (studentsData || []) as Student[];
 
-      /*
-       * TEACHER SIDE:
-       * Get ALL fee records.
-       */
       const {
         data: feesData,
         error: feesError,
       } = await supabase
         .from("fees")
         .select("*")
-        .order(
-          "year",
-          {
-            ascending: false,
-          }
-        )
-        .order(
-          "month",
-          {
-            ascending: false,
-          }
-        );
+        .order("year", {
+          ascending: false,
+        })
+        .order("month", {
+          ascending: false,
+        });
 
       if (feesError) {
-        setError(
-          feesError.message
-        );
+        setError(feesError.message);
         return;
       }
 
-      const existingFees =
-        (feesData ||
-          []) as Fee[];
+      let existingFees =
+        (feesData || []) as Fee[];
 
-      /*
-       * IMPORTANT:
-       * No old fee is deleted or modified here.
-       *
-       * We ONLY create a new automatic fee
-       * when TODAY is the exact trigger date.
-       */
-      await ensureAutomaticFees(
-        studentList,
-        existingFees
-      );
-
-      /*
-       * Reload after possible automatic insert.
-       */
-      const {
-        data: finalFees,
-        error:
-          finalFeesError,
-      } = await supabase
-        .from("fees")
-        .select("*")
-        .order(
-          "year",
-          {
-            ascending: false,
-          }
-        )
-        .order(
-          "month",
-          {
-            ascending: false,
-          }
-        );
-
-      if (finalFeesError) {
-        setError(
-          finalFeesError.message
-        );
-        setFees(
+      if (generateAutomatic) {
+        await ensureAutomaticFees(
+          studentList,
           existingFees
         );
-      } else {
-        setFees(
-          (finalFees ||
-            []) as Fee[]
-        );
+
+        const {
+          data: refreshedFees,
+          error: refreshedFeesError,
+        } = await supabase
+          .from("fees")
+          .select("*")
+          .order("year", {
+            ascending: false,
+          })
+          .order("month", {
+            ascending: false,
+          });
+
+        if (!refreshedFeesError) {
+          existingFees =
+            (refreshedFees || []) as Fee[];
+        }
       }
 
-      setStudents(
-        studentList
-      );
+      setStudents(studentList);
+      setFees(existingFees);
     } catch (err) {
       console.error(err);
 
       setError(
-        "Unable to load fee management data."
+        err instanceof Error
+          ? err.message
+          : "Unable to load fee management data."
       );
     } finally {
       setLoading(false);
@@ -823,9 +719,7 @@ export default function TeacherFeesPage() {
     setError("");
 
     if (!studentId) {
-      setError(
-        "Please select a student."
-      );
+      setError("Please select a student.");
       return;
     }
 
@@ -833,16 +727,10 @@ export default function TeacherFeesPage() {
       !amount ||
       Number(amount) < 0
     ) {
-      setError(
-        "Please enter a valid amount."
-      );
+      setError("Please enter a valid amount.");
       return;
     }
 
-    /*
-     * CASH is required only when
-     * teacher marks the fee as submitted.
-     */
     if (
       status === "SUBMITTED" &&
       paymentMode !== "CASH"
@@ -858,83 +746,53 @@ export default function TeacherFeesPage() {
     try {
       const {
         data: existingFees,
-        error:
-          existingError,
-      } = await supabase
-        .from("fees")
-        .select("id")
-        .eq(
-          "student_id",
-          Number(
-            studentId
+        error: existingError,
+      } =
+        await supabase
+          .from("fees")
+          .select("id")
+          .eq(
+            "student_id",
+            Number(studentId)
           )
-        )
-        .eq(
-          "month",
-          Number(month)
-        )
-        .eq(
-          "year",
-          Number(year)
-        )
-        .order(
-          "id",
-          {
-            ascending:
-              false,
-          }
-        )
-        .limit(1);
+          .eq(
+            "month",
+            Number(month)
+          )
+          .eq(
+            "year",
+            Number(year)
+          )
+          .order("id", {
+            ascending: false,
+          })
+          .limit(1);
 
       if (existingError) {
-        setError(
-          existingError.message
-        );
+        setError(existingError.message);
         return;
       }
 
       const feeData = {
-        student_id:
-          Number(
-            studentId
-          ),
-
-        month:
-          Number(month),
-
-        year:
-          Number(year),
-
-        amount:
-          Number(amount),
-
+        student_id: Number(studentId),
+        month: Number(month),
+        year: Number(year),
+        amount: Number(amount),
         status,
-
         payment_date:
-          status ===
-          "SUBMITTED"
+          status === "SUBMITTED"
             ? paymentDate ||
               new Date()
                 .toISOString()
-                .split(
-                  "T"
-                )[0]
-            : paymentDate ||
-              null,
-
+                .split("T")[0]
+            : paymentDate || null,
         transaction_id:
-          transactionId.trim() ||
-          null,
-
+          transactionId.trim() || null,
         remarks:
-          remarks.trim() ||
-          null,
-
+          remarks.trim() || null,
         payment_mode:
-          status ===
-            "SUBMITTED" &&
-          paymentMode ===
-            "CASH"
+          status === "SUBMITTED" &&
+          paymentMode === "CASH"
             ? "CASH"
             : null,
       };
@@ -947,22 +805,17 @@ export default function TeacherFeesPage() {
 
       if (existingFee) {
         const {
-          error:
-            updateError,
+          error: updateError,
         } = await supabase
           .from("fees")
-          .update(
-            feeData
-          )
+          .update(feeData)
           .eq(
             "id",
             existingFee.id
           );
 
         if (updateError) {
-          setError(
-            updateError.message
-          );
+          setError(updateError.message);
           return;
         }
 
@@ -973,18 +826,13 @@ export default function TeacherFeesPage() {
         );
       } else {
         const {
-          error:
-            insertError,
+          error: insertError,
         } = await supabase
           .from("fees")
-          .insert(
-            feeData
-          );
+          .insert(feeData);
 
         if (insertError) {
-          setError(
-            insertError.message
-          );
+          setError(insertError.message);
           return;
         }
 
@@ -997,7 +845,7 @@ export default function TeacherFeesPage() {
 
       setPaymentMode("");
 
-      await loadData();
+      await loadData(true);
     } catch (err) {
       console.error(err);
 
@@ -1011,9 +859,7 @@ export default function TeacherFeesPage() {
     }
   }
 
-  async function deleteFee(
-    id: number
-  ) {
+  async function deleteFee(id: number) {
     const confirmed =
       window.confirm(
         "Are you sure you want to delete this fee record?"
@@ -1026,38 +872,68 @@ export default function TeacherFeesPage() {
     setError("");
     setMessage("");
 
+    /*
+     * Find the exact fee before deleting.
+     */
+    const feeToDelete =
+      fees.find(
+        (fee) => Number(fee.id) === Number(id)
+      );
+
+    /*
+     * If this is an automatic fee,
+     * block its immediate recreation.
+     */
+    if (
+      feeToDelete &&
+      String(
+        feeToDelete.remarks || ""
+      ).trim() ===
+        AUTOMATIC_FEE_REMARK
+    ) {
+      const automaticFeeKey =
+        getAutomaticFeeKey(
+          Number(feeToDelete.student_id),
+          Number(feeToDelete.month),
+          Number(feeToDelete.year)
+        );
+
+      deletedAutomaticFeeKeysRef.current.add(
+        automaticFeeKey
+      );
+    }
+
     const {
-      error:
-        deleteError,
+      error: deleteError,
     } = await supabase
       .from("fees")
       .delete()
-      .eq(
-        "id",
-        id
-      );
+      .eq("id", id);
 
     if (deleteError) {
-      setError(
-        deleteError.message
-      );
+      setError(deleteError.message);
       return;
     }
+
+    /*
+     * IMPORTANT:
+     * We DO NOT call automatic generation
+     * again in a way that can recreate this
+     * deleted record.
+     *
+     * We still reload the database records.
+     */
+    await loadData(true);
 
     setMessage(
       "Fee record deleted successfully."
     );
-
-    await loadData();
   }
 
-  function getStudentName(
-    id: number
-  ) {
+  function getStudentName(id: number) {
     const student =
       students.find(
-        (item) =>
-          item.id === id
+        (item) => item.id === id
       );
 
     if (!student) {
@@ -1070,70 +946,48 @@ export default function TeacherFeesPage() {
     );
   }
 
-  function getStudentUsername(
-    id: number
-  ) {
+  function getStudentUsername(id: number) {
     const student =
       students.find(
-        (item) =>
-          item.id === id
+        (item) => item.id === id
       );
 
     return (
-      student?.student_username ||
-      ""
+      student?.student_username || ""
     );
   }
 
-  function getMonthName(
-    monthNumber: number
-  ) {
+  function getMonthName(monthNumber: number) {
     return (
-      months[
-        monthNumber - 1
-      ] ||
+      months[monthNumber - 1] ||
       `Month ${monthNumber}`
     );
   }
 
-  function downloadReceipt(
-    fee: Fee
-  ) {
+  function downloadReceipt(fee: Fee) {
     const studentName =
-      getStudentName(
-        fee.student_id
-      );
+      getStudentName(fee.student_id);
 
     const username =
-      getStudentUsername(
-        fee.student_id
-      );
+      getStudentUsername(fee.student_id);
 
     const monthName =
-      getMonthName(
-        fee.month
-      );
+      getMonthName(fee.month);
 
     const receiptNumber =
       `RA-${fee.year}-${String(
         fee.month
-      ).padStart(
-        2,
-        "0"
-      )}-${fee.id}`;
+      ).padStart(2, "0")}-${fee.id}`;
 
     const normalizedPaymentMode =
       String(
-        fee.payment_mode ||
-          ""
+        fee.payment_mode || ""
       ).toUpperCase();
 
     const paymentModeText =
-      normalizedPaymentMode ===
-      "ONLINE"
+      normalizedPaymentMode === "ONLINE"
         ? "ONLINE"
-        : normalizedPaymentMode ===
-          "CASH"
+        : normalizedPaymentMode === "CASH"
         ? "CASH"
         : "—";
 
@@ -1335,7 +1189,6 @@ Student Details
 </tr>
 
 </table>
-
 </div>
 
 <div class="section">
@@ -1390,9 +1243,13 @@ Fee Details
 </div>
 
 <div class="footer">
+
 This is a computer-generated fee receipt.
+
 <br />
+
 RACER ACADEMY • Attendance & Fee Management
+
 </div>
 
 <button
@@ -1438,15 +1295,11 @@ onclick="window.print()"
         (fee) =>
           String(
             fee.status
-          ).toUpperCase() ===
-          "SUBMITTED"
+          ).toUpperCase() === "SUBMITTED"
       )
       .reduce(
         (sum, fee) =>
-          sum +
-          Number(
-            fee.amount || 0
-          ),
+          sum + Number(fee.amount || 0),
         0
       );
 
@@ -1456,15 +1309,11 @@ onclick="window.print()"
         (fee) =>
           String(
             fee.status
-          ).toUpperCase() ===
-          "PENDING"
+          ).toUpperCase() === "PENDING"
       )
       .reduce(
         (sum, fee) =>
-          sum +
-          Number(
-            fee.amount || 0
-          ),
+          sum + Number(fee.amount || 0),
         0
       );
 
@@ -1474,32 +1323,19 @@ onclick="window.print()"
         (fee) =>
           String(
             fee.status
-          ).toUpperCase() ===
-          "REFUNDED"
+          ).toUpperCase() === "REFUNDED"
       )
       .reduce(
         (sum, fee) =>
-          sum +
-          Number(
-            fee.amount || 0
-          ),
+          sum + Number(fee.amount || 0),
         0
       );
 
   if (loading) {
     return (
-      <main
-        style={
-          styles.page
-        }
-      >
-        <div
-          style={
-            styles.loading
-          }
-        >
+      <main style={styles.page}>
+        <div style={styles.loading}>
           💰
-
           <h2>
             Loading Fees Management...
           </h2>
@@ -1509,37 +1345,16 @@ onclick="window.print()"
   }
 
   return (
-    <main
-      style={
-        styles.page
-      }
-    >
-      <div
-        style={
-          styles.container
-        }
-      >
+    <main style={styles.page}>
+      <div style={styles.container}>
 
-        <header
-          style={
-            styles.header
-          }
-        >
-
+        <header style={styles.header}>
           <div>
-            <h1
-              style={
-                styles.title
-              }
-            >
+            <h1 style={styles.title}>
               💰 Fees Management
             </h1>
 
-            <p
-              style={
-                styles.subtitle
-              }
-            >
+            <p style={styles.subtitle}>
               Manage student monthly fees,
               payments and receipts
             </p>
@@ -1547,98 +1362,61 @@ onclick="window.print()"
 
           <a
             href="/teacher"
-            style={
-              styles.backButton
-            }
+            style={styles.backButton}
           >
             ← Teacher Dashboard
           </a>
-
         </header>
 
-        <section
-          style={
-            styles.summaryGrid
-          }
-        >
+        <section style={styles.summaryGrid}>
 
           <SummaryCard
             title="Submitted"
-            amount={
-              totalSubmitted
-            }
+            amount={totalSubmitted}
             icon="✅"
             background="#16a34a"
           />
 
           <SummaryCard
             title="Pending"
-            amount={
-              totalPending
-            }
+            amount={totalPending}
             icon="⏳"
             background="#f59e0b"
           />
 
           <SummaryCard
             title="Refunded"
-            amount={
-              totalRefunded
-            }
+            amount={totalRefunded}
             icon="↩️"
             background="#7c3aed"
           />
 
           <SummaryCard
             title="Total Records"
-            amount={
-              fees.length
-            }
+            amount={fees.length}
             icon="📚"
             background="#2563eb"
           />
 
         </section>
 
-        <section
-          style={
-            styles.card
-          }
-        >
+        <section style={styles.card}>
 
-          <h2
-            style={
-              styles.sectionTitle
-            }
-          >
+          <h2 style={styles.sectionTitle}>
             ➕ Add / Update Fee
           </h2>
 
-          <form
-            onSubmit={
-              saveFee
-            }
-          >
+          <form onSubmit={saveFee}>
 
-            <div
-              style={
-                styles.formGrid
-              }
-            >
+            <div style={styles.formGrid}>
 
               <div>
-                <label
-                  style={
-                    styles.label
-                  }
-                >
+                <label style={styles.label}>
                   Student
                 </label>
 
                 <select
-                  value={
-                    studentId
-                  }
+                  value={studentId}
                   onChange={(e) => {
                     const selectedId =
                       e.target.value;
@@ -1649,18 +1427,14 @@ onclick="window.print()"
 
                     const selectedStudent =
                       students.find(
-                        (
-                          student
-                        ) =>
+                        (student) =>
                           String(
                             student.id
                           ) ===
                           selectedId
                       );
 
-                    if (
-                      selectedStudent
-                    ) {
+                    if (selectedStudent) {
                       setAmount(
                         String(
                           getFeeAmount(
@@ -1670,36 +1444,22 @@ onclick="window.print()"
                       );
                     }
                   }}
-                  style={
-                    styles.input
-                  }
+                  style={styles.input}
                 >
+
                   <option value="">
                     Select Student
                   </option>
 
                   {students.map(
-                    (
-                      student
-                    ) => (
+                    (student) => (
                       <option
-                        key={
-                          student.id
-                        }
-                        value={
-                          student.id
-                        }
+                        key={student.id}
+                        value={student.id}
                       >
-                        {
-                          student.student_name
-                        ||
-                          student.student_username
-                        }{" "}
-                        (
-                        {
-                          student.student_username
-                        }
-                        )
+                        {student.student_name ||
+                          student.student_username}{" "}
+                        ({student.student_username})
                       </option>
                     )
                   )}
@@ -1708,113 +1468,79 @@ onclick="window.print()"
               </div>
 
               <div>
-                <label
-                  style={
-                    styles.label
-                  }
-                >
+                <label style={styles.label}>
                   Month
                 </label>
 
                 <select
-                  value={
-                    month
-                  }
+                  value={month}
                   onChange={(e) =>
                     setMonth(
                       e.target.value
                     )
                   }
-                  style={
-                    styles.input
-                  }
+                  style={styles.input}
                 >
+
                   {months.map(
                     (
                       monthName,
                       index
                     ) => (
                       <option
-                        key={
-                          monthName
-                        }
-                        value={
-                          index + 1
-                        }
+                        key={monthName}
+                        value={index + 1}
                       >
-                        {
-                          monthName
-                        }
+                        {monthName}
                       </option>
                     )
                   )}
+
                 </select>
               </div>
 
               <div>
-                <label
-                  style={
-                    styles.label
-                  }
-                >
+                <label style={styles.label}>
                   Year
                 </label>
 
                 <input
                   type="number"
-                  value={
-                    year
-                  }
+                  value={year}
                   onChange={(e) =>
                     setYear(
                       e.target.value
                     )
                   }
-                  style={
-                    styles.input
-                  }
+                  style={styles.input}
                 />
               </div>
 
               <div>
-                <label
-                  style={
-                    styles.label
-                  }
-                >
+                <label style={styles.label}>
                   Amount (₹)
                 </label>
 
                 <input
                   type="number"
                   min="0"
-                  value={
-                    amount
-                  }
+                  value={amount}
                   onChange={(e) =>
                     setAmount(
                       e.target.value
                     )
                   }
-                  style={
-                    styles.input
-                  }
+                  style={styles.input}
                 />
               </div>
 
               <div>
-                <label
-                  style={
-                    styles.label
-                  }
-                >
+                <label style={styles.label}>
                   Status
                 </label>
 
                 <select
-                  value={
-                    status
-                  }
+                  value={status}
                   onChange={(e) => {
                     const newStatus =
                       e.target.value;
@@ -1827,58 +1553,41 @@ onclick="window.print()"
                       newStatus !==
                       "SUBMITTED"
                     ) {
-                      setPaymentMode(
-                        ""
-                      );
+                      setPaymentMode("");
                     }
                   }}
-                  style={
-                    styles.input
-                  }
+                  style={styles.input}
                 >
+
                   {statuses.map(
-                    (
-                      statusName
-                    ) => (
+                    (statusName) => (
                       <option
-                        key={
-                          statusName
-                        }
-                        value={
-                          statusName
-                        }
+                        key={statusName}
+                        value={statusName}
                       >
-                        {
-                          statusName
-                        }
+                        {statusName}
                       </option>
                     )
                   )}
+
                 </select>
               </div>
 
               <div>
-                <label
-                  style={
-                    styles.label
-                  }
-                >
+                <label style={styles.label}>
                   Payment Mode
                 </label>
 
                 <select
-                  value={
-                    paymentMode
-                  }
+                  value={paymentMode}
                   onChange={(e) =>
                     setPaymentMode(
                       e.target.value
                     )
                   }
-                  style={
-                    styles.input
-                  }
+                  style={styles.input}
                 >
+
                   <option value="">
                     Select Payment Mode
                   </option>
@@ -1886,18 +1595,15 @@ onclick="window.print()"
                   <option value="CASH">
                     CASH
                   </option>
+
                 </select>
 
                 <small
                   style={{
-                    display:
-                      "block",
-                    marginTop:
-                      "6px",
-                    color:
-                      "#64748b",
-                    fontSize:
-                      "12px",
+                    display: "block",
+                    marginTop: "6px",
+                    color: "#64748b",
+                    fontSize: "12px",
                   }}
                 >
                   Select CASH only when
@@ -1906,79 +1612,55 @@ onclick="window.print()"
               </div>
 
               <div>
-                <label
-                  style={
-                    styles.label
-                  }
-                >
+                <label style={styles.label}>
                   Payment Date
                 </label>
 
                 <input
                   type="date"
-                  value={
-                    paymentDate
-                  }
+                  value={paymentDate}
                   onChange={(e) =>
                     setPaymentDate(
                       e.target.value
                     )
                   }
-                  style={
-                    styles.input
-                  }
+                  style={styles.input}
                 />
               </div>
 
               <div>
-                <label
-                  style={
-                    styles.label
-                  }
-                >
+                <label style={styles.label}>
                   Transaction ID
                 </label>
 
                 <input
                   type="text"
-                  value={
-                    transactionId
-                  }
+                  value={transactionId}
                   onChange={(e) =>
                     setTransactionId(
                       e.target.value
                     )
                   }
                   placeholder="Optional"
-                  style={
-                    styles.input
-                  }
+                  style={styles.input}
                 />
               </div>
 
               <div>
-                <label
-                  style={
-                    styles.label
-                  }
-                >
+                <label style={styles.label}>
                   Remarks
                 </label>
 
                 <input
                   type="text"
-                  value={
-                    remarks
-                  }
+                  value={remarks}
                   onChange={(e) =>
                     setRemarks(
                       e.target.value
                     )
                   }
                   placeholder="Optional"
-                  style={
-                    styles.input
-                  }
+                  style={styles.input}
                 />
               </div>
 
@@ -1986,12 +1668,8 @@ onclick="window.print()"
 
             <button
               type="submit"
-              disabled={
-                saving
-              }
-              style={
-                styles.saveButton
-              }
+              disabled={saving}
+              style={styles.saveButton}
             >
               {saving
                 ? "Saving..."
@@ -2001,406 +1679,274 @@ onclick="window.print()"
           </form>
 
           {message && (
-            <div
-              style={
-                styles.success
-              }
-            >
+            <div style={styles.success}>
               ✅ {message}
             </div>
           )}
 
           {error && (
-            <div
-              style={
-                styles.error
-              }
-            >
+            <div style={styles.error}>
               ❌ {error}
             </div>
           )}
 
         </section>
 
-        <section
-          style={
-            styles.card
-          }
-        >
+        <section style={styles.card}>
 
-          <div
-            style={
-              styles.historyHeader
-            }
-          >
+          <div style={styles.historyHeader}>
 
             <div>
-              <h2
-                style={
-                  styles.sectionTitle
-                }
-              >
+              <h2 style={styles.sectionTitle}>
                 📚 Fee History
               </h2>
 
-              <p
-                style={
-                  styles.subtitle
-                }
-              >
+              <p style={styles.subtitle}>
                 Complete student fee records
               </p>
             </div>
 
             <button
-              onClick={
-                loadData
+              onClick={() =>
+                loadData(true)
               }
-              style={
-                styles.refreshButton
-              }
+              style={styles.refreshButton}
             >
               🔄 Refresh
             </button>
 
           </div>
 
-          {fees.length ===
-          0 ? (
-            <div
-              style={
-                styles.empty
-              }
-            >
+          {fees.length === 0 ? (
+            <div style={styles.empty}>
               No fee records found.
             </div>
           ) : (
-            <div
-              style={
-                styles.tableWrapper
-              }
-            >
+            <div style={styles.tableWrapper}>
 
-              <table
-                style={
-                  styles.table
-                }
-              >
+              <table style={styles.table}>
 
                 <thead>
                   <tr>
-                    <th
-                      style={
-                        styles.th
-                      }
-                    >
+
+                    <th style={styles.th}>
                       Student
                     </th>
 
-                    <th
-                      style={
-                        styles.th
-                      }
-                    >
+                    <th style={styles.th}>
                       Month
                     </th>
 
-                    <th
-                      style={
-                        styles.th
-                      }
-                    >
+                    <th style={styles.th}>
                       Amount
                     </th>
 
-                    <th
-                      style={
-                        styles.th
-                      }
-                    >
+                    <th style={styles.th}>
                       Status
                     </th>
 
-                    <th
-                      style={
-                        styles.th
-                      }
-                    >
+                    <th style={styles.th}>
                       Payment Mode
                     </th>
 
-                    <th
-                      style={
-                        styles.th
-                      }
-                    >
+                    <th style={styles.th}>
                       Payment Date
                     </th>
 
-                    <th
-                      style={
-                        styles.th
-                      }
-                    >
+                    <th style={styles.th}>
                       Transaction
                     </th>
 
-                    <th
-                      style={
-                        styles.th
-                      }
-                    >
+                    <th style={styles.th}>
                       Remarks
                     </th>
 
-                    <th
-                      style={
-                        styles.th
-                      }
-                    >
+                    <th style={styles.th}>
                       Receipt
                     </th>
 
-                    <th
-                      style={
-                        styles.th
-                      }
-                    >
+                    <th style={styles.th}>
                       Action
                     </th>
+
                   </tr>
                 </thead>
 
                 <tbody>
-                  {fees.map(
-                    (
-                      fee
-                    ) => {
 
-                      const normalizedStatus =
-                        String(
-                          fee.status ||
-                            ""
-                        ).toUpperCase();
+                  {fees.map((fee) => {
 
-                      const normalizedMode =
-                        String(
-                          fee.payment_mode ||
-                            ""
-                        ).toUpperCase();
+                    const normalizedStatus =
+                      String(
+                        fee.status || ""
+                      ).toUpperCase();
 
-                      const canReceipt =
-                        normalizedStatus ===
-                          "SUBMITTED" ||
-                        normalizedStatus ===
-                          "PAID" ||
-                        normalizedStatus ===
-                          "PAID ONLINE";
+                    const normalizedMode =
+                      String(
+                        fee.payment_mode || ""
+                      ).toUpperCase();
 
-                      return (
-                        <tr
-                          key={
-                            fee.id
-                          }
-                        >
+                    const canReceipt =
+                      normalizedStatus ===
+                        "SUBMITTED" ||
+                      normalizedStatus ===
+                        "PAID" ||
+                      normalizedStatus ===
+                        "PAID ONLINE";
 
-                          <td
+                    return (
+                      <tr key={fee.id}>
+
+                        <td style={styles.td}>
+
+                          <strong>
+                            {getStudentName(
+                              fee.student_id
+                            )}
+                          </strong>
+
+                          <div
                             style={
-                              styles.td
+                              styles.username
                             }
                           >
-                            <strong>
-                              {
-                                getStudentName(
-                                  fee.student_id
-                                )
-                              }
-                            </strong>
+                            {getStudentUsername(
+                              fee.student_id
+                            )}
+                          </div>
 
-                            <div
+                        </td>
+
+                        <td style={styles.td}>
+                          {getMonthName(
+                            fee.month
+                          )}{" "}
+                          {fee.year}
+                        </td>
+
+                        <td style={styles.td}>
+                          <strong>
+                            ₹
+                            {Number(
+                              fee.amount
+                            ).toLocaleString(
+                              "en-IN"
+                            )}
+                          </strong>
+                        </td>
+
+                        <td style={styles.td}>
+                          <StatusBadge
+                            status={
+                              fee.status
+                            }
+                          />
+                        </td>
+
+                        <td style={styles.td}>
+
+                          {normalizedMode ===
+                          "CASH" ? (
+                            <span
+                              style={{
+                                ...styles.paymentModeBadge,
+                                background:
+                                  "#fef3c7",
+                                color:
+                                  "#92400e",
+                              }}
+                            >
+                              💵 CASH
+                            </span>
+                          ) : normalizedMode ===
+                            "ONLINE" ? (
+                            <span
+                              style={{
+                                ...styles.paymentModeBadge,
+                                background:
+                                  "#dcfce7",
+                                color:
+                                  "#166534",
+                              }}
+                            >
+                              💳 ONLINE
+                            </span>
+                          ) : (
+                            <span
                               style={
-                                styles.username
+                                styles.notSelected
                               }
                             >
-                              {
-                                getStudentUsername(
-                                  fee.student_id
-                                )
-                              }
-                            </div>
-                          </td>
+                              —
+                            </span>
+                          )}
 
-                          <td
-                            style={
-                              styles.td
-                            }
-                          >
-                            {
-                              getMonthName(
-                                fee.month
-                              )
-                            }{" "}
-                            {
-                              fee.year
-                            }
-                          </td>
+                        </td>
 
-                          <td
-                            style={
-                              styles.td
-                            }
-                          >
-                            <strong>
-                              ₹
-                              {Number(
-                                fee.amount
-                              ).toLocaleString(
-                                "en-IN"
-                              )}
-                            </strong>
-                          </td>
+                        <td style={styles.td}>
+                          {fee.payment_date ||
+                            "—"}
+                        </td>
 
-                          <td
-                            style={
-                              styles.td
-                            }
-                          >
-                            <StatusBadge
-                              status={
-                                fee.status
-                              }
-                            />
-                          </td>
+                        <td style={styles.td}>
+                          {fee.transaction_id ||
+                            "—"}
+                        </td>
 
-                          <td
-                            style={
-                              styles.td
-                            }
-                          >
-                            {normalizedMode ===
-                            "CASH" ? (
-                              <span
-                                style={{
-                                  ...styles.paymentModeBadge,
-                                  background:
-                                    "#fef3c7",
-                                  color:
-                                    "#92400e",
-                                }}
-                              >
-                                💵 CASH
-                              </span>
-                            ) : normalizedMode ===
-                              "ONLINE" ? (
-                              <span
-                                style={{
-                                  ...styles.paymentModeBadge,
-                                  background:
-                                    "#dcfce7",
-                                  color:
-                                    "#166534",
-                                }}
-                              >
-                                💳 ONLINE
-                              </span>
-                            ) : (
-                              <span
-                                style={
-                                  styles.notSelected
-                                }
-                              >
-                                —
-                              </span>
-                            )}
-                          </td>
+                        <td style={styles.td}>
+                          {fee.remarks || "—"}
+                        </td>
 
-                          <td
-                            style={
-                              styles.td
-                            }
-                          >
-                            {
-                              fee.payment_date ||
-                              "—"
-                            }
-                          </td>
+                        <td style={styles.td}>
 
-                          <td
-                            style={
-                              styles.td
-                            }
-                          >
-                            {
-                              fee.transaction_id ||
-                              "—"
-                            }
-                          </td>
-
-                          <td
-                            style={
-                              styles.td
-                            }
-                          >
-                            {
-                              fee.remarks ||
-                              "—"
-                            }
-                          </td>
-
-                          <td
-                            style={
-                              styles.td
-                            }
-                          >
-                            {canReceipt ? (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  downloadReceipt(
-                                    fee
-                                  )
-                                }
-                                style={
-                                  styles.receiptButton
-                                }
-                              >
-                                🧾 Receipt
-                              </button>
-                            ) : (
-                              <span
-                                style={
-                                  styles.notAvailable
-                                }
-                              >
-                                Available after payment
-                              </span>
-                            )}
-                          </td>
-
-                          <td
-                            style={
-                              styles.td
-                            }
-                          >
+                          {canReceipt ? (
                             <button
                               type="button"
                               onClick={() =>
-                                deleteFee(
-                                  fee.id
+                                downloadReceipt(
+                                  fee
                                 )
                               }
                               style={
-                                styles.deleteButton
+                                styles.receiptButton
                               }
                             >
-                              Delete
+                              🧾 Receipt
                             </button>
-                          </td>
+                          ) : (
+                            <span
+                              style={
+                                styles.notAvailable
+                              }
+                            >
+                              Available after payment
+                            </span>
+                          )}
 
-                        </tr>
-                      );
-                    }
-                  )}
+                        </td>
+
+                        <td style={styles.td}>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              deleteFee(
+                                fee.id
+                              )
+                            }
+                            style={
+                              styles.deleteButton
+                            }
+                          >
+                            Delete
+                          </button>
+
+                        </td>
+
+                      </tr>
+                    );
+                  })}
+
                 </tbody>
 
               </table>
@@ -2433,29 +1979,16 @@ function SummaryCard({
         background,
       }}
     >
-      <div
-        style={
-          styles.summaryIcon
-        }
-      >
+      <div style={styles.summaryIcon}>
         {icon}
       </div>
 
-      <div
-        style={
-          styles.summaryTitle
-        }
-      >
+      <div style={styles.summaryTitle}>
         {title}
       </div>
 
-      <div
-        style={
-          styles.summaryAmount
-        }
-      >
-        {title ===
-        "Total Records"
+      <div style={styles.summaryAmount}>
+        {title === "Total Records"
           ? amount
           : `₹${amount.toLocaleString(
               "en-IN"
@@ -2471,9 +2004,7 @@ function StatusBadge({
   status: string;
 }) {
   const normalized =
-    String(
-      status || ""
-    ).toUpperCase();
+    String(status || "").toUpperCase();
 
   const statusStyles: Record<
     string,
@@ -2514,33 +2045,24 @@ function StatusBadge({
     <span
       style={{
         ...styles.badge,
-
-        ...(statusStyles[
-          normalized
-        ] ||
+        ...(statusStyles[normalized] ||
           statusStyles.PENDING),
       }}
     >
-      {normalized ===
-        "SUBMITTED" &&
+      {normalized === "SUBMITTED" &&
         "✓ "}
 
-      {normalized ===
-        "PENDING" &&
+      {normalized === "PENDING" &&
         "⏳ "}
 
-      {normalized ===
-        "REFUNDED" &&
+      {normalized === "REFUNDED" &&
         "↩️ "}
 
-      {normalized ===
-        "CANCELLED" &&
+      {normalized === "CANCELLED" &&
         "✕ "}
 
-      {(normalized ===
-        "PAID" ||
-        normalized ===
-          "PAID ONLINE") &&
+      {(normalized === "PAID" ||
+        normalized === "PAID ONLINE") &&
         "✓ "}
 
       {normalized}
@@ -2556,430 +2078,279 @@ const styles: Record<
     minHeight: "100vh",
     background:
       "linear-gradient(135deg,#eff6ff,#f8fafc)",
-    padding:
-      "25px 15px",
+    padding: "25px 15px",
     fontFamily:
       "Arial, Helvetica, sans-serif",
-    boxSizing:
-      "border-box",
+    boxSizing: "border-box",
   },
 
   container: {
     width: "100%",
-    maxWidth:
-      "1300px",
+    maxWidth: "1300px",
     margin: "0 auto",
   },
 
   header: {
-    background:
-      "white",
-    padding:
-      "24px",
-    borderRadius:
-      "18px",
-    display:
-      "flex",
-    justifyContent:
-      "space-between",
-    alignItems:
-      "center",
-    gap:
-      "15px",
-    marginBottom:
-      "20px",
+    background: "white",
+    padding: "24px",
+    borderRadius: "18px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "15px",
+    marginBottom: "20px",
     boxShadow:
       "0 8px 25px rgba(15,23,42,0.08)",
   },
 
   title: {
     margin: 0,
-    color:
-      "#172554",
-    fontSize:
-      "30px",
-    fontWeight:
-      800,
+    color: "#172554",
+    fontSize: "30px",
+    fontWeight: 800,
   },
 
   subtitle: {
-    margin:
-      "6px 0 0",
-    color:
-      "#64748b",
-    fontSize:
-      "14px",
+    margin: "6px 0 0",
+    color: "#64748b",
+    fontSize: "14px",
   },
 
   backButton: {
-    textDecoration:
-      "none",
-    background:
-      "#1e3a8a",
-    color:
-      "white",
-    padding:
-      "12px 18px",
-    borderRadius:
-      "10px",
-    fontWeight:
-      700,
-    whiteSpace:
-      "nowrap",
+    textDecoration: "none",
+    background: "#1e3a8a",
+    color: "white",
+    padding: "12px 18px",
+    borderRadius: "10px",
+    fontWeight: 700,
+    whiteSpace: "nowrap",
   },
 
   summaryGrid: {
-    display:
-      "grid",
+    display: "grid",
     gridTemplateColumns:
       "repeat(auto-fit,minmax(210px,1fr))",
-    gap:
-      "18px",
-    marginBottom:
-      "20px",
+    gap: "18px",
+    marginBottom: "20px",
   },
 
   summaryCard: {
-    color:
-      "white",
-    padding:
-      "22px",
-    borderRadius:
-      "18px",
+    color: "white",
+    padding: "22px",
+    borderRadius: "18px",
     boxShadow:
       "0 8px 20px rgba(15,23,42,0.12)",
   },
 
   summaryIcon: {
-    fontSize:
-      "28px",
+    fontSize: "28px",
   },
 
   summaryTitle: {
-    marginTop:
-      "10px",
-    fontSize:
-      "14px",
-    opacity:
-      0.9,
+    marginTop: "10px",
+    fontSize: "14px",
+    opacity: 0.9,
   },
 
   summaryAmount: {
-    fontSize:
-      "28px",
-    fontWeight:
-      800,
-    marginTop:
-      "5px",
+    fontSize: "28px",
+    fontWeight: 800,
+    marginTop: "5px",
   },
 
   card: {
-    background:
-      "white",
-    borderRadius:
-      "18px",
-    padding:
-      "25px",
-    marginBottom:
-      "20px",
+    background: "white",
+    borderRadius: "18px",
+    padding: "25px",
+    marginBottom: "20px",
     boxShadow:
       "0 8px 25px rgba(15,23,42,0.08)",
   },
 
   sectionTitle: {
     margin: 0,
-    color:
-      "#172554",
-    fontSize:
-      "22px",
+    color: "#172554",
+    fontSize: "22px",
   },
 
   formGrid: {
-    display:
-      "grid",
+    display: "grid",
     gridTemplateColumns:
       "repeat(auto-fit,minmax(220px,1fr))",
-    gap:
-      "18px",
-    marginTop:
-      "20px",
+    gap: "18px",
+    marginTop: "20px",
   },
 
   label: {
-    display:
-      "block",
-    marginBottom:
-      "7px",
-    color:
-      "#334155",
-    fontWeight:
-      700,
-    fontSize:
-      "14px",
+    display: "block",
+    marginBottom: "7px",
+    color: "#334155",
+    fontWeight: 700,
+    fontSize: "14px",
   },
 
   input: {
-    width:
-      "100%",
-    boxSizing:
-      "border-box",
-    padding:
-      "12px",
-    border:
-      "1px solid #cbd5e1",
-    borderRadius:
-      "10px",
-    fontSize:
-      "15px",
-    color:
-      "#111827",
-    background:
-      "white",
+    width: "100%",
+    boxSizing: "border-box",
+    padding: "12px",
+    border: "1px solid #cbd5e1",
+    borderRadius: "10px",
+    fontSize: "15px",
+    color: "#111827",
+    background: "white",
   },
 
   saveButton: {
-    marginTop:
-      "22px",
-    border:
-      "none",
+    marginTop: "22px",
+    border: "none",
     background:
       "linear-gradient(135deg,#2563eb,#4f46e5)",
-    color:
-      "white",
-    padding:
-      "13px 24px",
-    borderRadius:
-      "10px",
-    fontSize:
-      "16px",
-    fontWeight:
-      700,
-    cursor:
-      "pointer",
+    color: "white",
+    padding: "13px 24px",
+    borderRadius: "10px",
+    fontSize: "16px",
+    fontWeight: 700,
+    cursor: "pointer",
   },
 
   success: {
-    marginTop:
-      "18px",
-    background:
-      "#dcfce7",
-    color:
-      "#166534",
-    padding:
-      "12px",
-    borderRadius:
-      "10px",
-    fontWeight:
-      600,
+    marginTop: "18px",
+    background: "#dcfce7",
+    color: "#166534",
+    padding: "12px",
+    borderRadius: "10px",
+    fontWeight: 600,
   },
 
   error: {
-    marginTop:
-      "18px",
-    background:
-      "#fee2e2",
-    color:
-      "#991b1b",
-    padding:
-      "12px",
-    borderRadius:
-      "10px",
-    fontWeight:
-      600,
+    marginTop: "18px",
+    background: "#fee2e2",
+    color: "#991b1b",
+    padding: "12px",
+    borderRadius: "10px",
+    fontWeight: 600,
   },
 
   historyHeader: {
-    display:
-      "flex",
-    alignItems:
-      "center",
-    justifyContent:
-      "space-between",
-    gap:
-      "15px",
-    marginBottom:
-      "20px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "15px",
+    marginBottom: "20px",
   },
 
   refreshButton: {
-    border:
-      "none",
-    background:
-      "#2563eb",
-    color:
-      "white",
-    padding:
-      "11px 17px",
-    borderRadius:
-      "10px",
-    fontWeight:
-      700,
-    cursor:
-      "pointer",
+    border: "none",
+    background: "#2563eb",
+    color: "white",
+    padding: "11px 17px",
+    borderRadius: "10px",
+    fontWeight: 700,
+    cursor: "pointer",
   },
 
   tableWrapper: {
-    width:
-      "100%",
-    overflowX:
-      "auto",
+    width: "100%",
+    overflowX: "auto",
   },
 
   table: {
-    width:
-      "100%",
-    minWidth:
-      "1400px",
-    borderCollapse:
-      "collapse",
+    width: "100%",
+    minWidth: "1400px",
+    borderCollapse: "collapse",
   },
 
   th: {
-    background:
-      "#eff6ff",
-    color:
-      "#1e3a8a",
-    padding:
-      "13px",
-    textAlign:
-      "left",
+    background: "#eff6ff",
+    color: "#1e3a8a",
+    padding: "13px",
+    textAlign: "left",
     borderBottom:
       "2px solid #dbeafe",
-    fontSize:
-      "13px",
+    fontSize: "13px",
   },
 
   td: {
-    padding:
-      "13px",
+    padding: "13px",
     borderBottom:
       "1px solid #e2e8f0",
-    color:
-      "#334155",
-    fontSize:
-      "14px",
-    verticalAlign:
-      "middle",
+    color: "#334155",
+    fontSize: "14px",
+    verticalAlign: "middle",
   },
 
   username: {
-    marginTop:
-      "4px",
-    color:
-      "#64748b",
-    fontSize:
-      "12px",
+    marginTop: "4px",
+    color: "#64748b",
+    fontSize: "12px",
   },
 
   badge: {
-    display:
-      "inline-block",
-    padding:
-      "7px 11px",
-    borderRadius:
-      "999px",
-    fontWeight:
-      700,
-    fontSize:
-      "12px",
-    whiteSpace:
-      "nowrap",
+    display: "inline-block",
+    padding: "7px 11px",
+    borderRadius: "999px",
+    fontWeight: 700,
+    fontSize: "12px",
+    whiteSpace: "nowrap",
   },
 
   paymentModeBadge: {
-    display:
-      "inline-block",
-    padding:
-      "7px 11px",
-    borderRadius:
-      "999px",
-    fontWeight:
-      700,
-    fontSize:
-      "12px",
-    whiteSpace:
-      "nowrap",
+    display: "inline-block",
+    padding: "7px 11px",
+    borderRadius: "999px",
+    fontWeight: 700,
+    fontSize: "12px",
+    whiteSpace: "nowrap",
   },
 
   notSelected: {
-    color:
-      "#94a3b8",
-    fontSize:
-      "13px",
+    color: "#94a3b8",
+    fontSize: "13px",
   },
 
   receiptButton: {
-    border:
-      "none",
+    border: "none",
     background:
       "linear-gradient(135deg,#059669,#16a34a)",
-    color:
-      "white",
-    padding:
-      "9px 13px",
-    borderRadius:
-      "8px",
-    cursor:
-      "pointer",
-    fontWeight:
-      700,
-    whiteSpace:
-      "nowrap",
+    color: "white",
+    padding: "9px 13px",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontWeight: 700,
+    whiteSpace: "nowrap",
   },
 
   notAvailable: {
-    color:
-      "#94a3b8",
-    fontSize:
-      "11px",
-    display:
-      "inline-block",
-    maxWidth:
-      "100px",
+    color: "#94a3b8",
+    fontSize: "11px",
+    display: "inline-block",
+    maxWidth: "100px",
   },
 
   deleteButton: {
-    border:
-      "none",
-    background:
-      "#dc2626",
-    color:
-      "white",
-    padding:
-      "8px 11px",
-    borderRadius:
-      "8px",
-    cursor:
-      "pointer",
-    fontWeight:
-      700,
+    border: "none",
+    background: "#dc2626",
+    color: "white",
+    padding: "8px 11px",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontWeight: 700,
   },
 
   empty: {
-    textAlign:
-      "center",
-    padding:
-      "40px",
-    color:
-      "#64748b",
+    textAlign: "center",
+    padding: "40px",
+    color: "#64748b",
   },
 
   loading: {
-    background:
-      "white",
-    maxWidth:
-      "450px",
-    margin:
-      "100px auto",
-    padding:
-      "40px",
-    borderRadius:
-      "18px",
-    textAlign:
-      "center",
-    fontSize:
-      "18px",
-    fontWeight:
-      700,
+    background: "white",
+    maxWidth: "450px",
+    margin: "100px auto",
+    padding: "40px",
+    borderRadius: "18px",
+    textAlign: "center",
+    fontSize: "18px",
+    fontWeight: 700,
   },
 };
