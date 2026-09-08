@@ -142,6 +142,13 @@ export default function TeacherDashboard() {
       icon: "⚙",
       path: "/teacher/settings",
     },
+    {
+      number: "11",
+      title: "Student Login Activity",
+      description: "Track when every student logs into the portal",
+      icon: "🔐",
+      path: "/teacher/login-activity",
+    },
   ];
 
   return (
@@ -350,12 +357,16 @@ export default function TeacherDashboard() {
                         ? "linear-gradient(135deg,#ede9fe,#ddd6fe)"
                         : item.title === "Announcements"
                         ? "linear-gradient(135deg,#fef3c7,#fde68a)"
+                        : item.title === "Student Login Activity"
+                        ? "linear-gradient(135deg,#dcfce7,#bbf7d0)"
                         : "#eef2ff",
                     color:
                       item.title === "Homework"
                         ? "#7c3aed"
                         : item.title === "Announcements"
                         ? "#d97706"
+                        : item.title === "Student Login Activity"
+                        ? "#16a34a"
                         : "#4f46e5",
                     display: "flex",
                     alignItems: "center",
@@ -406,6 +417,8 @@ export default function TeacherDashboard() {
                       ? "#7c3aed"
                       : item.title === "Announcements"
                       ? "#d97706"
+                      : item.title === "Student Login Activity"
+                      ? "#16a34a"
                       : "#4f46e5",
                   fontSize: "12px",
                   fontWeight: 900,

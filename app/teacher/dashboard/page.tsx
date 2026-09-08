@@ -144,6 +144,17 @@ export default function TeacherDashboard() {
       path: "/teacher/announcements",
     },
 
+    /*
+     * STUDENT LOGIN ACTIVITY
+     */
+    {
+      title: "Student Login Activity",
+      description:
+        "Track when every student logs into the portal",
+      icon: "🔐",
+      path: "/teacher/login-activity",
+    },
+
     {
       title: "Profile",
       description:

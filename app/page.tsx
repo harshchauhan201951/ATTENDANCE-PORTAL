@@ -92,9 +92,54 @@ export default function HomePage() {
 
       console.log("USER DATA:", userData);
 
+      // ==========================================
       // STUDENT LOGIN
+      // ==========================================
       if (loginType === "student") {
-        // Existing storage
+        /*
+         * SAVE STUDENT LOGIN ACTIVITY
+         *
+         * This happens only after the student_login RPC
+         * has successfully returned student data.
+         *
+         * If activity tracking fails, the student login
+         * will still continue normally.
+         */
+        const currentStudentId = Number(userData.id);
+
+        if (
+          Number.isInteger(currentStudentId) &&
+          currentStudentId > 0
+        ) {
+          const { error: activityError } = await supabase
+            .from("student_login_activity")
+            .insert({
+              student_id: currentStudentId,
+              login_at: new Date().toISOString(),
+            });
+
+          if (activityError) {
+            console.error(
+              "Student login activity error:",
+              activityError
+            );
+          } else {
+            console.log(
+              "Student login activity saved successfully:",
+              currentStudentId
+            );
+          }
+        } else {
+          console.error(
+            "Invalid student ID. Login activity was not saved:",
+            userData.id
+          );
+        }
+
+        // ==========================================
+        // EXISTING STUDENT STORAGE
+        // ==========================================
+
         localStorage.setItem(
           "racer_academy_student",
           JSON.stringify(userData)
@@ -131,11 +176,15 @@ export default function HomePage() {
           userData.student_username || ""
         );
 
+        // Redirect to student dashboard
         router.push("/student/dashboard");
         return;
       }
 
+      // ==========================================
       // TEACHER LOGIN
+      // ==========================================
+
       localStorage.setItem(
         "racer_academy_teacher",
         JSON.stringify(userData)
@@ -154,7 +203,9 @@ export default function HomePage() {
         err instanceof Error ? err.message : String(err);
 
       setError(
-        `${loginType === "student" ? "Student" : "Teacher"} Login Error: ${errorMessage}`
+        `${
+          loginType === "student" ? "Student" : "Teacher"
+        } Login Error: ${errorMessage}`
       );
     } finally {
       setLoading(false);
@@ -171,14 +222,23 @@ export default function HomePage() {
 
   return (
     <main className="racer-login-page">
-      {/* BACKGROUND */}
+      {/* ==========================================
+          BACKGROUND
+      ========================================== */}
+
       <div className="racer-orb racer-orb-one" />
       <div className="racer-orb racer-orb-two" />
       <div className="racer-grid" />
 
-      {/* MAIN CARD */}
+      {/* ==========================================
+          MAIN CARD
+      ========================================== */}
+
       <section className="racer-login-card">
-        {/* LOGO */}
+        {/* ========================================
+            LOGO
+        ======================================== */}
+
         <div className="racer-logo-area">
           <div className="racer-logo">🎓</div>
 
@@ -187,10 +247,15 @@ export default function HomePage() {
             <span>ACADEMY</span>
           </h1>
 
-          <p>Smart Education & Student Management</p>
+          <p>
+            Smart Education & Student Management
+          </p>
         </div>
 
-        {/* LOGIN SWITCH */}
+        {/* ========================================
+            LOGIN SWITCH
+        ======================================== */}
+
         <div className="login-switch">
           <button
             type="button"
@@ -199,10 +264,15 @@ export default function HomePage() {
                 ? "switch-button active"
                 : "switch-button"
             }
-            onClick={() => switchLoginType("student")}
+            onClick={() =>
+              switchLoginType("student")
+            }
             disabled={loading}
           >
-            <span className="switch-icon">🎓</span>
+            <span className="switch-icon">
+              🎓
+            </span>
+
             <span>Student</span>
           </button>
 
@@ -213,15 +283,23 @@ export default function HomePage() {
                 ? "switch-button active"
                 : "switch-button"
             }
-            onClick={() => switchLoginType("teacher")}
+            onClick={() =>
+              switchLoginType("teacher")
+            }
             disabled={loading}
           >
-            <span className="switch-icon">👨‍🏫</span>
+            <span className="switch-icon">
+              👨‍🏫
+            </span>
+
             <span>Teacher</span>
           </button>
         </div>
 
-        {/* HEADING */}
+        {/* ========================================
+            HEADING
+        ======================================== */}
+
         <div className="racer-heading">
           <div className="portal-badge">
             {loginType === "student"
@@ -240,12 +318,18 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* LOGIN FORM */}
+        {/* ========================================
+            LOGIN FORM
+        ======================================== */}
+
         <form
           onSubmit={handleLogin}
           className="racer-form"
         >
-          {/* USERNAME */}
+          {/* ======================================
+              USERNAME
+          ====================================== */}
+
           <div className="racer-input-group">
             <label htmlFor="username">
               Username
@@ -274,7 +358,10 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* PASSWORD */}
+          {/* ======================================
+              PASSWORD
+          ====================================== */}
+
           <div className="racer-input-group">
             <label htmlFor="password">
               Password
@@ -316,20 +403,29 @@ export default function HomePage() {
                     : "Show password"
                 }
               >
-                {showPassword ? "🙈" : "👁️"}
+                {showPassword
+                  ? "🙈"
+                  : "👁️"}
               </button>
             </div>
           </div>
 
-          {/* ERROR */}
+          {/* ======================================
+              ERROR
+          ====================================== */}
+
           {error && (
             <div className="racer-error">
               <span>⚠️</span>
+
               <span>{error}</span>
             </div>
           )}
 
-          {/* LOGIN BUTTON */}
+          {/* ======================================
+              LOGIN BUTTON
+          ====================================== */}
+
           <button
             type="submit"
             className="racer-login-button"
@@ -338,7 +434,10 @@ export default function HomePage() {
             {loading ? (
               <>
                 <span className="racer-spinner" />
-                <span>Signing in...</span>
+
+                <span>
+                  Signing in...
+                </span>
               </>
             ) : (
               <>
@@ -357,7 +456,10 @@ export default function HomePage() {
           </button>
         </form>
 
-        {/* FOOTER */}
+        {/* ========================================
+            FOOTER
+        ======================================== */}
+
         <div className="racer-footer">
           <div className="security-line">
             <span>🔒</span>
@@ -375,7 +477,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* BOTTOM BRAND */}
+      {/* ==========================================
+          BOTTOM BRAND
+      ========================================== */}
+
       <div className="racer-bottom-brand">
         RACER ACADEMY
       </div>
