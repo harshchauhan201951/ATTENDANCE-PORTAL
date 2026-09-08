@@ -220,7 +220,7 @@ export default function TeacherAnnouncementsPage() {
     try {
       /*
        * STEP 1
-       * CREATE ANNOUNCEMENT IN DATABASE
+       * CREATE ANNOUNCEMENT
        */
       const {
         data: createdAnnouncement,
@@ -249,21 +249,20 @@ export default function TeacherAnnouncementsPage() {
 
       /*
        * STEP 2
-       * CLEAR FORM IMMEDIATELY
+       * CLEAR FORM
        */
       setTitle("");
       setMessage("");
 
       /*
        * STEP 3
-       * REFRESH TEACHER ANNOUNCEMENT LIST
+       * REFRESH TEACHER LIST
        */
       await loadAnnouncements();
 
       /*
        * STEP 4
-       * SEND PUSH NOTIFICATION TO ALL
-       * REGISTERED STUDENT DEVICES
+       * SEND PUSH TO REGISTERED DEVICES
        */
       try {
         const pushResponse = await fetch(
@@ -303,9 +302,8 @@ export default function TeacherAnnouncementsPage() {
         }
       } catch (pushError) {
         /*
-         * IMPORTANT:
-         * If push notification fails,
-         * announcement itself remains published.
+         * Announcement remains published
+         * even if push fails.
          */
         console.error(
           "Push notification request error:",
@@ -431,7 +429,9 @@ export default function TeacherAnnouncementsPage() {
     }
   }
 
-  function toggleLikes(announcementId: number) {
+  function toggleLikes(
+    announcementId: number
+  ) {
     setExpandedLikes((current) =>
       current === announcementId
         ? null
@@ -444,7 +444,9 @@ export default function TeacherAnnouncementsPage() {
       return "";
     }
 
-    return new Date(date).toLocaleString(
+    return new Date(
+      date
+    ).toLocaleString(
       "en-IN",
       {
         day: "2-digit",
@@ -467,7 +469,9 @@ export default function TeacherAnnouncementsPage() {
       <div style={styles.container}>
 
         <header style={styles.header}>
+
           <div style={styles.headerLeft}>
+
             <button
               type="button"
               onClick={() =>
@@ -479,6 +483,7 @@ export default function TeacherAnnouncementsPage() {
             </button>
 
             <div>
+
               <div style={styles.eyebrow}>
                 TEACHER PORTAL
               </div>
@@ -487,11 +492,17 @@ export default function TeacherAnnouncementsPage() {
                 Announcements
               </h1>
 
-              <p style={styles.headerSubtitle}>
+              <p
+                style={
+                  styles.headerSubtitle
+                }
+              >
                 Create announcements and see which
                 students have liked them.
               </p>
+
             </div>
+
           </div>
 
           <button
@@ -499,34 +510,60 @@ export default function TeacherAnnouncementsPage() {
             onClick={() =>
               router.push("/teacher")
             }
-            style={styles.dashboardButton}
+            style={
+              styles.dashboardButton
+            }
           >
             Teacher Dashboard
           </button>
+
         </header>
 
-        <section style={styles.createSection}>
-          <div style={styles.createHeader}>
+        <section
+          style={styles.createSection}
+        >
+
+          <div
+            style={styles.createHeader}
+          >
+
             <div>
-              <div style={styles.createEyebrow}>
+
+              <div
+                style={
+                  styles.createEyebrow
+                }
+              >
                 📢 NEW ANNOUNCEMENT
               </div>
 
-              <h2 style={styles.createTitle}>
+              <h2
+                style={styles.createTitle}
+              >
                 Publish for All Students
               </h2>
 
-              <p style={styles.createSubtitle}>
+              <p
+                style={
+                  styles.createSubtitle
+                }
+              >
                 Students will see this announcement
                 on their dashboard and registered
                 devices will receive a push notification.
               </p>
+
             </div>
+
           </div>
 
           <div style={styles.form}>
+
             <div style={styles.field}>
-              <label style={styles.label}>
+
+              <label
+                style={styles.label}
+              >
                 Announcement Title
               </label>
 
@@ -534,41 +571,63 @@ export default function TeacherAnnouncementsPage() {
                 type="text"
                 value={title}
                 onChange={(event) =>
-                  setTitle(event.target.value)
+                  setTitle(
+                    event.target.value
+                  )
                 }
                 placeholder="Example: Raksha Bandhan Holiday"
                 style={styles.input}
                 maxLength={150}
               />
+
             </div>
 
             <div style={styles.field}>
-              <label style={styles.label}>
+
+              <label
+                style={styles.label}
+              >
                 Announcement Message
               </label>
 
               <textarea
                 value={message}
                 onChange={(event) =>
-                  setMessage(event.target.value)
+                  setMessage(
+                    event.target.value
+                  )
                 }
                 placeholder="Write your announcement here..."
                 style={styles.textarea}
                 rows={5}
                 maxLength={2000}
               />
+
             </div>
 
-            <div style={styles.formBottom}>
-              <div style={styles.formHint}>
+            <div
+              style={
+                styles.formBottom
+              }
+            >
+
+              <div
+                style={
+                  styles.formHint
+                }
+              >
                 👥 All students with notifications
                 enabled will receive a push notification.
               </div>
 
               <button
                 type="button"
-                onClick={createAnnouncement}
-                disabled={creating}
+                onClick={
+                  createAnnouncement
+                }
+                disabled={
+                  creating
+                }
                 style={{
                   ...styles.publishButton,
                   ...(creating
@@ -580,128 +639,225 @@ export default function TeacherAnnouncementsPage() {
                   ? "Publishing..."
                   : "📢 Publish Announcement"}
               </button>
+
             </div>
+
           </div>
+
         </section>
 
-        <section style={styles.statsGrid}>
-          <div style={styles.statCard}>
+        <section
+          style={styles.statsGrid}
+        >
+
+          <div
+            style={styles.statCard}
+          >
+
             <div
               style={{
                 ...styles.statIcon,
-                background: "#dbeafe",
+                background:
+                  "#dbeafe",
               }}
             >
               📢
             </div>
 
             <div>
-              <div style={styles.statLabel}>
+
+              <div
+                style={styles.statLabel}
+              >
                 TOTAL ANNOUNCEMENTS
               </div>
 
-              <div style={styles.statValue}>
-                {announcements.length}
+              <div
+                style={styles.statValue}
+              >
+                {
+                  announcements.length
+                }
               </div>
+
             </div>
+
           </div>
 
-          <div style={styles.statCard}>
+          <div
+            style={styles.statCard}
+          >
+
             <div
               style={{
                 ...styles.statIcon,
-                background: "#ffe4e6",
+                background:
+                  "#ffe4e6",
               }}
             >
               ❤️
             </div>
 
             <div>
-              <div style={styles.statLabel}>
+
+              <div
+                style={styles.statLabel}
+              >
                 TOTAL LIKES
               </div>
 
-              <div style={styles.statValue}>
+              <div
+                style={styles.statValue}
+              >
                 {totalLikes}
               </div>
+
             </div>
+
           </div>
+
         </section>
 
-        <section style={styles.listSection}>
-          <div style={styles.listHeader}>
+        <section
+          style={styles.listSection}
+        >
+
+          <div
+            style={styles.listHeader}
+          >
+
             <div>
-              <div style={styles.listEyebrow}>
+
+              <div
+                style={
+                  styles.listEyebrow
+                }
+              >
                 PUBLISHED UPDATES
               </div>
 
-              <h2 style={styles.listTitle}>
+              <h2
+                style={styles.listTitle}
+              >
                 Your Announcements
               </h2>
+
             </div>
 
             <button
               type="button"
-              onClick={loadAnnouncements}
+              onClick={
+                loadAnnouncements
+              }
               disabled={loading}
-              style={styles.refreshButton}
+              style={
+                styles.refreshButton
+              }
             >
               {loading
                 ? "Loading..."
                 : "↻ Refresh"}
             </button>
+
           </div>
 
           {loading ? (
-            <div style={styles.emptyBox}>
-              <div style={styles.emptyIcon}>
+            <div
+              style={
+                styles.emptyBox
+              }
+            >
+
+              <div
+                style={
+                  styles.emptyIcon
+                }
+              >
                 ⏳
               </div>
 
-              <h3 style={styles.emptyTitle}>
+              <h3
+                style={
+                  styles.emptyTitle
+                }
+              >
                 Loading Announcements...
               </h3>
 
-              <p style={styles.emptyText}>
+              <p
+                style={
+                  styles.emptyText
+                }
+              >
                 Please wait while we load the
                 announcements and student likes.
               </p>
+
             </div>
-          ) : announcements.length === 0 ? (
-            <div style={styles.emptyBox}>
-              <div style={styles.emptyIcon}>
+          ) : announcements.length ===
+            0 ? (
+            <div
+              style={
+                styles.emptyBox
+              }
+            >
+
+              <div
+                style={
+                  styles.emptyIcon
+                }
+              >
                 📭
               </div>
 
-              <h3 style={styles.emptyTitle}>
+              <h3
+                style={
+                  styles.emptyTitle
+                }
+              >
                 No Announcements Yet
               </h3>
 
-              <p style={styles.emptyText}>
+              <p
+                style={
+                  styles.emptyText
+                }
+              >
                 Create your first announcement
                 using the form above.
               </p>
+
             </div>
           ) : (
-            <div style={styles.announcementList}>
+            <div
+              style={
+                styles.announcementList
+              }
+            >
+
               {announcements.map(
                 (announcement) => {
+
                   const isExpanded =
                     expandedLikes ===
                     announcement.id;
 
                   return (
                     <article
-                      key={announcement.id}
+                      key={
+                        announcement.id
+                      }
                       style={
                         styles.announcementCard
                       }
                     >
+
                       <div
                         style={
                           styles.cardMain
                         }
                       >
+
                         <div
                           style={
                             styles.cardIcon
@@ -715,11 +871,13 @@ export default function TeacherAnnouncementsPage() {
                             styles.cardContent
                           }
                         >
+
                           <div
                             style={
                               styles.metaRow
                             }
                           >
+
                             <span
                               style={
                                 styles.teacherBadge
@@ -737,6 +895,7 @@ export default function TeacherAnnouncementsPage() {
                                 announcement.created_at
                               )}
                             </span>
+
                           </div>
 
                           <h3
@@ -744,7 +903,9 @@ export default function TeacherAnnouncementsPage() {
                               styles.announcementTitle
                             }
                           >
-                            {announcement.title}
+                            {
+                              announcement.title
+                            }
                           </h3>
 
                           <p
@@ -752,9 +913,13 @@ export default function TeacherAnnouncementsPage() {
                               styles.announcementMessage
                             }
                           >
-                            {announcement.message}
+                            {
+                              announcement.message
+                            }
                           </p>
+
                         </div>
+
                       </div>
 
                       <div
@@ -762,6 +927,7 @@ export default function TeacherAnnouncementsPage() {
                           styles.actionBar
                         }
                       >
+
                         <div
                           style={
                             styles.audience
@@ -775,6 +941,7 @@ export default function TeacherAnnouncementsPage() {
                             styles.actionButtons
                           }
                         >
+
                           <button
                             type="button"
                             onClick={() =>
@@ -790,11 +957,15 @@ export default function TeacherAnnouncementsPage() {
                             }}
                           >
                             ❤️{" "}
-                            {announcement.likeCount}{" "}
-                            {announcement.likeCount ===
-                            1
-                              ? "Like"
-                              : "Likes"}
+                            {
+                              announcement.likeCount
+                            }{" "}
+                            {
+                              announcement.likeCount ===
+                              1
+                                ? "Like"
+                                : "Likes"
+                            }
 
                             <span
                               style={
@@ -805,6 +976,7 @@ export default function TeacherAnnouncementsPage() {
                                 ? "▲"
                                 : "▼"}
                             </span>
+
                           </button>
 
                           <button
@@ -827,7 +999,9 @@ export default function TeacherAnnouncementsPage() {
                               ? "Deleting..."
                               : "🗑 Delete"}
                           </button>
+
                         </div>
+
                       </div>
 
                       {isExpanded && (
@@ -836,12 +1010,15 @@ export default function TeacherAnnouncementsPage() {
                             styles.likesPanel
                           }
                         >
+
                           <div
                             style={
                               styles.likesPanelHeader
                             }
                           >
+
                             <div>
+
                               <div
                                 style={
                                   styles.likesPanelEyebrow
@@ -857,6 +1034,7 @@ export default function TeacherAnnouncementsPage() {
                               >
                                 Students Who Liked
                               </h4>
+
                             </div>
 
                             <div
@@ -869,6 +1047,7 @@ export default function TeacherAnnouncementsPage() {
                                 announcement.likeCount
                               }
                             </div>
+
                           </div>
 
                           {announcement
@@ -879,6 +1058,7 @@ export default function TeacherAnnouncementsPage() {
                                 styles.noLikes
                               }
                             >
+
                               <span
                                 style={
                                   styles.noLikesIcon
@@ -888,6 +1068,7 @@ export default function TeacherAnnouncementsPage() {
                               </span>
 
                               <div>
+
                                 <div
                                   style={
                                     styles.noLikesTitle
@@ -906,7 +1087,9 @@ export default function TeacherAnnouncementsPage() {
                                   Student likes will
                                   appear here.
                                 </div>
+
                               </div>
+
                             </div>
                           ) : (
                             <div
@@ -914,6 +1097,7 @@ export default function TeacherAnnouncementsPage() {
                                 styles.studentList
                               }
                             >
+
                               {announcement.likedStudents.map(
                                 (
                                   student,
@@ -927,12 +1111,15 @@ export default function TeacherAnnouncementsPage() {
                                       styles.studentRow
                                     }
                                   >
+
                                     <div
                                       style={
                                         styles.studentNumber
                                       }
                                     >
-                                      {index + 1}
+                                      {
+                                        index + 1
+                                      }
                                     </div>
 
                                     <div
@@ -956,13 +1143,16 @@ export default function TeacherAnnouncementsPage() {
                                         styles.studentInfo
                                       }
                                     >
+
                                       <div
                                         style={
                                           styles.studentName
                                         }
                                       >
-                                        {student.student_name ||
-                                          "Student"}
+                                        {
+                                          student.student_name ||
+                                          "Student"
+                                        }
                                       </div>
 
                                       {student.student_username && (
@@ -971,9 +1161,13 @@ export default function TeacherAnnouncementsPage() {
                                             styles.studentUsername
                                           }
                                         >
-                                          @{student.student_username}
+                                          @
+                                          {
+                                            student.student_username
+                                          }
                                         </div>
                                       )}
+
                                     </div>
 
                                     <div
@@ -983,30 +1177,43 @@ export default function TeacherAnnouncementsPage() {
                                     >
                                       ❤️
                                     </div>
+
                                   </div>
                                 )
                               )}
+
                             </div>
                           )}
+
                         </div>
                       )}
+
                     </article>
                   );
                 }
               )}
+
             </div>
           )}
+
         </section>
 
-        <footer style={styles.footer}>
-          <div style={styles.footerBrand}>
+        <footer
+          style={styles.footer}
+        >
+
+          <div
+            style={styles.footerBrand}
+          >
             🎓 Attendance Portal
           </div>
 
           <div>
             Teacher Portal • Announcements • 2026
           </div>
+
         </footer>
+
       </div>
     </main>
   );
@@ -1016,615 +1223,981 @@ const styles: {
   [key: string]: React.CSSProperties;
 } = {
   page: {
-    minHeight: "100vh",
+    minHeight:
+      "100vh",
     background:
       "linear-gradient(135deg,#f8fafc 0%,#eef2ff 50%,#f0f9ff 100%)",
-    padding: "18px",
-    boxSizing: "border-box",
+    padding:
+      "18px",
+    boxSizing:
+      "border-box",
     fontFamily:
       "Arial, Helvetica, sans-serif",
-    color: "#0f172a",
+    color:
+      "#0f172a",
   },
 
   container: {
-    width: "100%",
-    maxWidth: "1200px",
-    margin: "0 auto",
+    width:
+      "100%",
+    maxWidth:
+      "1200px",
+    margin:
+      "0 auto",
   },
 
   header: {
-    background: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: "20px",
-    padding: "22px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "15px",
-    marginBottom: "18px",
+    background:
+      "#ffffff",
+    border:
+      "1px solid #e2e8f0",
+    borderRadius:
+      "20px",
+    padding:
+      "22px",
+    display:
+      "flex",
+    alignItems:
+      "center",
+    justifyContent:
+      "space-between",
+    gap:
+      "15px",
+    marginBottom:
+      "18px",
     boxShadow:
       "0 8px 28px rgba(15,23,42,0.06)",
-    flexWrap: "wrap",
+    flexWrap:
+      "wrap",
   },
 
   headerLeft: {
-    display: "flex",
-    alignItems: "center",
-    gap: "14px",
-    minWidth: 0,
+    display:
+      "flex",
+    alignItems:
+      "center",
+    gap:
+      "14px",
+    minWidth:
+      0,
   },
 
   backButton: {
-    width: "45px",
-    height: "45px",
-    borderRadius: "13px",
-    border: "1px solid #dbeafe",
-    background: "#eff6ff",
-    color: "#2563eb",
-    fontSize: "22px",
-    fontWeight: "900",
-    cursor: "pointer",
-    flexShrink: 0,
+    width:
+      "45px",
+    height:
+      "45px",
+    borderRadius:
+      "13px",
+    border:
+      "1px solid #dbeafe",
+    background:
+      "#eff6ff",
+    color:
+      "#2563eb",
+    fontSize:
+      "22px",
+    fontWeight:
+      "900",
+    cursor:
+      "pointer",
+    flexShrink:
+      0,
   },
 
   eyebrow: {
-    color: "#2563eb",
-    fontSize: "9px",
-    fontWeight: "1000",
-    letterSpacing: "2px",
-    marginBottom: "4px",
+    color:
+      "#2563eb",
+    fontSize:
+      "9px",
+    fontWeight:
+      "1000",
+    letterSpacing:
+      "2px",
+    marginBottom:
+      "4px",
   },
 
   heading: {
-    margin: 0,
-    color: "#172554",
-    fontSize: "29px",
-    fontWeight: "1000",
+    margin:
+      0,
+    color:
+      "#172554",
+    fontSize:
+      "29px",
+    fontWeight:
+      "1000",
   },
 
   headerSubtitle: {
-    margin: "5px 0 0",
-    color: "#64748b",
-    fontSize: "12px",
-    fontWeight: "600",
+    margin:
+      "5px 0 0",
+    color:
+      "#64748b",
+    fontSize:
+      "12px",
+    fontWeight:
+      "600",
   },
 
   dashboardButton: {
-    border: "none",
-    background: "#172554",
-    color: "#ffffff",
-    padding: "11px 15px",
-    borderRadius: "10px",
-    fontWeight: "900",
-    fontSize: "11px",
-    cursor: "pointer",
+    border:
+      "none",
+    background:
+      "#172554",
+    color:
+      "#ffffff",
+    padding:
+      "11px 15px",
+    borderRadius:
+      "10px",
+    fontWeight:
+      "900",
+    fontSize:
+      "11px",
+    cursor:
+      "pointer",
   },
 
   createSection: {
-    background: "#ffffff",
-    border: "1px solid #dbeafe",
-    borderRadius: "20px",
-    padding: "22px",
-    marginBottom: "18px",
+    background:
+      "#ffffff",
+    border:
+      "1px solid #dbeafe",
+    borderRadius:
+      "20px",
+    padding:
+      "22px",
+    marginBottom:
+      "18px",
     boxShadow:
       "0 8px 26px rgba(15,23,42,0.06)",
   },
 
   createHeader: {
-    marginBottom: "18px",
+    marginBottom:
+      "18px",
   },
 
   createEyebrow: {
-    color: "#2563eb",
-    fontSize: "9px",
-    fontWeight: "1000",
-    letterSpacing: "2px",
-    marginBottom: "5px",
+    color:
+      "#2563eb",
+    fontSize:
+      "9px",
+    fontWeight:
+      "1000",
+    letterSpacing:
+      "2px",
+    marginBottom:
+      "5px",
   },
 
   createTitle: {
-    margin: 0,
-    color: "#172554",
-    fontSize: "22px",
-    fontWeight: "1000",
+    margin:
+      0,
+    color:
+      "#172554",
+    fontSize:
+      "22px",
+    fontWeight:
+      "1000",
   },
 
   createSubtitle: {
-    margin: "5px 0 0",
-    color: "#64748b",
-    fontSize: "11px",
-    fontWeight: "600",
+    margin:
+      "5px 0 0",
+    color:
+      "#64748b",
+    fontSize:
+      "11px",
+    fontWeight:
+      "600",
   },
 
   form: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "14px",
+    display:
+      "flex",
+    flexDirection:
+      "column",
+    gap:
+      "14px",
   },
 
   field: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "7px",
+    display:
+      "flex",
+    flexDirection:
+      "column",
+    gap:
+      "7px",
   },
 
   label: {
-    color: "#334155",
-    fontSize: "11px",
-    fontWeight: "900",
+    color:
+      "#334155",
+    fontSize:
+      "11px",
+    fontWeight:
+      "900",
   },
 
   input: {
-    width: "100%",
-    boxSizing: "border-box",
-    border: "1px solid #cbd5e1",
-    borderRadius: "11px",
-    padding: "12px 13px",
-    outline: "none",
-    color: "#172554",
-    background: "#ffffff",
-    fontSize: "13px",
-    fontWeight: "600",
+    width:
+      "100%",
+    boxSizing:
+      "border-box",
+    border:
+      "1px solid #cbd5e1",
+    borderRadius:
+      "11px",
+    padding:
+      "12px 13px",
+    outline:
+      "none",
+    color:
+      "#172554",
+    background:
+      "#ffffff",
+    fontSize:
+      "13px",
+    fontWeight:
+      "600",
   },
 
   textarea: {
-    width: "100%",
-    boxSizing: "border-box",
-    border: "1px solid #cbd5e1",
-    borderRadius: "11px",
-    padding: "12px 13px",
-    outline: "none",
-    color: "#172554",
-    background: "#ffffff",
-    fontSize: "13px",
-    fontWeight: "600",
-    resize: "vertical",
-    lineHeight: 1.6,
+    width:
+      "100%",
+    boxSizing:
+      "border-box",
+    border:
+      "1px solid #cbd5e1",
+    borderRadius:
+      "11px",
+    padding:
+      "12px 13px",
+    outline:
+      "none",
+    color:
+      "#172554",
+    background:
+      "#ffffff",
+    fontSize:
+      "13px",
+    fontWeight:
+      "600",
+    resize:
+      "vertical",
+    lineHeight:
+      1.6,
     fontFamily:
       "Arial, Helvetica, sans-serif",
   },
 
   formBottom: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "12px",
-    flexWrap: "wrap",
+    display:
+      "flex",
+    alignItems:
+      "center",
+    justifyContent:
+      "space-between",
+    gap:
+      "12px",
+    flexWrap:
+      "wrap",
   },
 
   formHint: {
-    color: "#64748b",
-    fontSize: "10px",
-    fontWeight: "700",
+    color:
+      "#64748b",
+    fontSize:
+      "10px",
+    fontWeight:
+      "700",
   },
 
   publishButton: {
-    border: "none",
+    border:
+      "none",
     background:
       "linear-gradient(135deg,#2563eb,#4f46e5)",
-    color: "#ffffff",
-    padding: "12px 17px",
-    borderRadius: "10px",
-    fontSize: "11px",
-    fontWeight: "900",
-    cursor: "pointer",
+    color:
+      "#ffffff",
+    padding:
+      "12px 17px",
+    borderRadius:
+      "10px",
+    fontSize:
+      "11px",
+    fontWeight:
+      "900",
+    cursor:
+      "pointer",
     boxShadow:
       "0 7px 18px rgba(37,99,235,0.20)",
   },
 
   publishButtonDisabled: {
-    opacity: 0.65,
-    cursor: "not-allowed",
+    opacity:
+      0.65,
+    cursor:
+      "not-allowed",
   },
 
   statsGrid: {
-    display: "grid",
+    display:
+      "grid",
     gridTemplateColumns:
       "repeat(2,minmax(0,1fr))",
-    gap: "15px",
-    marginBottom: "18px",
+    gap:
+      "15px",
+    marginBottom:
+      "18px",
   },
 
   statCard: {
-    background: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: "17px",
-    padding: "17px",
-    display: "flex",
-    alignItems: "center",
-    gap: "13px",
+    background:
+      "#ffffff",
+    border:
+      "1px solid #e2e8f0",
+    borderRadius:
+      "17px",
+    padding:
+      "17px",
+    display:
+      "flex",
+    alignItems:
+      "center",
+    gap:
+      "13px",
     boxShadow:
       "0 7px 22px rgba(15,23,42,0.05)",
   },
 
   statIcon: {
-    width: "48px",
-    height: "48px",
-    borderRadius: "13px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "22px",
-    flexShrink: 0,
+    width:
+      "48px",
+    height:
+      "48px",
+    borderRadius:
+      "13px",
+    display:
+      "flex",
+    alignItems:
+      "center",
+    justifyContent:
+      "center",
+    fontSize:
+      "22px",
+    flexShrink:
+      0,
   },
 
   statLabel: {
-    color: "#64748b",
-    fontSize: "8px",
-    fontWeight: "1000",
-    letterSpacing: "1.2px",
+    color:
+      "#64748b",
+    fontSize:
+      "8px",
+    fontWeight:
+      "1000",
+    letterSpacing:
+      "1.2px",
   },
 
   statValue: {
-    marginTop: "3px",
-    color: "#172554",
-    fontSize: "23px",
-    fontWeight: "1000",
+    marginTop:
+      "3px",
+    color:
+      "#172554",
+    fontSize:
+      "23px",
+    fontWeight:
+      "1000",
   },
 
   listSection: {
-    background: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: "20px",
-    padding: "22px",
+    background:
+      "#ffffff",
+    border:
+      "1px solid #e2e8f0",
+    borderRadius:
+      "20px",
+    padding:
+      "22px",
     boxShadow:
       "0 8px 26px rgba(15,23,42,0.06)",
   },
 
   listHeader: {
-    display: "flex",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    gap: "12px",
-    marginBottom: "17px",
-    flexWrap: "wrap",
+    display:
+      "flex",
+    alignItems:
+      "flex-end",
+    justifyContent:
+      "space-between",
+    gap:
+      "12px",
+    marginBottom:
+      "17px",
+    flexWrap:
+      "wrap",
   },
 
   listEyebrow: {
-    color: "#2563eb",
-    fontSize: "9px",
-    fontWeight: "1000",
-    letterSpacing: "2px",
-    marginBottom: "4px",
+    color:
+      "#2563eb",
+    fontSize:
+      "9px",
+    fontWeight:
+      "1000",
+    letterSpacing:
+      "2px",
+    marginBottom:
+      "4px",
   },
 
   listTitle: {
-    margin: 0,
-    color: "#172554",
-    fontSize: "23px",
-    fontWeight: "1000",
+    margin:
+      0,
+    color:
+      "#172554",
+    fontSize:
+      "23px",
+    fontWeight:
+      "1000",
   },
 
   refreshButton: {
-    border: "1px solid #cbd5e1",
-    background: "#ffffff",
-    color: "#475569",
-    padding: "9px 12px",
-    borderRadius: "9px",
-    fontSize: "10px",
-    fontWeight: "900",
-    cursor: "pointer",
+    border:
+      "1px solid #cbd5e1",
+    background:
+      "#ffffff",
+    color:
+      "#475569",
+    padding:
+      "9px 12px",
+    borderRadius:
+      "9px",
+    fontSize:
+      "10px",
+    fontWeight:
+      "900",
+    cursor:
+      "pointer",
   },
 
   emptyBox: {
-    padding: "35px 20px",
-    borderRadius: "15px",
-    background: "#f8fafc",
-    border: "1px dashed #cbd5e1",
-    textAlign: "center",
+    padding:
+      "35px 20px",
+    borderRadius:
+      "15px",
+    background:
+      "#f8fafc",
+    border:
+      "1px dashed #cbd5e1",
+    textAlign:
+      "center",
   },
 
   emptyIcon: {
-    fontSize: "35px",
-    marginBottom: "8px",
+    fontSize:
+      "35px",
+    marginBottom:
+      "8px",
   },
 
   emptyTitle: {
-    margin: 0,
-    color: "#334155",
-    fontSize: "15px",
-    fontWeight: "1000",
+    margin:
+      0,
+    color:
+      "#334155",
+    fontSize:
+      "15px",
+    fontWeight:
+      "1000",
   },
 
   emptyText: {
-    margin: "5px auto 0",
-    maxWidth: "500px",
-    color: "#64748b",
-    fontSize: "11px",
-    lineHeight: 1.5,
-    fontWeight: "600",
+    margin:
+      "5px auto 0",
+    maxWidth:
+      "500px",
+    color:
+      "#64748b",
+    fontSize:
+      "11px",
+    lineHeight:
+      1.5,
+    fontWeight:
+      "600",
   },
 
   announcementList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "14px",
+    display:
+      "flex",
+    flexDirection:
+      "column",
+    gap:
+      "14px",
   },
 
   announcementCard: {
     background:
       "linear-gradient(135deg,#f8fbff,#ffffff)",
-    border: "1px solid #dbeafe",
-    borderRadius: "17px",
-    overflow: "hidden",
+    border:
+      "1px solid #dbeafe",
+    borderRadius:
+      "17px",
+    overflow:
+      "hidden",
   },
 
   cardMain: {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: "13px",
-    padding: "17px",
+    display:
+      "flex",
+    alignItems:
+      "flex-start",
+    gap:
+      "13px",
+    padding:
+      "17px",
   },
 
   cardIcon: {
-    width: "48px",
-    height: "48px",
-    minWidth: "48px",
-    borderRadius: "13px",
+    width:
+      "48px",
+    height:
+      "48px",
+    minWidth:
+      "48px",
+    borderRadius:
+      "13px",
     background:
       "linear-gradient(135deg,#dbeafe,#ede9fe)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "23px",
+    display:
+      "flex",
+    alignItems:
+      "center",
+    justifyContent:
+      "center",
+    fontSize:
+      "23px",
   },
 
   cardContent: {
-    minWidth: 0,
-    flex: 1,
+    minWidth:
+      0,
+    flex:
+      1,
   },
 
   metaRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    flexWrap: "wrap",
+    display:
+      "flex",
+    alignItems:
+      "center",
+    gap:
+      "8px",
+    flexWrap:
+      "wrap",
   },
 
   teacherBadge: {
-    background: "#dbeafe",
-    color: "#1d4ed8",
-    padding: "4px 7px",
-    borderRadius: "6px",
-    fontSize: "8px",
-    fontWeight: "1000",
-    letterSpacing: "0.7px",
+    background:
+      "#dbeafe",
+    color:
+      "#1d4ed8",
+    padding:
+      "4px 7px",
+    borderRadius:
+      "6px",
+    fontSize:
+      "8px",
+    fontWeight:
+      "1000",
+    letterSpacing:
+      "0.7px",
   },
 
   date: {
-    color: "#94a3b8",
-    fontSize: "9px",
-    fontWeight: "700",
+    color:
+      "#94a3b8",
+    fontSize:
+      "9px",
+    fontWeight:
+      "700",
   },
 
   announcementTitle: {
-    margin: "7px 0 0",
-    color: "#172554",
-    fontSize: "19px",
-    fontWeight: "1000",
-    wordBreak: "break-word",
+    margin:
+      "7px 0 0",
+    color:
+      "#172554",
+    fontSize:
+      "19px",
+    fontWeight:
+      "1000",
+    wordBreak:
+      "break-word",
   },
 
   announcementMessage: {
-    margin: "7px 0 0",
-    color: "#475569",
-    fontSize: "12px",
-    lineHeight: 1.65,
-    fontWeight: "600",
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
+    margin:
+      "7px 0 0",
+    color:
+      "#475569",
+    fontSize:
+      "12px",
+    lineHeight:
+      1.65,
+    fontWeight:
+      "600",
+    whiteSpace:
+      "pre-wrap",
+    wordBreak:
+      "break-word",
   },
 
   actionBar: {
-    borderTop: "1px solid #e2e8f0",
-    padding: "12px 17px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "10px",
-    flexWrap: "wrap",
-    background: "#ffffff",
+    borderTop:
+      "1px solid #e2e8f0",
+    padding:
+      "12px 17px",
+    display:
+      "flex",
+    alignItems:
+      "center",
+    justifyContent:
+      "space-between",
+    gap:
+      "10px",
+    flexWrap:
+      "wrap",
+    background:
+      "#ffffff",
   },
 
   audience: {
-    color: "#64748b",
-    fontSize: "10px",
-    fontWeight: "800",
+    color:
+      "#64748b",
+    fontSize:
+      "10px",
+    fontWeight:
+      "800",
   },
 
   actionButtons: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    flexWrap: "wrap",
+    display:
+      "flex",
+    alignItems:
+      "center",
+    gap:
+      "8px",
+    flexWrap:
+      "wrap",
   },
 
   likesButton: {
-    border: "1px solid #fecdd3",
-    background: "#fff1f2",
-    color: "#be123c",
-    padding: "8px 11px",
-    borderRadius: "9px",
-    fontSize: "10px",
-    fontWeight: "1000",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    gap: "7px",
+    border:
+      "1px solid #fecdd3",
+    background:
+      "#fff1f2",
+    color:
+      "#be123c",
+    padding:
+      "8px 11px",
+    borderRadius:
+      "9px",
+    fontSize:
+      "10px",
+    fontWeight:
+      "1000",
+    cursor:
+      "pointer",
+    display:
+      "flex",
+    alignItems:
+      "center",
+    gap:
+      "7px",
   },
 
   likesButtonActive: {
-    background: "#ffe4e6",
-    border: "1px solid #fb7185",
+    background:
+      "#ffe4e6",
+    border:
+      "1px solid #fb7185",
   },
 
   viewArrow: {
-    fontSize: "8px",
-    marginLeft: "2px",
+    fontSize:
+      "8px",
+    marginLeft:
+      "2px",
   },
 
   deleteButton: {
-    border: "1px solid #fecaca",
-    background: "#ffffff",
-    color: "#dc2626",
-    padding: "8px 10px",
-    borderRadius: "9px",
-    fontSize: "10px",
-    fontWeight: "1000",
-    cursor: "pointer",
+    border:
+      "1px solid #fecaca",
+    background:
+      "#ffffff",
+    color:
+      "#dc2626",
+    padding:
+      "8px 10px",
+    borderRadius:
+      "9px",
+    fontSize:
+      "10px",
+    fontWeight:
+      "1000",
+    cursor:
+      "pointer",
   },
 
   likesPanel: {
-    borderTop: "1px solid #e2e8f0",
+    borderTop:
+      "1px solid #e2e8f0",
     background:
       "linear-gradient(135deg,#fff7f8,#fff)",
-    padding: "17px",
+    padding:
+      "17px",
   },
 
   likesPanelHeader: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "10px",
-    marginBottom: "13px",
+    display:
+      "flex",
+    alignItems:
+      "center",
+    justifyContent:
+      "space-between",
+    gap:
+      "10px",
+    marginBottom:
+      "13px",
   },
 
   likesPanelEyebrow: {
-    color: "#e11d48",
-    fontSize: "8px",
-    fontWeight: "1000",
-    letterSpacing: "1.5px",
-    marginBottom: "3px",
+    color:
+      "#e11d48",
+    fontSize:
+      "8px",
+    fontWeight:
+      "1000",
+    letterSpacing:
+      "1.5px",
+    marginBottom:
+      "3px",
   },
 
   likesPanelTitle: {
-    margin: 0,
-    color: "#881337",
-    fontSize: "15px",
-    fontWeight: "1000",
+    margin:
+      0,
+    color:
+      "#881337",
+    fontSize:
+      "15px",
+    fontWeight:
+      "1000",
   },
 
   likeNumber: {
-    background: "#ffe4e6",
-    color: "#be123c",
-    border: "1px solid #fecdd3",
-    padding: "7px 10px",
-    borderRadius: "8px",
-    fontSize: "10px",
-    fontWeight: "1000",
+    background:
+      "#ffe4e6",
+    color:
+      "#be123c",
+    border:
+      "1px solid #fecdd3",
+    padding:
+      "7px 10px",
+    borderRadius:
+      "8px",
+    fontSize:
+      "10px",
+    fontWeight:
+      "1000",
   },
 
   noLikes: {
-    display: "flex",
-    alignItems: "center",
-    gap: "11px",
-    padding: "13px",
-    borderRadius: "11px",
-    background: "#ffffff",
-    border: "1px dashed #cbd5e1",
+    display:
+      "flex",
+    alignItems:
+      "center",
+    gap:
+      "11px",
+    padding:
+      "13px",
+    borderRadius:
+      "11px",
+    background:
+      "#ffffff",
+    border:
+      "1px dashed #cbd5e1",
   },
 
   noLikesIcon: {
-    fontSize: "23px",
+    fontSize:
+      "23px",
   },
 
   noLikesTitle: {
-    color: "#475569",
-    fontSize: "11px",
-    fontWeight: "900",
+    color:
+      "#475569",
+    fontSize:
+      "11px",
+    fontWeight:
+      "900",
   },
 
   noLikesText: {
-    marginTop: "3px",
-    color: "#94a3b8",
-    fontSize: "9px",
-    fontWeight: "700",
+    marginTop:
+      "3px",
+    color:
+      "#94a3b8",
+    fontSize:
+      "9px",
+    fontWeight:
+      "700",
   },
 
   studentList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "7px",
+    display:
+      "flex",
+    flexDirection:
+      "column",
+    gap:
+      "7px",
   },
 
   studentRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    padding: "10px 11px",
-    borderRadius: "10px",
-    background: "#ffffff",
-    border: "1px solid #f1f5f9",
+    display:
+      "flex",
+    alignItems:
+      "center",
+    gap:
+      "10px",
+    padding:
+      "10px 11px",
+    borderRadius:
+      "10px",
+    background:
+      "#ffffff",
+    border:
+      "1px solid #f1f5f9",
   },
 
   studentNumber: {
-    width: "22px",
-    height: "22px",
-    borderRadius: "7px",
-    background: "#f8fafc",
-    color: "#94a3b8",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "9px",
-    fontWeight: "1000",
-    flexShrink: 0,
+    width:
+      "22px",
+    height:
+      "22px",
+    borderRadius:
+      "7px",
+    background:
+      "#f8fafc",
+    color:
+      "#94a3b8",
+    display:
+      "flex",
+    alignItems:
+      "center",
+    justifyContent:
+      "center",
+    fontSize:
+      "9px",
+    fontWeight:
+      "1000",
+    flexShrink:
+      0,
   },
 
   studentAvatar: {
-    width: "34px",
-    height: "34px",
-    borderRadius: "10px",
+    width:
+      "34px",
+    height:
+      "34px",
+    borderRadius:
+      "10px",
     background:
       "linear-gradient(135deg,#dbeafe,#ede9fe)",
-    color: "#3730a3",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "13px",
-    fontWeight: "1000",
-    flexShrink: 0,
+    color:
+      "#3730a3",
+    display:
+      "flex",
+    alignItems:
+      "center",
+    justifyContent:
+      "center",
+    fontSize:
+      "13px",
+    fontWeight:
+      "1000",
+    flexShrink:
+      0,
   },
 
   studentInfo: {
-    flex: 1,
-    minWidth: 0,
+    flex:
+      1,
+    minWidth:
+      0,
   },
 
   studentName: {
-    color: "#334155",
-    fontSize: "11px",
-    fontWeight: "1000",
-    wordBreak: "break-word",
+    color:
+      "#334155",
+    fontSize:
+      "11px",
+    fontWeight:
+      "1000",
+    wordBreak:
+      "break-word",
   },
 
   studentUsername: {
-    marginTop: "2px",
-    color: "#94a3b8",
-    fontSize: "9px",
-    fontWeight: "700",
+    marginTop:
+      "2px",
+    color:
+      "#94a3b8",
+    fontSize:
+      "9px",
+    fontWeight:
+      "700",
   },
 
   heart: {
-    fontSize: "16px",
-    flexShrink: 0,
+    fontSize:
+      "16px",
+    flexShrink:
+      0,
   },
 
   footer: {
-    marginTop: "22px",
-    padding: "18px 5px",
-    borderTop: "1px solid #e2e8f0",
-    display: "flex",
-    justifyContent: "space-between",
-    gap: "10px",
-    color: "#94a3b8",
-    fontSize: "10px",
-    fontWeight: "700",
-    flexWrap: "wrap",
+    marginTop:
+      "22px",
+    padding:
+      "18px 5px",
+    borderTop:
+      "1px solid #e2e8f0",
+    display:
+      "flex",
+    justifyContent:
+      "space-between",
+    gap:
+      "10px",
+    color:
+      "#94a3b8",
+    fontSize:
+      "10px",
+    fontWeight:
+      "700",
+    flexWrap:
+      "wrap",
   },
 
   footerBrand: {
-    color: "#475569",
-    fontWeight: "900",
+    color:
+      "#475569",
+    fontWeight:
+      "900",
   },
 };
