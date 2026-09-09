@@ -28,28 +28,39 @@ type EditForm = {
   pass_percentage: string;
 };
 
+const emptyEditForm: EditForm = {
+  title: "",
+  description: "",
+  scheduled_date: "",
+  scheduled_time: "",
+  duration_minutes: "30",
+  marks_per_question: "1",
+  negative_marks: "0",
+  pass_percentage: "40",
+};
+
 export default function ManageQuizzesPage() {
   const router = useRouter();
 
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [publishingId, setPublishingId] = useState<number | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [publishingId, setPublishingId] = useState<number | null>(
+    null
+  );
+
+  const [deletingId, setDeletingId] = useState<number | null>(
+    null
+  );
+
   const [savingEdit, setSavingEdit] = useState(false);
 
-  const [editingQuiz, setEditingQuiz] = useState<Quiz | null>(null);
+  const [editingQuiz, setEditingQuiz] = useState<Quiz | null>(
+    null
+  );
 
-  const [editForm, setEditForm] = useState<EditForm>({
-    title: "",
-    description: "",
-    scheduled_date: "",
-    scheduled_time: "",
-    duration_minutes: "30",
-    marks_per_question: "1",
-    negative_marks: "0",
-    pass_percentage: "40",
-  });
+  const [editForm, setEditForm] =
+    useState<EditForm>(emptyEditForm);
 
   useEffect(() => {
     loadQuizzes();
@@ -58,21 +69,45 @@ export default function ManageQuizzesPage() {
   async function loadQuizzes() {
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from("quiz_tests")
-      .select("*")
-      .order("scheduled_date", { ascending: false })
-      .order("scheduled_time", { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from("quiz_tests")
+        .select("*")
+        .order("scheduled_date", {
+          ascending: false,
+        })
+        .order("scheduled_time", {
+          ascending: false,
+        });
 
-    if (error) {
-      console.error("Load quizzes error:", error);
-      alert(`Unable to load quizzes:\n${error.message}`);
-      setQuizzes([]);
-    } else {
+      if (error) {
+        console.error("Load quizzes error:", error);
+
+        alert(
+          `Quizzes load nahi ho pa rahe.\n\n${error.message}`
+        );
+
+        setQuizzes([]);
+        return;
+      }
+
       setQuizzes((data || []) as Quiz[]);
-    }
+    } catch (error) {
+      console.error(
+        "Unexpected load quizzes error:",
+        error
+      );
 
-    setLoading(false);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Quizzes load karte waqt error aaya."
+      );
+
+      setQuizzes([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function togglePublish(quiz: Quiz) {
@@ -83,53 +118,75 @@ export default function ManageQuizzesPage() {
     setPublishingId(quiz.id);
 
     try {
-      const { data, error } = await supabase
+      /*
+       * IMPORTANT:
+       * Yahan .single() use nahi kiya gaya hai.
+       *
+       * Pehle .single() ki wajah se:
+       * "Cannot coerce the result to a single JSON object"
+       * error aa raha tha.
+       *
+       * Ab simple UPDATE kiya ja raha hai aur uske baad
+       * fresh quizzes load kiye ja rahe hain.
+       */
+
+      const { error } = await supabase
         .from("quiz_tests")
         .update({
           is_published: newPublishedStatus,
         })
-        .eq("id", quiz.id)
-        .select("id, is_published")
-        .single();
+        .eq("id", quiz.id);
 
       if (error) {
-        console.error("Publish update error:", error);
+        console.error(
+          "Quiz publish/unpublish error:",
+          error
+        );
 
         alert(
-          `Quiz ${newPublishedStatus ? "publish" : "unpublish"} nahi ho paya.\n\n` +
-            `${error.message}`
+          `Quiz ${
+            newPublishedStatus
+              ? "PUBLIC"
+              : "DRAFT"
+          } nahi ho paya.\n\n${error.message}`
         );
 
         return;
       }
 
-      if (!data) {
-        alert(
-          "Quiz update nahi hua.\n\n" +
-            "Supabase RLS policy update ko block kar rahi ho sakti hai."
-        );
-
-        return;
-      }
+      /*
+       * Local state ko immediately update karo.
+       * Isse UI mein status instantly change hoga.
+       */
 
       setQuizzes((current) =>
         current.map((item) =>
           item.id === quiz.id
             ? {
                 ...item,
-                is_published: data.is_published,
+                is_published:
+                  newPublishedStatus,
               }
             : item
         )
       );
 
+      /*
+       * Fresh database data bhi load karo.
+       */
+
+      await loadQuizzes();
+
       alert(
-        data.is_published
+        newPublishedStatus
           ? "Quiz successfully PUBLIC ho gaya."
           : "Quiz successfully DRAFT mein aa gaya."
       );
     } catch (error) {
-      console.error("Unexpected publish error:", error);
+      console.error(
+        "Unexpected publish error:",
+        error
+      );
 
       alert(
         error instanceof Error
@@ -157,16 +214,30 @@ export default function ManageQuizzesPage() {
         .eq("id", id);
 
       if (error) {
-        console.error("Delete quiz error:", error);
-        alert(error.message);
+        console.error(
+          "Delete quiz error:",
+          error
+        );
+
+        alert(
+          `Quiz delete nahi ho paya.\n\n${error.message}`
+        );
+
         return;
       }
 
       setQuizzes((current) =>
-        current.filter((quiz) => quiz.id !== id)
+        current.filter(
+          (quiz) => quiz.id !== id
+        )
       );
+
+      alert("Quiz successfully deleted.");
     } catch (error) {
-      console.error("Unexpected delete error:", error);
+      console.error(
+        "Unexpected delete error:",
+        error
+      );
 
       alert(
         error instanceof Error
@@ -184,7 +255,8 @@ export default function ManageQuizzesPage() {
     setEditForm({
       title: quiz.title || "",
       description: quiz.description || "",
-      scheduled_date: quiz.scheduled_date || "",
+      scheduled_date:
+        quiz.scheduled_date || "",
       scheduled_time: quiz.scheduled_time
         ? quiz.scheduled_time.slice(0, 5)
         : "",
@@ -207,23 +279,25 @@ export default function ManageQuizzesPage() {
     if (savingEdit) return;
 
     setEditingQuiz(null);
+    setEditForm(emptyEditForm);
+  }
 
-    setEditForm({
-      title: "",
-      description: "",
-      scheduled_date: "",
-      scheduled_time: "",
-      duration_minutes: "30",
-      marks_per_question: "1",
-      negative_marks: "0",
-      pass_percentage: "40",
-    });
+  function updateEditField(
+    field: keyof EditForm,
+    value: string
+  ) {
+    setEditForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
   }
 
   async function saveQuickEdit() {
     if (!editingQuiz) return;
 
-    if (!editForm.title.trim()) {
+    const title = editForm.title.trim();
+
+    if (!title) {
       alert("Quiz title required hai.");
       return;
     }
@@ -238,19 +312,29 @@ export default function ManageQuizzesPage() {
       return;
     }
 
-    const duration = Number(editForm.duration_minutes);
+    const duration = Number(
+      editForm.duration_minutes
+    );
+
     const marksPerQuestion = Number(
       editForm.marks_per_question
     );
+
     const negativeMarks = Number(
       editForm.negative_marks
     );
+
     const passPercentage = Number(
       editForm.pass_percentage
     );
 
-    if (!Number.isFinite(duration) || duration <= 0) {
-      alert("Duration valid number hona chahiye.");
+    if (
+      !Number.isFinite(duration) ||
+      duration <= 0
+    ) {
+      alert(
+        "Duration 0 se greater hona chahiye."
+      );
       return;
     }
 
@@ -258,7 +342,9 @@ export default function ManageQuizzesPage() {
       !Number.isFinite(marksPerQuestion) ||
       marksPerQuestion < 0
     ) {
-      alert("Marks per question valid hona chahiye.");
+      alert(
+        "Marks per question valid hona chahiye."
+      );
       return;
     }
 
@@ -266,7 +352,9 @@ export default function ManageQuizzesPage() {
       !Number.isFinite(negativeMarks) ||
       negativeMarks < 0
     ) {
-      alert("Negative marks valid hona chahiye.");
+      alert(
+        "Negative marks valid hona chahiye."
+      );
       return;
     }
 
@@ -275,31 +363,39 @@ export default function ManageQuizzesPage() {
       passPercentage < 0 ||
       passPercentage > 100
     ) {
-      alert("Pass percentage 0 se 100 ke beech hona chahiye.");
+      alert(
+        "Pass percentage 0 se 100 ke beech hona chahiye."
+      );
       return;
     }
 
     setSavingEdit(true);
 
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("quiz_tests")
         .update({
-          title: editForm.title.trim(),
-          description: editForm.description.trim() || null,
-          scheduled_date: editForm.scheduled_date,
-          scheduled_time: editForm.scheduled_time,
+          title,
+          description:
+            editForm.description.trim() ||
+            null,
+          scheduled_date:
+            editForm.scheduled_date,
+          scheduled_time:
+            editForm.scheduled_time,
           duration_minutes: duration,
-          marks_per_question: marksPerQuestion,
+          marks_per_question:
+            marksPerQuestion,
           negative_marks: negativeMarks,
           pass_percentage: passPercentage,
         })
-        .eq("id", editingQuiz.id)
-        .select("*")
-        .single();
+        .eq("id", editingQuiz.id);
 
       if (error) {
-        console.error("Quick edit error:", error);
+        console.error(
+          "Quick edit update error:",
+          error
+        );
 
         alert(
           `Quiz update nahi ho paya.\n\n${error.message}`
@@ -308,28 +404,24 @@ export default function ManageQuizzesPage() {
         return;
       }
 
-      if (!data) {
-        alert(
-          "Quiz update nahi hua.\n\n" +
-            "Supabase RLS policy update ko block kar rahi ho sakti hai."
-        );
+      /*
+       * Fresh data database se load karo.
+       * Yahan bhi .single() intentionally nahi hai.
+       */
 
-        return;
-      }
-
-      setQuizzes((current) =>
-        current.map((quiz) =>
-          quiz.id === editingQuiz.id
-            ? (data as Quiz)
-            : quiz
-        )
-      );
+      await loadQuizzes();
 
       setEditingQuiz(null);
+      setEditForm(emptyEditForm);
 
-      alert("Quiz successfully update ho gaya.");
+      alert(
+        "Quiz successfully update ho gaya."
+      );
     } catch (error) {
-      console.error("Unexpected quick edit error:", error);
+      console.error(
+        "Unexpected quick edit error:",
+        error
+      );
 
       alert(
         error instanceof Error
@@ -344,28 +436,43 @@ export default function ManageQuizzesPage() {
   function formatDate(date: string) {
     if (!date) return "Not set";
 
-    return new Date(
+    const parsedDate = new Date(
       `${date}T00:00:00`
-    ).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    );
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return date;
+    }
+
+    return parsedDate.toLocaleDateString(
+      "en-IN",
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }
+    );
   }
 
   function formatTime(time: string) {
     if (!time) return "Not set";
 
     const [h, m] = time.split(":");
-    let hour = Number(h);
 
-    if (!Number.isFinite(hour)) {
+    const hourNumber = Number(h);
+
+    if (
+      !Number.isFinite(hourNumber) ||
+      !m
+    ) {
       return time;
     }
 
-    const period = hour >= 12 ? "PM" : "AM";
+    const period =
+      hourNumber >= 12 ? "PM" : "AM";
 
-    hour = hour % 12 || 12;
+    const hour =
+      hourNumber % 12 || 12;
 
     return `${hour}:${m} ${period}`;
   }
@@ -373,8 +480,10 @@ export default function ManageQuizzesPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
+        {/* HEADER */}
+
         <header className="border-b border-white/10 bg-slate-950/90">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4">
             <div>
               <h1 className="font-black">
                 MANAGE QUIZZES
@@ -387,7 +496,9 @@ export default function ManageQuizzesPage() {
 
             <button
               onClick={() =>
-                router.push("/teacher/quiz-tests")
+                router.push(
+                  "/teacher/quiz-tests"
+                )
               }
               className="rounded-xl bg-white/5 px-4 py-2 text-sm font-bold transition hover:bg-white/10"
             >
@@ -396,7 +507,11 @@ export default function ManageQuizzesPage() {
           </div>
         </header>
 
+        {/* MAIN */}
+
         <div className="mx-auto max-w-6xl px-4 py-8">
+          {/* CREATE */}
+
           <button
             onClick={() =>
               router.push(
@@ -408,15 +523,38 @@ export default function ManageQuizzesPage() {
             + CREATE NEW QUIZ
           </button>
 
+          {/* LOADING */}
+
           {loading ? (
             <div className="rounded-3xl bg-white/5 p-10 text-center">
-              Loading quizzes...
+              <div className="text-lg font-bold">
+                Loading quizzes...
+              </div>
+
+              <div className="mt-2 text-sm text-slate-400">
+                Please wait
+              </div>
             </div>
           ) : quizzes.length === 0 ? (
+            /* EMPTY */
+
             <div className="rounded-3xl border border-dashed border-white/10 bg-white/5 p-10 text-center">
-              No quizzes created yet.
+              <div className="text-4xl">
+                📝
+              </div>
+
+              <h2 className="mt-3 text-lg font-black">
+                No quizzes created yet
+              </h2>
+
+              <p className="mt-1 text-sm text-slate-400">
+                Create your first quiz to get
+                started.
+              </p>
             </div>
           ) : (
+            /* QUIZ LIST */
+
             <div className="space-y-5">
               {quizzes.map((quiz) => (
                 <div
@@ -424,9 +562,11 @@ export default function ManageQuizzesPage() {
                   className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl"
                 >
                   <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="min-w-0">
+                    {/* QUIZ INFORMATION */}
+
+                    <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-3">
-                        <h2 className="text-xl font-black">
+                        <h2 className="break-words text-xl font-black">
                           {quiz.title}
                         </h2>
 
@@ -438,7 +578,7 @@ export default function ManageQuizzesPage() {
                           }`}
                         >
                           {quiz.is_published
-                            ? "PUBLISHED"
+                            ? "PUBLIC"
                             : "DRAFT"}
                         </span>
                       </div>
@@ -472,12 +612,15 @@ export default function ManageQuizzesPage() {
 
                         <span>
                           🎯{" "}
-                          {quiz.marks_per_question}{" "}
+                          {
+                            quiz.marks_per_question
+                          }{" "}
                           / question
                         </span>
 
                         <span>
-                          ➖ {quiz.negative_marks}{" "}
+                          ➖{" "}
+                          {quiz.negative_marks}{" "}
                           negative
                         </span>
 
@@ -488,7 +631,11 @@ export default function ManageQuizzesPage() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:flex lg:flex-wrap">
+                    {/* ACTIONS */}
+
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:flex lg:max-w-3xl lg:flex-wrap lg:justify-end">
+                      {/* QUESTIONS */}
+
                       <button
                         onClick={() =>
                           router.push(
@@ -500,6 +647,8 @@ export default function ManageQuizzesPage() {
                         ❓ Questions
                       </button>
 
+                      {/* EDIT QUICK */}
+
                       <button
                         onClick={() =>
                           openQuickEdit(quiz)
@@ -509,29 +658,36 @@ export default function ManageQuizzesPage() {
                         ✏️ EDIT QUICK
                       </button>
 
+                      {/* PUBLIC / UNPUBLISH */}
+
                       <button
                         onClick={() =>
                           togglePublish(quiz)
                         }
                         disabled={
-                          publishingId === quiz.id
+                          publishingId ===
+                          quiz.id
                         }
                         className={`rounded-xl px-4 py-3 text-sm font-bold transition ${
                           quiz.is_published
                             ? "bg-amber-500/15 text-amber-300 hover:bg-amber-500/25"
                             : "bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
                         } ${
-                          publishingId === quiz.id
+                          publishingId ===
+                          quiz.id
                             ? "cursor-not-allowed opacity-50"
                             : ""
                         }`}
                       >
-                        {publishingId === quiz.id
+                        {publishingId ===
+                        quiz.id
                           ? "Updating..."
                           : quiz.is_published
                             ? "Unpublish"
                             : "PUBLIC"}
                       </button>
+
+                      {/* RESULTS */}
 
                       <button
                         onClick={() =>
@@ -544,6 +700,8 @@ export default function ManageQuizzesPage() {
                         📊 Results
                       </button>
 
+                      {/* DELETE */}
+
                       <button
                         onClick={() =>
                           deleteQuiz(quiz.id)
@@ -552,12 +710,14 @@ export default function ManageQuizzesPage() {
                           deletingId === quiz.id
                         }
                         className={`rounded-xl bg-red-500/15 px-4 py-3 text-sm font-bold text-red-300 transition hover:bg-red-500/25 ${
-                          deletingId === quiz.id
+                          deletingId ===
+                          quiz.id
                             ? "cursor-not-allowed opacity-50"
                             : ""
                         }`}
                       >
-                        {deletingId === quiz.id
+                        {deletingId ===
+                        quiz.id
                           ? "Deleting..."
                           : "🗑 Delete"}
                       </button>
@@ -569,16 +729,20 @@ export default function ManageQuizzesPage() {
           )}
         </div>
 
+        {/* QUICK EDIT MODAL */}
+
         {editingQuiz && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-            <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-white/10 bg-slate-900 shadow-2xl">
-              <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-slate-900/95 px-5 py-4 backdrop-blur">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+            <div className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-900 shadow-2xl">
+              {/* MODAL HEADER */}
+
+              <div className="flex items-center justify-between border-b border-white/10 bg-slate-900 px-5 py-4">
                 <div>
                   <h2 className="text-xl font-black">
-                    EDIT QUICK
+                    ✏️ EDIT QUICK
                   </h2>
 
-                  <p className="text-xs text-slate-400">
+                  <p className="mt-1 text-xs text-slate-400">
                     Quickly update quiz details
                   </p>
                 </div>
@@ -586,195 +750,210 @@ export default function ManageQuizzesPage() {
                 <button
                   onClick={closeQuickEdit}
                   disabled={savingEdit}
-                  className="rounded-xl bg-white/5 px-4 py-2 text-xl font-bold text-slate-300 hover:bg-white/10"
+                  className="rounded-xl bg-white/5 px-4 py-2 text-2xl font-bold text-slate-300 transition hover:bg-white/10 disabled:opacity-50"
                 >
                   ×
                 </button>
               </div>
 
-              <div className="space-y-5 p-5">
-                <div>
-                  <label className="mb-2 block text-sm font-bold text-slate-300">
-                    Quiz Title
-                  </label>
+              {/* MODAL BODY */}
 
-                  <input
-                    type="text"
-                    value={editForm.title}
-                    onChange={(e) =>
-                      setEditForm((prev) => ({
-                        ...prev,
-                        title: e.target.value,
-                      }))
-                    }
-                    className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none focus:border-indigo-500"
-                    placeholder="Enter quiz title"
-                  />
+              <div className="overflow-y-auto p-5">
+                <div className="space-y-5">
+                  {/* TITLE */}
+
+                  <div>
+                    <label className="mb-2 block text-sm font-bold text-slate-300">
+                      Quiz Title
+                    </label>
+
+                    <input
+                      type="text"
+                      value={editForm.title}
+                      onChange={(e) =>
+                        updateEditField(
+                          "title",
+                          e.target.value
+                        )
+                      }
+                      className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-indigo-500"
+                      placeholder="Enter quiz title"
+                    />
+                  </div>
+
+                  {/* DESCRIPTION */}
+
+                  <div>
+                    <label className="mb-2 block text-sm font-bold text-slate-300">
+                      Description
+                    </label>
+
+                    <textarea
+                      value={
+                        editForm.description
+                      }
+                      onChange={(e) =>
+                        updateEditField(
+                          "description",
+                          e.target.value
+                        )
+                      }
+                      rows={3}
+                      className="w-full resize-none rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-indigo-500"
+                      placeholder="Quiz description"
+                    />
+                  </div>
+
+                  {/* DATE + TIME */}
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-2 block text-sm font-bold text-slate-300">
+                        Scheduled Date
+                      </label>
+
+                      <input
+                        type="date"
+                        value={
+                          editForm.scheduled_date
+                        }
+                        onChange={(e) =>
+                          updateEditField(
+                            "scheduled_date",
+                            e.target.value
+                          )
+                        }
+                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-bold text-slate-300">
+                        Scheduled Time
+                      </label>
+
+                      <input
+                        type="time"
+                        value={
+                          editForm.scheduled_time
+                        }
+                        onChange={(e) =>
+                          updateEditField(
+                            "scheduled_time",
+                            e.target.value
+                          )
+                        }
+                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* DURATION + MARKS */}
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-2 block text-sm font-bold text-slate-300">
+                        Duration (minutes)
+                      </label>
+
+                      <input
+                        type="number"
+                        min="1"
+                        value={
+                          editForm.duration_minutes
+                        }
+                        onChange={(e) =>
+                          updateEditField(
+                            "duration_minutes",
+                            e.target.value
+                          )
+                        }
+                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-bold text-slate-300">
+                        Marks / Question
+                      </label>
+
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={
+                          editForm.marks_per_question
+                        }
+                        onChange={(e) =>
+                          updateEditField(
+                            "marks_per_question",
+                            e.target.value
+                          )
+                        }
+                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* NEGATIVE + PASS */}
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-2 block text-sm font-bold text-slate-300">
+                        Negative Marks
+                      </label>
+
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={
+                          editForm.negative_marks
+                        }
+                        onChange={(e) =>
+                          updateEditField(
+                            "negative_marks",
+                            e.target.value
+                          )
+                        }
+                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-bold text-slate-300">
+                        Pass Percentage
+                      </label>
+
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={
+                          editForm.pass_percentage
+                        }
+                        onChange={(e) =>
+                          updateEditField(
+                            "pass_percentage",
+                            e.target.value
+                          )
+                        }
+                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
                 </div>
+              </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-bold text-slate-300">
-                    Description
-                  </label>
+              {/* MODAL FOOTER */}
 
-                  <textarea
-                    value={editForm.description}
-                    onChange={(e) =>
-                      setEditForm((prev) => ({
-                        ...prev,
-                        description:
-                          e.target.value,
-                      }))
-                    }
-                    rows={3}
-                    className="w-full resize-none rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none focus:border-indigo-500"
-                    placeholder="Quiz description"
-                  />
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-2 block text-sm font-bold text-slate-300">
-                      Scheduled Date
-                    </label>
-
-                    <input
-                      type="date"
-                      value={
-                        editForm.scheduled_date
-                      }
-                      onChange={(e) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          scheduled_date:
-                            e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-sm font-bold text-slate-300">
-                      Scheduled Time
-                    </label>
-
-                    <input
-                      type="time"
-                      value={
-                        editForm.scheduled_time
-                      }
-                      onChange={(e) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          scheduled_time:
-                            e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none focus:border-indigo-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-2 block text-sm font-bold text-slate-300">
-                      Duration (minutes)
-                    </label>
-
-                    <input
-                      type="number"
-                      min="1"
-                      value={
-                        editForm.duration_minutes
-                      }
-                      onChange={(e) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          duration_minutes:
-                            e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-sm font-bold text-slate-300">
-                      Marks / Question
-                    </label>
-
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={
-                        editForm.marks_per_question
-                      }
-                      onChange={(e) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          marks_per_question:
-                            e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-sm font-bold text-slate-300">
-                      Negative Marks
-                    </label>
-
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={
-                        editForm.negative_marks
-                      }
-                      onChange={(e) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          negative_marks:
-                            e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-sm font-bold text-slate-300">
-                      Pass Percentage
-                    </label>
-
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="1"
-                      value={
-                        editForm.pass_percentage
-                      }
-                      onChange={(e) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          pass_percentage:
-                            e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none focus:border-indigo-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-3 pt-2 sm:flex-row">
+              <div className="border-t border-white/10 bg-slate-900 p-5">
+                <div className="flex flex-col gap-3 sm:flex-row">
                   <button
                     onClick={closeQuickEdit}
                     disabled={savingEdit}
-                    className="flex-1 rounded-xl bg-white/5 px-5 py-3 font-bold text-slate-300 transition hover:bg-white/10"
+                    className="flex-1 rounded-xl bg-white/5 px-5 py-3 font-bold text-slate-300 transition hover:bg-white/10 disabled:opacity-50"
                   >
                     CANCEL
                   </button>
