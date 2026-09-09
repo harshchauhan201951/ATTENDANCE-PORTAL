@@ -28,7 +28,6 @@ type QuizQuestion = {
   id: string;
   quiz_id: string;
   question_text: string;
-  question_number?: number | null;
   marks?: number | null;
 };
 
@@ -42,6 +41,14 @@ type QuizOption = {
 
 type QuestionWithOptions = QuizQuestion & {
   options: QuizOption[];
+};
+
+type AnswerMap = Record<string, string | null>;
+
+type StudentData = {
+  id: string;
+  name: string;
+  username: string;
 };
 
 type QuizResult = {
@@ -60,14 +67,6 @@ type QuizResult = {
   submitted_at: string;
   submission_type: string;
   created_at?: string;
-};
-
-type AnswerMap = Record<string, string | null>;
-
-type StudentData = {
-  id: string;
-  name: string;
-  username: string;
 };
 
 function getScheduledStart(quiz: QuizTest): Date {
@@ -135,11 +134,9 @@ function StudentQuizAttemptContent() {
   const submittedRef = useRef(false);
   const submittingRef = useRef(false);
 
-  const currentQuestion = questions[currentQuestionIndex];
-
   /*
    * ---------------------------------------------------------
-   * STUDENT
+   * LOAD STUDENT
    * ---------------------------------------------------------
    */
 
@@ -207,6 +204,9 @@ function StudentQuizAttemptContent() {
         return;
       }
 
+      /*
+       * Get quiz
+       */
       const { data: quizData, error: quizError } = await supabase
         .from("quiz_tests")
         .select(
@@ -236,10 +236,16 @@ function StudentQuizAttemptContent() {
 
       const loadedQuiz = quizData as QuizTest;
 
+      /*
+       * Published check
+       */
       if (!loadedQuiz.is_published) {
         throw new Error("This quiz is not published.");
       }
 
+      /*
+       * Schedule check
+       */
       const now = new Date();
       const start = getScheduledStart(loadedQuiz);
       const end = getScheduledEnd(loadedQuiz);
@@ -257,7 +263,7 @@ function StudentQuizAttemptContent() {
       }
 
       /*
-       * Check whether the student already submitted this quiz.
+       * Check previous attempt
        */
       const { data: existingResult, error: existingResultError } =
         await supabase
@@ -270,9 +276,6 @@ function StudentQuizAttemptContent() {
           .maybeSingle();
 
       if (existingResultError) {
-        /*
-         * Do not block the quiz if the result lookup itself is unavailable.
-         */
         console.warn(
           "Existing result check failed:",
           existingResultError.message
@@ -284,13 +287,21 @@ function StudentQuizAttemptContent() {
       }
 
       /*
-       * Load questions.
+       * -------------------------------------------------------
+       * GET QUESTIONS
+       *
+       * IMPORTANT:
+       * There is NO question_number column in your database.
+       * Therefore we do NOT order by question_number.
+       *
+       * Questions are displayed in the order returned by Supabase.
+       * -------------------------------------------------------
        */
+
       const { data: questionData, error: questionError } = await supabase
         .from("quiz_questions")
         .select("*")
-        .eq("quiz_id", quizId)
-        .order("question_number", { ascending: true });
+        .eq("quiz_id", quizId);
 
       if (questionError) {
         throw new Error(questionError.message);
@@ -300,10 +311,18 @@ function StudentQuizAttemptContent() {
         throw new Error("No questions have been added to this quiz yet.");
       }
 
+      const questionRows = questionData as QuizQuestion[];
+
       /*
-       * Load options.
+       * Get question IDs
        */
-      const questionIds = questionData.map((q) => q.id);
+      const questionIds = questionRows.map((question) => question.id);
+
+      /*
+       * -------------------------------------------------------
+       * GET OPTIONS
+       * -------------------------------------------------------
+       */
 
       const { data: optionData, error: optionError } = await supabase
         .from("quiz_options")
@@ -317,23 +336,24 @@ function StudentQuizAttemptContent() {
 
       const optionRows = (optionData ?? []) as QuizOption[];
 
-      const questionRows = questionData as QuizQuestion[];
-
-      const combinedQuestions: QuestionWithOptions[] = questionRows.map(
-        (question, index) => {
+      /*
+       * Combine questions and options
+       */
+      const combinedQuestions: QuestionWithOptions[] =
+        questionRows.map((question) => {
           const questionOptions = optionRows.filter(
             (option) => option.question_id === question.id
           );
 
           return {
             ...question,
-            question_number:
-              question.question_number ?? index + 1,
             options: questionOptions,
           };
-        }
-      );
+        });
 
+      /*
+       * Empty answer map
+       */
       const initialAnswers: AnswerMap = {};
 
       combinedQuestions.forEach((question) => {
@@ -344,15 +364,17 @@ function StudentQuizAttemptContent() {
       setQuestions(combinedQuestions);
       setAnswers(initialAnswers);
 
+      /*
+       * Start timer.
+       *
+       * IMPORTANT:
+       * Timer uses the scheduled end time.
+       * If student enters late, they get only the remaining time.
+       */
       const actualStart = new Date();
 
       setStartedAt(actualStart.toISOString());
 
-      /*
-       * IMPORTANT:
-       * Student may enter late, so timer uses the actual scheduled
-       * end time, not a fresh duration starting from page load.
-       */
       const remainingSeconds = Math.max(
         0,
         Math.ceil((end.getTime() - actualStart.getTime()) / 1000)
@@ -370,7 +392,7 @@ function StudentQuizAttemptContent() {
   }, [loadStudent, quizId]);
 
   useEffect(() => {
-    loadQuiz();
+    void loadQuiz();
   }, [loadQuiz]);
 
   /*
@@ -380,7 +402,12 @@ function StudentQuizAttemptContent() {
    */
 
   useEffect(() => {
-    if (loading || !quiz || questions.length === 0 || submittedRef.current) {
+    if (
+      loading ||
+      !quiz ||
+      questions.length === 0 ||
+      submittedRef.current
+    ) {
       return;
     }
 
@@ -388,7 +415,6 @@ function StudentQuizAttemptContent() {
       setTimeLeft((previous) => {
         if (previous <= 1) {
           window.clearInterval(interval);
-
           return 0;
         }
 
@@ -403,7 +429,7 @@ function StudentQuizAttemptContent() {
 
   /*
    * ---------------------------------------------------------
-   * AUTO SUBMIT WHEN TIMER ENDS
+   * AUTO SUBMIT
    * ---------------------------------------------------------
    */
 
@@ -419,9 +445,6 @@ function StudentQuizAttemptContent() {
       return;
     }
 
-    /*
-     * Small timeout allows the UI to update to 00:00 before submit.
-     */
     const timeout = window.setTimeout(() => {
       if (!submittedRef.current && !submittingRef.current) {
         void submitQuiz("AUTO");
@@ -435,7 +458,7 @@ function StudentQuizAttemptContent() {
 
   /*
    * ---------------------------------------------------------
-   * BEFORE UNLOAD
+   * BEFORE PAGE EXIT
    * ---------------------------------------------------------
    */
 
@@ -460,7 +483,7 @@ function StudentQuizAttemptContent() {
 
   /*
    * ---------------------------------------------------------
-   * ANSWERS
+   * SELECT ANSWER
    * ---------------------------------------------------------
    */
 
@@ -480,7 +503,7 @@ function StudentQuizAttemptContent() {
 
   /*
    * ---------------------------------------------------------
-   * NAVIGATION
+   * QUESTION NAVIGATION
    * ---------------------------------------------------------
    */
 
@@ -595,8 +618,7 @@ function StudentQuizAttemptContent() {
       };
 
       /*
-       * Save the result to sessionStorage as a local fallback and
-       * for the result page.
+       * Always save locally as fallback.
        */
       try {
         sessionStorage.setItem(
@@ -604,13 +626,11 @@ function StudentQuizAttemptContent() {
           JSON.stringify(finalResult)
         );
       } catch {
-        console.warn("Unable to save quiz result to sessionStorage.");
+        console.warn("Unable to save quiz result locally.");
       }
 
       /*
        * Save to Supabase.
-       *
-       * The known quiz_results columns are used here.
        */
       try {
         const { error: resultError } = await supabase
@@ -637,13 +657,10 @@ function StudentQuizAttemptContent() {
           );
 
         if (resultError) {
-          /*
-           * Do not destroy the student's result if Supabase rejects
-           * the upsert because of an existing RLS/schema constraint.
-           *
-           * sessionStorage still keeps the result for this attempt.
-           */
-          console.warn("Quiz result database save failed:", resultError);
+          console.warn(
+            "Quiz result database save failed:",
+            resultError.message
+          );
         }
       } catch (databaseError) {
         console.warn("Quiz result database save failed:", databaseError);
@@ -677,23 +694,16 @@ function StudentQuizAttemptContent() {
       setError("");
 
       try {
-        /*
-         * Final schedule check.
-         */
-        const now = new Date();
-        const scheduledEnd = getScheduledEnd(quiz);
-
-        if (now > scheduledEnd) {
-          setTimeLeft(0);
-        }
-
         const result = calculateResult();
 
         if (!result) {
           throw new Error("Unable to calculate quiz result.");
         }
 
-        const finalResult = await saveResult(result, submissionType);
+        const finalResult = await saveResult(
+          result,
+          submissionType
+        );
 
         submittedRef.current = true;
 
@@ -712,7 +722,9 @@ function StudentQuizAttemptContent() {
         }
 
         router.replace(
-          `/student/quiz-tests/results?quizId=${encodeURIComponent(quiz.id)}`
+          `/student/quiz-tests/results?quizId=${encodeURIComponent(
+            quiz.id
+          )}`
         );
       } catch (err) {
         const message =
@@ -739,7 +751,7 @@ function StudentQuizAttemptContent() {
 
   /*
    * ---------------------------------------------------------
-   * DERIVED VALUES
+   * DERIVED DATA
    * ---------------------------------------------------------
    */
 
@@ -754,9 +766,11 @@ function StudentQuizAttemptContent() {
   const timerIsCritical = timeLeft <= 60;
   const timerIsWarning = timeLeft <= 300;
 
+  const currentQuestion = questions[currentQuestionIndex];
+
   /*
    * ---------------------------------------------------------
-   * LOADING SCREEN
+   * LOADING
    * ---------------------------------------------------------
    */
 
@@ -769,7 +783,9 @@ function StudentQuizAttemptContent() {
 
             <h2>Loading Quiz...</h2>
 
-            <p>Please wait while your test is being prepared.</p>
+            <p>
+              Please wait while your test is being prepared.
+            </p>
           </div>
         </div>
 
@@ -835,11 +851,11 @@ function StudentQuizAttemptContent() {
 
   /*
    * ---------------------------------------------------------
-   * ERROR SCREEN
+   * ERROR
    * ---------------------------------------------------------
    */
 
-  if (error || !quiz || questions.length === 0) {
+  if (error || !quiz || !currentQuestion) {
     return (
       <>
         <div className="error-page">
@@ -867,7 +883,9 @@ function StudentQuizAttemptContent() {
               <button
                 type="button"
                 className="secondary-button"
-                onClick={() => router.push("/student/quiz-tests")}
+                onClick={() =>
+                  router.push("/student/quiz-tests")
+                }
               >
                 Back to Quiz Tests
               </button>
@@ -943,11 +961,6 @@ function StudentQuizAttemptContent() {
             padding: 12px 18px;
             font-size: 14px;
             font-weight: 800;
-            transition: transform 0.2s ease;
-          }
-
-          button:hover {
-            transform: translateY(-1px);
           }
 
           .primary-button {
@@ -966,14 +979,14 @@ function StudentQuizAttemptContent() {
 
   /*
    * ---------------------------------------------------------
-   * MAIN QUIZ UI
+   * MAIN UI
    * ---------------------------------------------------------
    */
 
   return (
     <>
       <div className="quiz-page">
-        {/* TOP BAR */}
+        {/* HEADER */}
         <header className="quiz-header">
           <div className="header-left">
             <button
@@ -991,15 +1004,18 @@ function StudentQuizAttemptContent() {
 
                 router.push("/student/quiz-tests");
               }}
-              aria-label="Back"
             >
               ←
             </button>
 
             <div>
-              <div className="brand">RACER ACADEMY</div>
+              <div className="brand">
+                RACER ACADEMY
+              </div>
 
-              <div className="quiz-name">{quiz.title}</div>
+              <div className="quiz-name">
+                {quiz.title}
+              </div>
             </div>
           </div>
 
@@ -1012,7 +1028,7 @@ function StudentQuizAttemptContent() {
                   : ""
             }`}
           >
-            <span className="timer-icon">⏱</span>
+            <span>⏱</span>
 
             <span>{formatTimer(timeLeft)}</span>
           </div>
@@ -1021,11 +1037,15 @@ function StudentQuizAttemptContent() {
         {/* QUIZ INFO */}
         <section className="quiz-info">
           <div className="info-main">
-            <div className="quiz-badge">🧠 LIVE QUIZ</div>
+            <div className="quiz-badge">
+              🧠 LIVE QUIZ
+            </div>
 
             <h1>{quiz.title}</h1>
 
-            {quiz.description && <p>{quiz.description}</p>}
+            {quiz.description && (
+              <p>{quiz.description}</p>
+            )}
           </div>
 
           <div className="info-stats">
@@ -1035,12 +1055,20 @@ function StudentQuizAttemptContent() {
             </div>
 
             <div className="info-stat">
-              <strong>{Number(quiz.marks_per_question ?? 1)}</strong>
+              <strong>
+                {Number(
+                  quiz.marks_per_question ?? 1
+                )}
+              </strong>
               <span>Marks/Q</span>
             </div>
 
             <div className="info-stat">
-              <strong>{Number(quiz.duration_minutes ?? 30)}</strong>
+              <strong>
+                {Number(
+                  quiz.duration_minutes ?? 30
+                )}
+              </strong>
               <span>Minutes</span>
             </div>
           </div>
@@ -1050,7 +1078,8 @@ function StudentQuizAttemptContent() {
         <section className="progress-card">
           <div className="progress-top">
             <span>
-              Question {currentQuestionIndex + 1} of {questions.length}
+              Question {currentQuestionIndex + 1} of{" "}
+              {questions.length}
             </span>
 
             <span>
@@ -1064,7 +1093,9 @@ function StudentQuizAttemptContent() {
               style={{
                 width: `${
                   questions.length > 0
-                    ? ((currentQuestionIndex + 1) / questions.length) * 100
+                    ? ((currentQuestionIndex + 1) /
+                        questions.length) *
+                      100
                     : 0
                 }%`,
               }}
@@ -1072,7 +1103,7 @@ function StudentQuizAttemptContent() {
           </div>
         </section>
 
-        {/* MAIN CONTENT */}
+        {/* MAIN */}
         <main className="quiz-layout">
           {/* QUESTION */}
           <section className="question-card">
@@ -1080,47 +1111,65 @@ function StudentQuizAttemptContent() {
               QUESTION {currentQuestionIndex + 1}
             </div>
 
-            <h2>{currentQuestion.question_text}</h2>
+            <h2>
+              {currentQuestion.question_text}
+            </h2>
 
             <div className="options-list">
-              {currentQuestion.options.map((option, index) => {
-                const selected =
-                  answers[currentQuestion.id] === option.id;
+              {currentQuestion.options.map(
+                (option, index) => {
+                  const selected =
+                    answers[currentQuestion.id] ===
+                    option.id;
 
-                const label =
-                  option.option_label ||
-                  String.fromCharCode(65 + index);
+                  const label =
+                    option.option_label ||
+                    String.fromCharCode(
+                      65 + index
+                    );
 
-                return (
-                  <button
-                    type="button"
-                    key={option.id}
-                    className={`option ${selected ? "option-selected" : ""}`}
-                    onClick={() =>
-                      selectAnswer(currentQuestion.id, option.id)
-                    }
-                  >
-                    <span className="option-label">{label}</span>
-
-                    <span className="option-text">
-                      {option.option_text}
-                    </span>
-
-                    <span
-                      className={`option-check ${
-                        selected ? "checked" : ""
+                  return (
+                    <button
+                      type="button"
+                      key={option.id}
+                      className={`option ${
+                        selected
+                          ? "option-selected"
+                          : ""
                       }`}
+                      onClick={() =>
+                        selectAnswer(
+                          currentQuestion.id,
+                          option.id
+                        )
+                      }
                     >
-                      {selected ? "✓" : ""}
-                    </span>
-                  </button>
-                );
-              })}
+                      <span className="option-label">
+                        {label}
+                      </span>
+
+                      <span className="option-text">
+                        {option.option_text}
+                      </span>
+
+                      <span
+                        className={`option-check ${
+                          selected ? "checked" : ""
+                        }`}
+                      >
+                        {selected ? "✓" : ""}
+                      </span>
+                    </button>
+                  );
+                }
+              )}
             </div>
 
-            {currentQuestion.options.length === 0 && (
+            {currentQuestion.options.length ===
+              0 && (
               <div className="no-options">
-                No options are available for this question.
+                No options are available for this
+                question.
               </div>
             )}
 
@@ -1129,20 +1178,27 @@ function StudentQuizAttemptContent() {
               <button
                 type="button"
                 className="nav-button secondary"
-                disabled={currentQuestionIndex === 0}
+                disabled={
+                  currentQuestionIndex === 0
+                }
                 onClick={() =>
-                  goToQuestion(currentQuestionIndex - 1)
+                  goToQuestion(
+                    currentQuestionIndex - 1
+                  )
                 }
               >
                 ← Previous
               </button>
 
-              {currentQuestionIndex < questions.length - 1 ? (
+              {currentQuestionIndex <
+              questions.length - 1 ? (
                 <button
                   type="button"
                   className="nav-button primary"
                   onClick={() =>
-                    goToQuestion(currentQuestionIndex + 1)
+                    goToQuestion(
+                      currentQuestionIndex + 1
+                    )
                   }
                 >
                   Next →
@@ -1153,15 +1209,19 @@ function StudentQuizAttemptContent() {
                   className="nav-button submit"
                   disabled={submitting}
                   onClick={() => {
-                    const remaining = questions.filter(
-                      (question) => !answers[question.id]
-                    ).length;
+                    const remaining =
+                      questions.filter(
+                        (question) =>
+                          !answers[question.id]
+                      ).length;
 
                     if (
                       remaining > 0 &&
                       !window.confirm(
                         `You have ${remaining} unanswered question${
-                          remaining === 1 ? "" : "s"
+                          remaining === 1
+                            ? ""
+                            : "s"
                         }. Are you sure you want to submit?`
                       )
                     ) {
@@ -1171,40 +1231,57 @@ function StudentQuizAttemptContent() {
                     void submitQuiz("MANUAL");
                   }}
                 >
-                  {submitting ? "Submitting..." : "✓ Submit Quiz"}
+                  {submitting
+                    ? "Submitting..."
+                    : "✓ Submit Quiz"}
                 </button>
               )}
             </div>
           </section>
 
-          {/* QUESTION PALETTE */}
+          {/* PALETTE */}
           <aside className="palette-card">
             <div className="palette-header">
               <h3>Question Palette</h3>
 
               <span>
-                {answeredCount}/{questions.length}
+                {answeredCount}/
+                {questions.length}
               </span>
             </div>
 
             <div className="palette-grid">
-              {questions.map((question, index) => {
-                const answered = Boolean(answers[question.id]);
-                const active = index === currentQuestionIndex;
+              {questions.map(
+                (question, index) => {
+                  const answered =
+                    Boolean(
+                      answers[question.id]
+                    );
 
-                return (
-                  <button
-                    type="button"
-                    key={question.id}
-                    className={`palette-button ${
-                      active ? "active" : ""
-                    } ${answered ? "answered" : ""}`}
-                    onClick={() => goToQuestion(index)}
-                  >
-                    {index + 1}
-                  </button>
-                );
-              })}
+                  const active =
+                    index ===
+                    currentQuestionIndex;
+
+                  return (
+                    <button
+                      type="button"
+                      key={question.id}
+                      className={`palette-button ${
+                        active ? "active" : ""
+                      } ${
+                        answered
+                          ? "answered"
+                          : ""
+                      }`}
+                      onClick={() =>
+                        goToQuestion(index)
+                      }
+                    >
+                      {index + 1}
+                    </button>
+                  );
+                }
+              )}
             </div>
 
             <div className="palette-legend">
@@ -1227,35 +1304,56 @@ function StudentQuizAttemptContent() {
             <div className="palette-summary">
               <div>
                 <span>Answered</span>
-                <strong>{answeredCount}</strong>
+                <strong>
+                  {answeredCount}
+                </strong>
               </div>
 
               <div>
                 <span>Unanswered</span>
-                <strong>{unansweredCount}</strong>
+                <strong>
+                  {unansweredCount}
+                </strong>
               </div>
             </div>
 
             <div className="negative-marking">
-              <strong>⚠️ Test Instructions</strong>
+              <strong>
+                ⚠️ Test Instructions
+              </strong>
 
               <ul>
-                <li>Choose one option for each question.</li>
+                <li>
+                  Choose one option for each
+                  question.
+                </li>
 
                 <li>
                   Each question carries{" "}
-                  {Number(quiz.marks_per_question ?? 1)} mark
-                  {Number(quiz.marks_per_question ?? 1) !== 1
+                  {Number(
+                    quiz.marks_per_question ?? 1
+                  )}{" "}
+                  mark
+                  {Number(
+                    quiz.marks_per_question ?? 1
+                  ) !== 1
                     ? "s"
                     : ""}
                   .
                 </li>
 
-                {Number(quiz.negative_marks ?? 0) > 0 && (
+                {Number(
+                  quiz.negative_marks ?? 0
+                ) > 0 && (
                   <li>
                     Wrong answer: -
-                    {Number(quiz.negative_marks)} mark
-                    {Number(quiz.negative_marks) !== 1
+                    {Number(
+                      quiz.negative_marks
+                    )}{" "}
+                    mark
+                    {Number(
+                      quiz.negative_marks
+                    ) !== 1
                       ? "s"
                       : ""}
                     .
@@ -1263,15 +1361,16 @@ function StudentQuizAttemptContent() {
                 )}
 
                 <li>
-                  The quiz will automatically submit when the timer
-                  reaches zero.
+                  The quiz will automatically
+                  submit when the timer reaches
+                  zero.
                 </li>
               </ul>
             </div>
           </aside>
         </main>
 
-        {/* MOBILE BOTTOM SUBMIT */}
+        {/* MOBILE SUBMIT */}
         <div className="mobile-submit-bar">
           <div>
             <strong>{answeredCount}</strong>
@@ -1282,15 +1381,19 @@ function StudentQuizAttemptContent() {
             type="button"
             disabled={submitting}
             onClick={() => {
-              const remaining = questions.filter(
-                (question) => !answers[question.id]
-              ).length;
+              const remaining =
+                questions.filter(
+                  (question) =>
+                    !answers[question.id]
+                ).length;
 
               if (
                 remaining > 0 &&
                 !window.confirm(
                   `You have ${remaining} unanswered question${
-                    remaining === 1 ? "" : "s"
+                    remaining === 1
+                      ? ""
+                      : "s"
                   }. Submit anyway?`
                 )
               ) {
@@ -1300,7 +1403,9 @@ function StudentQuizAttemptContent() {
               void submitQuiz("MANUAL");
             }}
           >
-            {submitting ? "Submitting..." : "Submit Quiz"}
+            {submitting
+              ? "Submitting..."
+              : "Submit Quiz"}
           </button>
         </div>
       </div>
@@ -1425,9 +1530,14 @@ function StudentQuizAttemptContent() {
           justify-content: space-between;
           gap: 30px;
           border-radius: 24px;
-          background: linear-gradient(135deg, #312e81, #4f46e5);
+          background: linear-gradient(
+            135deg,
+            #312e81,
+            #4f46e5
+          );
           color: white;
-          box-shadow: 0 20px 50px rgba(79, 70, 229, 0.2);
+          box-shadow: 0 20px 50px
+            rgba(79, 70, 229, 0.2);
         }
 
         .info-main {
@@ -1517,7 +1627,11 @@ function StudentQuizAttemptContent() {
         .progress-fill {
           height: 100%;
           border-radius: inherit;
-          background: linear-gradient(90deg, #6366f1, #4f46e5);
+          background: linear-gradient(
+            90deg,
+            #6366f1,
+            #4f46e5
+          );
           transition: width 0.25s ease;
         }
 
@@ -1535,7 +1649,8 @@ function StudentQuizAttemptContent() {
           border: 1px solid #e2e8f0;
           border-radius: 22px;
           background: white;
-          box-shadow: 0 12px 35px rgba(15, 23, 42, 0.05);
+          box-shadow: 0 12px 35px
+            rgba(15, 23, 42, 0.05);
         }
 
         .question-card {
@@ -1992,7 +2107,8 @@ function StudentQuizAttemptContent() {
             background: rgba(255, 255, 255, 0.97);
             backdrop-filter: blur(15px);
             border-top: 1px solid #e2e8f0;
-            box-shadow: 0 -8px 25px rgba(15, 23, 42, 0.08);
+            box-shadow: 0 -8px 25px
+              rgba(15, 23, 42, 0.08);
           }
 
           .mobile-submit-bar div {
@@ -2026,14 +2142,10 @@ function StudentQuizAttemptContent() {
 }
 
 /*
- * IMPORTANT:
- * Next.js 16 requires useSearchParams() to be rendered beneath
- * a Suspense boundary during production prerendering.
- *
- * This wrapper fixes:
- *
- * "useSearchParams() should be wrapped in a suspense boundary"
+ * Next.js 16:
+ * useSearchParams() must be rendered under Suspense.
  */
+
 export default function StudentQuizAttemptPage() {
   return (
     <Suspense
@@ -2055,7 +2167,8 @@ export default function StudentQuizAttemptPage() {
               border: "5px solid #e2e8f0",
               borderTopColor: "#4f46e5",
               borderRadius: "50%",
-              animation: "quizPageSpin 0.8s linear infinite",
+              animation:
+                "quizPageSpin 0.8s linear infinite",
             }}
           />
 
