@@ -228,10 +228,6 @@ export default function StudentDashboardPage() {
         scope: "/",
       });
 
-      /*
-       * Wait until the Service Worker is actually ready
-       * and active before using PushManager.
-       */
       const registration =
         await navigator.serviceWorker.ready;
 
@@ -257,10 +253,6 @@ export default function StudentDashboardPage() {
         return;
       }
 
-      /*
-       * Check whether the student already has
-       * an existing push subscription.
-       */
       let subscription =
         await registration.pushManager.getSubscription();
 
@@ -275,24 +267,11 @@ export default function StudentDashboardPage() {
           return;
         }
 
-        /*
-         * Convert VAPID public key to Uint8Array.
-         */
         const decodedKey =
           urlBase64ToUint8Array(
             vapidPublicKey
           );
 
-        /*
-         * IMPORTANT:
-         *
-         * Current TypeScript/lib.dom types can return
-         * Uint8Array<ArrayBufferLike>, while PushManager
-         * expects a BufferSource backed by ArrayBuffer.
-         *
-         * Creating a fresh ArrayBuffer here fixes the
-         * Vercel TypeScript build error.
-         */
         const applicationServerKey =
           new ArrayBuffer(
             decodedKey.byteLength
@@ -340,10 +319,6 @@ export default function StudentDashboardPage() {
         "Student push notification registration completed successfully."
       );
     } catch (error) {
-      /*
-       * Push notification failure should never
-       * break the Student Dashboard.
-       */
       if (
         error instanceof DOMException &&
         error.name === "AbortError"
@@ -796,6 +771,12 @@ export default function StudentDashboardPage() {
       .charAt(0)
       .toUpperCase();
 
+  /*
+   * STUDENT DASHBOARD CARDS
+   *
+   * Existing 7 options are preserved.
+   * QUIZ TESTS is added as option number 8.
+   */
   const cards: DashboardCard[] =
     [
       {
@@ -853,6 +834,14 @@ export default function StudentDashboardPage() {
           "Manage your account, name and password.",
         path: "/student/settings",
         className: "cyan",
+      },
+      {
+        icon: "🧠",
+        title: "QUIZ TESTS",
+        description:
+          "Attempt scheduled quizzes, view your scores and quiz history.",
+        path: "/student/quiz-tests",
+        className: "quiz",
       },
     ];
 
@@ -1778,7 +1767,8 @@ export default function StudentDashboardPage() {
                 Use the options below to check
                 your attendance, academic
                 calendar, homework, reports,
-                fees and account settings.
+                fees, quiz tests and account
+                settings.
               </p>
             </div>
           </section>
@@ -2619,6 +2609,14 @@ const styles: {
   cardCyan: {
     background:
       "linear-gradient(135deg,#cffafe,#a5f3fc)",
+  },
+
+  /*
+   * QUIZ TESTS CARD DESIGN
+   */
+  cardQuiz: {
+    background:
+      "linear-gradient(135deg,#fef9c3,#fde68a)",
   },
 
   cardIcon: {
