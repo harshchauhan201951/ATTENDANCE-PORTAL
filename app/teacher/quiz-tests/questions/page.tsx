@@ -45,9 +45,7 @@ function QuestionsContent() {
   const quizIdParam = searchParams.get("quizId");
   const quizId = Number(quizIdParam);
 
-  const [quiz, setQuiz] = useState<Quiz | null>(
-    null
-  );
+  const [quiz, setQuiz] = useState<Quiz | null>(null);
 
   const [questions, setQuestions] = useState<
     QuizQuestion[]
@@ -55,8 +53,7 @@ function QuestionsContent() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [publishing, setPublishing] =
-    useState(false);
+  const [publishing, setPublishing] = useState(false);
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -99,9 +96,7 @@ function QuestionsContent() {
         }
 
         if (!quizData) {
-          throw new Error(
-            "Quiz was not found."
-          );
+          throw new Error("Quiz was not found.");
         }
 
         setQuiz(quizData as Quiz);
@@ -126,18 +121,14 @@ function QuestionsContent() {
           });
 
         if (questionError) {
-          throw new Error(
-            questionError.message
-          );
+          throw new Error(questionError.message);
         }
 
-        const loadedQuestions =
-          questionData || [];
+        const loadedQuestions = questionData || [];
 
-        const questionIds =
-          loadedQuestions.map(
-            (question) => question.id
-          );
+        const questionIds = loadedQuestions.map(
+          (question) => question.id
+        );
 
         let optionData: Array<{
           id: number;
@@ -162,63 +153,47 @@ function QuestionsContent() {
               is_correct
               `
             )
-            .in(
-              "question_id",
-              questionIds
-            )
+            .in("question_id", questionIds)
             .order("option_order", {
               ascending: true,
             });
 
           if (optionError) {
-            throw new Error(
-              optionError.message
-            );
+            throw new Error(optionError.message);
           }
 
           optionData = options || [];
         }
 
         const formattedQuestions: QuizQuestion[] =
-          loadedQuestions.map(
-            (question) => ({
-              id: question.id,
-              question_text:
-                question.question_text,
-              question_order:
-                question.question_order,
-              marks:
-                question.marks !== null
-                  ? Number(question.marks)
-                  : Number(
-                      quizData.marks_per_question
-                    ),
-              options: optionData
-                .filter(
-                  (option) =>
-                    option.question_id ===
-                    question.id
-                )
-                .sort(
-                  (a, b) =>
-                    a.option_order -
-                    b.option_order
-                )
-                .map((option) => ({
-                  id: option.id,
-                  option_text:
-                    option.option_text,
-                  option_order:
-                    option.option_order,
-                  is_correct:
-                    option.is_correct,
-                })),
-            })
-          );
+          loadedQuestions.map((question) => ({
+            id: question.id,
+            question_text: question.question_text,
+            question_order: question.question_order,
+            marks:
+              question.marks !== null
+                ? Number(question.marks)
+                : Number(
+                    quizData.marks_per_question
+                  ),
+            options: optionData
+              .filter(
+                (option) =>
+                  option.question_id === question.id
+              )
+              .sort(
+                (a, b) =>
+                  a.option_order - b.option_order
+              )
+              .map((option) => ({
+                id: option.id,
+                option_text: option.option_text,
+                option_order: option.option_order,
+                is_correct: option.is_correct,
+              })),
+          }));
 
-        setQuestions(
-          formattedQuestions
-        );
+        setQuestions(formattedQuestions);
       } catch (loadError) {
         setError(
           loadError instanceof Error
@@ -254,8 +229,7 @@ function QuestionsContent() {
       ...current,
       {
         question_text: "",
-        question_order:
-          current.length + 1,
+        question_order: current.length + 1,
         marks: defaultMarks,
         options: [
           {
@@ -283,14 +257,11 @@ function QuestionsContent() {
     ]);
   }
 
-  function removeQuestion(
-    questionIndex: number
-  ) {
+  function removeQuestion(questionIndex: number) {
     setQuestions((current) =>
       current
         .filter(
-          (_, index) =>
-            index !== questionIndex
+          (_, index) => index !== questionIndex
         )
         .map((question, index) => ({
           ...question,
@@ -298,8 +269,7 @@ function QuestionsContent() {
           options: question.options.map(
             (option, optionIndex) => ({
               ...option,
-              option_order:
-                optionIndex + 1,
+              option_order: optionIndex + 1,
             })
           ),
         }))
@@ -334,8 +304,7 @@ function QuestionsContent() {
           ? {
               ...question,
               marks:
-                Number.isFinite(marks) &&
-                marks >= 0
+                Number.isFinite(marks) && marks >= 0
                   ? marks
                   : 0,
             }
@@ -359,8 +328,7 @@ function QuestionsContent() {
                   oIndex === optionIndex
                     ? {
                         ...option,
-                        option_text:
-                          value,
+                        option_text: value,
                       }
                     : option
               ),
@@ -392,9 +360,7 @@ function QuestionsContent() {
     );
   }
 
-  function addOption(
-    questionIndex: number
-  ) {
+  function addOption(questionIndex: number) {
     setQuestions((current) =>
       current.map((question, qIndex) => {
         if (qIndex !== questionIndex) {
@@ -432,32 +398,27 @@ function QuestionsContent() {
         }
 
         const wasCorrect =
-          question.options[optionIndex]
-            ?.is_correct;
+          question.options[optionIndex]?.is_correct;
 
-        let updatedOptions =
-          question.options
-            .filter(
-              (_, index) =>
-                index !== optionIndex
-            )
-            .map((option, index) => ({
-              ...option,
-              option_order: index + 1,
-            }));
+        let updatedOptions = question.options
+          .filter(
+            (_, index) => index !== optionIndex
+          )
+          .map((option, index) => ({
+            ...option,
+            option_order: index + 1,
+          }));
 
         if (
           wasCorrect &&
           updatedOptions.length > 0
         ) {
-          updatedOptions =
-            updatedOptions.map(
-              (option, index) => ({
-                ...option,
-                is_correct:
-                  index === 0,
-              })
-            );
+          updatedOptions = updatedOptions.map(
+            (option, index) => ({
+              ...option,
+              is_correct: index === 0,
+            })
+          );
         }
 
         return {
@@ -480,18 +441,14 @@ function QuestionsContent() {
     ) {
       const question = questions[qIndex];
 
-      if (
-        !question.question_text.trim()
-      ) {
+      if (!question.question_text.trim()) {
         return `Question ${
           qIndex + 1
         } cannot be empty.`;
       }
 
       if (
-        !Number.isFinite(
-          Number(question.marks)
-        ) ||
+        !Number.isFinite(Number(question.marks)) ||
         Number(question.marks) < 0
       ) {
         return `Invalid marks in Question ${
@@ -506,9 +463,8 @@ function QuestionsContent() {
       }
 
       const validOptions =
-        question.options.filter(
-          (option) =>
-            option.option_text.trim()
+        question.options.filter((option) =>
+          option.option_text.trim()
         );
 
       if (validOptions.length < 2) {
@@ -534,7 +490,7 @@ function QuestionsContent() {
     return "";
   }
 
-  async function saveQuestions() {
+  async function saveQuestions(): Promise<boolean> {
     setError("");
     setMessage("");
 
@@ -543,89 +499,133 @@ function QuestionsContent() {
 
     if (validationError) {
       setError(validationError);
-      return;
+      return false;
     }
 
     if (!quiz) {
       setError("Quiz information is missing.");
-      return;
+      return false;
     }
 
     setSaving(true);
 
     try {
-      const existingQuestionIds =
-        questions
-          .map((question) => question.id)
-          .filter(
-            (
-              id
-            ): id is number =>
-              typeof id === "number"
-          );
+      /*
+       * Get ALL questions currently stored for this quiz.
+       */
+      const {
+        data: existingQuestions,
+        error: existingError,
+      } = await supabase
+        .from("quiz_questions")
+        .select("id, question_order")
+        .eq("quiz_id", quiz.id)
+        .order("question_order", {
+          ascending: true,
+        });
 
+      if (existingError) {
+        throw new Error(existingError.message);
+      }
+
+      /*
+       * IDs that are still present in the editor.
+       */
+      const currentQuestionIds = questions
+        .map((question) => question.id)
+        .filter(
+          (id): id is number =>
+            typeof id === "number"
+        );
+
+      /*
+       * IMPORTANT:
+       *
+       * Temporarily move ALL existing questions to
+       * unique high order numbers.
+       *
+       * This prevents errors such as:
+       *
+       * Question 1 = order 1
+       * Question 2 = order 2
+       *
+       * Delete Question 1
+       *
+       * Question 2 -> order 1
+       *
+       * Without this temporary step, database sees
+       * two rows having order 1 and throws:
+       *
+       * duplicate key value violates unique constraint
+       */
       if (
-        existingQuestionIds.length > 0
+        existingQuestions &&
+        existingQuestions.length > 0
       ) {
-        const {
-          data: existingQuestions,
-          error: existingError,
-        } = await supabase
-          .from("quiz_questions")
-          .select("id")
-          .eq("quiz_id", quiz.id);
+        for (
+          let index = 0;
+          index < existingQuestions.length;
+          index++
+        ) {
+          const existingQuestion =
+            existingQuestions[index];
 
-        if (existingError) {
-          throw new Error(
-            existingError.message
-          );
-        }
+          const temporaryOrder =
+            1000000 + index + 1;
 
-        const idsToDelete =
-          (existingQuestions || [])
-            .map(
-              (question) =>
-                question.id
-            )
-            .filter(
-              (id) =>
-                !existingQuestionIds.includes(
-                  id
-                )
-            );
-
-        if (idsToDelete.length > 0) {
           const {
-            error: deleteError,
+            error: temporaryOrderError,
           } = await supabase
             .from("quiz_questions")
-            .delete()
-            .in("id", idsToDelete);
+            .update({
+              question_order: temporaryOrder,
+            })
+            .eq("id", existingQuestion.id)
+            .eq("quiz_id", quiz.id);
 
-          if (deleteError) {
+          if (temporaryOrderError) {
             throw new Error(
-              deleteError.message
+              temporaryOrderError.message
             );
           }
         }
-      } else {
+      }
+
+      /*
+       * Delete questions that were removed from
+       * the editor.
+       */
+      const idsToDelete = (
+        existingQuestions || []
+      )
+        .map((question) => question.id)
+        .filter(
+          (id) =>
+            !currentQuestionIds.includes(id)
+        );
+
+      if (idsToDelete.length > 0) {
         const {
-          error: deleteAllError,
+          error: deleteError,
         } = await supabase
           .from("quiz_questions")
           .delete()
-          .eq("quiz_id", quiz.id);
+          .in("id", idsToDelete);
 
-        if (deleteAllError) {
+        if (deleteError) {
           throw new Error(
-            deleteAllError.message
+            deleteError.message
           );
         }
       }
 
-      const savedQuestions: QuizQuestion[] =
-        [];
+      const savedQuestions: QuizQuestion[] = [];
 
+      /*
+       * Now all old questions have temporary
+       * order numbers, so final orders 1,2,3...
+       * are completely free.
+       */
       for (
         let index = 0;
         index < questions.length;
@@ -633,8 +633,9 @@ function QuestionsContent() {
       ) {
         const question = questions[index];
 
-        let questionId =
-          question.id;
+        let questionId = question.id;
+
+        const finalQuestionOrder = index + 1;
 
         if (questionId) {
           const {
@@ -646,10 +647,8 @@ function QuestionsContent() {
               question_text:
                 question.question_text.trim(),
               question_order:
-                index + 1,
-              marks: Number(
-                question.marks
-              ),
+                finalQuestionOrder,
+              marks: Number(question.marks),
             })
             .eq("id", questionId)
             .eq("quiz_id", quiz.id)
@@ -682,10 +681,8 @@ function QuestionsContent() {
               question_text:
                 question.question_text.trim(),
               question_order:
-                index + 1,
-              marks: Number(
-                question.marks
-              ),
+                finalQuestionOrder,
+              marks: Number(question.marks),
             })
             .select(
               `
@@ -708,7 +705,7 @@ function QuestionsContent() {
         }
 
         /*
-         * For each question, synchronize options.
+         * Synchronize options for this question.
          */
         const {
           data: existingOptions,
@@ -716,10 +713,7 @@ function QuestionsContent() {
         } = await supabase
           .from("quiz_options")
           .select("id")
-          .eq(
-            "question_id",
-            questionId
-          );
+          .eq("question_id", questionId);
 
         if (existingOptionsError) {
           throw new Error(
@@ -731,9 +725,7 @@ function QuestionsContent() {
           question.options
             .map((option) => option.id)
             .filter(
-              (
-                id
-              ): id is number =>
+              (id): id is number =>
                 typeof id === "number"
             );
 
@@ -742,14 +734,10 @@ function QuestionsContent() {
             .map((option) => option.id)
             .filter(
               (id) =>
-                !currentOptionIds.includes(
-                  id
-                )
+                !currentOptionIds.includes(id)
             );
 
-        if (
-          optionIdsToDelete.length > 0
-        ) {
+        if (optionIdsToDelete.length > 0) {
           const {
             error: deleteOptionsError,
           } = await supabase
@@ -769,18 +757,13 @@ function QuestionsContent() {
 
         for (
           let optionIndex = 0;
-          optionIndex <
-          question.options.length;
+          optionIndex < question.options.length;
           optionIndex++
         ) {
           const option =
-            question.options[
-              optionIndex
-            ];
+            question.options[optionIndex];
 
-          if (
-            !option.option_text.trim()
-          ) {
+          if (!option.option_text.trim()) {
             continue;
           }
 
@@ -814,8 +797,7 @@ function QuestionsContent() {
             } = await supabase
               .from("quiz_options")
               .insert({
-                question_id:
-                  questionId,
+                question_id: questionId,
                 option_text:
                   option.option_text.trim(),
                 option_order:
@@ -836,23 +818,25 @@ function QuestionsContent() {
           ...question,
           id: questionId,
           question_order:
-            index + 1,
+            finalQuestionOrder,
         });
       }
 
-      setQuestions(
-        savedQuestions
-      );
+      setQuestions(savedQuestions);
 
       setMessage(
         "Questions and options saved successfully."
       );
+
+      return true;
     } catch (saveError) {
       setError(
         saveError instanceof Error
           ? saveError.message
           : "Unable to save questions."
       );
+
+      return false;
     } finally {
       setSaving(false);
     }
@@ -876,10 +860,17 @@ function QuestionsContent() {
 
     try {
       /*
-       * Always save the latest question data
-       * before publishing.
+       * Save latest questions first.
+       *
+       * Only continue to publishing if saving
+       * actually succeeded.
        */
-      await saveQuestions();
+      const saveSuccessful =
+        await saveQuestions();
+
+      if (!saveSuccessful) {
+        return;
+      }
 
       const {
         data: latestQuestions,
@@ -953,13 +944,10 @@ function QuestionsContent() {
       )}`
     );
 
-    return date.toLocaleString(
-      "en-IN",
-      {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }
-    );
+    return date.toLocaleString("en-IN", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
   }
 
   if (loading) {
@@ -1087,9 +1075,7 @@ function QuestionsContent() {
               <span style={infoLabel}>
                 TOTAL MARKS
               </span>
-              <strong>
-                {totalMarks}
-              </strong>
+              <strong>{totalMarks}</strong>
             </div>
           </section>
         )}
@@ -1138,7 +1124,8 @@ function QuestionsContent() {
               {questions.length} question
               {questions.length === 1
                 ? ""
-                : "s"} added
+                : "s"}{" "}
+              added
             </p>
           </div>
 
@@ -1174,12 +1161,11 @@ function QuestionsContent() {
             <p
               style={{
                 color: "#64748b",
-                margin:
-                  "8px 0 20px",
+                margin: "8px 0 20px",
               }}
             >
-              Add your first MCQ question
-              to start building this quiz.
+              Add your first MCQ question to start
+              building this quiz.
             </p>
 
             <button
@@ -1219,8 +1205,7 @@ function QuestionsContent() {
                     <div
                       style={{
                         display: "flex",
-                        alignItems:
-                          "center",
+                        alignItems: "center",
                         gap: 12,
                       }}
                     >
@@ -1236,29 +1221,24 @@ function QuestionsContent() {
                         <h3
                           style={{
                             margin: 0,
-                            color:
-                              "#0f172a",
+                            color: "#0f172a",
                             fontSize: 18,
                             fontWeight: 900,
                           }}
                         >
                           Question{" "}
-                          {questionIndex +
-                            1}
+                          {questionIndex + 1}
                         </h3>
 
                         <p
                           style={{
-                            margin:
-                              "4px 0 0",
-                            color:
-                              "#94a3b8",
+                            margin: "4px 0 0",
+                            color: "#94a3b8",
                             fontSize: 12,
                           }}
                         >
-                          Select exactly
-                          one correct
-                          answer
+                          Select exactly one
+                          correct answer
                         </p>
                       </div>
                     </div>
@@ -1289,9 +1269,7 @@ function QuestionsContent() {
                   >
                     <div>
                       <label
-                        style={
-                          labelStyle
-                        }
+                        style={labelStyle}
                       >
                         Question
                       </label>
@@ -1316,9 +1294,7 @@ function QuestionsContent() {
 
                     <div>
                       <label
-                        style={
-                          labelStyle
-                        }
+                        style={labelStyle}
                       >
                         Marks
                       </label>
@@ -1327,18 +1303,14 @@ function QuestionsContent() {
                         type="number"
                         min="0"
                         step="0.5"
-                        value={
-                          question.marks
-                        }
+                        value={question.marks}
                         onChange={(event) =>
                           updateQuestionMarks(
                             questionIndex,
                             event.target.value
                           )
                         }
-                        style={
-                          inputStyle
-                        }
+                        style={inputStyle}
                       />
                     </div>
                   </div>
@@ -1355,8 +1327,7 @@ function QuestionsContent() {
                         display: "flex",
                         justifyContent:
                           "space-between",
-                        alignItems:
-                          "center",
+                        alignItems: "center",
                         gap: 10,
                         marginBottom: 12,
                       }}
@@ -1365,8 +1336,7 @@ function QuestionsContent() {
                         <h4
                           style={{
                             margin: 0,
-                            color:
-                              "#334155",
+                            color: "#334155",
                             fontSize: 15,
                             fontWeight: 900,
                           }}
@@ -1376,17 +1346,14 @@ function QuestionsContent() {
 
                         <p
                           style={{
-                            margin:
-                              "4px 0 0",
-                            color:
-                              "#94a3b8",
+                            margin: "4px 0 0",
+                            color: "#94a3b8",
                             fontSize: 12,
                           }}
                         >
                           Click the radio
-                          button to mark
-                          the correct
-                          answer.
+                          button to mark the
+                          correct answer.
                         </p>
                       </div>
 
@@ -1496,14 +1463,11 @@ function QuestionsContent() {
                               value={
                                 option.option_text
                               }
-                              onChange={(
-                                event
-                              ) =>
+                              onChange={(event) =>
                                 updateOptionText(
                                   questionIndex,
                                   optionIndex,
-                                  event.target
-                                    .value
+                                  event.target.value
                                 )
                               }
                               placeholder={`Option ${String.fromCharCode(
@@ -1610,8 +1574,7 @@ function QuestionsContent() {
         </div>
 
         <footer style={footerStyle}>
-          RACER ACADEMY • Quiz Question
-          Builder
+          RACER ACADEMY • Quiz Question Builder
         </footer>
       </div>
     </main>
@@ -1641,8 +1604,7 @@ const pageStyle: React.CSSProperties = {
   padding: "24px 16px 40px",
   background:
     "linear-gradient(135deg,#f8fafc 0%,#eef2ff 50%,#f8fafc 100%)",
-  fontFamily:
-    "Arial, Helvetica, sans-serif",
+  fontFamily: "Arial, Helvetica, sans-serif",
   boxSizing: "border-box",
 };
 
