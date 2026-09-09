@@ -56,6 +56,15 @@ function getOptionText(option: Option) {
   );
 }
 
+function getScheduledStart(quiz: Quiz) {
+  const time =
+    quiz.scheduled_time?.length === 5
+      ? `${quiz.scheduled_time}:00`
+      : quiz.scheduled_time;
+
+  return new Date(`${quiz.scheduled_date}T${time}`);
+}
+
 function formatTime(totalSeconds: number) {
   const safeSeconds = Math.max(0, totalSeconds);
 
@@ -64,16 +73,25 @@ function formatTime(totalSeconds: number) {
   const seconds = safeSeconds % 60;
 
   if (hours > 0) {
-    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
-      2,
-      "0"
-    )}:${String(seconds).padStart(2, "0")}`;
+    return `${String(hours).padStart(2, "0")}:${String(
+      minutes
+    ).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   }
 
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(
-    2,
-    "0"
-  )}`;
+  return `${String(minutes).padStart(2, "0")}:${String(
+    seconds
+  ).padStart(2, "0")}`;
+}
+
+function formatDateTime(date: Date) {
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }
 
 export default function StudentQuizAttemptPage() {
@@ -115,6 +133,15 @@ export default function StudentQuizAttemptPage() {
     );
   }, [currentIndex, questions.length]);
 
+  /*
+   * LOAD QUIZ
+   *
+   * Quiz must:
+   * 1. Exist
+   * 2. Be published
+   * 3. Have reached its scheduled start time
+   * 4. Still be inside its duration window
+   */
   const loadQuiz = useCallback(async () => {
     if (!Number.isFinite(quizId) || quizId <= 0) {
       setErrorMessage(
@@ -128,12 +155,26 @@ export default function StudentQuizAttemptPage() {
     setErrorMessage("");
 
     try {
-      const { data: quizData, error: quizError } = await supabase
-        .from("quiz_tests")
-        .select("*")
-        .eq("id", quizId)
-        .eq("is_published", true)
-        .maybeSingle();
+      const { data: quizData, error: quizError } =
+        await supabase
+          .from("quiz_tests")
+          .select(
+            `
+            id,
+            title,
+            description,
+            scheduled_date,
+            scheduled_time,
+            duration_minutes,
+            marks_per_question,
+            negative_marks,
+            pass_percentage,
+            is_published
+          `
+          )
+          .eq("id", quizId)
+          .eq("is_published", true)
+          .maybeSingle();
 
       if (quizError) {
         throw new Error(
@@ -149,6 +190,56 @@ export default function StudentQuizAttemptPage() {
 
       const loadedQuiz = quizData as Quiz;
 
+      const scheduledStart = getScheduledStart(loadedQuiz);
+
+      const durationMinutes = Math.max(
+        1,
+        Number(loadedQuiz.duration_minutes || 30)
+      );
+
+      const scheduledEnd = new Date(
+        scheduledStart.getTime() +
+          durationMinutes * 60 * 1000
+      );
+
+      const currentTime = new Date();
+
+      /*
+       * BEFORE START
+       */
+      if (currentTime < scheduledStart) {
+        throw new Error(
+          `Quiz abhi start nahi hua hai.\n\nScheduled Start: ${formatDateTime(
+            scheduledStart
+          )}`
+        );
+      }
+
+      /*
+       * AFTER END
+       */
+      if (currentTime >= scheduledEnd) {
+        throw new Error(
+          `Is quiz ka time khatam ho chuka hai.\n\nQuiz Ended: ${formatDateTime(
+            scheduledEnd
+          )}`
+        );
+      }
+
+      /*
+       * REMAINING TIME
+       *
+       * Student ko full duration nahi milega agar woh
+       * scheduled start ke baad late enter karta hai.
+       */
+      const remainingSeconds = Math.max(
+        0,
+        Math.ceil(
+          (scheduledEnd.getTime() - currentTime.getTime()) /
+            1000
+        )
+      );
+
       setQuiz(loadedQuiz);
 
       const { data: questionData, error: questionError } =
@@ -156,7 +247,9 @@ export default function StudentQuizAttemptPage() {
           .from("quiz_questions")
           .select("*")
           .eq("quiz_id", quizId)
-          .order("question_number", { ascending: true });
+          .order("question_number", {
+            ascending: true,
+          });
 
       if (questionError) {
         throw new Error(
@@ -164,24 +257,30 @@ export default function StudentQuizAttemptPage() {
         );
       }
 
-      const loadedQuestions = (questionData || []) as Question[];
+      const loadedQuestions = (questionData ||
+        []) as Question[];
 
       if (loadedQuestions.length === 0) {
         setQuestions([]);
-        setTimeLeft(
-          Math.max(1, Number(loadedQuiz.duration_minutes || 30)) * 60
-        );
+        setTimeLeft(remainingSeconds);
+        setStarted(false);
         return;
       }
 
-      const questionIds = loadedQuestions.map((item) => item.id);
+      const questionIds = loadedQuestions.map(
+        (item) => item.id
+      );
 
-      const { data: optionData, error: optionError } =
-        await supabase
-          .from("quiz_options")
-          .select("*")
-          .in("question_id", questionIds)
-          .order("id", { ascending: true });
+      const {
+        data: optionData,
+        error: optionError,
+      } = await supabase
+        .from("quiz_options")
+        .select("*")
+        .in("question_id", questionIds)
+        .order("id", {
+          ascending: true,
+        });
 
       if (optionError) {
         throw new Error(
@@ -189,21 +288,21 @@ export default function StudentQuizAttemptPage() {
         );
       }
 
-      const loadedOptions = (optionData || []) as Option[];
+      const loadedOptions = (optionData ||
+        []) as Option[];
 
-      const questionsWithOptions = loadedQuestions.map((question) => ({
-        ...question,
-        options: loadedOptions.filter(
-          (option) => option.question_id === question.id
-        ),
-      }));
+      const questionsWithOptions =
+        loadedQuestions.map((question) => ({
+          ...question,
+          options: loadedOptions.filter(
+            (option) =>
+              option.question_id === question.id
+          ),
+        }));
 
       setQuestions(questionsWithOptions);
 
-      setTimeLeft(
-        Math.max(1, Number(loadedQuiz.duration_minutes || 30)) * 60
-      );
-
+      setTimeLeft(remainingSeconds);
       setStarted(true);
     } catch (error) {
       setErrorMessage(
@@ -227,55 +326,71 @@ export default function StudentQuizAttemptPage() {
   /*
    * TIMER
    *
-   * Quiz load hone ke baad countdown automatically chalta rahega.
-   * Time 0 hone par quiz automatically submit/lock ho jayega.
+   * Actual duration_minutes ke according chalega.
+   * Browser tab active hone par har second update hoga.
    */
   useEffect(() => {
-    if (!started || loading || questions.length === 0) {
-      return;
-    }
-
-    if (timeLeft <= 0) {
+    if (
+      !started ||
+      loading ||
+      questions.length === 0 ||
+      timeLeft <= 0
+    ) {
       return;
     }
 
     const timer = window.setInterval(() => {
-      setTimeLeft((current) => {
-        if (current <= 1) {
-          window.clearInterval(timer);
-          return 0;
-        }
-
-        return current - 1;
-      });
+      setTimeLeft((current) =>
+        Math.max(0, current - 1)
+      );
     }, 1000);
 
     return () => {
       window.clearInterval(timer);
     };
-  }, [started, loading, questions.length, timeLeft]);
+  }, [
+    started,
+    loading,
+    questions.length,
+    timeLeft,
+  ]);
 
   /*
    * Browser refresh/close warning while quiz is running.
    */
   useEffect(() => {
-    if (!started || submitting || timeLeft <= 0) {
+    if (
+      !started ||
+      submitting ||
+      timeLeft <= 0
+    ) {
       return;
     }
 
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+    const handleBeforeUnload = (
+      event: BeforeUnloadEvent
+    ) => {
       event.preventDefault();
       event.returnValue = "";
     };
 
-    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener(
+      "beforeunload",
+      handleBeforeUnload
+    );
 
     return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener(
+        "beforeunload",
+        handleBeforeUnload
+      );
     };
   }, [started, submitting, timeLeft]);
 
-  function selectAnswer(questionId: number, optionId: number) {
+  function selectAnswer(
+    questionId: number,
+    optionId: number
+  ) {
     if (timeLeft <= 0 || submitting) {
       return;
     }
@@ -288,64 +403,56 @@ export default function StudentQuizAttemptPage() {
 
   function goNext() {
     if (currentIndex < questions.length - 1) {
-      setCurrentIndex((current) => current + 1);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      setCurrentIndex(
+        (current) => current + 1
+      );
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
     }
   }
 
   function goPrevious() {
     if (currentIndex > 0) {
-      setCurrentIndex((current) => current - 1);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      setCurrentIndex(
+        (current) => current - 1
+      );
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
     }
   }
 
   function goToQuestion(index: number) {
     setCurrentIndex(index);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   }
 
-  async function submitQuiz() {
-    if (submitting) return;
-
-    const unansweredCount = questions.length - answeredCount;
-
-    const confirmation = window.confirm(
-      unansweredCount > 0
-        ? `Aapne ${unansweredCount} question attempt nahi kiye hain.\n\nKya aap quiz submit karna chahte hain?`
-        : "Kya aap quiz submit karna chahte hain?"
-    );
-
-    if (!confirmation) {
-      return;
-    }
-
-    setSubmitting(true);
-
-    /*
-     * IMPORTANT:
-     * Abhi existing database mein result/attempt table ka exact schema
-     * is file mein available nahi hai.
-     *
-     * Isliye answers ko local state se lock karke result calculation
-     * yahan ki ja rahi hai. Existing result table ka exact schema milne
-     * par isi submit function ko database saving ke saath connect kiya
-     * ja sakta hai.
-     */
-
+  function calculateResult() {
     let correctAnswers = 0;
     let wrongAnswers = 0;
 
     questions.forEach((question) => {
-      const selectedOptionId = answers[question.id];
+      const selectedOptionId =
+        answers[question.id];
 
       if (!selectedOptionId) {
         return;
       }
 
-      const selectedOption = question.options?.find(
-        (option) => option.id === selectedOptionId
-      );
+      const selectedOption =
+        question.options?.find(
+          (option) =>
+            option.id === selectedOptionId
+        );
 
       if (selectedOption?.is_correct) {
         correctAnswers += 1;
@@ -354,7 +461,8 @@ export default function StudentQuizAttemptPage() {
       }
     });
 
-    const unanswered = questions.length - answeredCount;
+    const unanswered =
+      questions.length - answeredCount;
 
     const marksPerQuestion = Number(
       quiz?.marks_per_question ?? 1
@@ -373,16 +481,20 @@ export default function StudentQuizAttemptPage() {
 
     const percentage =
       totalMarks > 0
-        ? Math.max(0, (score / totalMarks) * 100)
+        ? Math.max(
+            0,
+            (score / totalMarks) * 100
+          )
         : 0;
 
     const passPercentage = Number(
       quiz?.pass_percentage ?? 40
     );
 
-    const passed = percentage >= passPercentage;
+    const passed =
+      percentage >= passPercentage;
 
-    const resultData = {
+    return {
       quizId,
       correctAnswers,
       wrongAnswers,
@@ -393,7 +505,9 @@ export default function StudentQuizAttemptPage() {
       passed,
       answers,
     };
+  }
 
+  function saveResult(resultData: object) {
     try {
       sessionStorage.setItem(
         `quiz-result-${quizId}`,
@@ -402,16 +516,64 @@ export default function StudentQuizAttemptPage() {
     } catch {
       // Ignore sessionStorage errors.
     }
+  }
+
+  async function submitQuiz(
+    isAutomatic = false
+  ) {
+    if (submitting) return;
+
+    if (!isAutomatic) {
+      const unansweredCount =
+        questions.length - answeredCount;
+
+      const confirmation = window.confirm(
+        unansweredCount > 0
+          ? `Aapne ${unansweredCount} question attempt nahi kiye hain.\n\nKya aap quiz submit karna chahte hain?`
+          : "Kya aap quiz submit karna chahte hain?"
+      );
+
+      if (!confirmation) {
+        return;
+      }
+    }
+
+    setSubmitting(true);
+
+    const resultData = calculateResult();
+
+    saveResult({
+      ...resultData,
+      autoSubmitted: isAutomatic,
+    });
 
     setStarted(false);
 
-    alert(
-      `Quiz Submitted!\n\nScore: ${score.toFixed(2)} / ${totalMarks.toFixed(
-        2
-      )}\nPercentage: ${percentage.toFixed(2)}%\n\n${
-        passed ? "PASS" : "FAIL"
-      }`
-    );
+    if (isAutomatic) {
+      alert(
+        `Time Up!\n\nQuiz automatically submit ho gaya.\n\nScore: ${resultData.score.toFixed(
+          2
+        )} / ${resultData.totalMarks.toFixed(
+          2
+        )}\nPercentage: ${resultData.percentage.toFixed(
+          2
+        )}%`
+      );
+    } else {
+      alert(
+        `Quiz Submitted!\n\nScore: ${resultData.score.toFixed(
+          2
+        )} / ${resultData.totalMarks.toFixed(
+          2
+        )}\nPercentage: ${resultData.percentage.toFixed(
+          2
+        )}%\n\n${
+          resultData.passed
+            ? "PASS"
+            : "FAIL"
+        }`
+      );
+    }
 
     setSubmitting(false);
 
@@ -423,7 +585,7 @@ export default function StudentQuizAttemptPage() {
   }
 
   /*
-   * AUTO LOCK WHEN TIMER FINISHES
+   * AUTO SUBMIT WHEN TIMER REACHES ZERO
    */
   useEffect(() => {
     if (
@@ -432,107 +594,13 @@ export default function StudentQuizAttemptPage() {
       questions.length > 0 &&
       !submitting
     ) {
-      setSubmitting(true);
-
-      let correctAnswers = 0;
-      let wrongAnswers = 0;
-
-      questions.forEach((question) => {
-        const selectedOptionId = answers[question.id];
-
-        if (!selectedOptionId) {
-          return;
-        }
-
-        const selectedOption = question.options?.find(
-          (option) => option.id === selectedOptionId
-        );
-
-        if (selectedOption?.is_correct) {
-          correctAnswers += 1;
-        } else {
-          wrongAnswers += 1;
-        }
-      });
-
-      const unanswered = questions.length - answeredCount;
-
-      const marksPerQuestion = Number(
-        quiz?.marks_per_question ?? 1
-      );
-
-      const negativeMarks = Number(
-        quiz?.negative_marks ?? 0
-      );
-
-      const score =
-        correctAnswers * marksPerQuestion -
-        wrongAnswers * negativeMarks;
-
-      const totalMarks =
-        questions.length * marksPerQuestion;
-
-      const percentage =
-        totalMarks > 0
-          ? Math.max(0, (score / totalMarks) * 100)
-          : 0;
-
-      const passPercentage = Number(
-        quiz?.pass_percentage ?? 40
-      );
-
-      const passed = percentage >= passPercentage;
-
-      const resultData = {
-        quizId,
-        correctAnswers,
-        wrongAnswers,
-        unanswered,
-        score,
-        totalMarks,
-        percentage,
-        passed,
-        answers,
-        autoSubmitted: true,
-      };
-
-      try {
-        sessionStorage.setItem(
-          `quiz-result-${quizId}`,
-          JSON.stringify(resultData)
-        );
-      } catch {
-        // Ignore storage errors.
-      }
-
-      setStarted(false);
-
-      alert(
-        `Time Up!\n\nQuiz automatically submit ho gaya.\n\nScore: ${score.toFixed(
-          2
-        )} / ${totalMarks.toFixed(2)}\nPercentage: ${percentage.toFixed(
-          2
-        )}%`
-      );
-
-      setSubmitting(false);
-
-      router.push(
-        `/student/quiz-tests?quizId=${encodeURIComponent(
-          String(quizId)
-        )}`
-      );
+      submitQuiz(true);
     }
   }, [
     timeLeft,
     started,
-    questions,
-    answers,
-    quiz,
-    quizId,
-    answeredCount,
+    questions.length,
     submitting,
-    router,
   ]);
 
   if (loading) {
@@ -556,10 +624,13 @@ export default function StudentQuizAttemptPage() {
             width: "100%",
             maxWidth: 500,
             textAlign: "center",
-            boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+            boxShadow:
+              "0 10px 30px rgba(0,0,0,0.08)",
           }}
         >
-          <div style={{ fontSize: 45 }}>🧠</div>
+          <div style={{ fontSize: 45 }}>
+            🧠
+          </div>
 
           <h2
             style={{
@@ -571,8 +642,14 @@ export default function StudentQuizAttemptPage() {
             Loading Quiz...
           </h2>
 
-          <p style={{ color: "#64748b", margin: 0 }}>
-            Questions aur options load ho rahe hain.
+          <p
+            style={{
+              color: "#64748b",
+              margin: 0,
+            }}
+          >
+            Questions aur options load ho rahe
+            hain.
           </p>
         </div>
       </main>
@@ -596,7 +673,8 @@ export default function StudentQuizAttemptPage() {
             background: "#ffffff",
             borderRadius: 20,
             padding: 30,
-            boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+            boxShadow:
+              "0 10px 30px rgba(0,0,0,0.08)",
           }}
         >
           <div
@@ -633,28 +711,52 @@ export default function StudentQuizAttemptPage() {
               borderRadius: 12,
               background: "#fef2f2",
               color: "#7f1d1d",
-              fontFamily: "Arial, sans-serif",
+              fontFamily:
+                "Arial, sans-serif",
               lineHeight: 1.6,
             }}
           >
             {errorMessage}
           </pre>
 
-          <button
-            onClick={() => router.back()}
+          <div
             style={{
+              display: "flex",
+              gap: 10,
+              flexWrap: "wrap",
               marginTop: 10,
-              border: "none",
-              borderRadius: 12,
-              padding: "13px 22px",
-              background: "#0f172a",
-              color: "#ffffff",
-              fontWeight: 700,
-              cursor: "pointer",
             }}
           >
-            ← Back
-          </button>
+            <button
+              onClick={() => router.back()}
+              style={{
+                border: "none",
+                borderRadius: 12,
+                padding: "13px 22px",
+                background: "#0f172a",
+                color: "#ffffff",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              ← Back
+            </button>
+
+            <button
+              onClick={loadQuiz}
+              style={{
+                border: "none",
+                borderRadius: 12,
+                padding: "13px 22px",
+                background: "#2563eb",
+                color: "#ffffff",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              ↻ Try Again
+            </button>
+          </div>
         </div>
       </main>
     );
@@ -682,10 +784,13 @@ export default function StudentQuizAttemptPage() {
             borderRadius: 20,
             padding: 30,
             textAlign: "center",
-            boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+            boxShadow:
+              "0 10px 30px rgba(0,0,0,0.08)",
           }}
         >
-          <div style={{ fontSize: 50 }}>📝</div>
+          <div style={{ fontSize: 50 }}>
+            📝
+          </div>
 
           <h1
             style={{
@@ -696,8 +801,13 @@ export default function StudentQuizAttemptPage() {
             No Questions Found
           </h1>
 
-          <p style={{ color: "#64748b" }}>
-            Is quiz mein abhi koi question available nahi hai.
+          <p
+            style={{
+              color: "#64748b",
+            }}
+          >
+            Is quiz mein abhi koi question
+            available nahi hai.
           </p>
 
           <button
@@ -742,7 +852,8 @@ export default function StudentQuizAttemptPage() {
             background: "#ffffff",
             borderRadius: 20,
             padding: "20px 22px",
-            boxShadow: "0 8px 25px rgba(15,23,42,0.08)",
+            boxShadow:
+              "0 8px 25px rgba(15,23,42,0.08)",
             marginBottom: 18,
           }}
         >
@@ -771,7 +882,8 @@ export default function StudentQuizAttemptPage() {
               <h1
                 style={{
                   margin: "5px 0 0",
-                  fontSize: "clamp(22px, 4vw, 32px)",
+                  fontSize:
+                    "clamp(22px, 4vw, 32px)",
                   color: "#0f172a",
                 }}
               >
@@ -787,7 +899,9 @@ export default function StudentQuizAttemptPage() {
                 borderRadius: 16,
                 padding: "12px 18px",
                 background:
-                  timeLeft <= 60 ? "#fee2e2" : "#eef2ff",
+                  timeLeft <= 60
+                    ? "#fee2e2"
+                    : "#eef2ff",
                 border:
                   timeLeft <= 60
                     ? "2px solid #fecaca"
@@ -799,7 +913,9 @@ export default function StudentQuizAttemptPage() {
                   fontSize: 12,
                   fontWeight: 800,
                   color:
-                    timeLeft <= 60 ? "#dc2626" : "#4f46e5",
+                    timeLeft <= 60
+                      ? "#dc2626"
+                      : "#4f46e5",
                 }}
               >
                 TIME LEFT
@@ -811,8 +927,11 @@ export default function StudentQuizAttemptPage() {
                   fontWeight: 900,
                   marginTop: 3,
                   color:
-                    timeLeft <= 60 ? "#b91c1c" : "#312e81",
-                  fontVariantNumeric: "tabular-nums",
+                    timeLeft <= 60
+                      ? "#b91c1c"
+                      : "#312e81",
+                  fontVariantNumeric:
+                    "tabular-nums",
                 }}
               >
                 {formatTime(timeLeft)}
@@ -825,7 +944,8 @@ export default function StudentQuizAttemptPage() {
             <div
               style={{
                 display: "flex",
-                justifyContent: "space-between",
+                justifyContent:
+                  "space-between",
                 marginBottom: 7,
                 fontSize: 13,
                 color: "#64748b",
@@ -833,11 +953,13 @@ export default function StudentQuizAttemptPage() {
               }}
             >
               <span>
-                Question {currentIndex + 1} of {questions.length}
+                Question {currentIndex + 1} of{" "}
+                {questions.length}
               </span>
 
               <span>
-                {answeredCount}/{questions.length} Answered
+                {answeredCount}/
+                {questions.length} Answered
               </span>
             </div>
 
@@ -856,7 +978,8 @@ export default function StudentQuizAttemptPage() {
                   background:
                     "linear-gradient(90deg, #4f46e5, #7c3aed)",
                   borderRadius: 999,
-                  transition: "width 0.25s ease",
+                  transition:
+                    "width 0.25s ease",
                 }}
               />
             </div>
@@ -878,7 +1001,8 @@ export default function StudentQuizAttemptPage() {
               background: "#ffffff",
               borderRadius: 20,
               padding: "25px",
-              boxShadow: "0 8px 25px rgba(15,23,42,0.08)",
+              boxShadow:
+                "0 8px 25px rgba(15,23,42,0.08)",
             }}
           >
             <div
@@ -901,12 +1025,15 @@ export default function StudentQuizAttemptPage() {
             <h2
               style={{
                 margin: "0 0 25px",
-                fontSize: "clamp(19px, 3vw, 25px)",
+                fontSize:
+                  "clamp(19px, 3vw, 25px)",
                 lineHeight: 1.5,
                 color: "#111827",
               }}
             >
-              {getQuestionText(currentQuestion)}
+              {getQuestionText(
+                currentQuestion
+              )}
             </h2>
 
             <div
@@ -915,19 +1042,27 @@ export default function StudentQuizAttemptPage() {
                 gap: 13,
               }}
             >
-              {(currentQuestion.options || []).map(
+              {(currentQuestion.options ||
+                []).map(
                 (option, optionIndex) => {
                   const selected =
-                    answers[currentQuestion.id] === option.id;
+                    answers[
+                      currentQuestion.id
+                    ] === option.id;
 
                   const optionLetter =
-                    String.fromCharCode(65 + optionIndex);
+                    String.fromCharCode(
+                      65 + optionIndex
+                    );
 
                   return (
                     <button
                       key={option.id}
                       type="button"
-                      disabled={timeLeft <= 0 || submitting}
+                      disabled={
+                        timeLeft <= 0 ||
+                        submitting
+                      }
                       onClick={() =>
                         selectAnswer(
                           currentQuestion.id,
@@ -946,14 +1081,18 @@ export default function StudentQuizAttemptPage() {
                         borderRadius: 15,
                         padding: "15px",
                         display: "flex",
-                        alignItems: "center",
+                        alignItems:
+                          "center",
                         gap: 13,
                         cursor:
-                          timeLeft <= 0 || submitting
+                          timeLeft <= 0 ||
+                          submitting
                             ? "not-allowed"
                             : "pointer",
                         opacity:
-                          timeLeft <= 0 ? 0.65 : 1,
+                          timeLeft <= 0
+                            ? 0.65
+                            : 1,
                         transition:
                           "all 0.2s ease",
                       }}
@@ -965,8 +1104,10 @@ export default function StudentQuizAttemptPage() {
                           minWidth: 38,
                           borderRadius: "50%",
                           display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
+                          alignItems:
+                            "center",
+                          justifyContent:
+                            "center",
                           background: selected
                             ? "#4f46e5"
                             : "#f1f5f9",
@@ -984,10 +1125,15 @@ export default function StudentQuizAttemptPage() {
                           color: "#1e293b",
                           fontSize: 16,
                           lineHeight: 1.45,
-                          fontWeight: selected ? 700 : 500,
+                          fontWeight:
+                            selected
+                              ? 700
+                              : 500,
                         }}
                       >
-                        {getOptionText(option)}
+                        {getOptionText(
+                          option
+                        )}
                       </span>
                     </button>
                   );
@@ -996,7 +1142,8 @@ export default function StudentQuizAttemptPage() {
             </div>
 
             {(!currentQuestion.options ||
-              currentQuestion.options.length === 0) && (
+              currentQuestion.options
+                .length === 0) && (
               <div
                 style={{
                   marginTop: 20,
@@ -1007,7 +1154,8 @@ export default function StudentQuizAttemptPage() {
                   fontWeight: 700,
                 }}
               >
-                Is question ke options available nahi hain.
+                Is question ke options
+                available nahi hain.
               </div>
             )}
 
@@ -1016,9 +1164,11 @@ export default function StudentQuizAttemptPage() {
               style={{
                 marginTop: 28,
                 paddingTop: 20,
-                borderTop: "1px solid #e2e8f0",
+                borderTop:
+                  "1px solid #e2e8f0",
                 display: "flex",
-                justifyContent: "space-between",
+                justifyContent:
+                  "space-between",
                 gap: 12,
               }}
             >
@@ -1027,7 +1177,8 @@ export default function StudentQuizAttemptPage() {
                 onClick={goPrevious}
                 disabled={currentIndex === 0}
                 style={{
-                  border: "1px solid #cbd5e1",
+                  border:
+                    "1px solid #cbd5e1",
                   background:
                     currentIndex === 0
                       ? "#f8fafc"
@@ -1041,13 +1192,16 @@ export default function StudentQuizAttemptPage() {
                       ? "not-allowed"
                       : "pointer",
                   opacity:
-                    currentIndex === 0 ? 0.5 : 1,
+                    currentIndex === 0
+                      ? 0.5
+                      : 1,
                 }}
               >
                 ← Previous
               </button>
 
-              {currentIndex < questions.length - 1 ? (
+              {currentIndex <
+              questions.length - 1 ? (
                 <button
                   type="button"
                   onClick={goNext}
@@ -1067,8 +1221,13 @@ export default function StudentQuizAttemptPage() {
               ) : (
                 <button
                   type="button"
-                  onClick={submitQuiz}
-                  disabled={submitting || timeLeft <= 0}
+                  onClick={() =>
+                    submitQuiz(false)
+                  }
+                  disabled={
+                    submitting ||
+                    timeLeft <= 0
+                  }
                   style={{
                     border: "none",
                     background:
@@ -1078,11 +1237,13 @@ export default function StudentQuizAttemptPage() {
                     padding: "12px 22px",
                     fontWeight: 900,
                     cursor:
-                      submitting || timeLeft <= 0
+                      submitting ||
+                      timeLeft <= 0
                         ? "not-allowed"
                         : "pointer",
                     opacity:
-                      submitting || timeLeft <= 0
+                      submitting ||
+                      timeLeft <= 0
                         ? 0.6
                         : 1,
                   }}
@@ -1134,49 +1295,56 @@ export default function StudentQuizAttemptPage() {
                 gap: 8,
               }}
             >
-              {questions.map((question, index) => {
-                const answered =
-                  answers[question.id] !== undefined;
+              {questions.map(
+                (question, index) => {
+                  const answered =
+                    answers[
+                      question.id
+                    ] !== undefined;
 
-                const current =
-                  index === currentIndex;
+                  const current =
+                    index === currentIndex;
 
-                return (
-                  <button
-                    key={question.id}
-                    type="button"
-                    onClick={() => goToQuestion(index)}
-                    style={{
-                      height: 42,
-                      borderRadius: 10,
-                      border: current
-                        ? "2px solid #4f46e5"
-                        : "1px solid #cbd5e1",
-                      background: current
-                        ? "#4f46e5"
-                        : answered
-                        ? "#dcfce7"
-                        : "#f8fafc",
-                      color: current
-                        ? "#ffffff"
-                        : answered
-                        ? "#166534"
-                        : "#334155",
-                      fontWeight: 900,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {index + 1}
-                  </button>
-                );
-              })}
+                  return (
+                    <button
+                      key={question.id}
+                      type="button"
+                      onClick={() =>
+                        goToQuestion(index)
+                      }
+                      style={{
+                        height: 42,
+                        borderRadius: 10,
+                        border: current
+                          ? "2px solid #4f46e5"
+                          : "1px solid #cbd5e1",
+                        background: current
+                          ? "#4f46e5"
+                          : answered
+                          ? "#dcfce7"
+                          : "#f8fafc",
+                        color: current
+                          ? "#ffffff"
+                          : answered
+                          ? "#166534"
+                          : "#334155",
+                        fontWeight: 900,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {index + 1}
+                    </button>
+                  );
+                }
+              )}
             </div>
 
             <div
               style={{
                 marginTop: 20,
                 paddingTop: 15,
-                borderTop: "1px solid #e2e8f0",
+                borderTop:
+                  "1px solid #e2e8f0",
                 display: "grid",
                 gap: 10,
                 fontSize: 13,
@@ -1186,7 +1354,8 @@ export default function StudentQuizAttemptPage() {
               <div
                 style={{
                   display: "flex",
-                  alignItems: "center",
+                  alignItems:
+                    "center",
                   gap: 8,
                 }}
               >
@@ -1196,7 +1365,8 @@ export default function StudentQuizAttemptPage() {
                     height: 13,
                     borderRadius: 4,
                     background: "#dcfce7",
-                    border: "1px solid #86efac",
+                    border:
+                      "1px solid #86efac",
                   }}
                 />
                 Answered
@@ -1205,7 +1375,8 @@ export default function StudentQuizAttemptPage() {
               <div
                 style={{
                   display: "flex",
-                  alignItems: "center",
+                  alignItems:
+                    "center",
                   gap: 8,
                 }}
               >
@@ -1215,7 +1386,8 @@ export default function StudentQuizAttemptPage() {
                     height: 13,
                     borderRadius: 4,
                     background: "#f8fafc",
-                    border: "1px solid #cbd5e1",
+                    border:
+                      "1px solid #cbd5e1",
                   }}
                 />
                 Not Answered
@@ -1224,7 +1396,8 @@ export default function StudentQuizAttemptPage() {
               <div
                 style={{
                   display: "flex",
-                  alignItems: "center",
+                  alignItems:
+                    "center",
                   gap: 8,
                 }}
               >
@@ -1264,7 +1437,8 @@ export default function StudentQuizAttemptPage() {
                   color: "#0f172a",
                 }}
               >
-                {quiz.duration_minutes} minutes
+                {quiz.duration_minutes}{" "}
+                minutes
               </div>
             </div>
 
@@ -1342,6 +1516,10 @@ export default function StudentQuizAttemptPage() {
 
           section {
             padding: 18px !important;
+          }
+
+          main > div > div:nth-child(2) {
+            grid-template-columns: 1fr !important;
           }
         }
 
