@@ -35,6 +35,9 @@ type QuizQuestion = {
   question_text: string;
   question_order: number;
   marks: number;
+};
+
+type QuizQuestionWithOptions = QuizQuestion & {
   options: QuizOption[];
 };
 
@@ -48,7 +51,7 @@ function QuestionsContent() {
   const [quiz, setQuiz] = useState<Quiz | null>(null);
 
   const [questions, setQuestions] = useState<
-    QuizQuestion[]
+    QuizQuestionWithOptions[]
   >([]);
 
   const [loading, setLoading] = useState(true);
@@ -58,154 +61,149 @@ function QuestionsContent() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const loadQuizAndQuestions = useCallback(
-    async () => {
-      if (!Number.isInteger(quizId) || quizId <= 0) {
-        setError("Invalid quiz ID.");
-        setLoading(false);
-        return;
-      }
+  const loadQuizAndQuestions = useCallback(async () => {
+    if (!Number.isInteger(quizId) || quizId <= 0) {
+      setError("Invalid quiz ID.");
+      setLoading(false);
+      return;
+    }
 
-      setLoading(true);
-      setError("");
-      setMessage("");
+    setLoading(true);
+    setError("");
+    setMessage("");
 
-      try {
-        const { data: quizData, error: quizError } =
-          await supabase
-            .from("quiz_tests")
-            .select(
-              `
-              id,
-              title,
-              description,
-              scheduled_date,
-              scheduled_time,
-              duration_minutes,
-              marks_per_question,
-              negative_marks,
-              pass_percentage,
-              is_published
-              `
-            )
-            .eq("id", quizId)
-            .maybeSingle();
-
-        if (quizError) {
-          throw new Error(quizError.message);
-        }
-
-        if (!quizData) {
-          throw new Error("Quiz was not found.");
-        }
-
-        setQuiz(quizData as Quiz);
-
-        const {
-          data: questionData,
-          error: questionError,
-        } = await supabase
-          .from("quiz_questions")
+    try {
+      const { data: quizData, error: quizError } =
+        await supabase
+          .from("quiz_tests")
           .select(
             `
             id,
-            quiz_id,
-            question_text,
-            question_order,
-            marks
+            title,
+            description,
+            scheduled_date,
+            scheduled_time,
+            duration_minutes,
+            marks_per_question,
+            negative_marks,
+            pass_percentage,
+            is_published
             `
           )
-          .eq("quiz_id", quizId)
-          .order("question_order", {
+          .eq("id", quizId)
+          .maybeSingle();
+
+      if (quizError) {
+        throw new Error(quizError.message);
+      }
+
+      if (!quizData) {
+        throw new Error("Quiz was not found.");
+      }
+
+      setQuiz(quizData as Quiz);
+
+      const {
+        data: questionData,
+        error: questionError,
+      } = await supabase
+        .from("quiz_questions")
+        .select(
+          `
+          id,
+          quiz_id,
+          question_text,
+          question_order,
+          marks
+          `
+        )
+        .eq("quiz_id", quizId)
+        .order("question_order", {
+          ascending: true,
+        });
+
+      if (questionError) {
+        throw new Error(questionError.message);
+      }
+
+      const loadedQuestions = questionData || [];
+
+      const questionIds = loadedQuestions.map(
+        (question) => question.id
+      );
+
+      let optionData: Array<{
+        id: number;
+        question_id: number;
+        option_text: string;
+        option_order: number;
+        is_correct: boolean;
+      }> = [];
+
+      if (questionIds.length > 0) {
+        const {
+          data: options,
+          error: optionError,
+        } = await supabase
+          .from("quiz_options")
+          .select(
+            `
+            id,
+            question_id,
+            option_text,
+            option_order,
+            is_correct
+            `
+          )
+          .in("question_id", questionIds)
+          .order("option_order", {
             ascending: true,
           });
 
-        if (questionError) {
-          throw new Error(questionError.message);
+        if (optionError) {
+          throw new Error(optionError.message);
         }
 
-        const loadedQuestions = questionData || [];
-
-        const questionIds = loadedQuestions.map(
-          (question) => question.id
-        );
-
-        let optionData: Array<{
-          id: number;
-          question_id: number;
-          option_text: string;
-          option_order: number;
-          is_correct: boolean;
-        }> = [];
-
-        if (questionIds.length > 0) {
-          const {
-            data: options,
-            error: optionError,
-          } = await supabase
-            .from("quiz_options")
-            .select(
-              `
-              id,
-              question_id,
-              option_text,
-              option_order,
-              is_correct
-              `
-            )
-            .in("question_id", questionIds)
-            .order("option_order", {
-              ascending: true,
-            });
-
-          if (optionError) {
-            throw new Error(optionError.message);
-          }
-
-          optionData = options || [];
-        }
-
-        const formattedQuestions: QuizQuestion[] =
-          loadedQuestions.map((question) => ({
-            id: question.id,
-            question_text: question.question_text,
-            question_order: question.question_order,
-            marks:
-              question.marks !== null
-                ? Number(question.marks)
-                : Number(
-                    quizData.marks_per_question
-                  ),
-            options: optionData
-              .filter(
-                (option) =>
-                  option.question_id === question.id
-              )
-              .sort(
-                (a, b) =>
-                  a.option_order - b.option_order
-              )
-              .map((option) => ({
-                id: option.id,
-                option_text: option.option_text,
-                option_order: option.option_order,
-                is_correct: option.is_correct,
-              })),
-          }));
-
-        setQuestions(formattedQuestions);
-      } catch (loadError) {
-        setError(
-          loadError instanceof Error
-            ? loadError.message
-            : "Unable to load quiz."
-        );
-      } finally {
-        setLoading(false);
+        optionData = options || [];
       }
-    },
-    [quizId]
-  );
+
+      const formattedQuestions: QuizQuestionWithOptions[] =
+        loadedQuestions.map((question) => ({
+          id: question.id,
+          question_text: question.question_text,
+          question_order: question.question_order,
+          marks:
+            question.marks !== null
+              ? Number(question.marks)
+              : Number(quizData.marks_per_question),
+          options: optionData
+            .filter(
+              (option) =>
+                option.question_id === question.id
+            )
+            .sort(
+              (a, b) =>
+                a.option_order - b.option_order
+            )
+            .map((option) => ({
+              id: option.id,
+              option_text: option.option_text,
+              option_order: option.option_order,
+              is_correct: option.is_correct,
+            })),
+        }));
+
+      setQuestions(formattedQuestions);
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Unable to load quiz."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [quizId]);
 
   useEffect(() => {
     void loadQuizAndQuestions();
@@ -539,24 +537,11 @@ function QuestionsContent() {
         );
 
       /*
-       * IMPORTANT:
-       *
        * Temporarily move ALL existing questions to
        * unique high order numbers.
        *
-       * This prevents errors such as:
-       *
-       * Question 1 = order 1
-       * Question 2 = order 2
-       *
-       * Delete Question 1
-       *
-       * Question 2 -> order 1
-       *
-       * Without this temporary step, database sees
-       * two rows having order 1 and throws:
-       *
-       * duplicate key value violates unique constraint
+       * This prevents duplicate question_order
+       * constraint errors while reordering questions.
        */
       if (
         existingQuestions &&
@@ -592,8 +577,7 @@ function QuestionsContent() {
       }
 
       /*
-       * Delete questions that were removed from
-       * the editor.
+       * Delete questions removed from the editor.
        */
       const idsToDelete = (
         existingQuestions || []
@@ -619,12 +603,11 @@ function QuestionsContent() {
         }
       }
 
-      const savedQuestions: QuizQuestion[] = [];
+      const savedQuestions: QuizQuestionWithOptions[] =
+        [];
 
       /*
-       * Now all old questions have temporary
-       * order numbers, so final orders 1,2,3...
-       * are completely free.
+       * Save every question.
        */
       for (
         let index = 0;
@@ -638,6 +621,15 @@ function QuestionsContent() {
         const finalQuestionOrder = index + 1;
 
         if (questionId) {
+          /*
+           * IMPORTANT FIX:
+           *
+           * Do NOT use .single().
+           *
+           * maybeSingle() safely handles an empty
+           * response without throwing:
+           * "Cannot coerce the result to a single JSON object"
+           */
           const {
             data,
             error,
@@ -660,17 +652,28 @@ function QuestionsContent() {
               marks
               `
             )
-            .single();
+            .maybeSingle();
 
-          if (error || !data) {
+          if (error) {
             throw new Error(
-              error?.message ||
-                "Unable to update question."
+              error.message
+            );
+          }
+
+          if (!data) {
+            throw new Error(
+              `Question ID ${questionId} could not be updated.`
             );
           }
 
           questionId = data.id;
         } else {
+          /*
+           * IMPORTANT FIX:
+           *
+           * Use maybeSingle() instead of single()
+           * for the insert response.
+           */
           const {
             data,
             error,
@@ -692,12 +695,17 @@ function QuestionsContent() {
               marks
               `
             )
-            .single();
+            .maybeSingle();
 
-          if (error || !data) {
+          if (error) {
             throw new Error(
-              error?.message ||
-                "Unable to create question."
+              error.message
+            );
+          }
+
+          if (!data) {
+            throw new Error(
+              "Question was inserted but Supabase did not return the new question."
             );
           }
 
@@ -755,6 +763,9 @@ function QuestionsContent() {
           }
         }
 
+        /*
+         * Save options.
+         */
         for (
           let optionIndex = 0;
           optionIndex < question.options.length;
@@ -859,12 +870,6 @@ function QuestionsContent() {
     setPublishing(true);
 
     try {
-      /*
-       * Save latest questions first.
-       *
-       * Only continue to publishing if saving
-       * actually succeeded.
-       */
       const saveSuccessful =
         await saveQuestions();
 
