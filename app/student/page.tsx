@@ -215,13 +215,6 @@ export default function StudentDashboardPage() {
           return;
         }
 
-        /*
-         * Return a real ArrayBuffer.
-         * This avoids the TypeScript error:
-         *
-         * Uint8Array<ArrayBufferLike> is not assignable
-         * to BufferSource.
-         */
         const applicationServerKey =
           urlBase64ToArrayBuffer(
             vapidPublicKey
@@ -273,10 +266,6 @@ export default function StudentDashboardPage() {
     }
   }
 
-  /*
-   * Convert VAPID Base64URL key into
-   * a real ArrayBuffer for PushManager.
-   */
   function urlBase64ToArrayBuffer(
     base64String: string
   ): ArrayBuffer {
@@ -330,12 +319,6 @@ export default function StudentDashboardPage() {
    * =====================================================
    * LOAD ANNOUNCEMENTS
    * =====================================================
-   *
-   * All announcements are loaded from Supabase so that
-   * the latest announcement and its like information are
-   * available.
-   *
-   * Only the latest announcement is displayed on screen.
    */
 
   async function loadAnnouncements(
@@ -761,6 +744,16 @@ export default function StudentDashboardPage() {
       path: "/student/settings",
       className: "cyan",
     },
+
+    // NEW QUIZ TESTS OPTION
+    {
+      icon: "🧠",
+      title: "QUIZ TESTS",
+      description:
+        "Attempt scheduled quizzes, view your scores and quiz history.",
+      path: "/student/quiz-tests",
+      className: "quiz",
+    },
   ];
 
   return (
@@ -856,9 +849,7 @@ export default function StudentDashboardPage() {
           </div>
         </section>
 
-        {/* =====================================================
-            LATEST ANNOUNCEMENT TAB
-            ===================================================== */}
+        {/* LATEST ANNOUNCEMENT TAB */}
 
         <section
           style={
@@ -1098,9 +1089,7 @@ export default function StudentDashboardPage() {
           )}
         </section>
 
-        {/* =====================================================
-            ANNOUNCEMENT MODAL
-            ===================================================== */}
+        {/* ANNOUNCEMENT MODAL */}
 
         {announcementOpen &&
           latestAnnouncement && (
@@ -1281,7 +1270,8 @@ export default function StudentDashboardPage() {
               Use the options below to check
               your attendance, academic
               calendar, homework, reports,
-              fees and account settings.
+              fees, quiz tests and account
+              settings.
             </p>
           </div>
         </section>
@@ -1986,12 +1976,6 @@ const styles: {
     fontWeight: "800",
   },
 
-  /*
-   * =====================================================
-   * MODAL
-   * =====================================================
-   */
-
   modalOverlay: {
     position: "fixed",
     inset: 0,
@@ -2279,6 +2263,12 @@ const styles: {
   cardCyan: {
     background:
       "linear-gradient(135deg,#cffafe,#a5f3fc)",
+  },
+
+  // NEW QUIZ CARD STYLE
+  cardQuiz: {
+    background:
+      "linear-gradient(135deg,#fef9c3,#fde68a)",
   },
 
   cardIcon: {

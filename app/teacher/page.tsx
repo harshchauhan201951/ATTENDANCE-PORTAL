@@ -44,7 +44,6 @@ export default function TeacherDashboard() {
         setProfileImage(savedImage);
       }
 
-      // Listen for profile updates made from Teacher Profile page.
       const handleStorageChange = (event: StorageEvent) => {
         if (event.key === "teacherProfileUsername") {
           setTeacherName(
@@ -64,7 +63,6 @@ export default function TeacherDashboard() {
         handleStorageChange
       );
 
-      // Also refresh values when the page becomes active again.
       const handleVisibilityChange = () => {
         if (document.visibilityState !== "visible") {
           return;
@@ -220,28 +218,32 @@ export default function TeacherDashboard() {
     {
       number: "08",
       title: "Announcements",
-      description: "Create and manage announcements for all students",
+      description:
+        "Create and manage announcements for all students",
       icon: "📢",
       path: "/teacher/announcements",
     },
     {
       number: "09",
       title: "Profile",
-      description: "Manage your teacher profile and picture",
+      description:
+        "Manage your teacher profile and picture",
       icon: "👤",
       path: "/teacher/profile",
     },
     {
       number: "10",
       title: "Settings",
-      description: "Manage teacher account settings",
+      description:
+        "Manage teacher account settings",
       icon: "⚙",
       path: "/teacher/settings",
     },
     {
       number: "11",
       title: "Student Login Activity",
-      description: "Track when every student logs into the portal",
+      description:
+        "Track when every student logs into the portal",
       icon: "🔐",
       path: "/teacher/login-activity",
     },
@@ -250,9 +252,30 @@ export default function TeacherDashboard() {
     {
       number: "12",
       title: "Student Directory",
-      description: "View and export complete student details",
+      description:
+        "View and export complete student details",
       icon: "👨‍🎓",
       path: "/teacher/student-directory",
+    },
+
+    // OPTION 13 — EXISTING, UNCHANGED
+    {
+      number: "13",
+      title: "Voice & Call",
+      description:
+        "Send voice announcements and make automated calls",
+      icon: "📞",
+      path: "/teacher/voice-call",
+    },
+
+    // OPTION 14 — QUIZ TESTS
+    {
+      number: "14",
+      title: "QUIZ TESTS",
+      description:
+        "Create, schedule, publish and manage student quizzes",
+      icon: "🧠",
+      path: "/teacher/quiz-tests",
     },
   ];
 
@@ -380,7 +403,8 @@ export default function TeacherDashboard() {
                   fontWeight: 600,
                 }}
               >
-                Manage attendance, homework, students, fees and more.
+                Manage attendance, homework, students,
+                fees and more.
               </p>
             </div>
           </div>
@@ -463,164 +487,179 @@ export default function TeacherDashboard() {
             gap: "18px",
           }}
         >
-          {menuItems.map((item) => (
-            <button
-              key={item.path}
-              type="button"
-              onClick={() =>
-                router.push(item.path)
-              }
-              style={{
-                border: "none",
-                background: "#ffffff",
-                borderRadius: "20px",
-                padding: "24px",
-                textAlign: "left",
-                cursor: "pointer",
-                boxShadow:
-                  "0 8px 28px rgba(15,23,42,0.07)",
-                transition:
-                  "transform 0.2s ease, box-shadow 0.2s ease",
-                minHeight: "220px",
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "space-between",
-              }}
-              onMouseEnter={(event) => {
-                event.currentTarget.style.transform =
-                  "translateY(-5px)";
+          {menuItems.map((item) => {
+            const isHomework =
+              item.title === "Homework";
 
-                event.currentTarget.style.boxShadow =
-                  "0 16px 35px rgba(15,23,42,0.13)";
-              }}
-              onMouseLeave={(event) => {
-                event.currentTarget.style.transform =
-                  "translateY(0)";
+            const isAnnouncements =
+              item.title === "Announcements";
 
-                event.currentTarget.style.boxShadow =
-                  "0 8px 28px rgba(15,23,42,0.07)";
-              }}
-            >
-              <div>
-                {/* NUMBER */}
+            const isLoginActivity =
+              item.title === "Student Login Activity";
 
-                <div
-                  style={{
-                    color: "#94a3b8",
-                    fontSize: "11px",
-                    fontWeight: 900,
-                    letterSpacing: "1px",
-                    marginBottom: "14px",
-                  }}
-                >
-                  {item.number}
-                </div>
+            const isStudentDirectory =
+              item.title === "Student Directory";
 
-                {/* ICON */}
+            const isExtraClasses =
+              item.title === "Extra Classes";
 
-                <div
-                  style={{
-                    width: "52px",
-                    height: "52px",
-                    borderRadius: "15px",
-                    background:
-                      item.title === "Homework"
-                        ? "linear-gradient(135deg,#ede9fe,#ddd6fe)"
-                        : item.title === "Announcements"
-                        ? "linear-gradient(135deg,#fef3c7,#fde68a)"
-                        : item.title ===
-                          "Student Login Activity"
-                        ? "linear-gradient(135deg,#dcfce7,#bbf7d0)"
-                        : item.title ===
-                          "Student Directory"
-                        ? "linear-gradient(135deg,#dbeafe,#bfdbfe)"
-                        : item.title ===
-                          "Extra Classes"
-                        ? "linear-gradient(135deg,#fce7f3,#fbcfe8)"
-                        : "#eef2ff",
-                    color:
-                      item.title === "Homework"
-                        ? "#7c3aed"
-                        : item.title === "Announcements"
-                        ? "#d97706"
-                        : item.title ===
-                          "Student Login Activity"
-                        ? "#16a34a"
-                        : item.title ===
-                          "Student Directory"
-                        ? "#2563eb"
-                        : item.title ===
-                          "Extra Classes"
-                        ? "#db2777"
-                        : "#4f46e5",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "24px",
-                    fontWeight: 900,
-                    marginBottom: "17px",
-                  }}
-                >
-                  {item.icon}
-                </div>
+            const isVoiceCall =
+              item.title === "Voice & Call";
 
-                {/* TITLE */}
+            const isQuizTests =
+              item.title === "QUIZ TESTS";
 
-                <h3
-                  style={{
-                    margin: "0 0 8px",
-                    color: "#172554",
-                    fontSize: "19px",
-                    fontWeight: 900,
-                  }}
-                >
-                  {item.title}
-                </h3>
+            const iconBackground =
+              isHomework
+                ? "linear-gradient(135deg,#ede9fe,#ddd6fe)"
+                : isAnnouncements
+                ? "linear-gradient(135deg,#fef3c7,#fde68a)"
+                : isLoginActivity
+                ? "linear-gradient(135deg,#dcfce7,#bbf7d0)"
+                : isStudentDirectory
+                ? "linear-gradient(135deg,#dbeafe,#bfdbfe)"
+                : isExtraClasses
+                ? "linear-gradient(135deg,#fce7f3,#fbcfe8)"
+                : isVoiceCall
+                ? "linear-gradient(135deg,#cffafe,#a5f3fc)"
+                : isQuizTests
+                ? "linear-gradient(135deg,#fef9c3,#fde68a)"
+                : "#eef2ff";
 
-                {/* DESCRIPTION */}
+            const iconColor =
+              isHomework
+                ? "#7c3aed"
+                : isAnnouncements
+                ? "#d97706"
+                : isLoginActivity
+                ? "#16a34a"
+                : isStudentDirectory
+                ? "#2563eb"
+                : isExtraClasses
+                ? "#db2777"
+                : isVoiceCall
+                ? "#0891b2"
+                : isQuizTests
+                ? "#ca8a04"
+                : "#4f46e5";
 
-                <p
-                  style={{
-                    margin: 0,
-                    color: "#64748b",
-                    fontSize: "13px",
-                    lineHeight: 1.5,
-                    fontWeight: 600,
-                  }}
-                >
-                  {item.description}
-                </p>
-              </div>
-
-              {/* OPEN MODULE */}
-
-              <div
+            return (
+              <button
+                key={item.path}
+                type="button"
+                onClick={() =>
+                  router.push(item.path)
+                }
                 style={{
-                  marginTop: "18px",
-                  color:
-                    item.title === "Homework"
-                      ? "#7c3aed"
-                      : item.title === "Announcements"
-                      ? "#d97706"
-                      : item.title ===
-                        "Student Login Activity"
-                      ? "#16a34a"
-                      : item.title ===
-                        "Student Directory"
-                      ? "#2563eb"
-                      : item.title ===
-                        "Extra Classes"
-                      ? "#db2777"
-                      : "#4f46e5",
-                  fontSize: "12px",
-                  fontWeight: 900,
-                  letterSpacing: "0.5px",
+                  border: "none",
+                  background: "#ffffff",
+                  borderRadius: "20px",
+                  padding: "24px",
+                  textAlign: "left",
+                  cursor: "pointer",
+                  boxShadow:
+                    "0 8px 28px rgba(15,23,42,0.07)",
+                  transition:
+                    "transform 0.2s ease, box-shadow 0.2s ease",
+                  minHeight: "220px",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                }}
+                onMouseEnter={(event) => {
+                  event.currentTarget.style.transform =
+                    "translateY(-5px)";
+
+                  event.currentTarget.style.boxShadow =
+                    "0 16px 35px rgba(15,23,42,0.13)";
+                }}
+                onMouseLeave={(event) => {
+                  event.currentTarget.style.transform =
+                    "translateY(0)";
+
+                  event.currentTarget.style.boxShadow =
+                    "0 8px 28px rgba(15,23,42,0.07)";
                 }}
               >
-                OPEN MODULE →
-              </div>
-            </button>
-          ))}
+                <div>
+                  {/* NUMBER */}
+
+                  <div
+                    style={{
+                      color: "#94a3b8",
+                      fontSize: "11px",
+                      fontWeight: 900,
+                      letterSpacing: "1px",
+                      marginBottom: "14px",
+                    }}
+                  >
+                    {item.number}
+                  </div>
+
+                  {/* ICON */}
+
+                  <div
+                    style={{
+                      width: "52px",
+                      height: "52px",
+                      borderRadius: "15px",
+                      background: iconBackground,
+                      color: iconColor,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "24px",
+                      fontWeight: 900,
+                      marginBottom: "17px",
+                    }}
+                  >
+                    {item.icon}
+                  </div>
+
+                  {/* TITLE */}
+
+                  <h3
+                    style={{
+                      margin: "0 0 8px",
+                      color: "#172554",
+                      fontSize: "19px",
+                      fontWeight: 900,
+                    }}
+                  >
+                    {item.title}
+                  </h3>
+
+                  {/* DESCRIPTION */}
+
+                  <p
+                    style={{
+                      margin: 0,
+                      color: "#64748b",
+                      fontSize: "13px",
+                      lineHeight: 1.5,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {item.description}
+                  </p>
+                </div>
+
+                {/* OPEN MODULE */}
+
+                <div
+                  style={{
+                    marginTop: "18px",
+                    color: iconColor,
+                    fontSize: "12px",
+                    fontWeight: 900,
+                    letterSpacing: "0.5px",
+                  }}
+                >
+                  OPEN MODULE →
+                </div>
+              </button>
+            );
+          })}
         </section>
 
         {/* FOOTER */}
