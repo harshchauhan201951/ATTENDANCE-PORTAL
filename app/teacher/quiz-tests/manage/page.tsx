@@ -45,19 +45,17 @@ export default function ManageQuizzesPage() {
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [publishingId, setPublishingId] = useState<number | null>(
-    null
-  );
+  const [publishingId, setPublishingId] =
+    useState<number | null>(null);
 
-  const [deletingId, setDeletingId] = useState<number | null>(
-    null
-  );
+  const [deletingId, setDeletingId] =
+    useState<number | null>(null);
 
-  const [savingEdit, setSavingEdit] = useState(false);
+  const [savingEdit, setSavingEdit] =
+    useState(false);
 
-  const [editingQuiz, setEditingQuiz] = useState<Quiz | null>(
-    null
-  );
+  const [editingQuiz, setEditingQuiz] =
+    useState<Quiz | null>(null);
 
   const [editForm, setEditForm] =
     useState<EditForm>(emptyEditForm);
@@ -110,32 +108,35 @@ export default function ManageQuizzesPage() {
     }
   }
 
+  // =========================================================
+  // PUBLIC / UNPUBLISH
+  // =========================================================
+
   async function togglePublish(quiz: Quiz) {
     if (publishingId !== null) return;
 
-    const newPublishedStatus = !quiz.is_published;
+    const newPublishedStatus =
+      !quiz.is_published;
 
     setPublishingId(quiz.id);
 
     try {
       /*
        * IMPORTANT:
-       * Yahan .single() use nahi kiya gaya hai.
+       * .single() intentionally use nahi kiya gaya.
        *
-       * Pehle .single() ki wajah se:
-       * "Cannot coerce the result to a single JSON object"
-       * error aa raha tha.
-       *
-       * Ab simple UPDATE kiya ja raha hai aur uske baad
-       * fresh quizzes load kiye ja rahe hain.
+       * UPDATE ke baad returned rows ko check kiya ja raha hai.
+       * Isse agar RLS ki wajah se 0 rows update hoti hain,
+       * fake success nahi milega.
        */
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("quiz_tests")
         .update({
           is_published: newPublishedStatus,
         })
-        .eq("id", quiz.id);
+        .eq("id", quiz.id)
+        .select("id, is_published");
 
       if (error) {
         console.error(
@@ -155,9 +156,33 @@ export default function ManageQuizzesPage() {
       }
 
       /*
-       * Local state ko immediately update karo.
-       * Isse UI mein status instantly change hoga.
+       * Agar UPDATE ne koi row return nahi ki,
+       * to usually RLS / permission / wrong ID problem
+       * ho sakti hai.
        */
+
+      if (!data || data.length === 0) {
+        console.error(
+          "Quiz publish returned zero rows."
+        );
+
+        alert(
+          `Quiz ${
+            newPublishedStatus
+              ? "PUBLIC"
+              : "DRAFT"
+          } nahi hua.\n\nDatabase ne koi updated row return nahi ki.\n\nSupabase RLS policy / UPDATE permission check karein.`
+        );
+
+        return;
+      }
+
+      /*
+       * Database se returned value ko hi final status
+       * maana ja raha hai.
+       */
+
+      const updatedQuiz = data[0];
 
       setQuizzes((current) =>
         current.map((item) =>
@@ -165,14 +190,16 @@ export default function ManageQuizzesPage() {
             ? {
                 ...item,
                 is_published:
-                  newPublishedStatus,
+                  Boolean(
+                    updatedQuiz.is_published
+                  ),
               }
             : item
         )
       );
 
       /*
-       * Fresh database data bhi load karo.
+       * Fresh database data load.
        */
 
       await loadQuizzes();
@@ -198,9 +225,13 @@ export default function ManageQuizzesPage() {
     }
   }
 
+  // =========================================================
+  // DELETE
+  // =========================================================
+
   async function deleteQuiz(id: number) {
     const ok = window.confirm(
-      "Delete this quiz? All questions, options and results will also be deleted."
+      "Delete this quiz?\n\nAll questions, options and related quiz data may also be deleted if your database foreign keys are configured with CASCADE.\n\nAre you sure?"
     );
 
     if (!ok) return;
@@ -208,10 +239,18 @@ export default function ManageQuizzesPage() {
     setDeletingId(id);
 
     try {
-      const { error } = await supabase
+      /*
+       * First delete the quiz.
+       *
+       * Agar database mein child tables par ON DELETE CASCADE
+       * laga hua hai, related records automatically delete honge.
+       */
+
+      const { data, error } = await supabase
         .from("quiz_tests")
         .delete()
-        .eq("id", id);
+        .eq("id", id)
+        .select("id");
 
       if (error) {
         console.error(
@@ -220,11 +259,31 @@ export default function ManageQuizzesPage() {
         );
 
         alert(
-          `Quiz delete nahi ho paya.\n\n${error.message}`
+          `Quiz delete nahi ho paya.\n\n${error.message}\n\nAgar ye foreign-key ya RLS error hai, to Supabase database policy/relationship ko fix karna hoga.`
         );
 
         return;
       }
+
+      /*
+       * Zero rows ka matlab actual database deletion nahi hui.
+       */
+
+      if (!data || data.length === 0) {
+        console.error(
+          "Quiz delete returned zero rows."
+        );
+
+        alert(
+          "Quiz delete nahi hua.\n\nDatabase ne koi deleted row return nahi ki.\n\nSupabase RLS DELETE policy / permission check karein."
+        );
+
+        return;
+      }
+
+      /*
+       * UI se quiz remove.
+       */
 
       setQuizzes((current) =>
         current.filter(
@@ -232,7 +291,9 @@ export default function ManageQuizzesPage() {
         )
       );
 
-      alert("Quiz successfully deleted.");
+      alert(
+        "Quiz successfully deleted."
+      );
     } catch (error) {
       console.error(
         "Unexpected delete error:",
@@ -249,7 +310,11 @@ export default function ManageQuizzesPage() {
     }
   }
 
-  function openQuickEdit(quiz: Quiz) {
+  // =========================================================
+  // EDIT QUIZ
+  // =========================================================
+
+  function openEditQuiz(quiz: Quiz) {
     setEditingQuiz(quiz);
 
     setEditForm({
@@ -275,7 +340,7 @@ export default function ManageQuizzesPage() {
     });
   }
 
-  function closeQuickEdit() {
+  function closeEditQuiz() {
     if (savingEdit) return;
 
     setEditingQuiz(null);
@@ -292,7 +357,7 @@ export default function ManageQuizzesPage() {
     }));
   }
 
-  async function saveQuickEdit() {
+  async function saveEditQuiz() {
     if (!editingQuiz) return;
 
     const title = editForm.title.trim();
@@ -339,7 +404,9 @@ export default function ManageQuizzesPage() {
     }
 
     if (
-      !Number.isFinite(marksPerQuestion) ||
+      !Number.isFinite(
+        marksPerQuestion
+      ) ||
       marksPerQuestion < 0
     ) {
       alert(
@@ -372,28 +439,32 @@ export default function ManageQuizzesPage() {
     setSavingEdit(true);
 
     try {
-      const { error } = await supabase
-        .from("quiz_tests")
-        .update({
-          title,
-          description:
-            editForm.description.trim() ||
-            null,
-          scheduled_date:
-            editForm.scheduled_date,
-          scheduled_time:
-            editForm.scheduled_time,
-          duration_minutes: duration,
-          marks_per_question:
-            marksPerQuestion,
-          negative_marks: negativeMarks,
-          pass_percentage: passPercentage,
-        })
-        .eq("id", editingQuiz.id);
+      const { data, error } =
+        await supabase
+          .from("quiz_tests")
+          .update({
+            title,
+            description:
+              editForm.description.trim() ||
+              null,
+            scheduled_date:
+              editForm.scheduled_date,
+            scheduled_time:
+              editForm.scheduled_time,
+            duration_minutes: duration,
+            marks_per_question:
+              marksPerQuestion,
+            negative_marks:
+              negativeMarks,
+            pass_percentage:
+              passPercentage,
+          })
+          .eq("id", editingQuiz.id)
+          .select("*");
 
       if (error) {
         console.error(
-          "Quick edit update error:",
+          "Edit quiz update error:",
           error
         );
 
@@ -405,21 +476,43 @@ export default function ManageQuizzesPage() {
       }
 
       /*
-       * Fresh data database se load karo.
-       * Yahan bhi .single() intentionally nahi hai.
+       * Zero rows means update didn't actually happen.
        */
 
-      await loadQuizzes();
+      if (!data || data.length === 0) {
+        alert(
+          "Quiz update nahi hua.\n\nDatabase ne koi updated row return nahi ki.\n\nSupabase RLS UPDATE policy check karein."
+        );
+
+        return;
+      }
+
+      /*
+       * Local state update.
+       */
+
+      const updatedQuiz =
+        data[0] as Quiz;
+
+      setQuizzes((current) =>
+        current.map((item) =>
+          item.id === editingQuiz.id
+            ? updatedQuiz
+            : item
+        )
+      );
 
       setEditingQuiz(null);
       setEditForm(emptyEditForm);
+
+      await loadQuizzes();
 
       alert(
         "Quiz successfully update ho gaya."
       );
     } catch (error) {
       console.error(
-        "Unexpected quick edit error:",
+        "Unexpected edit quiz error:",
         error
       );
 
@@ -433,6 +526,10 @@ export default function ManageQuizzesPage() {
     }
   }
 
+  // =========================================================
+  // DATE FORMAT
+  // =========================================================
+
   function formatDate(date: string) {
     if (!date) return "Not set";
 
@@ -440,7 +537,11 @@ export default function ManageQuizzesPage() {
       `${date}T00:00:00`
     );
 
-    if (Number.isNaN(parsedDate.getTime())) {
+    if (
+      Number.isNaN(
+        parsedDate.getTime()
+      )
+    ) {
       return date;
     }
 
@@ -453,6 +554,10 @@ export default function ManageQuizzesPage() {
       }
     );
   }
+
+  // =========================================================
+  // TIME FORMAT
+  // =========================================================
 
   function formatTime(time: string) {
     if (!time) return "Not set";
@@ -480,10 +585,14 @@ export default function ManageQuizzesPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
+
+        {/* ================================================= */}
         {/* HEADER */}
+        {/* ================================================= */}
 
         <header className="border-b border-white/10 bg-slate-950/90">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4">
+
             <div>
               <h1 className="font-black">
                 MANAGE QUIZZES
@@ -504,12 +613,16 @@ export default function ManageQuizzesPage() {
             >
               ← Quiz Tests
             </button>
+
           </div>
         </header>
 
+        {/* ================================================= */}
         {/* MAIN */}
+        {/* ================================================= */}
 
         <div className="mx-auto max-w-6xl px-4 py-8">
+
           {/* CREATE */}
 
           <button
@@ -527,6 +640,7 @@ export default function ManageQuizzesPage() {
 
           {loading ? (
             <div className="rounded-3xl bg-white/5 p-10 text-center">
+
               <div className="text-lg font-bold">
                 Loading quizzes...
               </div>
@@ -534,11 +648,14 @@ export default function ManageQuizzesPage() {
               <div className="mt-2 text-sm text-slate-400">
                 Please wait
               </div>
+
             </div>
           ) : quizzes.length === 0 ? (
+
             /* EMPTY */
 
             <div className="rounded-3xl border border-dashed border-white/10 bg-white/5 p-10 text-center">
+
               <div className="text-4xl">
                 📝
               </div>
@@ -551,21 +668,29 @@ export default function ManageQuizzesPage() {
                 Create your first quiz to get
                 started.
               </p>
+
             </div>
           ) : (
+
             /* QUIZ LIST */
 
             <div className="space-y-5">
+
               {quizzes.map((quiz) => (
+
                 <div
                   key={quiz.id}
                   className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl"
                 >
+
                   <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+
                     {/* QUIZ INFORMATION */}
 
                     <div className="min-w-0 flex-1">
+
                       <div className="flex flex-wrap items-center gap-3">
+
                         <h2 className="break-words text-xl font-black">
                           {quiz.title}
                         </h2>
@@ -581,6 +706,7 @@ export default function ManageQuizzesPage() {
                             ? "PUBLIC"
                             : "DRAFT"}
                         </span>
+
                       </div>
 
                       <p className="mt-2 text-sm text-slate-400">
@@ -589,6 +715,7 @@ export default function ManageQuizzesPage() {
                       </p>
 
                       <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-400">
+
                         <span>
                           📅{" "}
                           {formatDate(
@@ -628,12 +755,17 @@ export default function ManageQuizzesPage() {
                           🏆 Pass{" "}
                           {quiz.pass_percentage}%
                         </span>
+
                       </div>
+
                     </div>
 
+                    {/* ================================================= */}
                     {/* ACTIONS */}
+                    {/* ================================================= */}
 
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:flex lg:max-w-3xl lg:flex-wrap lg:justify-end">
+
                       {/* QUESTIONS */}
 
                       <button
@@ -647,15 +779,15 @@ export default function ManageQuizzesPage() {
                         ❓ Questions
                       </button>
 
-                      {/* EDIT QUICK */}
+                      {/* EDIT QUIZ */}
 
                       <button
                         onClick={() =>
-                          openQuickEdit(quiz)
+                          openEditQuiz(quiz)
                         }
                         className="rounded-xl bg-blue-500/15 px-4 py-3 text-sm font-bold text-blue-300 transition hover:bg-blue-500/25"
                       >
-                        ✏️ EDIT QUICK
+                        ✏️ EDIT QUIZ
                       </button>
 
                       {/* PUBLIC / UNPUBLISH */}
@@ -707,7 +839,8 @@ export default function ManageQuizzesPage() {
                           deleteQuiz(quiz.id)
                         }
                         disabled={
-                          deletingId === quiz.id
+                          deletingId ===
+                          quiz.id
                         }
                         className={`rounded-xl bg-red-500/15 px-4 py-3 text-sm font-bold text-red-300 transition hover:bg-red-500/25 ${
                           deletingId ===
@@ -721,48 +854,67 @@ export default function ManageQuizzesPage() {
                           ? "Deleting..."
                           : "🗑 Delete"}
                       </button>
+
                     </div>
+
                   </div>
+
                 </div>
+
               ))}
+
             </div>
+
           )}
+
         </div>
 
-        {/* QUICK EDIT MODAL */}
+        {/* ================================================= */}
+        {/* EDIT QUIZ MODAL */}
+        {/* ================================================= */}
 
         {editingQuiz && (
+
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+
             <div className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-900 shadow-2xl">
+
               {/* MODAL HEADER */}
 
               <div className="flex items-center justify-between border-b border-white/10 bg-slate-900 px-5 py-4">
+
                 <div>
+
                   <h2 className="text-xl font-black">
-                    ✏️ EDIT QUICK
+                    ✏️ EDIT QUIZ
                   </h2>
 
                   <p className="mt-1 text-xs text-slate-400">
                     Quickly update quiz details
                   </p>
+
                 </div>
 
                 <button
-                  onClick={closeQuickEdit}
+                  onClick={closeEditQuiz}
                   disabled={savingEdit}
                   className="rounded-xl bg-white/5 px-4 py-2 text-2xl font-bold text-slate-300 transition hover:bg-white/10 disabled:opacity-50"
                 >
                   ×
                 </button>
+
               </div>
 
               {/* MODAL BODY */}
 
               <div className="overflow-y-auto p-5">
+
                 <div className="space-y-5">
+
                   {/* TITLE */}
 
                   <div>
+
                     <label className="mb-2 block text-sm font-bold text-slate-300">
                       Quiz Title
                     </label>
@@ -779,11 +931,13 @@ export default function ManageQuizzesPage() {
                       className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-indigo-500"
                       placeholder="Enter quiz title"
                     />
+
                   </div>
 
                   {/* DESCRIPTION */}
 
                   <div>
+
                     <label className="mb-2 block text-sm font-bold text-slate-300">
                       Description
                     </label>
@@ -802,12 +956,15 @@ export default function ManageQuizzesPage() {
                       className="w-full resize-none rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-indigo-500"
                       placeholder="Quiz description"
                     />
+
                   </div>
 
                   {/* DATE + TIME */}
 
                   <div className="grid gap-4 sm:grid-cols-2">
+
                     <div>
+
                       <label className="mb-2 block text-sm font-bold text-slate-300">
                         Scheduled Date
                       </label>
@@ -825,9 +982,11 @@ export default function ManageQuizzesPage() {
                         }
                         className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-indigo-500"
                       />
+
                     </div>
 
                     <div>
+
                       <label className="mb-2 block text-sm font-bold text-slate-300">
                         Scheduled Time
                       </label>
@@ -845,13 +1004,17 @@ export default function ManageQuizzesPage() {
                         }
                         className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-indigo-500"
                       />
+
                     </div>
+
                   </div>
 
                   {/* DURATION + MARKS */}
 
                   <div className="grid gap-4 sm:grid-cols-2">
+
                     <div>
+
                       <label className="mb-2 block text-sm font-bold text-slate-300">
                         Duration (minutes)
                       </label>
@@ -870,9 +1033,11 @@ export default function ManageQuizzesPage() {
                         }
                         className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-indigo-500"
                       />
+
                     </div>
 
                     <div>
+
                       <label className="mb-2 block text-sm font-bold text-slate-300">
                         Marks / Question
                       </label>
@@ -892,13 +1057,17 @@ export default function ManageQuizzesPage() {
                         }
                         className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-indigo-500"
                       />
+
                     </div>
+
                   </div>
 
                   {/* NEGATIVE + PASS */}
 
                   <div className="grid gap-4 sm:grid-cols-2">
+
                     <div>
+
                       <label className="mb-2 block text-sm font-bold text-slate-300">
                         Negative Marks
                       </label>
@@ -918,9 +1087,11 @@ export default function ManageQuizzesPage() {
                         }
                         className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-indigo-500"
                       />
+
                     </div>
 
                     <div>
+
                       <label className="mb-2 block text-sm font-bold text-slate-300">
                         Pass Percentage
                       </label>
@@ -941,17 +1112,23 @@ export default function ManageQuizzesPage() {
                         }
                         className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-indigo-500"
                       />
+
                     </div>
+
                   </div>
+
                 </div>
+
               </div>
 
               {/* MODAL FOOTER */}
 
               <div className="border-t border-white/10 bg-slate-900 p-5">
+
                 <div className="flex flex-col gap-3 sm:flex-row">
+
                   <button
-                    onClick={closeQuickEdit}
+                    onClick={closeEditQuiz}
                     disabled={savingEdit}
                     className="flex-1 rounded-xl bg-white/5 px-5 py-3 font-bold text-slate-300 transition hover:bg-white/10 disabled:opacity-50"
                   >
@@ -959,7 +1136,7 @@ export default function ManageQuizzesPage() {
                   </button>
 
                   <button
-                    onClick={saveQuickEdit}
+                    onClick={saveEditQuiz}
                     disabled={savingEdit}
                     className="flex-1 rounded-xl bg-indigo-600 px-5 py-3 font-black transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
                   >
@@ -967,11 +1144,17 @@ export default function ManageQuizzesPage() {
                       ? "SAVING..."
                       : "SAVE CHANGES"}
                   </button>
+
                 </div>
+
               </div>
+
             </div>
+
           </div>
+
         )}
+
       </div>
     </main>
   );
