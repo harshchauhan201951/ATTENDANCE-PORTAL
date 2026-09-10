@@ -1,6 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  CSSProperties,
+  useEffect,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
@@ -37,17 +41,28 @@ type Student = {
 export default function StudentQuizTestsPage() {
   const router = useRouter();
 
-  const [student, setStudent] = useState<Student | null>(null);
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
-  const [results, setResults] = useState<QuizResult[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [student, setStudent] =
+    useState<Student | null>(null);
+
+  const [quizzes, setQuizzes] =
+    useState<Quiz[]>([]);
+
+  const [results, setResults] =
+    useState<QuizResult[]>([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [errorMessage, setErrorMessage] =
+    useState("");
 
   useEffect(() => {
     loadDashboard();
   }, []);
 
-  function normalizeClass(value: unknown): string {
+  function normalizeClass(
+    value: unknown
+  ): string {
     if (typeof value !== "string") {
       return "";
     }
@@ -74,7 +89,15 @@ export default function StudentQuizTestsPage() {
       quiz.target_classes
     )
       ? quiz.target_classes
-          .map((item) => normalizeClass(item))
+          .filter(
+            (
+              item
+            ): item is string =>
+              typeof item === "string"
+          )
+          .map((item) =>
+            normalizeClass(item)
+          )
           .filter(Boolean)
       : [];
 
@@ -93,8 +116,9 @@ export default function StudentQuizTestsPage() {
      * If target_classes is empty, use class_name.
      */
     return (
-      normalizeClass(quiz.class_name) ===
-      normalizedStudentClass
+      normalizeClass(
+        quiz.class_name
+      ) === normalizedStudentClass
     );
   }
 
@@ -103,7 +127,11 @@ export default function StudentQuizTestsPage() {
     setErrorMessage("");
 
     try {
-      let currentStudentId: number | null =
+      let currentStudentId:
+        | number
+        | null = null;
+
+      let actualStudent: Student | null =
         null;
 
       const username =
@@ -116,7 +144,9 @@ export default function StudentQuizTestsPage() {
         "";
 
       const storedId =
-        localStorage.getItem("studentId") ||
+        localStorage.getItem(
+          "studentId"
+        ) ||
         localStorage.getItem(
           "student_id"
         ) ||
@@ -126,8 +156,8 @@ export default function StudentQuizTestsPage() {
         "";
 
       /*
-       * First try username because it is the
-       * most reliable student login identifier.
+       * First try username because it is
+       * the most reliable student login identifier.
        */
       if (username) {
         const { data, error } =
@@ -150,12 +180,14 @@ export default function StudentQuizTestsPage() {
         }
 
         if (data?.id) {
-          currentStudentId = Number(
-            data.id
-          );
+          currentStudentId =
+            Number(data.id);
+
+          actualStudent =
+            data as Student;
 
           setStudent(
-            data as Student
+            actualStudent
           );
 
           localStorage.setItem(
@@ -172,12 +204,13 @@ export default function StudentQuizTestsPage() {
         currentStudentId === null &&
         storedId
       ) {
-        const numericId = Number(
-          storedId
-        );
+        const numericId =
+          Number(storedId);
 
         if (
-          Number.isFinite(numericId) &&
+          Number.isFinite(
+            numericId
+          ) &&
           numericId > 0
         ) {
           const { data, error } =
@@ -186,7 +219,10 @@ export default function StudentQuizTestsPage() {
               .select(
                 "id,student_name,student_username,class_name"
               )
-              .eq("id", numericId)
+              .eq(
+                "id",
+                numericId
+              )
               .maybeSingle();
 
           if (error) {
@@ -197,21 +233,27 @@ export default function StudentQuizTestsPage() {
           }
 
           if (data?.id) {
-            currentStudentId = Number(
-              data.id
-            );
+            currentStudentId =
+              Number(data.id);
+
+            actualStudent =
+              data as Student;
 
             setStudent(
-              data as Student
+              actualStudent
             );
           }
         }
       }
 
-      if (currentStudentId === null) {
+      if (
+        currentStudentId === null ||
+        !actualStudent
+      ) {
         setErrorMessage(
           "Student login information not found. Please login again."
         );
+
         setLoading(false);
         return;
       }
@@ -244,13 +286,22 @@ export default function StudentQuizTestsPage() {
           is_published
           `
         )
-        .eq("is_published", true)
-        .order("scheduled_date", {
-          ascending: true,
-        })
-        .order("scheduled_time", {
-          ascending: true,
-        });
+        .eq(
+          "is_published",
+          true
+        )
+        .order(
+          "scheduled_date",
+          {
+            ascending: true,
+          }
+        )
+        .order(
+          "scheduled_time",
+          {
+            ascending: true,
+          }
+        );
 
       if (quizError) {
         console.error(
@@ -270,48 +321,27 @@ export default function StudentQuizTestsPage() {
        * IMPORTANT:
        * Only quizzes matching the student's class
        * are kept.
+       *
+       * Example:
+       * Student class = 5
+       *
+       * target_classes = ["5", "6"]
+       * -> SHOW
+       *
+       * target_classes = ["7", "8"]
+       * -> HIDE
+       *
+       * Legacy quiz with target_classes empty:
+       * class_name = "5"
+       * -> SHOW
        */
-      const studentClass =
-        dataClassName(
-          student,
-          quizData,
-          currentStudentId
-        );
-
-      /*
-       * student state may not yet be updated because
-       * setStudent is asynchronous. Therefore fetch the
-       * class directly if necessary.
-       */
-      let actualStudentClass =
-        studentClass;
-
-      if (!actualStudentClass) {
-        const { data: freshStudent } =
-          await supabase
-            .from("students")
-            .select(
-              "id,student_name,student_username,class_name"
-            )
-            .eq(
-              "id",
-              currentStudentId
-            )
-            .maybeSingle();
-
-        if (freshStudent) {
-          actualStudentClass =
-            freshStudent.class_name ||
-            "";
-
-          setStudent(
-            freshStudent as Student
-          );
-        }
-      }
+      const actualStudentClass =
+        actualStudent.class_name ||
+        "";
 
       const filteredQuizzes =
-        ((quizData || []) as Quiz[]).filter(
+        ((quizData ||
+          []) as Quiz[]).filter(
           (quiz) =>
             quizBelongsToStudent(
               quiz,
@@ -338,9 +368,12 @@ export default function StudentQuizTestsPage() {
           "student_id",
           currentStudentId
         )
-        .order("quiz_id", {
-          ascending: false,
-        });
+        .order(
+          "quiz_id",
+          {
+            ascending: false,
+          }
+        );
 
       if (resultError) {
         console.error(
@@ -369,14 +402,6 @@ export default function StudentQuizTestsPage() {
     }
   }
 
-  function dataClassName(
-    currentStudent: Student | null,
-    _quizData: unknown,
-    _studentId: number
-  ): string {
-    return currentStudent?.class_name || "";
-  }
-
   function getStartTime(
     quiz: Quiz
   ): Date {
@@ -389,7 +414,9 @@ export default function StudentQuizTestsPage() {
     quiz: Quiz
   ): Date {
     return new Date(
-      getStartTime(quiz).getTime() +
+      getStartTime(
+        quiz
+      ).getTime() +
         quiz.duration_minutes *
           60 *
           1000
@@ -398,12 +425,22 @@ export default function StudentQuizTestsPage() {
 
   function getStatus(
     quiz: Quiz
-  ): "LIVE" | "UPCOMING" | "ENDED" {
-    const now = new Date();
+  ):
+    | "LIVE"
+    | "UPCOMING"
+    | "ENDED" {
+    const now =
+      new Date();
+
     const start =
-      getStartTime(quiz);
+      getStartTime(
+        quiz
+      );
+
     const end =
-      getEndTime(quiz);
+      getEndTime(
+        quiz
+      );
 
     if (now < start) {
       return "UPCOMING";
@@ -424,72 +461,31 @@ export default function StudentQuizTestsPage() {
   ): boolean {
     return results.some(
       (result) =>
-        Number(result.quiz_id) ===
+        Number(
+          result.quiz_id
+        ) ===
         Number(quizId)
     );
   }
 
   function getResult(
     quizId: number
-  ): QuizResult | undefined {
+  ):
+    | QuizResult
+    | undefined {
     return results.find(
       (result) =>
-        Number(result.quiz_id) ===
+        Number(
+          result.quiz_id
+        ) ===
         Number(quizId)
     );
   }
 
-  function formatDate(
-    date: string
-  ): string {
-    if (!date) {
-      return "";
-    }
-
-    return new Date(
-      `${date}T00:00:00`
-    ).toLocaleDateString(
-      "en-IN",
-      {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }
-    );
-  }
-
-  function formatTime(
-    time: string
-  ): string {
-    if (!time) {
-      return "";
-    }
-
-    const parts =
-      time.split(":");
-
-    const hourText =
-      parts[0] || "0";
-
-    const minute =
-      parts[1] || "00";
-
-    let hour =
-      Number(hourText);
-
-    const period =
-      hour >= 12
-        ? "PM"
-        : "AM";
-
-    hour =
-      hour % 12 || 12;
-
-    return `${hour}:${minute} ${period}`;
-  }
-
   function getClassDisplay(): string {
-    if (!student?.class_name) {
+    if (
+      !student?.class_name
+    ) {
       return "Class not available";
     }
 
@@ -498,7 +494,11 @@ export default function StudentQuizTestsPage() {
         student.class_name
       );
 
-    if (/^\d+$/.test(normalized)) {
+    if (
+      /^\d+$/.test(
+        normalized
+      )
+    ) {
       return `Class ${normalized}`;
     }
 
@@ -508,22 +508,34 @@ export default function StudentQuizTestsPage() {
   const liveQuizzes =
     quizzes.filter(
       (quiz) =>
-        getStatus(quiz) ===
-        "LIVE"
+        getStatus(
+          quiz
+        ) === "LIVE"
     );
 
   const upcomingQuizzes =
     quizzes.filter(
       (quiz) =>
-        getStatus(quiz) ===
-        "UPCOMING"
+        getStatus(
+          quiz
+        ) === "UPCOMING"
     );
 
+  /*
+   * AVAILABLE = only quizzes that are:
+   * 1. For this student's class
+   * 2. Currently live OR upcoming
+   *
+   * The class filtering has already happened
+   * while creating `quizzes`.
+   */
   const availableQuizzes =
     quizzes.filter(
       (quiz) => {
         const status =
-          getStatus(quiz);
+          getStatus(
+            quiz
+          );
 
         return (
           status === "LIVE" ||
@@ -553,23 +565,34 @@ export default function StudentQuizTestsPage() {
   const averagePercentage =
     results.length > 0
       ? results.reduce(
-          (total, result) =>
+          (
+            total,
+            result
+          ) =>
             total +
             Number(
-              result.percentage || 0
+              result.percentage ||
+                0
             ),
           0
-        ) / results.length
+        ) /
+        results.length
       : 0;
 
   if (loading) {
     return (
-      <main style={styles.page}>
+      <main
+        style={styles.page}
+      >
         <div
-          style={styles.loadingBox}
+          style={
+            styles.loadingBox
+          }
         >
           <div
-            style={styles.loadingSpinner}
+            style={
+              styles.loadingSpinner
+            }
           />
 
           <h2
@@ -594,24 +617,34 @@ export default function StudentQuizTestsPage() {
 
   if (errorMessage) {
     return (
-      <main style={styles.page}>
+      <main
+        style={styles.page}
+      >
         <div
-          style={styles.errorBox}
+          style={
+            styles.errorBox
+          }
         >
           <div
-            style={styles.errorIcon}
+            style={
+              styles.errorIcon
+            }
           >
             Q
           </div>
 
           <h1
-            style={styles.errorTitle}
+            style={
+              styles.errorTitle
+            }
           >
             Quiz Dashboard
           </h1>
 
           <p
-            style={styles.errorText}
+            style={
+              styles.errorText
+            }
           >
             {errorMessage}
           </p>
@@ -633,14 +666,20 @@ export default function StudentQuizTestsPage() {
   }
 
   return (
-    <main style={styles.page}>
+    <main
+      style={styles.page}
+    >
       <div
-        style={styles.container}
+        style={
+          styles.container
+        }
       >
         {/* HEADER */}
 
         <header
-          style={styles.header}
+          style={
+            styles.header
+          }
         >
           <div>
             <div
@@ -699,7 +738,9 @@ export default function StudentQuizTestsPage() {
         {/* STATS */}
 
         <section
-          style={styles.statsGrid}
+          style={
+            styles.statsGrid
+          }
         >
           <StatCard
             icon="Q"
@@ -745,7 +786,9 @@ export default function StudentQuizTestsPage() {
         {/* QUICK ACTIONS */}
 
         <section
-          style={styles.quickGrid}
+          style={
+            styles.quickGrid
+          }
         >
           <button
             type="button"
@@ -889,7 +932,9 @@ export default function StudentQuizTestsPage() {
         {/* LIVE NOW */}
 
         <section
-          style={styles.section}
+          style={
+            styles.section
+          }
         >
           <div
             style={
@@ -994,7 +1039,9 @@ export default function StudentQuizTestsPage() {
         {/* UPCOMING */}
 
         <section
-          style={styles.section}
+          style={
+            styles.section
+          }
         >
           <div
             style={
@@ -1107,7 +1154,9 @@ export default function StudentQuizTestsPage() {
         {/* AVAILABLE */}
 
         <section
-          style={styles.section}
+          style={
+            styles.section
+          }
         >
           <div
             style={
@@ -1146,15 +1195,6 @@ export default function StudentQuizTestsPage() {
               View All →
             </button>
           </div>
-
-          {/*
-           * IMPORTANT:
-           * availableQuizzes is already filtered by
-           * quizBelongsToStudent().
-           *
-           * Therefore this section CANNOT show quizzes
-           * belonging to other classes.
-           */}
 
           {availableQuizzes.length ===
           0 ? (
@@ -1231,7 +1271,9 @@ export default function StudentQuizTestsPage() {
         {/* RECENT RESULTS */}
 
         <section
-          style={styles.section}
+          style={
+            styles.section
+          }
         >
           <div
             style={
@@ -1410,9 +1452,12 @@ export default function StudentQuizTestsPage() {
         {/* FOOTER */}
 
         <footer
-          style={styles.footer}
+          style={
+            styles.footer
+          }
         >
           RACER ACADEMY • Student Quiz Center
+
           <span>
             Quiz duration is fixed at 30 minutes.
           </span>
@@ -1433,23 +1478,31 @@ function StatCard({
 }) {
   return (
     <div
-      style={styles.statCard}
+      style={
+        styles.statCard
+      }
     >
       <div
-        style={styles.statIcon}
+        style={
+          styles.statIcon
+        }
       >
         {icon}
       </div>
 
       <div>
         <div
-          style={styles.statLabel}
+          style={
+            styles.statLabel
+          }
         >
           {label}
         </div>
 
         <div
-          style={styles.statValue}
+          style={
+            styles.statValue
+          }
         >
           {value}
         </div>
@@ -1478,13 +1531,19 @@ function QuizCard({
 }) {
   return (
     <div
-      style={styles.quizCard}
+      style={
+        styles.quizCard
+      }
     >
       <div
-        style={styles.quizCardTop}
+        style={
+          styles.quizCardTop
+        }
       >
         <div
-          style={styles.quizIcon}
+          style={
+            styles.quizIcon
+          }
         >
           Q
         </div>
@@ -1501,7 +1560,9 @@ function QuizCard({
       </div>
 
       <h3
-        style={styles.quizTitle}
+        style={
+          styles.quizTitle
+        }
       >
         {quiz.title}
       </h3>
@@ -1517,7 +1578,9 @@ function QuizCard({
       )}
 
       <div
-        style={styles.quizMeta}
+        style={
+          styles.quizMeta
+        }
       >
         <span>
           Date:{" "}
@@ -1592,7 +1655,8 @@ function QuizCard({
         >
           Previous Result:{" "}
           {Number(
-            result.percentage || 0
+            result.percentage ||
+              0
           ).toFixed(1)}
           %
         </div>
@@ -1623,6 +1687,10 @@ function formatQuizDate(
 function formatQuizTime(
   time: string
 ): string {
+  if (!time) {
+    return "";
+  }
+
   const [
     hourText,
     minute = "00",
@@ -1632,7 +1700,9 @@ function formatQuizTime(
     Number(hourText);
 
   const period =
-    hour >= 12 ? "PM" : "AM";
+    hour >= 12
+      ? "PM"
+      : "AM";
 
   hour =
     hour % 12 || 12;
@@ -1640,9 +1710,10 @@ function formatQuizTime(
   return `${hour}:${minute} ${period}`;
 }
 
-const styles: {
-  [key: string]: React.CSSProperties;
-} = {
+const styles: Record<
+  string,
+  CSSProperties
+> = {
   page: {
     minHeight: "100vh",
     background:
@@ -1668,7 +1739,8 @@ const styles: {
     color: "#ffffff",
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     gap: "20px",
     marginBottom: "18px",
     boxShadow:
@@ -1678,7 +1750,7 @@ const styles: {
 
   headerEyebrow: {
     fontSize: "10px",
-    fontWeight: "1000",
+    fontWeight: 1000,
     letterSpacing: "2px",
     color: "#bfdbfe",
     marginBottom: "6px",
@@ -1687,7 +1759,7 @@ const styles: {
   headerTitle: {
     margin: 0,
     fontSize: "30px",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   headerSubtitle: {
@@ -1696,7 +1768,7 @@ const styles: {
     color: "#dbeafe",
     fontSize: "13px",
     lineHeight: 1.6,
-    fontWeight: "600",
+    fontWeight: 600,
   },
 
   classBadge: {
@@ -1713,13 +1785,13 @@ const styles: {
     fontSize: "9px",
     letterSpacing: "1.5px",
     color: "#bfdbfe",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   classBadgeValue: {
     marginTop: "5px",
     fontSize: "20px",
-    fontWeight: "1000",
+    fontWeight: 1000,
     color: "#ffffff",
   },
 
@@ -1754,20 +1826,20 @@ const styles: {
     alignItems: "center",
     justifyContent: "center",
     fontSize: "13px",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   statLabel: {
     color: "#64748b",
     fontSize: "9px",
-    fontWeight: "900",
+    fontWeight: 900,
   },
 
   statValue: {
     marginTop: "2px",
     color: "#172554",
     fontSize: "20px",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   quickGrid: {
@@ -1804,7 +1876,7 @@ const styles: {
     alignItems: "center",
     justifyContent: "center",
     fontSize: "11px",
-    fontWeight: "1000",
+    fontWeight: 1000,
     flexShrink: 0,
   },
 
@@ -1812,21 +1884,21 @@ const styles: {
     margin: 0,
     color: "#172554",
     fontSize: "14px",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   quickText: {
     margin: "4px 0 0",
     color: "#64748b",
     fontSize: "10px",
-    fontWeight: "600",
+    fontWeight: 600,
   },
 
   quickArrow: {
     marginLeft: "auto",
     color: "#2563eb",
     fontSize: "18px",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   section: {
@@ -1836,7 +1908,8 @@ const styles: {
   sectionHeader: {
     display: "flex",
     alignItems: "flex-end",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     gap: "15px",
     marginBottom: "13px",
   },
@@ -1844,7 +1917,7 @@ const styles: {
   sectionEyebrow: {
     color: "#2563eb",
     fontSize: "9px",
-    fontWeight: "1000",
+    fontWeight: 1000,
     letterSpacing: "2px",
     marginBottom: "3px",
   },
@@ -1853,7 +1926,7 @@ const styles: {
     margin: 0,
     color: "#172554",
     fontSize: "22px",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   countBadge: {
@@ -1862,7 +1935,7 @@ const styles: {
     padding: "7px 11px",
     borderRadius: "9px",
     fontSize: "10px",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   viewAllButton: {
@@ -1870,7 +1943,7 @@ const styles: {
     background: "transparent",
     color: "#2563eb",
     fontSize: "11px",
-    fontWeight: "1000",
+    fontWeight: 1000,
     cursor: "pointer",
   },
 
@@ -1894,7 +1967,8 @@ const styles: {
   quizCardTop: {
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     gap: "10px",
   },
 
@@ -1909,7 +1983,7 @@ const styles: {
     alignItems: "center",
     justifyContent: "center",
     fontSize: "13px",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   liveBadge: {
@@ -1920,7 +1994,7 @@ const styles: {
     borderRadius: "999px",
     padding: "6px 10px",
     fontSize: "9px",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   upcomingBadge: {
@@ -1931,14 +2005,14 @@ const styles: {
     borderRadius: "999px",
     padding: "6px 10px",
     fontSize: "9px",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   quizTitle: {
     margin: "13px 0 0",
     color: "#172554",
     fontSize: "18px",
-    fontWeight: "1000",
+    fontWeight: 1000,
     wordBreak: "break-word",
   },
 
@@ -1947,7 +2021,7 @@ const styles: {
     color: "#64748b",
     fontSize: "11px",
     lineHeight: 1.6,
-    fontWeight: "600",
+    fontWeight: 600,
   },
 
   quizMeta: {
@@ -1958,7 +2032,7 @@ const styles: {
     gap: "7px",
     color: "#475569",
     fontSize: "9px",
-    fontWeight: "700",
+    fontWeight: 700,
   },
 
   startButton: {
@@ -1971,7 +2045,7 @@ const styles: {
     padding: "11px",
     borderRadius: "10px",
     fontSize: "11px",
-    fontWeight: "1000",
+    fontWeight: 1000,
     cursor: "pointer",
   },
 
@@ -1985,7 +2059,7 @@ const styles: {
     padding: "11px",
     borderRadius: "10px",
     fontSize: "11px",
-    fontWeight: "1000",
+    fontWeight: 1000,
     cursor: "pointer",
   },
 
@@ -2000,7 +2074,7 @@ const styles: {
     padding: "10px",
     borderRadius: "10px",
     fontSize: "10px",
-    fontWeight: "800",
+    fontWeight: 800,
     textAlign: "center",
   },
 
@@ -2008,7 +2082,7 @@ const styles: {
     marginTop: "8px",
     color: "#64748b",
     fontSize: "9px",
-    fontWeight: "700",
+    fontWeight: 700,
     textAlign: "center",
   },
 
@@ -2033,7 +2107,7 @@ const styles: {
     alignItems: "center",
     justifyContent: "center",
     fontSize: "12px",
-    fontWeight: "1000",
+    fontWeight: 1000,
     flexShrink: 0,
   },
 
@@ -2041,7 +2115,7 @@ const styles: {
     margin: 0,
     color: "#334155",
     fontSize: "14px",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   emptyText: {
@@ -2049,7 +2123,7 @@ const styles: {
     color: "#64748b",
     fontSize: "10px",
     lineHeight: 1.5,
-    fontWeight: "600",
+    fontWeight: 600,
   },
 
   resultGrid: {
@@ -2085,7 +2159,7 @@ const styles: {
     alignItems: "center",
     justifyContent: "center",
     fontSize: "12px",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   resultInfo: {
@@ -2095,7 +2169,7 @@ const styles: {
   resultQuizId: {
     color: "#64748b",
     fontSize: "8px",
-    fontWeight: "900",
+    fontWeight: 900,
     letterSpacing: "1px",
   },
 
@@ -2103,7 +2177,7 @@ const styles: {
     marginTop: "3px",
     color: "#172554",
     fontSize: "19px",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   resultBottom: {
@@ -2113,7 +2187,8 @@ const styles: {
       "1px solid #e2e8f0",
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     gap: "10px",
   },
 
@@ -2123,7 +2198,7 @@ const styles: {
     padding: "5px 8px",
     borderRadius: "7px",
     fontSize: "8px",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   failBadge: {
@@ -2132,7 +2207,7 @@ const styles: {
     padding: "5px 8px",
     borderRadius: "7px",
     fontSize: "8px",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   smallButton: {
@@ -2142,7 +2217,7 @@ const styles: {
     padding: "7px 9px",
     borderRadius: "7px",
     fontSize: "9px",
-    fontWeight: "1000",
+    fontWeight: 1000,
     cursor: "pointer",
   },
 
@@ -2154,9 +2229,10 @@ const styles: {
       "1px solid #e2e8f0",
     color: "#64748b",
     fontSize: "10px",
-    fontWeight: "800",
+    fontWeight: 800,
     display: "flex",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     gap: "10px",
     flexWrap: "wrap",
   },
@@ -2186,14 +2262,14 @@ const styles: {
     margin: "15px 0 0",
     color: "#172554",
     fontSize: "18px",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   loadingText: {
     margin: "5px 0 0",
     color: "#64748b",
     fontSize: "11px",
-    fontWeight: "600",
+    fontWeight: 600,
   },
 
   errorBox: {
@@ -2220,14 +2296,14 @@ const styles: {
     alignItems: "center",
     justifyContent: "center",
     fontSize: "15px",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   errorTitle: {
     margin: "13px 0 0",
     color: "#172554",
     fontSize: "21px",
-    fontWeight: "1000",
+    fontWeight: 1000,
   },
 
   errorText: {
@@ -2235,7 +2311,7 @@ const styles: {
     color: "#64748b",
     fontSize: "11px",
     lineHeight: 1.6,
-    fontWeight: "600",
+    fontWeight: 600,
   },
 
   primaryButton: {
@@ -2246,49 +2322,7 @@ const styles: {
     padding: "10px 16px",
     borderRadius: "9px",
     fontSize: "11px",
-    fontWeight: "1000",
+    fontWeight: 1000,
     cursor: "pointer",
   },
-};     align-items: flex-start;
-          }
-
-          .top-actions {
-            flex-direction: column;
-          }
-
-          .welcome-card {
-            align-items: flex-start;
-          }
-
-          .brain-box {
-            display: none;
-          }
-
-          .stats-grid {
-            gap: 9px;
-          }
-
-          .stat-card {
-            gap: 8px;
-          }
-
-          .stat-card span {
-            font-size: 9px;
-          }
-
-          .stat-card strong {
-            font-size: 19px;
-          }
-
-          .quiz-main {
-            width: 100%;
-          }
-
-          .quiz-meta span {
-            font-size: 9px;
-          }
-        }
-      `}</style>
-    </main>
-  );
-}
+};
