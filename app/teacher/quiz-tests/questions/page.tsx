@@ -49,10 +49,10 @@ type ParsedQuestion = {
 function normalizeAnswer(value: string): number | null {
   const clean = value.trim().toUpperCase();
 
-  if (clean === "A" || clean === "A.") || clean === "1") return 0;
-  if (clean === "B" || clean === "B.") || clean === "2") return 1;
-  if (clean === "C" || clean === "C.") || clean === "3") return 2;
-  if (clean === "D" || clean === "D.") || clean === "4") return 3;
+  if (clean === "A" || clean === "A." || clean === "1") return 0;
+  if (clean === "B" || clean === "B." || clean === "2") return 1;
+  if (clean === "C" || clean === "C." || clean === "3") return 2;
+  if (clean === "D" || clean === "D." || clean === "4") return 3;
 
   const match = clean.match(/[ABCD]/);
 
