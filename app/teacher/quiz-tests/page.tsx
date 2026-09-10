@@ -88,10 +88,16 @@ export default function TeacherQuizTestsPage() {
     return `${hour}:${minute} ${period}`;
   }
 
+  function openQuizResults(quizId: number) {
+    router.push(`/teacher/quiz-tests/results?quizId=${quizId}`);
+  }
+
   const totalQuizzes = quizzes.length;
+
   const publishedQuizzes = quizzes.filter(
     (quiz) => quiz.is_published
   ).length;
+
   const draftQuizzes = quizzes.filter(
     (quiz) => !quiz.is_published
   ).length;
@@ -122,6 +128,7 @@ export default function TeacherQuizTestsPage() {
                   <h1 className="text-lg font-black tracking-wide sm:text-xl">
                     QUIZ TESTS
                   </h1>
+
                   <p className="text-xs text-slate-400">
                     RACER ACADEMY • Teacher Panel
                   </p>
@@ -159,17 +166,23 @@ export default function TeacherQuizTestsPage() {
           <section className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-xl">
               <div className="mb-3 text-2xl">🧠</div>
+
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                 Total Quizzes
               </p>
-              <p className="mt-1 text-3xl font-black">{totalQuizzes}</p>
+
+              <p className="mt-1 text-3xl font-black">
+                {totalQuizzes}
+              </p>
             </div>
 
             <div className="rounded-2xl border border-emerald-400/10 bg-emerald-500/5 p-5 backdrop-blur-xl">
               <div className="mb-3 text-2xl">🚀</div>
+
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                 Published
               </p>
+
               <p className="mt-1 text-3xl font-black text-emerald-400">
                 {publishedQuizzes}
               </p>
@@ -177,9 +190,11 @@ export default function TeacherQuizTestsPage() {
 
             <div className="rounded-2xl border border-amber-400/10 bg-amber-500/5 p-5 backdrop-blur-xl">
               <div className="mb-3 text-2xl">📝</div>
+
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                 Drafts
               </p>
+
               <p className="mt-1 text-3xl font-black text-amber-400">
                 {draftQuizzes}
               </p>
@@ -187,9 +202,11 @@ export default function TeacherQuizTestsPage() {
 
             <div className="rounded-2xl border border-cyan-400/10 bg-cyan-500/5 p-5 backdrop-blur-xl">
               <div className="mb-3 text-2xl">⏰</div>
+
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                 Upcoming
               </p>
+
               <p className="mt-1 text-3xl font-black text-cyan-400">
                 {scheduledQuizzes}
               </p>
@@ -199,7 +216,10 @@ export default function TeacherQuizTestsPage() {
           {/* MAIN ACTIONS */}
           <section className="mb-10">
             <div className="mb-4">
-              <h3 className="text-xl font-black">Quiz Control Center</h3>
+              <h3 className="text-xl font-black">
+                Quiz Control Center
+              </h3>
+
               <p className="mt-1 text-sm text-slate-400">
                 Manage every part of your quiz system.
               </p>
@@ -208,7 +228,9 @@ export default function TeacherQuizTestsPage() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {/* CREATE */}
               <button
-                onClick={() => router.push("/teacher/quiz-tests/create")}
+                onClick={() =>
+                  router.push("/teacher/quiz-tests/create")
+                }
                 className="group rounded-3xl border border-indigo-400/20 bg-gradient-to-br from-indigo-600/20 to-purple-600/10 p-6 text-left transition hover:-translate-y-1 hover:border-indigo-400/40 hover:bg-indigo-500/20"
               >
                 <div className="mb-5 flex items-center justify-between">
@@ -221,7 +243,9 @@ export default function TeacherQuizTestsPage() {
                   </span>
                 </div>
 
-                <h4 className="text-lg font-black">Create New Quiz</h4>
+                <h4 className="text-lg font-black">
+                  Create New Quiz
+                </h4>
 
                 <p className="mt-2 text-sm leading-6 text-slate-400">
                   Create a quiz title, schedule, marks, negative marking and
@@ -231,7 +255,9 @@ export default function TeacherQuizTestsPage() {
 
               {/* MANAGE */}
               <button
-                onClick={() => router.push("/teacher/quiz-tests/manage")}
+                onClick={() =>
+                  router.push("/teacher/quiz-tests/manage")
+                }
                 className="group rounded-3xl border border-blue-400/20 bg-gradient-to-br from-blue-600/20 to-cyan-600/10 p-6 text-left transition hover:-translate-y-1 hover:border-blue-400/40 hover:bg-blue-500/20"
               >
                 <div className="mb-5 flex items-center justify-between">
@@ -244,7 +270,9 @@ export default function TeacherQuizTestsPage() {
                   </span>
                 </div>
 
-                <h4 className="text-lg font-black">Manage Quizzes</h4>
+                <h4 className="text-lg font-black">
+                  Manage Quizzes
+                </h4>
 
                 <p className="mt-2 text-sm leading-6 text-slate-400">
                   View, edit, publish, unpublish and manage all created
@@ -254,7 +282,9 @@ export default function TeacherQuizTestsPage() {
 
               {/* QUESTIONS */}
               <button
-                onClick={() => router.push("/teacher/quiz-tests/questions")}
+                onClick={() =>
+                  router.push("/teacher/quiz-tests/questions")
+                }
                 className="group rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-600/20 to-pink-600/10 p-6 text-left transition hover:-translate-y-1 hover:border-purple-400/40 hover:bg-purple-500/20"
               >
                 <div className="mb-5 flex items-center justify-between">
@@ -267,7 +297,9 @@ export default function TeacherQuizTestsPage() {
                   </span>
                 </div>
 
-                <h4 className="text-lg font-black">Questions</h4>
+                <h4 className="text-lg font-black">
+                  Questions
+                </h4>
 
                 <p className="mt-2 text-sm leading-6 text-slate-400">
                   Add questions, multiple options and select the correct
@@ -277,7 +309,13 @@ export default function TeacherQuizTestsPage() {
 
               {/* RESULTS */}
               <button
-                onClick={() => router.push("/teacher/quiz-tests/results")}
+                onClick={() => {
+                  if (quizzes.length > 0) {
+                    openQuizResults(quizzes[0].id);
+                  } else {
+                    router.push("/teacher/quiz-tests/manage");
+                  }
+                }}
                 className="group rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-600/20 to-teal-600/10 p-6 text-left transition hover:-translate-y-1 hover:border-emerald-400/40 hover:bg-emerald-500/20"
               >
                 <div className="mb-5 flex items-center justify-between">
@@ -290,7 +328,9 @@ export default function TeacherQuizTestsPage() {
                   </span>
                 </div>
 
-                <h4 className="text-lg font-black">Results</h4>
+                <h4 className="text-lg font-black">
+                  Results
+                </h4>
 
                 <p className="mt-2 text-sm leading-6 text-slate-400">
                   View student-wise scores, correct/wrong answers,
@@ -300,7 +340,9 @@ export default function TeacherQuizTestsPage() {
 
               {/* SETTINGS */}
               <button
-                onClick={() => router.push("/teacher/quiz-tests/settings")}
+                onClick={() =>
+                  router.push("/teacher/quiz-tests/settings")
+                }
                 className="group rounded-3xl border border-orange-400/20 bg-gradient-to-br from-orange-600/20 to-amber-600/10 p-6 text-left transition hover:-translate-y-1 hover:border-orange-400/40 hover:bg-orange-500/20"
               >
                 <div className="mb-5 flex items-center justify-between">
@@ -313,7 +355,9 @@ export default function TeacherQuizTestsPage() {
                   </span>
                 </div>
 
-                <h4 className="text-lg font-black">Quiz Settings</h4>
+                <h4 className="text-lg font-black">
+                  Quiz Settings
+                </h4>
 
                 <p className="mt-2 text-sm leading-6 text-slate-400">
                   Configure quiz defaults and review quiz rules.
@@ -326,7 +370,9 @@ export default function TeacherQuizTestsPage() {
                   ⏱️
                 </div>
 
-                <h4 className="text-lg font-black">Quiz Rules</h4>
+                <h4 className="text-lg font-black">
+                  Quiz Rules
+                </h4>
 
                 <div className="mt-4 space-y-2 text-sm text-slate-400">
                   <p>• Fixed duration: 30 minutes</p>
@@ -343,14 +389,19 @@ export default function TeacherQuizTestsPage() {
           <section>
             <div className="mb-4 flex items-end justify-between gap-4">
               <div>
-                <h3 className="text-xl font-black">Recent Quizzes</h3>
+                <h3 className="text-xl font-black">
+                  Recent Quizzes
+                </h3>
+
                 <p className="mt-1 text-sm text-slate-400">
                   Your latest created quizzes.
                 </p>
               </div>
 
               <button
-                onClick={() => router.push("/teacher/quiz-tests/manage")}
+                onClick={() =>
+                  router.push("/teacher/quiz-tests/manage")
+                }
                 className="text-sm font-bold text-indigo-300 hover:text-indigo-200"
               >
                 View All →
@@ -360,13 +411,16 @@ export default function TeacherQuizTestsPage() {
             {loading ? (
               <div className="rounded-3xl border border-white/10 bg-white/5 p-10 text-center">
                 <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-indigo-400" />
+
                 <p className="text-sm text-slate-400">
                   Loading quizzes...
                 </p>
               </div>
             ) : quizzes.length === 0 ? (
               <div className="rounded-3xl border border-dashed border-white/15 bg-white/5 p-10 text-center">
-                <div className="mb-3 text-5xl">🧠</div>
+                <div className="mb-3 text-5xl">
+                  🧠
+                </div>
 
                 <h4 className="text-lg font-black">
                   No quizzes created yet
@@ -406,7 +460,9 @@ export default function TeacherQuizTestsPage() {
                                 : "bg-amber-500/15 text-amber-400"
                             }`}
                           >
-                            {quiz.is_published ? "Published" : "Draft"}
+                            {quiz.is_published
+                              ? "Published"
+                              : "Draft"}
                           </span>
                         </div>
 
@@ -433,14 +489,27 @@ export default function TeacherQuizTestsPage() {
                         </div>
                       </div>
 
-                      <button
-                        onClick={() =>
-                          router.push("/teacher/quiz-tests/manage")
-                        }
-                        className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold transition hover:bg-white/10"
-                      >
-                        Manage
-                      </button>
+                      <div className="flex shrink-0 flex-wrap gap-2">
+                        {/* RESULTS */}
+                        <button
+                          onClick={() =>
+                            openQuizResults(quiz.id)
+                          }
+                          className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-2 text-sm font-bold text-emerald-300 transition hover:bg-emerald-500/20"
+                        >
+                          Results
+                        </button>
+
+                        {/* MANAGE */}
+                        <button
+                          onClick={() =>
+                            router.push("/teacher/quiz-tests/manage")
+                          }
+                          className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold transition hover:bg-white/10"
+                        >
+                          Manage
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
