@@ -1,149 +1,55 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-type QuizRow = {
-  id: number;
-  title: string;
-  scheduled_date: string;
-  scheduled_time: string;
-  duration_minutes: number;
-  marks_per_question: number;
-  negative_marks: number;
-  pass_percentage: number;
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+type SubmitBody = {
+  resultId: number | string;
+  studentId: number | string;
+  answers?: Record<string, number | string | null>;
+  submissionType?: string;
 };
 
-type QuestionRow = {
-  id: number;
-  question_text: string;
-  question_order: number;
-  marks: number | null;
-};
-
-type OptionRow = {
-  id: number;
-  question_id: number;
-  option_text: string;
-  is_correct: boolean;
-};
-
-type SubmittedAnswer = {
-  questionId: number;
-  selectedOptionId: number | null;
-};
-
-function getAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !serviceRoleKey) {
-    throw new Error(
-      "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY"
-    );
+function cleanSubmissionType(value: unknown): "manual" | "time_expired" {
+  if (value === "time_expired") {
+    return "time_expired";
   }
 
-  return createClient(url, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
+  return "manual";
 }
 
-function parseScheduledDateTime(
-  scheduledDate: string,
-  scheduledTime: string
-) {
-  return new Date(
-    `${scheduledDate}T${scheduledTime.slice(0, 8)}`
-  );
-}
-
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body = (await request.json()) as SubmitBody;
 
-    const resultId = Number(body?.resultId);
-    const studentId = Number(body?.studentId);
-
-    const rawAnswers = Array.isArray(body?.answers)
-      ? body.answers
-      : [];
-
-    const requestedSubmissionType =
-      body?.submissionType || "manual";
+    const resultId = Number(body.resultId);
+    const studentId = Number(body.studentId);
 
     if (
-      !Number.isInteger(resultId) ||
-      !Number.isInteger(studentId)
+      !Number.isFinite(resultId) ||
+      resultId <= 0 ||
+      !Number.isFinite(studentId) ||
+      studentId <= 0
     ) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Invalid resultId or studentId.",
-        },
+        { error: "Invalid result or student." },
         { status: 400 }
       );
     }
 
-    const allowedSubmissionTypes = [
-      "manual",
-      "time_expired",
-      "left_quiz",
-      "auto_submit",
-    ];
+    const answers =
+      body.answers && typeof body.answers === "object"
+        ? body.answers
+        : {};
 
-    const submissionType =
-      allowedSubmissionTypes.includes(
-        requestedSubmissionType
-      )
-        ? requestedSubmissionType
-        : "manual";
-
-    const answers: SubmittedAnswer[] = rawAnswers
-      .map((answer: unknown) => {
-        const item = answer as {
-          questionId?: unknown;
-          selectedOptionId?: unknown;
-        };
-
-        const questionId = Number(
-          item.questionId
-        );
-
-        const selectedOptionId =
-          item.selectedOptionId === null ||
-          item.selectedOptionId === undefined ||
-          item.selectedOptionId === ""
-            ? null
-            : Number(item.selectedOptionId);
-
-        if (!Number.isInteger(questionId)) {
-          return null;
-        }
-
-        if (
-          selectedOptionId !== null &&
-          !Number.isInteger(selectedOptionId)
-        ) {
-          return null;
-        }
-
-        return {
-          questionId,
-          selectedOptionId,
-        };
-      })
-      .filter(
-        (
-          answer: SubmittedAnswer | null
-        ): answer is SubmittedAnswer =>
-          answer !== null
-      );
-
-    const supabase = getAdminClient();
+    const requestedType =
+      cleanSubmissionType(body.submissionType);
 
     const { data: result, error: resultError } =
-      await supabase
+      await supabaseAdmin
         .from("quiz_results")
         .select("*")
         .eq("id", resultId)
@@ -152,20 +58,14 @@ export async function POST(request: NextRequest) {
 
     if (resultError) {
       return NextResponse.json(
-        {
-          success: false,
-          message: resultError.message,
-        },
+        { error: resultError.message },
         { status: 500 }
       );
     }
 
     if (!result) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Quiz attempt was not found.",
-        },
+        { error: "Quiz attempt not found." },
         { status: 404 }
       );
     }
@@ -173,346 +73,267 @@ export async function POST(request: NextRequest) {
     if (result.submitted_at) {
       return NextResponse.json(
         {
-          success: false,
+          success: true,
           alreadySubmitted: true,
-          resultId,
-          message: "This quiz has already been submitted.",
+          result,
         },
-        { status: 409 }
+        { status: 200 }
       );
     }
 
-    const quizId = Number(result.quiz_id);
-
     const { data: quiz, error: quizError } =
-      await supabase
+      await supabaseAdmin
         .from("quiz_tests")
         .select(
           `
           id,
           title,
-          scheduled_date,
-          scheduled_time,
           duration_minutes,
           marks_per_question,
           negative_marks,
           pass_percentage
           `
         )
-        .eq("id", quizId)
-        .single<QuizRow>();
+        .eq("id", result.quiz_id)
+        .maybeSingle();
 
-    if (quizError || !quiz) {
+    if (quizError) {
       return NextResponse.json(
-        {
-          success: false,
-          message:
-            quizError?.message ||
-            "Quiz information was not found.",
-        },
+        { error: quizError.message },
+        { status: 500 }
+      );
+    }
+
+    if (!quiz) {
+      return NextResponse.json(
+        { error: "Quiz not found." },
         { status: 404 }
       );
     }
 
-    if (quiz.duration_minutes !== 30) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Quiz duration must be exactly 30 minutes.",
-        },
-        { status: 400 }
-      );
-    }
-
-    const now = new Date();
-
-    const scheduledStart = parseScheduledDateTime(
-      quiz.scheduled_date,
-      quiz.scheduled_time
-    );
-
-    const scheduledEnd = new Date(
-      scheduledStart.getTime() + 30 * 60 * 1000
-    );
-
-    const storedStartedAt = result.started_at
-      ? new Date(result.started_at)
-      : scheduledStart;
-
-    const attemptEnd = new Date(
-      storedStartedAt.getTime() + 30 * 60 * 1000
-    );
-
-    const actualEnd =
-      attemptEnd.getTime() < scheduledEnd.getTime()
-        ? attemptEnd
-        : scheduledEnd;
-
-    const wasTimeExpired =
-      now.getTime() >= actualEnd.getTime();
-
-    const finalSubmissionType = wasTimeExpired
-      ? "time_expired"
-      : submissionType;
-
-    const { data: questions, error: questionsError } =
-      await supabase
+    const { data: questions, error: questionError } =
+      await supabaseAdmin
         .from("quiz_questions")
-        .select(
-          `
-          id,
-          question_text,
-          question_order,
-          marks
-          `
-        )
-        .eq("quiz_id", quizId)
+        .select("*")
+        .eq("quiz_id", quiz.id)
         .order("question_order", {
           ascending: true,
         });
 
-    if (questionsError) {
+    if (questionError) {
       return NextResponse.json(
-        {
-          success: false,
-          message: questionsError.message,
-        },
+        { error: questionError.message },
         { status: 500 }
       );
     }
 
-    const questionRows =
-      (questions || []) as QuestionRow[];
+    const questionList = questions || [];
 
-    const questionIds = questionRows.map(
+    const questionIds = questionList.map(
       (question) => question.id
     );
 
-    let optionRows: OptionRow[] = [];
+    let optionList: any[] = [];
 
     if (questionIds.length > 0) {
-      const { data: options, error: optionsError } =
-        await supabase
+      const { data: options, error: optionError } =
+        await supabaseAdmin
           .from("quiz_options")
-          .select(
-            `
-            id,
-            question_id,
-            option_text,
-            is_correct
-            `
-          )
+          .select("*")
           .in("question_id", questionIds);
 
-      if (optionsError) {
+      if (optionError) {
         return NextResponse.json(
-          {
-            success: false,
-            message: optionsError.message,
-          },
+          { error: optionError.message },
           { status: 500 }
         );
       }
 
-      optionRows = (options || []) as OptionRow[];
+      optionList = options || [];
     }
 
-    const answerMap = new Map<
-      number,
-      number | null
-    >();
+    const now = new Date();
 
-    for (const answer of answers) {
-      if (!answerMap.has(answer.questionId)) {
-        answerMap.set(
-          answer.questionId,
-          answer.selectedOptionId
-        );
-      }
-    }
+    const startedAt = result.started_at
+      ? new Date(result.started_at)
+      : now;
+
+    const durationMinutes =
+      Number(quiz.duration_minutes) > 0
+        ? Number(quiz.duration_minutes)
+        : 30;
+
+    const attemptEnd = new Date(
+      startedAt.getTime() +
+        durationMinutes * 60 * 1000
+    );
+
+    const submissionIsLate =
+      now.getTime() >= attemptEnd.getTime();
+
+    const finalSubmissionType =
+      submissionIsLate
+        ? "time_expired"
+        : requestedType;
 
     let correctAnswers = 0;
     let wrongAnswers = 0;
     let unanswered = 0;
-    let obtainedMarks = 0;
     let totalMarks = 0;
+    let obtainedMarks = 0;
 
-    const calculatedAnswers = questionRows.map(
-      (question) => {
-        const questionMarks =
-          question.marks !== null
-            ? Number(question.marks)
-            : Number(quiz.marks_per_question);
+    const answerRows: Array<{
+      result_id: number;
+      question_id: number;
+      selected_option_id: number | null;
+      is_correct: boolean;
+      marks_awarded: number;
+      answered_at: string | null;
+    }> = [];
 
-        totalMarks += questionMarks;
+    for (const question of questionList) {
+      const questionOptions = optionList.filter(
+        (option) =>
+          Number(option.question_id) ===
+          Number(question.id)
+      );
 
-        const hasAnswer =
-          answerMap.has(question.id);
+      const correctOption = questionOptions.find(
+        (option) =>
+          option.is_correct === true
+      );
 
-        const selectedOptionId = hasAnswer
-          ? answerMap.get(question.id) ?? null
-          : null;
+      const questionMarks =
+        Number(question.marks) > 0
+          ? Number(question.marks)
+          : Number(quiz.marks_per_question) || 0;
 
-        if (
-          selectedOptionId === null ||
-          selectedOptionId === undefined
-        ) {
-          unanswered += 1;
+      const negativeMarks =
+        Number(question.negative_marks) >= 0
+          ? Number(question.negative_marks)
+          : Number(quiz.negative_marks) || 0;
 
-          return {
-            question_id: question.id,
-            selected_option_id: null,
-            is_correct: false,
-            marks_awarded: 0,
-          };
-        }
+      totalMarks += questionMarks;
 
-        const selectedOption =
-          optionRows.find(
-            (option) =>
-              option.id === selectedOptionId &&
-              option.question_id === question.id
-          );
+      const rawSelected =
+        answers[String(question.id)] ??
+        answers[question.id] ??
+        null;
 
-        if (!selectedOption) {
-          wrongAnswers += 1;
-          obtainedMarks -= Number(
-            quiz.negative_marks
-          );
+      const selectedOptionId =
+        rawSelected === null ||
+        rawSelected === undefined ||
+        rawSelected === ""
+          ? null
+          : Number(rawSelected);
 
-          return {
-            question_id: question.id,
-            selected_option_id: null,
-            is_correct: false,
-            marks_awarded: -Number(
-              quiz.negative_marks
-            ),
-          };
-        }
+      if (
+        selectedOptionId === null ||
+        !Number.isFinite(selectedOptionId)
+      ) {
+        unanswered += 1;
 
-        if (selectedOption.is_correct) {
-          correctAnswers += 1;
-          obtainedMarks += questionMarks;
+        answerRows.push({
+          result_id: result.id,
+          question_id: question.id,
+          selected_option_id: null,
+          is_correct: false,
+          marks_awarded: 0,
+          answered_at: null,
+        });
 
-          return {
-            question_id: question.id,
-            selected_option_id: selectedOption.id,
-            is_correct: true,
-            marks_awarded: questionMarks,
-          };
-        }
+        continue;
+      }
 
-        wrongAnswers += 1;
-        obtainedMarks -= Number(
-          quiz.negative_marks
+      const selectedOption =
+        questionOptions.find(
+          (option) =>
+            Number(option.id) ===
+            selectedOptionId
         );
 
-        return {
-          question_id: question.id,
-          selected_option_id: selectedOption.id,
-          is_correct: false,
-          marks_awarded: -Number(
-            quiz.negative_marks
-          ),
-        };
+      const isCorrect =
+        Boolean(selectedOption) &&
+        Boolean(correctOption) &&
+        Number(selectedOption.id) ===
+          Number(correctOption.id);
+
+      if (isCorrect) {
+        correctAnswers += 1;
+        obtainedMarks += questionMarks;
+      } else {
+        wrongAnswers += 1;
+        obtainedMarks -= negativeMarks;
       }
+
+      answerRows.push({
+        result_id: result.id,
+        question_id: question.id,
+        selected_option_id: selectedOption
+          ? selectedOptionId
+          : null,
+        is_correct: isCorrect,
+        marks_awarded: isCorrect
+          ? questionMarks
+          : -negativeMarks,
+        answered_at: now.toISOString(),
+      });
+    }
+
+    obtainedMarks = Math.max(
+      0,
+      Number(obtainedMarks.toFixed(2))
     );
 
-    if (obtainedMarks < 0) {
-      obtainedMarks = 0;
-    }
+    totalMarks = Number(
+      totalMarks.toFixed(2)
+    );
 
     const percentage =
       totalMarks > 0
-        ? (obtainedMarks / totalMarks) * 100
+        ? Number(
+            (
+              (obtainedMarks / totalMarks) *
+              100
+            ).toFixed(2)
+          )
         : 0;
 
-    const roundedPercentage =
-      Math.round(percentage * 100) / 100;
+    const passPercentage =
+      Number(quiz.pass_percentage) >= 0
+        ? Number(quiz.pass_percentage)
+        : 40;
 
     const resultStatus =
-      roundedPercentage >=
-      Number(quiz.pass_percentage)
+      percentage >= passPercentage
         ? "PASS"
         : "FAIL";
 
-    const submittedAt = now.toISOString();
-
     /*
-     * Remove any previously saved answers for this result.
-     * The result itself can only be submitted once.
+     * Save the final aggregate result first.
+     * This prevents a second request from treating
+     * an already-submitted attempt as still open.
      */
-    const { error: deleteAnswersError } =
-      await supabase
-        .from("quiz_answers")
-        .delete()
-        .eq("result_id", resultId);
+    const submittedAt =
+      now.toISOString();
 
-    if (deleteAnswersError) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: deleteAnswersError.message,
-        },
-        { status: 500 }
-      );
-    }
-
-    const answerInsertRows =
-      calculatedAnswers.map((answer) => ({
-        result_id: resultId,
-        question_id: answer.question_id,
-        selected_option_id:
-          answer.selected_option_id,
-        is_correct: answer.is_correct,
-        marks_awarded: answer.marks_awarded,
-        answered_at: submittedAt,
-      }));
-
-    if (answerInsertRows.length > 0) {
-      const { error: answersInsertError } =
-        await supabase
-          .from("quiz_answers")
-          .insert(answerInsertRows);
-
-      if (answersInsertError) {
-        return NextResponse.json(
-          {
-            success: false,
-            message:
-              answersInsertError.message,
-          },
-          { status: 500 }
-        );
-      }
-    }
-
-    /*
-     * Update only if the attempt is still unsubmitted.
-     * This prevents a second normal submission.
-     */
     const { data: updatedResult, error: updateError } =
-      await supabase
+      await supabaseAdmin
         .from("quiz_results")
         .update({
-          total_questions: questionRows.length,
+          total_questions: questionList.length,
           correct_answers: correctAnswers,
           wrong_answers: wrongAnswers,
           unanswered,
-          total_marks: Number(
-            totalMarks.toFixed(2)
-          ),
-          obtained_marks: Number(
-            obtainedMarks.toFixed(2)
-          ),
-          percentage: Number(
-            roundedPercentage.toFixed(2)
-          ),
+          total_marks: totalMarks,
+          obtained_marks: obtainedMarks,
+          percentage,
           result_status: resultStatus,
           submitted_at: submittedAt,
           submission_type: finalSubmissionType,
+          updated_at: submittedAt,
         })
-        .eq("id", resultId)
+        .eq("id", result.id)
         .eq("student_id", studentId)
         .is("submitted_at", null)
         .select("*")
@@ -520,63 +341,78 @@ export async function POST(request: NextRequest) {
 
     if (updateError) {
       return NextResponse.json(
-        {
-          success: false,
-          message: updateError.message,
-        },
+        { error: updateError.message },
         { status: 500 }
       );
     }
 
+    /*
+     * If another request submitted first, return the
+     * already-saved result instead of overwriting it.
+     */
     if (!updatedResult) {
+      const { data: alreadySaved } =
+        await supabaseAdmin
+          .from("quiz_results")
+          .select("*")
+          .eq("id", result.id)
+          .eq("student_id", studentId)
+          .maybeSingle();
+
       return NextResponse.json(
         {
-          success: false,
+          success: true,
           alreadySubmitted: true,
-          resultId,
-          message:
-            "This quiz was submitted already.",
+          result: alreadySaved,
         },
-        { status: 409 }
+        { status: 200 }
       );
+    }
+
+    /*
+     * Save question-wise answers.
+     */
+    const { error: deleteAnswersError } =
+      await supabaseAdmin
+        .from("quiz_answers")
+        .delete()
+        .eq("result_id", result.id);
+
+    if (deleteAnswersError) {
+      console.error(
+        "Old quiz answers delete error:",
+        deleteAnswersError
+      );
+    }
+
+    if (answerRows.length > 0) {
+      const { error: answerInsertError } =
+        await supabaseAdmin
+          .from("quiz_answers")
+          .insert(answerRows);
+
+      if (answerInsertError) {
+        console.error(
+          "Quiz answers insert error:",
+          answerInsertError
+        );
+      }
     }
 
     return NextResponse.json({
       success: true,
-      result: {
-        id: updatedResult.id,
-        quiz_id: updatedResult.quiz_id,
-        student_id: updatedResult.student_id,
-        total_questions:
-          updatedResult.total_questions,
-        correct_answers:
-          updatedResult.correct_answers,
-        wrong_answers:
-          updatedResult.wrong_answers,
-        unanswered: updatedResult.unanswered,
-        total_marks:
-          Number(updatedResult.total_marks),
-        obtained_marks:
-          Number(updatedResult.obtained_marks),
-        percentage:
-          Number(updatedResult.percentage),
-        result_status:
-          updatedResult.result_status,
-        started_at:
-          updatedResult.started_at,
-        submitted_at:
-          updatedResult.submitted_at,
-        submission_type:
-          updatedResult.submission_type,
-      },
+      alreadySubmitted: false,
+      result: updatedResult,
     });
   } catch (error) {
-    console.error("Quiz submit API error:", error);
+    console.error(
+      "Quiz submit API error:",
+      error
+    );
 
     return NextResponse.json(
       {
-        success: false,
-        message:
+        error:
           error instanceof Error
             ? error.message
             : "Unable to submit quiz.",
