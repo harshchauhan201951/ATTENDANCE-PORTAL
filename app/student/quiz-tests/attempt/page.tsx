@@ -41,10 +41,7 @@ type QuizQuestion = {
   options: QuizOption[];
 };
 
-type AnswerMap = Record<
-  string,
-  number | null
->;
+type AnswerMap = Record<string, number | null>;
 
 type StudentData = {
   id: number;
@@ -93,10 +90,7 @@ type SubmitResponse = {
 };
 
 function formatTime(totalSeconds: number) {
-  const safeSeconds = Math.max(
-    0,
-    totalSeconds
-  );
+  const safeSeconds = Math.max(0, totalSeconds);
 
   const hours = Math.floor(
     safeSeconds / 3600
@@ -106,8 +100,7 @@ function formatTime(totalSeconds: number) {
     (safeSeconds % 3600) / 60
   );
 
-  const seconds =
-    safeSeconds % 60;
+  const seconds = safeSeconds % 60;
 
   if (hours > 0) {
     return `${String(hours).padStart(
@@ -145,19 +138,13 @@ function readStudent(): StudentData | null {
   for (const key of possibleKeys) {
     try {
       const raw =
-        window.localStorage.getItem(
-          key
-        );
+        window.localStorage.getItem(key);
 
       if (!raw) continue;
 
-      const parsed = JSON.parse(
-        raw
-      );
+      const parsed = JSON.parse(raw);
 
-      const id = Number(
-        parsed?.id
-      );
+      const id = Number(parsed?.id);
 
       if (
         Number.isInteger(id) &&
@@ -166,14 +153,11 @@ function readStudent(): StudentData | null {
         return {
           id,
           student_name:
-            parsed?.student_name ||
-            null,
+            parsed?.student_name || null,
           student_username:
-            parsed?.student_username ||
-            null,
+            parsed?.student_username || null,
           class_name:
-            parsed?.class_name ||
-            null,
+            parsed?.class_name || null,
         };
       }
     } catch {
@@ -189,9 +173,7 @@ function readStudent(): StudentData | null {
 
   for (const key of storedIdKeys) {
     const raw =
-      window.localStorage.getItem(
-        key
-      );
+      window.localStorage.getItem(key);
 
     const id = Number(raw);
 
@@ -217,15 +199,11 @@ function readStudent(): StudentData | null {
 function saveStudentSession(
   student: StudentData
 ) {
-  if (
-    typeof window === "undefined"
-  ) {
+  if (typeof window === "undefined") {
     return;
   }
 
-  const id = String(
-    student.id
-  );
+  const id = String(student.id);
 
   window.localStorage.setItem(
     "attendance_student_id",
@@ -307,14 +285,10 @@ function StudentQuizAttemptContent() {
     >(null);
 
   const [resultId, setResultId] =
-    useState<number | null>(
-      null
-    );
+    useState<number | null>(null);
 
   const [questions, setQuestions] =
-    useState<QuizQuestion[]>(
-      []
-    );
+    useState<QuizQuestion[]>([]);
 
   const [answers, setAnswers] =
     useState<AnswerMap>({});
@@ -363,18 +337,16 @@ function StudentQuizAttemptContent() {
   }, [currentIndex]);
 
   const currentQuestion =
-    questions[currentIndex] ||
-    null;
+    questions[currentIndex] || null;
 
   const answeredCount = useMemo(
     () =>
       questions.reduce(
         (count, question) =>
           answers[String(question.id)] !==
-          null &&
-          answers[
-            String(question.id)
-          ] !== undefined
+            null &&
+          answers[String(question.id)] !==
+            undefined
             ? count + 1
             : count,
         0
@@ -382,176 +354,196 @@ function StudentQuizAttemptContent() {
     [answers, questions]
   );
 
-  const saveLocalAnswers = useCallback(
-    (nextAnswers: AnswerMap) => {
-      if (
-        typeof window ===
-        "undefined" ||
-        !Number.isInteger(quizId) ||
-        quizId <= 0
-      ) {
-        return;
-      }
-
-      window.localStorage.setItem(
-        `quiz-answers-${quizId}`,
-        JSON.stringify(
-          nextAnswers
-        )
-      );
-    },
-    [quizId]
-  );
-
-  const submitQuiz = useCallback(
-    async (
-      submissionType:
-        | "manual"
-        | "time_expired"
-        | "left_quiz"
-        | "auto_submit"
-    ) => {
-      if (
-        submittingRef.current
-      ) {
-        return;
-      }
-
-      if (
-        !student ||
-        !resultId
-      ) {
-        setError(
-          "Quiz attempt information is missing."
-        );
-        return;
-      }
-
-      submittingRef.current =
-        true;
-
-      setSubmitting(true);
-      setError("");
-
-      try {
-        const currentAnswers =
-          latestAnswersRef.current;
-
-        saveLocalAnswers(
-          currentAnswers
-        );
-
-        const answerPayload =
-          questions.map(
-            (question) => ({
-              questionId:
-                question.id,
-              selectedOptionId:
-                currentAnswers[
-                  String(
-                    question.id
-                  )
-                ] ??
-                null,
-            })
-          );
-
-        const response =
-          await fetch(
-            "/api/quiz-tests/submit",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
-              body: JSON.stringify({
-                resultId,
-                studentId:
-                  student.id,
-                answers:
-                  answerPayload,
-                submissionType,
-              }),
-            }
-          );
-
-        const data =
-          (await response.json()) as SubmitResponse;
-
+  const saveLocalAnswers =
+    useCallback(
+      (nextAnswers: AnswerMap) => {
         if (
-          !response.ok ||
-          !data.success
+          typeof window ===
+            "undefined" ||
+          !Number.isInteger(quizId) ||
+          quizId <= 0
         ) {
-          if (
-            data.alreadySubmitted
-          ) {
-            router.replace(
-              `/student/quiz-tests/results?quizId=${quizId}`
-            );
-            return;
-          }
+          return;
+        }
 
-          throw new Error(
-            data.message ||
-              "Unable to submit quiz."
-          );
+        window.localStorage.setItem(
+          `quiz-answers-${quizId}`,
+          JSON.stringify(nextAnswers)
+        );
+      },
+      [quizId]
+    );
+
+  const submitQuiz =
+    useCallback(
+      async (
+        submissionType:
+          | "manual"
+          | "time_expired"
+          | "left_quiz"
+          | "auto_submit"
+      ) => {
+        if (
+          submittingRef.current
+        ) {
+          return;
         }
 
         if (
-          typeof window !==
-          "undefined"
+          !student ||
+          !resultId
         ) {
-          window.localStorage.removeItem(
-            `quiz-attempt-started-${quizId}-${student.id}`
+          setError(
+            "Quiz attempt information is missing."
           );
-
-          if (data.result) {
-            window.localStorage.setItem(
-              `quiz-result-${quizId}`,
-              JSON.stringify(
-                data.result
-              )
-            );
-          }
-
-          window.localStorage.setItem(
-            `quiz-submission-${quizId}`,
-            submissionType
-          );
+          return;
         }
-
-        router.replace(
-          `/student/quiz-tests/results?quizId=${quizId}`
-        );
-      } catch (submitError) {
-        console.error(
-          "Quiz submission error:",
-          submitError
-        );
 
         submittingRef.current =
-          false;
+          true;
 
-        setSubmitting(false);
+        setSubmitting(true);
+        setError("");
 
-        setError(
-          submitError instanceof
-            Error
-            ? submitError.message
-            : "Unable to submit quiz. Please try again."
-        );
-      }
-    },
-    [
-      quizId,
-      questions,
-      resultId,
-      router,
-      saveLocalAnswers,
-      student,
-    ]
-  );
+        try {
+          const currentAnswers =
+            latestAnswersRef.current;
+
+          saveLocalAnswers(
+            currentAnswers
+          );
+
+          /*
+           * IMPORTANT:
+           * The submit API expects answers in this format:
+           *
+           * {
+           *   "questionId": selectedOptionId
+           * }
+           *
+           * Example:
+           * {
+           *   "101": 501,
+           *   "102": 506
+           * }
+           *
+           * Previously this was sent as an array of objects,
+           * which the submit API could not read correctly.
+           */
+          const answerPayload: Record<
+            string,
+            number | null
+          > = {};
+
+          for (const question of questions) {
+            answerPayload[
+              String(question.id)
+            ] =
+              currentAnswers[
+                String(question.id)
+              ] ?? null;
+          }
+
+          const response =
+            await fetch(
+              "/api/quiz-tests/submit",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+                body: JSON.stringify({
+                  resultId,
+                  studentId:
+                    student.id,
+                  answers:
+                    answerPayload,
+                  submissionType,
+                }),
+              }
+            );
+
+          const data =
+            (await response.json()) as SubmitResponse;
+
+          if (
+            !response.ok ||
+            !data.success
+          ) {
+            if (
+              data.alreadySubmitted
+            ) {
+              router.replace(
+                `/student/quiz-tests/results?quizId=${quizId}`
+              );
+              return;
+            }
+
+            throw new Error(
+              data.message ||
+                "Unable to submit quiz."
+            );
+          }
+
+          if (
+            typeof window !==
+            "undefined"
+          ) {
+            window.localStorage.removeItem(
+              `quiz-attempt-started-${quizId}-${student.id}`
+            );
+
+            window.localStorage.removeItem(
+              `quiz-answers-${quizId}`
+            );
+
+            if (data.result) {
+              window.localStorage.setItem(
+                `quiz-result-${quizId}`,
+                JSON.stringify(
+                  data.result
+                )
+              );
+            }
+
+            window.localStorage.setItem(
+              `quiz-submission-${quizId}`,
+              submissionType
+            );
+          }
+
+          router.replace(
+            `/student/quiz-tests/results?quizId=${quizId}`
+          );
+        } catch (submitError) {
+          console.error(
+            "Quiz submission error:",
+            submitError
+          );
+
+          submittingRef.current =
+            false;
+
+          setSubmitting(false);
+
+          setError(
+            submitError instanceof
+              Error
+              ? submitError.message
+              : "Unable to submit quiz. Please try again."
+          );
+        }
+      },
+      [
+        quizId,
+        questions,
+        resultId,
+        router,
+        saveLocalAnswers,
+        student,
+      ]
+    );
 
   /*
    * Load student + start/resume attempt.
@@ -568,9 +560,7 @@ function StudentQuizAttemptContent() {
 
     async function initialize() {
       if (
-        !Number.isInteger(
-          quizId
-        ) ||
+        !Number.isInteger(quizId) ||
         quizId <= 0
       ) {
         setError(
@@ -585,8 +575,8 @@ function StudentQuizAttemptContent() {
           readStudent();
 
         /*
-         * If only an ID/username is available, resolve
-         * the complete student record from Supabase.
+         * If only an ID/username is available,
+         * resolve the complete student record.
          */
         if (
           currentStudent &&
@@ -636,10 +626,10 @@ function StudentQuizAttemptContent() {
           }
         }
 
+        /*
+         * Final fallback using username.
+         */
         if (!currentStudent) {
-          /*
-           * Final fallback using username.
-           */
           const username =
             typeof window !==
             "undefined"
@@ -692,8 +682,11 @@ function StudentQuizAttemptContent() {
         );
 
         /*
-         * The API is the authority for one-attempt creation,
-         * schedule and timer.
+         * API is the authority for:
+         * - one attempt
+         * - schedule
+         * - timer
+         * - question loading
          */
         const response =
           await fetch(
@@ -754,9 +747,13 @@ function StudentQuizAttemptContent() {
           Number(data.resultId)
         );
 
+        /*
+         * Restore locally saved answers
+         * if the attempt was resumed.
+         */
         const savedAnswers =
           typeof window !==
-          "undefined"
+            "undefined"
             ? window.localStorage.getItem(
                 `quiz-answers-${quizId}`
               )
@@ -838,12 +835,11 @@ function StudentQuizAttemptContent() {
         }
 
         /*
-         * If the server says the attempt already expired,
-         * immediately submit current answers.
+         * If server says attempt has expired,
+         * submit immediately.
          */
         if (
-          remainingSeconds <=
-          0
+          remainingSeconds <= 0
         ) {
           setAutoSubmitTriggered(
             true
@@ -941,43 +937,43 @@ function StudentQuizAttemptContent() {
   /*
    * Answer selection.
    */
-  const selectAnswer = useCallback(
-    (
-      questionId: number,
-      optionId: number
-    ) => {
-      if (
-        submittingRef.current
-      ) {
-        return;
-      }
-
-      setAnswers(
-        (previous) => {
-          const next = {
-            ...previous,
-            [String(
-              questionId
-            )]: optionId,
-          };
-
-          latestAnswersRef.current =
-            next;
-
-          saveLocalAnswers(
-            next
-          );
-
-          return next;
+  const selectAnswer =
+    useCallback(
+      (
+        questionId: number,
+        optionId: number
+      ) => {
+        if (
+          submittingRef.current
+        ) {
+          return;
         }
-      );
-    },
-    [saveLocalAnswers]
-  );
+
+        setAnswers(
+          (previous) => {
+            const next = {
+              ...previous,
+              [String(
+                questionId
+              )]: optionId,
+            };
+
+            latestAnswersRef.current =
+              next;
+
+            saveLocalAnswers(
+              next
+            );
+
+            return next;
+          }
+        );
+      },
+      [saveLocalAnswers]
+    );
 
   /*
-   * Browser back button:
-   * replace history entry so the user sees our confirmation.
+   * Browser back button.
    */
   useEffect(() => {
     if (
@@ -1030,10 +1026,6 @@ function StudentQuizAttemptContent() {
 
   /*
    * Refresh / close warning.
-   *
-   * Browsers intentionally do not allow a custom
-   * confirmation message here. The actual submit happens
-   * only when the user confirms through our modal/back flow.
    */
   useEffect(() => {
     if (
@@ -1194,8 +1186,7 @@ function StudentQuizAttemptContent() {
             <div className="mt-2 flex items-center justify-between text-[10px] font-bold text-slate-500 sm:text-xs">
               <span>
                 Question{" "}
-                {currentIndex +
-                  1}{" "}
+                {currentIndex + 1}{" "}
                 of{" "}
                 {questions.length}
               </span>
@@ -1215,8 +1206,7 @@ function StudentQuizAttemptContent() {
               <div className="flex items-start justify-between gap-3">
                 <span className="rounded-full bg-indigo-500/15 px-3 py-1 text-xs font-black text-indigo-300">
                   Q{" "}
-                  {currentIndex +
-                    1}
+                  {currentIndex + 1}
                 </span>
 
                 <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-bold text-slate-400">
@@ -1373,7 +1363,7 @@ function StudentQuizAttemptContent() {
                             question.id
                           )
                         ] !==
-                        null &&
+                          null &&
                         answers[
                           String(
                             question.id
@@ -1401,8 +1391,7 @@ function StudentQuizAttemptContent() {
                               : "bg-white/10 text-slate-400"
                           }`}
                         >
-                          {index +
-                            1}
+                          {index + 1}
                         </button>
                       );
                     }
@@ -1505,10 +1494,11 @@ function StudentQuizAttemptContent() {
               </h2>
 
               <p className="mt-3 text-sm leading-relaxed text-slate-400">
-                If you select YES, the quiz will be
-                submitted immediately at your current
-                stopping point. Your selected answers
-                will be saved. Unanswered questions will
+                If you select YES, the quiz
+                will be submitted immediately
+                at your current stopping point.
+                Your selected answers will be
+                saved. Unanswered questions will
                 remain unanswered.
               </p>
 
