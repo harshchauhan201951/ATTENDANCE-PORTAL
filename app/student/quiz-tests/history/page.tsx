@@ -18,8 +18,9 @@ type Quiz = {
   scheduled_date: string | null;
   scheduled_time: string | null;
   duration_minutes: number | null;
-  total_marks: number | null;
-  passing_percentage: number | null;
+  marks_per_question: number | null;
+  negative_marks: number | null;
+  pass_percentage: number | null;
 };
 
 type QuizResult = {
@@ -68,7 +69,9 @@ function quizBelongsToStudent(
     return false;
   }
 
-  const targetClasses = Array.isArray(quiz.target_classes)
+  const targetClasses = Array.isArray(
+    quiz.target_classes
+  )
     ? quiz.target_classes
         .filter(
           (value): value is string =>
@@ -79,7 +82,9 @@ function quizBelongsToStudent(
     : [];
 
   if (targetClasses.length > 0) {
-    return targetClasses.includes(normalizedStudentClass);
+    return targetClasses.includes(
+      normalizedStudentClass
+    );
   }
 
   return (
@@ -91,26 +96,18 @@ function quizBelongsToStudent(
 function numberText(
   value: number | null | undefined
 ): string {
-  if (typeof value !== "number" || Number.isNaN(value)) {
+  if (
+    typeof value !== "number" ||
+    Number.isNaN(value)
+  ) {
     return "0";
   }
 
   return Number.isInteger(value)
     ? String(value)
-    : value.toFixed(2).replace(/\.00$/, "");
-}
-
-function percentageText(
-  value: number | null | undefined
-): string {
-  if (
-    typeof value !== "number" ||
-    Number.isNaN(value)
-  ) {
-    return "0%";
-  }
-
-  return `${numberText(value)}%`;
+    : value
+        .toFixed(2)
+        .replace(/\.00$/, "");
 }
 
 function dateText(
@@ -173,36 +170,32 @@ function scheduledDateText(
     return "Not scheduled";
   }
 
-  const combined = timeValue
-    ? `${dateValue}T${timeValue}`
-    : dateValue;
-
-  const date = new Date(combined);
+  const date = new Date(
+    `${dateValue}T${
+      timeValue || "00:00:00"
+    }+05:30`
+  );
 
   if (Number.isNaN(date.getTime())) {
     return dateText(dateValue);
   }
 
-  const formattedDate = date.toLocaleDateString(
-    "en-IN",
-    {
+  const formattedDate =
+    date.toLocaleDateString("en-IN", {
       day: "2-digit",
       month: "short",
       year: "numeric",
-    }
-  );
+    });
 
   if (!timeValue) {
     return formattedDate;
   }
 
-  const formattedTime = date.toLocaleTimeString(
-    "en-IN",
-    {
+  const formattedTime =
+    date.toLocaleTimeString("en-IN", {
       hour: "2-digit",
       minute: "2-digit",
-    }
-  );
+    });
 
   return `${formattedDate} at ${formattedTime}`;
 }
@@ -212,7 +205,9 @@ function getResultStatus(
 ): "PASS" | "FAIL" {
   const status =
     typeof result.result_status === "string"
-      ? result.result_status.trim().toUpperCase()
+      ? result.result_status
+          .trim()
+          .toUpperCase()
       : "";
 
   if (
@@ -330,9 +325,6 @@ export default function StudentQuizHistoryPage() {
             }
           | null = null;
 
-        /*
-         * First try the stored student ID.
-         */
         if (studentId) {
           const { data, error: studentError } =
             await supabase
@@ -353,10 +345,6 @@ export default function StudentQuizHistoryPage() {
           }
         }
 
-        /*
-         * If ID was not available or did not resolve,
-         * try the logged-in student's username.
-         */
         if (!studentRecord && username) {
           const { data, error: usernameError } =
             await supabase
@@ -380,10 +368,6 @@ export default function StudentQuizHistoryPage() {
           }
         }
 
-        /*
-         * Last fallback: use attendance username
-         * without depending on a stored UUID.
-         */
         if (!studentRecord) {
           const fallbackUsername =
             username ||
@@ -396,17 +380,19 @@ export default function StudentQuizHistoryPage() {
             "";
 
           if (fallbackUsername) {
-            const { data, error: fallbackError } =
-              await supabase
-                .from("students")
-                .select(
-                  "id, student_username, student_name, class_name"
-                )
-                .eq(
-                  "student_username",
-                  fallbackUsername
-                )
-                .maybeSingle();
+            const {
+              data,
+              error: fallbackError,
+            } = await supabase
+              .from("students")
+              .select(
+                "id, student_username, student_name, class_name"
+              )
+              .eq(
+                "student_username",
+                fallbackUsername
+              )
+              .maybeSingle();
 
             if (fallbackError) {
               console.error(
@@ -433,15 +419,17 @@ export default function StudentQuizHistoryPage() {
           studentRecord.class_name || "";
 
         setStudentClass(resolvedClass);
+
         setStudentName(
           studentRecord.student_name || ""
         );
 
-        /*
-         * Keep the resolved ID available for all
-         * student quiz pages.
-         */
         sessionStorage.setItem(
+          "attendance_student_id",
+          studentId
+        );
+
+        localStorage.setItem(
           "attendance_student_id",
           studentId
         );
@@ -453,12 +441,13 @@ export default function StudentQuizHistoryPage() {
             "student_username",
             studentRecord.student_username
           );
+
+          localStorage.setItem(
+            "student_username",
+            studentRecord.student_username
+          );
         }
 
-        /*
-         * Get every completed result belonging
-         * to this student.
-         */
         const {
           data: resultRows,
           error: resultError,
@@ -484,13 +473,17 @@ export default function StudentQuizHistoryPage() {
             `
           )
           .eq("student_id", studentId)
+          .not("submitted_at", "is", null)
           .order("submitted_at", {
             ascending: false,
             nullsFirst: false,
           });
 
         if (resultError) {
-          throw resultError;
+          throw new Error(
+            resultError.message ||
+              "Unable to load quiz results."
+          );
         }
 
         const results =
@@ -501,14 +494,12 @@ export default function StudentQuizHistoryPage() {
           return;
         }
 
-        /*
-         * Get the quiz information for all completed
-         * attempts.
-         */
         const quizIds = Array.from(
           new Set(
             results
-              .map((result) => result.quiz_id)
+              .map((result) =>
+                String(result.quiz_id)
+              )
               .filter(Boolean)
           )
         );
@@ -518,6 +509,13 @@ export default function StudentQuizHistoryPage() {
           return;
         }
 
+        /*
+         * IMPORTANT:
+         * quiz_tests uses marks_per_question
+         * and pass_percentage.
+         * Do NOT request total_marks or
+         * passing_percentage here.
+         */
         const {
           data: quizRows,
           error: quizError,
@@ -533,14 +531,18 @@ export default function StudentQuizHistoryPage() {
               scheduled_date,
               scheduled_time,
               duration_minutes,
-              total_marks,
-              passing_percentage
+              marks_per_question,
+              negative_marks,
+              pass_percentage
             `
           )
           .in("id", quizIds);
 
         if (quizError) {
-          throw quizError;
+          throw new Error(
+            quizError.message ||
+              "Unable to load quiz information."
+          );
         }
 
         const quizzes =
@@ -558,18 +560,6 @@ export default function StudentQuizHistoryPage() {
           );
         }
 
-        /*
-         * Create the final history list.
-         *
-         * A completed result is shown only when
-         * its quiz belongs to the student's class.
-         *
-         * For quizzes created with target_classes,
-         * target_classes is authoritative.
-         *
-         * For older quizzes where target_classes is
-         * empty, class_name is used as fallback.
-         */
         const items: HistoryItem[] = [];
 
         for (const result of results) {
@@ -597,9 +587,6 @@ export default function StudentQuizHistoryPage() {
           });
         }
 
-        /*
-         * Newest completed quiz first.
-         */
         items.sort((a, b) => {
           const aDate = new Date(
             a.result.submitted_at ||
@@ -688,7 +675,8 @@ export default function StudentQuizHistoryPage() {
             </h1>
 
             <p className="mt-2 text-sm text-slate-400">
-              Please wait while your completed quizzes are loaded.
+              Please wait while your completed
+              quizzes are loaded.
             </p>
           </div>
         </div>
@@ -699,7 +687,6 @@ export default function StudentQuizHistoryPage() {
   return (
     <main className="min-h-screen bg-slate-950 px-3 py-5 text-white sm:px-5 sm:py-8">
       <div className="mx-auto w-full max-w-6xl">
-        {/* Header */}
         <div className="mb-6 rounded-3xl border border-white/10 bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 p-5 shadow-2xl sm:p-7">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -761,7 +748,6 @@ export default function StudentQuizHistoryPage() {
           </div>
         </div>
 
-        {/* Error */}
         {error && (
           <div className="mb-6 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-red-200">
             <div className="font-black">
@@ -784,7 +770,6 @@ export default function StudentQuizHistoryPage() {
           </div>
         )}
 
-        {/* Statistics */}
         {history.length > 0 && (
           <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
@@ -832,7 +817,6 @@ export default function StudentQuizHistoryPage() {
           </div>
         )}
 
-        {/* Empty state */}
         {history.length === 0 && !error && (
           <div className="rounded-3xl border border-white/10 bg-slate-900 p-8 text-center shadow-xl sm:p-14">
             <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-indigo-500/10 text-3xl">
@@ -863,7 +847,6 @@ export default function StudentQuizHistoryPage() {
           </div>
         )}
 
-        {/* History */}
         {history.length > 0 && (
           <div className="space-y-4">
             <div className="flex items-center justify-between px-1">
@@ -900,7 +883,11 @@ export default function StudentQuizHistoryPage() {
                   typeof result.total_marks ===
                   "number"
                     ? result.total_marks
-                    : quiz.total_marks || 0;
+                    : (typeof quiz.marks_per_question ===
+                        "number"
+                        ? quiz.marks_per_question *
+                          (result.total_questions || 0)
+                        : 0);
 
                 const obtainedMarks =
                   typeof result.obtained_marks ===
@@ -915,7 +902,6 @@ export default function StudentQuizHistoryPage() {
                   >
                     <div className="p-4 sm:p-6">
                       <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-                        {/* Quiz information */}
                         <div className="min-w-0 flex-1">
                           <div className="mb-3 flex flex-wrap items-center gap-2">
                             <span
@@ -985,7 +971,6 @@ export default function StudentQuizHistoryPage() {
                           </div>
                         </div>
 
-                        {/* Percentage */}
                         <div className="flex items-center gap-5 xl:min-w-[190px] xl:justify-center">
                           <div className="flex h-24 w-24 shrink-0 flex-col items-center justify-center rounded-full border-4 border-indigo-500/30 bg-indigo-500/10">
                             <span className="text-2xl font-black text-white">
@@ -1018,7 +1003,6 @@ export default function StudentQuizHistoryPage() {
                         </div>
                       </div>
 
-                      {/* Result statistics */}
                       <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
                         <div className="rounded-xl border border-white/5 bg-white/[0.03] p-3">
                           <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
@@ -1073,7 +1057,6 @@ export default function StudentQuizHistoryPage() {
                         </div>
                       </div>
 
-                      {/* Bottom row */}
                       <div className="mt-5 flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
                         <div className="text-xs text-slate-500">
                           Submitted{" "}
