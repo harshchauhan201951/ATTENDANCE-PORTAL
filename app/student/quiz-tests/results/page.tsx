@@ -49,7 +49,9 @@ type ResultItem = QuizResult & {
 };
 
 function normalizeClass(value: unknown): string {
-  if (typeof value !== "string") return "";
+  if (typeof value !== "string") {
+    return "";
+  }
 
   return value
     .trim()
@@ -65,7 +67,9 @@ function matchesClass(
   const currentClass =
     normalizeClass(studentClass);
 
-  if (!currentClass) return false;
+  if (!currentClass) {
+    return false;
+  }
 
   const targets = Array.isArray(
     quiz.target_classes
@@ -94,7 +98,9 @@ function numberText(
 ): string {
   const n = Number(value ?? 0);
 
-  if (!Number.isFinite(n)) return "0";
+  if (!Number.isFinite(n)) {
+    return "0";
+  }
 
   return Number.isInteger(n)
     ? String(n)
@@ -104,7 +110,9 @@ function numberText(
 function dateTimeText(
   value: string | null
 ): string {
-  if (!value) return "—";
+  if (!value) {
+    return "—";
+  }
 
   const date = new Date(value);
 
@@ -124,9 +132,13 @@ function dateTimeText(
 function dateText(
   value: string | null
 ): string {
-  if (!value) return "—";
+  if (!value) {
+    return "—";
+  }
 
-  const date = new Date(`${value}T00:00:00`);
+  const date = new Date(
+    `${value}T00:00:00`
+  );
 
   if (Number.isNaN(date.getTime())) {
     return value;
@@ -142,9 +154,12 @@ function dateText(
 function timeText(
   value: string | null
 ): string {
-  if (!value) return "—";
+  if (!value) {
+    return "—";
+  }
 
   const parts = value.split(":");
+
   let hour = Number(parts[0]);
 
   if (!Number.isFinite(hour)) {
@@ -152,7 +167,9 @@ function timeText(
   }
 
   const minute = parts[1] || "00";
-  const period = hour >= 12 ? "PM" : "AM";
+
+  const period =
+    hour >= 12 ? "PM" : "AM";
 
   hour = hour % 12 || 12;
 
@@ -161,19 +178,19 @@ function timeText(
 
 function ResultsContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+
+  const searchParams =
+    useSearchParams();
 
   const quizIdParam =
     searchParams.get("quizId");
 
-  const quizId = Number(quizIdParam);
+  const parsedQuizId =
+    Number(quizIdParam);
 
   const isDetail =
-    Number.isFinite(quizId) &&
-    quizId > 0;
-
-  const [studentId, setStudentId] =
-    useState<number | null>(null);
+    Number.isFinite(parsedQuizId) &&
+    parsedQuizId > 0;
 
   const [studentName, setStudentName] =
     useState("");
@@ -220,7 +237,9 @@ function ResultsContent() {
         "studentUsername"
       );
 
-    let id: number | null = null;
+    let studentId: number | null =
+      null;
+
     let name =
       localStorage.getItem(
         "attendance_student_name"
@@ -235,67 +254,99 @@ function ResultsContent() {
 
     let className = "";
 
-    const parsed = Number(storedId);
+    const parsedId =
+      Number(storedId);
 
     if (
-      Number.isFinite(parsed) &&
-      parsed > 0
+      Number.isFinite(parsedId) &&
+      parsedId > 0
     ) {
-      id = parsed;
+      studentId = parsedId;
     }
 
-    if (id) {
-      const { data } =
-        await supabase
-          .from("students")
-          .select(
-            "id,student_name,student_username,class_name"
-          )
-          .eq("id", id)
-          .maybeSingle();
+    if (studentId) {
+      const {
+        data,
+        error: studentError,
+      } = await supabase
+        .from("students")
+        .select(
+          "id,student_name,student_username,class_name"
+        )
+        .eq("id", studentId)
+        .maybeSingle();
+
+      if (studentError) {
+        console.error(
+          "Student ID lookup error:",
+          studentError
+        );
+      }
 
       if (data) {
-        id = Number(data.id);
+        studentId =
+          Number(data.id);
+
         name =
-          data.student_name || name;
+          data.student_name ||
+          name;
+
         className =
-          normalizeClass(data.class_name);
+          normalizeClass(
+            data.class_name
+          );
       }
     }
 
     if (
-      (!id || !className) &&
+      (!studentId ||
+        !className) &&
       storedUsername
     ) {
-      const { data } =
-        await supabase
-          .from("students")
-          .select(
-            "id,student_name,student_username,class_name"
-          )
-          .eq(
-            "student_username",
-            storedUsername
-          )
-          .maybeSingle();
+      const {
+        data,
+        error: usernameError,
+      } = await supabase
+        .from("students")
+        .select(
+          "id,student_name,student_username,class_name"
+        )
+        .eq(
+          "student_username",
+          storedUsername
+        )
+        .maybeSingle();
+
+      if (usernameError) {
+        console.error(
+          "Student username lookup error:",
+          usernameError
+        );
+      }
 
       if (data) {
-        id = Number(data.id);
+        studentId =
+          Number(data.id);
+
         name =
-          data.student_name || name;
+          data.student_name ||
+          name;
+
         className =
-          normalizeClass(data.class_name);
+          normalizeClass(
+            data.class_name
+          );
       }
     }
 
-    if (!id) {
+    if (!studentId) {
       throw new Error(
         "Student login information not found. Please login again."
       );
     }
 
     return {
-      id,
+      id: studentId,
       name,
       className,
     };
@@ -309,14 +360,18 @@ function ResultsContent() {
       const student =
         await getStudent();
 
-      setStudentId(student.id);
-      setStudentName(student.name);
-      setStudentClass(student.className);
+      setStudentName(
+        student.name
+      );
+
+      setStudentClass(
+        student.className
+      );
 
       if (isDetail) {
         await loadSingleResult(
           student.id,
-          quizId
+          parsedQuizId
         );
       } else {
         await loadAllResults(
@@ -341,8 +396,8 @@ function ResultsContent() {
   }
 
   async function loadAllResults(
-    id: number,
-    className: string
+    studentId: number,
+    currentClass: string
   ) {
     const {
       data: resultData,
@@ -350,10 +405,16 @@ function ResultsContent() {
     } = await supabase
       .from("quiz_results")
       .select("*")
-      .eq("student_id", id)
-      .order("submitted_at", {
-        ascending: false,
-      });
+      .eq(
+        "student_id",
+        studentId
+      )
+      .order(
+        "submitted_at",
+        {
+          ascending: false,
+        }
+      );
 
     if (resultError) {
       throw new Error(
@@ -362,26 +423,33 @@ function ResultsContent() {
     }
 
     const rawResults =
-      (resultData || []) as QuizResult[];
+      (resultData ||
+        []) as QuizResult[];
 
     if (rawResults.length === 0) {
       setResults([]);
       return;
     }
 
-    const quizIds = Array.from(
-      new Set(
-        rawResults
-          .map((item) =>
-            Number(item.quiz_id)
-          )
-          .filter(
-            (value) =>
-              Number.isFinite(value) &&
-              value > 0
-          )
-      )
-    );
+    const quizIds =
+      Array.from(
+        new Set(
+          rawResults
+            .map((item) =>
+              Number(item.quiz_id)
+            )
+            .filter(
+              (id) =>
+                Number.isFinite(id) &&
+                id > 0
+            )
+        )
+      );
+
+    if (quizIds.length === 0) {
+      setResults([]);
+      return;
+    }
 
     const {
       data: quizData,
@@ -391,7 +459,10 @@ function ResultsContent() {
       .select(
         "id,title,description,class_name,target_classes,subject,scheduled_date,scheduled_time,duration_minutes,marks_per_question,negative_marks,pass_percentage"
       )
-      .in("id", quizIds);
+      .in(
+        "id",
+        quizIds
+      );
 
     if (quizError) {
       throw new Error(
@@ -402,32 +473,33 @@ function ResultsContent() {
     const quizMap =
       new Map<number, Quiz>();
 
-    ((quizData || []) as Quiz[]).forEach(
-      (quiz) => {
-        quizMap.set(
-          Number(quiz.id),
-          quiz
-        );
-      }
-    );
+    (
+      (quizData ||
+        []) as Quiz[]
+    ).forEach((quiz) => {
+      quizMap.set(
+        Number(quiz.id),
+        quiz
+      );
+    });
 
     const combined =
       rawResults
-        .map((item) => ({
-          ...item,
+        .map((result) => ({
+          ...result,
           quiz:
             quizMap.get(
-              Number(item.quiz_id)
+              Number(result.quiz_id)
             ) || null,
         }))
         .filter((item) => {
           if (
             item.quiz &&
-            className
+            currentClass
           ) {
             return matchesClass(
               item.quiz,
-              className
+              currentClass
             );
           }
 
@@ -438,8 +510,8 @@ function ResultsContent() {
   }
 
   async function loadSingleResult(
-    id: number,
-    selectedId: number
+    studentId: number,
+    quizId: number
   ) {
     const {
       data: quizData,
@@ -449,7 +521,10 @@ function ResultsContent() {
       .select(
         "id,title,description,class_name,target_classes,subject,scheduled_date,scheduled_time,duration_minutes,marks_per_question,negative_marks,pass_percentage"
       )
-      .eq("id", selectedId)
+      .eq(
+        "id",
+        quizId
+      )
       .maybeSingle();
 
     if (quizError) {
@@ -475,11 +550,20 @@ function ResultsContent() {
     } = await supabase
       .from("quiz_results")
       .select("*")
-      .eq("quiz_id", selectedId)
-      .eq("student_id", id)
-      .order("submitted_at", {
-        ascending: false,
-      })
+      .eq(
+        "quiz_id",
+        quizId
+      )
+      .eq(
+        "student_id",
+        studentId
+      )
+      .order(
+        "submitted_at",
+        {
+          ascending: false,
+        }
+      )
       .limit(1)
       .maybeSingle();
 
@@ -497,7 +581,7 @@ function ResultsContent() {
       try {
         const stored =
           sessionStorage.getItem(
-            `quiz-result-${selectedId}`
+            `quiz-result-${quizId}`
           );
 
         if (stored) {
@@ -507,10 +591,12 @@ function ResultsContent() {
             ) as QuizResult;
 
           if (
-            Number(parsed.quiz_id) ===
-              selectedId &&
-            Number(parsed.student_id) ===
-              id
+            Number(
+              parsed.quiz_id
+            ) === quizId &&
+            Number(
+              parsed.student_id
+            ) === studentId
           ) {
             result = parsed;
           }
@@ -529,7 +615,9 @@ function ResultsContent() {
       );
     }
 
-    setSelectedResult(result);
+    setSelectedResult(
+      result
+    );
   }
 
   if (loading) {
@@ -588,6 +676,7 @@ function ResultsContent() {
             </button>
 
           </div>
+
         </div>
       </main>
     );
@@ -599,10 +688,10 @@ function ResultsContent() {
         <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
 
           <header className="border-b border-white/10 bg-slate-950/90 backdrop-blur-xl">
-            <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
+            <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4">
 
               <div>
-                <h1 className="text-lg font-black">
+                <h1 className="text-lg font-black sm:text-xl">
                   RACER ACADEMY
                 </h1>
 
@@ -620,7 +709,7 @@ function ResultsContent() {
                     "/student/quiz-tests"
                   )
                 }
-                className="rounded-xl bg-white/5 px-4 py-2 text-sm font-bold hover:bg-white/10"
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold hover:bg-white/10"
               >
                 ← Quiz Tests
               </button>
@@ -656,7 +745,11 @@ function ResultsContent() {
             {results.length === 0 ? (
               <div className="rounded-3xl border border-dashed border-white/10 bg-white/5 p-12 text-center">
 
-                <h3 className="text-xl font-black">
+                <div className="text-5xl">
+                  RESULTS
+                </div>
+
+                <h3 className="mt-5 text-xl font-black">
                   No Quiz Results Yet
                 </h3>
 
@@ -694,7 +787,7 @@ function ResultsContent() {
                           item.id ||
                           `${item.quiz_id}-${index}`
                         }
-                        className="overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-xl"
+                        className="overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-xl backdrop-blur-xl"
                       >
 
                         <div
@@ -707,7 +800,7 @@ function ResultsContent() {
 
                           <div className="flex items-start justify-between gap-4">
 
-                            <div>
+                            <div className="min-w-0">
                               <p className="text-[10px] font-black tracking-[0.2em] text-slate-500">
                                 COMPLETED QUIZ
                               </p>
@@ -725,7 +818,7 @@ function ResultsContent() {
                             </div>
 
                             <span
-                              className={`rounded-full px-3 py-1 text-[10px] font-black ${
+                              className={`shrink-0 rounded-full px-3 py-1 text-[10px] font-black ${
                                 passed
                                   ? "bg-emerald-500/20 text-emerald-300"
                                   : "bg-red-500/20 text-red-300"
@@ -781,6 +874,7 @@ function ResultsContent() {
                               <p className="text-lg font-black text-emerald-300">
                                 {item.correct_answers}
                               </p>
+
                               <p className="text-[9px] font-bold text-emerald-200/60">
                                 CORRECT
                               </p>
@@ -790,6 +884,7 @@ function ResultsContent() {
                               <p className="text-lg font-black text-red-300">
                                 {item.wrong_answers}
                               </p>
+
                               <p className="text-[9px] font-bold text-red-200/60">
                                 WRONG
                               </p>
@@ -799,6 +894,7 @@ function ResultsContent() {
                               <p className="text-lg font-black text-amber-300">
                                 {item.unanswered}
                               </p>
+
                               <p className="text-[9px] font-bold text-amber-200/60">
                                 SKIPPED
                               </p>
@@ -806,13 +902,18 @@ function ResultsContent() {
 
                           </div>
 
-                          <p className="mt-4 text-xs text-slate-500">
-                            Submitted:{" "}
-                            {dateTimeText(
-                              item.submitted_at ||
-                                item.created_at
-                            )}
-                          </p>
+                          <div className="mt-4 rounded-xl bg-white/5 p-3">
+                            <p className="text-[9px] font-bold text-slate-500">
+                              SUBMITTED
+                            </p>
+
+                            <p className="mt-1 text-xs font-semibold text-slate-300">
+                              {dateTimeText(
+                                item.submitted_at ||
+                                  item.created_at
+                              )}
+                            </p>
+                          </div>
 
                           <button
                             onClick={() =>
@@ -826,6 +927,7 @@ function ResultsContent() {
                           </button>
 
                         </div>
+
                       </div>
                     );
                   }
@@ -873,11 +975,11 @@ function ResultsContent() {
     <main className="min-h-screen bg-slate-950 text-white">
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
 
-        <header className="border-b border-white/10 bg-slate-950/90">
-          <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
+        <header className="border-b border-white/10 bg-slate-950/90 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4">
 
             <div>
-              <h1 className="font-black">
+              <h1 className="text-lg font-black">
                 RACER ACADEMY
               </h1>
 
@@ -943,7 +1045,7 @@ function ResultsContent() {
 
             <div className="mt-6">
               <span
-                className={`rounded-full px-7 py-3 text-lg font-black ${
+                className={`inline-block rounded-full px-7 py-3 text-lg font-black ${
                   passed
                     ? "bg-emerald-500/20 text-emerald-300"
                     : "bg-red-500/20 text-red-300"
@@ -974,6 +1076,7 @@ function ResultsContent() {
                   result.total_questions
                 )}
               </p>
+
               <p className="mt-1 text-[10px] font-bold text-slate-500">
                 QUESTIONS
               </p>
@@ -983,6 +1086,7 @@ function ResultsContent() {
               <p className="text-3xl font-black text-emerald-300">
                 {result.correct_answers}
               </p>
+
               <p className="mt-1 text-[10px] font-bold text-emerald-200/60">
                 CORRECT
               </p>
@@ -992,6 +1096,7 @@ function ResultsContent() {
               <p className="text-3xl font-black text-red-300">
                 {result.wrong_answers}
               </p>
+
               <p className="mt-1 text-[10px] font-bold text-red-200/60">
                 WRONG
               </p>
@@ -1001,6 +1106,7 @@ function ResultsContent() {
               <p className="text-3xl font-black text-amber-300">
                 {result.unanswered}
               </p>
+
               <p className="mt-1 text-[10px] font-bold text-amber-200/60">
                 SKIPPED
               </p>
@@ -1068,12 +1174,73 @@ function ResultsContent() {
                     Math.max(
                       0,
                       Number(
-                        result.percentage || 0
+                        result.percentage ||
+                          0
                       )
                     )
                   )}%`,
                 }}
               />
+            </div>
+
+          </section>
+
+          <section className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-6">
+
+            <h3 className="text-xl font-black">
+              Question Performance
+            </h3>
+
+            <div className="mt-5 space-y-3">
+
+              <div className="flex items-center justify-between rounded-2xl bg-emerald-500/10 p-4">
+                <div>
+                  <p className="font-bold text-emerald-300">
+                    Correct Answers
+                  </p>
+
+                  <p className="text-xs text-slate-400">
+                    Questions answered correctly
+                  </p>
+                </div>
+
+                <strong className="text-2xl text-emerald-300">
+                  {result.correct_answers}
+                </strong>
+              </div>
+
+              <div className="flex items-center justify-between rounded-2xl bg-red-500/10 p-4">
+                <div>
+                  <p className="font-bold text-red-300">
+                    Wrong Answers
+                  </p>
+
+                  <p className="text-xs text-slate-400">
+                    Questions answered incorrectly
+                  </p>
+                </div>
+
+                <strong className="text-2xl text-red-300">
+                  {result.wrong_answers}
+                </strong>
+              </div>
+
+              <div className="flex items-center justify-between rounded-2xl bg-amber-500/10 p-4">
+                <div>
+                  <p className="font-bold text-amber-300">
+                    Unanswered
+                  </p>
+
+                  <p className="text-xs text-slate-400">
+                    Questions left unanswered
+                  </p>
+                </div>
+
+                <strong className="text-2xl text-amber-300">
+                  {result.unanswered}
+                </strong>
+              </div>
+
             </div>
 
           </section>
@@ -1248,57 +1415,19 @@ function ResultsContent() {
   );
 }
 
-function dateText(
-  value: string | null
-): string {
-  if (!value) return "—";
-
-  const date = new Date(
-    `${value}T00:00:00`
-  );
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function timeText(
-  value: string | null
-): string {
-  if (!value) return "—";
-
-  const parts = value.split(":");
-  let hour = Number(parts[0]);
-
-  if (!Number.isFinite(hour)) {
-    return value;
-  }
-
-  const minute = parts[1] || "00";
-  const period =
-    hour >= 12 ? "PM" : "AM";
-
-  hour = hour % 12 || 12;
-
-  return `${hour}:${minute} ${period}`;
-}
-
 export default function StudentQuizResultsPage() {
   return (
     <Suspense
       fallback={
         <main className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
           <div className="text-center">
+
             <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-indigo-500" />
+
             <p className="font-bold">
               Loading Results...
             </p>
+
           </div>
         </main>
       }
