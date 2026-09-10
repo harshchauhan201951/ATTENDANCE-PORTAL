@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
 
@@ -13,429 +16,639 @@ type Quiz = {
   scheduled_date: string;
   scheduled_time: string;
   duration_minutes: number;
+  marks_per_question: number;
+  negative_marks: number;
+  pass_percentage: number;
+  is_published: boolean;
 };
 
-type Result = {
-  quiz_id: number;
-};
+function normalizeClass(
+  value: unknown
+) {
+  if (
+    typeof value !== "string"
+  ) {
+    return "";
+  }
 
-function normalizeClass(value: unknown) {
-  if (typeof value !== "string") return "";
-  return value.trim().toUpperCase();
+  return value
+    .trim()
+    .toUpperCase()
+    .replace(
+      /^CLASS\s+/i,
+      ""
+    )
+    .replace(
+      /\s+/g,
+      " "
+    );
 }
 
-function quizMatchesStudentClass(
+function quizBelongsToStudent(
   quiz: Quiz,
   studentClass: string
 ) {
-  const studentClassNormalized =
-    normalizeClass(studentClass);
+  const normalizedStudentClass =
+    normalizeClass(
+      studentClass
+    );
 
-  if (!studentClassNormalized) return false;
-
-  const targets = Array.isArray(quiz.target_classes)
-    ? quiz.target_classes
-        .map(normalizeClass)
-        .filter(Boolean)
-    : [];
-
-  if (targets.length > 0) {
-    return targets.includes(studentClassNormalized);
+  if (
+    !normalizedStudentClass
+  ) {
+    return false;
   }
 
-  const legacyClass = normalizeClass(quiz.class_name);
+  const targetClasses =
+    Array.isArray(
+      quiz.target_classes
+    )
+      ? quiz.target_classes
+          .filter(
+            (
+              value
+            ): value is string =>
+              typeof value ===
+              "string"
+          )
+          .map(
+            normalizeClass
+          )
+          .filter(Boolean)
+      : [];
 
-  return legacyClass === studentClassNormalized;
+  if (
+    targetClasses.length > 0
+  ) {
+    return targetClasses.includes(
+      normalizedStudentClass
+    );
+  }
+
+  return (
+    normalizeClass(
+      quiz.class_name
+    ) ===
+    normalizedStudentClass
+  );
 }
 
-export default function AvailableQuizzesPage() {
-  const router = useRouter();
+function getStartTime(
+  quiz: Quiz
+) {
+  return new Date(
+    `${quiz.scheduled_date}T${quiz.scheduled_time.slice(
+      0,
+      8
+    )}`
+  );
+}
 
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
-  const [attempted, setAttempted] = useState<number[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [studentId, setStudentId] = useState<number | null>(null);
-  const [studentClass, setStudentClass] = useState("");
-  const [error, setError] = useState("");
+function getQuizStatus(
+  quiz: Quiz
+) {
+  const start =
+    getStartTime(quiz);
 
-  useEffect(() => {
-    const id =
-      localStorage.getItem("attendance_student_id") ||
-      localStorage.getItem("studentId") ||
-      localStorage.getItem("student_id");
+  const end = new Date(
+    start.getTime() +
+      Number(
+        quiz.duration_minutes
+      ) *
+        60 *
+        1000
+  );
 
-    if (!id) {
-      setLoading(false);
-      return;
-    }
+  const now = new Date();
 
-    const numericId = Number(id);
-
-    if (!Number.isFinite(numericId) || numericId <= 0) {
-      setLoading(false);
-      return;
-    }
-
-    setStudentId(numericId);
-    loadQuizzes(numericId);
-  }, []);
-
-  async function loadQuizzes(id: number) {
-    setLoading(true);
-    setError("");
-
-    try {
-      const { data: studentData, error: studentError } =
-        await supabase
-          .from("students")
-          .select("class_name")
-          .eq("id", id)
-          .maybeSingle();
-
-      if (studentError) {
-        throw new Error(studentError.message);
-      }
-
-      const currentClass =
-        normalizeClass(studentData?.class_name);
-
-      if (!currentClass) {
-        setStudentClass("");
-        setQuizzes([]);
-        setAttempted([]);
-        setError(
-          "Your class is not assigned in your student profile."
-        );
-        return;
-      }
-
-      setStudentClass(currentClass);
-
-      const { data: quizData, error: quizError } =
-        await supabase
-          .from("quiz_tests")
-          .select(
-            "id,title,description,class_name,target_classes,scheduled_date,scheduled_time,duration_minutes"
-          )
-          .eq("is_published", true)
-          .order("scheduled_date", {
-            ascending: true,
-          })
-          .order("scheduled_time", {
-            ascending: true,
-          });
-
-      if (quizError) {
-        throw new Error(quizError.message);
-      }
-
-      const classQuizzes = ((quizData || []) as Quiz[]).filter(
-        (quiz) =>
-          quizMatchesStudentClass(
-            quiz,
-            currentClass
-          )
-      );
-
-      const { data: resultData, error: resultError } =
-        await supabase
-          .from("quiz_results")
-          .select("quiz_id")
-          .eq("student_id", id);
-
-      if (resultError) {
-        console.error(
-          "Attempt loading error:",
-          resultError
-        );
-      }
-
-      setQuizzes(classQuizzes);
-
-      setAttempted(
-        ((resultData || []) as Result[]).map(
-          (item) => Number(item.quiz_id)
-        )
-      );
-    } catch (loadError) {
-      console.error("Quiz loading error:", loadError);
-
-      setQuizzes([]);
-      setAttempted([]);
-
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "Unable to load quizzes."
-      );
-    } finally {
-      setLoading(false);
-    }
+  if (now < start) {
+    return "UPCOMING";
   }
 
-  function getStartTime(quiz: Quiz) {
-    return new Date(
-      `${quiz.scheduled_date}T${quiz.scheduled_time}`
-    );
-  }
-
-  function getEndTime(quiz: Quiz) {
-    return new Date(
-      getStartTime(quiz).getTime() +
-        (quiz.duration_minutes || 30) *
-          60 *
-          1000
-    );
-  }
-
-  function getStatus(quiz: Quiz) {
-    const now = new Date();
-    const start = getStartTime(quiz);
-    const end = getEndTime(quiz);
-
-    if (now < start) return "UPCOMING";
-    if (now >= start && now <= end) return "LIVE";
-
+  if (now >= end) {
     return "ENDED";
   }
 
-  function formatDate(date: string) {
-    return new Date(
-      `${date}T00:00:00`
-    ).toLocaleDateString("en-IN", {
+  return "LIVE";
+}
+
+function formatDate(
+  value: string
+) {
+  const date = new Date(
+    `${value}T00:00:00`
+  );
+
+  return date.toLocaleDateString(
+    "en-IN",
+    {
       day: "2-digit",
       month: "short",
       year: "numeric",
-    });
-  }
+    }
+  );
+}
 
-  function formatTime(time: string) {
-    const [hourText, minute] = time.split(":");
+function formatTime(
+  value: string
+) {
+  const [hour, minute] =
+    value.split(":");
 
-    let hour = Number(hourText);
+  const date = new Date();
 
-    if (!Number.isFinite(hour)) {
-      return time;
+  date.setHours(
+    Number(hour),
+    Number(minute),
+    0,
+    0
+  );
+
+  return date.toLocaleTimeString(
+    "en-IN",
+    {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }
+  );
+}
+
+export default function StudentAvailableQuizzesPage() {
+  const router =
+    useRouter();
+
+  const [quizzes, setQuizzes] =
+    useState<Quiz[]>([]);
+
+  const [
+    attemptedQuizIds,
+    setAttemptedQuizIds,
+  ] = useState<
+    Set<number>
+  >(new Set());
+
+  const [
+    studentClass,
+    setStudentClass,
+  ] = useState("");
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
+
+  useEffect(() => {
+    async function load() {
+      try {
+        let studentId: number | null =
+          null;
+
+        const storedIdKeys = [
+          "attendance_student_id",
+          "studentId",
+          "student_id",
+        ];
+
+        for (const key of storedIdKeys) {
+          const raw =
+            localStorage.getItem(
+              key
+            );
+
+          const id = Number(raw);
+
+          if (
+            Number.isInteger(id) &&
+            id > 0
+          ) {
+            studentId = id;
+            break;
+          }
+        }
+
+        const username =
+          localStorage.getItem(
+            "student_username"
+          );
+
+        let student:
+          | {
+              id: number;
+              class_name: string | null;
+            }
+          | null = null;
+
+        if (username) {
+          const {
+            data,
+            error:
+              usernameError,
+          } = await supabase
+            .from("students")
+            .select(
+              "id,class_name"
+            )
+            .eq(
+              "student_username",
+              username
+            )
+            .maybeSingle();
+
+          if (usernameError) {
+            throw new Error(
+              usernameError.message
+            );
+          }
+
+          if (data) {
+            student = data;
+            studentId = Number(
+              data.id
+            );
+          }
+        }
+
+        if (
+          !student &&
+          studentId
+        ) {
+          const {
+            data,
+            error:
+              studentError,
+          } = await supabase
+            .from("students")
+            .select(
+              "id,class_name"
+            )
+            .eq(
+              "id",
+              studentId
+            )
+            .maybeSingle();
+
+          if (studentError) {
+            throw new Error(
+              studentError.message
+            );
+          }
+
+          student = data;
+        }
+
+        if (!student) {
+          throw new Error(
+            "Student login information not found."
+          );
+        }
+
+        setStudentClass(
+          student.class_name || ""
+        );
+
+        const {
+          data: quizData,
+          error: quizError,
+        } = await supabase
+          .from("quiz_tests")
+          .select("*")
+          .eq(
+            "is_published",
+            true
+          )
+          .order(
+            "scheduled_date",
+            {
+              ascending: true,
+            }
+          )
+          .order(
+            "scheduled_time",
+            {
+              ascending: true,
+            }
+          );
+
+        if (quizError) {
+          throw new Error(
+            quizError.message
+          );
+        }
+
+        const matchingQuizzes =
+          (
+            (quizData ||
+              []) as Quiz[]
+          ).filter(
+            (quiz) =>
+              quizBelongsToStudent(
+                quiz,
+                student.class_name ||
+                  ""
+              )
+          );
+
+        setQuizzes(
+          matchingQuizzes
+        );
+
+        if (studentId) {
+          const {
+            data: results,
+            error:
+              resultsError,
+          } = await supabase
+            .from("quiz_results")
+            .select(
+              "quiz_id"
+            )
+            .eq(
+              "student_id",
+              studentId
+            );
+
+          if (resultsError) {
+            throw new Error(
+              resultsError.message
+            );
+          }
+
+          setAttemptedQuizIds(
+            new Set(
+              (
+                results ||
+                []
+              ).map(
+                (row) =>
+                  Number(
+                    row.quiz_id
+                  )
+              )
+            )
+          );
+        }
+      } catch (loadError) {
+        console.error(
+          loadError
+        );
+
+        setError(
+          loadError instanceof
+            Error
+            ? loadError.message
+            : "Unable to load quizzes."
+        );
+      } finally {
+        setLoading(false);
+      }
     }
 
-    const period = hour >= 12 ? "PM" : "AM";
+    load();
+  }, []);
 
-    hour = hour % 12 || 12;
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-indigo-500" />
+          <p className="font-black">
+            Loading Quizzes...
+          </p>
+        </div>
+      </main>
+    );
+  }
 
-    return `${hour}:${minute || "00"} ${period}`;
+  if (error) {
+    return (
+      <main className="min-h-screen bg-slate-950 px-4 py-10 text-white">
+        <div className="mx-auto max-w-lg rounded-3xl border border-red-400/20 bg-red-500/10 p-8 text-center">
+          <h1 className="text-2xl font-black">
+            Unable to Load Quizzes
+          </h1>
+
+          <p className="mt-3 text-sm text-red-200">
+            {error}
+          </p>
+
+          <button
+            type="button"
+            onClick={() =>
+              router.push(
+                "/student/quiz-tests"
+              )
+            }
+            className="mt-6 rounded-xl bg-indigo-600 px-6 py-3 font-black"
+          >
+            Back
+          </button>
+        </div>
+      </main>
+    );
   }
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
-        <header className="border-b border-white/10 bg-slate-950/90 backdrop-blur-xl">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-600 text-2xl">
-                QUIZ
-              </div>
+        <header className="border-b border-white/10 bg-slate-950/90">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4">
+            <div>
+              <h1 className="text-xl font-black">
+                AVAILABLE QUIZZES
+              </h1>
 
-              <div>
-                <h1 className="font-black">
-                  AVAILABLE QUIZZES
-                </h1>
-
-                <p className="text-xs text-slate-400">
-                  RACER ACADEMY
-                  {studentClass
-                    ? ` • CLASS ${studentClass}`
-                    : ""}
-                </p>
-              </div>
+              <p className="text-xs text-slate-400">
+                RACER ACADEMY
+              </p>
             </div>
 
             <button
+              type="button"
               onClick={() =>
                 router.push(
                   "/student/quiz-tests"
                 )
               }
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold hover:bg-white/10"
+              className="rounded-xl bg-white/10 px-4 py-2 text-sm font-black"
             >
-              ← Quiz Tests
+              Back
             </button>
           </div>
         </header>
 
-        <div className="mx-auto max-w-6xl px-4 py-8">
-          {loading ? (
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-10 text-center">
-              <div className="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-2 border-white/20 border-t-indigo-400" />
+        <div className="mx-auto max-w-6xl px-4 py-7">
+          <div className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-5">
+            <p className="text-xs font-bold text-slate-500">
+              YOUR CLASS
+            </p>
 
-              <p className="text-sm text-slate-400">
-                Loading available quizzes...
-              </p>
-            </div>
-          ) : !studentId ? (
-            <div className="rounded-3xl border border-red-400/20 bg-red-500/10 p-8 text-center">
-              <div className="text-4xl">LOGIN</div>
+            <p className="mt-1 text-xl font-black text-indigo-300">
+              CLASS{" "}
+              {normalizeClass(
+                studentClass
+              )}
+            </p>
+          </div>
 
-              <h2 className="mt-3 font-black">
-                Student login required
-              </h2>
-
-              <p className="mt-2 text-sm text-slate-400">
-                Please login again to access quizzes.
-              </p>
-            </div>
-          ) : error ? (
-            <div className="rounded-3xl border border-red-400/20 bg-red-500/10 p-8 text-center">
-              <h2 className="font-black">
-                Unable to load quizzes
-              </h2>
-
-              <p className="mt-2 text-sm text-red-200">
-                {error}
-              </p>
-            </div>
-          ) : quizzes.length === 0 ? (
+          {quizzes.length ===
+          0 ? (
             <div className="rounded-3xl border border-dashed border-white/10 bg-white/5 p-10 text-center">
-              <div className="text-5xl">QUIZ</div>
-
-              <h2 className="mt-4 text-xl font-black">
-                No quizzes found for your class
+              <h2 className="text-xl font-black">
+                No Quizzes Available
               </h2>
 
               <p className="mt-2 text-sm text-slate-400">
-                No published quiz is currently assigned to
-                Class {studentClass}.
+                There are currently no published quizzes for your class.
               </p>
             </div>
           ) : (
             <div className="grid gap-5 md:grid-cols-2">
-              {quizzes.map((quiz) => {
-                const status = getStatus(quiz);
-                const hasAttempted =
-                  attempted.includes(quiz.id);
+              {quizzes.map(
+                (quiz) => {
+                  const attempted =
+                    attemptedQuizIds.has(
+                      quiz.id
+                    );
 
-                return (
-                  <div
-                    key={quiz.id}
-                    className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl backdrop-blur-xl"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <h2 className="text-xl font-black">
-                          {quiz.title}
-                        </h2>
+                  const status =
+                    getQuizStatus(
+                      quiz
+                    );
 
-                        {quiz.description && (
-                          <p className="mt-2 text-sm leading-6 text-slate-400">
-                            {quiz.description}
+                  return (
+                    <article
+                      key={
+                        quiz.id
+                      }
+                      className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h2 className="text-lg font-black">
+                            {
+                              quiz.title
+                            }
+                          </h2>
+
+                          {quiz.description && (
+                            <p className="mt-2 text-sm leading-relaxed text-slate-400">
+                              {
+                                quiz.description
+                              }
+                            </p>
+                          )}
+                        </div>
+
+                        <span
+                          className={`shrink-0 rounded-full px-3 py-1 text-[10px] font-black ${
+                            attempted
+                              ? "bg-emerald-500/15 text-emerald-300"
+                              : status ===
+                                "LIVE"
+                              ? "bg-indigo-500/15 text-indigo-300"
+                              : status ===
+                                "UPCOMING"
+                              ? "bg-amber-500/15 text-amber-300"
+                              : "bg-red-500/15 text-red-300"
+                          }`}
+                        >
+                          {attempted
+                            ? "COMPLETED"
+                            : status}
+                        </span>
+                      </div>
+
+                      <div className="mt-5 grid grid-cols-2 gap-3 text-xs">
+                        <div className="rounded-2xl bg-white/5 p-3">
+                          <p className="text-slate-500">
+                            DATE
                           </p>
+                          <p className="mt-1 font-black">
+                            {formatDate(
+                              quiz.scheduled_date
+                            )}
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl bg-white/5 p-3">
+                          <p className="text-slate-500">
+                            TIME
+                          </p>
+                          <p className="mt-1 font-black">
+                            {formatTime(
+                              quiz.scheduled_time
+                            )}
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl bg-white/5 p-3">
+                          <p className="text-slate-500">
+                            DURATION
+                          </p>
+                          <p className="mt-1 font-black">
+                            {
+                              quiz.duration_minutes
+                            }{" "}
+                            min
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl bg-white/5 p-3">
+                          <p className="text-slate-500">
+                            PASS
+                          </p>
+                          <p className="mt-1 font-black">
+                            {
+                              quiz.pass_percentage
+                            }
+                            %
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-5">
+                        {attempted ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              router.push(
+                                `/student/quiz-tests/results?quizId=${quiz.id}`
+                              )
+                            }
+                            className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black"
+                          >
+                            View Result
+                          </button>
+                        ) : status ===
+                          "LIVE" ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              router.push(
+                                `/student/quiz-tests/attempt?quizId=${quiz.id}`
+                              )
+                            }
+                            className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-black"
+                          >
+                            Start Quiz
+                          </button>
+                        ) : status ===
+                          "UPCOMING" ? (
+                          <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-center text-xs font-bold text-amber-300">
+                            Quiz is not live yet.
+                          </div>
+                        ) : (
+                          <div className="rounded-xl bg-red-500/10 px-4 py-3 text-center text-xs font-bold text-red-300">
+                            Quiz time has ended.
+                          </div>
                         )}
                       </div>
-
-                      <span
-                        className={`shrink-0 rounded-full px-3 py-1 text-[10px] font-black ${
-                          status === "LIVE"
-                            ? "bg-emerald-500/20 text-emerald-400"
-                            : status === "UPCOMING"
-                            ? "bg-amber-500/20 text-amber-400"
-                            : "bg-slate-500/20 text-slate-400"
-                        }`}
-                      >
-                        {status}
-                      </span>
-                    </div>
-
-                    <div className="mt-5 grid grid-cols-2 gap-3">
-                      <div className="rounded-xl bg-white/5 p-3">
-                        <p className="text-[10px] font-bold text-slate-500">
-                          CLASS
-                        </p>
-
-                        <p className="mt-1 text-sm font-bold">
-                          {studentClass}
-                        </p>
-                      </div>
-
-                      <div className="rounded-xl bg-white/5 p-3">
-                        <p className="text-[10px] font-bold text-slate-500">
-                          DATE
-                        </p>
-
-                        <p className="mt-1 text-sm font-bold">
-                          {formatDate(
-                            quiz.scheduled_date
-                          )}
-                        </p>
-                      </div>
-
-                      <div className="rounded-xl bg-white/5 p-3">
-                        <p className="text-[10px] font-bold text-slate-500">
-                          START TIME
-                        </p>
-
-                        <p className="mt-1 text-sm font-bold">
-                          {formatTime(
-                            quiz.scheduled_time
-                          )}
-                        </p>
-                      </div>
-
-                      <div className="rounded-xl bg-white/5 p-3">
-                        <p className="text-[10px] font-bold text-slate-500">
-                          DURATION
-                        </p>
-
-                        <p className="mt-1 text-sm font-bold">
-                          {quiz.duration_minutes || 30} minutes
-                        </p>
-                      </div>
-
-                      <div className="rounded-xl bg-white/5 p-3 col-span-2">
-                        <p className="text-[10px] font-bold text-slate-500">
-                          ATTEMPT
-                        </p>
-
-                        <p className="mt-1 text-sm font-bold">
-                          {hasAttempted
-                            ? "Completed"
-                            : "Not Attempted"}
-                        </p>
-                      </div>
-                    </div>
-
-                    {hasAttempted ? (
-                      <button
-                        onClick={() =>
-                          router.push(
-                            `/student/quiz-tests/results?quizId=${quiz.id}`
-                          )
-                        }
-                        className="mt-5 w-full rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm font-black text-emerald-400 hover:bg-emerald-500/20"
-                      >
-                        VIEW RESULT
-                      </button>
-                    ) : status === "LIVE" ? (
-                      <button
-                        onClick={() =>
-                          router.push(
-                            `/student/quiz-tests/attempt?quizId=${quiz.id}`
-                          )
-                        }
-                        className="mt-5 w-full rounded-xl bg-indigo-600 px-4 py-3 font-black shadow-lg shadow-indigo-900/30 transition hover:bg-indigo-500"
-                      >
-                        START QUIZ
-                      </button>
-                    ) : status === "UPCOMING" ? (
-                      <div className="mt-5 rounded-xl bg-amber-500/10 px-4 py-3 text-center text-sm font-semibold text-amber-300">
-                        Quiz will open at the scheduled time.
-                      </div>
-                    ) : (
-                      <div className="mt-5 rounded-xl bg-slate-500/10 px-4 py-3 text-center text-sm font-semibold text-slate-400">
-                        Quiz time has ended.
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                    </article>
+                  );
+                }
+              )}
             </div>
           )}
         </div>
