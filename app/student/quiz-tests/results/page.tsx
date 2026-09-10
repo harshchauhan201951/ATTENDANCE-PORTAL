@@ -1,7 +1,15 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import {
+  Suspense,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import {
+  useSearchParams,
+  useRouter,
+} from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
 
 type QuizTest = {
@@ -9,6 +17,7 @@ type QuizTest = {
   title: string;
   description: string | null;
   class_name: string | null;
+  target_classes: string[] | null;
   subject: string | null;
   scheduled_date: string | null;
   scheduled_time: string | null;
@@ -36,223 +45,677 @@ type QuizResult = {
   created_at?: string | null;
 };
 
+type ResultListItem = QuizResult & {
+  quiz: QuizTest | null;
+};
+
+function normalizeClass(value: unknown): string {
+  if (typeof value !== "string") return "";
+
+  return value
+    .trim()
+    .toUpperCase()
+    .replace(/^CLASS\s+/i, "")
+    .replace(/\s+/g, " ");
+}
+
+function quizMatchesStudentClass(
+  quiz: QuizTest,
+  studentClass: string
+): boolean {
+  const normalizedStudentClass =
+    normalizeClass(studentClass);
+
+  if (!normalizedStudentClass) return false;
+
+  const targetClasses = Array.isArray(
+    quiz.target_classes
+  )
+    ? quiz.target_classes
+        .filter(
+          (value): value is string =>
+            typeof value === "string"
+        )
+        .map(normalizeClass)
+        .filter(Boolean)
+    : [];
+
+  if (targetClasses.length > 0) {
+    return targetClasses.includes(
+      normalizedStudentClass
+    );
+  }
+
+  return (
+    normalizeClass(quiz.class_name) ===
+    normalizedStudentClass
+  );
+}
+
+function formatNumber(
+  value: number | null | undefined
+): string {
+  if (
+    value === null ||
+    value === undefined ||
+    !Number.isFinite(Number(value))
+  ) {
+    return "0";
+  }
+
+  const numericValue = Number(value);
+
+  return Number.isInteger(numericValue)
+    ? String(numericValue)
+    : numericValue.toFixed(2);
+}
+
+function formatDateTime(
+  value: string | null
+): string {
+  if (!value) return "—";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function formatDate(
+  value: string | null
+): string {
+  if (!value) return "—";
+
+  const date = new Date(
+    `${value}T00:00:00`
+  );
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatTime(
+  value: string | null
+): string {
+  if (!value) return "—";
+
+  const [hourText, minute] =
+    value.split(":");
+
+  let hour = Number(hourText);
+
+  if (!Number.isFinite(hour)) {
+    return value;
+  }
+
+  const period =
+    hour >= 12 ? "PM" : "AM";
+
+  hour = hour % 12 || 12;
+
+  return `${hour}:${minute || "00"} ${period}`;
+}
+
 function StudentResultsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const quizIdParam = searchParams.get("quizId");
+  const quizIdParam =
+    searchParams.get("quizId");
 
-  const [quiz, setQuiz] = useState<QuizTest | null>(null);
-  const [result, setResult] = useState<QuizResult | null>(null);
+  const [quiz, setQuiz] =
+    useState<QuizTest | null>(null);
 
-  const [studentName, setStudentName] = useState("");
-  const [studentId, setStudentId] = useState<number | null>(null);
+  const [result, setResult] =
+    useState<QuizResult | null>(null);
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [resultList, setResultList] =
+    useState<ResultListItem[]>([]);
+
+  const [studentName, setStudentName] =
+    useState("");
+
+  const [studentClass, setStudentClass] =
+    useState("");
+
+  const [studentId, setStudentId] =
+    useState<number | null>(null);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
+
+  const [listMode, setListMode] =
+    useState(!quizIdParam);
 
   const quizId = useMemo(() => {
     const id = Number(quizIdParam);
-    return Number.isFinite(id) && id > 0 ? id : null;
+
+    return Number.isFinite(id) && id > 0
+      ? id
+      : null;
   }, [quizIdParam]);
 
   useEffect(() => {
-    const storedName =
-      localStorage.getItem("attendance_student_name") ||
-      localStorage.getItem("studentName") ||
-      localStorage.getItem("student_name") ||
-      "";
+    setListMode(!quizId);
 
-    const storedIdRaw =
-      localStorage.getItem("attendance_student_id") ||
-      localStorage.getItem("studentId") ||
-      localStorage.getItem("student_id");
-
-    const parsedId = Number(storedIdRaw);
-
-    setStudentName(storedName);
-
-    if (Number.isFinite(parsedId) && parsedId > 0) {
-      setStudentId(parsedId);
-    }
-  }, []);
+    setQuiz(null);
+    setResult(null);
+    setResultList([]);
+    setError("");
+  }, [quizId]);
 
   useEffect(() => {
-    async function loadResult() {
-      if (!quizId) {
-        setError("Quiz ID is missing.");
-        setLoading(false);
-        return;
-      }
-
+    async function loadStudentAndResults() {
       setLoading(true);
       setError("");
 
       try {
         /*
          * ---------------------------------------------------------
-         * 1. LOAD QUIZ DETAILS
+         * 1. FIND LOGGED-IN STUDENT
          * ---------------------------------------------------------
          */
 
-        const { data: quizData, error: quizError } =
-          await supabase
+        const storedName =
+          localStorage.getItem(
+            "attendance_student_name"
+          ) ||
+          localStorage.getItem(
+            "studentName"
+          ) ||
+          localStorage.getItem(
+            "student_name"
+          ) ||
+          "";
+
+        const storedUsername =
+          localStorage.getItem(
+            "student_username"
+          ) ||
+          localStorage.getItem(
+            "studentUsername"
+          ) ||
+          "";
+
+        const storedIdRaw =
+          localStorage.getItem(
+            "attendance_student_id"
+          ) ||
+          localStorage.getItem(
+            "studentId"
+          ) ||
+          localStorage.getItem(
+            "student_id"
+          );
+
+        const parsedStoredId =
+          Number(storedIdRaw);
+
+        let currentStudentId =
+          Number.isFinite(parsedStoredId) &&
+          parsedStoredId > 0
+            ? parsedStoredId
+            : null;
+
+        let currentStudentName =
+          storedName;
+
+        let currentStudentClass = "";
+
+        /*
+         * First try stored student ID.
+         */
+
+        if (currentStudentId) {
+          const {
+            data: studentById,
+            error: studentByIdError,
+          } = await supabase
+            .from("students")
+            .select(
+              "id,student_name,student_username,class_name"
+            )
+            .eq("id", currentStudentId)
+            .maybeSingle();
+
+          if (
+            studentByIdError &&
+            studentByIdError.code !==
+              "PGRST116"
+          ) {
+            console.error(
+              "Student ID lookup error:",
+              studentByIdError
+            );
+          }
+
+          if (studentById) {
+            currentStudentId =
+              Number(studentById.id);
+
+            currentStudentName =
+              studentById.student_name ||
+              currentStudentName;
+
+            currentStudentClass =
+              normalizeClass(
+                studentById.class_name
+              );
+          }
+        }
+
+        /*
+         * If ID was not available or did not return
+         * a student, try student username.
+         */
+
+        if (
+          !currentStudentId &&
+          storedUsername
+        ) {
+          const {
+            data: studentByUsername,
+            error:
+              studentByUsernameError,
+          } = await supabase
+            .from("students")
+            .select(
+              "id,student_name,student_username,class_name"
+            )
+            .eq(
+              "student_username",
+              storedUsername
+            )
+            .maybeSingle();
+
+          if (
+            studentByUsernameError
+          ) {
+            console.error(
+              "Student username lookup error:",
+              studentByUsernameError
+            );
+          }
+
+          if (studentByUsername) {
+            currentStudentId =
+              Number(studentByUsername.id);
+
+            currentStudentName =
+              studentByUsername.student_name ||
+              currentStudentName;
+
+            currentStudentClass =
+              normalizeClass(
+                studentByUsername.class_name
+              );
+          }
+        }
+
+        /*
+         * Try stored username even when an ID existed
+         * but the ID lookup did not provide class data.
+         */
+
+        if (
+          currentStudentId &&
+          !currentStudentClass &&
+          storedUsername
+        ) {
+          const {
+            data: studentByUsername,
+          } = await supabase
+            .from("students")
+            .select(
+              "id,student_name,student_username,class_name"
+            )
+            .eq(
+              "student_username",
+              storedUsername
+            )
+            .maybeSingle();
+
+          if (studentByUsername) {
+            currentStudentClass =
+              normalizeClass(
+                studentByUsername.class_name
+              );
+
+            currentStudentName =
+              studentByUsername.student_name ||
+              currentStudentName;
+          }
+        }
+
+        if (!currentStudentId) {
+          throw new Error(
+            "Student login information not found. Please login again."
+          );
+        }
+
+        setStudentId(currentStudentId);
+        setStudentName(currentStudentName);
+        setStudentClass(
+          currentStudentClass
+        );
+
+        /*
+         * ---------------------------------------------------------
+         * 2. SPECIFIC QUIZ RESULT MODE
+         * ---------------------------------------------------------
+         *
+         * If ?quizId=123 exists, show the detailed
+         * result for that quiz.
+         */
+
+        if (quizId) {
+          setListMode(false);
+
+          const {
+            data: quizData,
+            error: quizError,
+          } = await supabase
             .from("quiz_tests")
             .select("*")
             .eq("id", quizId)
             .maybeSingle();
 
-        if (quizError) {
-          console.error("Quiz loading error:", quizError);
-          throw new Error(quizError.message);
-        }
+          if (quizError) {
+            console.error(
+              "Quiz loading error:",
+              quizError
+            );
 
-        if (!quizData) {
-          throw new Error("Quiz not found.");
-        }
-
-        setQuiz(quizData as QuizTest);
-
-        /*
-         * ---------------------------------------------------------
-         * 2. FIND STUDENT ID
-         * ---------------------------------------------------------
-         */
-
-        let currentStudentId = studentId;
-
-        if (!currentStudentId) {
-          const storedIdRaw =
-            localStorage.getItem("attendance_student_id") ||
-            localStorage.getItem("studentId") ||
-            localStorage.getItem("student_id");
-
-          const parsedId = Number(storedIdRaw);
-
-          if (Number.isFinite(parsedId) && parsedId > 0) {
-            currentStudentId = parsedId;
-            setStudentId(parsedId);
+            throw new Error(
+              quizError.message
+            );
           }
-        }
 
-        /*
-         * ---------------------------------------------------------
-         * 3. LOAD RESULT
-         * ---------------------------------------------------------
-         */
+          if (!quizData) {
+            throw new Error(
+              "Quiz not found."
+            );
+          }
 
-        let resultData: QuizResult | null = null;
+          setQuiz(
+            quizData as QuizTest
+          );
 
-        if (currentStudentId) {
-          const { data, error: resultError } =
-            await supabase
-              .from("quiz_results")
-              .select("*")
-              .eq("quiz_id", quizId)
-              .eq("student_id", currentStudentId)
-              .order("created_at", {
-                ascending: false,
-              })
-              .limit(1)
-              .maybeSingle();
+          /*
+           * Load this student's result.
+           */
+
+          let resultData:
+            | QuizResult
+            | null = null;
+
+          const {
+            data: databaseResult,
+            error: resultError,
+          } = await supabase
+            .from("quiz_results")
+            .select("*")
+            .eq("quiz_id", quizId)
+            .eq(
+              "student_id",
+              currentStudentId
+            )
+            .order("created_at", {
+              ascending: false,
+            })
+            .limit(1)
+            .maybeSingle();
 
           if (resultError) {
             console.error(
               "Result loading error:",
               resultError
             );
-
-            /*
-             * Do not immediately fail because of a possible
-             * database/RLS issue. We will try sessionStorage below.
-             */
-          } else if (data) {
-            resultData = data as QuizResult;
+          } else if (
+            databaseResult
+          ) {
+            resultData =
+              databaseResult as QuizResult;
           }
+
+          /*
+           * Session storage fallback.
+           */
+
+          if (!resultData) {
+            try {
+              const localResult =
+                sessionStorage.getItem(
+                  `quiz-result-${quizId}`
+                );
+
+              if (localResult) {
+                const parsedLocalResult =
+                  JSON.parse(
+                    localResult
+                  ) as QuizResult;
+
+                if (
+                  parsedLocalResult &&
+                  Number(
+                    parsedLocalResult.quiz_id
+                  ) === quizId &&
+                  Number(
+                    parsedLocalResult.student_id
+                  ) === currentStudentId
+                ) {
+                  resultData =
+                    parsedLocalResult;
+                }
+              }
+            } catch (storageError) {
+              console.error(
+                "Session result error:",
+                storageError
+              );
+            }
+          }
+
+          if (!resultData) {
+            throw new Error(
+              "Result not found. Please make sure the quiz was submitted successfully."
+            );
+          }
+
+          setResult(resultData);
+          return;
         }
 
         /*
          * ---------------------------------------------------------
-         * 4. SESSION STORAGE FALLBACK
+         * 3. RESULT LIST MODE
          * ---------------------------------------------------------
          *
-         * The quiz attempt page also stores the latest result
-         * locally. This keeps the result visible even if the
-         * database result has not yet been returned.
+         * This runs when Student clicks:
+         * Quiz Tests -> Results
+         *
+         * No quizId is required here.
          */
 
-        if (!resultData) {
-          try {
-            const localResult = sessionStorage.getItem(
-              `quiz-result-${quizId}`
-            );
+        setListMode(true);
 
-            if (localResult) {
-              const parsedLocalResult =
-                JSON.parse(localResult) as QuizResult;
+        /*
+         * Load all results belonging to the logged-in
+         * student.
+         */
 
-              if (
-                parsedLocalResult &&
-                Number(parsedLocalResult.quiz_id) === quizId
-              ) {
-                resultData = parsedLocalResult;
-              }
-            }
-          } catch (storageError) {
-            console.error(
-              "Session result error:",
-              storageError
-            );
-          }
-        }
+        const {
+          data: studentResults,
+          error: resultsError,
+        } = await supabase
+          .from("quiz_results")
+          .select("*")
+          .eq(
+            "student_id",
+            currentStudentId
+          )
+          .order("created_at", {
+            ascending: false,
+          });
 
-        if (!resultData) {
+        if (resultsError) {
+          console.error(
+            "Results list loading error:",
+            resultsError
+          );
+
           throw new Error(
-            "Result not found. Please make sure the quiz was submitted successfully."
+            resultsError.message
           );
         }
 
-        setResult(resultData);
+        const rawResults =
+          (studentResults ||
+            []) as QuizResult[];
+
+        if (rawResults.length === 0) {
+          setResultList([]);
+          return;
+        }
+
+        /*
+         * Get the quiz IDs from completed results.
+         */
+
+        const quizIds = Array.from(
+          new Set(
+            rawResults
+              .map((item) =>
+                Number(item.quiz_id)
+              )
+              .filter(
+                (id) =>
+                  Number.isFinite(id) &&
+                  id > 0
+              )
+          )
+        );
+
+        if (quizIds.length === 0) {
+          setResultList([]);
+          return;
+        }
+
+        /*
+         * Load quiz information for all completed
+         * quizzes.
+         */
+
+        const {
+          data: quizData,
+          error: quizListError,
+        } = await supabase
+          .from("quiz_tests")
+          .select("*")
+          .in("id", quizIds);
+
+        if (quizListError) {
+          console.error(
+            "Quiz list loading error:",
+            quizListError
+          );
+
+          throw new Error(
+            quizListError.message
+          );
+        }
+
+        const quizMap =
+          new Map<number, QuizTest>();
+
+        ((quizData ||
+          []) as QuizTest[]).forEach(
+          (quizItem) => {
+            quizMap.set(
+              Number(quizItem.id),
+              quizItem
+            );
+          }
+        );
+
+        /*
+         * Combine results with their quiz.
+         */
+
+        const combinedResults =
+          rawResults
+            .map((item) => ({
+              ...item,
+              quiz:
+                quizMap.get(
+                  Number(item.quiz_id)
+                ) || null,
+            }))
+            .filter((item) => {
+              /*
+               * If the quiz still exists, respect
+               * the student's class.
+               *
+               * If class information is unavailable,
+               * keep the result rather than hiding a
+               * completed result.
+               */
+              if (
+                item.quiz &&
+                currentStudentClass
+              ) {
+                return quizMatchesStudentClass(
+                  item.quiz,
+                  currentStudentClass
+                );
+              }
+
+              return true;
+            });
+
+        setResultList(
+          combinedResults
+        );
       } catch (err) {
-        console.error("Result page error:", err);
+        console.error(
+          "Student results page error:",
+          err
+        );
 
         setError(
           err instanceof Error
             ? err.message
-            : "Unable to load quiz result."
+            : "Unable to load quiz results."
         );
       } finally {
         setLoading(false);
       }
     }
 
-    loadResult();
-  }, [quizId, studentId]);
+    loadStudentAndResults();
+  }, [quizId]);
 
-  function formatDateTime(value: string | null) {
-    if (!value) return "—";
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-      return value;
-    }
-
-    return date.toLocaleString("en-IN", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-  }
-
-  function formatNumber(value: number | null | undefined) {
-    if (value === null || value === undefined) {
-      return "0";
-    }
-
-    return Number.isInteger(value)
-      ? String(value)
-      : value.toFixed(2);
-  }
+  /*
+   * ---------------------------------------------------------
+   * LOADING
+   * ---------------------------------------------------------
+   */
 
   if (loading) {
     return (
@@ -262,11 +725,11 @@ function StudentResultsContent() {
             <div className="mx-auto mb-5 h-12 w-12 animate-spin rounded-full border-4 border-white/10 border-t-indigo-500" />
 
             <h1 className="text-xl font-black">
-              Loading Result...
+              Loading Results...
             </h1>
 
             <p className="mt-2 text-sm text-slate-400">
-              Please wait while we load your quiz result.
+              Please wait while we load your quiz results.
             </p>
           </div>
         </div>
@@ -274,20 +737,28 @@ function StudentResultsContent() {
     );
   }
 
-  if (error || !result) {
+  /*
+   * ---------------------------------------------------------
+   * ERROR
+   * ---------------------------------------------------------
+   */
+
+  if (error) {
     return (
       <main className="min-h-screen bg-slate-950 text-white">
         <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-4 py-10">
           <div className="mx-auto max-w-2xl">
             <div className="rounded-3xl border border-red-400/20 bg-red-500/10 p-7 text-center shadow-2xl">
-              <div className="text-5xl">⚠️</div>
+              <div className="text-5xl">
+                ERROR
+              </div>
 
               <h1 className="mt-4 text-2xl font-black">
-                Result Not Available
+                Unable to Load Results
               </h1>
 
               <p className="mt-3 text-sm leading-6 text-red-200">
-                {error || "Unable to load your result."}
+                {error}
               </p>
 
               {quizId && (
@@ -299,14 +770,29 @@ function StudentResultsContent() {
                 </p>
               )}
 
-              <button
-                onClick={() =>
-                  router.push("/student/quiz-tests")
-                }
-                className="mt-6 rounded-xl bg-indigo-600 px-6 py-3 font-black transition hover:bg-indigo-500"
-              >
-                ← Back to Quiz Tests
-              </button>
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+                <button
+                  onClick={() =>
+                    router.push(
+                      "/student/quiz-tests/results"
+                    )
+                  }
+                  className="rounded-xl border border-white/10 bg-white/5 px-6 py-3 font-black transition hover:bg-white/10"
+                >
+                  View All Results
+                </button>
+
+                <button
+                  onClick={() =>
+                    router.push(
+                      "/student/quiz-tests"
+                    )
+                  }
+                  className="rounded-xl bg-indigo-600 px-6 py-3 font-black transition hover:bg-indigo-500"
+                >
+                  ← Quiz Tests
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -314,10 +800,297 @@ function StudentResultsContent() {
     );
   }
 
-  const isPassed =
-    String(result.result_status).toUpperCase() === "PASS";
+  /*
+   * ---------------------------------------------------------
+   * RESULT LIST
+   * ---------------------------------------------------------
+   */
 
-  const percentage = Number(result.percentage || 0);
+  if (listMode) {
+    return (
+      <main className="min-h-screen bg-slate-950 text-white">
+        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
+          <header className="border-b border-white/10 bg-slate-950/90 backdrop-blur-xl">
+            <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4">
+              <div>
+                <h1 className="text-lg font-black sm:text-xl">
+                  RACER ACADEMY
+                </h1>
+
+                <p className="text-xs text-slate-400">
+                  QUIZ RESULTS
+                  {studentClass
+                    ? ` • CLASS ${studentClass}`
+                    : ""}
+                </p>
+              </div>
+
+              <button
+                onClick={() =>
+                  router.push(
+                    "/student/quiz-tests"
+                  )
+                }
+                className="rounded-xl bg-white/5 px-4 py-2 text-sm font-bold transition hover:bg-white/10"
+              >
+                ← Quiz Tests
+              </button>
+            </div>
+          </header>
+
+          <div className="mx-auto max-w-6xl px-4 py-7 sm:py-10">
+            <div className="mb-7">
+              <p className="text-xs font-black tracking-[0.25em] text-indigo-400">
+                PERFORMANCE
+              </p>
+
+              <h2 className="mt-2 text-3xl font-black sm:text-4xl">
+                My Quiz Results
+              </h2>
+
+              <p className="mt-2 text-sm text-slate-400">
+                Your completed quiz results are shown here.
+              </p>
+
+              {studentName && (
+                <p className="mt-2 text-sm text-slate-500">
+                  Student:{" "}
+                  <strong className="text-slate-300">
+                    {studentName}
+                  </strong>
+                </p>
+              )}
+            </div>
+
+            {resultList.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-white/10 bg-white/5 p-10 text-center">
+                <div className="text-5xl">
+                  RESULTS
+                </div>
+
+                <h3 className="mt-5 text-xl font-black">
+                  No Completed Quiz Results
+                </h3>
+
+                <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-400">
+                  You have not completed any quiz yet.
+                  Once you submit a quiz, your result
+                  will appear here automatically.
+                </p>
+
+                <button
+                  onClick={() =>
+                    router.push(
+                      "/student/quiz-tests"
+                    )
+                  }
+                  className="mt-6 rounded-xl bg-indigo-600 px-6 py-3 font-black transition hover:bg-indigo-500"
+                >
+                  ← Go to Quiz Tests
+                </button>
+              </div>
+            ) : (
+              <div className="grid gap-5 md:grid-cols-2">
+                {resultList.map(
+                  (item, index) => {
+                    const itemQuiz =
+                      item.quiz;
+
+                    const passed =
+                      String(
+                        item.result_status
+                      ).toUpperCase() ===
+                      "PASS";
+
+                    const percentage =
+                      Number(
+                        item.percentage || 0
+                      );
+
+                    return (
+                      <div
+                        key={
+                          item.id ??
+                          `${item.quiz_id}-${index}`
+                        }
+                        className="overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-xl backdrop-blur-xl"
+                      >
+                        <div
+                          className={`p-5 ${
+                            passed
+                              ? "bg-emerald-500/10"
+                              : "bg-red-500/10"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-black tracking-[0.2em] text-slate-500">
+                                COMPLETED QUIZ
+                              </p>
+
+                              <h3 className="mt-2 truncate text-xl font-black">
+                                {itemQuiz?.title ||
+                                  `Quiz #${item.quiz_id}`}
+                              </h3>
+
+                              {itemQuiz?.subject && (
+                                <p className="mt-1 text-sm text-slate-400">
+                                  {
+                                    itemQuiz.subject
+                                  }
+                                </p>
+                              )}
+                            </div>
+
+                            <span
+                              className={`shrink-0 rounded-full px-3 py-1 text-[10px] font-black ${
+                                passed
+                                  ? "bg-emerald-500/20 text-emerald-300"
+                                  : "bg-red-500/20 text-red-300"
+                              }`}
+                            >
+                              {passed
+                                ? "PASS"
+                                : "FAIL"}
+                            </span>
+                          </div>
+
+                          <div className="mt-5 flex items-center gap-5">
+                            <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-8 border-indigo-500/30 bg-slate-950/70">
+                              <div className="text-center">
+                                <div className="text-xl font-black">
+                                  {formatNumber(
+                                    percentage
+                                  )}
+                                  %
+                                </div>
+
+                                <div className="text-[9px] font-bold text-slate-500">
+                                  SCORE
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="rounded-xl bg-white/5 p-3">
+                                  <p className="text-[9px] font-bold text-slate-500">
+                                    OBTAINED
+                                  </p>
+
+                                  <p className="mt-1 text-lg font-black">
+                                    {formatNumber(
+                                      item.obtained_marks
+                                    )}
+                                  </p>
+                                </div>
+
+                                <div className="rounded-xl bg-white/5 p-3">
+                                  <p className="text-[9px] font-bold text-slate-500">
+                                    TOTAL
+                                  </p>
+
+                                  <p className="mt-1 text-lg font-black">
+                                    {formatNumber(
+                                      item.total_marks
+                                    )}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <p className="mt-3 text-xs text-slate-500">
+                                Submitted:{" "}
+                                <span className="text-slate-300">
+                                  {formatDateTime(
+                                    item.submitted_at ||
+                                      item.created_at ||
+                                      null
+                                  )}
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="p-5">
+                          <div className="grid grid-cols-3 gap-2">
+                            <div className="rounded-xl bg-emerald-500/10 p-3 text-center">
+                              <div className="text-lg font-black text-emerald-300">
+                                {
+                                  item.correct_answers
+                                }
+                              </div>
+
+                              <div className="text-[9px] font-bold text-emerald-200/60">
+                                CORRECT
+                              </div>
+                            </div>
+
+                            <div className="rounded-xl bg-red-500/10 p-3 text-center">
+                              <div className="text-lg font-black text-red-300">
+                                {
+                                  item.wrong_answers
+                                }
+                              </div>
+
+                              <div className="text-[9px] font-bold text-red-200/60">
+                                WRONG
+                              </div>
+                            </div>
+
+                            <div className="rounded-xl bg-amber-500/10 p-3 text-center">
+                              <div className="text-lg font-black text-amber-300">
+                                {
+                                  item.unanswered
+                                }
+                              </div>
+
+                              <div className="text-[9px] font-bold text-amber-200/60">
+                                SKIPPED
+                              </div>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() =>
+                              router.push(
+                                `/student/quiz-tests/results?quizId=${item.quiz_id}`
+                              )
+                            }
+                            className="mt-4 w-full rounded-xl bg-indigo-600 px-4 py-3 font-black transition hover:bg-indigo-500"
+                          >
+                            VIEW FULL RESULT →
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+                )}
+              </div>
+            )}
+
+            <div className="mt-8 text-center text-xs text-slate-500">
+              RACER ACADEMY • Quiz Results
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  /*
+   * ---------------------------------------------------------
+   * DETAILED RESULT
+   * ---------------------------------------------------------
+   */
+
+  const isPassed =
+    String(
+      result?.result_status
+    ).toUpperCase() === "PASS";
+
+  const percentage =
+    Number(result?.percentage || 0);
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
@@ -337,17 +1110,18 @@ function StudentResultsContent() {
 
             <button
               onClick={() =>
-                router.push("/student/quiz-tests")
+                router.push(
+                  "/student/quiz-tests/results"
+                )
               }
               className="rounded-xl bg-white/5 px-4 py-2 text-sm font-bold transition hover:bg-white/10"
             >
-              ← Quiz Tests
+              ← All Results
             </button>
           </div>
         </header>
 
         <div className="mx-auto max-w-5xl px-4 py-7 sm:py-10">
-
           {/* RESULT HERO */}
           <section className="overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-2xl">
             <div
@@ -358,7 +1132,9 @@ function StudentResultsContent() {
               }`}
             >
               <div className="text-6xl">
-                {isPassed ? "🏆" : "📚"}
+                {isPassed
+                  ? "RESULT"
+                  : "RESULT"}
               </div>
 
               <p className="mt-4 text-xs font-black tracking-[0.25em] text-slate-400">
@@ -366,13 +1142,17 @@ function StudentResultsContent() {
               </p>
 
               <h2 className="mt-2 text-2xl font-black sm:text-4xl">
-                {quiz?.title || "Quiz Result"}
+                {quiz?.title ||
+                  "Quiz Result"}
               </h2>
 
               <div className="mt-5 flex flex-wrap justify-center gap-2">
                 {quiz?.class_name && (
                   <span className="rounded-full bg-indigo-500/20 px-4 py-2 text-xs font-black text-indigo-300">
-                    CLASS {quiz.class_name}
+                    CLASS{" "}
+                    {normalizeClass(
+                      quiz.class_name
+                    )}
                   </span>
                 )}
 
@@ -387,7 +1167,10 @@ function StudentResultsContent() {
               <div className="mx-auto mt-8 flex h-44 w-44 items-center justify-center rounded-full border-[12px] border-indigo-500/30 bg-slate-950/60 shadow-xl sm:h-52 sm:w-52">
                 <div>
                   <div className="text-4xl font-black sm:text-5xl">
-                    {formatNumber(percentage)}%
+                    {formatNumber(
+                      percentage
+                    )}
+                    %
                   </div>
 
                   <div className="mt-1 text-xs font-bold text-slate-400">
@@ -405,7 +1188,9 @@ function StudentResultsContent() {
                       : "bg-red-500/20 text-red-300 ring-1 ring-red-400/30"
                   }`}
                 >
-                  {isPassed ? "✓ PASSED" : "✕ FAILED"}
+                  {isPassed
+                    ? "PASSED"
+                    : "FAILED"}
                 </span>
               </div>
 
@@ -424,7 +1209,9 @@ function StudentResultsContent() {
           <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-center">
               <div className="text-3xl font-black">
-                {formatNumber(result.total_questions)}
+                {formatNumber(
+                  result?.total_questions
+                )}
               </div>
 
               <div className="mt-1 text-xs font-bold text-slate-400">
@@ -434,7 +1221,9 @@ function StudentResultsContent() {
 
             <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-5 text-center">
               <div className="text-3xl font-black text-emerald-300">
-                {formatNumber(result.correct_answers)}
+                {formatNumber(
+                  result?.correct_answers
+                )}
               </div>
 
               <div className="mt-1 text-xs font-bold text-emerald-200/70">
@@ -444,7 +1233,9 @@ function StudentResultsContent() {
 
             <div className="rounded-2xl border border-red-400/20 bg-red-500/10 p-5 text-center">
               <div className="text-3xl font-black text-red-300">
-                {formatNumber(result.wrong_answers)}
+                {formatNumber(
+                  result?.wrong_answers
+                )}
               </div>
 
               <div className="mt-1 text-xs font-bold text-red-200/70">
@@ -454,7 +1245,9 @@ function StudentResultsContent() {
 
             <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-5 text-center">
               <div className="text-3xl font-black text-amber-300">
-                {formatNumber(result.unanswered)}
+                {formatNumber(
+                  result?.unanswered
+                )}
               </div>
 
               <div className="mt-1 text-xs font-bold text-amber-200/70">
@@ -466,7 +1259,7 @@ function StudentResultsContent() {
           {/* MARKS */}
           <section className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-7">
             <h3 className="text-xl font-black">
-              📊 Marks Summary
+              Marks Summary
             </h3>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-3">
@@ -476,7 +1269,9 @@ function StudentResultsContent() {
                 </p>
 
                 <p className="mt-2 text-3xl font-black">
-                  {formatNumber(result.total_marks)}
+                  {formatNumber(
+                    result?.total_marks
+                  )}
                 </p>
               </div>
 
@@ -486,7 +1281,9 @@ function StudentResultsContent() {
                 </p>
 
                 <p className="mt-2 text-3xl font-black text-indigo-300">
-                  {formatNumber(result.obtained_marks)}
+                  {formatNumber(
+                    result?.obtained_marks
+                  )}
                 </p>
               </div>
 
@@ -496,7 +1293,10 @@ function StudentResultsContent() {
                 </p>
 
                 <p className="mt-2 text-3xl font-black text-emerald-300">
-                  {formatNumber(percentage)}%
+                  {formatNumber(
+                    percentage
+                  )}
+                  %
                 </p>
               </div>
             </div>
@@ -509,7 +1309,10 @@ function StudentResultsContent() {
                 </span>
 
                 <span className="text-white">
-                  {formatNumber(percentage)}%
+                  {formatNumber(
+                    percentage
+                  )}
+                  %
                 </span>
               </div>
 
@@ -523,7 +1326,10 @@ function StudentResultsContent() {
                   style={{
                     width: `${Math.min(
                       100,
-                      Math.max(0, percentage)
+                      Math.max(
+                        0,
+                        percentage
+                      )
                     )}%`,
                   }}
                 />
@@ -534,7 +1340,7 @@ function StudentResultsContent() {
           {/* QUESTION PERFORMANCE */}
           <section className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-7">
             <h3 className="text-xl font-black">
-              📝 Question Performance
+              Question Performance
             </h3>
 
             <div className="mt-5 space-y-3">
@@ -550,7 +1356,9 @@ function StudentResultsContent() {
                 </div>
 
                 <strong className="text-2xl text-emerald-300">
-                  {result.correct_answers}
+                  {
+                    result?.correct_answers
+                  }
                 </strong>
               </div>
 
@@ -566,7 +1374,9 @@ function StudentResultsContent() {
                 </div>
 
                 <strong className="text-2xl text-red-300">
-                  {result.wrong_answers}
+                  {
+                    result?.wrong_answers
+                  }
                 </strong>
               </div>
 
@@ -582,7 +1392,9 @@ function StudentResultsContent() {
                 </div>
 
                 <strong className="text-2xl text-amber-300">
-                  {result.unanswered}
+                  {
+                    result?.unanswered
+                  }
                 </strong>
               </div>
             </div>
@@ -591,7 +1403,7 @@ function StudentResultsContent() {
           {/* QUIZ INFORMATION */}
           <section className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-7">
             <h3 className="text-xl font-black">
-              ℹ️ Quiz Information
+              Quiz Information
             </h3>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -601,7 +1413,8 @@ function StudentResultsContent() {
                 </p>
 
                 <p className="mt-1 font-black">
-                  {quiz?.subject || "—"}
+                  {quiz?.subject ||
+                    "—"}
                 </p>
               </div>
 
@@ -612,7 +1425,9 @@ function StudentResultsContent() {
 
                 <p className="mt-1 font-black">
                   {quiz?.class_name
-                    ? `Class ${quiz.class_name}`
+                    ? `Class ${normalizeClass(
+                        quiz.class_name
+                      )}`
                     : "—"}
                 </p>
               </div>
@@ -636,7 +1451,35 @@ function StudentResultsContent() {
                 </p>
 
                 <p className="mt-1 font-black">
-                  {quiz?.duration_minutes || 30} Minutes
+                  {quiz?.duration_minutes ||
+                    30}{" "}
+                  Minutes
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-slate-900/70 p-4">
+                <p className="text-xs font-bold text-slate-500">
+                  SCHEDULED DATE
+                </p>
+
+                <p className="mt-1 font-black">
+                  {formatDate(
+                    quiz?.scheduled_date ||
+                      null
+                  )}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-slate-900/70 p-4">
+                <p className="text-xs font-bold text-slate-500">
+                  START TIME
+                </p>
+
+                <p className="mt-1 font-black">
+                  {formatTime(
+                    quiz?.scheduled_time ||
+                      null
+                  )}
                 </p>
               </div>
             </div>
@@ -645,7 +1488,7 @@ function StudentResultsContent() {
           {/* SUBMISSION INFORMATION */}
           <section className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-7">
             <h3 className="text-xl font-black">
-              ⏱️ Submission Details
+              Submission Details
             </h3>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -655,7 +1498,10 @@ function StudentResultsContent() {
                 </p>
 
                 <p className="mt-1 text-sm font-bold">
-                  {formatDateTime(result.started_at)}
+                  {formatDateTime(
+                    result?.started_at ||
+                      null
+                  )}
                 </p>
               </div>
 
@@ -665,7 +1511,10 @@ function StudentResultsContent() {
                 </p>
 
                 <p className="mt-1 text-sm font-bold">
-                  {formatDateTime(result.submitted_at)}
+                  {formatDateTime(
+                    result?.submitted_at ||
+                      null
+                  )}
                 </p>
               </div>
 
@@ -675,7 +1524,7 @@ function StudentResultsContent() {
                 </p>
 
                 <p className="mt-1 text-sm font-bold uppercase">
-                  {result.submission_type ||
+                  {result?.submission_type ||
                     "MANUAL SUBMISSION"}
                 </p>
               </div>
@@ -686,16 +1535,20 @@ function StudentResultsContent() {
           <div className="mt-7 grid gap-3 sm:grid-cols-2">
             <button
               onClick={() =>
-                router.push("/student/quiz-tests")
+                router.push(
+                  "/student/quiz-tests/results"
+                )
               }
               className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4 font-black transition hover:bg-white/10"
             >
-              ← Back to Quiz Tests
+              ← All Results
             </button>
 
             <button
               onClick={() =>
-                router.push("/student/quiz-tests/history")
+                router.push(
+                  "/student/quiz-tests/history"
+                )
               }
               className="rounded-2xl bg-indigo-600 px-5 py-4 font-black transition hover:bg-indigo-500"
             >
@@ -722,7 +1575,7 @@ export default function StudentQuizResultsPage() {
             <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-indigo-500" />
 
             <p className="font-bold">
-              Loading Result...
+              Loading Results...
             </p>
           </div>
         </main>
