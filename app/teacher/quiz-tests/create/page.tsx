@@ -25,11 +25,12 @@ export default function CreateQuizPage() {
   const [negative, setNegative] = useState("0");
   const [passPercentage, setPassPercentage] = useState("40");
 
-  const [className, setClassName] = useState("");
-  const [subject, setSubject] = useState("");
-
+  // MULTIPLE CLASSES
+  const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
   const [classes, setClasses] = useState<string[]>([]);
   const [loadingClasses, setLoadingClasses] = useState(true);
+
+  const [subject, setSubject] = useState("");
 
   const [teacherId, setTeacherId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
@@ -59,9 +60,8 @@ export default function CreateQuizPage() {
 
       if (error) {
         console.error("Class loading error:", error);
-        setMessage(
-          `Unable to load classes: ${error.message}`
-        );
+
+        setMessage(`Unable to load classes: ${error.message}`);
         setLoadingClasses(false);
         return;
       }
@@ -112,12 +112,30 @@ export default function CreateQuizPage() {
     loadClasses();
   }, []);
 
+  function toggleClass(classItem: string) {
+    setSelectedClasses((current) => {
+      if (current.includes(classItem)) {
+        return current.filter((item) => item !== classItem);
+      }
+
+      return [...current, classItem];
+    });
+  }
+
+  function selectAllClasses() {
+    setSelectedClasses(classes);
+  }
+
+  function clearAllClasses() {
+    setSelectedClasses([]);
+  }
+
   async function createQuiz(e: FormEvent) {
     e.preventDefault();
     setMessage("");
 
-    if (!className) {
-      setMessage("Please select a class.");
+    if (selectedClasses.length === 0) {
+      setMessage("Please select at least one class.");
       return;
     }
 
@@ -158,23 +176,29 @@ export default function CreateQuizPage() {
       passNumber < 0 ||
       passNumber > 100
     ) {
-      setMessage(
-        "Pass percentage must be between 0 and 100."
-      );
+      setMessage("Pass percentage must be between 0 and 100.");
       return;
     }
 
     setSaving(true);
 
+    /*
+      class_name is kept for backward compatibility.
+      target_classes contains ALL selected classes.
+    */
     const { data, error } = await supabase
       .from("quiz_tests")
       .insert({
         title: title.trim(),
         description: description.trim() || null,
 
-        // CLASS + SUBJECT
-        class_name: className,
-        subject: subject,
+        // BACKWARD COMPATIBILITY
+        class_name: selectedClasses[0],
+
+        // MULTIPLE CLASS TARGETING
+        target_classes: selectedClasses,
+
+        subject,
 
         scheduled_date: date,
         scheduled_time: time,
@@ -248,52 +272,108 @@ export default function CreateQuizPage() {
               </h2>
 
               <p className="mt-1 text-sm text-slate-400">
-                Select class and subject before creating
-                the quiz.
+                Select one or multiple classes and subject
+                before creating the quiz.
               </p>
             </div>
 
             <div className="mt-6 space-y-5">
-
               {/* CLASS + SUBJECT */}
               <div className="grid gap-5 sm:grid-cols-2">
-
-                {/* CLASS */}
+                {/* MULTIPLE CLASSES */}
                 <div>
-                  <label className="text-sm font-bold">
-                    Select Class
-                  </label>
+                  <div className="flex items-center justify-between gap-3">
+                    <label className="text-sm font-bold">
+                      Select Classes
+                    </label>
 
-                  <select
-                    value={className}
-                    onChange={(e) =>
-                      setClassName(e.target.value)
-                    }
-                    disabled={loadingClasses}
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none focus:border-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <option value="">
-                      {loadingClasses
-                        ? "Loading classes..."
-                        : "Select Class"}
-                    </option>
-
-                    {classes.map((classItem) => (
-                      <option
-                        key={classItem}
-                        value={classItem}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={selectAllClasses}
+                        disabled={
+                          loadingClasses ||
+                          classes.length === 0
+                        }
+                        className="rounded-lg bg-indigo-500/15 px-2.5 py-1 text-[11px] font-bold text-indigo-300 transition hover:bg-indigo-500/25 disabled:opacity-40"
                       >
-                        Class {classItem}
-                      </option>
-                    ))}
-                  </select>
+                        Select All
+                      </button>
 
-                  {!loadingClasses &&
-                    classes.length === 0 && (
-                      <p className="mt-2 text-xs text-amber-300">
+                      <button
+                        type="button"
+                        onClick={clearAllClasses}
+                        disabled={
+                          selectedClasses.length === 0
+                        }
+                        className="rounded-lg bg-white/5 px-2.5 py-1 text-[11px] font-bold text-slate-300 transition hover:bg-white/10 disabled:opacity-40"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mt-2 rounded-xl border border-white/10 bg-slate-900 p-3">
+                    {loadingClasses ? (
+                      <p className="py-3 text-center text-sm text-slate-400">
+                        Loading classes...
+                      </p>
+                    ) : classes.length === 0 ? (
+                      <p className="py-3 text-center text-xs text-amber-300">
                         No class found in students table.
                       </p>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        {classes.map((classItem) => {
+                          const selected =
+                            selectedClasses.includes(
+                              classItem
+                            );
+
+                          return (
+                            <label
+                              key={classItem}
+                              className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 transition ${
+                                selected
+                                  ? "border-indigo-400/50 bg-indigo-500/15 text-white"
+                                  : "border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06]"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selected}
+                                onChange={() =>
+                                  toggleClass(classItem)
+                                }
+                                className="h-4 w-4 accent-indigo-500"
+                              />
+
+                              <span className="text-sm font-semibold">
+                                Class {classItem}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
                     )}
+                  </div>
+
+                  <div className="mt-2">
+                    {selectedClasses.length > 0 ? (
+                      <p className="text-xs text-indigo-300">
+                        {selectedClasses.length} class
+                        {selectedClasses.length !== 1
+                          ? "es"
+                          : ""}{" "}
+                        selected:{" "}
+                        {selectedClasses.join(", ")}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-amber-300">
+                        Select at least one class.
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 {/* SUBJECT */}
@@ -325,30 +405,6 @@ export default function CreateQuizPage() {
                 </div>
               </div>
 
-              {/* TARGET PREVIEW */}
-              {className && subject && (
-                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-5">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className="rounded-full bg-indigo-500/20 px-4 py-2 text-sm font-black text-indigo-300">
-                      CLASS {className}
-                    </span>
-
-                    <span className="text-slate-500">
-                      +
-                    </span>
-
-                    <span className="rounded-full bg-emerald-500/20 px-4 py-2 text-sm font-black text-emerald-300">
-                      {subject}
-                    </span>
-                  </div>
-
-                  <p className="mt-3 text-xs text-slate-300">
-                    This quiz will be targeted to students
-                    of Class {className}.
-                  </p>
-                </div>
-              )}
-
               {/* TITLE */}
               <div>
                 <label className="text-sm font-bold">
@@ -356,12 +412,13 @@ export default function CreateQuizPage() {
                 </label>
 
                 <input
+                  type="text"
                   value={title}
                   onChange={(e) =>
                     setTitle(e.target.value)
                   }
-                  placeholder="Example: Mathematics Unit Test"
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-indigo-400"
+                  placeholder="Enter quiz title"
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-indigo-400"
                 />
               </div>
 
@@ -377,8 +434,8 @@ export default function CreateQuizPage() {
                     setDescription(e.target.value)
                   }
                   rows={4}
-                  placeholder="Enter quiz instructions..."
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-indigo-400"
+                  placeholder="Enter quiz description (optional)"
+                  className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-indigo-400"
                 />
               </div>
 
@@ -395,7 +452,7 @@ export default function CreateQuizPage() {
                     onChange={(e) =>
                       setDate(e.target.value)
                     }
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3"
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none focus:border-indigo-400"
                   />
                 </div>
 
@@ -410,27 +467,9 @@ export default function CreateQuizPage() {
                     onChange={(e) =>
                       setTime(e.target.value)
                     }
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3"
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none focus:border-indigo-400"
                   />
                 </div>
-              </div>
-
-              {/* DURATION */}
-              <div className="rounded-2xl border border-indigo-400/20 bg-indigo-500/10 p-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <span className="font-bold">
-                    ⏱️ Quiz Duration
-                  </span>
-
-                  <span className="rounded-full bg-indigo-500/20 px-4 py-2 font-black text-indigo-300">
-                    30 MINUTES
-                  </span>
-                </div>
-
-                <p className="mt-2 text-xs text-slate-400">
-                  Quiz duration is fixed to exactly 30
-                  minutes.
-                </p>
               </div>
 
               {/* MARKS */}
@@ -448,7 +487,7 @@ export default function CreateQuizPage() {
                     onChange={(e) =>
                       setMarks(e.target.value)
                     }
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3"
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none focus:border-indigo-400"
                   />
                 </div>
 
@@ -465,7 +504,7 @@ export default function CreateQuizPage() {
                     onChange={(e) =>
                       setNegative(e.target.value)
                     }
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3"
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none focus:border-indigo-400"
                   />
                 </div>
 
@@ -483,31 +522,64 @@ export default function CreateQuizPage() {
                     onChange={(e) =>
                       setPassPercentage(e.target.value)
                     }
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3"
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none focus:border-indigo-400"
                   />
                 </div>
               </div>
 
-              {/* MESSAGE */}
+              {/* DURATION INFO */}
+              <div className="rounded-2xl border border-cyan-400/10 bg-cyan-500/5 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="text-2xl">⏱️</div>
+
+                  <div>
+                    <p className="text-sm font-bold">
+                      Quiz Duration
+                    </p>
+
+                    <p className="text-xs text-slate-400">
+                      Fixed duration: 30 minutes
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ERROR / MESSAGE */}
               {message && (
-                <div className="rounded-xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-300">
+                <div className="rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-300">
                   {message}
                 </div>
               )}
 
-              {/* SUBMIT */}
+              {/* SELECTED CLASSES SUMMARY */}
+              {selectedClasses.length > 0 && (
+                <div className="rounded-2xl border border-indigo-400/20 bg-indigo-500/10 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-indigo-300">
+                    Quiz will be assigned to
+                  </p>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {selectedClasses.map((classItem) => (
+                      <span
+                        key={classItem}
+                        className="rounded-full bg-indigo-500/20 px-3 py-1.5 text-xs font-bold text-indigo-200"
+                      >
+                        Class {classItem}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* CREATE BUTTON */}
               <button
-                disabled={
-                  saving ||
-                  loadingClasses ||
-                  classes.length === 0
-                }
                 type="submit"
-                className="w-full rounded-2xl bg-indigo-600 px-5 py-4 font-black transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={saving}
+                className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-4 text-sm font-black transition hover:from-indigo-500 hover:to-purple-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {saving
-                  ? "CREATING..."
-                  : "CREATE QUIZ & ADD QUESTIONS →"}
+                  ? "Creating Quiz..."
+                  : "Create Quiz & Add Questions →"}
               </button>
             </div>
           </form>
