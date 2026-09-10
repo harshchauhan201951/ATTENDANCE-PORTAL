@@ -44,11 +44,11 @@ type QuizWithResult = QuizTest & {
   result?: QuizResult | null;
 };
 
-function getQuizStartDate(quiz: QuizTest) {
+function getQuizStartDate(quiz: QuizTest): Date {
   return new Date(`${quiz.scheduled_date}T${quiz.scheduled_time}`);
 }
 
-function formatDate(dateString: string) {
+function formatDate(dateString: string): string {
   if (!dateString) return "-";
 
   const date = new Date(dateString);
@@ -64,7 +64,7 @@ function formatDate(dateString: string) {
   });
 }
 
-function formatTime(timeString: string) {
+function formatTime(timeString: string): string {
   if (!timeString) return "-";
 
   const [hourString, minuteString] = timeString.split(":");
@@ -77,7 +77,6 @@ function formatTime(timeString: string) {
   }
 
   const date = new Date();
-
   date.setHours(hour, minute, 0, 0);
 
   return date.toLocaleTimeString("en-IN", {
@@ -87,7 +86,7 @@ function formatTime(timeString: string) {
   });
 }
 
-function formatNumber(value: number | null | undefined) {
+function formatNumber(value: number | null | undefined): string {
   const number = Number(value ?? 0);
 
   if (!Number.isFinite(number)) {
@@ -102,25 +101,24 @@ function formatNumber(value: number | null | undefined) {
 function getQuizStatus(
   quiz: QuizTest,
   result?: QuizResult | null,
-) {
+): string {
   if (result) {
-    return result.result_status === "PASS"
-      ? "Passed"
-      : "Attempted";
+    return result.result_status === "PASS" ? "Passed" : "Attempted";
   }
 
   const start = getQuizStartDate(quiz);
-  const now = new Date();
+  const currentTime = new Date();
 
-  if (now < start) {
+  if (currentTime < start) {
     return "Upcoming";
   }
 
   const end = new Date(
-    start.getTime() + Number(quiz.duration_minutes || 30) * 60 * 1000,
+    start.getTime() +
+      Number(quiz.duration_minutes || 30) * 60 * 1000,
   );
 
-  if (now >= start && now <= end) {
+  if (currentTime >= start && currentTime <= end) {
     return "Live Now";
   }
 
@@ -137,11 +135,11 @@ export default function StudentQuizDashboardPage() {
   const [quizzes, setQuizzes] = useState<QuizTest[]>([]);
   const [results, setResults] = useState<QuizResult[]>([]);
 
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState("");
+  const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
 
-  const [now, setNow] = useState(new Date());
+  const [now, setNow] = useState<Date>(new Date());
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -183,7 +181,7 @@ export default function StudentQuizDashboardPage() {
   }, [router]);
 
   const loadQuizData = useCallback(
-    async (showRefreshLoader = false) => {
+    async (showRefreshLoader: boolean = false): Promise<void> => {
       if (!studentId) {
         return;
       }
@@ -203,12 +201,11 @@ export default function StudentQuizDashboardPage() {
           throw new Error("Invalid student ID.");
         }
 
-        const [quizResponse, resultResponse] =
-          await Promise.all([
-            supabase
-              .from("quiz_tests")
-              .select(
-                `
+        const [quizResponse, resultResponse] = await Promise.all([
+          supabase
+            .from("quiz_tests")
+            .select(
+              `
                 id,
                 title,
                 description,
@@ -221,19 +218,19 @@ export default function StudentQuizDashboardPage() {
                 is_published,
                 created_at
               `,
-              )
-              .eq("is_published", true)
-              .order("scheduled_date", {
-                ascending: true,
-              })
-              .order("scheduled_time", {
-                ascending: true,
-              }),
+            )
+            .eq("is_published", true)
+            .order("scheduled_date", {
+              ascending: true,
+            })
+            .order("scheduled_time", {
+              ascending: true,
+            }),
 
-            supabase
-              .from("quiz_results")
-              .select(
-                `
+          supabase
+            .from("quiz_results")
+            .select(
+              `
                 id,
                 quiz_id,
                 student_id,
@@ -250,12 +247,12 @@ export default function StudentQuizDashboardPage() {
                 submission_type,
                 created_at
               `,
-              )
-              .eq("student_id", numericStudentId)
-              .order("created_at", {
-                ascending: false,
-              }),
-          ]);
+            )
+            .eq("student_id", numericStudentId)
+            .order("created_at", {
+              ascending: false,
+            }),
+        ]);
 
         if (quizResponse.error) {
           throw new Error(
@@ -278,7 +275,7 @@ export default function StudentQuizDashboardPage() {
         setResults(
           (resultResponse.data || []) as QuizResult[],
         );
-      } catch (err) {
+      } catch (err: unknown) {
         console.error("Quiz dashboard error:", err);
 
         setError(
@@ -299,15 +296,17 @@ export default function StudentQuizDashboardPage() {
       return;
     }
 
-    loadQuizData();
+    void loadQuizData();
   }, [studentId, loadQuizData]);
 
   const resultMap = useMemo(() => {
     const map = new Map<number, QuizResult>();
 
     results.forEach((result) => {
-      if (!map.has(Number(result.quiz_id))) {
-        map.set(Number(result.quiz_id), result);
+      const quizId = Number(result.quiz_id);
+
+      if (!map.has(quizId)) {
+        map.set(quizId, result);
       }
     });
 
@@ -321,7 +320,7 @@ export default function StudentQuizDashboardPage() {
     }));
   }, [quizzes, resultMap]);
 
-  const upcomingQuizzes = useMemo(() => {
+  const upcomingQuizzes = useMemo<QuizWithResult[]>(() => {
     return quizzesWithResults
       .filter((quiz) => {
         if (quiz.result) {
@@ -340,7 +339,7 @@ export default function StudentQuizDashboardPage() {
       .slice(0, 4);
   }, [quizzesWithResults, now]);
 
-  const liveQuizzes = useMemo(() => {
+  const liveQuizzes = useMemo<QuizWithResult[]>(() => {
     return quizzesWithResults.filter((quiz) => {
       if (quiz.result) {
         return false;
@@ -360,7 +359,7 @@ export default function StudentQuizDashboardPage() {
     });
   }, [quizzesWithResults, now]);
 
-  const availableQuizzes = useMemo(() => {
+  const availableQuizzes = useMemo<QuizWithResult[]>(() => {
     return quizzesWithResults
       .filter((quiz) => {
         if (quiz.result) {
@@ -379,19 +378,19 @@ export default function StudentQuizDashboardPage() {
       .slice(0, 6);
   }, [quizzesWithResults, now]);
 
-  const passedCount = useMemo(() => {
+  const passedCount = useMemo<number>(() => {
     return results.filter(
       (result) => result.result_status === "PASS",
     ).length;
   }, [results]);
 
-  const failedCount = useMemo(() => {
+  const failedCount = useMemo<number>(() => {
     return results.filter(
       (result) => result.result_status === "FAIL",
     ).length;
   }, [results]);
 
-  const averagePercentage = useMemo(() => {
+  const averagePercentage = useMemo<number>(() => {
     if (!results.length) {
       return 0;
     }
@@ -405,9 +404,11 @@ export default function StudentQuizDashboardPage() {
     return total / results.length;
   }, [results]);
 
-  const getTimeUntilQuiz = (quiz: QuizTest) => {
+  const getTimeUntilQuiz = (quiz: QuizTest): string => {
     const start = getQuizStartDate(quiz);
-    const difference = start.getTime() - now.getTime();
+
+    const difference =
+      start.getTime() - now.getTime();
 
     if (difference <= 0) {
       return "Starting now";
@@ -418,9 +419,11 @@ export default function StudentQuizDashboardPage() {
     );
 
     const days = Math.floor(totalMinutes / 1440);
+
     const hours = Math.floor(
       (totalMinutes % 1440) / 60,
     );
+
     const minutes = totalMinutes % 60;
 
     if (days > 0) {
@@ -434,7 +437,7 @@ export default function StudentQuizDashboardPage() {
     return `${minutes}m`;
   };
 
-  const handleStartQuiz = (quizId: number) => {
+  const handleStartQuiz = (quizId: number): void => {
     router.push(
       `/student/quiz-tests/attempt?quizId=${encodeURIComponent(
         String(quizId),
@@ -442,7 +445,7 @@ export default function StudentQuizDashboardPage() {
     );
   };
 
-  const handleViewResult = (quizId: number) => {
+  const handleViewResult = (quizId: number): void => {
     router.push(
       `/student/quiz-tests/results?quizId=${encodeURIComponent(
         String(quizId),
@@ -450,7 +453,7 @@ export default function StudentQuizDashboardPage() {
     );
   };
 
-  const handleLogout = () => {
+  const handleLogout = (): void => {
     localStorage.removeItem("studentLoggedIn");
     localStorage.removeItem("studentId");
     localStorage.removeItem("student_id");
@@ -483,6 +486,7 @@ export default function StudentQuizDashboardPage() {
               <div className="brand-title">
                 RACER ACADEMY
               </div>
+
               <div className="brand-subtitle">
                 Student Quiz Center
               </div>
@@ -493,10 +497,12 @@ export default function StudentQuizDashboardPage() {
             <button
               type="button"
               className="refresh-button"
-              onClick={() => loadQuizData(true)}
+              onClick={() => void loadQuizData(true)}
               disabled={refreshing}
             >
-              {refreshing ? "⟳ Refreshing..." : "↻ Refresh"}
+              {refreshing
+                ? "Refreshing..."
+                : "Refresh"}
             </button>
 
             <button
@@ -528,19 +534,22 @@ export default function StudentQuizDashboardPage() {
             </p>
           </div>
 
-          <div className="brain-box">🧠</div>
+          <div className="brain-box">QUIZ</div>
         </section>
 
         {error && (
           <section className="error-card">
             <div>
-              <strong>Unable to load quiz data</strong>
+              <strong>
+                Unable to load quiz data
+              </strong>
+
               <p>{error}</p>
             </div>
 
             <button
               type="button"
-              onClick={() => loadQuizData(true)}
+              onClick={() => void loadQuizData(true)}
             >
               Try Again
             </button>
@@ -549,7 +558,8 @@ export default function StudentQuizDashboardPage() {
 
         <section className="stats-grid">
           <div className="stat-card blue">
-            <div className="stat-icon">🧠</div>
+            <div className="stat-icon">Q</div>
+
             <div>
               <span>Total Quizzes</span>
               <strong>{quizzes.length}</strong>
@@ -557,7 +567,8 @@ export default function StudentQuizDashboardPage() {
           </div>
 
           <div className="stat-card purple">
-            <div className="stat-icon">📝</div>
+            <div className="stat-icon">A</div>
+
             <div>
               <span>Attempted</span>
               <strong>{results.length}</strong>
@@ -565,7 +576,8 @@ export default function StudentQuizDashboardPage() {
           </div>
 
           <div className="stat-card green">
-            <div className="stat-icon">🏆</div>
+            <div className="stat-icon">P</div>
+
             <div>
               <span>Passed</span>
               <strong>{passedCount}</strong>
@@ -573,7 +585,8 @@ export default function StudentQuizDashboardPage() {
           </div>
 
           <div className="stat-card red">
-            <div className="stat-icon">❌</div>
+            <div className="stat-icon">F</div>
+
             <div>
               <span>Failed</span>
               <strong>{failedCount}</strong>
@@ -581,9 +594,11 @@ export default function StudentQuizDashboardPage() {
           </div>
 
           <div className="stat-card orange">
-            <div className="stat-icon">📈</div>
+            <div className="stat-icon">%</div>
+
             <div>
               <span>Average</span>
+
               <strong>
                 {averagePercentage.toFixed(1)}%
               </strong>
@@ -601,13 +616,16 @@ export default function StudentQuizDashboardPage() {
               )
             }
           >
-            <span>🚀</span>
+            <span>GO</span>
+
             <div>
               <strong>Available Quizzes</strong>
+
               <small>
                 View quizzes available to attempt
               </small>
             </div>
+
             <b>→</b>
           </button>
 
@@ -620,13 +638,16 @@ export default function StudentQuizDashboardPage() {
               )
             }
           >
-            <span>📚</span>
+            <span>H</span>
+
             <div>
               <strong>Quiz History</strong>
+
               <small>
                 View all your previous attempts
               </small>
             </div>
+
             <b>→</b>
           </button>
 
@@ -639,13 +660,16 @@ export default function StudentQuizDashboardPage() {
               )
             }
           >
-            <span>🏆</span>
+            <span>R</span>
+
             <div>
               <strong>My Results</strong>
+
               <small>
                 Check scores and performance
               </small>
             </div>
+
             <b>→</b>
           </button>
         </section>
@@ -657,7 +681,10 @@ export default function StudentQuizDashboardPage() {
                 <span className="section-kicker">
                   LIVE NOW
                 </span>
-                <h2>🔥 Quizzes You Can Attempt</h2>
+
+                <h2>
+                  Quizzes You Can Attempt
+                </h2>
               </div>
 
               <span className="live-badge">
@@ -673,7 +700,7 @@ export default function StudentQuizDashboardPage() {
                 >
                   <div className="quiz-main">
                     <div className="quiz-number live-number">
-                      🧠
+                      Q
                     </div>
 
                     <div>
@@ -686,26 +713,23 @@ export default function StudentQuizDashboardPage() {
 
                       <div className="quiz-meta">
                         <span>
-                          ⏱️{" "}
-                          {quiz.duration_minutes ||
-                            30}{" "}
+                          Duration:{" "}
+                          {quiz.duration_minutes || 30}{" "}
                           minutes
                         </span>
 
                         <span>
-                          ⭐{" "}
+                          Marks/question:{" "}
                           {formatNumber(
                             quiz.marks_per_question,
-                          )}{" "}
-                          marks/question
+                          )}
                         </span>
 
                         <span>
-                          ❌{" "}
+                          Negative:{" "}
                           {formatNumber(
                             quiz.negative_marks,
-                          )}{" "}
-                          negative
+                          )}
                         </span>
                       </div>
                     </div>
@@ -732,7 +756,8 @@ export default function StudentQuizDashboardPage() {
               <span className="section-kicker">
                 UPCOMING
               </span>
-              <h2>⏰ Upcoming Quizzes</h2>
+
+              <h2>Upcoming Quizzes</h2>
             </div>
 
             <button
@@ -755,8 +780,12 @@ export default function StudentQuizDashboardPage() {
             </div>
           ) : upcomingQuizzes.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-icon">📅</div>
+              <div className="empty-icon">
+                Calendar
+              </div>
+
               <h3>No Upcoming Quizzes</h3>
+
               <p>
                 There are currently no scheduled quizzes
                 waiting for you.
@@ -771,7 +800,7 @@ export default function StudentQuizDashboardPage() {
                 >
                   <div className="quiz-main">
                     <div className="quiz-number">
-                      🧠
+                      Q
                     </div>
 
                     <div className="quiz-details">
@@ -784,23 +813,22 @@ export default function StudentQuizDashboardPage() {
 
                       <div className="quiz-meta">
                         <span>
-                          📅{" "}
+                          Date:{" "}
                           {formatDate(
                             quiz.scheduled_date,
                           )}
                         </span>
 
                         <span>
-                          ⏰{" "}
+                          Time:{" "}
                           {formatTime(
                             quiz.scheduled_time,
                           )}
                         </span>
 
                         <span>
-                          ⏱️{" "}
-                          {quiz.duration_minutes ||
-                            30}{" "}
+                          Duration:{" "}
+                          {quiz.duration_minutes || 30}{" "}
                           min
                         </span>
                       </div>
@@ -828,7 +856,8 @@ export default function StudentQuizDashboardPage() {
               <span className="section-kicker">
                 AVAILABLE
               </span>
-              <h2>🚀 Available Quizzes</h2>
+
+              <h2>Available Quizzes</h2>
             </div>
 
             <button
@@ -847,12 +876,18 @@ export default function StudentQuizDashboardPage() {
           {loading ? (
             <div className="empty-state">
               <div className="loader" />
-              <p>Checking available quizzes...</p>
+              <p>
+                Checking available quizzes...
+              </p>
             </div>
           ) : availableQuizzes.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-icon">🎯</div>
+              <div className="empty-icon">
+                Target
+              </div>
+
               <h3>No Quiz Available</h3>
+
               <p>
                 When a published quiz reaches its
                 scheduled time, it will appear here.
@@ -873,7 +908,7 @@ export default function StudentQuizDashboardPage() {
                   >
                     <div className="quiz-main">
                       <div className="quiz-number">
-                        📝
+                        Q
                       </div>
 
                       <div className="quiz-details">
@@ -886,28 +921,27 @@ export default function StudentQuizDashboardPage() {
 
                         <div className="quiz-meta">
                           <span>
-                            📅{" "}
+                            Date:{" "}
                             {formatDate(
                               quiz.scheduled_date,
                             )}
                           </span>
 
                           <span>
-                            ⏰{" "}
+                            Time:{" "}
                             {formatTime(
                               quiz.scheduled_time,
                             )}
                           </span>
 
                           <span>
-                            ⏱️{" "}
-                            {quiz.duration_minutes ||
-                              30}{" "}
+                            Duration:{" "}
+                            {quiz.duration_minutes || 30}{" "}
                             min
                           </span>
 
                           <span>
-                            🎯 Pass{" "}
+                            Pass:{" "}
                             {formatNumber(
                               quiz.pass_percentage,
                             )}
@@ -962,7 +996,8 @@ export default function StudentQuizDashboardPage() {
               <span className="section-kicker">
                 PERFORMANCE
               </span>
-              <h2>🏆 Recent Results</h2>
+
+              <h2>Recent Results</h2>
             </div>
 
             <button
@@ -985,8 +1020,12 @@ export default function StudentQuizDashboardPage() {
             </div>
           ) : results.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-icon">🏆</div>
+              <div className="empty-icon">
+                Results
+              </div>
+
               <h3>No Results Yet</h3>
+
               <p>
                 Your quiz results will appear here after
                 you complete a quiz.
@@ -1016,8 +1055,8 @@ export default function StudentQuizDashboardPage() {
                       <div className="result-icon">
                         {result.result_status ===
                         "PASS"
-                          ? "🏆"
-                          : "📊"}
+                          ? "PASS"
+                          : "RESULT"}
                       </div>
 
                       <div>
@@ -1100,6 +1139,7 @@ export default function StudentQuizDashboardPage() {
         <footer className="footer">
           <div>
             <strong>RACER ACADEMY</strong>
+
             <span>
               Student Quiz Center
             </span>
@@ -1311,7 +1351,9 @@ export default function StudentQuizDashboardPage() {
           border-radius: 26px;
           background: rgba(255, 255, 255, 0.12);
           border: 1px solid rgba(255, 255, 255, 0.15);
-          font-size: 45px;
+          font-size: 18px;
+          font-weight: 900;
+          letter-spacing: 1px;
           z-index: 2;
         }
 
@@ -1359,7 +1401,8 @@ export default function StudentQuizDashboardPage() {
           border-radius: 20px;
           background: white;
           border: 1px solid #e2e8f0;
-          box-shadow: 0 8px 25px rgba(15, 23, 42, 0.05);
+          box-shadow:
+            0 8px 25px rgba(15, 23, 42, 0.05);
         }
 
         .stat-icon {
@@ -1368,7 +1411,8 @@ export default function StudentQuizDashboardPage() {
           display: grid;
           place-items: center;
           border-radius: 15px;
-          font-size: 23px;
+          font-size: 14px;
+          font-weight: 900;
         }
 
         .stat-card.blue .stat-icon {
@@ -1424,13 +1468,15 @@ export default function StudentQuizDashboardPage() {
           border-radius: 19px;
           background: white;
           cursor: pointer;
-          box-shadow: 0 8px 25px rgba(15, 23, 42, 0.05);
+          box-shadow:
+            0 8px 25px rgba(15, 23, 42, 0.05);
           transition: 0.2s ease;
         }
 
         .quick-card:hover {
           transform: translateY(-3px);
-          box-shadow: 0 14px 32px rgba(15, 23, 42, 0.09);
+          box-shadow:
+            0 14px 32px rgba(15, 23, 42, 0.09);
         }
 
         .quick-card > span {
@@ -1440,7 +1486,8 @@ export default function StudentQuizDashboardPage() {
           place-items: center;
           border-radius: 14px;
           background: #f1f5f9;
-          font-size: 23px;
+          font-size: 13px;
+          font-weight: 900;
         }
 
         .quick-card strong {
@@ -1467,7 +1514,8 @@ export default function StudentQuizDashboardPage() {
           border-radius: 23px;
           background: rgba(255, 255, 255, 0.94);
           border: 1px solid #e2e8f0;
-          box-shadow: 0 10px 30px rgba(15, 23, 42, 0.055);
+          box-shadow:
+            0 10px 30px rgba(15, 23, 42, 0.055);
         }
 
         .section-header {
@@ -1543,7 +1591,8 @@ export default function StudentQuizDashboardPage() {
           flex: 0 0 auto;
           border-radius: 15px;
           background: #e0e7ff;
-          font-size: 23px;
+          font-size: 14px;
+          font-weight: 900;
         }
 
         .live-number {
@@ -1606,12 +1655,14 @@ export default function StudentQuizDashboardPage() {
         }
 
         .start-button {
-          background: linear-gradient(
-            135deg,
-            #4f46e5,
-            #7c3aed
-          );
-          box-shadow: 0 7px 18px rgba(79, 70, 229, 0.22);
+          background:
+            linear-gradient(
+              135deg,
+              #4f46e5,
+              #7c3aed
+            );
+          box-shadow:
+            0 7px 18px rgba(79, 70, 229, 0.22);
         }
 
         .start-button:hover,
@@ -1681,7 +1732,8 @@ export default function StudentQuizDashboardPage() {
         }
 
         .empty-icon {
-          font-size: 38px;
+          font-size: 18px;
+          font-weight: 900;
           margin-bottom: 8px;
         }
 
@@ -1720,7 +1772,8 @@ export default function StudentQuizDashboardPage() {
         .result-row {
           width: 100%;
           display: grid;
-          grid-template-columns: 1.3fr 1fr auto 25px;
+          grid-template-columns:
+            1.3fr 1fr auto 25px;
           align-items: center;
           gap: 15px;
           text-align: left;
@@ -1752,7 +1805,9 @@ export default function StudentQuizDashboardPage() {
           flex: 0 0 auto;
           border-radius: 12px;
           background: #eef2ff;
-          font-size: 19px;
+          font-size: 9px;
+          font-weight: 900;
+          text-align: center;
         }
 
         .result-left strong {
@@ -1842,7 +1897,8 @@ export default function StudentQuizDashboardPage() {
           }
 
           .result-row {
-            grid-template-columns: 1fr auto 25px;
+            grid-template-columns:
+              1fr auto 25px;
           }
 
           .result-middle {
@@ -1891,7 +1947,7 @@ export default function StudentQuizDashboardPage() {
           .brain-box {
             width: 62px;
             height: 62px;
-            font-size: 30px;
+            font-size: 13px;
             border-radius: 19px;
           }
 
@@ -1907,7 +1963,7 @@ export default function StudentQuizDashboardPage() {
           .stat-icon {
             width: 40px;
             height: 40px;
-            font-size: 19px;
+            font-size: 12px;
           }
 
           .stat-card strong {
