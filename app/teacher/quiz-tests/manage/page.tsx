@@ -8,6 +8,9 @@ type Quiz = {
   id: number;
   title: string;
   description: string | null;
+  class_name: string | null;
+  target_classes: string[] | null;
+  subject: string | null;
   scheduled_date: string;
   scheduled_time: string;
   duration_minutes: number;
@@ -39,11 +42,38 @@ const emptyEditForm: EditForm = {
   pass_percentage: "40",
 };
 
+function normalizeClass(value: unknown) {
+  if (typeof value !== "string") return "";
+  return value.trim().toUpperCase();
+}
+
+function getQuizClasses(quiz: Quiz) {
+  const targets = Array.isArray(quiz.target_classes)
+    ? quiz.target_classes
+        .map(normalizeClass)
+        .filter(Boolean)
+    : [];
+
+  if (targets.length > 0) {
+    return Array.from(new Set(targets));
+  }
+
+  const legacy = normalizeClass(quiz.class_name);
+
+  return legacy ? [legacy] : [];
+}
+
 export default function ManageQuizzesPage() {
   const router = useRouter();
 
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [quizzes, setQuizzes] =
+    useState<Quiz[]>([]);
+
+  const [classes, setClasses] =
+    useState<string[]>([]);
+
+  const [loading, setLoading] =
+    useState(true);
 
   const [publishingId, setPublishingId] =
     useState<number | null>(null);
@@ -60,26 +90,93 @@ export default function ManageQuizzesPage() {
   const [editForm, setEditForm] =
     useState<EditForm>(emptyEditForm);
 
+  const [editClasses, setEditClasses] =
+    useState<string[]>([]);
+
   useEffect(() => {
     loadQuizzes();
+    loadClasses();
   }, []);
+
+  async function loadClasses() {
+    const { data, error } =
+      await supabase
+        .from("students")
+        .select("class_name")
+        .not("class_name", "is", null);
+
+    if (error) {
+      console.error(
+        "Load classes error:",
+        error
+      );
+      return;
+    }
+
+    const unique = Array.from(
+      new Set(
+        (data || [])
+          .map((item) =>
+            normalizeClass(item.class_name)
+          )
+          .filter(Boolean)
+      )
+    );
+
+    const classOrder: Record<string, number> = {
+      NURSERY: 0,
+      LKG: 0,
+      UKG: 0,
+      "1ST": 1,
+      "2ND": 2,
+      "3RD": 3,
+      "4TH": 4,
+      "5TH": 5,
+      "6TH": 6,
+      "7TH": 7,
+      "8TH": 8,
+      "9TH": 9,
+      "10TH": 10,
+      "11TH": 11,
+      "12TH": 12,
+    };
+
+    unique.sort((a, b) => {
+      const orderA =
+        classOrder[a] ?? 999;
+      const orderB =
+        classOrder[b] ?? 999;
+
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+
+      return a.localeCompare(b);
+    });
+
+    setClasses(unique);
+  }
 
   async function loadQuizzes() {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase
-        .from("quiz_tests")
-        .select("*")
-        .order("scheduled_date", {
-          ascending: false,
-        })
-        .order("scheduled_time", {
-          ascending: false,
-        });
+      const { data, error } =
+        await supabase
+          .from("quiz_tests")
+          .select("*")
+          .order("scheduled_date", {
+            ascending: false,
+          })
+          .order("scheduled_time", {
+            ascending: false,
+          });
 
       if (error) {
-        console.error("Load quizzes error:", error);
+        console.error(
+          "Load quizzes error:",
+          error
+        );
 
         alert(
           `Quizzes load nahi ho pa rahe.\n\n${error.message}`
@@ -89,17 +186,13 @@ export default function ManageQuizzesPage() {
         return;
       }
 
-      setQuizzes((data || []) as Quiz[]);
+      setQuizzes(
+        (data || []) as Quiz[]
+      );
     } catch (error) {
       console.error(
         "Unexpected load quizzes error:",
         error
-      );
-
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Quizzes load karte waqt error aaya."
       );
 
       setQuizzes([]);
@@ -108,130 +201,59 @@ export default function ManageQuizzesPage() {
     }
   }
 
-  // =========================================================
-  // PUBLIC / UNPUBLISH
-  // =========================================================
-
-  async function togglePublish(quiz: Quiz) {
+  async function togglePublish(
+    quiz: Quiz
+  ) {
     if (publishingId !== null) return;
 
-    const newPublishedStatus =
+    const newStatus =
       !quiz.is_published;
 
     setPublishingId(quiz.id);
 
     try {
-      /*
-       * IMPORTANT:
-       * .single() intentionally use nahi kiya gaya.
-       *
-       * UPDATE ke baad returned rows ko check kiya ja raha hai.
-       * Isse agar RLS ki wajah se 0 rows update hoti hain,
-       * fake success nahi milega.
-       */
-
-      const { data, error } = await supabase
-        .from("quiz_tests")
-        .update({
-          is_published: newPublishedStatus,
-        })
-        .eq("id", quiz.id)
-        .select("id, is_published");
+      const { data, error } =
+        await supabase
+          .from("quiz_tests")
+          .update({
+            is_published: newStatus,
+          })
+          .eq("id", quiz.id)
+          .select("id,is_published");
 
       if (error) {
-        console.error(
-          "Quiz publish/unpublish error:",
-          error
-        );
-
         alert(
           `Quiz ${
-            newPublishedStatus
+            newStatus
               ? "PUBLIC"
               : "DRAFT"
           } nahi ho paya.\n\n${error.message}`
         );
-
         return;
       }
-
-      /*
-       * Agar UPDATE ne koi row return nahi ki,
-       * to usually RLS / permission / wrong ID problem
-       * ho sakti hai.
-       */
 
       if (!data || data.length === 0) {
-        console.error(
-          "Quiz publish returned zero rows."
-        );
-
         alert(
-          `Quiz ${
-            newPublishedStatus
-              ? "PUBLIC"
-              : "DRAFT"
-          } nahi hua.\n\nDatabase ne koi updated row return nahi ki.\n\nSupabase RLS policy / UPDATE permission check karein.`
+          "Database ne koi updated row return nahi ki. Supabase UPDATE/RLS policy check karein."
         );
-
         return;
       }
-
-      /*
-       * Database se returned value ko hi final status
-       * maana ja raha hai.
-       */
-
-      const updatedQuiz = data[0];
-
-      setQuizzes((current) =>
-        current.map((item) =>
-          item.id === quiz.id
-            ? {
-                ...item,
-                is_published:
-                  Boolean(
-                    updatedQuiz.is_published
-                  ),
-              }
-            : item
-        )
-      );
-
-      /*
-       * Fresh database data load.
-       */
 
       await loadQuizzes();
 
       alert(
-        newPublishedStatus
+        newStatus
           ? "Quiz successfully PUBLIC ho gaya."
           : "Quiz successfully DRAFT mein aa gaya."
-      );
-    } catch (error) {
-      console.error(
-        "Unexpected publish error:",
-        error
-      );
-
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Quiz publish karte waqt unexpected error aaya."
       );
     } finally {
       setPublishingId(null);
     }
   }
 
-  // =========================================================
-  // DELETE
-  // =========================================================
-
   async function deleteQuiz(id: number) {
     const ok = window.confirm(
-      "Delete this quiz?\n\nAll questions, options and related quiz data may also be deleted if your database foreign keys are configured with CASCADE.\n\nAre you sure?"
+      "Delete this quiz?\n\nAll questions and related quiz data may also be deleted if CASCADE is configured.\n\nAre you sure?"
     );
 
     if (!ok) return;
@@ -239,51 +261,26 @@ export default function ManageQuizzesPage() {
     setDeletingId(id);
 
     try {
-      /*
-       * First delete the quiz.
-       *
-       * Agar database mein child tables par ON DELETE CASCADE
-       * laga hua hai, related records automatically delete honge.
-       */
-
-      const { data, error } = await supabase
-        .from("quiz_tests")
-        .delete()
-        .eq("id", id)
-        .select("id");
+      const { data, error } =
+        await supabase
+          .from("quiz_tests")
+          .delete()
+          .eq("id", id)
+          .select("id");
 
       if (error) {
-        console.error(
-          "Delete quiz error:",
-          error
-        );
-
         alert(
-          `Quiz delete nahi ho paya.\n\n${error.message}\n\nAgar ye foreign-key ya RLS error hai, to Supabase database policy/relationship ko fix karna hoga.`
+          `Quiz delete nahi ho paya.\n\n${error.message}`
         );
-
         return;
       }
-
-      /*
-       * Zero rows ka matlab actual database deletion nahi hui.
-       */
 
       if (!data || data.length === 0) {
-        console.error(
-          "Quiz delete returned zero rows."
-        );
-
         alert(
-          "Quiz delete nahi hua.\n\nDatabase ne koi deleted row return nahi ki.\n\nSupabase RLS DELETE policy / permission check karein."
+          "Quiz delete nahi hua. Supabase DELETE/RLS policy check karein."
         );
-
         return;
       }
-
-      /*
-       * UI se quiz remove.
-       */
 
       setQuizzes((current) =>
         current.filter(
@@ -294,37 +291,31 @@ export default function ManageQuizzesPage() {
       alert(
         "Quiz successfully deleted."
       );
-    } catch (error) {
-      console.error(
-        "Unexpected delete error:",
-        error
-      );
-
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Quiz delete karte waqt error aaya."
-      );
     } finally {
       setDeletingId(null);
     }
   }
 
-  // =========================================================
-  // EDIT QUIZ
-  // =========================================================
-
   function openEditQuiz(quiz: Quiz) {
     setEditingQuiz(quiz);
 
+    setEditClasses(
+      getQuizClasses(quiz)
+    );
+
     setEditForm({
       title: quiz.title || "",
-      description: quiz.description || "",
+      description:
+        quiz.description || "",
       scheduled_date:
         quiz.scheduled_date || "",
-      scheduled_time: quiz.scheduled_time
-        ? quiz.scheduled_time.slice(0, 5)
-        : "",
+      scheduled_time:
+        quiz.scheduled_time
+          ? quiz.scheduled_time.slice(
+              0,
+              5
+            )
+          : "",
       duration_minutes: String(
         quiz.duration_minutes ?? 30
       ),
@@ -345,6 +336,7 @@ export default function ManageQuizzesPage() {
 
     setEditingQuiz(null);
     setEditForm(emptyEditForm);
+    setEditClasses([]);
   }
 
   function updateEditField(
@@ -357,23 +349,60 @@ export default function ManageQuizzesPage() {
     }));
   }
 
+  function toggleEditClass(
+    className: string
+  ) {
+    setEditClasses((current) => {
+      if (current.includes(className)) {
+        return current.filter(
+          (item) =>
+            item !== className
+        );
+      }
+
+      return [...current, className];
+    });
+  }
+
+  function selectAllEditClasses() {
+    setEditClasses(classes);
+  }
+
+  function clearEditClasses() {
+    setEditClasses([]);
+  }
+
   async function saveEditQuiz() {
     if (!editingQuiz) return;
 
-    const title = editForm.title.trim();
+    const title =
+      editForm.title.trim();
 
     if (!title) {
-      alert("Quiz title required hai.");
+      alert(
+        "Quiz title required hai."
+      );
+      return;
+    }
+
+    if (editClasses.length === 0) {
+      alert(
+        "At least one class select karein."
+      );
       return;
     }
 
     if (!editForm.scheduled_date) {
-      alert("Scheduled date select karein.");
+      alert(
+        "Scheduled date select karein."
+      );
       return;
     }
 
     if (!editForm.scheduled_time) {
-      alert("Scheduled time select karein.");
+      alert(
+        "Scheduled time select karein."
+      );
       return;
     }
 
@@ -381,17 +410,20 @@ export default function ManageQuizzesPage() {
       editForm.duration_minutes
     );
 
-    const marksPerQuestion = Number(
-      editForm.marks_per_question
-    );
+    const marksPerQuestion =
+      Number(
+        editForm.marks_per_question
+      );
 
-    const negativeMarks = Number(
-      editForm.negative_marks
-    );
+    const negativeMarks =
+      Number(
+        editForm.negative_marks
+      );
 
-    const passPercentage = Number(
-      editForm.pass_percentage
-    );
+    const passPercentage =
+      Number(
+        editForm.pass_percentage
+      );
 
     if (
       !Number.isFinite(duration) ||
@@ -416,7 +448,9 @@ export default function ManageQuizzesPage() {
     }
 
     if (
-      !Number.isFinite(negativeMarks) ||
+      !Number.isFinite(
+        negativeMarks
+      ) ||
       negativeMarks < 0
     ) {
       alert(
@@ -426,7 +460,9 @@ export default function ManageQuizzesPage() {
     }
 
     if (
-      !Number.isFinite(passPercentage) ||
+      !Number.isFinite(
+        passPercentage
+      ) ||
       passPercentage < 0 ||
       passPercentage > 100
     ) {
@@ -439,6 +475,15 @@ export default function ManageQuizzesPage() {
     setSavingEdit(true);
 
     try {
+      const normalizedClasses =
+        Array.from(
+          new Set(
+            editClasses
+              .map(normalizeClass)
+              .filter(Boolean)
+          )
+        );
+
       const { data, error } =
         await supabase
           .from("quiz_tests")
@@ -447,95 +492,80 @@ export default function ManageQuizzesPage() {
             description:
               editForm.description.trim() ||
               null,
+
+            class_name:
+              normalizedClasses[0] ||
+              null,
+
+            target_classes:
+              normalizedClasses,
+
             scheduled_date:
               editForm.scheduled_date,
+
             scheduled_time:
               editForm.scheduled_time,
-            duration_minutes: duration,
+
+            duration_minutes:
+              duration,
+
             marks_per_question:
               marksPerQuestion,
+
             negative_marks:
               negativeMarks,
+
             pass_percentage:
               passPercentage,
           })
-          .eq("id", editingQuiz.id)
+          .eq(
+            "id",
+            editingQuiz.id
+          )
           .select("*");
 
       if (error) {
-        console.error(
-          "Edit quiz update error:",
-          error
-        );
-
         alert(
           `Quiz update nahi ho paya.\n\n${error.message}`
         );
-
         return;
       }
-
-      /*
-       * Zero rows means update didn't actually happen.
-       */
 
       if (!data || data.length === 0) {
         alert(
-          "Quiz update nahi hua.\n\nDatabase ne koi updated row return nahi ki.\n\nSupabase RLS UPDATE policy check karein."
+          "Quiz update nahi hua. Supabase UPDATE/RLS policy check karein."
         );
-
         return;
       }
 
-      /*
-       * Local state update.
-       */
-
-      const updatedQuiz =
-        data[0] as Quiz;
-
       setQuizzes((current) =>
         current.map((item) =>
-          item.id === editingQuiz.id
-            ? updatedQuiz
+          item.id ===
+          editingQuiz.id
+            ? (data[0] as Quiz)
             : item
         )
       );
 
-      setEditingQuiz(null);
-      setEditForm(emptyEditForm);
+      closeEditQuiz();
 
       await loadQuizzes();
 
       alert(
         "Quiz successfully update ho gaya."
       );
-    } catch (error) {
-      console.error(
-        "Unexpected edit quiz error:",
-        error
-      );
-
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Quiz update karte waqt unexpected error aaya."
-      );
     } finally {
       setSavingEdit(false);
     }
   }
 
-  // =========================================================
-  // DATE FORMAT
-  // =========================================================
-
   function formatDate(date: string) {
     if (!date) return "Not set";
 
-    const parsedDate = new Date(
-      `${date}T00:00:00`
-    );
+    const parsedDate =
+      new Date(
+        `${date}T00:00:00`
+      );
 
     if (
       Number.isNaN(
@@ -555,44 +585,39 @@ export default function ManageQuizzesPage() {
     );
   }
 
-  // =========================================================
-  // TIME FORMAT
-  // =========================================================
-
   function formatTime(time: string) {
     if (!time) return "Not set";
 
-    const [h, m] = time.split(":");
+    const [h, m] =
+      time.split(":");
 
-    const hourNumber = Number(h);
+    const hourNumber =
+      Number(h);
 
     if (
-      !Number.isFinite(hourNumber) ||
-      !m
+      !Number.isFinite(
+        hourNumber
+      )
     ) {
       return time;
     }
 
     const period =
-      hourNumber >= 12 ? "PM" : "AM";
+      hourNumber >= 12
+        ? "PM"
+        : "AM";
 
     const hour =
       hourNumber % 12 || 12;
 
-    return `${hour}:${m} ${period}`;
+    return `${hour}:${m || "00"} ${period}`;
   }
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
-
-        {/* ================================================= */}
-        {/* HEADER */}
-        {/* ================================================= */}
-
         <header className="border-b border-white/10 bg-slate-950/90">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4">
-
             <div>
               <h1 className="font-black">
                 MANAGE QUIZZES
@@ -613,18 +638,10 @@ export default function ManageQuizzesPage() {
             >
               ← Quiz Tests
             </button>
-
           </div>
         </header>
 
-        {/* ================================================= */}
-        {/* MAIN */}
-        {/* ================================================= */}
-
         <div className="mx-auto max-w-6xl px-4 py-8">
-
-          {/* CREATE */}
-
           <button
             onClick={() =>
               router.push(
@@ -636,11 +653,8 @@ export default function ManageQuizzesPage() {
             + CREATE NEW QUIZ
           </button>
 
-          {/* LOADING */}
-
           {loading ? (
             <div className="rounded-3xl bg-white/5 p-10 text-center">
-
               <div className="text-lg font-bold">
                 Loading quizzes...
               </div>
@@ -648,16 +662,11 @@ export default function ManageQuizzesPage() {
               <div className="mt-2 text-sm text-slate-400">
                 Please wait
               </div>
-
             </div>
           ) : quizzes.length === 0 ? (
-
-            /* EMPTY */
-
             <div className="rounded-3xl border border-dashed border-white/10 bg-white/5 p-10 text-center">
-
               <div className="text-4xl">
-                📝
+                QUIZ
               </div>
 
               <h2 className="mt-3 text-lg font-black">
@@ -665,280 +674,250 @@ export default function ManageQuizzesPage() {
               </h2>
 
               <p className="mt-1 text-sm text-slate-400">
-                Create your first quiz to get
-                started.
+                Create your first quiz to get started.
               </p>
-
             </div>
           ) : (
-
-            /* QUIZ LIST */
-
             <div className="space-y-5">
+              {quizzes.map((quiz) => {
+                const quizClasses =
+                  getQuizClasses(quiz);
 
-              {quizzes.map((quiz) => (
+                return (
+                  <div
+                    key={quiz.id}
+                    className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl"
+                  >
+                    <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <h2 className="break-words text-xl font-black">
+                            {quiz.title}
+                          </h2>
 
-                <div
-                  key={quiz.id}
-                  className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl"
-                >
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-black ${
+                              quiz.is_published
+                                ? "bg-emerald-500/20 text-emerald-400"
+                                : "bg-amber-500/20 text-amber-400"
+                            }`}
+                          >
+                            {quiz.is_published
+                              ? "PUBLIC"
+                              : "DRAFT"}
+                          </span>
+                        </div>
 
-                  <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                        <p className="mt-2 text-sm text-slate-400">
+                          {quiz.description ||
+                            "No description"}
+                        </p>
 
-                    {/* QUIZ INFORMATION */}
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {quizClasses.length >
+                          0 ? (
+                            quizClasses.map(
+                              (className) => (
+                                <span
+                                  key={
+                                    className
+                                  }
+                                  className="rounded-full bg-indigo-500/15 px-3 py-1 text-xs font-black text-indigo-300"
+                                >
+                                  CLASS{" "}
+                                  {
+                                    className
+                                  }
+                                </span>
+                              )
+                            )
+                          ) : (
+                            <span className="text-xs text-red-300">
+                              No class assigned
+                            </span>
+                          )}
+                        </div>
 
-                    <div className="min-w-0 flex-1">
+                        <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-400">
+                          {quiz.subject && (
+                            <span>
+                              Subject:{" "}
+                              {quiz.subject}
+                            </span>
+                          )}
 
-                      <div className="flex flex-wrap items-center gap-3">
+                          <span>
+                            Date:{" "}
+                            {formatDate(
+                              quiz.scheduled_date
+                            )}
+                          </span>
 
-                        <h2 className="break-words text-xl font-black">
-                          {quiz.title}
-                        </h2>
+                          <span>
+                            Time:{" "}
+                            {formatTime(
+                              quiz.scheduled_time
+                            )}
+                          </span>
 
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-black ${
+                          <span>
+                            {quiz.duration_minutes ??
+                              30}{" "}
+                            minutes
+                          </span>
+
+                          <span>
+                            {quiz.marks_per_question}{" "}
+                            / question
+                          </span>
+
+                          <span>
+                            {quiz.negative_marks}{" "}
+                            negative
+                          </span>
+
+                          <span>
+                            Pass{" "}
+                            {quiz.pass_percentage}%
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:flex lg:max-w-3xl lg:flex-wrap lg:justify-end">
+                        <button
+                          onClick={() =>
+                            router.push(
+                              `/teacher/quiz-tests/questions?quizId=${quiz.id}`
+                            )
+                          }
+                          className="rounded-xl bg-purple-600/20 px-4 py-3 text-sm font-bold text-purple-300 transition hover:bg-purple-600/30"
+                        >
+                          Questions
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            openEditQuiz(
+                              quiz
+                            )
+                          }
+                          className="rounded-xl bg-blue-500/15 px-4 py-3 text-sm font-bold text-blue-300 transition hover:bg-blue-500/25"
+                        >
+                          EDIT QUIZ
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            togglePublish(
+                              quiz
+                            )
+                          }
+                          disabled={
+                            publishingId ===
+                            quiz.id
+                          }
+                          className={`rounded-xl px-4 py-3 text-sm font-bold transition ${
                             quiz.is_published
-                              ? "bg-emerald-500/20 text-emerald-400"
-                              : "bg-amber-500/20 text-amber-400"
+                              ? "bg-amber-500/15 text-amber-300 hover:bg-amber-500/25"
+                              : "bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
                           }`}
                         >
-                          {quiz.is_published
-                            ? "PUBLIC"
-                            : "DRAFT"}
-                        </span>
-
-                      </div>
-
-                      <p className="mt-2 text-sm text-slate-400">
-                        {quiz.description ||
-                          "No description"}
-                      </p>
-
-                      <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-400">
-
-                        <span>
-                          📅{" "}
-                          {formatDate(
-                            quiz.scheduled_date
-                          )}
-                        </span>
-
-                        <span>
-                          ⏰{" "}
-                          {formatTime(
-                            quiz.scheduled_time
-                          )}
-                        </span>
-
-                        <span>
-                          ⏱️{" "}
-                          {quiz.duration_minutes ??
-                            30}{" "}
-                          minutes
-                        </span>
-
-                        <span>
-                          🎯{" "}
-                          {
-                            quiz.marks_per_question
-                          }{" "}
-                          / question
-                        </span>
-
-                        <span>
-                          ➖{" "}
-                          {quiz.negative_marks}{" "}
-                          negative
-                        </span>
-
-                        <span>
-                          🏆 Pass{" "}
-                          {quiz.pass_percentage}%
-                        </span>
-
-                      </div>
-
-                    </div>
-
-                    {/* ================================================= */}
-                    {/* ACTIONS */}
-                    {/* ================================================= */}
-
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:flex lg:max-w-3xl lg:flex-wrap lg:justify-end">
-
-                      {/* QUESTIONS */}
-
-                      <button
-                        onClick={() =>
-                          router.push(
-                            `/teacher/quiz-tests/questions?quizId=${quiz.id}`
-                          )
-                        }
-                        className="rounded-xl bg-purple-600/20 px-4 py-3 text-sm font-bold text-purple-300 transition hover:bg-purple-600/30"
-                      >
-                        ❓ Questions
-                      </button>
-
-                      {/* EDIT QUIZ */}
-
-                      <button
-                        onClick={() =>
-                          openEditQuiz(quiz)
-                        }
-                        className="rounded-xl bg-blue-500/15 px-4 py-3 text-sm font-bold text-blue-300 transition hover:bg-blue-500/25"
-                      >
-                        ✏️ EDIT QUIZ
-                      </button>
-
-                      {/* PUBLIC / UNPUBLISH */}
-
-                      <button
-                        onClick={() =>
-                          togglePublish(quiz)
-                        }
-                        disabled={
-                          publishingId ===
+                          {publishingId ===
                           quiz.id
-                        }
-                        className={`rounded-xl px-4 py-3 text-sm font-bold transition ${
-                          quiz.is_published
-                            ? "bg-amber-500/15 text-amber-300 hover:bg-amber-500/25"
-                            : "bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
-                        } ${
-                          publishingId ===
-                          quiz.id
-                            ? "cursor-not-allowed opacity-50"
-                            : ""
-                        }`}
-                      >
-                        {publishingId ===
-                        quiz.id
-                          ? "Updating..."
-                          : quiz.is_published
+                            ? "Updating..."
+                            : quiz.is_published
                             ? "Unpublish"
                             : "PUBLIC"}
-                      </button>
+                        </button>
 
-                      {/* RESULTS */}
+                        <button
+                          onClick={() =>
+                            router.push(
+                              `/teacher/quiz-tests/results?quizId=${quiz.id}`
+                            )
+                          }
+                          className="rounded-xl bg-cyan-500/15 px-4 py-3 text-sm font-bold text-cyan-300 transition hover:bg-cyan-500/25"
+                        >
+                          Results
+                        </button>
 
-                      <button
-                        onClick={() =>
-                          router.push(
-                            `/teacher/quiz-tests/results?quizId=${quiz.id}`
-                          )
-                        }
-                        className="rounded-xl bg-cyan-500/15 px-4 py-3 text-sm font-bold text-cyan-300 transition hover:bg-cyan-500/25"
-                      >
-                        📊 Results
-                      </button>
-
-                      {/* DELETE */}
-
-                      <button
-                        onClick={() =>
-                          deleteQuiz(quiz.id)
-                        }
-                        disabled={
-                          deletingId ===
+                        <button
+                          onClick={() =>
+                            deleteQuiz(
+                              quiz.id
+                            )
+                          }
+                          disabled={
+                            deletingId ===
+                            quiz.id
+                          }
+                          className="rounded-xl bg-red-500/15 px-4 py-3 text-sm font-bold text-red-300 transition hover:bg-red-500/25"
+                        >
+                          {deletingId ===
                           quiz.id
-                        }
-                        className={`rounded-xl bg-red-500/15 px-4 py-3 text-sm font-bold text-red-300 transition hover:bg-red-500/25 ${
-                          deletingId ===
-                          quiz.id
-                            ? "cursor-not-allowed opacity-50"
-                            : ""
-                        }`}
-                      >
-                        {deletingId ===
-                        quiz.id
-                          ? "Deleting..."
-                          : "🗑 Delete"}
-                      </button>
-
+                            ? "Deleting..."
+                            : "Delete"}
+                        </button>
+                      </div>
                     </div>
-
                   </div>
-
-                </div>
-
-              ))}
-
+                );
+              })}
             </div>
-
           )}
-
         </div>
 
-        {/* ================================================= */}
-        {/* EDIT QUIZ MODAL */}
-        {/* ================================================= */}
-
         {editingQuiz && (
-
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-
             <div className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-900 shadow-2xl">
-
-              {/* MODAL HEADER */}
-
-              <div className="flex items-center justify-between border-b border-white/10 bg-slate-900 px-5 py-4">
-
+              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
                 <div>
-
                   <h2 className="text-xl font-black">
-                    ✏️ EDIT QUIZ
+                    EDIT QUIZ
                   </h2>
 
                   <p className="mt-1 text-xs text-slate-400">
-                    Quickly update quiz details
+                    Update quiz details and assigned classes
                   </p>
-
                 </div>
 
                 <button
-                  onClick={closeEditQuiz}
-                  disabled={savingEdit}
-                  className="rounded-xl bg-white/5 px-4 py-2 text-2xl font-bold text-slate-300 transition hover:bg-white/10 disabled:opacity-50"
+                  onClick={
+                    closeEditQuiz
+                  }
+                  disabled={
+                    savingEdit
+                  }
+                  className="rounded-xl bg-white/5 px-4 py-2 text-2xl font-bold"
                 >
                   ×
                 </button>
-
               </div>
 
-              {/* MODAL BODY */}
-
               <div className="overflow-y-auto p-5">
-
                 <div className="space-y-5">
-
-                  {/* TITLE */}
-
                   <div>
-
-                    <label className="mb-2 block text-sm font-bold text-slate-300">
+                    <label className="mb-2 block text-sm font-bold">
                       Quiz Title
                     </label>
 
                     <input
                       type="text"
-                      value={editForm.title}
+                      value={
+                        editForm.title
+                      }
                       onChange={(e) =>
                         updateEditField(
                           "title",
                           e.target.value
                         )
                       }
-                      className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-indigo-500"
-                      placeholder="Enter quiz title"
+                      className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 outline-none focus:border-indigo-500"
                     />
-
                   </div>
 
-                  {/* DESCRIPTION */}
-
                   <div>
-
-                    <label className="mb-2 block text-sm font-bold text-slate-300">
+                    <label className="mb-2 block text-sm font-bold">
                       Description
                     </label>
 
@@ -953,19 +932,78 @@ export default function ManageQuizzesPage() {
                         )
                       }
                       rows={3}
-                      className="w-full resize-none rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-indigo-500"
-                      placeholder="Quiz description"
+                      className="w-full resize-none rounded-xl border border-white/10 bg-slate-950 px-4 py-3 outline-none focus:border-indigo-500"
                     />
-
                   </div>
 
-                  {/* DATE + TIME */}
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-bold">
+                        Assigned Classes
+                      </label>
+
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={
+                            selectAllEditClasses
+                          }
+                          className="rounded-lg bg-indigo-500/15 px-3 py-2 text-xs font-bold text-indigo-300"
+                        >
+                          All
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={
+                            clearEditClasses
+                          }
+                          className="rounded-lg bg-white/5 px-3 py-2 text-xs font-bold"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      {classes.map(
+                        (className) => {
+                          const selected =
+                            editClasses.includes(
+                              className
+                            );
+
+                          return (
+                            <button
+                              key={
+                                className
+                              }
+                              type="button"
+                              onClick={() =>
+                                toggleEditClass(
+                                  className
+                                )
+                              }
+                              className={`rounded-xl border px-3 py-3 text-sm font-black ${
+                                selected
+                                  ? "border-indigo-400 bg-indigo-600"
+                                  : "border-white/10 bg-white/5 text-slate-300"
+                              }`}
+                            >
+                              {selected
+                                ? "✓ "
+                                : ""}
+                              {className}
+                            </button>
+                          );
+                        }
+                      )}
+                    </div>
+                  </div>
 
                   <div className="grid gap-4 sm:grid-cols-2">
-
                     <div>
-
-                      <label className="mb-2 block text-sm font-bold text-slate-300">
+                      <label className="mb-2 block text-sm font-bold">
                         Scheduled Date
                       </label>
 
@@ -980,14 +1018,12 @@ export default function ManageQuizzesPage() {
                             e.target.value
                           )
                         }
-                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-indigo-500"
+                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 outline-none focus:border-indigo-500"
                       />
-
                     </div>
 
                     <div>
-
-                      <label className="mb-2 block text-sm font-bold text-slate-300">
+                      <label className="mb-2 block text-sm font-bold">
                         Scheduled Time
                       </label>
 
@@ -1002,21 +1038,15 @@ export default function ManageQuizzesPage() {
                             e.target.value
                           )
                         }
-                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-indigo-500"
+                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 outline-none focus:border-indigo-500"
                       />
-
                     </div>
-
                   </div>
 
-                  {/* DURATION + MARKS */}
-
                   <div className="grid gap-4 sm:grid-cols-2">
-
                     <div>
-
-                      <label className="mb-2 block text-sm font-bold text-slate-300">
-                        Duration (minutes)
+                      <label className="mb-2 block text-sm font-bold">
+                        Duration
                       </label>
 
                       <input
@@ -1031,14 +1061,12 @@ export default function ManageQuizzesPage() {
                             e.target.value
                           )
                         }
-                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-indigo-500"
+                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 outline-none focus:border-indigo-500"
                       />
-
                     </div>
 
                     <div>
-
-                      <label className="mb-2 block text-sm font-bold text-slate-300">
+                      <label className="mb-2 block text-sm font-bold">
                         Marks / Question
                       </label>
 
@@ -1055,20 +1083,14 @@ export default function ManageQuizzesPage() {
                             e.target.value
                           )
                         }
-                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-indigo-500"
+                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 outline-none focus:border-indigo-500"
                       />
-
                     </div>
-
                   </div>
 
-                  {/* NEGATIVE + PASS */}
-
                   <div className="grid gap-4 sm:grid-cols-2">
-
                     <div>
-
-                      <label className="mb-2 block text-sm font-bold text-slate-300">
+                      <label className="mb-2 block text-sm font-bold">
                         Negative Marks
                       </label>
 
@@ -1085,14 +1107,12 @@ export default function ManageQuizzesPage() {
                             e.target.value
                           )
                         }
-                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-indigo-500"
+                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 outline-none focus:border-indigo-500"
                       />
-
                     </div>
 
                     <div>
-
-                      <label className="mb-2 block text-sm font-bold text-slate-300">
+                      <label className="mb-2 block text-sm font-bold">
                         Pass Percentage
                       </label>
 
@@ -1100,7 +1120,6 @@ export default function ManageQuizzesPage() {
                         type="number"
                         min="0"
                         max="100"
-                        step="1"
                         value={
                           editForm.pass_percentage
                         }
@@ -1110,51 +1129,45 @@ export default function ManageQuizzesPage() {
                             e.target.value
                           )
                         }
-                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-indigo-500"
+                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 outline-none focus:border-indigo-500"
                       />
-
                     </div>
-
                   </div>
-
                 </div>
-
               </div>
 
-              {/* MODAL FOOTER */}
-
-              <div className="border-t border-white/10 bg-slate-900 p-5">
-
-                <div className="flex flex-col gap-3 sm:flex-row">
-
+              <div className="border-t border-white/10 p-5">
+                <div className="flex gap-3">
                   <button
-                    onClick={closeEditQuiz}
-                    disabled={savingEdit}
-                    className="flex-1 rounded-xl bg-white/5 px-5 py-3 font-bold text-slate-300 transition hover:bg-white/10 disabled:opacity-50"
+                    onClick={
+                      closeEditQuiz
+                    }
+                    disabled={
+                      savingEdit
+                    }
+                    className="flex-1 rounded-xl bg-white/5 px-5 py-3 font-bold"
                   >
                     CANCEL
                   </button>
 
                   <button
-                    onClick={saveEditQuiz}
-                    disabled={savingEdit}
-                    className="flex-1 rounded-xl bg-indigo-600 px-5 py-3 font-black transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={
+                      saveEditQuiz
+                    }
+                    disabled={
+                      savingEdit
+                    }
+                    className="flex-1 rounded-xl bg-indigo-600 px-5 py-3 font-black disabled:opacity-50"
                   >
                     {savingEdit
                       ? "SAVING..."
                       : "SAVE CHANGES"}
                   </button>
-
                 </div>
-
               </div>
-
             </div>
-
           </div>
-
         )}
-
       </div>
     </main>
   );

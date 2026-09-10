@@ -2,9 +2,7 @@
 
 import {
   Suspense,
-  useCallback,
   useEffect,
-  useMemo,
   useState,
 } from "react";
 import {
@@ -16,6 +14,10 @@ import { supabase } from "../../../../lib/supabase";
 type Quiz = {
   id: number;
   title: string;
+  description: string | null;
+  class_name: string | null;
+  target_classes: string[] | null;
+  subject: string | null;
   scheduled_date: string;
   scheduled_time: string;
   duration_minutes: number;
@@ -36,86 +38,56 @@ type QuizResult = {
   total_marks: number;
   obtained_marks: number;
   percentage: number;
-  result_status: "PASS" | "FAIL";
+  result_status: string;
   started_at: string | null;
   submitted_at: string | null;
-  submission_type:
-    | "manual"
-    | "time_expired"
-    | "left_quiz"
-    | "auto_submit";
+  submission_type: string | null;
+  created_at: string | null;
 };
 
 type Student = {
   id: number;
-  [key: string]: unknown;
+  student_name: string | null;
+  student_username: string | null;
+  class_name: string | null;
 };
 
 type ResultRow = QuizResult & {
-  student?: Student;
+  student: Student | null;
 };
 
-function getStudentName(
-  student: Student | undefined
-) {
-  if (!student) {
-    return "Student";
-  }
-
-  const possibleFields = [
-    "student_name",
-    "name",
-    "full_name",
-    "studentName",
-  ];
-
-  for (const field of possibleFields) {
-    const value = student[field];
-
-    if (
-      typeof value === "string" &&
-      value.trim()
-    ) {
-      return value.trim();
-    }
-  }
-
-  return `Student #${student.id}`;
+function normalizeClass(value: unknown) {
+  if (typeof value !== "string") return "";
+  return value.trim().toUpperCase();
 }
 
-function getStudentUsername(
-  student: Student | undefined
-) {
-  if (!student) {
-    return "";
+function getQuizClasses(quiz: Quiz | null) {
+  if (!quiz) return [];
+
+  const targets = Array.isArray(
+    quiz.target_classes
+  )
+    ? quiz.target_classes
+        .map(normalizeClass)
+        .filter(Boolean)
+    : [];
+
+  if (targets.length > 0) {
+    return Array.from(
+      new Set(targets)
+    );
   }
 
-  const possibleFields = [
-    "student_username",
-    "username",
-    "studentUsername",
-  ];
+  const legacy =
+    normalizeClass(quiz.class_name);
 
-  for (const field of possibleFields) {
-    const value = student[field];
-
-    if (
-      typeof value === "string" &&
-      value.trim()
-    ) {
-      return value.trim();
-    }
-  }
-
-  return "";
+  return legacy ? [legacy] : [];
 }
 
 function formatDateTime(
   value: string | null
 ) {
-  if (!value) {
-    return "—";
-  }
+  if (!value) return "—";
 
   const date = new Date(value);
 
@@ -123,93 +95,88 @@ function formatDateTime(
     return "—";
   }
 
-  return date.toLocaleString("en-IN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  return date.toLocaleString(
+    "en-IN",
+    {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }
+  );
 }
 
-function formatScheduledTime(
-  quiz: Quiz
+function formatNumber(
+  value: number | null | undefined
 ) {
-  const date = new Date(
-    `${quiz.scheduled_date}T${quiz.scheduled_time.slice(
-      0,
-      8
-    )}`
-  );
-
-  if (Number.isNaN(date.getTime())) {
-    return `${quiz.scheduled_date} ${quiz.scheduled_time}`;
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return "0";
   }
 
-  return date.toLocaleString("en-IN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  const numberValue =
+    Number(value);
+
+  if (!Number.isFinite(numberValue)) {
+    return "0";
+  }
+
+  return Number.isInteger(
+    numberValue
+  )
+    ? String(numberValue)
+    : numberValue.toFixed(2);
 }
 
-function TeacherQuizResultsContent() {
+function TeacherResultsContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams =
+    useSearchParams();
 
-  const quizIdParam = searchParams.get("quizId");
+  const quizIdParam =
+    searchParams.get("quizId");
 
-  const selectedQuizId =
-    quizIdParam &&
-    Number.isInteger(Number(quizIdParam))
-      ? Number(quizIdParam)
-      : null;
+  const [quiz, setQuiz] =
+    useState<Quiz | null>(null);
 
-  const [quizzes, setQuizzes] = useState<
-    Quiz[]
-  >([]);
+  const [results, setResults] =
+    useState<ResultRow[]>([]);
 
-  const [results, setResults] = useState<
-    ResultRow[]
-  >([]);
+  const [loading, setLoading] =
+    useState(true);
 
-  const [loading, setLoading] = useState(true);
-  const [selectedQuiz, setSelectedQuiz] =
-    useState<number | "all">(
-      selectedQuizId ?? "all"
-    );
+  const [error, setError] =
+    useState("");
 
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] =
-    useState<"ALL" | "PASS" | "FAIL">(
-      "ALL"
-    );
+  const [search, setSearch] =
+    useState("");
 
-  const [error, setError] = useState("");
+  useEffect(() => {
+    async function loadResults() {
+      const quizId =
+        Number(quizIdParam);
 
-  const loadResults = useCallback(
-    async () => {
+      if (
+        !Number.isFinite(quizId) ||
+        quizId <= 0
+      ) {
+        setError(
+          "Quiz ID is missing."
+        );
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError("");
 
       try {
-        const {
-          data: quizData,
-          error: quizError,
-        } = await supabase
-          .from("quiz_tests")
-          .select(
-            `
-            id,
-            title,
-            scheduled_date,
-            scheduled_time,
-            duration_minutes,
-            marks_per_question,
-            negative_marks,
-            pass_percentage,
-            is_published
-            `
-          )
-          .order("scheduled_date", {
-            ascending: false,
-          });
+        const { data: quizData, error: quizError } =
+          await supabase
+            .from("quiz_tests")
+            .select("*")
+            .eq("id", quizId)
+            .maybeSingle();
 
         if (quizError) {
           throw new Error(
@@ -217,21 +184,24 @@ function TeacherQuizResultsContent() {
           );
         }
 
-        const loadedQuizzes =
-          (quizData || []) as Quiz[];
+        if (!quizData) {
+          throw new Error(
+            "Quiz not found."
+          );
+        }
 
-        setQuizzes(loadedQuizzes);
+        setQuiz(
+          quizData as Quiz
+        );
 
-        const {
-          data: resultData,
-          error: resultError,
-        } = await supabase
-          .from("quiz_results")
-          .select("*")
-          .order("submitted_at", {
-            ascending: false,
-            nullsFirst: false,
-          });
+        const { data: resultData, error: resultError } =
+          await supabase
+            .from("quiz_results")
+            .select("*")
+            .eq("quiz_id", quizId)
+            .order("submitted_at", {
+              ascending: false,
+            });
 
         if (resultError) {
           throw new Error(
@@ -239,901 +209,543 @@ function TeacherQuizResultsContent() {
           );
         }
 
-        const loadedResults =
-          (resultData || []) as QuizResult[];
+        const rawResults =
+          (resultData ||
+            []) as QuizResult[];
 
-        const studentIds = Array.from(
-          new Set(
-            loadedResults.map(
-              (result) =>
-                result.student_id
+        if (rawResults.length === 0) {
+          setResults([]);
+          return;
+        }
+
+        const studentIds =
+          Array.from(
+            new Set(
+              rawResults.map(
+                (item) =>
+                  Number(
+                    item.student_id
+                  )
+              )
             )
-          )
-        );
+          ).filter(
+            (id) =>
+              Number.isFinite(id) &&
+              id > 0
+          );
 
-        const studentsById =
-          new Map<number, Student>();
+        let students: Student[] =
+          [];
 
-        if (studentIds.length > 0) {
+        if (
+          studentIds.length > 0
+        ) {
           const {
             data: studentData,
             error: studentError,
           } = await supabase
             .from("students")
-            .select("*")
-            .in("id", studentIds);
+            .select(
+              "id,student_name,student_username,class_name"
+            )
+            .in(
+              "id",
+              studentIds
+            );
 
           if (studentError) {
-            throw new Error(
-              studentError.message
+            console.error(
+              "Student loading error:",
+              studentError
             );
+          } else {
+            students =
+              (studentData ||
+                []) as Student[];
           }
-
-          (
-            (studentData || []) as Student[]
-          ).forEach((student) => {
-            studentsById.set(
-              student.id,
-              student
-            );
-          });
         }
 
-        const joinedResults: ResultRow[] =
-          loadedResults.map(
+        const studentMap =
+          new Map<
+            number,
+            Student
+          >();
+
+        students.forEach(
+          (student) => {
+            studentMap.set(
+              Number(student.id),
+              student
+            );
+          }
+        );
+
+        const rows: ResultRow[] =
+          rawResults.map(
             (result) => ({
               ...result,
               student:
-                studentsById.get(
-                  result.student_id
-                ),
+                studentMap.get(
+                  Number(
+                    result.student_id
+                  )
+                ) || null,
             })
           );
 
-        setResults(joinedResults);
-
-        if (
-          selectedQuizId !== null
-        ) {
-          setSelectedQuiz(
-            selectedQuizId
-          );
-        }
+        setResults(rows);
       } catch (loadError) {
+        console.error(
+          "Teacher results error:",
+          loadError
+        );
+
+        setResults([]);
+
         setError(
           loadError instanceof Error
             ? loadError.message
-            : "Unable to load results."
+            : "Unable to load quiz results."
         );
       } finally {
         setLoading(false);
       }
-    },
-    [selectedQuizId]
-  );
+    }
 
-  useEffect(() => {
-    void loadResults();
-  }, [loadResults]);
+    loadResults();
+  }, [quizIdParam]);
 
-  const filteredResults = useMemo(() => {
-    const searchText =
-      search.trim().toLowerCase();
+  const filteredResults =
+    results.filter((row) => {
+      const query =
+        search.trim().toLowerCase();
 
-    return results.filter((result) => {
-      if (
-        selectedQuiz !== "all" &&
-        result.quiz_id !== selectedQuiz
-      ) {
-        return false;
-      }
+      if (!query) return true;
 
-      if (
-        statusFilter !== "ALL" &&
-        result.result_status !==
-          statusFilter
-      ) {
-        return false;
-      }
-
-      if (!searchText) {
-        return true;
-      }
-
-      const quizTitle =
-        quizzes.find(
-          (quiz) =>
-            quiz.id === result.quiz_id
-        )?.title || "";
-
-      const studentName =
-        getStudentName(
-          result.student
-        );
+      const name =
+        row.student?.student_name ||
+        "";
 
       const username =
-        getStudentUsername(
-          result.student
-        );
+        row.student?.student_username ||
+        "";
 
-      const searchable =
-        `${studentName} ${username} ${result.student_id} ${quizTitle}`.toLowerCase();
+      const className =
+        row.student?.class_name ||
+        "";
 
-      return searchable.includes(
-        searchText
+      return (
+        name.toLowerCase().includes(query) ||
+        username.toLowerCase().includes(query) ||
+        className.toLowerCase().includes(query)
       );
     });
-  }, [
-    results,
-    quizzes,
-    search,
-    selectedQuiz,
-    statusFilter,
-  ]);
 
-  const statistics = useMemo(() => {
-    const total =
-      filteredResults.length;
+  const totalStudents =
+    results.length;
 
-    const passed =
-      filteredResults.filter(
-        (result) =>
-          result.result_status ===
-          "PASS"
-      ).length;
+  const passed =
+    results.filter(
+      (row) =>
+        String(
+          row.result_status
+        ).toUpperCase() ===
+        "PASS"
+    ).length;
 
-    const failed =
-      filteredResults.filter(
-        (result) =>
-          result.result_status ===
-          "FAIL"
-      ).length;
+  const failed =
+    results.filter(
+      (row) =>
+        String(
+          row.result_status
+        ).toUpperCase() ===
+        "FAIL"
+    ).length;
 
-    const attempted =
-      filteredResults.filter(
-        (result) =>
-          Boolean(result.submitted_at)
-      ).length;
-
-    const average =
-      total > 0
-        ? filteredResults.reduce(
-            (sum, result) =>
-              sum +
-              Number(
-                result.percentage || 0
-              ),
-            0
-          ) / total
-        : 0;
-
-    return {
-      total,
-      passed,
-      failed,
-      attempted,
-      average:
-        Math.round(average * 100) /
-        100,
-    };
-  }, [filteredResults]);
-
-  function getQuizTitle(
-    quizId: number
-  ) {
-    return (
-      quizzes.find(
-        (quiz) => quiz.id === quizId
-      )?.title ||
-      `Quiz #${quizId}`
-    );
-  }
-
-  function goToQuiz(
-    quizId: number
-  ) {
-    router.push(
-      `/teacher/quiz-tests/results?quizId=${quizId}`
-    );
-  }
+  const averagePercentage =
+    results.length > 0
+      ? results.reduce(
+          (sum, row) =>
+            sum +
+            Number(
+              row.percentage || 0
+            ),
+          0
+        ) / results.length
+      : 0;
 
   if (loading) {
     return (
-      <main style={pageStyle}>
-        <div style={containerStyle}>
-          <div style={loadingStyle}>
-            Loading Quiz Results...
-          </div>
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-11 w-11 animate-spin rounded-full border-4 border-white/10 border-t-indigo-500" />
+
+          <p className="font-bold">
+            Loading Results...
+          </p>
         </div>
       </main>
     );
   }
 
-  return (
-    <main style={pageStyle}>
-      <div style={containerStyle}>
-        <header style={headerStyle}>
-          <div>
-            <div style={badgeStyle}>
-              TEACHER • PERFORMANCE CENTER
-            </div>
+  if (error || !quiz) {
+    return (
+      <main className="min-h-screen bg-slate-950 px-4 py-10 text-white">
+        <div className="mx-auto max-w-2xl rounded-3xl border border-red-400/20 bg-red-500/10 p-8 text-center">
+          <h1 className="text-2xl font-black">
+            Results Not Available
+          </h1>
 
-            <h1 style={mainHeadingStyle}>
-              🏆 Quiz Results
-            </h1>
-
-            <p style={headerTextStyle}>
-              View student-wise performance,
-              marks, percentage and submission
-              details.
-            </p>
-          </div>
+          <p className="mt-3 text-sm text-red-200">
+            {error ||
+              "Unable to load quiz results."}
+          </p>
 
           <button
-            type="button"
             onClick={() =>
               router.push(
-                "/teacher/quiz-tests"
+                "/teacher/quiz-tests/manage"
               )
             }
-            style={headerButtonStyle}
+            className="mt-6 rounded-xl bg-indigo-600 px-6 py-3 font-black"
           >
-            ← Quiz Dashboard
+            ← Back to Manage
           </button>
-        </header>
+        </div>
+      </main>
+    );
+  }
 
-        {error && (
-          <div style={errorBoxStyle}>
-            {error}
-          </div>
-        )}
+  const quizClasses =
+    getQuizClasses(quiz);
 
-        <section
-          style={statsGridStyle}
-        >
-          <StatCard
-            label="TOTAL RESULTS"
-            value={statistics.total}
-            icon="📊"
-          />
+  return (
+    <main className="min-h-screen bg-slate-950 text-white">
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
+        <header className="border-b border-white/10 bg-slate-950/90">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4">
+            <div>
+              <h1 className="text-xl font-black">
+                QUIZ RESULTS
+              </h1>
 
-          <StatCard
-            label="PASSED"
-            value={statistics.passed}
-            icon="✅"
-          />
-
-          <StatCard
-            label="FAILED"
-            value={statistics.failed}
-            icon="❌"
-          />
-
-          <StatCard
-            label="AVERAGE"
-            value={`${statistics.average}%`}
-            icon="📈"
-          />
-        </section>
-
-        <section style={controlCardStyle}>
-          <div>
-            <label style={filterLabelStyle}>
-              QUIZ
-            </label>
-
-            <select
-              value={selectedQuiz}
-              onChange={(event) => {
-                const value =
-                  event.target.value;
-
-                if (value === "all") {
-                  setSelectedQuiz(
-                    "all"
-                  );
-
-                  router.push(
-                    "/teacher/quiz-tests/results"
-                  );
-                } else {
-                  const id = Number(
-                    value
-                  );
-
-                  setSelectedQuiz(id);
-                  goToQuiz(id);
-                }
-              }}
-              style={selectStyle}
-            >
-              <option value="all">
-                All Quizzes
-              </option>
-
-              {quizzes.map((quiz) => (
-                <option
-                  key={quiz.id}
-                  value={quiz.id}
-                >
-                  {quiz.title}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label style={filterLabelStyle}>
-              STATUS
-            </label>
-
-            <select
-              value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(
-                  event.target
-                    .value as
-                    | "ALL"
-                    | "PASS"
-                    | "FAIL"
-                )
-              }
-              style={selectStyle}
-            >
-              <option value="ALL">
-                All Results
-              </option>
-              <option value="PASS">
-                PASS
-              </option>
-              <option value="FAIL">
-                FAIL
-              </option>
-            </select>
-          </div>
-
-          <div
-            style={{
-              flex: 1,
-              minWidth: 220,
-            }}
-          >
-            <label style={filterLabelStyle}>
-              SEARCH
-            </label>
-
-            <input
-              type="search"
-              value={search}
-              onChange={(event) =>
-                setSearch(
-                  event.target.value
-                )
-              }
-              placeholder="Search student name, ID or quiz..."
-              style={inputStyle}
-            />
-          </div>
-
-          <button
-            type="button"
-            onClick={() =>
-              void loadResults()
-            }
-            style={refreshButtonStyle}
-          >
-            ↻ Refresh
-          </button>
-        </section>
-
-        {selectedQuiz !== "all" &&
-          (() => {
-            const quiz =
-              quizzes.find(
-                (item) =>
-                  item.id ===
-                  selectedQuiz
-              );
-
-            if (!quiz) {
-              return null;
-            }
-
-            return (
-              <section
-                style={selectedQuizCardStyle}
-              >
-                <div>
-                  <div
-                    style={selectedQuizBadge}
-                  >
-                    SELECTED QUIZ
-                  </div>
-
-                  <h2
-                    style={{
-                      margin:
-                        "5px 0 0",
-                      color:
-                        "#0f172a",
-                      fontSize: 20,
-                      fontWeight: 900,
-                    }}
-                  >
-                    {quiz.title}
-                  </h2>
-
-                  <p
-                    style={{
-                      margin:
-                        "5px 0 0",
-                      color:
-                        "#64748b",
-                      fontSize: 13,
-                    }}
-                  >
-                    Scheduled:{" "}
-                    {formatScheduledTime(
-                      quiz
-                    )}
-                  </p>
-                </div>
-
-                <div
-                  style={{
-                    textAlign:
-                      "right",
-                  }}
-                >
-                  <span
-                    style={{
-                      color:
-                        "#94a3b8",
-                      fontSize: 10,
-                      fontWeight: 900,
-                      display:
-                        "block",
-                    }}
-                  >
-                    PASS MARK
-                  </span>
-
-                  <strong
-                    style={{
-                      color:
-                        "#16a34a",
-                      fontSize: 20,
-                    }}
-                  >
-                    {
-                      quiz.pass_percentage
-                    }
-                    %
-                  </strong>
-                </div>
-              </section>
-            );
-          })()}
-
-        <section
-          style={{
-            marginTop: 20,
-          }}
-        >
-          {filteredResults.length ===
-          0 ? (
-            <div style={emptyStyle}>
-              <div
-                style={{
-                  fontSize: 48,
-                  marginBottom: 10,
-                }}
-              >
-                📭
-              </div>
-
-              <h2
-                style={{
-                  margin: 0,
-                  color:
-                    "#0f172a",
-                }}
-              >
-                No results found
-              </h2>
-
-              <p
-                style={{
-                  margin:
-                    "8px 0 0",
-                  color:
-                    "#64748b",
-                }}
-              >
-                Student quiz results
-                will appear here after
-                submissions.
+              <p className="text-xs text-slate-400">
+                RACER ACADEMY • Teacher Panel
               </p>
             </div>
-          ) : (
-            <>
-              <div
-                style={{
-                  marginBottom:
-                    12,
-                  color:
-                    "#64748b",
-                  fontSize: 13,
-                  fontWeight: 700,
-                }}
-              >
-                Showing{" "}
-                {filteredResults.length}{" "}
-                result
-                {filteredResults.length ===
-                1
-                  ? ""
-                  : "s"}
+
+            <button
+              onClick={() =>
+                router.push(
+                  "/teacher/quiz-tests/manage"
+                )
+              }
+              className="rounded-xl bg-white/5 px-4 py-2 text-sm font-bold hover:bg-white/10"
+            >
+              ← Manage
+            </button>
+          </div>
+        </header>
+
+        <div className="mx-auto max-w-7xl px-4 py-8">
+          <section className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="text-2xl font-black">
+                  {quiz.title}
+                </h2>
+
+                {quiz.description && (
+                  <p className="mt-2 max-w-3xl text-sm text-slate-400">
+                    {quiz.description}
+                  </p>
+                )}
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {quizClasses.map(
+                    (className) => (
+                      <span
+                        key={className}
+                        className="rounded-full bg-indigo-500/15 px-3 py-1 text-xs font-black text-indigo-300"
+                      >
+                        CLASS {className}
+                      </span>
+                    )
+                  )}
+
+                  {quiz.subject && (
+                    <span className="rounded-full bg-blue-500/15 px-3 py-1 text-xs font-black text-blue-300">
+                      {quiz.subject}
+                    </span>
+                  )}
+
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-black ${
+                      quiz.is_published
+                        ? "bg-emerald-500/15 text-emerald-300"
+                        : "bg-amber-500/15 text-amber-300"
+                    }`}
+                  >
+                    {quiz.is_published
+                      ? "PUBLIC"
+                      : "DRAFT"}
+                  </span>
+                </div>
               </div>
 
-              <div
-                style={{
-                  display:
-                    "grid",
-                  gap: 14,
-                }}
-              >
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="rounded-2xl bg-white/5 p-4 text-center">
+                  <div className="text-2xl font-black">
+                    {totalStudents}
+                  </div>
+                  <div className="text-[10px] font-bold text-slate-500">
+                    ATTEMPTS
+                  </div>
+                </div>
+
+                <div className="rounded-2xl bg-emerald-500/10 p-4 text-center">
+                  <div className="text-2xl font-black text-emerald-300">
+                    {passed}
+                  </div>
+                  <div className="text-[10px] font-bold text-emerald-200/60">
+                    PASS
+                  </div>
+                </div>
+
+                <div className="rounded-2xl bg-red-500/10 p-4 text-center">
+                  <div className="text-2xl font-black text-red-300">
+                    {failed}
+                  </div>
+                  <div className="text-[10px] font-bold text-red-200/60">
+                    FAIL
+                  </div>
+                </div>
+
+                <div className="rounded-2xl bg-indigo-500/10 p-4 text-center">
+                  <div className="text-2xl font-black text-indigo-300">
+                    {formatNumber(
+                      averagePercentage
+                    )}
+                    %
+                  </div>
+                  <div className="text-[10px] font-bold text-indigo-200/60">
+                    AVERAGE
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="mt-6">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-xl font-black">
+                  Student Results
+                </h3>
+
+                <p className="mt-1 text-sm text-slate-400">
+                  All submitted attempts for this quiz.
+                </p>
+              </div>
+
+              <input
+                type="text"
+                value={search}
+                onChange={(e) =>
+                  setSearch(
+                    e.target.value
+                  )
+                }
+                placeholder="Search student..."
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none focus:border-indigo-400 sm:max-w-xs"
+              />
+            </div>
+
+            {filteredResults.length ===
+            0 ? (
+              <div className="rounded-3xl border border-dashed border-white/10 bg-white/5 p-10 text-center">
+                <h4 className="font-black">
+                  No results found
+                </h4>
+
+                <p className="mt-2 text-sm text-slate-400">
+                  {results.length ===
+                  0
+                    ? "No student has submitted this quiz yet."
+                    : "No result matches your search."}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
                 {filteredResults.map(
-                  (result) => (
-                    <article
-                      key={
-                        result.id
-                      }
-                      style={
-                        resultCardStyle
-                      }
-                    >
+                  (row, index) => {
+                    const isPass =
+                      String(
+                        row.result_status
+                      ).toUpperCase() ===
+                      "PASS";
+
+                    const studentClass =
+                      normalizeClass(
+                        row.student
+                          ?.class_name
+                      );
+
+                    return (
                       <div
-                        style={
-                          resultTopStyle
+                        key={
+                          row.id
                         }
+                        className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl"
                       >
-                        <div
-                          style={{
-                            display:
-                              "flex",
-                            alignItems:
-                              "center",
-                            gap: 12,
-                            minWidth: 0,
-                          }}
-                        >
-                          <div
-                            style={
-                              avatarStyle
-                            }
-                          >
-                            {getStudentName(
-                              result.student
-                            )
-                              .charAt(
-                                0
-                              )
-                              .toUpperCase()}
+                        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                          <div className="flex min-w-0 items-start gap-4">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/15 font-black text-indigo-300">
+                              {index +
+                                1}
+                            </div>
+
+                            <div className="min-w-0">
+                              <h4 className="truncate text-lg font-black">
+                                {row
+                                  .student
+                                  ?.student_name ||
+                                  `Student #${row.student_id}`}
+                              </h4>
+
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {row
+                                  .student
+                                  ?.student_username && (
+                                  <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-bold text-slate-300">
+                                    {row
+                                      .student
+                                      .student_username}
+                                  </span>
+                                )}
+
+                                {studentClass && (
+                                  <span className="rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-bold text-indigo-300">
+                                    CLASS{" "}
+                                    {
+                                      studentClass
+                                    }
+                                  </span>
+                                )}
+                              </div>
+
+                              <p className="mt-2 text-xs text-slate-500">
+                                Submitted:{" "}
+                                {formatDateTime(
+                                  row.submitted_at
+                                )}
+                              </p>
+                            </div>
                           </div>
 
-                          <div
-                            style={{
-                              minWidth:
-                                0,
-                            }}
-                          >
-                            <h3
-                              style={{
-                                margin:
-                                  0,
-                                color:
-                                  "#0f172a",
-                                fontSize:
-                                  17,
-                                fontWeight:
-                                  900,
-                                overflowWrap:
-                                  "anywhere",
-                              }}
-                            >
-                              {getStudentName(
-                                result.student
-                              )}
-                            </h3>
-
-                            <p
-                              style={{
-                                margin:
-                                  "4px 0 0",
-                                color:
-                                  "#64748b",
-                                fontSize:
-                                  12,
-                              }}
-                            >
-                              ID:{" "}
-                              <strong>
+                          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:min-w-[520px]">
+                            <div className="rounded-2xl bg-white/5 p-4 text-center">
+                              <div className="text-xl font-black">
                                 {
-                                  result.student_id
+                                  row.total_questions
+                                }
+                              </div>
+                              <div className="text-[10px] font-bold text-slate-500">
+                                QUESTIONS
+                              </div>
+                            </div>
+
+                            <div className="rounded-2xl bg-emerald-500/10 p-4 text-center">
+                              <div className="text-xl font-black text-emerald-300">
+                                {
+                                  row.correct_answers
+                                }
+                              </div>
+                              <div className="text-[10px] font-bold text-emerald-200/60">
+                                CORRECT
+                              </div>
+                            </div>
+
+                            <div className="rounded-2xl bg-red-500/10 p-4 text-center">
+                              <div className="text-xl font-black text-red-300">
+                                {
+                                  row.wrong_answers
+                                }
+                              </div>
+                              <div className="text-[10px] font-bold text-red-200/60">
+                                WRONG
+                              </div>
+                            </div>
+
+                            <div className="rounded-2xl bg-indigo-500/10 p-4 text-center">
+                              <div className="text-xl font-black text-indigo-300">
+                                {formatNumber(
+                                  row.percentage
+                                )}
+                                %
+                              </div>
+                              <div className="text-[10px] font-bold text-indigo-200/60">
+                                SCORE
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex flex-wrap gap-3 text-xs text-slate-400">
+                            <span>
+                              Marks:{" "}
+                              <strong className="text-white">
+                                {
+                                  row.obtained_marks
                                 }
                               </strong>
+                                {" / "}
+                              {
+                                row.total_marks
+                              }
+                            </span>
 
-                              {getStudentUsername(
-                                result.student
-                              ) && (
-                                <>
-                                  {" "}
-                                  •{" "}
-                                  {
-                                    getStudentUsername(
-                                      result.student
-                                    )
-                                  }
-                                </>
-                              )}
-                            </p>
+                            <span>
+                              Unanswered:{" "}
+                              {
+                                row.unanswered
+                              }
+                            </span>
+
+                            <span>
+                              Submission:{" "}
+                              {row.submission_type ||
+                                "manual"}
+                            </span>
                           </div>
-                        </div>
 
-                        <div
-                          style={{
-                            display:
-                              "flex",
-                            alignItems:
-                              "center",
-                            gap: 10,
-                            flexWrap:
-                              "wrap",
-                            justifyContent:
-                              "flex-end",
-                          }}
-                        >
                           <span
-                            style={
-                              result.result_status ===
-                              "PASS"
-                                ? passBadgeStyle
-                                : failBadgeStyle
-                            }
+                            className={`rounded-full px-5 py-2 text-xs font-black ${
+                              isPass
+                                ? "bg-emerald-500/15 text-emerald-300"
+                                : "bg-red-500/15 text-red-300"
+                            }`}
                           >
-                            {
-                              result.result_status
-                            }
+                            {isPass
+                              ? "PASS"
+                              : "FAIL"}
                           </span>
-
-                          <div
-                            style={
-                              scoreStyle
-                            }
-                          >
-                            {
-                              result.percentage
-                            }
-                            %
-                          </div>
                         </div>
                       </div>
-
-                      <div
-                        style={{
-                          marginTop:
-                            15,
-                          paddingTop:
-                            15,
-                          borderTop:
-                            "1px solid #e2e8f0",
-                        }}
-                      >
-                        <div
-                          style={
-                            metricsGridStyle
-                          }
-                        >
-                          <Metric
-                            label="QUIZ"
-                            value={getQuizTitle(
-                              result.quiz_id
-                            )}
-                          />
-
-                          <Metric
-                            label="SCORE"
-                            value={`${result.obtained_marks} / ${result.total_marks}`}
-                          />
-
-                          <Metric
-                            label="CORRECT"
-                            value={
-                              result.correct_answers
-                            }
-                          />
-
-                          <Metric
-                            label="WRONG"
-                            value={
-                              result.wrong_answers
-                            }
-                          />
-
-                          <Metric
-                            label="UNANSWERED"
-                            value={
-                              result.unanswered
-                            }
-                          />
-
-                          <Metric
-                            label="SUBMITTED"
-                            value={formatDateTime(
-                              result.submitted_at
-                            )}
-                          />
-                        </div>
-
-                        <div
-                          style={{
-                            marginTop:
-                              12,
-                            display:
-                              "flex",
-                            justifyContent:
-                              "space-between",
-                            alignItems:
-                              "center",
-                            gap: 10,
-                            flexWrap:
-                              "wrap",
-                          }}
-                        >
-                          <span
-                            style={{
-                              color:
-                                "#94a3b8",
-                              fontSize:
-                                11,
-                              fontWeight:
-                                700,
-                            }}
-                          >
-                            Submission:{" "}
-                            {
-                              result.submission_type
-                            }
-                          </span>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              router.push(
-                                `/teacher/quiz-tests/results?quizId=${result.quiz_id}`
-                              )
-                            }
-                            style={
-                              viewQuizButtonStyle
-                            }
-                          >
-                            View Quiz Results →
-                          </button>
-                        </div>
-                      </div>
-                    </article>
-                  )
+                    );
+                  }
                 )}
               </div>
-            </>
-          )}
-        </section>
+            )}
+          </section>
 
-        <footer
-          style={{
-            textAlign: "center",
-            marginTop: 32,
-            color: "#94a3b8",
-            fontSize: 12,
-            fontWeight: 700,
-          }}
-        >
-          RACER ACADEMY • Quiz Performance
-          Center
-        </footer>
+          <div className="py-8 text-center text-xs text-slate-500">
+            RACER ACADEMY • Teacher Quiz Results
+          </div>
+        </div>
       </div>
     </main>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: string | number;
-  icon: string;
-}) {
-  return (
-    <div style={statCardStyle}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent:
-            "space-between",
-          alignItems: "center",
-          gap: 10,
-        }}
-      >
-        <span
-          style={{
-            color: "#64748b",
-            fontSize: 10,
-            fontWeight: 900,
-            letterSpacing: 0.8,
-          }}
-        >
-          {label}
-        </span>
-
-        <span
-          style={{
-            fontSize: 22,
-          }}
-        >
-          {icon}
-        </span>
-      </div>
-
-      <strong
-        style={{
-          display: "block",
-          marginTop: 8,
-          color: "#0f172a",
-          fontSize: 27,
-          fontWeight: 900,
-        }}
-      >
-        {value}
-      </strong>
-    </div>
-  );
-}
-
-function Metric({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | number;
-}) {
-  return (
-    <div>
-      <span
-        style={{
-          display: "block",
-          color: "#94a3b8",
-          fontSize: 9,
-          fontWeight: 900,
-          letterSpacing: 0.7,
-          marginBottom: 4,
-        }}
-      >
-        {label}
-      </span>
-
-      <strong
-        style={{
-          color: "#334155",
-          fontSize: 13,
-          overflowWrap: "anywhere",
-        }}
-      >
-        {value}
-      </strong>
-    </div>
   );
 }
 
@@ -1141,276 +753,18 @@ export default function TeacherQuizResultsPage() {
   return (
     <Suspense
       fallback={
-        <main style={pageStyle}>
-          <div style={containerStyle}>
-            <div style={loadingStyle}>
-              Loading Quiz Results...
-            </div>
+        <main className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
+          <div className="text-center">
+            <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-indigo-500" />
+
+            <p className="font-bold">
+              Loading Results...
+            </p>
           </div>
         </main>
       }
     >
-      <TeacherQuizResultsContent />
+      <TeacherResultsContent />
     </Suspense>
   );
 }
-
-const pageStyle: React.CSSProperties = {
-  minHeight: "100vh",
-  padding: "24px 16px 40px",
-  background:
-    "linear-gradient(135deg,#f8fafc 0%,#eef2ff 50%,#f8fafc 100%)",
-  fontFamily:
-    "Arial, Helvetica, sans-serif",
-  boxSizing: "border-box",
-};
-
-const containerStyle: React.CSSProperties = {
-  maxWidth: 1180,
-  margin: "0 auto",
-};
-
-const loadingStyle: React.CSSProperties = {
-  background: "#ffffff",
-  borderRadius: 22,
-  padding: 50,
-  textAlign: "center",
-  color: "#475569",
-  fontWeight: 800,
-};
-
-const headerStyle: React.CSSProperties = {
-  background: "#0f172a",
-  color: "#ffffff",
-  borderRadius: 24,
-  padding: 28,
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 20,
-  flexWrap: "wrap",
-  boxShadow:
-    "0 18px 50px rgba(15,23,42,0.16)",
-};
-
-const badgeStyle: React.CSSProperties = {
-  display: "inline-block",
-  background: "rgba(255,255,255,0.1)",
-  color: "#c7d2fe",
-  padding: "7px 11px",
-  borderRadius: 999,
-  fontSize: 10,
-  fontWeight: 900,
-  letterSpacing: 1,
-  marginBottom: 10,
-};
-
-const mainHeadingStyle: React.CSSProperties = {
-  margin: 0,
-  fontSize: 30,
-  fontWeight: 900,
-};
-
-const headerTextStyle: React.CSSProperties = {
-  margin: "8px 0 0",
-  color: "#cbd5e1",
-  fontSize: 14,
-  fontWeight: 600,
-};
-
-const headerButtonStyle: React.CSSProperties = {
-  border: "1px solid rgba(255,255,255,0.2)",
-  background: "rgba(255,255,255,0.08)",
-  color: "#ffffff",
-  padding: "11px 16px",
-  borderRadius: 10,
-  fontWeight: 900,
-  cursor: "pointer",
-};
-
-const statsGridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns:
-    "repeat(auto-fit,minmax(190px,1fr))",
-  gap: 14,
-  marginTop: 18,
-};
-
-const statCardStyle: React.CSSProperties = {
-  background: "#ffffff",
-  borderRadius: 18,
-  padding: 18,
-  boxShadow:
-    "0 8px 28px rgba(15,23,42,0.07)",
-};
-
-const controlCardStyle: React.CSSProperties = {
-  background: "#ffffff",
-  borderRadius: 18,
-  padding: 16,
-  marginTop: 18,
-  display: "flex",
-  alignItems: "flex-end",
-  gap: 12,
-  flexWrap: "wrap",
-  boxShadow:
-    "0 8px 28px rgba(15,23,42,0.07)",
-};
-
-const filterLabelStyle: React.CSSProperties = {
-  display: "block",
-  color: "#64748b",
-  fontSize: 9,
-  fontWeight: 900,
-  letterSpacing: 0.8,
-  marginBottom: 6,
-};
-
-const selectStyle: React.CSSProperties = {
-  minWidth: 190,
-  border: "1px solid #cbd5e1",
-  background: "#ffffff",
-  color: "#0f172a",
-  borderRadius: 10,
-  padding: "11px 12px",
-  fontSize: 13,
-  fontWeight: 700,
-};
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  minWidth: 200,
-  boxSizing: "border-box",
-  border: "1px solid #cbd5e1",
-  background: "#ffffff",
-  color: "#0f172a",
-  borderRadius: 10,
-  padding: "11px 12px",
-  fontSize: 13,
-  outline: "none",
-};
-
-const refreshButtonStyle: React.CSSProperties = {
-  border: "1px solid #cbd5e1",
-  background: "#f8fafc",
-  color: "#334155",
-  padding: "11px 15px",
-  borderRadius: 10,
-  fontWeight: 900,
-  cursor: "pointer",
-};
-
-const selectedQuizCardStyle: React.CSSProperties = {
-  marginTop: 14,
-  background:
-    "linear-gradient(135deg,#eef2ff,#f5f3ff)",
-  border: "1px solid #c7d2fe",
-  borderRadius: 18,
-  padding: 18,
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 15,
-  flexWrap: "wrap",
-};
-
-const selectedQuizBadge: React.CSSProperties = {
-  color: "#4f46e5",
-  fontSize: 9,
-  fontWeight: 900,
-  letterSpacing: 1,
-};
-
-const resultCardStyle: React.CSSProperties = {
-  background: "#ffffff",
-  borderRadius: 18,
-  padding: 18,
-  boxShadow:
-    "0 8px 28px rgba(15,23,42,0.07)",
-  border: "1px solid #e2e8f0",
-};
-
-const resultTopStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 15,
-  flexWrap: "wrap",
-};
-
-const avatarStyle: React.CSSProperties = {
-  width: 48,
-  height: 48,
-  minWidth: 48,
-  borderRadius: 14,
-  background:
-    "linear-gradient(135deg,#dbeafe,#e0e7ff)",
-  color: "#4338ca",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: 18,
-  fontWeight: 900,
-};
-
-const passBadgeStyle: React.CSSProperties = {
-  background: "#dcfce7",
-  color: "#15803d",
-  padding: "7px 10px",
-  borderRadius: 999,
-  fontSize: 10,
-  fontWeight: 900,
-};
-
-const failBadgeStyle: React.CSSProperties = {
-  background: "#fee2e2",
-  color: "#dc2626",
-  padding: "7px 10px",
-  borderRadius: 999,
-  fontSize: 10,
-  fontWeight: 900,
-};
-
-const scoreStyle: React.CSSProperties = {
-  color: "#4f46e5",
-  fontSize: 25,
-  fontWeight: 900,
-};
-
-const metricsGridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns:
-    "repeat(auto-fit,minmax(130px,1fr))",
-  gap: 15,
-};
-
-const viewQuizButtonStyle: React.CSSProperties = {
-  border: "none",
-  background: "#eef2ff",
-  color: "#4338ca",
-  padding: "9px 12px",
-  borderRadius: 9,
-  fontWeight: 900,
-  cursor: "pointer",
-  fontSize: 11,
-};
-
-const emptyStyle: React.CSSProperties = {
-  background: "#ffffff",
-  borderRadius: 20,
-  padding: "60px 25px",
-  textAlign: "center",
-  boxShadow:
-    "0 10px 30px rgba(15,23,42,0.07)",
-};
-
-const errorBoxStyle: React.CSSProperties = {
-  background: "#fef2f2",
-  color: "#b91c1c",
-  border: "1px solid #fecaca",
-  borderRadius: 12,
-  padding: "12px 14px",
-  marginTop: 16,
-  fontWeight: 700,
-  fontSize: 13,
-};
