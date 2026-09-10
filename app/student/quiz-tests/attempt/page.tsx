@@ -51,6 +51,8 @@ type StudentData = {
   username: string;
 };
 
+type SubmissionType = "MANUAL" | "AUTO" | "EXIT";
+
 type QuizResult = {
   id?: string;
   quiz_id: string;
@@ -65,7 +67,7 @@ type QuizResult = {
   result_status: "PASS" | "FAIL";
   started_at: string;
   submitted_at: string;
-  submission_type: string;
+  submission_type: SubmissionType;
   created_at?: string;
 };
 
@@ -131,8 +133,22 @@ function StudentQuizAttemptContent() {
 
   const [startedAt, setStartedAt] = useState<string | null>(null);
 
+  /*
+   * EXIT CONFIRMATION MODAL
+   */
+  const [showExitModal, setShowExitModal] = useState(false);
+  const [exitActionRunning, setExitActionRunning] = useState(false);
+
+  /*
+   * Refs
+   */
   const submittedRef = useRef(false);
   const submittingRef = useRef(false);
+
+  /*
+   * Prevent browser back from immediately leaving the quiz.
+   */
+  const historyGuardAddedRef = useRef(false);
 
   /*
    * ---------------------------------------------------------
@@ -172,6 +188,41 @@ function StudentQuizAttemptContent() {
       }
 
       setStudent(studentData);
+
+      /*
+       * Keep all common student session keys synchronized.
+       * This also helps Results / History pages find the same student.
+       */
+      try {
+        sessionStorage.setItem(
+          "attendance_student_id",
+          studentData.id
+        );
+
+        sessionStorage.setItem(
+          "studentId",
+          studentData.id
+        );
+
+        sessionStorage.setItem(
+          "student_id",
+          studentData.id
+        );
+
+        if (studentData.username) {
+          sessionStorage.setItem(
+            "student_username",
+            studentData.username
+          );
+        }
+
+        sessionStorage.setItem(
+          "attendance_student_name",
+          studentData.name
+        );
+      } catch {
+        console.warn("Unable to synchronize student session.");
+      }
 
       return studentData;
     } catch {
@@ -263,12 +314,19 @@ function StudentQuizAttemptContent() {
       }
 
       /*
-       * Check previous attempt
+       * -------------------------------------------------------
+       * ONE ATTEMPT CHECK
+       * -------------------------------------------------------
+       *
+       * First check Supabase.
+       *
+       * If a completed result exists, student can never start
+       * the same quiz again.
        */
       const { data: existingResult, error: existingResultError } =
         await supabase
           .from("quiz_results")
-          .select("id, submitted_at")
+          .select("id, submitted_at, submission_type")
           .eq("quiz_id", quizId)
           .eq("student_id", studentData.id)
           .order("created_at", { ascending: false })
@@ -276,32 +334,95 @@ function StudentQuizAttemptContent() {
           .maybeSingle();
 
       if (existingResultError) {
-        console.warn(
-          "Existing result check failed:",
-          existingResultError.message
+        /*
+         * Do not silently ignore a database error anymore.
+         *
+         * If the database cannot be checked, we stop the quiz.
+         * This prevents students from bypassing one-attempt
+         * protection because of an RLS/database problem.
+         */
+        throw new Error(
+          `Unable to verify previous quiz attempt: ${existingResultError.message}`
         );
       }
 
       if (existingResult) {
-        throw new Error("You have already attempted this quiz.");
+        throw new Error(
+          "You have already attempted this quiz. This quiz can be attempted only once."
+        );
+      }
+
+      /*
+       * -------------------------------------------------------
+       * LOCAL ONE-ATTEMPT LOCK
+       * -------------------------------------------------------
+       *
+       * This protects against accidental duplicate opening in
+       * the same browser before the database result is visible.
+       */
+      try {
+        const localAttemptKey = `quiz-attempt-started-${quizId}-${studentData.id}`;
+
+        const localAttemptStarted =
+          localStorage.getItem(localAttemptKey);
+
+        if (localAttemptStarted === "1") {
+          /*
+           * Check database one more time before refusing.
+           *
+           * This allows a legitimate browser reload after a
+           * completed submission to show the completed message.
+           */
+          const { data: confirmedResult, error: confirmedError } =
+            await supabase
+              .from("quiz_results")
+              .select("id, submitted_at")
+              .eq("quiz_id", quizId)
+              .eq("student_id", studentData.id)
+              .limit(1)
+              .maybeSingle();
+
+          if (confirmedError) {
+            throw new Error(
+              `Unable to verify quiz attempt status: ${confirmedError.message}`
+            );
+          }
+
+          if (confirmedResult) {
+            throw new Error(
+              "You have already attempted this quiz. This quiz can be attempted only once."
+            );
+          }
+
+          /*
+           * If there is a local lock but no database result,
+           * remove the stale lock and allow the student to
+           * continue.
+           */
+          localStorage.removeItem(localAttemptKey);
+        }
+
+        localStorage.setItem(localAttemptKey, "1");
+      } catch (localError) {
+        if (localError instanceof Error) {
+          throw localError;
+        }
+
+        console.warn("Unable to create local quiz attempt lock.");
       }
 
       /*
        * -------------------------------------------------------
        * GET QUESTIONS
-       *
-       * IMPORTANT:
-       * There is NO question_number column in your database.
-       * Therefore we do NOT order by question_number.
-       *
-       * Questions are displayed in the order returned by Supabase.
        * -------------------------------------------------------
+       *
+       * There is NO question_number column.
        */
-
-      const { data: questionData, error: questionError } = await supabase
-        .from("quiz_questions")
-        .select("*")
-        .eq("quiz_id", quizId);
+      const { data: questionData, error: questionError } =
+        await supabase
+          .from("quiz_questions")
+          .select("*")
+          .eq("quiz_id", quizId);
 
       if (questionError) {
         throw new Error(questionError.message);
@@ -313,10 +434,9 @@ function StudentQuizAttemptContent() {
 
       const questionRows = questionData as QuizQuestion[];
 
-      /*
-       * Get question IDs
-       */
-      const questionIds = questionRows.map((question) => question.id);
+      const questionIds = questionRows.map(
+        (question) => question.id
+      );
 
       /*
        * -------------------------------------------------------
@@ -324,11 +444,12 @@ function StudentQuizAttemptContent() {
        * -------------------------------------------------------
        */
 
-      const { data: optionData, error: optionError } = await supabase
-        .from("quiz_options")
-        .select("*")
-        .in("question_id", questionIds)
-        .order("id", { ascending: true });
+      const { data: optionData, error: optionError } =
+        await supabase
+          .from("quiz_options")
+          .select("*")
+          .in("question_id", questionIds)
+          .order("id", { ascending: true });
 
       if (optionError) {
         throw new Error(optionError.message);
@@ -366,10 +487,6 @@ function StudentQuizAttemptContent() {
 
       /*
        * Start timer.
-       *
-       * IMPORTANT:
-       * Timer uses the scheduled end time.
-       * If student enters late, they get only the remaining time.
        */
       const actualStart = new Date();
 
@@ -386,6 +503,23 @@ function StudentQuizAttemptContent() {
         err instanceof Error ? err.message : "Unable to load quiz.";
 
       setError(message);
+
+      /*
+       * If quiz never successfully loaded, remove local lock.
+       */
+      try {
+        if (quizId) {
+          const studentData = loadStudent();
+
+          if (studentData) {
+            localStorage.removeItem(
+              `quiz-attempt-started-${quizId}-${studentData.id}`
+            );
+          }
+        }
+      } catch {
+        // Ignore cleanup errors.
+      }
     } finally {
       setLoading(false);
     }
@@ -406,7 +540,8 @@ function StudentQuizAttemptContent() {
       loading ||
       !quiz ||
       questions.length === 0 ||
-      submittedRef.current
+      submittedRef.current ||
+      submittingRef.current
     ) {
       return;
     }
@@ -429,67 +564,16 @@ function StudentQuizAttemptContent() {
 
   /*
    * ---------------------------------------------------------
-   * AUTO SUBMIT
-   * ---------------------------------------------------------
-   */
-
-  useEffect(() => {
-    if (
-      timeLeft !== 0 ||
-      loading ||
-      !quiz ||
-      questions.length === 0 ||
-      submittedRef.current ||
-      submittingRef.current
-    ) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      if (!submittedRef.current && !submittingRef.current) {
-        void submitQuiz("AUTO");
-      }
-    }, 150);
-
-    return () => {
-      window.clearTimeout(timeout);
-    };
-  }, [timeLeft, loading, quiz, questions.length]);
-
-  /*
-   * ---------------------------------------------------------
-   * BEFORE PAGE EXIT
-   * ---------------------------------------------------------
-   */
-
-  useEffect(() => {
-    if (loading || !quiz || questions.length === 0) {
-      return;
-    }
-
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (!submittedRef.current) {
-        event.preventDefault();
-        event.returnValue = "";
-      }
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
-  }, [loading, quiz, questions.length]);
-
-  /*
-   * ---------------------------------------------------------
    * SELECT ANSWER
    * ---------------------------------------------------------
    */
 
   const selectAnswer = useCallback(
     (questionId: string, optionId: string) => {
-      if (submittedRef.current || submittingRef.current) {
+      if (
+        submittedRef.current ||
+        submittingRef.current
+      ) {
         return;
       }
 
@@ -509,7 +593,12 @@ function StudentQuizAttemptContent() {
 
   const goToQuestion = useCallback(
     (index: number) => {
-      if (index < 0 || index >= questions.length) {
+      if (
+        index < 0 ||
+        index >= questions.length ||
+        submittedRef.current ||
+        submittingRef.current
+      ) {
         return;
       }
 
@@ -529,76 +618,114 @@ function StudentQuizAttemptContent() {
    * ---------------------------------------------------------
    */
 
-  const calculateResult = useCallback((): QuizResult | null => {
-    if (!quiz || !student || questions.length === 0) {
-      return null;
-    }
-
-    let correctAnswers = 0;
-    let wrongAnswers = 0;
-    let unanswered = 0;
-
-    const marksPerQuestion = Number(quiz.marks_per_question ?? 1);
-    const negativeMarks = Number(quiz.negative_marks ?? 0);
-
-    questions.forEach((question) => {
-      const selectedOptionId = answers[question.id];
-
-      if (!selectedOptionId) {
-        unanswered += 1;
-        return;
+  const calculateResult = useCallback(
+    (
+      submissionType: SubmissionType
+    ): QuizResult | null => {
+      if (
+        !quiz ||
+        !student ||
+        questions.length === 0
+      ) {
+        return null;
       }
 
-      const selectedOption = question.options.find(
-        (option) => option.id === selectedOptionId
+      let correctAnswers = 0;
+      let wrongAnswers = 0;
+      let unanswered = 0;
+
+      const marksPerQuestion = Number(
+        quiz.marks_per_question ?? 1
       );
 
-      if (selectedOption?.is_correct === true) {
-        correctAnswers += 1;
-      } else {
-        wrongAnswers += 1;
-      }
-    });
+      const negativeMarks = Number(
+        quiz.negative_marks ?? 0
+      );
 
-    const totalQuestions = questions.length;
+      questions.forEach((question) => {
+        const selectedOptionId =
+          answers[question.id];
 
-    const totalMarks = totalQuestions * marksPerQuestion;
+        if (!selectedOptionId) {
+          unanswered += 1;
+          return;
+        }
 
-    const obtainedMarks =
-      correctAnswers * marksPerQuestion -
-      wrongAnswers * negativeMarks;
+        const selectedOption =
+          question.options.find(
+            (option) =>
+              option.id === selectedOptionId
+          );
 
-    const safeObtainedMarks = Math.max(
-      0,
-      Math.min(totalMarks, obtainedMarks)
-    );
+        if (
+          selectedOption?.is_correct === true
+        ) {
+          correctAnswers += 1;
+        } else {
+          wrongAnswers += 1;
+        }
+      });
 
-    const percentage =
-      totalMarks > 0
-        ? Number(((safeObtainedMarks / totalMarks) * 100).toFixed(2))
-        : 0;
+      const totalQuestions = questions.length;
 
-    const passPercentage = Number(quiz.pass_percentage ?? 40);
+      const totalMarks =
+        totalQuestions * marksPerQuestion;
 
-    const resultStatus: "PASS" | "FAIL" =
-      percentage >= passPercentage ? "PASS" : "FAIL";
+      const obtainedMarks =
+        correctAnswers * marksPerQuestion -
+        wrongAnswers * negativeMarks;
 
-    return {
-      quiz_id: quiz.id,
-      student_id: student.id,
-      total_questions: totalQuestions,
-      correct_answers: correctAnswers,
-      wrong_answers: wrongAnswers,
-      unanswered,
-      total_marks: totalMarks,
-      obtained_marks: safeObtainedMarks,
-      percentage,
-      result_status: resultStatus,
-      started_at: startedAt ?? new Date().toISOString(),
-      submitted_at: new Date().toISOString(),
-      submission_type: "MANUAL",
-    };
-  }, [answers, quiz, questions, startedAt, student]);
+      const safeObtainedMarks = Math.max(
+        0,
+        Math.min(totalMarks, obtainedMarks)
+      );
+
+      const percentage =
+        totalMarks > 0
+          ? Number(
+              (
+                (safeObtainedMarks / totalMarks) *
+                100
+              ).toFixed(2)
+            )
+          : 0;
+
+      const passPercentage = Number(
+        quiz.pass_percentage ?? 40
+      );
+
+      const resultStatus: "PASS" | "FAIL" =
+        percentage >= passPercentage
+          ? "PASS"
+          : "FAIL";
+
+      return {
+        quiz_id: quiz.id,
+        student_id: student.id,
+        total_questions: totalQuestions,
+        correct_answers: correctAnswers,
+        wrong_answers: wrongAnswers,
+        unanswered,
+        total_marks: totalMarks,
+        obtained_marks: safeObtainedMarks,
+        percentage,
+        result_status: resultStatus,
+        started_at:
+          startedAt ??
+          new Date().toISOString(),
+        submitted_at:
+          new Date().toISOString(),
+        submission_type: submissionType,
+      };
+    },
+    [
+      answers,
+      quiz,
+      questions,
+      startedAt,
+      student,
+    ]
+  );
 
   /*
    * ---------------------------------------------------------
@@ -609,66 +736,142 @@ function StudentQuizAttemptContent() {
   const saveResult = useCallback(
     async (
       result: QuizResult,
-      submissionType: "MANUAL" | "AUTO"
+      submissionType: SubmissionType
     ): Promise<QuizResult> => {
       const finalResult: QuizResult = {
         ...result,
         submission_type: submissionType,
-        submitted_at: new Date().toISOString(),
+        submitted_at:
+          new Date().toISOString(),
       };
 
       /*
-       * Always save locally as fallback.
+       * -----------------------------------------------------
+       * SAVE COMPLETE RESULT LOCALLY
+       * -----------------------------------------------------
+       *
+       * This allows Result page to show immediately.
        */
       try {
         sessionStorage.setItem(
-          `quiz-result-${result.quiz_id}`,
+          `quiz-result-${finalResult.quiz_id}`,
           JSON.stringify(finalResult)
         );
+
+        sessionStorage.setItem(
+          `quiz-answers-${finalResult.quiz_id}`,
+          JSON.stringify(answers)
+        );
+
+        sessionStorage.setItem(
+          `quiz-submission-${finalResult.quiz_id}`,
+          "1"
+        );
       } catch {
-        console.warn("Unable to save quiz result locally.");
+        console.warn(
+          "Unable to save quiz result locally."
+        );
       }
 
       /*
-       * Save to Supabase.
+       * -----------------------------------------------------
+       * SAVE TO SUPABASE
+       * -----------------------------------------------------
+       *
+       * IMPORTANT:
+       * We DO NOT swallow database errors anymore.
+       *
+       * If this fails, submitQuiz will NOT redirect to the
+       * result page as if everything was successful.
        */
-      try {
-        const { error: resultError } = await supabase
+      const { data: savedResult, error: resultError } =
+        await supabase
           .from("quiz_results")
           .upsert(
             {
               quiz_id: finalResult.quiz_id,
               student_id: finalResult.student_id,
-              total_questions: finalResult.total_questions,
-              correct_answers: finalResult.correct_answers,
-              wrong_answers: finalResult.wrong_answers,
-              unanswered: finalResult.unanswered,
-              total_marks: finalResult.total_marks,
-              obtained_marks: finalResult.obtained_marks,
-              percentage: finalResult.percentage,
-              result_status: finalResult.result_status,
-              started_at: finalResult.started_at,
-              submitted_at: finalResult.submitted_at,
-              submission_type: finalResult.submission_type,
+              total_questions:
+                finalResult.total_questions,
+              correct_answers:
+                finalResult.correct_answers,
+              wrong_answers:
+                finalResult.wrong_answers,
+              unanswered:
+                finalResult.unanswered,
+              total_marks:
+                finalResult.total_marks,
+              obtained_marks:
+                finalResult.obtained_marks,
+              percentage:
+                finalResult.percentage,
+              result_status:
+                finalResult.result_status,
+              started_at:
+                finalResult.started_at,
+              submitted_at:
+                finalResult.submitted_at,
+              submission_type:
+                finalResult.submission_type,
             },
             {
-              onConflict: "quiz_id,student_id",
+              onConflict:
+                "quiz_id,student_id",
             }
-          );
+          )
+          .select(
+            `
+            id,
+            quiz_id,
+            student_id,
+            total_questions,
+            correct_answers,
+            wrong_answers,
+            unanswered,
+            total_marks,
+            obtained_marks,
+            percentage,
+            result_status,
+            started_at,
+            submitted_at,
+            submission_type,
+            created_at
+          `
+          )
+          .single();
 
-        if (resultError) {
-          console.warn(
-            "Quiz result database save failed:",
-            resultError.message
-          );
-        }
-      } catch (databaseError) {
-        console.warn("Quiz result database save failed:", databaseError);
+      if (resultError) {
+        throw new Error(
+          `Quiz result could not be saved: ${resultError.message}`
+        );
       }
 
-      return finalResult;
+      if (!savedResult) {
+        throw new Error(
+          "Quiz result was not returned by the database."
+        );
+      }
+
+      const databaseResult =
+        savedResult as QuizResult;
+
+      /*
+       * Update local result with actual database ID.
+       */
+      try {
+        sessionStorage.setItem(
+          `quiz-result-${finalResult.quiz_id}`,
+          JSON.stringify(databaseResult)
+        );
+      } catch {
+        console.warn(
+          "Unable to update local result."
+        );
+      }
+
+      return databaseResult;
     },
-    []
+    [answers]
   );
 
   /*
@@ -678,7 +881,9 @@ function StudentQuizAttemptContent() {
    */
 
   const submitQuiz = useCallback(
-    async (submissionType: "MANUAL" | "AUTO" = "MANUAL") => {
+    async (
+      submissionType: SubmissionType = "MANUAL"
+    ) => {
       if (
         submittedRef.current ||
         submittingRef.current ||
@@ -694,20 +899,39 @@ function StudentQuizAttemptContent() {
       setError("");
 
       try {
-        const result = calculateResult();
+        const result =
+          calculateResult(submissionType);
 
         if (!result) {
-          throw new Error("Unable to calculate quiz result.");
+          throw new Error(
+            "Unable to calculate quiz result."
+          );
         }
 
-        const finalResult = await saveResult(
-          result,
-          submissionType
-        );
+        /*
+         * Save database result FIRST.
+         */
+        const finalResult =
+          await saveResult(
+            result,
+            submissionType
+          );
 
+        /*
+         * Mark as submitted only after successful
+         * database save.
+         */
         submittedRef.current = true;
 
+        /*
+         * Remove temporary local start lock.
+         * Database result is now the permanent attempt lock.
+         */
         try {
+          localStorage.removeItem(
+            `quiz-attempt-started-${quiz.id}-${student.id}`
+          );
+
           sessionStorage.setItem(
             `quiz-result-${quiz.id}`,
             JSON.stringify(finalResult)
@@ -717,10 +941,20 @@ function StudentQuizAttemptContent() {
             `quiz-answers-${quiz.id}`,
             JSON.stringify(answers)
           );
+
+          sessionStorage.setItem(
+            `quiz-submission-${quiz.id}`,
+            "1"
+          );
         } catch {
-          console.warn("Unable to save local quiz attempt.");
+          console.warn(
+            "Unable to save final local quiz attempt."
+          );
         }
 
+        /*
+         * Go directly to detailed result.
+         */
         router.replace(
           `/student/quiz-tests/results?quizId=${encodeURIComponent(
             quiz.id
@@ -734,6 +968,10 @@ function StudentQuizAttemptContent() {
 
         setError(message);
 
+        /*
+         * The quiz is NOT marked submitted if database
+         * save failed.
+         */
         submittingRef.current = false;
         setSubmitting(false);
       }
@@ -751,22 +989,265 @@ function StudentQuizAttemptContent() {
 
   /*
    * ---------------------------------------------------------
+   * TIMER AUTO SUBMIT
+   * ---------------------------------------------------------
+   */
+
+  useEffect(() => {
+    if (
+      timeLeft !== 0 ||
+      loading ||
+      !quiz ||
+      questions.length === 0 ||
+      submittedRef.current ||
+      submittingRef.current
+    ) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      if (
+        !submittedRef.current &&
+        !submittingRef.current
+      ) {
+        void submitQuiz("AUTO");
+      }
+    }, 150);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [
+    timeLeft,
+    loading,
+    quiz,
+    questions.length,
+    submitQuiz,
+  ]);
+
+  /*
+   * ---------------------------------------------------------
+   * EXIT MODAL
+   * ---------------------------------------------------------
+   */
+
+  const openExitConfirmation = useCallback(() => {
+    if (
+      submittedRef.current ||
+      submittingRef.current ||
+      !quiz ||
+      questions.length === 0
+    ) {
+      return;
+    }
+
+    setShowExitModal(true);
+  }, [quiz, questions.length]);
+
+  const closeExitConfirmation = useCallback(() => {
+    if (exitActionRunning) {
+      return;
+    }
+
+    setShowExitModal(false);
+  }, [exitActionRunning]);
+
+  const confirmExitAndSubmit = useCallback(async () => {
+    if (
+      submittedRef.current ||
+      submittingRef.current
+    ) {
+      return;
+    }
+
+    setExitActionRunning(true);
+    setShowExitModal(false);
+
+    /*
+     * EXIT means:
+     * Whatever student has answered so far will be submitted.
+     * Unanswered questions remain unanswered.
+     */
+    await submitQuiz("EXIT");
+
+    setExitActionRunning(false);
+  }, [submitQuiz]);
+
+  /*
+   * ---------------------------------------------------------
+   * BROWSER BACK BUTTON PROTECTION
+   * ---------------------------------------------------------
+   */
+
+  useEffect(() => {
+    if (
+      loading ||
+      !quiz ||
+      questions.length === 0
+    ) {
+      return;
+    }
+
+    /*
+     * Add one extra history state so browser Back triggers
+     * popstate instead of immediately leaving the quiz.
+     */
+    try {
+      window.history.pushState(
+        {
+          ...window.history.state,
+          racerQuizGuard: true,
+          quizId: quiz.id,
+        },
+        "",
+        window.location.href
+      );
+
+      historyGuardAddedRef.current = true;
+    } catch {
+      console.warn(
+        "Unable to create browser back protection."
+      );
+    }
+
+    const handlePopState = () => {
+      if (submittedRef.current) {
+        return;
+      }
+
+      if (submittingRef.current) {
+        /*
+         * Prevent leaving while database submission is running.
+         */
+        try {
+          window.history.pushState(
+            {
+              ...window.history.state,
+              racerQuizGuard: true,
+              quizId: quiz.id,
+            },
+            "",
+            window.location.href
+          );
+        } catch {
+          // Ignore.
+        }
+
+        return;
+      }
+
+      /*
+       * Immediately restore the current history state.
+       */
+      try {
+        window.history.pushState(
+          {
+            ...window.history.state,
+            racerQuizGuard: true,
+            quizId: quiz.id,
+          },
+          "",
+          window.location.href
+        );
+      } catch {
+        // Ignore.
+      }
+
+      setShowExitModal(true);
+    };
+
+    window.addEventListener(
+      "popstate",
+      handlePopState
+    );
+
+    return () => {
+      window.removeEventListener(
+        "popstate",
+        handlePopState
+      );
+
+      historyGuardAddedRef.current = false;
+    };
+  }, [
+    loading,
+    quiz,
+    questions.length,
+  ]);
+
+  /*
+   * ---------------------------------------------------------
+   * BEFORE PAGE EXIT / REFRESH
+   * ---------------------------------------------------------
+   *
+   * Browser security does not allow custom YES/NO text for
+   * refresh/close tabs. Browser will show its own native
+   * confirmation dialog.
+   */
+  useEffect(() => {
+    if (
+      loading ||
+      !quiz ||
+      questions.length === 0
+    ) {
+      return;
+    }
+
+    const handleBeforeUnload = (
+      event: BeforeUnloadEvent
+    ) => {
+      if (!submittedRef.current) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    };
+
+    window.addEventListener(
+      "beforeunload",
+      handleBeforeUnload
+    );
+
+    return () => {
+      window.removeEventListener(
+        "beforeunload",
+        handleBeforeUnload
+      );
+    };
+  }, [
+    loading,
+    quiz,
+    questions.length,
+  ]);
+
+  /*
+   * ---------------------------------------------------------
    * DERIVED DATA
    * ---------------------------------------------------------
    */
 
   const answeredCount = useMemo(() => {
-    return questions.reduce((count, question) => {
-      return count + (answers[question.id] ? 1 : 0);
-    }, 0);
+    return questions.reduce(
+      (count, question) => {
+        return (
+          count +
+          (answers[question.id] ? 1 : 0)
+        );
+      },
+      0
+    );
   }, [answers, questions]);
 
-  const unansweredCount = questions.length - answeredCount;
+  const unansweredCount =
+    questions.length - answeredCount;
 
-  const timerIsCritical = timeLeft <= 60;
-  const timerIsWarning = timeLeft <= 300;
+  const timerIsCritical =
+    timeLeft <= 60;
 
-  const currentQuestion = questions[currentQuestionIndex];
+  const timerIsWarning =
+    timeLeft <= 300;
+
+  const currentQuestion =
+    questions[currentQuestionIndex];
 
   /*
    * ---------------------------------------------------------
@@ -855,16 +1336,25 @@ function StudentQuizAttemptContent() {
    * ---------------------------------------------------------
    */
 
-  if (error || !quiz || !currentQuestion) {
+  if (
+    error ||
+    !quiz ||
+    !currentQuestion
+  ) {
     return (
       <>
         <div className="error-page">
           <div className="error-card">
-            <div className="error-icon">⚠️</div>
+            <div className="error-icon">
+              ⚠️
+            </div>
 
             <h1>Quiz Not Available</h1>
 
-            <p>{error || "Unable to load this quiz."}</p>
+            <p>
+              {error ||
+                "Unable to load this quiz."}
+            </p>
 
             <div className="error-actions">
               <button
@@ -884,7 +1374,9 @@ function StudentQuizAttemptContent() {
                 type="button"
                 className="secondary-button"
                 onClick={() =>
-                  router.push("/student/quiz-tests")
+                  router.push(
+                    "/student/quiz-tests"
+                  )
                 }
               >
                 Back to Quiz Tests
@@ -992,18 +1484,13 @@ function StudentQuizAttemptContent() {
             <button
               type="button"
               className="back-button"
-              onClick={() => {
-                if (
-                  !submittedRef.current &&
-                  !window.confirm(
-                    "Are you sure you want to leave? Your current answers may be lost."
-                  )
-                ) {
-                  return;
-                }
-
-                router.push("/student/quiz-tests");
-              }}
+              onClick={
+                openExitConfirmation
+              }
+              disabled={
+                submitting ||
+                exitActionRunning
+              }
             >
               ←
             </button>
@@ -1030,7 +1517,9 @@ function StudentQuizAttemptContent() {
           >
             <span>⏱</span>
 
-            <span>{formatTimer(timeLeft)}</span>
+            <span>
+              {formatTimer(timeLeft)}
+            </span>
           </div>
         </header>
 
@@ -1038,7 +1527,7 @@ function StudentQuizAttemptContent() {
         <section className="quiz-info">
           <div className="info-main">
             <div className="quiz-badge">
-              🧠 LIVE QUIZ
+              LIVE QUIZ
             </div>
 
             <h1>{quiz.title}</h1>
@@ -1050,7 +1539,10 @@ function StudentQuizAttemptContent() {
 
           <div className="info-stats">
             <div className="info-stat">
-              <strong>{questions.length}</strong>
+              <strong>
+                {questions.length}
+              </strong>
+
               <span>Questions</span>
             </div>
 
@@ -1060,6 +1552,7 @@ function StudentQuizAttemptContent() {
                   quiz.marks_per_question ?? 1
                 )}
               </strong>
+
               <span>Marks/Q</span>
             </div>
 
@@ -1069,6 +1562,7 @@ function StudentQuizAttemptContent() {
                   quiz.duration_minutes ?? 30
                 )}
               </strong>
+
               <span>Minutes</span>
             </div>
           </div>
@@ -1078,12 +1572,14 @@ function StudentQuizAttemptContent() {
         <section className="progress-card">
           <div className="progress-top">
             <span>
-              Question {currentQuestionIndex + 1} of{" "}
+              Question{" "}
+              {currentQuestionIndex + 1} of{" "}
               {questions.length}
             </span>
 
             <span>
-              {answeredCount}/{questions.length} answered
+              {answeredCount}/
+              {questions.length} answered
             </span>
           </div>
 
@@ -1108,7 +1604,8 @@ function StudentQuizAttemptContent() {
           {/* QUESTION */}
           <section className="question-card">
             <div className="question-number">
-              QUESTION {currentQuestionIndex + 1}
+              QUESTION{" "}
+              {currentQuestionIndex + 1}
             </div>
 
             <h2>
@@ -1119,8 +1616,9 @@ function StudentQuizAttemptContent() {
               {currentQuestion.options.map(
                 (option, index) => {
                   const selected =
-                    answers[currentQuestion.id] ===
-                    option.id;
+                    answers[
+                      currentQuestion.id
+                    ] === option.id;
 
                   const label =
                     option.option_label ||
@@ -1143,6 +1641,10 @@ function StudentQuizAttemptContent() {
                           option.id
                         )
                       }
+                      disabled={
+                        submitting ||
+                        exitActionRunning
+                      }
                     >
                       <span className="option-label">
                         {label}
@@ -1154,7 +1656,9 @@ function StudentQuizAttemptContent() {
 
                       <span
                         className={`option-check ${
-                          selected ? "checked" : ""
+                          selected
+                            ? "checked"
+                            : ""
                         }`}
                       >
                         {selected ? "✓" : ""}
@@ -1179,7 +1683,9 @@ function StudentQuizAttemptContent() {
                 type="button"
                 className="nav-button secondary"
                 disabled={
-                  currentQuestionIndex === 0
+                  currentQuestionIndex === 0 ||
+                  submitting ||
+                  exitActionRunning
                 }
                 onClick={() =>
                   goToQuestion(
@@ -1195,6 +1701,10 @@ function StudentQuizAttemptContent() {
                 <button
                   type="button"
                   className="nav-button primary"
+                  disabled={
+                    submitting ||
+                    exitActionRunning
+                  }
                   onClick={() =>
                     goToQuestion(
                       currentQuestionIndex + 1
@@ -1207,12 +1717,17 @@ function StudentQuizAttemptContent() {
                 <button
                   type="button"
                   className="nav-button submit"
-                  disabled={submitting}
+                  disabled={
+                    submitting ||
+                    exitActionRunning
+                  }
                   onClick={() => {
                     const remaining =
                       questions.filter(
                         (question) =>
-                          !answers[question.id]
+                          !answers[
+                            question.id
+                          ]
                       ).length;
 
                     if (
@@ -1228,7 +1743,9 @@ function StudentQuizAttemptContent() {
                       return;
                     }
 
-                    void submitQuiz("MANUAL");
+                    void submitQuiz(
+                      "MANUAL"
+                    );
                   }}
                 >
                   {submitting
@@ -1273,6 +1790,10 @@ function StudentQuizAttemptContent() {
                           ? "answered"
                           : ""
                       }`}
+                      disabled={
+                        submitting ||
+                        exitActionRunning
+                      }
                       onClick={() =>
                         goToQuestion(index)
                       }
@@ -1304,6 +1825,7 @@ function StudentQuizAttemptContent() {
             <div className="palette-summary">
               <div>
                 <span>Answered</span>
+
                 <strong>
                   {answeredCount}
                 </strong>
@@ -1311,6 +1833,7 @@ function StudentQuizAttemptContent() {
 
               <div>
                 <span>Unanswered</span>
+
                 <strong>
                   {unansweredCount}
                 </strong>
@@ -1319,7 +1842,7 @@ function StudentQuizAttemptContent() {
 
             <div className="negative-marking">
               <strong>
-                ⚠️ Test Instructions
+                Test Instructions
               </strong>
 
               <ul>
@@ -1338,8 +1861,7 @@ function StudentQuizAttemptContent() {
                     quiz.marks_per_question ?? 1
                   ) !== 1
                     ? "s"
-                    : ""}
-                  .
+                    : ""}.
                 </li>
 
                 {Number(
@@ -1355,8 +1877,7 @@ function StudentQuizAttemptContent() {
                       quiz.negative_marks
                     ) !== 1
                       ? "s"
-                      : ""}
-                    .
+                      : ""}.
                   </li>
                 )}
 
@@ -1364,6 +1885,11 @@ function StudentQuizAttemptContent() {
                   The quiz will automatically
                   submit when the timer reaches
                   zero.
+                </li>
+
+                <li>
+                  This quiz can be attempted only
+                  once.
                 </li>
               </ul>
             </div>
@@ -1373,13 +1899,19 @@ function StudentQuizAttemptContent() {
         {/* MOBILE SUBMIT */}
         <div className="mobile-submit-bar">
           <div>
-            <strong>{answeredCount}</strong>
+            <strong>
+              {answeredCount}
+            </strong>
+
             <span> answered</span>
           </div>
 
           <button
             type="button"
-            disabled={submitting}
+            disabled={
+              submitting ||
+              exitActionRunning
+            }
             onClick={() => {
               const remaining =
                 questions.filter(
@@ -1409,6 +1941,88 @@ function StudentQuizAttemptContent() {
           </button>
         </div>
       </div>
+
+      {/* -----------------------------------------------------
+          EXIT CONFIRMATION MODAL
+      ----------------------------------------------------- */}
+      {showExitModal && (
+        <div
+          className="exit-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="exit-title"
+        >
+          <div className="exit-modal">
+            <div className="exit-icon">
+              !
+            </div>
+
+            <h2 id="exit-title">
+              Do you want to leave this quiz?
+            </h2>
+
+            <p>
+              If you leave now, your quiz will be
+              submitted automatically with the answers
+              you have selected so far.
+            </p>
+
+            <div className="exit-progress">
+              <div>
+                <span>Answered</span>
+                <strong>
+                  {answeredCount}
+                </strong>
+              </div>
+
+              <div>
+                <span>Unanswered</span>
+                <strong>
+                  {unansweredCount}
+                </strong>
+              </div>
+
+              <div>
+                <span>Remaining</span>
+                <strong>
+                  {formatTimer(timeLeft)}
+                </strong>
+              </div>
+            </div>
+
+            <div className="exit-actions">
+              <button
+                type="button"
+                className="exit-no"
+                disabled={exitActionRunning}
+                onClick={
+                  closeExitConfirmation
+                }
+              >
+                NO, CONTINUE QUIZ
+              </button>
+
+              <button
+                type="button"
+                className="exit-yes"
+                disabled={exitActionRunning}
+                onClick={
+                  confirmExitAndSubmit
+                }
+              >
+                {exitActionRunning
+                  ? "SUBMITTING..."
+                  : "YES, EXIT & SUBMIT"}
+              </button>
+            </div>
+
+            <small>
+              Your current answers will be included in
+              the submission.
+            </small>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         * {
@@ -1466,6 +2080,11 @@ function StudentQuizAttemptContent() {
           font-size: 22px;
           font-weight: 700;
           cursor: pointer;
+        }
+
+        .back-button:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
         }
 
         .brand {
@@ -1699,9 +2318,13 @@ function StudentQuizAttemptContent() {
             transform 0.2s ease;
         }
 
-        .option:hover {
+        .option:hover:not(:disabled) {
           border-color: #a5b4fc;
           transform: translateY(-1px);
+        }
+
+        .option:disabled {
+          cursor: not-allowed;
         }
 
         .option-selected {
@@ -1866,6 +2489,11 @@ function StudentQuizAttemptContent() {
           background: #c7d2fe;
         }
 
+        .palette-button:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
         .palette-legend {
           margin-top: 18px;
           display: grid;
@@ -1958,6 +2586,142 @@ function StudentQuizAttemptContent() {
 
         .mobile-submit-bar {
           display: none;
+        }
+
+        /* EXIT MODAL */
+
+        .exit-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 200;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          background: rgba(15, 23, 42, 0.62);
+          backdrop-filter: blur(8px);
+        }
+
+        .exit-modal {
+          width: min(100%, 500px);
+          padding: 30px;
+          border-radius: 26px;
+          background: #ffffff;
+          box-shadow:
+            0 30px 90px rgba(15, 23, 42, 0.3),
+            0 8px 30px rgba(15, 23, 42, 0.12);
+          text-align: center;
+          animation: exitModalIn 0.18s ease-out;
+        }
+
+        @keyframes exitModalIn {
+          from {
+            opacity: 0;
+            transform: translateY(12px) scale(0.98);
+          }
+
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        .exit-icon {
+          width: 62px;
+          height: 62px;
+          margin: 0 auto 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          background: #fff7ed;
+          color: #c2410c;
+          font-size: 32px;
+          font-weight: 900;
+        }
+
+        .exit-modal h2 {
+          margin: 0;
+          color: #0f172a;
+          font-size: 24px;
+          line-height: 1.3;
+          font-weight: 900;
+        }
+
+        .exit-modal p {
+          margin: 12px auto 0;
+          max-width: 420px;
+          color: #64748b;
+          font-size: 14px;
+          line-height: 1.65;
+        }
+
+        .exit-progress {
+          margin-top: 22px;
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 8px;
+        }
+
+        .exit-progress > div {
+          padding: 12px 8px;
+          border-radius: 13px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+        }
+
+        .exit-progress span {
+          display: block;
+          color: #64748b;
+          font-size: 10px;
+          font-weight: 700;
+        }
+
+        .exit-progress strong {
+          display: block;
+          margin-top: 4px;
+          color: #0f172a;
+          font-size: 18px;
+          font-weight: 900;
+        }
+
+        .exit-actions {
+          margin-top: 22px;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+        }
+
+        .exit-actions button {
+          min-height: 48px;
+          border: 0;
+          border-radius: 12px;
+          font-size: 11px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .exit-actions button:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+        }
+
+        .exit-no {
+          background: #e2e8f0;
+          color: #334155;
+        }
+
+        .exit-yes {
+          background: #dc2626;
+          color: #ffffff;
+        }
+
+        .exit-modal small {
+          display: block;
+          margin-top: 14px;
+          color: #94a3b8;
+          font-size: 10px;
+          line-height: 1.5;
         }
 
         @media (max-width: 900px) {
@@ -2134,6 +2898,43 @@ function StudentQuizAttemptContent() {
 
           .mobile-submit-bar button:disabled {
             opacity: 0.6;
+          }
+
+          .exit-overlay {
+            padding: 12px;
+          }
+
+          .exit-modal {
+            padding: 24px 18px;
+            border-radius: 21px;
+          }
+
+          .exit-modal h2 {
+            font-size: 21px;
+          }
+
+          .exit-modal p {
+            font-size: 13px;
+          }
+
+          .exit-progress {
+            gap: 6px;
+          }
+
+          .exit-progress > div {
+            padding: 10px 5px;
+          }
+
+          .exit-progress strong {
+            font-size: 16px;
+          }
+
+          .exit-actions {
+            grid-template-columns: 1fr;
+          }
+
+          .exit-actions button {
+            min-height: 46px;
           }
         }
       `}</style>
