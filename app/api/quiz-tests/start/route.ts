@@ -3,158 +3,158 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  }
 );
 
-type StartBody = {
-  quizId: number | string;
-  studentId: number | string;
-};
+function parseIST(dateValue: unknown, timeValue: unknown): Date | null {
+  if (!dateValue) return null;
 
-function getQuizStart(
-  scheduledDate: string,
-  scheduledTime: string
-) {
-  return new Date(`${scheduledDate}T${scheduledTime}`);
+  const date = String(dateValue).trim();
+  if (!date) return null;
+
+  let time = timeValue ? String(timeValue).trim() : "00:00:00";
+
+  if (/^\d{2}:\d{2}$/.test(time)) {
+    time += ":00";
+  }
+
+  if (!/^\d{2}:\d{2}:\d{2}$/.test(time)) {
+    time = "00:00:00";
+  }
+
+  const parsed = new Date(`${date}T${time}+05:30`);
+
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function getQuizEnd(
-  scheduledDate: string,
-  scheduledTime: string,
-  durationMinutes: number
-) {
-  return new Date(
-    getQuizStart(scheduledDate, scheduledTime).getTime() +
-      durationMinutes * 60 * 1000
-  );
+function safeNumber(value: unknown, fallback = 0): number {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
 }
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as StartBody;
+    const body = await request.json();
 
-    const quizId = Number(body.quizId);
-    const studentId = Number(body.studentId);
+    const quizId = safeNumber(body?.quizId);
+    const studentId = safeNumber(body?.studentId);
 
-    if (
-      !Number.isFinite(quizId) ||
-      quizId <= 0 ||
-      !Number.isFinite(studentId) ||
-      studentId <= 0
-    ) {
+    if (!quizId || !studentId) {
       return NextResponse.json(
         {
-          error: "Invalid quiz or student.",
+          success: false,
+          error: "Quiz ID and Student ID are required.",
         },
         { status: 400 }
       );
     }
 
-    const { data: student, error: studentError } =
-      await supabaseAdmin
-        .from("students")
-        .select(
-          "id,student_name,student_username,class_name"
-        )
-        .eq("id", studentId)
-        .maybeSingle();
+    const { data: student, error: studentError } = await supabaseAdmin
+      .from("students")
+      .select("*")
+      .eq("id", studentId)
+      .maybeSingle();
 
     if (studentError) {
+      console.error("START STUDENT ERROR:", studentError);
+
       return NextResponse.json(
-        { error: studentError.message },
+        {
+          success: false,
+          error: "Unable to load student.",
+          details: studentError.message,
+        },
         { status: 500 }
       );
     }
 
     if (!student) {
       return NextResponse.json(
-        { error: "Student not found." },
+        {
+          success: false,
+          error: "Student not found.",
+        },
         { status: 404 }
       );
     }
 
-    const { data: quiz, error: quizError } =
-      await supabaseAdmin
-        .from("quiz_tests")
-        .select(
-          `
-          id,
-          title,
-          description,
-          class_name,
-          target_classes,
-          subject,
-          scheduled_date,
-          scheduled_time,
-          duration_minutes,
-          marks_per_question,
-          negative_marks,
-          pass_percentage,
-          is_published
-          `
-        )
-        .eq("id", quizId)
-        .maybeSingle();
+    const { data: quiz, error: quizError } = await supabaseAdmin
+      .from("quiz_tests")
+      .select("*")
+      .eq("id", quizId)
+      .maybeSingle();
 
     if (quizError) {
+      console.error("START QUIZ ERROR:", quizError);
+
       return NextResponse.json(
-        { error: quizError.message },
+        {
+          success: false,
+          error: "Unable to load quiz.",
+          details: quizError.message,
+        },
         { status: 500 }
       );
     }
 
     if (!quiz) {
       return NextResponse.json(
-        { error: "Quiz not found." },
+        {
+          success: false,
+          error: "Quiz not found.",
+        },
         { status: 404 }
       );
     }
 
     if (!quiz.is_published) {
       return NextResponse.json(
-        { error: "This quiz is not published." },
+        {
+          success: false,
+          error: "This quiz is not published.",
+        },
         { status: 403 }
       );
     }
 
-    const durationMinutes =
-      Number(quiz.duration_minutes) > 0
-        ? Number(quiz.duration_minutes)
-        : 30;
+    const now = new Date();
 
-    const scheduledStart = getQuizStart(
+    const scheduledStart = parseIST(
       quiz.scheduled_date,
       quiz.scheduled_time
     );
 
-    const scheduledEnd = getQuizEnd(
-      quiz.scheduled_date,
-      quiz.scheduled_time,
-      durationMinutes
+    if (!scheduledStart) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Quiz schedule is invalid.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const durationMinutes = Math.max(
+      1,
+      safeNumber(quiz.duration_minutes, 30)
     );
 
-    const now = new Date();
+    const scheduledEnd = new Date(
+      scheduledStart.getTime() + durationMinutes * 60 * 1000
+    );
 
-    if (now < scheduledStart) {
-      return NextResponse.json(
-        {
-          error: "This quiz has not started yet.",
-          scheduledStart: scheduledStart.toISOString(),
-        },
-        { status: 409 }
-      );
-    }
-
-    if (now >= scheduledEnd) {
-      return NextResponse.json(
-        {
-          error: "Quiz time has ended.",
-        },
-        { status: 409 }
-      );
-    }
-
-    const { data: existing, error: existingError } =
+    /*
+     * First check whether this student already has a result.
+     * submitted_at = completed permanently.
+     * submitted_at = null = unfinished attempt, so resume it.
+     */
+    const { data: existingResult, error: existingError } =
       await supabaseAdmin
         .from("quiz_results")
         .select("*")
@@ -163,27 +163,73 @@ export async function POST(request: Request) {
         .maybeSingle();
 
     if (existingError) {
+      console.error("START EXISTING RESULT ERROR:", existingError);
+
       return NextResponse.json(
-        { error: existingError.message },
+        {
+          success: false,
+          error: "Unable to check previous attempt.",
+          details: existingError.message,
+        },
         { status: 500 }
       );
     }
 
-    if (existing?.submitted_at) {
+    if (existingResult?.submitted_at) {
       return NextResponse.json(
         {
-          error: "You have already submitted this quiz.",
+          success: false,
           alreadySubmitted: true,
-          resultId: existing.id,
+          error: "You have already submitted this quiz.",
         },
         { status: 409 }
       );
     }
 
-    let result = existing;
+    let resultId: number;
+    let startedAt: Date;
 
-    if (!result) {
-      const { data: created, error: createError } =
+    if (existingResult) {
+      resultId = Number(existingResult.id);
+
+      startedAt = existingResult.started_at
+        ? new Date(existingResult.started_at)
+        : now;
+
+      if (Number.isNaN(startedAt.getTime())) {
+        startedAt = now;
+      }
+    } else {
+      startedAt = now;
+
+      /*
+       * Do not allow an attempt before the scheduled start.
+       */
+      if (now < scheduledStart) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Quiz has not started yet.",
+            scheduledStart: scheduledStart.toISOString(),
+          },
+          { status: 403 }
+        );
+      }
+
+      /*
+       * Do not allow a completely new attempt after the quiz window.
+       */
+      if (now >= scheduledEnd) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Quiz time has ended.",
+          },
+          { status: 403 }
+        );
+      }
+
+      const { data: newResult, error: insertError } =
         await supabaseAdmin
           .from("quiz_results")
           .insert({
@@ -197,161 +243,151 @@ export async function POST(request: Request) {
             obtained_marks: 0,
             percentage: 0,
             result_status: "FAIL",
-            started_at: now.toISOString(),
+            started_at: startedAt.toISOString(),
             submitted_at: null,
             submission_type: "manual",
           })
           .select("*")
           .single();
 
-      if (createError) {
-        if (createError.code === "23505") {
-          const { data: retry } =
-            await supabaseAdmin
-              .from("quiz_results")
-              .select("*")
-              .eq("quiz_id", quizId)
-              .eq("student_id", studentId)
-              .maybeSingle();
+      if (insertError) {
+        console.error("START RESULT INSERT ERROR:", insertError);
 
-          if (!retry) {
-            return NextResponse.json(
-              { error: "Unable to create quiz attempt." },
-              { status: 500 }
-            );
-          }
-
-          if (retry.submitted_at) {
-            return NextResponse.json(
-              {
-                error:
-                  "You have already submitted this quiz.",
-                alreadySubmitted: true,
-                resultId: retry.id,
-              },
-              { status: 409 }
-            );
-          }
-
-          result = retry;
-        } else {
-          return NextResponse.json(
-            { error: createError.message },
-            { status: 500 }
-          );
-        }
-      } else {
-        result = created;
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Unable to create quiz attempt.",
+            details: insertError.message,
+          },
+          { status: 500 }
+        );
       }
-    }
 
-    if (!result) {
-      return NextResponse.json(
-        { error: "Unable to start quiz." },
-        { status: 500 }
-      );
+      resultId = Number(newResult.id);
     }
-
-    const startedAt = result.started_at
-      ? new Date(result.started_at)
-      : now;
 
     const attemptEnd = new Date(
-      startedAt.getTime() +
-        durationMinutes * 60 * 1000
+      Math.min(
+        scheduledEnd.getTime(),
+        startedAt.getTime() + durationMinutes * 60 * 1000
+      )
     );
-
-    const effectiveEnd =
-      attemptEnd < scheduledEnd
-        ? attemptEnd
-        : scheduledEnd;
 
     const remainingMilliseconds = Math.max(
       0,
-      effectiveEnd.getTime() - now.getTime()
+      attemptEnd.getTime() - now.getTime()
     );
 
-    const { data: questions, error: questionError } =
+    /*
+     * If an old unfinished attempt has already expired,
+     * let the submit endpoint finalize it as time_expired.
+     */
+    if (remainingMilliseconds <= 0) {
+      return NextResponse.json({
+        success: true,
+        resultId,
+        quizId,
+        startedAt: startedAt.toISOString(),
+        endAt: attemptEnd.toISOString(),
+        remainingMilliseconds: 0,
+        timeExpired: true,
+        quiz: {
+          ...quiz,
+          duration_minutes: durationMinutes,
+        },
+        questions: [],
+      });
+    }
+
+    const { data: questions, error: questionsError } =
       await supabaseAdmin
         .from("quiz_questions")
         .select("*")
         .eq("quiz_id", quizId)
-        .order("question_order", {
-          ascending: true,
-        });
+        .order("question_order", { ascending: true });
 
-    if (questionError) {
+    if (questionsError) {
+      console.error("START QUESTIONS ERROR:", questionsError);
+
       return NextResponse.json(
-        { error: questionError.message },
+        {
+          success: false,
+          error: "Unable to load quiz questions.",
+          details: questionsError.message,
+        },
         { status: 500 }
       );
     }
 
-    const questionIds = (questions || []).map(
-      (question) => question.id
+    const questionIds = (questions || []).map((question) =>
+      Number(question.id)
     );
 
     let options: any[] = [];
 
     if (questionIds.length > 0) {
-      const { data: optionData, error: optionError } =
+      const { data: optionRows, error: optionsError } =
         await supabaseAdmin
           .from("quiz_options")
           .select("*")
           .in("question_id", questionIds)
-          .order("option_order", {
-            ascending: true,
-          });
+          .order("option_order", { ascending: true });
 
-      if (optionError) {
+      if (optionsError) {
+        console.error("START OPTIONS ERROR:", optionsError);
+
         return NextResponse.json(
-          { error: optionError.message },
+          {
+            success: false,
+            error: "Unable to load quiz options.",
+            details: optionsError.message,
+          },
           { status: 500 }
         );
       }
 
-      options = optionData || [];
+      options = optionRows || [];
     }
 
-    const questionsWithOptions = (questions || []).map(
-      (question) => ({
-        ...question,
-        options: options
-          .filter(
-            (option) =>
-              Number(option.question_id) ===
-              Number(question.id)
-          )
-          .map((option) => ({
-            id: option.id,
-            question_id: option.question_id,
-            option_text: option.option_text,
-          })),
-      })
-    );
+    const questionsWithOptions = (questions || []).map((question) => ({
+      ...question,
+      options: options
+        .filter(
+          (option) => Number(option.question_id) === Number(question.id)
+        )
+        .map((option) => {
+          const { is_correct, ...safeOption } = option;
+          return safeOption;
+        }),
+    }));
 
     return NextResponse.json({
       success: true,
-      resultId: result.id,
+      resultId,
+      quizId,
       studentId,
-      quiz,
-      questions: questionsWithOptions,
       startedAt: startedAt.toISOString(),
       scheduledStart: scheduledStart.toISOString(),
       scheduledEnd: scheduledEnd.toISOString(),
-      attemptEnd: effectiveEnd.toISOString(),
+      endAt: attemptEnd.toISOString(),
       remainingMilliseconds,
-      alreadyStarted: Boolean(existing),
+      timeExpired: false,
+      alreadyStarted: Boolean(existingResult),
+      quiz: {
+        ...quiz,
+        duration_minutes: durationMinutes,
+      },
+      questions: questionsWithOptions,
     });
   } catch (error) {
-    console.error("Quiz start API error:", error);
+    console.error("START QUIZ UNEXPECTED ERROR:", error);
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unable to start quiz.",
+        success: false,
+        error: "Unable to start quiz.",
+        details:
+          error instanceof Error ? error.message : "Unknown server error",
       },
       { status: 500 }
     );
