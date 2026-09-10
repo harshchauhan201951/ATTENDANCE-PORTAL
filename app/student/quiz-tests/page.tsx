@@ -1,13 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
-type QuizTest = {
+type Quiz = {
   id: number;
   title: string;
   description: string | null;
+  class_name: string | null;
+  target_classes: string[] | null;
+  subject: string | null;
   scheduled_date: string;
   scheduled_time: string;
   duration_minutes: number;
@@ -15,2015 +18,2238 @@ type QuizTest = {
   negative_marks: number;
   pass_percentage: number;
   is_published: boolean;
-  created_at: string;
 };
 
 type QuizResult = {
-  id: number;
   quiz_id: number;
-  student_id: number;
-  total_questions: number;
-  correct_answers: number;
-  wrong_answers: number;
-  unanswered: number;
-  total_marks: number;
-  obtained_marks: number;
-  percentage: number;
-  result_status: "PASS" | "FAIL";
-  started_at: string | null;
-  submitted_at: string | null;
-  submission_type:
-    | "manual"
-    | "time_expired"
-    | "left_quiz"
-    | "auto_submit";
-  created_at: string;
+  obtained_marks: number | null;
+  percentage: number | null;
+  result_status: string | null;
 };
 
-type QuizWithResult = QuizTest & {
-  result?: QuizResult | null;
+type Student = {
+  id: number;
+  student_name: string | null;
+  student_username: string | null;
+  class_name: string | null;
 };
 
-function getQuizStartDate(quiz: QuizTest): Date {
-  return new Date(`${quiz.scheduled_date}T${quiz.scheduled_time}`);
-}
-
-function formatDate(dateString: string): string {
-  if (!dateString) return "-";
-
-  const date = new Date(dateString);
-
-  if (Number.isNaN(date.getTime())) {
-    return dateString;
-  }
-
-  return date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function formatTime(timeString: string): string {
-  if (!timeString) return "-";
-
-  const [hourString, minuteString] = timeString.split(":");
-
-  const hour = Number(hourString);
-  const minute = Number(minuteString);
-
-  if (Number.isNaN(hour) || Number.isNaN(minute)) {
-    return timeString;
-  }
-
-  const date = new Date();
-  date.setHours(hour, minute, 0, 0);
-
-  return date.toLocaleTimeString("en-IN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
-
-function formatNumber(value: number | null | undefined): string {
-  const number = Number(value ?? 0);
-
-  if (!Number.isFinite(number)) {
-    return "0";
-  }
-
-  return Number.isInteger(number)
-    ? String(number)
-    : number.toFixed(2).replace(/\.00$/, "");
-}
-
-function getQuizStatus(
-  quiz: QuizTest,
-  result?: QuizResult | null,
-): string {
-  if (result) {
-    return result.result_status === "PASS" ? "Passed" : "Attempted";
-  }
-
-  const start = getQuizStartDate(quiz);
-  const currentTime = new Date();
-
-  if (currentTime < start) {
-    return "Upcoming";
-  }
-
-  const end = new Date(
-    start.getTime() +
-      Number(quiz.duration_minutes || 30) * 60 * 1000,
-  );
-
-  if (currentTime >= start && currentTime <= end) {
-    return "Live Now";
-  }
-
-  return "Available";
-}
-
-export default function StudentQuizDashboardPage() {
+export default function StudentQuizTestsPage() {
   const router = useRouter();
 
-  const [studentId, setStudentId] = useState<string>("");
-  const [studentName, setStudentName] = useState<string>("");
-  const [studentUsername, setStudentUsername] = useState<string>("");
-
-  const [quizzes, setQuizzes] = useState<QuizTest[]>([]);
+  const [student, setStudent] = useState<Student | null>(null);
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [results, setResults] = useState<QuizResult[]>([]);
-
-  const [loading, setLoading] = useState<boolean>(true);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [error, setError] = useState<string>("");
-
-  const [now, setNow] = useState<Date>(new Date());
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setNow(new Date());
-    }, 30000);
-
-    return () => {
-      window.clearInterval(timer);
-    };
+    loadDashboard();
   }, []);
 
-  useEffect(() => {
-    const loggedIn =
-      localStorage.getItem("studentLoggedIn") === "true";
-
-    const storedId =
-      localStorage.getItem("studentId") ||
-      localStorage.getItem("student_id") ||
-      "";
-
-    const storedName =
-      localStorage.getItem("studentName") ||
-      localStorage.getItem("student_name") ||
-      "";
-
-    const storedUsername =
-      localStorage.getItem("studentUsername") ||
-      localStorage.getItem("student_username") ||
-      "";
-
-    if (!loggedIn || !storedId) {
-      router.replace("/student");
-      return;
+  function normalizeClass(value: unknown): string {
+    if (typeof value !== "string") {
+      return "";
     }
 
-    setStudentId(storedId);
-    setStudentName(storedName);
-    setStudentUsername(storedUsername);
-  }, [router]);
+    return value
+      .trim()
+      .toUpperCase()
+      .replace(/^CLASS\s+/i, "")
+      .replace(/\s+/g, " ");
+  }
 
-  const loadQuizData = useCallback(
-    async (showRefreshLoader: boolean = false): Promise<void> => {
-      if (!studentId) {
+  function quizBelongsToStudent(
+    quiz: Quiz,
+    studentClass: string
+  ): boolean {
+    const normalizedStudentClass =
+      normalizeClass(studentClass);
+
+    if (!normalizedStudentClass) {
+      return false;
+    }
+
+    const targetClasses = Array.isArray(
+      quiz.target_classes
+    )
+      ? quiz.target_classes
+          .map((item) => normalizeClass(item))
+          .filter(Boolean)
+      : [];
+
+    /*
+     * NEW QUIZZES:
+     * target_classes is the main source of truth.
+     */
+    if (targetClasses.length > 0) {
+      return targetClasses.includes(
+        normalizedStudentClass
+      );
+    }
+
+    /*
+     * OLD QUIZZES:
+     * If target_classes is empty, use class_name.
+     */
+    return (
+      normalizeClass(quiz.class_name) ===
+      normalizedStudentClass
+    );
+  }
+
+  async function loadDashboard() {
+    setLoading(true);
+    setErrorMessage("");
+
+    try {
+      let currentStudentId: number | null =
+        null;
+
+      const username =
+        localStorage.getItem(
+          "student_username"
+        ) ||
+        localStorage.getItem(
+          "studentUsername"
+        ) ||
+        "";
+
+      const storedId =
+        localStorage.getItem("studentId") ||
+        localStorage.getItem(
+          "student_id"
+        ) ||
+        localStorage.getItem(
+          "attendance_student_id"
+        ) ||
+        "";
+
+      /*
+       * First try username because it is the
+       * most reliable student login identifier.
+       */
+      if (username) {
+        const { data, error } =
+          await supabase
+            .from("students")
+            .select(
+              "id,student_name,student_username,class_name"
+            )
+            .eq(
+              "student_username",
+              username
+            )
+            .maybeSingle();
+
+        if (error) {
+          console.error(
+            "Student username lookup error:",
+            error
+          );
+        }
+
+        if (data?.id) {
+          currentStudentId = Number(
+            data.id
+          );
+
+          setStudent(
+            data as Student
+          );
+
+          localStorage.setItem(
+            "studentId",
+            String(currentStudentId)
+          );
+        }
+      }
+
+      /*
+       * Fallback to stored student ID.
+       */
+      if (
+        currentStudentId === null &&
+        storedId
+      ) {
+        const numericId = Number(
+          storedId
+        );
+
+        if (
+          Number.isFinite(numericId) &&
+          numericId > 0
+        ) {
+          const { data, error } =
+            await supabase
+              .from("students")
+              .select(
+                "id,student_name,student_username,class_name"
+              )
+              .eq("id", numericId)
+              .maybeSingle();
+
+          if (error) {
+            console.error(
+              "Student ID lookup error:",
+              error
+            );
+          }
+
+          if (data?.id) {
+            currentStudentId = Number(
+              data.id
+            );
+
+            setStudent(
+              data as Student
+            );
+          }
+        }
+      }
+
+      if (currentStudentId === null) {
+        setErrorMessage(
+          "Student login information not found. Please login again."
+        );
+        setLoading(false);
         return;
       }
 
-      try {
-        if (showRefreshLoader) {
-          setRefreshing(true);
-        } else {
-          setLoading(true);
-        }
+      /*
+       * Load published quizzes.
+       *
+       * target_classes is included so the dashboard
+       * can filter quizzes according to student class.
+       */
+      const {
+        data: quizData,
+        error: quizError,
+      } = await supabase
+        .from("quiz_tests")
+        .select(
+          `
+          id,
+          title,
+          description,
+          class_name,
+          target_classes,
+          subject,
+          scheduled_date,
+          scheduled_time,
+          duration_minutes,
+          marks_per_question,
+          negative_marks,
+          pass_percentage,
+          is_published
+          `
+        )
+        .eq("is_published", true)
+        .order("scheduled_date", {
+          ascending: true,
+        })
+        .order("scheduled_time", {
+          ascending: true,
+        });
 
-        setError("");
-
-        const numericStudentId = Number(studentId);
-
-        if (!Number.isFinite(numericStudentId)) {
-          throw new Error("Invalid student ID.");
-        }
-
-        const [quizResponse, resultResponse] = await Promise.all([
-          supabase
-            .from("quiz_tests")
-            .select(
-              `
-                id,
-                title,
-                description,
-                scheduled_date,
-                scheduled_time,
-                duration_minutes,
-                marks_per_question,
-                negative_marks,
-                pass_percentage,
-                is_published,
-                created_at
-              `,
-            )
-            .eq("is_published", true)
-            .order("scheduled_date", {
-              ascending: true,
-            })
-            .order("scheduled_time", {
-              ascending: true,
-            }),
-
-          supabase
-            .from("quiz_results")
-            .select(
-              `
-                id,
-                quiz_id,
-                student_id,
-                total_questions,
-                correct_answers,
-                wrong_answers,
-                unanswered,
-                total_marks,
-                obtained_marks,
-                percentage,
-                result_status,
-                started_at,
-                submitted_at,
-                submission_type,
-                created_at
-              `,
-            )
-            .eq("student_id", numericStudentId)
-            .order("created_at", {
-              ascending: false,
-            }),
-        ]);
-
-        if (quizResponse.error) {
-          throw new Error(
-            quizResponse.error.message ||
-              "Unable to load quizzes.",
-          );
-        }
-
-        if (resultResponse.error) {
-          throw new Error(
-            resultResponse.error.message ||
-              "Unable to load quiz results.",
-          );
-        }
-
-        setQuizzes(
-          (quizResponse.data || []) as QuizTest[],
+      if (quizError) {
+        console.error(
+          "Quiz loading error:",
+          quizError
         );
 
-        setResults(
-          (resultResponse.data || []) as QuizResult[],
+        setErrorMessage(
+          `Could not load quizzes: ${quizError.message}`
         );
-      } catch (err: unknown) {
-        console.error("Quiz dashboard error:", err);
 
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Unable to load quiz dashboard.",
-        );
-      } finally {
         setLoading(false);
-        setRefreshing(false);
+        return;
       }
-    },
-    [studentId],
-  );
 
-  useEffect(() => {
-    if (!studentId) {
-      return;
-    }
+      /*
+       * IMPORTANT:
+       * Only quizzes matching the student's class
+       * are kept.
+       */
+      const studentClass =
+        dataClassName(
+          student,
+          quizData,
+          currentStudentId
+        );
 
-    void loadQuizData();
-  }, [studentId, loadQuizData]);
+      /*
+       * student state may not yet be updated because
+       * setStudent is asynchronous. Therefore fetch the
+       * class directly if necessary.
+       */
+      let actualStudentClass =
+        studentClass;
 
-  const resultMap = useMemo(() => {
-    const map = new Map<number, QuizResult>();
+      if (!actualStudentClass) {
+        const { data: freshStudent } =
+          await supabase
+            .from("students")
+            .select(
+              "id,student_name,student_username,class_name"
+            )
+            .eq(
+              "id",
+              currentStudentId
+            )
+            .maybeSingle();
 
-    results.forEach((result) => {
-      const quizId = Number(result.quiz_id);
+        if (freshStudent) {
+          actualStudentClass =
+            freshStudent.class_name ||
+            "";
 
-      if (!map.has(quizId)) {
-        map.set(quizId, result);
-      }
-    });
-
-    return map;
-  }, [results]);
-
-  const quizzesWithResults = useMemo<QuizWithResult[]>(() => {
-    return quizzes.map((quiz) => ({
-      ...quiz,
-      result: resultMap.get(Number(quiz.id)) || null,
-    }));
-  }, [quizzes, resultMap]);
-
-  const upcomingQuizzes = useMemo<QuizWithResult[]>(() => {
-    return quizzesWithResults
-      .filter((quiz) => {
-        if (quiz.result) {
-          return false;
+          setStudent(
+            freshStudent as Student
+          );
         }
-
-        const start = getQuizStartDate(quiz);
-
-        return start.getTime() > now.getTime();
-      })
-      .sort(
-        (a, b) =>
-          getQuizStartDate(a).getTime() -
-          getQuizStartDate(b).getTime(),
-      )
-      .slice(0, 4);
-  }, [quizzesWithResults, now]);
-
-  const liveQuizzes = useMemo<QuizWithResult[]>(() => {
-    return quizzesWithResults.filter((quiz) => {
-      if (quiz.result) {
-        return false;
       }
 
-      const start = getQuizStartDate(quiz);
+      const filteredQuizzes =
+        ((quizData || []) as Quiz[]).filter(
+          (quiz) =>
+            quizBelongsToStudent(
+              quiz,
+              actualStudentClass
+            )
+        );
 
-      const end = new Date(
-        start.getTime() +
-          Number(quiz.duration_minutes || 30) * 60 * 1000,
+      setQuizzes(
+        filteredQuizzes
       );
 
-      return (
-        now.getTime() >= start.getTime() &&
-        now.getTime() <= end.getTime()
+      /*
+       * Load student's results.
+       */
+      const {
+        data: resultData,
+        error: resultError,
+      } = await supabase
+        .from("quiz_results")
+        .select(
+          "quiz_id,obtained_marks,percentage,result_status"
+        )
+        .eq(
+          "student_id",
+          currentStudentId
+        )
+        .order("quiz_id", {
+          ascending: false,
+        });
+
+      if (resultError) {
+        console.error(
+          "Quiz results loading error:",
+          resultError
+        );
+
+        setResults([]);
+      } else {
+        setResults(
+          (resultData ||
+            []) as QuizResult[]
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Unexpected quiz dashboard error:",
+        error
       );
-    });
-  }, [quizzesWithResults, now]);
 
-  const availableQuizzes = useMemo<QuizWithResult[]>(() => {
-    return quizzesWithResults
-      .filter((quiz) => {
-        if (quiz.result) {
-          return false;
-        }
+      setErrorMessage(
+        "Something went wrong while loading your quiz dashboard."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
 
-        const start = getQuizStartDate(quiz);
+  function dataClassName(
+    currentStudent: Student | null,
+    _quizData: unknown,
+    _studentId: number
+  ): string {
+    return currentStudent?.class_name || "";
+  }
 
-        return start.getTime() <= now.getTime();
-      })
-      .sort(
-        (a, b) =>
-          getQuizStartDate(a).getTime() -
-          getQuizStartDate(b).getTime(),
-      )
-      .slice(0, 6);
-  }, [quizzesWithResults, now]);
+  function getStartTime(
+    quiz: Quiz
+  ): Date {
+    return new Date(
+      `${quiz.scheduled_date}T${quiz.scheduled_time}`
+    );
+  }
 
-  const passedCount = useMemo<number>(() => {
-    return results.filter(
-      (result) => result.result_status === "PASS",
-    ).length;
-  }, [results]);
+  function getEndTime(
+    quiz: Quiz
+  ): Date {
+    return new Date(
+      getStartTime(quiz).getTime() +
+        quiz.duration_minutes *
+          60 *
+          1000
+    );
+  }
 
-  const failedCount = useMemo<number>(() => {
-    return results.filter(
-      (result) => result.result_status === "FAIL",
-    ).length;
-  }, [results]);
+  function getStatus(
+    quiz: Quiz
+  ): "LIVE" | "UPCOMING" | "ENDED" {
+    const now = new Date();
+    const start =
+      getStartTime(quiz);
+    const end =
+      getEndTime(quiz);
 
-  const averagePercentage = useMemo<number>(() => {
-    if (!results.length) {
-      return 0;
+    if (now < start) {
+      return "UPCOMING";
     }
 
-    const total = results.reduce(
-      (sum, result) =>
-        sum + Number(result.percentage || 0),
-      0,
-    );
-
-    return total / results.length;
-  }, [results]);
-
-  const getTimeUntilQuiz = (quiz: QuizTest): string => {
-    const start = getQuizStartDate(quiz);
-
-    const difference =
-      start.getTime() - now.getTime();
-
-    if (difference <= 0) {
-      return "Starting now";
+    if (
+      now >= start &&
+      now <= end
+    ) {
+      return "LIVE";
     }
 
-    const totalMinutes = Math.floor(
-      difference / (1000 * 60),
+    return "ENDED";
+  }
+
+  function hasAttempted(
+    quizId: number
+  ): boolean {
+    return results.some(
+      (result) =>
+        Number(result.quiz_id) ===
+        Number(quizId)
     );
+  }
 
-    const days = Math.floor(totalMinutes / 1440);
-
-    const hours = Math.floor(
-      (totalMinutes % 1440) / 60,
+  function getResult(
+    quizId: number
+  ): QuizResult | undefined {
+    return results.find(
+      (result) =>
+        Number(result.quiz_id) ===
+        Number(quizId)
     );
+  }
 
-    const minutes = totalMinutes % 60;
-
-    if (days > 0) {
-      return `${days}d ${hours}h ${minutes}m`;
+  function formatDate(
+    date: string
+  ): string {
+    if (!date) {
+      return "";
     }
 
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
+    return new Date(
+      `${date}T00:00:00`
+    ).toLocaleDateString(
+      "en-IN",
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }
+    );
+  }
+
+  function formatTime(
+    time: string
+  ): string {
+    if (!time) {
+      return "";
     }
 
-    return `${minutes}m`;
-  };
+    const parts =
+      time.split(":");
 
-  const handleStartQuiz = (quizId: number): void => {
-    router.push(
-      `/student/quiz-tests/attempt?quizId=${encodeURIComponent(
-        String(quizId),
-      )}`,
+    const hourText =
+      parts[0] || "0";
+
+    const minute =
+      parts[1] || "00";
+
+    let hour =
+      Number(hourText);
+
+    const period =
+      hour >= 12
+        ? "PM"
+        : "AM";
+
+    hour =
+      hour % 12 || 12;
+
+    return `${hour}:${minute} ${period}`;
+  }
+
+  function getClassDisplay(): string {
+    if (!student?.class_name) {
+      return "Class not available";
+    }
+
+    const normalized =
+      normalizeClass(
+        student.class_name
+      );
+
+    if (/^\d+$/.test(normalized)) {
+      return `Class ${normalized}`;
+    }
+
+    return student.class_name;
+  }
+
+  const liveQuizzes =
+    quizzes.filter(
+      (quiz) =>
+        getStatus(quiz) ===
+        "LIVE"
     );
-  };
 
-  const handleViewResult = (quizId: number): void => {
-    router.push(
-      `/student/quiz-tests/results?quizId=${encodeURIComponent(
-        String(quizId),
-      )}`,
+  const upcomingQuizzes =
+    quizzes.filter(
+      (quiz) =>
+        getStatus(quiz) ===
+        "UPCOMING"
     );
-  };
 
-  const handleLogout = (): void => {
-    localStorage.removeItem("studentLoggedIn");
-    localStorage.removeItem("studentId");
-    localStorage.removeItem("student_id");
-    localStorage.removeItem("studentUsername");
-    localStorage.removeItem("student_username");
-    localStorage.removeItem("studentName");
-    localStorage.removeItem("student_name");
+  const availableQuizzes =
+    quizzes.filter(
+      (quiz) => {
+        const status =
+          getStatus(quiz);
 
-    router.replace("/student");
-  };
+        return (
+          status === "LIVE" ||
+          status === "UPCOMING"
+        );
+      }
+    );
+
+  const passedResults =
+    results.filter(
+      (result) =>
+        String(
+          result.result_status
+        ).toUpperCase() ===
+        "PASS"
+    );
+
+  const failedResults =
+    results.filter(
+      (result) =>
+        String(
+          result.result_status
+        ).toUpperCase() ===
+        "FAIL"
+    );
+
+  const averagePercentage =
+    results.length > 0
+      ? results.reduce(
+          (total, result) =>
+            total +
+            Number(
+              result.percentage || 0
+            ),
+          0
+        ) / results.length
+      : 0;
+
+  if (loading) {
+    return (
+      <main style={styles.page}>
+        <div
+          style={styles.loadingBox}
+        >
+          <div
+            style={styles.loadingSpinner}
+          />
+
+          <h2
+            style={
+              styles.loadingTitle
+            }
+          >
+            Loading Quiz Dashboard...
+          </h2>
+
+          <p
+            style={
+              styles.loadingText
+            }
+          >
+            Checking your class and available quizzes.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (errorMessage) {
+    return (
+      <main style={styles.page}>
+        <div
+          style={styles.errorBox}
+        >
+          <div
+            style={styles.errorIcon}
+          >
+            Q
+          </div>
+
+          <h1
+            style={styles.errorTitle}
+          >
+            Quiz Dashboard
+          </h1>
+
+          <p
+            style={styles.errorText}
+          >
+            {errorMessage}
+          </p>
+
+          <button
+            type="button"
+            onClick={() =>
+              router.push("/")
+            }
+            style={
+              styles.primaryButton
+            }
+          >
+            Login Again
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   return (
-    <main className="quiz-page">
-      <div className="background-glow glow-one" />
-      <div className="background-glow glow-two" />
+    <main style={styles.page}>
+      <div
+        style={styles.container}
+      >
+        {/* HEADER */}
 
-      <div className="quiz-container">
-        <header className="topbar">
-          <div className="brand-section">
-            <button
-              type="button"
-              className="back-button"
-              onClick={() => router.push("/student")}
-              aria-label="Back to student dashboard"
-            >
-              ←
-            </button>
-
-            <div>
-              <div className="brand-title">
-                RACER ACADEMY
-              </div>
-
-              <div className="brand-subtitle">
-                Student Quiz Center
-              </div>
-            </div>
-          </div>
-
-          <div className="top-actions">
-            <button
-              type="button"
-              className="refresh-button"
-              onClick={() => void loadQuizData(true)}
-              disabled={refreshing}
-            >
-              {refreshing
-                ? "Refreshing..."
-                : "Refresh"}
-            </button>
-
-            <button
-              type="button"
-              className="logout-button"
-              onClick={handleLogout}
-            >
-              Logout
-            </button>
-          </div>
-        </header>
-
-        <section className="welcome-card">
+        <header
+          style={styles.header}
+        >
           <div>
-            <div className="small-label">
-              WELCOME BACK
+            <div
+              style={
+                styles.headerEyebrow
+              }
+            >
+              RACER ACADEMY
             </div>
 
-            <h1>
-              {studentName ||
-                studentUsername ||
-                "Student"}
+            <h1
+              style={
+                styles.headerTitle
+              }
+            >
+              Quiz Dashboard
             </h1>
 
-            <p>
-              Your complete quiz dashboard is here.
-              Check scheduled tests, attempt live quizzes
-              and track your results.
+            <p
+              style={
+                styles.headerSubtitle
+              }
+            >
+              Welcome back,{" "}
+              <strong>
+                {student?.student_name ||
+                  "Student"}
+              </strong>
+              . Check scheduled tests, attempt live quizzes and track your results.
             </p>
           </div>
 
-          <div className="brain-box">QUIZ</div>
-        </section>
-
-        {error && (
-          <section className="error-card">
-            <div>
-              <strong>
-                Unable to load quiz data
-              </strong>
-
-              <p>{error}</p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => void loadQuizData(true)}
-            >
-              Try Again
-            </button>
-          </section>
-        )}
-
-        <section className="stats-grid">
-          <div className="stat-card blue">
-            <div className="stat-icon">Q</div>
-
-            <div>
-              <span>Total Quizzes</span>
-              <strong>{quizzes.length}</strong>
-            </div>
-          </div>
-
-          <div className="stat-card purple">
-            <div className="stat-icon">A</div>
-
-            <div>
-              <span>Attempted</span>
-              <strong>{results.length}</strong>
-            </div>
-          </div>
-
-          <div className="stat-card green">
-            <div className="stat-icon">P</div>
-
-            <div>
-              <span>Passed</span>
-              <strong>{passedCount}</strong>
-            </div>
-          </div>
-
-          <div className="stat-card red">
-            <div className="stat-icon">F</div>
-
-            <div>
-              <span>Failed</span>
-              <strong>{failedCount}</strong>
-            </div>
-          </div>
-
-          <div className="stat-card orange">
-            <div className="stat-icon">%</div>
-
-            <div>
-              <span>Average</span>
-
-              <strong>
-                {averagePercentage.toFixed(1)}%
-              </strong>
-            </div>
-          </div>
-        </section>
-
-        <section className="quick-grid">
-          <button
-            type="button"
-            className="quick-card"
-            onClick={() =>
-              router.push(
-                "/student/quiz-tests/available",
-              )
+          <div
+            style={
+              styles.classBadge
             }
           >
-            <span>GO</span>
+            <div
+              style={
+                styles.classBadgeSmall
+              }
+            >
+              YOUR CLASS
+            </div>
+
+            <div
+              style={
+                styles.classBadgeValue
+              }
+            >
+              {getClassDisplay()}
+            </div>
+          </div>
+        </header>
+
+        {/* STATS */}
+
+        <section
+          style={styles.statsGrid}
+        >
+          <StatCard
+            icon="Q"
+            label="Total Quizzes"
+            value={String(
+              quizzes.length
+            )}
+          />
+
+          <StatCard
+            icon="A"
+            label="Attempted"
+            value={String(
+              results.length
+            )}
+          />
+
+          <StatCard
+            icon="P"
+            label="Passed"
+            value={String(
+              passedResults.length
+            )}
+          />
+
+          <StatCard
+            icon="F"
+            label="Failed"
+            value={String(
+              failedResults.length
+            )}
+          />
+
+          <StatCard
+            icon="%"
+            label="Average"
+            value={`${averagePercentage.toFixed(
+              1
+            )}%`}
+          />
+        </section>
+
+        {/* QUICK ACTIONS */}
+
+        <section
+          style={styles.quickGrid}
+        >
+          <button
+            type="button"
+            onClick={() =>
+              router.push(
+                "/student/quiz-tests/available"
+              )
+            }
+            style={
+              styles.quickCard
+            }
+          >
+            <div
+              style={
+                styles.quickIcon
+              }
+            >
+              GO
+            </div>
 
             <div>
-              <strong>Available Quizzes</strong>
+              <h2
+                style={
+                  styles.quickTitle
+                }
+              >
+                Available Quizzes
+              </h2>
 
-              <small>
+              <p
+                style={
+                  styles.quickText
+                }
+              >
                 View quizzes available to attempt
-              </small>
+              </p>
             </div>
 
-            <b>→</b>
+            <span
+              style={
+                styles.quickArrow
+              }
+            >
+              →
+            </span>
           </button>
 
           <button
             type="button"
-            className="quick-card"
             onClick={() =>
               router.push(
-                "/student/quiz-tests/history",
+                "/student/quiz-tests/history"
               )
             }
+            style={
+              styles.quickCard
+            }
           >
-            <span>H</span>
+            <div
+              style={
+                styles.quickIcon
+              }
+            >
+              H
+            </div>
 
             <div>
-              <strong>Quiz History</strong>
+              <h2
+                style={
+                  styles.quickTitle
+                }
+              >
+                Quiz History
+              </h2>
 
-              <small>
+              <p
+                style={
+                  styles.quickText
+                }
+              >
                 View all your previous attempts
-              </small>
+              </p>
             </div>
 
-            <b>→</b>
+            <span
+              style={
+                styles.quickArrow
+              }
+            >
+              →
+            </span>
           </button>
 
           <button
             type="button"
-            className="quick-card"
             onClick={() =>
               router.push(
-                "/student/quiz-tests/results",
+                "/student/quiz-tests/results"
               )
             }
+            style={
+              styles.quickCard
+            }
           >
-            <span>R</span>
-
-            <div>
-              <strong>My Results</strong>
-
-              <small>
-                Check scores and performance
-              </small>
+            <div
+              style={
+                styles.quickIcon
+              }
+            >
+              R
             </div>
 
-            <b>→</b>
+            <div>
+              <h2
+                style={
+                  styles.quickTitle
+                }
+              >
+                My Results
+              </h2>
+
+              <p
+                style={
+                  styles.quickText
+                }
+              >
+                Check scores and performance
+              </p>
+            </div>
+
+            <span
+              style={
+                styles.quickArrow
+              }
+            >
+              →
+            </span>
           </button>
         </section>
 
-        {liveQuizzes.length > 0 && (
-          <section className="section-card live-section">
-            <div className="section-header">
+        {/* LIVE NOW */}
+
+        <section
+          style={styles.section}
+        >
+          <div
+            style={
+              styles.sectionHeader
+            }
+          >
+            <div>
+              <div
+                style={
+                  styles.sectionEyebrow
+                }
+              >
+                LIVE NOW
+              </div>
+
+              <h2
+                style={
+                  styles.sectionTitle
+                }
+              >
+                Quizzes You Can Attempt
+              </h2>
+            </div>
+
+            <div
+              style={
+                styles.countBadge
+              }
+            >
+              {liveQuizzes.length}
+            </div>
+          </div>
+
+          {liveQuizzes.length ===
+          0 ? (
+            <div
+              style={
+                styles.emptyBox
+              }
+            >
+              <div
+                style={
+                  styles.emptyIcon
+                }
+              >
+                Q
+              </div>
+
               <div>
-                <span className="section-kicker">
-                  LIVE NOW
-                </span>
-
-                <h2>
-                  Quizzes You Can Attempt
-                </h2>
-              </div>
-
-              <span className="live-badge">
-                LIVE
-              </span>
-            </div>
-
-            <div className="quiz-list">
-              {liveQuizzes.map((quiz) => (
-                <article
-                  className="quiz-item live-item"
-                  key={quiz.id}
+                <h3
+                  style={
+                    styles.emptyTitle
+                  }
                 >
-                  <div className="quiz-main">
-                    <div className="quiz-number live-number">
-                      Q
-                    </div>
+                  No Live Quiz
+                </h3>
 
-                    <div>
-                      <h3>{quiz.title}</h3>
-
-                      <p>
-                        {quiz.description ||
-                          "Scheduled quiz is currently live."}
-                      </p>
-
-                      <div className="quiz-meta">
-                        <span>
-                          Duration:{" "}
-                          {quiz.duration_minutes || 30}{" "}
-                          minutes
-                        </span>
-
-                        <span>
-                          Marks/question:{" "}
-                          {formatNumber(
-                            quiz.marks_per_question,
-                          )}
-                        </span>
-
-                        <span>
-                          Negative:{" "}
-                          {formatNumber(
-                            quiz.negative_marks,
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="start-button"
-                    onClick={() =>
-                      handleStartQuiz(quiz.id)
-                    }
-                  >
-                    Start Quiz →
-                  </button>
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
-
-        <section className="section-card">
-          <div className="section-header">
-            <div>
-              <span className="section-kicker">
-                UPCOMING
-              </span>
-
-              <h2>Upcoming Quizzes</h2>
-            </div>
-
-            <button
-              type="button"
-              className="view-all"
-              onClick={() =>
-                router.push(
-                  "/student/quiz-tests/available",
-                )
-              }
-            >
-              View All →
-            </button>
-          </div>
-
-          {loading ? (
-            <div className="empty-state">
-              <div className="loader" />
-              <p>Loading quizzes...</p>
-            </div>
-          ) : upcomingQuizzes.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">
-                Calendar
+                <p
+                  style={
+                    styles.emptyText
+                  }
+                >
+                  There are currently no live quizzes for {getClassDisplay()}.
+                </p>
               </div>
-
-              <h3>No Upcoming Quizzes</h3>
-
-              <p>
-                There are currently no scheduled quizzes
-                waiting for you.
-              </p>
             </div>
           ) : (
-            <div className="quiz-list">
-              {upcomingQuizzes.map((quiz) => (
-                <article
-                  className="quiz-item"
-                  key={quiz.id}
-                >
-                  <div className="quiz-main">
-                    <div className="quiz-number">
-                      Q
-                    </div>
-
-                    <div className="quiz-details">
-                      <h3>{quiz.title}</h3>
-
-                      <p>
-                        {quiz.description ||
-                          "Get ready for your upcoming quiz."}
-                      </p>
-
-                      <div className="quiz-meta">
-                        <span>
-                          Date:{" "}
-                          {formatDate(
-                            quiz.scheduled_date,
-                          )}
-                        </span>
-
-                        <span>
-                          Time:{" "}
-                          {formatTime(
-                            quiz.scheduled_time,
-                          )}
-                        </span>
-
-                        <span>
-                          Duration:{" "}
-                          {quiz.duration_minutes || 30}{" "}
-                          min
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="upcoming-side">
-                    <span className="countdown">
-                      {getTimeUntilQuiz(quiz)}
-                    </span>
-
-                    <span className="status-pill upcoming">
-                      Upcoming
-                    </span>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="section-card">
-          <div className="section-header">
-            <div>
-              <span className="section-kicker">
-                AVAILABLE
-              </span>
-
-              <h2>Available Quizzes</h2>
-            </div>
-
-            <button
-              type="button"
-              className="view-all"
-              onClick={() =>
-                router.push(
-                  "/student/quiz-tests/available",
-                )
+            <div
+              style={
+                styles.quizGrid
               }
             >
-              View All →
-            </button>
-          </div>
-
-          {loading ? (
-            <div className="empty-state">
-              <div className="loader" />
-              <p>
-                Checking available quizzes...
-              </p>
-            </div>
-          ) : availableQuizzes.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">
-                Target
-              </div>
-
-              <h3>No Quiz Available</h3>
-
-              <p>
-                When a published quiz reaches its
-                scheduled time, it will appear here.
-              </p>
-            </div>
-          ) : (
-            <div className="quiz-list">
-              {availableQuizzes.map((quiz) => {
-                const status = getQuizStatus(
-                  quiz,
-                  quiz.result,
-                );
-
-                return (
-                  <article
-                    className="quiz-item"
+              {liveQuizzes.map(
+                (quiz) => (
+                  <QuizCard
                     key={quiz.id}
-                  >
-                    <div className="quiz-main">
-                      <div className="quiz-number">
-                        Q
-                      </div>
-
-                      <div className="quiz-details">
-                        <h3>{quiz.title}</h3>
-
-                        <p>
-                          {quiz.description ||
-                            "You can attempt this quiz now."}
-                        </p>
-
-                        <div className="quiz-meta">
-                          <span>
-                            Date:{" "}
-                            {formatDate(
-                              quiz.scheduled_date,
-                            )}
-                          </span>
-
-                          <span>
-                            Time:{" "}
-                            {formatTime(
-                              quiz.scheduled_time,
-                            )}
-                          </span>
-
-                          <span>
-                            Duration:{" "}
-                            {quiz.duration_minutes || 30}{" "}
-                            min
-                          </span>
-
-                          <span>
-                            Pass:{" "}
-                            {formatNumber(
-                              quiz.pass_percentage,
-                            )}
-                            %
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="quiz-action">
-                      {quiz.result ? (
-                        <button
-                          type="button"
-                          className="result-button"
-                          onClick={() =>
-                            handleViewResult(
-                              quiz.id,
-                            )
-                          }
-                        >
-                          View Result
-                        </button>
-                      ) : status === "Live Now" ||
-                        status === "Available" ? (
-                        <button
-                          type="button"
-                          className="start-button"
-                          onClick={() =>
-                            handleStartQuiz(
-                              quiz.id,
-                            )
-                          }
-                        >
-                          Start Quiz →
-                        </button>
-                      ) : (
-                        <span className="status-pill">
-                          {status}
-                        </span>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
+                    quiz={quiz}
+                    status="LIVE"
+                    attempted={hasAttempted(
+                      quiz.id
+                    )}
+                    result={getResult(
+                      quiz.id
+                    )}
+                    onStart={() =>
+                      router.push(
+                        `/student/quiz-tests/attempt?quizId=${quiz.id}`
+                      )
+                    }
+                    onResult={() =>
+                      router.push(
+                        `/student/quiz-tests/results?quizId=${quiz.id}`
+                      )
+                    }
+                  />
+                )
+              )}
             </div>
           )}
         </section>
 
-        <section className="section-card results-section">
-          <div className="section-header">
-            <div>
-              <span className="section-kicker">
-                PERFORMANCE
-              </span>
+        {/* UPCOMING */}
 
-              <h2>Recent Results</h2>
+        <section
+          style={styles.section}
+        >
+          <div
+            style={
+              styles.sectionHeader
+            }
+          >
+            <div>
+              <div
+                style={
+                  styles.sectionEyebrow
+                }
+              >
+                CALENDAR
+              </div>
+
+              <h2
+                style={
+                  styles.sectionTitle
+                }
+              >
+                Upcoming Quizzes
+              </h2>
             </div>
 
             <button
               type="button"
-              className="view-all"
               onClick={() =>
                 router.push(
-                  "/student/quiz-tests/results",
+                  "/student/quiz-tests/available"
                 )
+              }
+              style={
+                styles.viewAllButton
+              }
+            >
+              View All →
+            </button>
+          </div>
+
+          {upcomingQuizzes.length ===
+          0 ? (
+            <div
+              style={
+                styles.emptyBox
+              }
+            >
+              <div
+                style={
+                  styles.emptyIcon
+                }
+              >
+                C
+              </div>
+
+              <div>
+                <h3
+                  style={
+                    styles.emptyTitle
+                  }
+                >
+                  No Upcoming Quizzes
+                </h3>
+
+                <p
+                  style={
+                    styles.emptyText
+                  }
+                >
+                  There are currently no scheduled quizzes waiting for you.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div
+              style={
+                styles.quizGrid
+              }
+            >
+              {upcomingQuizzes
+                .slice(0, 4)
+                .map(
+                  (quiz) => (
+                    <QuizCard
+                      key={quiz.id}
+                      quiz={quiz}
+                      status="UPCOMING"
+                      attempted={hasAttempted(
+                        quiz.id
+                      )}
+                      result={getResult(
+                        quiz.id
+                      )}
+                      onStart={() =>
+                        router.push(
+                          `/student/quiz-tests/attempt?quizId=${quiz.id}`
+                        )
+                      }
+                      onResult={() =>
+                        router.push(
+                          `/student/quiz-tests/results?quizId=${quiz.id}`
+                        )
+                      }
+                    />
+                  )
+                )}
+            </div>
+          )}
+        </section>
+
+        {/* AVAILABLE */}
+
+        <section
+          style={styles.section}
+        >
+          <div
+            style={
+              styles.sectionHeader
+            }
+          >
+            <div>
+              <div
+                style={
+                  styles.sectionEyebrow
+                }
+              >
+                AVAILABLE
+              </div>
+
+              <h2
+                style={
+                  styles.sectionTitle
+                }
+              >
+                Available Quizzes
+              </h2>
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  "/student/quiz-tests/available"
+                )
+              }
+              style={
+                styles.viewAllButton
+              }
+            >
+              View All →
+            </button>
+          </div>
+
+          {/*
+           * IMPORTANT:
+           * availableQuizzes is already filtered by
+           * quizBelongsToStudent().
+           *
+           * Therefore this section CANNOT show quizzes
+           * belonging to other classes.
+           */}
+
+          {availableQuizzes.length ===
+          0 ? (
+            <div
+              style={
+                styles.emptyBox
+              }
+            >
+              <div
+                style={
+                  styles.emptyIcon
+                }
+              >
+                Q
+              </div>
+
+              <div>
+                <h3
+                  style={
+                    styles.emptyTitle
+                  }
+                >
+                  No Available Quizzes
+                </h3>
+
+                <p
+                  style={
+                    styles.emptyText
+                  }
+                >
+                  There are currently no available quizzes for {getClassDisplay()}.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div
+              style={
+                styles.quizGrid
+              }
+            >
+              {availableQuizzes
+                .slice(0, 6)
+                .map(
+                  (quiz) => (
+                    <QuizCard
+                      key={quiz.id}
+                      quiz={quiz}
+                      status={getStatus(
+                        quiz
+                      )}
+                      attempted={hasAttempted(
+                        quiz.id
+                      )}
+                      result={getResult(
+                        quiz.id
+                      )}
+                      onStart={() =>
+                        router.push(
+                          `/student/quiz-tests/attempt?quizId=${quiz.id}`
+                        )
+                      }
+                      onResult={() =>
+                        router.push(
+                          `/student/quiz-tests/results?quizId=${quiz.id}`
+                        )
+                      }
+                    />
+                  )
+                )}
+            </div>
+          )}
+        </section>
+
+        {/* RECENT RESULTS */}
+
+        <section
+          style={styles.section}
+        >
+          <div
+            style={
+              styles.sectionHeader
+            }
+          >
+            <div>
+              <div
+                style={
+                  styles.sectionEyebrow
+                }
+              >
+                PERFORMANCE
+              </div>
+
+              <h2
+                style={
+                  styles.sectionTitle
+                }
+              >
+                Recent Results
+              </h2>
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  "/student/quiz-tests/results"
+                )
+              }
+              style={
+                styles.viewAllButton
               }
             >
               All Results →
             </button>
           </div>
 
-          {loading ? (
-            <div className="empty-state">
-              <div className="loader" />
-              <p>Loading results...</p>
-            </div>
-          ) : results.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">
-                Results
+          {results.length ===
+          0 ? (
+            <div
+              style={
+                styles.emptyBox
+              }
+            >
+              <div
+                style={
+                  styles.emptyIcon
+                }
+              >
+                R
               </div>
 
-              <h3>No Results Yet</h3>
+              <div>
+                <h3
+                  style={
+                    styles.emptyTitle
+                  }
+                >
+                  No Results Yet
+                </h3>
 
-              <p>
-                Your quiz results will appear here after
-                you complete a quiz.
-              </p>
+                <p
+                  style={
+                    styles.emptyText
+                  }
+                >
+                  Your quiz results will appear here after you complete a quiz.
+                </p>
+              </div>
             </div>
           ) : (
-            <div className="results-list">
-              {results.slice(0, 5).map((result) => {
-                const quiz = quizzes.find(
-                  (item) =>
-                    Number(item.id) ===
-                    Number(result.quiz_id),
-                );
-
-                return (
-                  <button
-                    type="button"
-                    className="result-row"
-                    key={result.id}
-                    onClick={() =>
-                      handleViewResult(
-                        result.quiz_id,
-                      )
-                    }
-                  >
-                    <div className="result-left">
-                      <div className="result-icon">
-                        {result.result_status ===
-                        "PASS"
-                          ? "PASS"
-                          : "RESULT"}
-                      </div>
-
-                      <div>
-                        <strong>
-                          {quiz?.title ||
-                            `Quiz #${result.quiz_id}`}
-                        </strong>
-
-                        <span>
-                          {result.submitted_at
-                            ? formatDate(
-                                result.submitted_at,
-                              )
-                            : formatDate(
-                                result.created_at,
-                              )}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="result-middle">
-                      <span>
-                        {formatNumber(
-                          result.correct_answers,
-                        )}{" "}
-                        Correct
-                      </span>
-
-                      <span>
-                        {formatNumber(
-                          result.wrong_answers,
-                        )}{" "}
-                        Wrong
-                      </span>
-
-                      <span>
-                        {formatNumber(
-                          result.unanswered,
-                        )}{" "}
-                        Unanswered
-                      </span>
-                    </div>
-
-                    <div className="result-score">
-                      <strong>
-                        {formatNumber(
-                          result.obtained_marks,
-                        )}
-                        /
-                        {formatNumber(
-                          result.total_marks,
-                        )}
-                      </strong>
-
-                      <span
-                        className={
-                          result.result_status ===
-                          "PASS"
-                            ? "pass"
-                            : "fail"
+            <div
+              style={
+                styles.resultGrid
+              }
+            >
+              {results
+                .slice(0, 4)
+                .map(
+                  (
+                    result,
+                    index
+                  ) => (
+                    <div
+                      key={`${result.quiz_id}-${index}`}
+                      style={
+                        styles.resultCard
+                      }
+                    >
+                      <div
+                        style={
+                          styles.resultTop
                         }
                       >
-                        {formatNumber(
-                          result.percentage,
-                        )}
-                        % • {result.result_status}
-                      </span>
-                    </div>
+                        <div
+                          style={
+                            styles.resultIcon
+                          }
+                        >
+                          R
+                        </div>
 
-                    <div className="result-arrow">
-                      →
+                        <div
+                          style={
+                            styles.resultInfo
+                          }
+                        >
+                          <div
+                            style={
+                              styles.resultQuizId
+                            }
+                          >
+                            QUIZ #{result.quiz_id}
+                          </div>
+
+                          <div
+                            style={
+                              styles.resultPercentage
+                            }
+                          >
+                            {Number(
+                              result.percentage ||
+                                0
+                            ).toFixed(
+                              1
+                            )}
+                            %
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        style={
+                          styles.resultBottom
+                        }
+                      >
+                        <span
+                          style={
+                            String(
+                              result.result_status
+                            ).toUpperCase() ===
+                            "PASS"
+                              ? styles.passBadge
+                              : styles.failBadge
+                          }
+                        >
+                          {String(
+                            result.result_status ||
+                              "RESULT"
+                          ).toUpperCase()}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            router.push(
+                              `/student/quiz-tests/results?quizId=${result.quiz_id}`
+                            )
+                          }
+                          style={
+                            styles.smallButton
+                          }
+                        >
+                          View →
+                        </button>
+                      </div>
                     </div>
-                  </button>
-                );
-              })}
+                  )
+                )}
             </div>
           )}
         </section>
 
-        <footer className="footer">
-          <div>
-            <strong>RACER ACADEMY</strong>
+        {/* FOOTER */}
 
-            <span>
-              Student Quiz Center
-            </span>
-          </div>
-
+        <footer
+          style={styles.footer}
+        >
+          RACER ACADEMY • Student Quiz Center
           <span>
             Quiz duration is fixed at 30 minutes.
           </span>
         </footer>
       </div>
-
-      <style jsx>{`
-        * {
-          box-sizing: border-box;
-        }
-
-        .quiz-page {
-          min-height: 100vh;
-          position: relative;
-          overflow-x: hidden;
-          padding: 24px;
-          background:
-            radial-gradient(
-              circle at top left,
-              rgba(59, 130, 246, 0.14),
-              transparent 34%
-            ),
-            radial-gradient(
-              circle at bottom right,
-              rgba(168, 85, 247, 0.12),
-              transparent 34%
-            ),
-            #f6f8fc;
-          color: #0f172a;
-          font-family:
-            Arial,
-            Helvetica,
-            sans-serif;
-        }
-
-        .background-glow {
-          position: fixed;
-          width: 280px;
-          height: 280px;
-          border-radius: 50%;
-          filter: blur(90px);
-          pointer-events: none;
-          opacity: 0.35;
-          z-index: 0;
-        }
-
-        .glow-one {
-          top: -120px;
-          left: -100px;
-          background: #60a5fa;
-        }
-
-        .glow-two {
-          right: -100px;
-          bottom: -100px;
-          background: #c084fc;
-        }
-
-        .quiz-container {
-          width: min(1180px, 100%);
-          margin: 0 auto;
-          position: relative;
-          z-index: 1;
-        }
-
-        .topbar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 20px;
-          margin-bottom: 20px;
-          padding: 14px 16px;
-          border: 1px solid rgba(226, 232, 240, 0.9);
-          background: rgba(255, 255, 255, 0.86);
-          backdrop-filter: blur(18px);
-          border-radius: 20px;
-          box-shadow: 0 10px 35px rgba(15, 23, 42, 0.07);
-        }
-
-        .brand-section {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-
-        .back-button {
-          width: 44px;
-          height: 44px;
-          border: 0;
-          border-radius: 14px;
-          background: #eef2ff;
-          color: #3730a3;
-          font-size: 23px;
-          cursor: pointer;
-          transition: 0.2s ease;
-        }
-
-        .back-button:hover {
-          transform: translateX(-2px);
-          background: #e0e7ff;
-        }
-
-        .brand-title {
-          font-size: 16px;
-          font-weight: 900;
-          letter-spacing: 1px;
-        }
-
-        .brand-subtitle {
-          color: #64748b;
-          font-size: 12px;
-          margin-top: 2px;
-        }
-
-        .top-actions {
-          display: flex;
-          gap: 10px;
-        }
-
-        .refresh-button,
-        .logout-button {
-          border: 0;
-          border-radius: 12px;
-          padding: 11px 15px;
-          font-weight: 800;
-          cursor: pointer;
-        }
-
-        .refresh-button {
-          background: #eff6ff;
-          color: #1d4ed8;
-        }
-
-        .refresh-button:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .logout-button {
-          background: #fee2e2;
-          color: #b91c1c;
-        }
-
-        .welcome-card {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 20px;
-          padding: 30px;
-          margin-bottom: 20px;
-          border-radius: 26px;
-          color: white;
-          background:
-            linear-gradient(
-              135deg,
-              #111827 0%,
-              #1e293b 52%,
-              #312e81 100%
-            );
-          box-shadow:
-            0 20px 45px rgba(15, 23, 42, 0.18);
-          overflow: hidden;
-          position: relative;
-        }
-
-        .welcome-card::after {
-          content: "";
-          position: absolute;
-          width: 230px;
-          height: 230px;
-          border-radius: 50%;
-          right: -70px;
-          top: -100px;
-          background: rgba(255, 255, 255, 0.08);
-        }
-
-        .small-label {
-          color: #93c5fd;
-          font-size: 11px;
-          font-weight: 900;
-          letter-spacing: 2px;
-        }
-
-        .welcome-card h1 {
-          margin: 7px 0;
-          font-size: clamp(28px, 5vw, 44px);
-          line-height: 1.05;
-        }
-
-        .welcome-card p {
-          margin: 0;
-          max-width: 720px;
-          color: #cbd5e1;
-          line-height: 1.6;
-          font-size: 14px;
-        }
-
-        .brain-box {
-          width: 90px;
-          height: 90px;
-          display: grid;
-          place-items: center;
-          flex: 0 0 auto;
-          border-radius: 26px;
-          background: rgba(255, 255, 255, 0.12);
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          font-size: 18px;
-          font-weight: 900;
-          letter-spacing: 1px;
-          z-index: 2;
-        }
-
-        .error-card {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 20px;
-          padding: 17px 20px;
-          margin-bottom: 20px;
-          border: 1px solid #fecaca;
-          border-radius: 18px;
-          background: #fff1f2;
-          color: #991b1b;
-        }
-
-        .error-card p {
-          margin: 5px 0 0;
-          font-size: 13px;
-        }
-
-        .error-card button {
-          border: 0;
-          border-radius: 10px;
-          padding: 9px 14px;
-          background: #991b1b;
-          color: white;
-          font-weight: 800;
-          cursor: pointer;
-        }
-
-        .stats-grid {
-          display: grid;
-          grid-template-columns: repeat(5, 1fr);
-          gap: 14px;
-          margin-bottom: 20px;
-        }
-
-        .stat-card {
-          display: flex;
-          align-items: center;
-          gap: 13px;
-          min-height: 110px;
-          padding: 18px;
-          border-radius: 20px;
-          background: white;
-          border: 1px solid #e2e8f0;
-          box-shadow:
-            0 8px 25px rgba(15, 23, 42, 0.05);
-        }
-
-        .stat-icon {
-          width: 48px;
-          height: 48px;
-          display: grid;
-          place-items: center;
-          border-radius: 15px;
-          font-size: 14px;
-          font-weight: 900;
-        }
-
-        .stat-card.blue .stat-icon {
-          background: #dbeafe;
-        }
-
-        .stat-card.purple .stat-icon {
-          background: #ede9fe;
-        }
-
-        .stat-card.green .stat-icon {
-          background: #dcfce7;
-        }
-
-        .stat-card.red .stat-icon {
-          background: #fee2e2;
-        }
-
-        .stat-card.orange .stat-icon {
-          background: #ffedd5;
-        }
-
-        .stat-card span {
-          display: block;
-          color: #64748b;
-          font-size: 11px;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.4px;
-        }
-
-        .stat-card strong {
-          display: block;
-          margin-top: 5px;
-          font-size: 25px;
-        }
-
-        .quick-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 14px;
-          margin-bottom: 20px;
-        }
-
-        .quick-card {
-          display: grid;
-          grid-template-columns: 48px 1fr 20px;
-          align-items: center;
-          gap: 12px;
-          text-align: left;
-          padding: 18px;
-          border: 1px solid #e2e8f0;
-          border-radius: 19px;
-          background: white;
-          cursor: pointer;
-          box-shadow:
-            0 8px 25px rgba(15, 23, 42, 0.05);
-          transition: 0.2s ease;
-        }
-
-        .quick-card:hover {
-          transform: translateY(-3px);
-          box-shadow:
-            0 14px 32px rgba(15, 23, 42, 0.09);
-        }
-
-        .quick-card > span {
-          width: 48px;
-          height: 48px;
-          display: grid;
-          place-items: center;
-          border-radius: 14px;
-          background: #f1f5f9;
-          font-size: 13px;
-          font-weight: 900;
-        }
-
-        .quick-card strong {
-          display: block;
-          font-size: 14px;
-        }
-
-        .quick-card small {
-          display: block;
-          margin-top: 4px;
-          color: #64748b;
-          font-size: 11px;
-          line-height: 1.4;
-        }
-
-        .quick-card b {
-          color: #94a3b8;
-          font-size: 20px;
-        }
-
-        .section-card {
-          margin-bottom: 20px;
-          padding: 22px;
-          border-radius: 23px;
-          background: rgba(255, 255, 255, 0.94);
-          border: 1px solid #e2e8f0;
-          box-shadow:
-            0 10px 30px rgba(15, 23, 42, 0.055);
-        }
-
-        .section-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 15px;
-          margin-bottom: 17px;
-        }
-
-        .section-kicker {
-          display: block;
-          color: #6366f1;
-          font-size: 10px;
-          font-weight: 900;
-          letter-spacing: 1.8px;
-        }
-
-        .section-header h2 {
-          margin: 5px 0 0;
-          font-size: 22px;
-        }
-
-        .view-all {
-          border: 0;
-          background: transparent;
-          color: #4f46e5;
-          font-weight: 900;
-          cursor: pointer;
-          white-space: nowrap;
-        }
-
-        .quiz-list {
-          display: grid;
-          gap: 12px;
-        }
-
-        .quiz-item {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 20px;
-          padding: 17px;
-          border: 1px solid #e2e8f0;
-          border-radius: 18px;
-          background: #f8fafc;
-          transition: 0.2s ease;
-        }
-
-        .quiz-item:hover {
-          background: white;
-          border-color: #cbd5e1;
-          transform: translateY(-1px);
-        }
-
-        .live-item {
-          border-color: #86efac;
-          background: #f0fdf4;
-        }
-
-        .quiz-main {
-          display: flex;
-          align-items: flex-start;
-          gap: 14px;
-          min-width: 0;
-        }
-
-        .quiz-number {
-          width: 48px;
-          height: 48px;
-          display: grid;
-          place-items: center;
-          flex: 0 0 auto;
-          border-radius: 15px;
-          background: #e0e7ff;
-          font-size: 14px;
-          font-weight: 900;
-        }
-
-        .live-number {
-          background: #dcfce7;
-        }
-
-        .quiz-details,
-        .quiz-main > div:last-child {
-          min-width: 0;
-        }
-
-        .quiz-item h3 {
-          margin: 0;
-          font-size: 16px;
-          font-weight: 900;
-        }
-
-        .quiz-item p {
-          margin: 5px 0 9px;
-          color: #64748b;
-          font-size: 12px;
-          line-height: 1.45;
-        }
-
-        .quiz-meta {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 7px;
-        }
-
-        .quiz-meta span {
-          padding: 5px 8px;
-          border-radius: 8px;
-          background: white;
-          color: #475569;
-          font-size: 10px;
-          font-weight: 800;
-          border: 1px solid #e2e8f0;
-        }
-
-        .quiz-action,
-        .upcoming-side {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          flex: 0 0 auto;
-        }
-
-        .start-button,
-        .result-button {
-          border: 0;
-          border-radius: 12px;
-          padding: 11px 15px;
-          color: white;
-          font-size: 12px;
-          font-weight: 900;
-          cursor: pointer;
-          white-space: nowrap;
-          transition: 0.2s ease;
-        }
-
-        .start-button {
-          background:
-            linear-gradient(
-              135deg,
-              #4f46e5,
-              #7c3aed
-            );
-          box-shadow:
-            0 7px 18px rgba(79, 70, 229, 0.22);
-        }
-
-        .start-button:hover,
-        .result-button:hover {
-          transform: translateY(-2px);
-        }
-
-        .result-button {
-          background: #0f766e;
-        }
-
-        .countdown {
-          padding: 8px 11px;
-          border-radius: 10px;
-          background: #fff7ed;
-          color: #c2410c;
-          font-size: 11px;
-          font-weight: 900;
-          white-space: nowrap;
-        }
-
-        .status-pill {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          padding: 8px 11px;
-          border-radius: 999px;
-          background: #e2e8f0;
-          color: #475569;
-          font-size: 10px;
-          font-weight: 900;
-          white-space: nowrap;
-        }
-
-        .status-pill.upcoming {
-          background: #fef3c7;
-          color: #92400e;
-        }
-
-        .live-badge {
-          padding: 7px 11px;
-          border-radius: 999px;
-          background: #dcfce7;
-          color: #166534;
-          font-size: 10px;
-          font-weight: 900;
-          animation: pulse 1.7s infinite;
-        }
-
-        @keyframes pulse {
-          0%,
-          100% {
-            opacity: 1;
+    </main>
+  );
+}
+
+function StatCard({
+  icon,
+  label,
+  value,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div
+      style={styles.statCard}
+    >
+      <div
+        style={styles.statIcon}
+      >
+        {icon}
+      </div>
+
+      <div>
+        <div
+          style={styles.statLabel}
+        >
+          {label}
+        </div>
+
+        <div
+          style={styles.statValue}
+        >
+          {value}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function QuizCard({
+  quiz,
+  status,
+  attempted,
+  result,
+  onStart,
+  onResult,
+}: {
+  quiz: Quiz;
+  status:
+    | "LIVE"
+    | "UPCOMING"
+    | "ENDED";
+  attempted: boolean;
+  result?: QuizResult;
+  onStart: () => void;
+  onResult: () => void;
+}) {
+  return (
+    <div
+      style={styles.quizCard}
+    >
+      <div
+        style={styles.quizCardTop}
+      >
+        <div
+          style={styles.quizIcon}
+        >
+          Q
+        </div>
+
+        <span
+          style={
+            status === "LIVE"
+              ? styles.liveBadge
+              : styles.upcomingBadge
           }
+        >
+          {status}
+        </span>
+      </div>
 
-          50% {
-            opacity: 0.55;
+      <h3
+        style={styles.quizTitle}
+      >
+        {quiz.title}
+      </h3>
+
+      {quiz.description && (
+        <p
+          style={
+            styles.quizDescription
           }
-        }
+        >
+          {quiz.description}
+        </p>
+      )}
 
-        .empty-state {
-          padding: 45px 20px;
-          text-align: center;
-          border: 1px dashed #cbd5e1;
-          border-radius: 17px;
-          background: #f8fafc;
-        }
+      <div
+        style={styles.quizMeta}
+      >
+        <span>
+          Date:{" "}
+          {formatQuizDate(
+            quiz.scheduled_date
+          )}
+        </span>
 
-        .empty-icon {
-          font-size: 18px;
-          font-weight: 900;
-          margin-bottom: 8px;
-        }
+        <span>
+          Time:{" "}
+          {formatQuizTime(
+            quiz.scheduled_time
+          )}
+        </span>
 
-        .empty-state h3 {
-          margin: 0;
-          font-size: 16px;
-        }
+        <span>
+          Duration:{" "}
+          {quiz.duration_minutes} min
+        </span>
 
-        .empty-state p {
-          margin: 7px 0 0;
-          color: #64748b;
-          font-size: 12px;
-        }
+        <span>
+          Marks/question:{" "}
+          {quiz.marks_per_question}
+        </span>
 
-        .loader {
-          width: 30px;
-          height: 30px;
-          margin: 0 auto 10px;
-          border-radius: 50%;
-          border: 3px solid #e2e8f0;
-          border-top-color: #4f46e5;
-          animation: spin 0.8s linear infinite;
-        }
+        <span>
+          Negative:{" "}
+          {quiz.negative_marks}
+        </span>
 
-        @keyframes spin {
-          to {
-            transform: rotate(360deg);
+        <span>
+          Pass:{" "}
+          {quiz.pass_percentage}%
+        </span>
+      </div>
+
+      {attempted ? (
+        <button
+          type="button"
+          onClick={onResult}
+          style={
+            styles.resultButton
           }
-        }
-
-        .results-list {
-          display: grid;
-          gap: 9px;
-        }
-
-        .result-row {
-          width: 100%;
-          display: grid;
-          grid-template-columns:
-            1.3fr 1fr auto 25px;
-          align-items: center;
-          gap: 15px;
-          text-align: left;
-          padding: 14px;
-          border: 1px solid #e2e8f0;
-          border-radius: 15px;
-          background: #f8fafc;
-          cursor: pointer;
-          transition: 0.2s ease;
-        }
-
-        .result-row:hover {
-          background: white;
-          transform: translateX(2px);
-        }
-
-        .result-left {
-          display: flex;
-          align-items: center;
-          gap: 11px;
-          min-width: 0;
-        }
-
-        .result-icon {
-          width: 42px;
-          height: 42px;
-          display: grid;
-          place-items: center;
-          flex: 0 0 auto;
-          border-radius: 12px;
-          background: #eef2ff;
-          font-size: 9px;
-          font-weight: 900;
-          text-align: center;
-        }
-
-        .result-left strong {
-          display: block;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          font-size: 13px;
-        }
-
-        .result-left span {
-          display: block;
-          margin-top: 4px;
-          color: #64748b;
-          font-size: 10px;
-        }
-
-        .result-middle {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 5px;
-        }
-
-        .result-middle span {
-          padding: 5px 7px;
-          border-radius: 7px;
-          background: white;
-          border: 1px solid #e2e8f0;
-          color: #475569;
-          font-size: 9px;
-          font-weight: 800;
-        }
-
-        .result-score {
-          text-align: right;
-        }
-
-        .result-score strong {
-          display: block;
-          font-size: 16px;
-        }
-
-        .result-score span {
-          display: block;
-          margin-top: 4px;
-          font-size: 10px;
-          font-weight: 900;
-        }
-
-        .result-score .pass {
-          color: #15803d;
-        }
-
-        .result-score .fail {
-          color: #dc2626;
-        }
-
-        .result-arrow {
-          color: #94a3b8;
-          font-size: 20px;
-        }
-
-        .footer {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 15px;
-          padding: 8px 5px 20px;
-          color: #64748b;
-          font-size: 10px;
-        }
-
-        .footer div {
-          display: flex;
-          flex-direction: column;
-          gap: 3px;
-        }
-
-        .footer strong {
-          color: #334155;
-          font-size: 11px;
-        }
-
-        @media (max-width: 1000px) {
-          .stats-grid {
-            grid-template-columns: repeat(3, 1fr);
+        >
+          View Result →
+        </button>
+      ) : status === "LIVE" ? (
+        <button
+          type="button"
+          onClick={onStart}
+          style={
+            styles.startButton
           }
-
-          .result-row {
-            grid-template-columns:
-              1fr auto 25px;
+        >
+          Start Quiz →
+        </button>
+      ) : (
+        <div
+          style={
+            styles.waitingButton
           }
+        >
+          Quiz will open at the scheduled time.
+        </div>
+      )}
 
-          .result-middle {
-            display: none;
+      {result && (
+        <div
+          style={
+            styles.resultMini
           }
-        }
+        >
+          Previous Result:{" "}
+          {Number(
+            result.percentage || 0
+          ).toFixed(1)}
+          %
+        </div>
+      )}
+    </div>
+  );
+}
 
-        @media (max-width: 760px) {
-          .quiz-page {
-            padding: 12px;
-          }
+function formatQuizDate(
+  date: string
+): string {
+  if (!date) {
+    return "";
+  }
 
-          .topbar {
-            padding: 11px;
-            border-radius: 17px;
-          }
+  return new Date(
+    `${date}T00:00:00`
+  ).toLocaleDateString(
+    "en-IN",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }
+  );
+}
 
-          .top-actions {
-            gap: 6px;
-          }
+function formatQuizTime(
+  time: string
+): string {
+  const [
+    hourText,
+    minute = "00",
+  ] = time.split(":");
 
-          .refresh-button,
-          .logout-button {
-            padding: 9px 10px;
-            font-size: 10px;
-          }
+  let hour =
+    Number(hourText);
 
-          .brand-title {
-            font-size: 13px;
-          }
+  const period =
+    hour >= 12 ? "PM" : "AM";
 
-          .brand-subtitle {
-            font-size: 10px;
-          }
+  hour =
+    hour % 12 || 12;
 
-          .back-button {
-            width: 39px;
-            height: 39px;
-          }
+  return `${hour}:${minute} ${period}`;
+}
 
-          .welcome-card {
-            padding: 23px;
-            border-radius: 21px;
-          }
+const styles: {
+  [key: string]: React.CSSProperties;
+} = {
+  page: {
+    minHeight: "100vh",
+    background:
+      "linear-gradient(135deg,#f8fafc 0%,#eef2ff 50%,#f0f9ff 100%)",
+    padding: "18px",
+    boxSizing: "border-box",
+    fontFamily:
+      "Arial, Helvetica, sans-serif",
+    color: "#0f172a",
+  },
 
-          .brain-box {
-            width: 62px;
-            height: 62px;
-            font-size: 13px;
-            border-radius: 19px;
-          }
+  container: {
+    width: "100%",
+    maxWidth: "1250px",
+    margin: "0 auto",
+  },
 
-          .stats-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
+  header: {
+    background:
+      "linear-gradient(135deg,#172554,#2563eb,#4f46e5)",
+    borderRadius: "24px",
+    padding: "28px",
+    color: "#ffffff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "20px",
+    marginBottom: "18px",
+    boxShadow:
+      "0 18px 45px rgba(37,99,235,0.22)",
+    flexWrap: "wrap",
+  },
 
-          .stat-card {
-            min-height: 95px;
-            padding: 13px;
-          }
+  headerEyebrow: {
+    fontSize: "10px",
+    fontWeight: "1000",
+    letterSpacing: "2px",
+    color: "#bfdbfe",
+    marginBottom: "6px",
+  },
 
-          .stat-icon {
-            width: 40px;
-            height: 40px;
-            font-size: 12px;
-          }
+  headerTitle: {
+    margin: 0,
+    fontSize: "30px",
+    fontWeight: "1000",
+  },
 
-          .stat-card strong {
-            font-size: 21px;
-          }
+  headerSubtitle: {
+    margin: "8px 0 0",
+    maxWidth: "650px",
+    color: "#dbeafe",
+    fontSize: "13px",
+    lineHeight: 1.6,
+    fontWeight: "600",
+  },
 
-          .quick-grid {
-            grid-template-columns: 1fr;
-          }
+  classBadge: {
+    background:
+      "rgba(255,255,255,0.12)",
+    border:
+      "1px solid rgba(255,255,255,0.22)",
+    borderRadius: "16px",
+    padding: "14px 18px",
+    minWidth: "150px",
+  },
 
-          .section-card {
-            padding: 15px;
-            border-radius: 19px;
-          }
+  classBadgeSmall: {
+    fontSize: "9px",
+    letterSpacing: "1.5px",
+    color: "#bfdbfe",
+    fontWeight: "1000",
+  },
 
-          .section-header h2 {
-            font-size: 18px;
-          }
+  classBadgeValue: {
+    marginTop: "5px",
+    fontSize: "20px",
+    fontWeight: "1000",
+    color: "#ffffff",
+  },
 
-          .quiz-item {
-            align-items: flex-start;
-            flex-direction: column;
-            gap: 13px;
-          }
+  statsGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(5,minmax(0,1fr))",
+    gap: "12px",
+    marginBottom: "18px",
+  },
 
-          .quiz-action,
-          .upcoming-side {
-            width: 100%;
-          }
+  statCard: {
+    background: "#ffffff",
+    border:
+      "1px solid #e2e8f0",
+    borderRadius: "16px",
+    padding: "15px",
+    display: "flex",
+    alignItems: "center",
+    gap: "11px",
+    boxShadow:
+      "0 7px 22px rgba(15,23,42,0.05)",
+  },
 
-          .quiz-action .start-button,
-          .quiz-action .result-button {
-            width: 100%;
-          }
+  statIcon: {
+    width: "39px",
+    height: "39px",
+    borderRadius: "11px",
+    background: "#eef2ff",
+    color: "#2563eb",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "13px",
+    fontWeight: "1000",
+  },
 
-          .upcoming-side {
-            justify-content: space-between;
-          }
+  statLabel: {
+    color: "#64748b",
+    fontSize: "9px",
+    fontWeight: "900",
+  },
 
-          .result-row {
-            grid-template-columns: 1fr auto;
-          }
+  statValue: {
+    marginTop: "2px",
+    color: "#172554",
+    fontSize: "20px",
+    fontWeight: "1000",
+  },
 
-          .result-score {
-            text-align: left;
-          }
+  quickGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(3,minmax(0,1fr))",
+    gap: "13px",
+    marginBottom: "24px",
+  },
 
-          .result-arrow {
-            display: none;
-          }
+  quickCard: {
+    border:
+      "1px solid #e2e8f0",
+    background: "#ffffff",
+    borderRadius: "17px",
+    padding: "15px",
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    textAlign: "left",
+    cursor: "pointer",
+    boxShadow:
+      "0 7px 22px rgba(15,23,42,0.05)",
+  },
 
-          .footer {
-            flex-direction: column;
-            align-items: flex-start;
-          }
-        }
+  quickIcon: {
+    width: "42px",
+    height: "42px",
+    borderRadius: "12px",
+    background:
+      "linear-gradient(135deg,#dbeafe,#ede9fe)",
+    color: "#2563eb",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "11px",
+    fontWeight: "1000",
+    flexShrink: 0,
+  },
 
-        @media (max-width: 480px) {
-          .topbar {
-            align-items: flex-start;
+  quickTitle: {
+    margin: 0,
+    color: "#172554",
+    fontSize: "14px",
+    fontWeight: "1000",
+  },
+
+  quickText: {
+    margin: "4px 0 0",
+    color: "#64748b",
+    fontSize: "10px",
+    fontWeight: "600",
+  },
+
+  quickArrow: {
+    marginLeft: "auto",
+    color: "#2563eb",
+    fontSize: "18px",
+    fontWeight: "1000",
+  },
+
+  section: {
+    marginBottom: "24px",
+  },
+
+  sectionHeader: {
+    display: "flex",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: "15px",
+    marginBottom: "13px",
+  },
+
+  sectionEyebrow: {
+    color: "#2563eb",
+    fontSize: "9px",
+    fontWeight: "1000",
+    letterSpacing: "2px",
+    marginBottom: "3px",
+  },
+
+  sectionTitle: {
+    margin: 0,
+    color: "#172554",
+    fontSize: "22px",
+    fontWeight: "1000",
+  },
+
+  countBadge: {
+    background: "#dbeafe",
+    color: "#1d4ed8",
+    padding: "7px 11px",
+    borderRadius: "9px",
+    fontSize: "10px",
+    fontWeight: "1000",
+  },
+
+  viewAllButton: {
+    border: "none",
+    background: "transparent",
+    color: "#2563eb",
+    fontSize: "11px",
+    fontWeight: "1000",
+    cursor: "pointer",
+  },
+
+  quizGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(2,minmax(0,1fr))",
+    gap: "14px",
+  },
+
+  quizCard: {
+    background: "#ffffff",
+    border:
+      "1px solid #e2e8f0",
+    borderRadius: "18px",
+    padding: "17px",
+    boxShadow:
+      "0 7px 22px rgba(15,23,42,0.05)",
+  },
+
+  quizCardTop: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "10px",
+  },
+
+  quizIcon: {
+    width: "40px",
+    height: "40px",
+    borderRadius: "11px",
+    background:
+      "linear-gradient(135deg,#fef9c3,#fde68a)",
+    color: "#92400e",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "13px",
+    fontWeight: "1000",
+  },
+
+  liveBadge: {
+    background: "#dcfce7",
+    color: "#15803d",
+    border:
+      "1px solid #bbf7d0",
+    borderRadius: "999px",
+    padding: "6px 10px",
+    fontSize: "9px",
+    fontWeight: "1000",
+  },
+
+  upcomingBadge: {
+    background: "#fef3c7",
+    color: "#b45309",
+    border:
+      "1px solid #fde68a",
+    borderRadius: "999px",
+    padding: "6px 10px",
+    fontSize: "9px",
+    fontWeight: "1000",
+  },
+
+  quizTitle: {
+    margin: "13px 0 0",
+    color: "#172554",
+    fontSize: "18px",
+    fontWeight: "1000",
+    wordBreak: "break-word",
+  },
+
+  quizDescription: {
+    margin: "6px 0 0",
+    color: "#64748b",
+    fontSize: "11px",
+    lineHeight: 1.6,
+    fontWeight: "600",
+  },
+
+  quizMeta: {
+    marginTop: "13px",
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(2,minmax(0,1fr))",
+    gap: "7px",
+    color: "#475569",
+    fontSize: "9px",
+    fontWeight: "700",
+  },
+
+  startButton: {
+    width: "100%",
+    marginTop: "15px",
+    border: "none",
+    background:
+      "linear-gradient(135deg,#2563eb,#4f46e5)",
+    color: "#ffffff",
+    padding: "11px",
+    borderRadius: "10px",
+    fontSize: "11px",
+    fontWeight: "1000",
+    cursor: "pointer",
+  },
+
+  resultButton: {
+    width: "100%",
+    marginTop: "15px",
+    border:
+      "1px solid #bbf7d0",
+    background: "#f0fdf4",
+    color: "#15803d",
+    padding: "11px",
+    borderRadius: "10px",
+    fontSize: "11px",
+    fontWeight: "1000",
+    cursor: "pointer",
+  },
+
+  waitingButton: {
+    width: "100%",
+    marginTop: "15px",
+    boxSizing: "border-box",
+    background: "#fffbeb",
+    border:
+      "1px solid #fde68a",
+    color: "#b45309",
+    padding: "10px",
+    borderRadius: "10px",
+    fontSize: "10px",
+    fontWeight: "800",
+    textAlign: "center",
+  },
+
+  resultMini: {
+    marginTop: "8px",
+    color: "#64748b",
+    fontSize: "9px",
+    fontWeight: "700",
+    textAlign: "center",
+  },
+
+  emptyBox: {
+    background: "#ffffff",
+    border:
+      "1px dashed #cbd5e1",
+    borderRadius: "17px",
+    padding: "20px",
+    display: "flex",
+    alignItems: "center",
+    gap: "13px",
+  },
+
+  emptyIcon: {
+    width: "44px",
+    height: "44px",
+    borderRadius: "12px",
+    background: "#eff6ff",
+    color: "#2563eb",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "12px",
+    fontWeight: "1000",
+    flexShrink: 0,
+  },
+
+  emptyTitle: {
+    margin: 0,
+    color: "#334155",
+    fontSize: "14px",
+    fontWeight: "1000",
+  },
+
+  emptyText: {
+    margin: "4px 0 0",
+    color: "#64748b",
+    fontSize: "10px",
+    lineHeight: 1.5,
+    fontWeight: "600",
+  },
+
+  resultGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(2,minmax(0,1fr))",
+    gap: "12px",
+  },
+
+  resultCard: {
+    background: "#ffffff",
+    border:
+      "1px solid #e2e8f0",
+    borderRadius: "16px",
+    padding: "15px",
+    boxShadow:
+      "0 7px 22px rgba(15,23,42,0.05)",
+  },
+
+  resultTop: {
+    display: "flex",
+    alignItems: "center",
+    gap: "11px",
+  },
+
+  resultIcon: {
+    width: "40px",
+    height: "40px",
+    borderRadius: "11px",
+    background: "#eef2ff",
+    color: "#4338ca",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "12px",
+    fontWeight: "1000",
+  },
+
+  resultInfo: {
+    flex: 1,
+  },
+
+  resultQuizId: {
+    color: "#64748b",
+    fontSize: "8px",
+    fontWeight: "900",
+    letterSpacing: "1px",
+  },
+
+  resultPercentage: {
+    marginTop: "3px",
+    color: "#172554",
+    fontSize: "19px",
+    fontWeight: "1000",
+  },
+
+  resultBottom: {
+    marginTop: "13px",
+    paddingTop: "11px",
+    borderTop:
+      "1px solid #e2e8f0",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "10px",
+  },
+
+  passBadge: {
+    background: "#dcfce7",
+    color: "#15803d",
+    padding: "5px 8px",
+    borderRadius: "7px",
+    fontSize: "8px",
+    fontWeight: "1000",
+  },
+
+  failBadge: {
+    background: "#fee2e2",
+    color: "#b91c1c",
+    padding: "5px 8px",
+    borderRadius: "7px",
+    fontSize: "8px",
+    fontWeight: "1000",
+  },
+
+  smallButton: {
+    border: "none",
+    background: "#eff6ff",
+    color: "#2563eb",
+    padding: "7px 9px",
+    borderRadius: "7px",
+    fontSize: "9px",
+    fontWeight: "1000",
+    cursor: "pointer",
+  },
+
+  footer: {
+    marginTop: "28px",
+    padding:
+      "17px 5px",
+    borderTop:
+      "1px solid #e2e8f0",
+    color: "#64748b",
+    fontSize: "10px",
+    fontWeight: "800",
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "10px",
+    flexWrap: "wrap",
+  },
+
+  loadingBox: {
+    minHeight: "80vh",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    textAlign: "center",
+  },
+
+  loadingSpinner: {
+    width: "36px",
+    height: "36px",
+    border:
+      "3px solid #dbeafe",
+    borderTop:
+      "3px solid #2563eb",
+    borderRadius: "50%",
+    animation:
+      "spin 1s linear infinite",
+  },
+
+  loadingTitle: {
+    margin: "15px 0 0",
+    color: "#172554",
+    fontSize: "18px",
+    fontWeight: "1000",
+  },
+
+  loadingText: {
+    margin: "5px 0 0",
+    color: "#64748b",
+    fontSize: "11px",
+    fontWeight: "600",
+  },
+
+  errorBox: {
+    maxWidth: "520px",
+    margin: "15vh auto 0",
+    background: "#ffffff",
+    border:
+      "1px solid #fecaca",
+    borderRadius: "20px",
+    padding: "28px",
+    textAlign: "center",
+    boxShadow:
+      "0 15px 40px rgba(15,23,42,0.08)",
+  },
+
+  errorIcon: {
+    width: "50px",
+    height: "50px",
+    margin: "0 auto",
+    borderRadius: "15px",
+    background: "#fee2e2",
+    color: "#b91c1c",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "15px",
+    fontWeight: "1000",
+  },
+
+  errorTitle: {
+    margin: "13px 0 0",
+    color: "#172554",
+    fontSize: "21px",
+    fontWeight: "1000",
+  },
+
+  errorText: {
+    margin: "7px 0 0",
+    color: "#64748b",
+    fontSize: "11px",
+    lineHeight: 1.6,
+    fontWeight: "600",
+  },
+
+  primaryButton: {
+    marginTop: "17px",
+    border: "none",
+    background: "#2563eb",
+    color: "#ffffff",
+    padding: "10px 16px",
+    borderRadius: "9px",
+    fontSize: "11px",
+    fontWeight: "1000",
+    cursor: "pointer",
+  },
+};     align-items: flex-start;
           }
 
           .top-actions {
