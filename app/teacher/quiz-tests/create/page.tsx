@@ -1,3 +1,4 @@
+```tsx
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
@@ -199,6 +200,24 @@ export default function CreateQuizPage() {
       )
     );
 
+    /*
+     * scheduled_time is NOT NULL in quiz_tests.
+     *
+     * Scheduled mode:
+     *   Save the teacher-selected time.
+     *
+     * Any Time mode:
+     *   Save 05:00:00 as the database fallback because
+     *   Any Time quizzes are available from 5:00 AM to 9:00 PM.
+     *
+     * The access_mode column remains the actual source of truth
+     * for determining whether the quiz is scheduled or Any Time.
+     */
+    const scheduledTimeForDatabase =
+      accessMode === "scheduled"
+        ? time
+        : "05:00:00";
+
     const { data, error } = await supabase
       .from("quiz_tests")
       .insert({
@@ -212,8 +231,7 @@ export default function CreateQuizPage() {
         subject,
 
         scheduled_date: date,
-        scheduled_time:
-          accessMode === "scheduled" ? time : null,
+        scheduled_time: scheduledTimeForDatabase,
 
         access_mode: accessMode,
 
@@ -636,3 +654,4 @@ export default function CreateQuizPage() {
     </main>
   );
 }
+```
