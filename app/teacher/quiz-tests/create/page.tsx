@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
 
-const SUBJECTS = [
+const SUBJECTS: string[] = [
   "Hindi",
   "English",
   "Mathematics",
@@ -14,26 +14,69 @@ const SUBJECTS = [
   "Others",
 ];
 
+const CLASS_ORDER: Record<string, number> = {
+  NURSERY: 0,
+  LKG: 0,
+  UKG: 0,
+  "1ST": 1,
+  "2ND": 2,
+  "3RD": 3,
+  "4TH": 4,
+  "5TH": 5,
+  "6TH": 6,
+  "7TH": 7,
+  "8TH": 8,
+  "9TH": 9,
+  "10TH": 10,
+  "11TH": 11,
+  "12TH": 12,
+};
+
+type StudentClassRow = {
+  class_name: string | null;
+};
+
+type QuizInsertData = {
+  title: string;
+  description: string | null;
+  class_name: string | null;
+  target_classes: string[];
+  subject: string;
+  scheduled_date: string;
+  scheduled_time: string;
+  duration_minutes: number;
+  marks_per_question: number;
+  negative_marks: number;
+  pass_percentage: number;
+  is_published: boolean;
+  created_by: number | null;
+};
+
 export default function CreateQuizPage() {
   const router = useRouter();
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
-  const [marks, setMarks] = useState("1");
-  const [negative, setNegative] = useState("0");
-  const [passPercentage, setPassPercentage] = useState("40");
+  const [title, setTitle] = useState<string>("");
+  const [description, setDescription] = useState<string>("");
+  const [date, setDate] = useState<string>("");
+  const [time, setTime] = useState<string>("");
+  const [marks, setMarks] = useState<string>("1");
+  const [negative, setNegative] = useState<string>("0");
+  const [passPercentage, setPassPercentage] =
+    useState<string>("40");
 
-  const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
-  const [subject, setSubject] = useState("");
+  const [selectedClasses, setSelectedClasses] =
+    useState<string[]>([]);
+  const [subject, setSubject] = useState<string>("");
 
   const [classes, setClasses] = useState<string[]>([]);
-  const [loadingClasses, setLoadingClasses] = useState(true);
+  const [loadingClasses, setLoadingClasses] =
+    useState<boolean>(true);
 
-  const [teacherId, setTeacherId] = useState<number | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
+  const [teacherId, setTeacherId] =
+    useState<number | null>(null);
+
+  const [saving, setSaving] = useState<boolean>(false);
+  const [message, setMessage] = useState<string>("");
 
   useEffect(() => {
     const rawId =
@@ -49,7 +92,7 @@ export default function CreateQuizPage() {
   }, []);
 
   useEffect(() => {
-    async function loadClasses() {
+    async function loadClasses(): Promise<void> {
       setLoadingClasses(true);
       setMessage("");
 
@@ -65,9 +108,11 @@ export default function CreateQuizPage() {
         return;
       }
 
-      const uniqueClasses = Array.from(
+      const rows = (data ?? []) as StudentClassRow[];
+
+      const uniqueClasses: string[] = Array.from(
         new Set(
-          (data || [])
+          rows
             .map((student) =>
               typeof student.class_name === "string"
                 ? student.class_name.trim().toUpperCase()
@@ -77,27 +122,9 @@ export default function CreateQuizPage() {
         )
       );
 
-      const classOrder: Record<string, number> = {
-        NURSERY: 0,
-        LKG: 0,
-        UKG: 0,
-        "1ST": 1,
-        "2ND": 2,
-        "3RD": 3,
-        "4TH": 4,
-        "5TH": 5,
-        "6TH": 6,
-        "7TH": 7,
-        "8TH": 8,
-        "9TH": 9,
-        "10TH": 10,
-        "11TH": 11,
-        "12TH": 12,
-      };
-
       uniqueClasses.sort((a, b) => {
-        const orderA = classOrder[a] ?? 999;
-        const orderB = classOrder[b] ?? 999;
+        const orderA = CLASS_ORDER[a] ?? 999;
+        const orderB = CLASS_ORDER[b] ?? 999;
 
         if (orderA !== orderB) {
           return orderA - orderB;
@@ -110,11 +137,11 @@ export default function CreateQuizPage() {
       setLoadingClasses(false);
     }
 
-    loadClasses();
+    void loadClasses();
   }, []);
 
-  function toggleClass(className: string) {
-    setSelectedClasses((current) => {
+  function toggleClass(className: string): void {
+    setSelectedClasses((current: string[]) => {
       if (current.includes(className)) {
         return current.filter((item) => item !== className);
       }
@@ -123,15 +150,17 @@ export default function CreateQuizPage() {
     });
   }
 
-  function selectAllClasses() {
+  function selectAllClasses(): void {
     setSelectedClasses(classes);
   }
 
-  function clearAllClasses() {
+  function clearAllClasses(): void {
     setSelectedClasses([]);
   }
 
-  async function createQuiz(e: FormEvent) {
+  async function createQuiz(
+    e: FormEvent<HTMLFormElement>
+  ): Promise<void> {
     e.preventDefault();
     setMessage("");
 
@@ -166,7 +195,10 @@ export default function CreateQuizPage() {
       return;
     }
 
-    if (!Number.isFinite(negativeNumber) || negativeNumber < 0) {
+    if (
+      !Number.isFinite(negativeNumber) ||
+      negativeNumber < 0
+    ) {
       setMessage("Negative marks cannot be negative.");
       return;
     }
@@ -176,13 +208,15 @@ export default function CreateQuizPage() {
       passNumber < 0 ||
       passNumber > 100
     ) {
-      setMessage("Pass percentage must be between 0 and 100.");
+      setMessage(
+        "Pass percentage must be between 0 and 100."
+      );
       return;
     }
 
     setSaving(true);
 
-    const normalizedClasses = Array.from(
+    const normalizedClasses: string[] = Array.from(
       new Set(
         selectedClasses
           .map((item) => item.trim().toUpperCase())
@@ -190,30 +224,32 @@ export default function CreateQuizPage() {
       )
     );
 
+    const quizData: QuizInsertData = {
+      title: cleanTitle,
+      description: description.trim() || null,
+
+      class_name: normalizedClasses[0] || null,
+      target_classes: normalizedClasses,
+
+      subject,
+
+      scheduled_date: date,
+      scheduled_time: time,
+
+      duration_minutes: 30,
+
+      marks_per_question: marksNumber,
+      negative_marks: negativeNumber,
+      pass_percentage: passNumber,
+
+      is_published: false,
+
+      created_by: teacherId,
+    };
+
     const { data, error } = await supabase
       .from("quiz_tests")
-      .insert({
-        title: cleanTitle,
-        description: description.trim() || null,
-
-        class_name: normalizedClasses[0] || null,
-        target_classes: normalizedClasses,
-
-        subject,
-
-        scheduled_date: date,
-        scheduled_time: time,
-
-        duration_minutes: 30,
-
-        marks_per_question: marksNumber,
-        negative_marks: negativeNumber,
-        pass_percentage: passNumber,
-
-        is_published: false,
-
-        created_by: teacherId,
-      })
+      .insert(quizData)
       .select("id")
       .single();
 
@@ -280,7 +316,10 @@ export default function CreateQuizPage() {
                     <button
                       type="button"
                       onClick={selectAllClasses}
-                      disabled={loadingClasses || classes.length === 0}
+                      disabled={
+                        loadingClasses ||
+                        classes.length === 0
+                      }
                       className="rounded-lg bg-indigo-500/15 px-3 py-2 text-xs font-bold text-indigo-300 hover:bg-indigo-500/25 disabled:opacity-50"
                     >
                       Select All
