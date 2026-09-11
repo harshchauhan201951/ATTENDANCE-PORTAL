@@ -1,4 +1,3 @@
-```tsx
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
@@ -65,7 +64,7 @@ export default function CreateQuizPage() {
 
       if (error) {
         console.error("Class loading error:", error);
-        setMessage(`Unable to load classes: ${error.message}`);
+        setMessage("Unable to load classes: " + error.message);
         setLoadingClasses(false);
         return;
       }
@@ -204,14 +203,13 @@ export default function CreateQuizPage() {
      * scheduled_time is NOT NULL in quiz_tests.
      *
      * Scheduled mode:
-     *   Save the teacher-selected time.
+     * Save the teacher-selected time.
      *
      * Any Time mode:
-     *   Save 05:00:00 as the database fallback because
-     *   Any Time quizzes are available from 5:00 AM to 9:00 PM.
+     * Save 05:00:00 as the database fallback.
      *
-     * The access_mode column remains the actual source of truth
-     * for determining whether the quiz is scheduled or Any Time.
+     * access_mode remains the actual source of truth
+     * for scheduled vs Any Time behavior.
      */
     const scheduledTimeForDatabase =
       accessMode === "scheduled"
@@ -257,7 +255,7 @@ export default function CreateQuizPage() {
     }
 
     router.push(
-      `/teacher/quiz-tests/questions?quizId=${data.id}`
+      "/teacher/quiz-tests/questions?quizId=" + data.id
     );
   }
 
@@ -654,4 +652,3 @@ export default function CreateQuizPage() {
     </main>
   );
 }
-```
