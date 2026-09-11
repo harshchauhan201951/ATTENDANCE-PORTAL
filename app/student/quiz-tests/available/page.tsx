@@ -77,6 +77,9 @@ function quizBelongsToStudent(
           .filter(Boolean)
       : [];
 
+  /*
+   * Multiple selected classes
+   */
   if (
     targetClasses.length > 0
   ) {
@@ -85,6 +88,9 @@ function quizBelongsToStudent(
     );
   }
 
+  /*
+   * Existing single-class behavior
+   */
   return (
     normalizeClass(
       quiz.class_name
@@ -93,55 +99,166 @@ function quizBelongsToStudent(
   );
 }
 
-function getStartTime(
-  quiz: Quiz
-) {
-  return new Date(
-    `${quiz.scheduled_date}T${quiz.scheduled_time.slice(
-      0,
-      8
-    )}`
+/*
+ * ---------------------------------------------------------
+ * INDIA / IST DATE-TIME HELPERS
+ * ---------------------------------------------------------
+ *
+ * Quiz start window is based on IST:
+ *
+ * 05:00 AM IST
+ * to
+ * 09:00 PM IST
+ *
+ * This avoids depending on the student's computer
+ * timezone.
+ */
+
+function getISTDateTime() {
+  const parts = new Intl.DateTimeFormat(
+    "en-CA",
+    {
+      timeZone:
+        "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    }
+  ).formatToParts(
+    new Date()
   );
+
+  const values: Record<
+    string,
+    string
+  > = {};
+
+  for (const part of parts) {
+    if (
+      part.type !== "literal"
+    ) {
+      values[part.type] =
+        part.value;
+    }
+  }
+
+  return {
+    date: `${values.year}-${values.month}-${values.day}`,
+    hour: Number(
+      values.hour
+    ),
+    minute: Number(
+      values.minute
+    ),
+    second: Number(
+      values.second
+    ),
+  };
 }
 
+/*
+ * Returns the quiz status based ONLY on:
+ *
+ * scheduled date
+ * 05:00 AM
+ * 09:00 PM
+ *
+ * Teacher's scheduled_time does not control
+ * whether the student can start.
+ */
 function getQuizStatus(
   quiz: Quiz
 ) {
-  const start =
-    getStartTime(quiz);
+  const now =
+    getISTDateTime();
 
-  const end = new Date(
-    start.getTime() +
-      Number(
-        quiz.duration_minutes
-      ) *
-        60 *
-        1000
-  );
+  const scheduledDate =
+    String(
+      quiz.scheduled_date
+    ).trim();
 
-  const now = new Date();
-
-  if (now < start) {
+  /*
+   * Future date
+   */
+  if (
+    scheduledDate >
+    now.date
+  ) {
     return "UPCOMING";
   }
 
-  if (now >= end) {
+  /*
+   * Previous date
+   */
+  if (
+    scheduledDate <
+    now.date
+  ) {
     return "ENDED";
   }
 
+  /*
+   * Same scheduled date.
+   *
+   * Convert current IST time to
+   * minutes since midnight.
+   */
+  const currentMinutes =
+    now.hour * 60 +
+    now.minute;
+
+  const startMinutes =
+    5 * 60;
+
+  const endMinutes =
+    21 * 60;
+
+  /*
+   * Before 05:00 AM
+   */
+  if (
+    currentMinutes <
+    startMinutes
+  ) {
+    return "UPCOMING";
+  }
+
+  /*
+   * 09:00 PM or later
+   */
+  if (
+    currentMinutes >=
+    endMinutes
+  ) {
+    return "ENDED";
+  }
+
+  /*
+   * 05:00 AM to 08:59 PM
+   */
   return "LIVE";
 }
 
 function formatDate(
   value: string
 ) {
+  /*
+   * Add noon so the displayed date does
+   * not shift because of timezone conversion.
+   */
   const date = new Date(
-    `${value}T00:00:00`
+    `${value}T12:00:00+05:30`
   );
 
   return date.toLocaleDateString(
     "en-IN",
     {
+      timeZone:
+        "Asia/Kolkata",
       day: "2-digit",
       month: "short",
       year: "numeric",
@@ -152,10 +269,14 @@ function formatDate(
 function formatTime(
   value: string
 ) {
-  const [hour, minute] =
+  const [
+    hour,
+    minute,
+  ] =
     value.split(":");
 
-  const date = new Date();
+  const date =
+    new Date();
 
   date.setHours(
     Number(hour),
@@ -178,8 +299,12 @@ export default function StudentAvailableQuizzesPage() {
   const router =
     useRouter();
 
-  const [quizzes, setQuizzes] =
-    useState<Quiz[]>([]);
+  const [
+    quizzes,
+    setQuizzes,
+  ] = useState<Quiz[]>(
+    []
+  );
 
   const [
     attemptedQuizIds,
@@ -193,17 +318,28 @@ export default function StudentAvailableQuizzesPage() {
     setStudentClass,
   ] = useState("");
 
-  const [loading, setLoading] =
-    useState(true);
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
 
-  const [error, setError] =
-    useState("");
+  const [
+    error,
+    setError,
+  ] = useState("");
 
   useEffect(() => {
     async function load() {
       try {
-        let studentId: number | null =
-          null;
+        let studentId:
+          | number
+          | null = null;
+
+        /*
+         * -----------------------------------------------------
+         * FIND STUDENT ID
+         * -----------------------------------------------------
+         */
 
         const storedIdKeys = [
           "attendance_student_id",
@@ -211,16 +347,22 @@ export default function StudentAvailableQuizzesPage() {
           "student_id",
         ];
 
-        for (const key of storedIdKeys) {
+        for (
+          const key of
+            storedIdKeys
+        ) {
           const raw =
             localStorage.getItem(
               key
             );
 
-          const id = Number(raw);
+          const id =
+            Number(raw);
 
           if (
-            Number.isInteger(id) &&
+            Number.isInteger(
+              id
+            ) &&
             id > 0
           ) {
             studentId = id;
@@ -236,39 +378,61 @@ export default function StudentAvailableQuizzesPage() {
         let student:
           | {
               id: number;
-              class_name: string | null;
+              class_name:
+                | string
+                | null;
             }
           | null = null;
+
+        /*
+         * -----------------------------------------------------
+         * LOAD BY USERNAME
+         * -----------------------------------------------------
+         */
 
         if (username) {
           const {
             data,
             error:
               usernameError,
-          } = await supabase
-            .from("students")
-            .select(
-              "id,class_name"
-            )
-            .eq(
-              "student_username",
-              username
-            )
-            .maybeSingle();
+          } =
+            await supabase
+              .from(
+                "students"
+              )
+              .select(
+                "id,class_name"
+              )
+              .eq(
+                "student_username",
+                username
+              )
+              .maybeSingle();
 
-          if (usernameError) {
+          if (
+            usernameError
+          ) {
             throw new Error(
               usernameError.message
             );
           }
 
           if (data) {
-            student = data;
-            studentId = Number(
-              data.id
-            );
+            student =
+              data;
+
+            studentId =
+              Number(
+                data.id
+              );
           }
         }
+
+        /*
+         * -----------------------------------------------------
+         * FALLBACK: LOAD BY STUDENT ID
+         * -----------------------------------------------------
+         */
 
         if (
           !student &&
@@ -278,24 +442,30 @@ export default function StudentAvailableQuizzesPage() {
             data,
             error:
               studentError,
-          } = await supabase
-            .from("students")
-            .select(
-              "id,class_name"
-            )
-            .eq(
-              "id",
-              studentId
-            )
-            .maybeSingle();
+          } =
+            await supabase
+              .from(
+                "students"
+              )
+              .select(
+                "id,class_name"
+              )
+              .eq(
+                "id",
+                studentId
+              )
+              .maybeSingle();
 
-          if (studentError) {
+          if (
+            studentError
+          ) {
             throw new Error(
               studentError.message
             );
           }
 
-          student = data;
+          student =
+            data;
         }
 
         if (!student) {
@@ -305,37 +475,62 @@ export default function StudentAvailableQuizzesPage() {
         }
 
         setStudentClass(
-          student.class_name || ""
+          student.class_name ||
+            ""
         );
+
+        /*
+         * -----------------------------------------------------
+         * LOAD ONLY PUBLISHED QUIZZES
+         * -----------------------------------------------------
+         */
 
         const {
           data: quizData,
           error: quizError,
-        } = await supabase
-          .from("quiz_tests")
-          .select("*")
-          .eq(
-            "is_published",
-            true
-          )
-          .order(
-            "scheduled_date",
-            {
-              ascending: true,
-            }
-          )
-          .order(
-            "scheduled_time",
-            {
-              ascending: true,
-            }
-          );
+        } =
+          await supabase
+            .from(
+              "quiz_tests"
+            )
+            .select("*")
+            .eq(
+              "is_published",
+              true
+            )
+            .order(
+              "scheduled_date",
+              {
+                ascending:
+                  true,
+              }
+            )
+            .order(
+              "scheduled_time",
+              {
+                ascending:
+                  true,
+              }
+            );
 
-        if (quizError) {
+        if (
+          quizError
+        ) {
           throw new Error(
             quizError.message
           );
         }
+
+        /*
+         * -----------------------------------------------------
+         * FILTER BY STUDENT CLASS
+         * -----------------------------------------------------
+         *
+         * Supports:
+         * - class_name
+         * - target_classes
+         * - multiple target classes
+         */
 
         const matchingQuizzes =
           (
@@ -354,22 +549,33 @@ export default function StudentAvailableQuizzesPage() {
           matchingQuizzes
         );
 
+        /*
+         * -----------------------------------------------------
+         * LOAD STUDENT ATTEMPTS
+         * -----------------------------------------------------
+         */
+
         if (studentId) {
           const {
             data: results,
             error:
               resultsError,
-          } = await supabase
-            .from("quiz_results")
-            .select(
-              "quiz_id"
-            )
-            .eq(
-              "student_id",
-              studentId
-            );
+          } =
+            await supabase
+              .from(
+                "quiz_results"
+              )
+              .select(
+                "quiz_id"
+              )
+              .eq(
+                "student_id",
+                studentId
+              );
 
-          if (resultsError) {
+          if (
+            resultsError
+          ) {
             throw new Error(
               resultsError.message
             );
@@ -389,7 +595,9 @@ export default function StudentAvailableQuizzesPage() {
             )
           );
         }
-      } catch (loadError) {
+      } catch (
+        loadError
+      ) {
         console.error(
           loadError
         );
@@ -401,18 +609,27 @@ export default function StudentAvailableQuizzesPage() {
             : "Unable to load quizzes."
         );
       } finally {
-        setLoading(false);
+        setLoading(
+          false
+        );
       }
     }
 
     load();
   }, []);
 
+  /*
+   * ---------------------------------------------------------
+   * LOADING
+   * ---------------------------------------------------------
+   */
+
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
         <div className="text-center">
           <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-indigo-500" />
+
           <p className="font-black">
             Loading Quizzes...
           </p>
@@ -420,6 +637,12 @@ export default function StudentAvailableQuizzesPage() {
       </main>
     );
   }
+
+  /*
+   * ---------------------------------------------------------
+   * ERROR
+   * ---------------------------------------------------------
+   */
 
   if (error) {
     return (
@@ -448,6 +671,12 @@ export default function StudentAvailableQuizzesPage() {
       </main>
     );
   }
+
+  /*
+   * ---------------------------------------------------------
+   * MAIN UI
+   * ---------------------------------------------------------
+   */
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
@@ -565,6 +794,7 @@ export default function StudentAvailableQuizzesPage() {
                           <p className="text-slate-500">
                             DATE
                           </p>
+
                           <p className="mt-1 font-black">
                             {formatDate(
                               quiz.scheduled_date
@@ -576,6 +806,7 @@ export default function StudentAvailableQuizzesPage() {
                           <p className="text-slate-500">
                             TIME
                           </p>
+
                           <p className="mt-1 font-black">
                             {formatTime(
                               quiz.scheduled_time
@@ -587,6 +818,7 @@ export default function StudentAvailableQuizzesPage() {
                           <p className="text-slate-500">
                             DURATION
                           </p>
+
                           <p className="mt-1 font-black">
                             {
                               quiz.duration_minutes
@@ -599,6 +831,7 @@ export default function StudentAvailableQuizzesPage() {
                           <p className="text-slate-500">
                             PASS
                           </p>
+
                           <p className="mt-1 font-black">
                             {
                               quiz.pass_percentage
@@ -610,6 +843,10 @@ export default function StudentAvailableQuizzesPage() {
 
                       <div className="mt-5">
                         {attempted ? (
+                          /*
+                           * Already attempted:
+                           * no second attempt.
+                           */
                           <button
                             type="button"
                             onClick={() =>
@@ -623,6 +860,9 @@ export default function StudentAvailableQuizzesPage() {
                           </button>
                         ) : status ===
                           "LIVE" ? (
+                          /*
+                           * 05:00 AM to before 09:00 PM
+                           */
                           <button
                             type="button"
                             onClick={() =>
@@ -637,11 +877,14 @@ export default function StudentAvailableQuizzesPage() {
                         ) : status ===
                           "UPCOMING" ? (
                           <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-center text-xs font-bold text-amber-300">
-                            Quiz is not live yet.
+                            {quiz.scheduled_date ===
+                            getISTDateTime().date
+                              ? "Quiz can be started from 5:00 AM today."
+                              : "Quiz is not available yet."}
                           </div>
                         ) : (
                           <div className="rounded-xl bg-red-500/10 px-4 py-3 text-center text-xs font-bold text-red-300">
-                            Quiz time has ended.
+                            Quiz starting time has ended for today.
                           </div>
                         )}
                       </div>
