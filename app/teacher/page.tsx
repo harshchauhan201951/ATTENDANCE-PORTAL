@@ -3,115 +3,24 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type MenuItem = {
-  number: string;
-  title: string;
-  description: string;
-  icon: string;
-  path: string;
-};
-
 export default function TeacherDashboard() {
   const router = useRouter();
 
-  const [teacherName, setTeacherName] = useState("Teacher");
-  const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [loggingOut, setLoggingOut] = useState(false);
+  const [teacherName, setTeacherName] =
+    useState("Teacher");
+
+  const [loggingOut, setLoggingOut] =
+    useState(false);
 
   useEffect(() => {
-    try {
-      const savedProfileUsername =
-        localStorage.getItem("teacherProfileUsername");
+    const savedTeacherName =
+      localStorage.getItem("teacherName") ||
+      localStorage.getItem("teacher_name") ||
+      localStorage.getItem("teacherUsername") ||
+      localStorage.getItem("teacher_username") ||
+      "Teacher";
 
-      const savedTeacherName =
-        localStorage.getItem("teacherName") ||
-        localStorage.getItem("teacher_name") ||
-        localStorage.getItem("teacherUsername") ||
-        localStorage.getItem("teacher_username") ||
-        "Teacher";
-
-      const finalTeacherName =
-        savedProfileUsername?.trim() ||
-        savedTeacherName ||
-        "Teacher";
-
-      setTeacherName(finalTeacherName);
-
-      const savedImage =
-        localStorage.getItem("teacherProfileImage");
-
-      if (savedImage) {
-        setProfileImage(savedImage);
-      }
-
-      const handleStorageChange = (event: StorageEvent) => {
-        if (event.key === "teacherProfileUsername") {
-          setTeacherName(
-            event.newValue?.trim() ||
-              savedTeacherName ||
-              "Teacher"
-          );
-        }
-
-        if (event.key === "teacherProfileImage") {
-          setProfileImage(event.newValue || null);
-        }
-      };
-
-      window.addEventListener(
-        "storage",
-        handleStorageChange
-      );
-
-      const handleVisibilityChange = () => {
-        if (document.visibilityState !== "visible") {
-          return;
-        }
-
-        const latestUsername =
-          localStorage.getItem(
-            "teacherProfileUsername"
-          );
-
-        const latestImage =
-          localStorage.getItem(
-            "teacherProfileImage"
-          );
-
-        setTeacherName(
-          latestUsername?.trim() ||
-            localStorage.getItem("teacherName") ||
-            localStorage.getItem("teacher_name") ||
-            localStorage.getItem("teacherUsername") ||
-            localStorage.getItem(
-              "teacher_username"
-            ) ||
-            "Teacher"
-        );
-
-        setProfileImage(latestImage || null);
-      };
-
-      document.addEventListener(
-        "visibilitychange",
-        handleVisibilityChange
-      );
-
-      return () => {
-        window.removeEventListener(
-          "storage",
-          handleStorageChange
-        );
-
-        document.removeEventListener(
-          "visibilitychange",
-          handleVisibilityChange
-        );
-      };
-    } catch {
-      setTeacherName("Teacher");
-      setProfileImage(null);
-    }
+    setTeacherName(savedTeacherName);
   }, []);
 
   async function handleLogout() {
@@ -141,14 +50,6 @@ export default function TeacherDashboard() {
       "student_name",
     ];
 
-    /*
-     * IMPORTANT:
-     * Do not remove teacherProfileUsername
-     * or teacherProfileImage here.
-     *
-     * These are profile settings and should remain
-     * saved on this browser even after logout.
-     */
     authKeys.forEach((key) => {
       localStorage.removeItem(key);
     });
@@ -157,66 +58,65 @@ export default function TeacherDashboard() {
       sessionStorage.removeItem(key);
     });
 
-    await new Promise((resolve) => {
-      setTimeout(resolve, 100);
-    });
+    await new Promise((resolve) =>
+      setTimeout(resolve, 100)
+    );
 
     router.replace("/");
     router.refresh();
   }
 
-  const menuItems: MenuItem[] = [
+  const menuItems = [
     {
-      number: "01",
       title: "Mark Attendance",
-      description: "Mark today's student attendance",
-      icon: "✓",
+      description:
+        "Mark today's student attendance",
+      icon: "📝",
       path: "/teacher/attendance",
     },
     {
-      number: "02",
       title: "Attendance History",
-      description: "Check previous attendance records",
-      icon: "◷",
+      description:
+        "Check previous attendance records",
+      icon: "📊",
       path: "/teacher/attendance-history",
     },
     {
-      number: "03",
       title: "Calendar",
-      description: "View academic and attendance calendar",
-      icon: "▣",
+      description:
+        "View academic and attendance calendar",
+      icon: "📅",
       path: "/teacher/calendar",
     },
     {
-      number: "04",
       title: "Reports",
-      description: "View attendance reports",
-      icon: "↗",
+      description:
+        "View attendance reports",
+      icon: "📈",
       path: "/teacher/reports",
     },
     {
-      number: "05",
       title: "Fees",
-      description: "Manage student fee information",
-      icon: "₹",
+      description:
+        "Manage student fee information",
+      icon: "💰",
       path: "/teacher/fees",
     },
     {
-      number: "06",
-      title: "Extra Classes",
-      description: "Create and manage extra class attendance",
-      icon: "⭐",
-      path: "/teacher/extra-class",
+      title: "Payments",
+      description:
+        "Manage cash and online fee payments",
+      icon: "💳",
+      path: "/teacher/payments",
     },
     {
-      number: "07",
       title: "Homework",
-      description: "Create and manage student homework",
+      description:
+        "Create and manage student homework",
       icon: "📚",
       path: "/teacher/homework",
     },
     {
-      number: "08",
       title: "Announcements",
       description:
         "Create and manage announcements for all students",
@@ -224,7 +124,13 @@ export default function TeacherDashboard() {
       path: "/teacher/announcements",
     },
     {
-      number: "09",
+      title: "Student Login Activity",
+      description:
+        "Track when every student logs into the portal",
+      icon: "🔐",
+      path: "/teacher/login-activity",
+    },
+    {
       title: "Profile",
       description:
         "Manage your teacher profile and picture",
@@ -232,25 +138,15 @@ export default function TeacherDashboard() {
       path: "/teacher/profile",
     },
     {
-      number: "10",
       title: "Settings",
       description:
-        "Manage teacher account settings",
-      icon: "⚙",
+        "Manage your teacher account settings",
+      icon: "⚙️",
       path: "/teacher/settings",
-    },
-    {
-      number: "11",
-      title: "Student Login Activity",
-      description:
-        "Track when every student logs into the portal",
-      icon: "🔐",
-      path: "/teacher/login-activity",
     },
 
     // OPTION 12 — EXISTING, UNCHANGED
     {
-      number: "12",
       title: "Student Directory",
       description:
         "View and export complete student details",
@@ -258,9 +154,8 @@ export default function TeacherDashboard() {
       path: "/teacher/student-directory",
     },
 
-    // OPTION 13 — EXISTING, UNCHANGED
+    // OPTION 13
     {
-      number: "13",
       title: "Voice & Call",
       description:
         "Send voice announcements and make automated calls",
@@ -268,14 +163,22 @@ export default function TeacherDashboard() {
       path: "/teacher/voice-call",
     },
 
-    // OPTION 14 — QUIZ TESTS
+    // OPTION 14
     {
-      number: "14",
       title: "QUIZ TESTS",
       description:
         "Create, schedule, publish and manage student quizzes",
       icon: "🧠",
       path: "/teacher/quiz-tests",
+    },
+
+    // OPTION 15
+    {
+      title: "Teacher Management",
+      description:
+        "Add, view and remove teachers from the academy",
+      icon: "👨‍🏫",
+      path: "/teacher/teachers",
     },
   ];
 
@@ -286,8 +189,9 @@ export default function TeacherDashboard() {
         background:
           "linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #f8fafc 100%)",
         padding: "24px",
+        fontFamily:
+          "Arial, Helvetica, sans-serif",
         boxSizing: "border-box",
-        fontFamily: "Arial, Helvetica, sans-serif",
       }}
     >
       <div
@@ -301,112 +205,51 @@ export default function TeacherDashboard() {
         <header
           style={{
             background: "#ffffff",
-            borderRadius: "22px",
-            padding: "28px",
-            marginBottom: "28px",
+            borderRadius: "20px",
+            padding: "24px",
+            marginBottom: "24px",
             boxShadow:
-              "0 10px 35px rgba(15,23,42,0.08)",
+              "0 8px 30px rgba(0,0,0,0.08)",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            gap: "20px",
+            gap: "16px",
             flexWrap: "wrap",
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "16px",
-              minWidth: 0,
-            }}
-          >
-            {/* PROFILE PHOTO */}
-
+          <div>
             <div
               style={{
-                width: "72px",
-                height: "72px",
-                minWidth: "72px",
-                borderRadius: "50%",
-                overflow: "hidden",
-                background:
-                  "linear-gradient(135deg,#dbeafe,#e0e7ff)",
-                border:
-                  "3px solid rgba(79,70,229,0.16)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow:
-                  "0 8px 20px rgba(37,99,235,0.12)",
+                fontSize: "14px",
+                color: "#64748b",
+                marginBottom: "6px",
               }}
             >
-              {profileImage ? (
-                <img
-                  src={profileImage}
-                  alt="Teacher profile"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                  }}
-                />
-              ) : (
-                <span
-                  style={{
-                    color: "#4f46e5",
-                    fontSize: "25px",
-                    fontWeight: 900,
-                  }}
-                >
-                  {teacherName
-                    .charAt(0)
-                    .toUpperCase()}
-                </span>
-              )}
+              Teacher Control Center
             </div>
 
-            <div style={{ minWidth: 0 }}>
-              <div
-                style={{
-                  display: "inline-block",
-                  background: "#eef2ff",
-                  color: "#4f46e5",
-                  padding: "7px 12px",
-                  borderRadius: "999px",
-                  fontSize: "11px",
-                  fontWeight: 900,
-                  letterSpacing: "1px",
-                  marginBottom: "10px",
-                }}
-              >
-                TEACHER PORTAL
-              </div>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: "30px",
+                fontWeight: 800,
+                color: "#0f172a",
+              }}
+            >
+              Welcome, {teacherName} 👋
+            </h1>
 
-              <h1
-                style={{
-                  margin: 0,
-                  color: "#0f172a",
-                  fontSize: "30px",
-                  fontWeight: 900,
-                  overflowWrap: "anywhere",
-                }}
-              >
-                Welcome, {teacherName} 👋
-              </h1>
-
-              <p
-                style={{
-                  margin: "8px 0 0",
-                  color: "#64748b",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                }}
-              >
-                Manage attendance, homework, students,
-                fees and more.
-              </p>
-            </div>
+            <p
+              style={{
+                margin: "8px 0 0",
+                color: "#64748b",
+                fontSize: "15px",
+              }}
+            >
+              Manage attendance,
+              homework, students, fees
+              and more.
+            </p>
           </div>
 
           <button
@@ -415,20 +258,20 @@ export default function TeacherDashboard() {
             disabled={loggingOut}
             style={{
               border: "none",
-              background:
-                loggingOut
-                  ? "#94a3b8"
-                  : "#ef4444",
+              background: loggingOut
+                ? "#9ca3af"
+                : "#ef4444",
               color: "#ffffff",
               padding: "12px 20px",
               borderRadius: "12px",
-              fontWeight: 800,
+              fontWeight: 700,
+              cursor: loggingOut
+                ? "not-allowed"
+                : "pointer",
               fontSize: "14px",
-              cursor:
-                loggingOut
-                  ? "not-allowed"
-                  : "pointer",
-              minWidth: "115px",
+              minWidth: "110px",
+              transition:
+                "all 0.2s ease",
             }}
           >
             {loggingOut
@@ -437,43 +280,31 @@ export default function TeacherDashboard() {
           </button>
         </header>
 
-        {/* TITLE */}
+        {/* DASHBOARD TITLE */}
 
         <section
           style={{
-            marginBottom: "20px",
+            marginBottom: "18px",
           }}
         >
           <h2
             style={{
               margin: 0,
               color: "#0f172a",
-              fontSize: "24px",
-              fontWeight: 900,
+              fontSize: "22px",
+              fontWeight: 800,
             }}
           >
-            YOUR WORKSPACE
+            Teacher Dashboard
           </h2>
 
           <p
             style={{
-              margin: "7px 0 0",
+              margin: "6px 0 0",
               color: "#64748b",
-              fontSize: "14px",
-              fontWeight: 600,
             }}
           >
-            Choose a module
-          </p>
-
-          <p
-            style={{
-              margin: "3px 0 0",
-              color: "#94a3b8",
-              fontSize: "13px",
-            }}
-          >
-            Select an option to continue
+            Select an option to continue.
           </p>
         </section>
 
@@ -483,183 +314,137 @@ export default function TeacherDashboard() {
           style={{
             display: "grid",
             gridTemplateColumns:
-              "repeat(auto-fit, minmax(250px, 1fr))",
+              "repeat(auto-fit, minmax(240px, 1fr))",
             gap: "18px",
           }}
         >
-          {menuItems.map((item) => {
-            const isHomework =
-              item.title === "Homework";
+          {menuItems.map(
+            (item, index) => {
+              const isTeacherManagement =
+                item.title ===
+                "Teacher Management";
 
-            const isAnnouncements =
-              item.title === "Announcements";
+              const isQuiz =
+                item.title === "QUIZ TESTS";
 
-            const isLoginActivity =
-              item.title === "Student Login Activity";
+              const isVoice =
+                item.title === "Voice & Call";
 
-            const isStudentDirectory =
-              item.title === "Student Directory";
+              return (
+                <button
+                  type="button"
+                  key={item.path}
+                  onClick={() =>
+                    router.push(item.path)
+                  }
+                  style={{
+                    border: "none",
+                    background: "#ffffff",
+                    borderRadius: "18px",
+                    padding: "24px",
+                    textAlign: "left",
+                    cursor: "pointer",
+                    boxShadow:
+                      "0 6px 22px rgba(0,0,0,0.07)",
+                    transition:
+                      "transform 0.2s ease, box-shadow 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform =
+                      "translateY(-4px)";
 
-            const isExtraClasses =
-              item.title === "Extra Classes";
+                    e.currentTarget.style.boxShadow =
+                      "0 12px 30px rgba(0,0,0,0.12)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform =
+                      "translateY(0)";
 
-            const isVoiceCall =
-              item.title === "Voice & Call";
-
-            const isQuizTests =
-              item.title === "QUIZ TESTS";
-
-            const iconBackground =
-              isHomework
-                ? "linear-gradient(135deg,#ede9fe,#ddd6fe)"
-                : isAnnouncements
-                ? "linear-gradient(135deg,#fef3c7,#fde68a)"
-                : isLoginActivity
-                ? "linear-gradient(135deg,#dcfce7,#bbf7d0)"
-                : isStudentDirectory
-                ? "linear-gradient(135deg,#dbeafe,#bfdbfe)"
-                : isExtraClasses
-                ? "linear-gradient(135deg,#fce7f3,#fbcfe8)"
-                : isVoiceCall
-                ? "linear-gradient(135deg,#cffafe,#a5f3fc)"
-                : isQuizTests
-                ? "linear-gradient(135deg,#fef9c3,#fde68a)"
-                : "#eef2ff";
-
-            const iconColor =
-              isHomework
-                ? "#7c3aed"
-                : isAnnouncements
-                ? "#d97706"
-                : isLoginActivity
-                ? "#16a34a"
-                : isStudentDirectory
-                ? "#2563eb"
-                : isExtraClasses
-                ? "#db2777"
-                : isVoiceCall
-                ? "#0891b2"
-                : isQuizTests
-                ? "#ca8a04"
-                : "#4f46e5";
-
-            return (
-              <button
-                key={item.path}
-                type="button"
-                onClick={() =>
-                  router.push(item.path)
-                }
-                style={{
-                  border: "none",
-                  background: "#ffffff",
-                  borderRadius: "20px",
-                  padding: "24px",
-                  textAlign: "left",
-                  cursor: "pointer",
-                  boxShadow:
-                    "0 8px 28px rgba(15,23,42,0.07)",
-                  transition:
-                    "transform 0.2s ease, box-shadow 0.2s ease",
-                  minHeight: "220px",
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
-                }}
-                onMouseEnter={(event) => {
-                  event.currentTarget.style.transform =
-                    "translateY(-5px)";
-
-                  event.currentTarget.style.boxShadow =
-                    "0 16px 35px rgba(15,23,42,0.13)";
-                }}
-                onMouseLeave={(event) => {
-                  event.currentTarget.style.transform =
-                    "translateY(0)";
-
-                  event.currentTarget.style.boxShadow =
-                    "0 8px 28px rgba(15,23,42,0.07)";
-                }}
-              >
-                <div>
-                  {/* NUMBER */}
-
+                    e.currentTarget.style.boxShadow =
+                      "0 6px 22px rgba(0,0,0,0.07)";
+                  }}
+                >
                   <div
                     style={{
-                      color: "#94a3b8",
-                      fontSize: "11px",
-                      fontWeight: 900,
-                      letterSpacing: "1px",
+                      display: "flex",
+                      justifyContent:
+                        "space-between",
+                      alignItems: "center",
                       marginBottom: "14px",
                     }}
                   >
-                    {item.number}
+                    <div
+                      style={{
+                        fontSize: "36px",
+                      }}
+                    >
+                      {item.icon}
+                    </div>
+
+                    <div
+                      style={{
+                        fontSize: "12px",
+                        fontWeight: 900,
+                        color:
+                          isTeacherManagement
+                            ? "#4338ca"
+                            : isQuiz
+                            ? "#ca8a04"
+                            : isVoice
+                            ? "#0891b2"
+                            : "#94a3b8",
+                      }}
+                    >
+                      {String(index + 1).padStart(
+                        2,
+                        "0"
+                      )}
+                    </div>
                   </div>
-
-                  {/* ICON */}
-
-                  <div
-                    style={{
-                      width: "52px",
-                      height: "52px",
-                      borderRadius: "15px",
-                      background: iconBackground,
-                      color: iconColor,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "24px",
-                      fontWeight: 900,
-                      marginBottom: "17px",
-                    }}
-                  >
-                    {item.icon}
-                  </div>
-
-                  {/* TITLE */}
 
                   <h3
                     style={{
                       margin: "0 0 8px",
-                      color: "#172554",
+                      color: "#0f172a",
                       fontSize: "19px",
-                      fontWeight: 900,
+                      fontWeight: 800,
                     }}
                   >
                     {item.title}
                   </h3>
 
-                  {/* DESCRIPTION */}
-
                   <p
                     style={{
                       margin: 0,
                       color: "#64748b",
-                      fontSize: "13px",
+                      fontSize: "14px",
                       lineHeight: 1.5,
-                      fontWeight: 600,
                     }}
                   >
                     {item.description}
                   </p>
-                </div>
 
-                {/* OPEN MODULE */}
-
-                <div
-                  style={{
-                    marginTop: "18px",
-                    color: iconColor,
-                    fontSize: "12px",
-                    fontWeight: 900,
-                    letterSpacing: "0.5px",
-                  }}
-                >
-                  OPEN MODULE →
-                </div>
-              </button>
-            );
-          })}
+                  <div
+                    style={{
+                      marginTop: "18px",
+                      color:
+                        isTeacherManagement
+                          ? "#4338ca"
+                          : isQuiz
+                          ? "#ca8a04"
+                          : isVoice
+                          ? "#0891b2"
+                          : "#4f46e5",
+                      fontWeight: 700,
+                      fontSize: "14px",
+                    }}
+                  >
+                    Open Module →
+                  </div>
+                </button>
+              );
+            }
+          )}
         </section>
 
         {/* FOOTER */}
@@ -667,14 +452,13 @@ export default function TeacherDashboard() {
         <footer
           style={{
             textAlign: "center",
-            marginTop: "35px",
-            padding: "20px",
+            marginTop: "32px",
             color: "#94a3b8",
-            fontSize: "12px",
-            fontWeight: 700,
+            fontSize: "13px",
           }}
         >
-          Attendance Portal • Teacher Dashboard • 2026
+          Attendance Portal •
+          Teacher Dashboard • 2026
         </footer>
       </div>
     </main>
