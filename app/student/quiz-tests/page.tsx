@@ -101,20 +101,12 @@ export default function StudentQuizTestsPage() {
           .filter(Boolean)
       : [];
 
-    /*
-     * NEW QUIZZES:
-     * target_classes is the main source of truth.
-     */
     if (targetClasses.length > 0) {
       return targetClasses.includes(
         normalizedStudentClass
       );
     }
 
-    /*
-     * OLD QUIZZES:
-     * If target_classes is empty, use class_name.
-     */
     return (
       normalizeClass(
         quiz.class_name
@@ -155,10 +147,6 @@ export default function StudentQuizTestsPage() {
         ) ||
         "";
 
-      /*
-       * First try username because it is
-       * the most reliable student login identifier.
-       */
       if (username) {
         const { data, error } =
           await supabase
@@ -197,9 +185,6 @@ export default function StudentQuizTestsPage() {
         }
       }
 
-      /*
-       * Fallback to stored student ID.
-       */
       if (
         currentStudentId === null &&
         storedId
@@ -258,12 +243,6 @@ export default function StudentQuizTestsPage() {
         return;
       }
 
-      /*
-       * Load published quizzes.
-       *
-       * target_classes is included so the dashboard
-       * can filter quizzes according to student class.
-       */
       const {
         data: quizData,
         error: quizError,
@@ -317,24 +296,6 @@ export default function StudentQuizTestsPage() {
         return;
       }
 
-      /*
-       * IMPORTANT:
-       * Only quizzes matching the student's class
-       * are kept.
-       *
-       * Example:
-       * Student class = 5
-       *
-       * target_classes = ["5", "6"]
-       * -> SHOW
-       *
-       * target_classes = ["7", "8"]
-       * -> HIDE
-       *
-       * Legacy quiz with target_classes empty:
-       * class_name = "5"
-       * -> SHOW
-       */
       const actualStudentClass =
         actualStudent.class_name ||
         "";
@@ -353,9 +314,6 @@ export default function StudentQuizTestsPage() {
         filteredQuizzes
       );
 
-      /*
-       * Load student's results.
-       */
       const {
         data: resultData,
         error: resultError,
@@ -521,14 +479,6 @@ export default function StudentQuizTestsPage() {
         ) === "UPCOMING"
     );
 
-  /*
-   * AVAILABLE = only quizzes that are:
-   * 1. For this student's class
-   * 2. Currently live OR upcoming
-   *
-   * The class filtering has already happened
-   * while creating `quizzes`.
-   */
   const availableQuizzes =
     quizzes.filter(
       (quiz) => {
@@ -668,11 +618,13 @@ export default function StudentQuizTestsPage() {
   return (
     <main
       style={styles.page}
+      className="student-quiz-page"
     >
       <div
         style={
           styles.container
         }
+        className="student-quiz-container"
       >
         {/* HEADER */}
 
@@ -680,8 +632,11 @@ export default function StudentQuizTestsPage() {
           style={
             styles.header
           }
+          className="quiz-dashboard-header"
         >
-          <div>
+          <div
+            className="quiz-header-content"
+          >
             <div
               style={
                 styles.headerEyebrow
@@ -716,6 +671,7 @@ export default function StudentQuizTestsPage() {
             style={
               styles.classBadge
             }
+            className="quiz-class-badge"
           >
             <div
               style={
@@ -741,6 +697,7 @@ export default function StudentQuizTestsPage() {
           style={
             styles.statsGrid
           }
+          className="quiz-stats-grid"
         >
           <StatCard
             icon="Q"
@@ -789,6 +746,7 @@ export default function StudentQuizTestsPage() {
           style={
             styles.quickGrid
           }
+          className="quiz-quick-grid"
         >
           <button
             type="button"
@@ -800,6 +758,7 @@ export default function StudentQuizTestsPage() {
             style={
               styles.quickCard
             }
+            className="quiz-quick-card"
           >
             <div
               style={
@@ -809,7 +768,9 @@ export default function StudentQuizTestsPage() {
               GO
             </div>
 
-            <div>
+            <div
+              className="quiz-quick-content"
+            >
               <h2
                 style={
                   styles.quickTitle
@@ -846,6 +807,7 @@ export default function StudentQuizTestsPage() {
             style={
               styles.quickCard
             }
+            className="quiz-quick-card"
           >
             <div
               style={
@@ -855,7 +817,9 @@ export default function StudentQuizTestsPage() {
               H
             </div>
 
-            <div>
+            <div
+              className="quiz-quick-content"
+            >
               <h2
                 style={
                   styles.quickTitle
@@ -892,6 +856,7 @@ export default function StudentQuizTestsPage() {
             style={
               styles.quickCard
             }
+            className="quiz-quick-card"
           >
             <div
               style={
@@ -901,7 +866,9 @@ export default function StudentQuizTestsPage() {
               R
             </div>
 
-            <div>
+            <div
+              className="quiz-quick-content"
+            >
               <h2
                 style={
                   styles.quickTitle
@@ -935,13 +902,17 @@ export default function StudentQuizTestsPage() {
           style={
             styles.section
           }
+          className="quiz-section"
         >
           <div
             style={
               styles.sectionHeader
             }
+            className="quiz-section-header"
           >
-            <div>
+            <div
+              className="quiz-section-heading"
+            >
               <div
                 style={
                   styles.sectionEyebrow
@@ -963,6 +934,7 @@ export default function StudentQuizTestsPage() {
               style={
                 styles.countBadge
               }
+              className="quiz-count-badge"
             >
               {liveQuizzes.length}
             </div>
@@ -974,6 +946,7 @@ export default function StudentQuizTestsPage() {
               style={
                 styles.emptyBox
               }
+              className="quiz-empty-box"
             >
               <div
                 style={
@@ -983,7 +956,9 @@ export default function StudentQuizTestsPage() {
                 Q
               </div>
 
-              <div>
+              <div
+                className="quiz-empty-content"
+              >
                 <h3
                   style={
                     styles.emptyTitle
@@ -1006,6 +981,7 @@ export default function StudentQuizTestsPage() {
               style={
                 styles.quizGrid
               }
+              className="quiz-grid"
             >
               {liveQuizzes.map(
                 (quiz) => (
@@ -1042,13 +1018,17 @@ export default function StudentQuizTestsPage() {
           style={
             styles.section
           }
+          className="quiz-section"
         >
           <div
             style={
               styles.sectionHeader
             }
+            className="quiz-section-header"
           >
-            <div>
+            <div
+              className="quiz-section-heading"
+            >
               <div
                 style={
                   styles.sectionEyebrow
@@ -1076,6 +1056,7 @@ export default function StudentQuizTestsPage() {
               style={
                 styles.viewAllButton
               }
+              className="quiz-view-all-button"
             >
               View All →
             </button>
@@ -1087,6 +1068,7 @@ export default function StudentQuizTestsPage() {
               style={
                 styles.emptyBox
               }
+              className="quiz-empty-box"
             >
               <div
                 style={
@@ -1096,7 +1078,9 @@ export default function StudentQuizTestsPage() {
                 C
               </div>
 
-              <div>
+              <div
+                className="quiz-empty-content"
+              >
                 <h3
                   style={
                     styles.emptyTitle
@@ -1119,6 +1103,7 @@ export default function StudentQuizTestsPage() {
               style={
                 styles.quizGrid
               }
+              className="quiz-grid"
             >
               {upcomingQuizzes
                 .slice(0, 4)
@@ -1157,13 +1142,17 @@ export default function StudentQuizTestsPage() {
           style={
             styles.section
           }
+          className="quiz-section"
         >
           <div
             style={
               styles.sectionHeader
             }
+            className="quiz-section-header"
           >
-            <div>
+            <div
+              className="quiz-section-heading"
+            >
               <div
                 style={
                   styles.sectionEyebrow
@@ -1191,6 +1180,7 @@ export default function StudentQuizTestsPage() {
               style={
                 styles.viewAllButton
               }
+              className="quiz-view-all-button"
             >
               View All →
             </button>
@@ -1202,6 +1192,7 @@ export default function StudentQuizTestsPage() {
               style={
                 styles.emptyBox
               }
+              className="quiz-empty-box"
             >
               <div
                 style={
@@ -1211,7 +1202,9 @@ export default function StudentQuizTestsPage() {
                 Q
               </div>
 
-              <div>
+              <div
+                className="quiz-empty-content"
+              >
                 <h3
                   style={
                     styles.emptyTitle
@@ -1234,6 +1227,7 @@ export default function StudentQuizTestsPage() {
               style={
                 styles.quizGrid
               }
+              className="quiz-grid"
             >
               {availableQuizzes
                 .slice(0, 6)
@@ -1274,13 +1268,17 @@ export default function StudentQuizTestsPage() {
           style={
             styles.section
           }
+          className="quiz-section"
         >
           <div
             style={
               styles.sectionHeader
             }
+            className="quiz-section-header"
           >
-            <div>
+            <div
+              className="quiz-section-heading"
+            >
               <div
                 style={
                   styles.sectionEyebrow
@@ -1308,6 +1306,7 @@ export default function StudentQuizTestsPage() {
               style={
                 styles.viewAllButton
               }
+              className="quiz-view-all-button"
             >
               All Results →
             </button>
@@ -1319,6 +1318,7 @@ export default function StudentQuizTestsPage() {
               style={
                 styles.emptyBox
               }
+              className="quiz-empty-box"
             >
               <div
                 style={
@@ -1328,7 +1328,9 @@ export default function StudentQuizTestsPage() {
                 R
               </div>
 
-              <div>
+              <div
+                className="quiz-empty-content"
+              >
                 <h3
                   style={
                     styles.emptyTitle
@@ -1351,6 +1353,7 @@ export default function StudentQuizTestsPage() {
               style={
                 styles.resultGrid
               }
+              className="quiz-result-grid"
             >
               {results
                 .slice(0, 4)
@@ -1364,6 +1367,7 @@ export default function StudentQuizTestsPage() {
                       style={
                         styles.resultCard
                       }
+                      className="quiz-result-card"
                     >
                       <div
                         style={
@@ -1455,14 +1459,561 @@ export default function StudentQuizTestsPage() {
           style={
             styles.footer
           }
+          className="quiz-footer"
         >
-          RACER ACADEMY • Student Quiz Center
+          <span>
+            RACER ACADEMY • Student Quiz Center
+          </span>
 
           <span>
             Quiz duration is fixed at 30 minutes.
           </span>
         </footer>
       </div>
+
+      <style jsx global>{`
+        *,
+        *::before,
+        *::after {
+          box-sizing: border-box;
+        }
+
+        html,
+        body {
+          width: 100%;
+          max-width: 100%;
+          margin: 0;
+          padding: 0;
+          overflow-x: hidden !important;
+        }
+
+        body {
+          min-width: 0 !important;
+        }
+
+        button {
+          max-width: 100%;
+        }
+
+        .student-quiz-page {
+          width: 100% !important;
+          max-width: 100% !important;
+          min-width: 0 !important;
+          overflow-x: hidden !important;
+        }
+
+        .student-quiz-container {
+          width: 100% !important;
+          max-width: 1250px !important;
+          min-width: 0 !important;
+        }
+
+        .quiz-dashboard-header,
+        .quiz-section,
+        .quiz-stats-grid,
+        .quiz-quick-grid,
+        .quiz-grid,
+        .quiz-result-grid {
+          min-width: 0 !important;
+          max-width: 100% !important;
+        }
+
+        .quiz-header-content,
+        .quiz-section-heading,
+        .quiz-quick-content,
+        .quiz-empty-content {
+          min-width: 0 !important;
+          max-width: 100% !important;
+        }
+
+        .quiz-dashboard-header h1,
+        .quiz-dashboard-header p,
+        .quiz-section h2,
+        .quiz-section h3,
+        .quiz-section p,
+        .quiz-quick-card h2,
+        .quiz-quick-card p {
+          max-width: 100%;
+          overflow-wrap: anywhere;
+          word-break: break-word;
+        }
+
+        .quiz-quick-card {
+          min-width: 0 !important;
+          max-width: 100% !important;
+        }
+
+        .quiz-quick-card > div {
+          min-width: 0;
+          max-width: 100%;
+        }
+
+        .quiz-quick-card .quiz-quick-content {
+          flex: 1 1 auto;
+        }
+
+        .quiz-quick-card .quiz-quick-content h2,
+        .quiz-quick-card .quiz-quick-content p {
+          overflow-wrap: anywhere;
+          word-break: break-word;
+        }
+
+        .quiz-grid > *,
+        .quiz-result-grid > *,
+        .quiz-stats-grid > * {
+          min-width: 0 !important;
+          max-width: 100% !important;
+        }
+
+        .quiz-grid .quiz-card-inner,
+        .quiz-grid > div {
+          min-width: 0;
+          max-width: 100%;
+        }
+
+        @media (max-width: 900px) {
+          .student-quiz-page {
+            padding: 14px !important;
+          }
+
+          .quiz-dashboard-header {
+            padding: 22px !important;
+            border-radius: 20px !important;
+            align-items: stretch !important;
+          }
+
+          .quiz-header-content {
+            width: 100% !important;
+            flex: 1 1 100% !important;
+          }
+
+          .quiz-class-badge {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+          }
+
+          .quiz-stats-grid {
+            grid-template-columns:
+              repeat(2, minmax(0, 1fr)) !important;
+            gap: 10px !important;
+          }
+
+          .quiz-stats-grid > * {
+            width: 100% !important;
+          }
+
+          .quiz-quick-grid {
+            grid-template-columns:
+              1fr !important;
+            gap: 10px !important;
+          }
+
+          .quiz-quick-card {
+            width: 100% !important;
+          }
+
+          .quiz-grid {
+            grid-template-columns:
+              repeat(2, minmax(0, 1fr)) !important;
+            gap: 12px !important;
+          }
+
+          .quiz-result-grid {
+            grid-template-columns:
+              repeat(2, minmax(0, 1fr)) !important;
+          }
+
+          .quiz-section-header {
+            min-width: 0 !important;
+          }
+
+          .quiz-section-title,
+          .quiz-section-header h2 {
+            min-width: 0 !important;
+            overflow-wrap: anywhere !important;
+          }
+
+          .quiz-title,
+          .quiz-description,
+          .quiz-meta {
+            min-width: 0 !important;
+            max-width: 100% !important;
+            overflow-wrap: anywhere !important;
+            word-break: break-word !important;
+          }
+        }
+
+        @media (max-width: 600px) {
+          .student-quiz-page {
+            padding: 10px !important;
+          }
+
+          .student-quiz-container {
+            width: 100% !important;
+            max-width: 100% !important;
+          }
+
+          .quiz-dashboard-header {
+            padding: 18px !important;
+            margin-bottom: 14px !important;
+            gap: 14px !important;
+            border-radius: 18px !important;
+          }
+
+          .quiz-dashboard-header .quiz-header-content {
+            width: 100% !important;
+          }
+
+          .quiz-dashboard-header h1 {
+            font-size: 25px !important;
+            line-height: 1.15 !important;
+          }
+
+          .quiz-dashboard-header p {
+            font-size: 11px !important;
+            line-height: 1.55 !important;
+          }
+
+          .quiz-class-badge {
+            width: 100% !important;
+            padding: 12px 14px !important;
+            border-radius: 13px !important;
+          }
+
+          .quiz-class-badge .quiz-class-badge-value {
+            font-size: 17px !important;
+          }
+
+          .quiz-stats-grid {
+            grid-template-columns:
+              repeat(2, minmax(0, 1fr)) !important;
+            gap: 8px !important;
+            margin-bottom: 14px !important;
+          }
+
+          .quiz-stats-grid > * {
+            padding: 11px !important;
+            gap: 8px !important;
+            border-radius: 13px !important;
+            min-width: 0 !important;
+          }
+
+          .quiz-stats-grid > * > div:first-child {
+            width: 34px !important;
+            height: 34px !important;
+            min-width: 34px !important;
+            border-radius: 9px !important;
+            font-size: 11px !important;
+          }
+
+          .quiz-stats-grid > * > div:last-child {
+            min-width: 0 !important;
+            flex: 1 1 auto !important;
+          }
+
+          .quiz-stats-grid > * > div:last-child > div:first-child {
+            font-size: 8px !important;
+            line-height: 1.25 !important;
+            overflow-wrap: anywhere !important;
+          }
+
+          .quiz-stats-grid > * > div:last-child > div:last-child {
+            font-size: 17px !important;
+          }
+
+          .quiz-quick-grid {
+            grid-template-columns:
+              1fr !important;
+            gap: 8px !important;
+            margin-bottom: 18px !important;
+          }
+
+          .quiz-quick-card {
+            width: 100% !important;
+            padding: 12px !important;
+            gap: 10px !important;
+            border-radius: 14px !important;
+          }
+
+          .quiz-quick-card .quiz-quick-content {
+            min-width: 0 !important;
+            flex: 1 1 auto !important;
+          }
+
+          .quiz-quick-card .quiz-quick-content h2 {
+            font-size: 13px !important;
+            line-height: 1.25 !important;
+          }
+
+          .quiz-quick-card .quiz-quick-content p {
+            font-size: 9px !important;
+            line-height: 1.4 !important;
+          }
+
+          .quiz-quick-card > div:first-child {
+            width: 37px !important;
+            height: 37px !important;
+            min-width: 37px !important;
+            border-radius: 10px !important;
+          }
+
+          .quiz-quick-card > span:last-child {
+            flex: 0 0 auto !important;
+            margin-left: auto !important;
+            font-size: 16px !important;
+          }
+
+          .quiz-section {
+            width: 100% !important;
+            margin-bottom: 19px !important;
+          }
+
+          .quiz-section-header {
+            width: 100% !important;
+            align-items: flex-start !important;
+            gap: 9px !important;
+            margin-bottom: 10px !important;
+          }
+
+          .quiz-section-heading {
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+          }
+
+          .quiz-section-heading h2 {
+            font-size: 18px !important;
+            line-height: 1.25 !important;
+          }
+
+          .quiz-section-heading > div:first-child {
+            font-size: 8px !important;
+            letter-spacing: 1.5px !important;
+          }
+
+          .quiz-count-badge {
+            flex: 0 0 auto !important;
+            padding: 6px 9px !important;
+            font-size: 9px !important;
+          }
+
+          .quiz-view-all-button {
+            flex: 0 0 auto !important;
+            max-width: 100px !important;
+            font-size: 9px !important;
+            white-space: normal !important;
+            text-align: right !important;
+          }
+
+          .quiz-grid {
+            width: 100% !important;
+            grid-template-columns:
+              1fr !important;
+            gap: 10px !important;
+          }
+
+          .quiz-grid > div {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+          }
+
+          .quiz-result-grid {
+            width: 100% !important;
+            grid-template-columns:
+              1fr !important;
+            gap: 9px !important;
+          }
+
+          .quiz-result-card {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            padding: 13px !important;
+          }
+
+          .quiz-empty-box {
+            width: 100% !important;
+            min-width: 0 !important;
+            padding: 15px !important;
+            gap: 10px !important;
+            align-items: flex-start !important;
+          }
+
+          .quiz-empty-box > div:first-child {
+            flex: 0 0 auto !important;
+          }
+
+          .quiz-empty-content {
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+          }
+
+          .quiz-empty-content h3 {
+            font-size: 13px !important;
+          }
+
+          .quiz-empty-content p {
+            font-size: 9px !important;
+            line-height: 1.5 !important;
+          }
+
+          .quiz-footer {
+            width: 100% !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            text-align: center !important;
+            line-height: 1.5 !important;
+          }
+        }
+
+        @media (max-width: 430px) {
+          .student-quiz-page {
+            padding: 8px !important;
+          }
+
+          .quiz-dashboard-header {
+            padding: 15px !important;
+            border-radius: 16px !important;
+          }
+
+          .quiz-dashboard-header h1 {
+            font-size: 22px !important;
+          }
+
+          .quiz-dashboard-header p {
+            font-size: 10px !important;
+          }
+
+          .quiz-stats-grid {
+            grid-template-columns:
+              repeat(2, minmax(0, 1fr)) !important;
+            gap: 7px !important;
+          }
+
+          .quiz-stats-grid > * {
+            padding: 9px !important;
+            gap: 7px !important;
+          }
+
+          .quiz-stats-grid > * > div:first-child {
+            width: 30px !important;
+            height: 30px !important;
+            min-width: 30px !important;
+            font-size: 10px !important;
+          }
+
+          .quiz-stats-grid > * > div:last-child > div:first-child {
+            font-size: 7px !important;
+          }
+
+          .quiz-stats-grid > * > div:last-child > div:last-child {
+            font-size: 15px !important;
+          }
+
+          .quiz-section-heading h2 {
+            font-size: 17px !important;
+          }
+
+          .quiz-grid {
+            grid-template-columns:
+              1fr !important;
+          }
+
+          .quiz-result-grid {
+            grid-template-columns:
+              1fr !important;
+          }
+        }
+
+        @media (max-width: 375px) {
+          .student-quiz-page {
+            padding: 6px !important;
+          }
+
+          .quiz-dashboard-header {
+            padding: 13px !important;
+          }
+
+          .quiz-dashboard-header h1 {
+            font-size: 20px !important;
+          }
+
+          .quiz-stats-grid {
+            gap: 6px !important;
+          }
+
+          .quiz-stats-grid > * {
+            padding: 8px !important;
+            gap: 6px !important;
+          }
+
+          .quiz-stats-grid > * > div:first-child {
+            width: 28px !important;
+            height: 28px !important;
+            min-width: 28px !important;
+            font-size: 9px !important;
+          }
+
+          .quiz-stats-grid > * > div:last-child > div:first-child {
+            font-size: 6.8px !important;
+          }
+
+          .quiz-stats-grid > * > div:last-child > div:last-child {
+            font-size: 14px !important;
+          }
+
+          .quiz-quick-card {
+            padding: 10px !important;
+          }
+
+          .quiz-quick-card .quiz-quick-content h2 {
+            font-size: 12px !important;
+          }
+
+          .quiz-quick-card .quiz-quick-content p {
+            font-size: 8px !important;
+          }
+
+          .quiz-section-heading h2 {
+            font-size: 16px !important;
+          }
+        }
+
+        @media (max-width: 360px) {
+          .student-quiz-page {
+            padding: 5px !important;
+          }
+
+          .quiz-stats-grid {
+            gap: 5px !important;
+          }
+
+          .quiz-stats-grid > * {
+            padding: 7px !important;
+          }
+
+          .quiz-stats-grid > * > div:first-child {
+            width: 26px !important;
+            height: 26px !important;
+            min-width: 26px !important;
+          }
+
+          .quiz-dashboard-header h1 {
+            font-size: 19px !important;
+          }
+
+          .quiz-section-heading h2 {
+            font-size: 15px !important;
+          }
+
+          .quiz-view-all-button {
+            max-width: 85px !important;
+            font-size: 8px !important;
+          }
+        }
+      `}</style>
     </main>
   );
 }
@@ -1490,7 +2041,12 @@ function StatCard({
         {icon}
       </div>
 
-      <div>
+      <div
+        style={{
+          minWidth: 0,
+          flex: 1,
+        }}
+      >
         <div
           style={
             styles.statLabel
@@ -1534,6 +2090,7 @@ function QuizCard({
       style={
         styles.quizCard
       }
+      className="quiz-card-inner"
     >
       <div
         style={
@@ -1716,6 +2273,8 @@ const styles: Record<
 > = {
   page: {
     minHeight: "100vh",
+    width: "100%",
+    maxWidth: "100%",
     background:
       "linear-gradient(135deg,#f8fafc 0%,#eef2ff 50%,#f0f9ff 100%)",
     padding: "18px",
@@ -1723,12 +2282,14 @@ const styles: Record<
     fontFamily:
       "Arial, Helvetica, sans-serif",
     color: "#0f172a",
+    overflowX: "hidden",
   },
 
   container: {
     width: "100%",
     maxWidth: "1250px",
     margin: "0 auto",
+    minWidth: 0,
   },
 
   header: {
@@ -1746,6 +2307,7 @@ const styles: Record<
     boxShadow:
       "0 18px 45px rgba(37,99,235,0.22)",
     flexWrap: "wrap",
+    minWidth: 0,
   },
 
   headerEyebrow: {
@@ -1760,6 +2322,7 @@ const styles: Record<
     margin: 0,
     fontSize: "30px",
     fontWeight: 1000,
+    overflowWrap: "anywhere",
   },
 
   headerSubtitle: {
@@ -1769,6 +2332,8 @@ const styles: Record<
     fontSize: "13px",
     lineHeight: 1.6,
     fontWeight: 600,
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
 
   classBadge: {
@@ -1779,6 +2344,8 @@ const styles: Record<
     borderRadius: "16px",
     padding: "14px 18px",
     minWidth: "150px",
+    maxWidth: "100%",
+    boxSizing: "border-box",
   },
 
   classBadgeSmall: {
@@ -1793,6 +2360,7 @@ const styles: Record<
     fontSize: "20px",
     fontWeight: 1000,
     color: "#ffffff",
+    overflowWrap: "anywhere",
   },
 
   statsGrid: {
@@ -1801,6 +2369,7 @@ const styles: Record<
       "repeat(5,minmax(0,1fr))",
     gap: "12px",
     marginBottom: "18px",
+    minWidth: 0,
   },
 
   statCard: {
@@ -1814,11 +2383,14 @@ const styles: Record<
     gap: "11px",
     boxShadow:
       "0 7px 22px rgba(15,23,42,0.05)",
+    minWidth: 0,
+    maxWidth: "100%",
   },
 
   statIcon: {
     width: "39px",
     height: "39px",
+    minWidth: "39px",
     borderRadius: "11px",
     background: "#eef2ff",
     color: "#2563eb",
@@ -1827,12 +2399,14 @@ const styles: Record<
     justifyContent: "center",
     fontSize: "13px",
     fontWeight: 1000,
+    flexShrink: 0,
   },
 
   statLabel: {
     color: "#64748b",
     fontSize: "9px",
     fontWeight: 900,
+    overflowWrap: "anywhere",
   },
 
   statValue: {
@@ -1848,6 +2422,7 @@ const styles: Record<
       "repeat(3,minmax(0,1fr))",
     gap: "13px",
     marginBottom: "24px",
+    minWidth: 0,
   },
 
   quickCard: {
@@ -1863,6 +2438,9 @@ const styles: Record<
     cursor: "pointer",
     boxShadow:
       "0 7px 22px rgba(15,23,42,0.05)",
+    minWidth: 0,
+    maxWidth: "100%",
+    boxSizing: "border-box",
   },
 
   quickIcon: {
@@ -1885,6 +2463,8 @@ const styles: Record<
     color: "#172554",
     fontSize: "14px",
     fontWeight: 1000,
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
 
   quickText: {
@@ -1892,6 +2472,8 @@ const styles: Record<
     color: "#64748b",
     fontSize: "10px",
     fontWeight: 600,
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
 
   quickArrow: {
@@ -1899,10 +2481,13 @@ const styles: Record<
     color: "#2563eb",
     fontSize: "18px",
     fontWeight: 1000,
+    flexShrink: 0,
   },
 
   section: {
     marginBottom: "24px",
+    minWidth: 0,
+    maxWidth: "100%",
   },
 
   sectionHeader: {
@@ -1912,6 +2497,7 @@ const styles: Record<
       "space-between",
     gap: "15px",
     marginBottom: "13px",
+    minWidth: 0,
   },
 
   sectionEyebrow: {
@@ -1927,6 +2513,8 @@ const styles: Record<
     color: "#172554",
     fontSize: "22px",
     fontWeight: 1000,
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
 
   countBadge: {
@@ -1936,6 +2524,7 @@ const styles: Record<
     borderRadius: "9px",
     fontSize: "10px",
     fontWeight: 1000,
+    flexShrink: 0,
   },
 
   viewAllButton: {
@@ -1945,6 +2534,8 @@ const styles: Record<
     fontSize: "11px",
     fontWeight: 1000,
     cursor: "pointer",
+    flexShrink: 0,
+    maxWidth: "100%",
   },
 
   quizGrid: {
@@ -1952,6 +2543,7 @@ const styles: Record<
     gridTemplateColumns:
       "repeat(2,minmax(0,1fr))",
     gap: "14px",
+    minWidth: 0,
   },
 
   quizCard: {
@@ -1962,6 +2554,10 @@ const styles: Record<
     padding: "17px",
     boxShadow:
       "0 7px 22px rgba(15,23,42,0.05)",
+    minWidth: 0,
+    maxWidth: "100%",
+    boxSizing: "border-box",
+    overflow: "hidden",
   },
 
   quizCardTop: {
@@ -1970,11 +2566,13 @@ const styles: Record<
     justifyContent:
       "space-between",
     gap: "10px",
+    minWidth: 0,
   },
 
   quizIcon: {
     width: "40px",
     height: "40px",
+    minWidth: "40px",
     borderRadius: "11px",
     background:
       "linear-gradient(135deg,#fef9c3,#fde68a)",
@@ -1984,6 +2582,7 @@ const styles: Record<
     justifyContent: "center",
     fontSize: "13px",
     fontWeight: 1000,
+    flexShrink: 0,
   },
 
   liveBadge: {
@@ -1995,6 +2594,9 @@ const styles: Record<
     padding: "6px 10px",
     fontSize: "9px",
     fontWeight: 1000,
+    flexShrink: 0,
+    maxWidth: "100%",
+    overflowWrap: "anywhere",
   },
 
   upcomingBadge: {
@@ -2006,6 +2608,9 @@ const styles: Record<
     padding: "6px 10px",
     fontSize: "9px",
     fontWeight: 1000,
+    flexShrink: 0,
+    maxWidth: "100%",
+    overflowWrap: "anywhere",
   },
 
   quizTitle: {
@@ -2014,6 +2619,8 @@ const styles: Record<
     fontSize: "18px",
     fontWeight: 1000,
     wordBreak: "break-word",
+    overflowWrap: "anywhere",
+    minWidth: 0,
   },
 
   quizDescription: {
@@ -2022,6 +2629,9 @@ const styles: Record<
     fontSize: "11px",
     lineHeight: 1.6,
     fontWeight: 600,
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
+    minWidth: 0,
   },
 
   quizMeta: {
@@ -2033,10 +2643,12 @@ const styles: Record<
     color: "#475569",
     fontSize: "9px",
     fontWeight: 700,
+    minWidth: 0,
   },
 
   startButton: {
     width: "100%",
+    maxWidth: "100%",
     marginTop: "15px",
     border: "none",
     background:
@@ -2047,10 +2659,12 @@ const styles: Record<
     fontSize: "11px",
     fontWeight: 1000,
     cursor: "pointer",
+    boxSizing: "border-box",
   },
 
   resultButton: {
     width: "100%",
+    maxWidth: "100%",
     marginTop: "15px",
     border:
       "1px solid #bbf7d0",
@@ -2061,10 +2675,12 @@ const styles: Record<
     fontSize: "11px",
     fontWeight: 1000,
     cursor: "pointer",
+    boxSizing: "border-box",
   },
 
   waitingButton: {
     width: "100%",
+    maxWidth: "100%",
     marginTop: "15px",
     boxSizing: "border-box",
     background: "#fffbeb",
@@ -2076,6 +2692,8 @@ const styles: Record<
     fontSize: "10px",
     fontWeight: 800,
     textAlign: "center",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
 
   resultMini: {
@@ -2084,6 +2702,7 @@ const styles: Record<
     fontSize: "9px",
     fontWeight: 700,
     textAlign: "center",
+    overflowWrap: "anywhere",
   },
 
   emptyBox: {
@@ -2095,11 +2714,14 @@ const styles: Record<
     display: "flex",
     alignItems: "center",
     gap: "13px",
+    minWidth: 0,
+    maxWidth: "100%",
   },
 
   emptyIcon: {
     width: "44px",
     height: "44px",
+    minWidth: "44px",
     borderRadius: "12px",
     background: "#eff6ff",
     color: "#2563eb",
@@ -2116,6 +2738,7 @@ const styles: Record<
     color: "#334155",
     fontSize: "14px",
     fontWeight: 1000,
+    overflowWrap: "anywhere",
   },
 
   emptyText: {
@@ -2124,6 +2747,8 @@ const styles: Record<
     fontSize: "10px",
     lineHeight: 1.5,
     fontWeight: 600,
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
 
   resultGrid: {
@@ -2131,6 +2756,7 @@ const styles: Record<
     gridTemplateColumns:
       "repeat(2,minmax(0,1fr))",
     gap: "12px",
+    minWidth: 0,
   },
 
   resultCard: {
@@ -2141,17 +2767,22 @@ const styles: Record<
     padding: "15px",
     boxShadow:
       "0 7px 22px rgba(15,23,42,0.05)",
+    minWidth: 0,
+    maxWidth: "100%",
+    boxSizing: "border-box",
   },
 
   resultTop: {
     display: "flex",
     alignItems: "center",
     gap: "11px",
+    minWidth: 0,
   },
 
   resultIcon: {
     width: "40px",
     height: "40px",
+    minWidth: "40px",
     borderRadius: "11px",
     background: "#eef2ff",
     color: "#4338ca",
@@ -2160,10 +2791,12 @@ const styles: Record<
     justifyContent: "center",
     fontSize: "12px",
     fontWeight: 1000,
+    flexShrink: 0,
   },
 
   resultInfo: {
     flex: 1,
+    minWidth: 0,
   },
 
   resultQuizId: {
@@ -2171,6 +2804,7 @@ const styles: Record<
     fontSize: "8px",
     fontWeight: 900,
     letterSpacing: "1px",
+    overflowWrap: "anywhere",
   },
 
   resultPercentage: {
@@ -2190,6 +2824,7 @@ const styles: Record<
     justifyContent:
       "space-between",
     gap: "10px",
+    minWidth: 0,
   },
 
   passBadge: {
@@ -2199,6 +2834,8 @@ const styles: Record<
     borderRadius: "7px",
     fontSize: "8px",
     fontWeight: 1000,
+    maxWidth: "100%",
+    overflowWrap: "anywhere",
   },
 
   failBadge: {
@@ -2208,6 +2845,8 @@ const styles: Record<
     borderRadius: "7px",
     fontSize: "8px",
     fontWeight: 1000,
+    maxWidth: "100%",
+    overflowWrap: "anywhere",
   },
 
   smallButton: {
@@ -2219,6 +2858,7 @@ const styles: Record<
     fontSize: "9px",
     fontWeight: 1000,
     cursor: "pointer",
+    flexShrink: 0,
   },
 
   footer: {
@@ -2235,6 +2875,8 @@ const styles: Record<
       "space-between",
     gap: "10px",
     flexWrap: "wrap",
+    minWidth: 0,
+    maxWidth: "100%",
   },
 
   loadingBox: {
@@ -2244,6 +2886,7 @@ const styles: Record<
     alignItems: "center",
     justifyContent: "center",
     textAlign: "center",
+    padding: "20px",
   },
 
   loadingSpinner: {
@@ -2263,6 +2906,7 @@ const styles: Record<
     color: "#172554",
     fontSize: "18px",
     fontWeight: 1000,
+    overflowWrap: "anywhere",
   },
 
   loadingText: {
@@ -2270,9 +2914,11 @@ const styles: Record<
     color: "#64748b",
     fontSize: "11px",
     fontWeight: 600,
+    overflowWrap: "anywhere",
   },
 
   errorBox: {
+    width: "100%",
     maxWidth: "520px",
     margin: "15vh auto 0",
     background: "#ffffff",
@@ -2283,6 +2929,7 @@ const styles: Record<
     textAlign: "center",
     boxShadow:
       "0 15px 40px rgba(15,23,42,0.08)",
+    boxSizing: "border-box",
   },
 
   errorIcon: {
@@ -2304,6 +2951,7 @@ const styles: Record<
     color: "#172554",
     fontSize: "21px",
     fontWeight: 1000,
+    overflowWrap: "anywhere",
   },
 
   errorText: {
@@ -2312,6 +2960,8 @@ const styles: Record<
     fontSize: "11px",
     lineHeight: 1.6,
     fontWeight: 600,
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
 
   primaryButton: {
@@ -2324,5 +2974,6 @@ const styles: Record<
     fontSize: "11px",
     fontWeight: 1000,
     cursor: "pointer",
+    maxWidth: "100%",
   },
 };

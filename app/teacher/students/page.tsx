@@ -634,9 +634,18 @@ export default function TeacherStudentsPage() {
   }
 
   return (
-    <main style={styles.page}>
-      <div style={styles.container}>
-        <header style={styles.header}>
+    <main
+      className="students-management-page"
+      style={styles.page}
+    >
+      <div
+        className="students-management-container"
+        style={styles.container}
+      >
+        <header
+          className="students-header"
+          style={styles.header}
+        >
           <div style={styles.headerLeft}>
             <div style={styles.iconBox}>
               👨‍🎓
@@ -653,7 +662,10 @@ export default function TeacherStudentsPage() {
             </div>
           </div>
 
-          <div style={styles.headerButtons}>
+          <div
+            className="students-header-buttons"
+            style={styles.headerButtons}
+          >
             <button
               type="button"
               onClick={() =>
@@ -719,7 +731,10 @@ export default function TeacherStudentsPage() {
         </section>
 
         <section style={styles.card}>
-          <div style={styles.cardHeader}>
+          <div
+            className="students-card-header"
+            style={styles.cardHeader}
+          >
             <div style={styles.cardIcon}>
               👥
             </div>
@@ -783,6 +798,7 @@ export default function TeacherStudentsPage() {
             </div>
           ) : (
             <div
+              className="students-table-wrapper"
               style={styles.tableWrapper}
             >
               <table style={styles.table}>
@@ -930,11 +946,15 @@ export default function TeacherStudentsPage() {
 
         {showAddStudent && (
           <div
+            className="students-modal-overlay"
             style={
               styles.modalOverlay
             }
           >
-            <div style={styles.modal}>
+            <div
+              className="students-modal"
+              style={styles.modal}
+            >
               <div
                 style={
                   styles.modalHeader
@@ -1850,11 +1870,15 @@ export default function TeacherStudentsPage() {
 
         {editingStudent && (
           <div
+            className="students-modal-overlay"
             style={
               styles.modalOverlay
             }
           >
-            <div style={styles.modal}>
+            <div
+              className="students-modal"
+              style={styles.modal}
+            >
               <div
                 style={
                   styles.modalHeader
@@ -2761,6 +2785,669 @@ export default function TeacherStudentsPage() {
           </span>
         </footer>
       </div>
+
+      <style jsx global>{`
+        html,
+        body {
+          width: 100%;
+          max-width: 100%;
+          margin: 0;
+          padding: 0;
+          overflow-x: hidden !important;
+        }
+
+        *,
+        *::before,
+        *::after {
+          box-sizing: border-box;
+        }
+
+        button,
+        input,
+        select,
+        textarea {
+          max-width: 100%;
+        }
+
+        .students-management-page {
+          width: 100% !important;
+          max-width: 100% !important;
+          min-width: 0 !important;
+          overflow-x: hidden !important;
+        }
+
+        .students-management-container {
+          width: 100% !important;
+          max-width: 1200px !important;
+          min-width: 0 !important;
+        }
+
+        .students-management-page h1,
+        .students-management-page h2,
+        .students-management-page h3,
+        .students-management-page p,
+        .students-management-page span,
+        .students-management-page label,
+        .students-management-page strong {
+          max-width: 100%;
+        }
+
+        .students-management-page
+          .students-header
+          > div:first-child {
+          min-width: 0;
+        }
+
+        .students-management-page
+          .students-header-buttons
+          button {
+          max-width: 100%;
+        }
+
+        .students-management-page
+          .students-card-header
+          > * {
+          min-width: 0;
+        }
+
+        .students-management-page
+          .formGrid
+          > * {
+          min-width: 0;
+        }
+
+        .students-management-page
+          .formSection {
+          overflow: hidden;
+        }
+
+        .students-management-page
+          input,
+        .students-management-page
+          select,
+        .students-management-page
+          textarea {
+          min-width: 0 !important;
+        }
+
+        .students-management-page
+          textarea,
+        .students-management-page
+          input[type="url"],
+        .students-management-page
+          input[type="email"] {
+          overflow-wrap: anywhere;
+        }
+
+        .students-management-page
+          .students-table-wrapper {
+          width: 100% !important;
+          max-width: 100% !important;
+          overflow-x: auto !important;
+          overflow-y: hidden !important;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .students-management-page
+          .students-modal-overlay {
+          overflow-x: hidden !important;
+          overflow-y: auto !important;
+        }
+
+        .students-management-page
+          .students-modal {
+          min-width: 0 !important;
+          width: 100% !important;
+        }
+
+        @media (max-width: 900px) {
+          .students-management-page {
+            padding: 14px !important;
+          }
+
+          .students-management-page
+            .students-header {
+            padding: 17px !important;
+            gap: 14px !important;
+          }
+
+          .students-management-page
+            .students-header
+            > div:first-child {
+            width: 100%;
+            flex: 1 1 100% !important;
+          }
+
+          .students-management-page
+            .students-header-buttons {
+            width: 100%;
+            display: grid !important;
+            grid-template-columns:
+              repeat(3, minmax(0, 1fr));
+            gap: 8px !important;
+          }
+
+          .students-management-page
+            .students-header-buttons
+            button {
+            width: 100%;
+            min-width: 0;
+            white-space: normal !important;
+            padding: 10px 8px !important;
+            line-height: 1.25;
+          }
+
+          .students-management-page
+            .summaryCard {
+            width: 100%;
+          }
+
+          .students-management-page
+            .card {
+            padding: 19px !important;
+          }
+
+          .students-management-page
+            .students-card-header {
+            align-items: flex-start !important;
+          }
+
+          .students-management-page
+            .students-card-header
+            > div:nth-child(2) {
+            flex: 1 1 250px !important;
+          }
+
+          .students-management-page
+            .students-card-header
+            button {
+            margin-left: auto;
+          }
+
+          .students-management-page
+            .formGrid {
+            grid-template-columns:
+              repeat(2, minmax(0, 1fr)) !important;
+          }
+
+          .students-management-page
+            .modalOverlay {
+            padding: 14px !important;
+          }
+
+          .students-management-page
+            .students-modal {
+            max-width: 700px !important;
+            max-height: 94vh !important;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .students-management-page {
+            padding: 10px !important;
+          }
+
+          .students-management-page
+            .students-header {
+            border-radius: 15px !important;
+            padding: 15px !important;
+            margin-bottom: 14px !important;
+          }
+
+          .students-management-page
+            .students-header
+            > div:first-child {
+            gap: 10px !important;
+          }
+
+          .students-management-page
+            .students-header
+            .iconBox {
+            width: 46px !important;
+            height: 46px !important;
+            min-width: 46px !important;
+            font-size: 23px !important;
+            border-radius: 12px !important;
+          }
+
+          .students-management-page
+            .students-header
+            h1 {
+            font-size: 21px !important;
+            line-height: 1.2 !important;
+          }
+
+          .students-management-page
+            .students-header
+            p {
+            font-size: 11px !important;
+          }
+
+          .students-management-page
+            .students-header-buttons {
+            grid-template-columns: 1fr !important;
+          }
+
+          .students-management-page
+            .students-header-buttons
+            button {
+            min-height: 42px;
+          }
+
+          .students-management-page
+            .summaryCard {
+            padding: 15px !important;
+            border-radius: 15px !important;
+            margin-bottom: 14px !important;
+          }
+
+          .students-management-page
+            .summaryIcon {
+            width: 48px !important;
+            height: 48px !important;
+            min-width: 48px !important;
+            font-size: 24px !important;
+          }
+
+          .students-management-page
+            .summaryLabel {
+            font-size: 11px !important;
+          }
+
+          .students-management-page
+            .summaryNumber {
+            font-size: 25px !important;
+          }
+
+          .students-management-page
+            .card {
+            padding: 14px !important;
+            border-radius: 16px !important;
+            margin-bottom: 14px !important;
+          }
+
+          .students-management-page
+            .students-card-header {
+            gap: 10px !important;
+            margin-bottom: 15px !important;
+          }
+
+          .students-management-page
+            .students-card-header
+            .cardIcon {
+            width: 42px !important;
+            height: 42px !important;
+            min-width: 42px !important;
+            font-size: 21px !important;
+          }
+
+          .students-management-page
+            .students-card-header
+            > div:nth-child(2) {
+            flex: 1 1 calc(100% - 55px) !important;
+          }
+
+          .students-management-page
+            .sectionTitle {
+            font-size: 18px !important;
+          }
+
+          .students-management-page
+            .sectionSubtitle {
+            font-size: 11px !important;
+          }
+
+          .students-management-page
+            .students-card-header
+            > button {
+            width: 100%;
+            margin-left: 0 !important;
+            padding: 11px 14px !important;
+          }
+
+          .students-management-page
+            .formGrid {
+            grid-template-columns:
+              minmax(0, 1fr) !important;
+            gap: 12px !important;
+          }
+
+          .students-management-page
+            .formSection {
+            padding: 13px !important;
+            border-radius: 13px !important;
+          }
+
+          .students-management-page
+            .formSectionTitle {
+            font-size: 14px !important;
+            margin-bottom: 12px !important;
+          }
+
+          .students-management-page
+            .label {
+            font-size: 12px !important;
+          }
+
+          .students-management-page
+            .input,
+          .students-management-page
+            .textarea {
+            font-size: 14px !important;
+            padding: 10px 11px !important;
+          }
+
+          .students-management-page
+            .modalOverlay {
+            align-items: flex-start !important;
+            justify-content: center !important;
+            padding: 8px !important;
+          }
+
+          .students-management-page
+            .students-modal {
+            width: 100% !important;
+            max-width: 100% !important;
+            max-height: calc(100vh - 16px) !important;
+            border-radius: 15px !important;
+          }
+
+          .students-management-page
+            .modalHeader {
+            padding: 14px !important;
+            gap: 10px !important;
+          }
+
+          .students-management-page
+            .modalTitle {
+            font-size: 18px !important;
+          }
+
+          .students-management-page
+            .modalSubtitle {
+            font-size: 11px !important;
+          }
+
+          .students-management-page
+            .modalBody {
+            padding: 12px !important;
+            gap: 12px !important;
+          }
+
+          .students-management-page
+            .loginReadyBox {
+            padding: 12px !important;
+            font-size: 12px;
+          }
+
+          .students-management-page
+            .modalFooter {
+            padding: 12px !important;
+            display: grid !important;
+            grid-template-columns:
+              1fr !important;
+            gap: 8px !important;
+          }
+
+          .students-management-page
+            .modalFooter
+            button {
+            width: 100%;
+            min-height: 42px;
+            white-space: normal !important;
+          }
+
+          .students-management-page
+            .empty {
+            padding: 35px 12px !important;
+          }
+
+          .students-management-page
+            .loading {
+            padding: 35px 12px !important;
+          }
+
+          .students-management-page
+            .footer {
+            padding: 20px 5px 8px !important;
+            flex-direction: column !important;
+          }
+        }
+
+        @media (max-width: 430px) {
+          .students-management-page {
+            padding: 7px !important;
+          }
+
+          .students-management-page
+            .students-header {
+            padding: 13px !important;
+            border-radius: 13px !important;
+          }
+
+          .students-management-page
+            .students-header
+            h1 {
+            font-size: 19px !important;
+          }
+
+          .students-management-page
+            .students-header
+            p {
+            font-size: 10px !important;
+          }
+
+          .students-management-page
+            .summaryCard {
+            padding: 13px !important;
+          }
+
+          .students-management-page
+            .card {
+            padding: 11px !important;
+            border-radius: 14px !important;
+          }
+
+          .students-management-page
+            .cardHeader {
+            gap: 8px !important;
+          }
+
+          .students-management-page
+            .cardIcon {
+            width: 38px !important;
+            height: 38px !important;
+            min-width: 38px !important;
+            font-size: 19px !important;
+          }
+
+          .students-management-page
+            .sectionTitle {
+            font-size: 17px !important;
+          }
+
+          .students-management-page
+            .sectionSubtitle {
+            font-size: 10px !important;
+          }
+
+          .students-management-page
+            .addButton {
+            font-size: 12px !important;
+          }
+
+          .students-management-page
+            .students-table-wrapper {
+            border-radius: 10px !important;
+          }
+
+          .students-management-page
+            .table {
+            min-width: 760px !important;
+          }
+
+          .students-management-page
+            .th {
+            padding: 11px 10px !important;
+            font-size: 11px !important;
+          }
+
+          .students-management-page
+            .td {
+            padding: 11px 10px !important;
+            font-size: 12px !important;
+          }
+
+          .students-management-page
+            .editButton,
+          .students-management-page
+            .deleteButton {
+            padding: 8px 10px !important;
+            font-size: 11px !important;
+          }
+
+          .students-management-page
+            .modalOverlay {
+            padding: 5px !important;
+          }
+
+          .students-management-page
+            .students-modal {
+            max-height: calc(100vh - 10px) !important;
+            border-radius: 13px !important;
+          }
+
+          .students-management-page
+            .modalHeader {
+            padding: 12px !important;
+          }
+
+          .students-management-page
+            .modalBody {
+            padding: 10px !important;
+          }
+
+          .students-management-page
+            .formSection {
+            padding: 11px !important;
+          }
+
+          .students-management-page
+            .formSectionTitle {
+            font-size: 13px !important;
+          }
+        }
+
+        @media (max-width: 360px) {
+          .students-management-page {
+            padding: 5px !important;
+          }
+
+          .students-management-page
+            .students-header {
+            padding: 11px !important;
+          }
+
+          .students-management-page
+            .students-header
+            h1 {
+            font-size: 18px !important;
+          }
+
+          .students-management-page
+            .students-header
+            .iconBox {
+            width: 40px !important;
+            height: 40px !important;
+            min-width: 40px !important;
+            font-size: 20px !important;
+          }
+
+          .students-management-page
+            .summaryCard {
+            padding: 11px !important;
+            gap: 10px !important;
+          }
+
+          .students-management-page
+            .summaryIcon {
+            width: 42px !important;
+            height: 42px !important;
+            min-width: 42px !important;
+            font-size: 21px !important;
+          }
+
+          .students-management-page
+            .summaryNumber {
+            font-size: 23px !important;
+          }
+
+          .students-management-page
+            .card {
+            padding: 9px !important;
+          }
+
+          .students-management-page
+            .students-card-header
+            .cardIcon {
+            width: 35px !important;
+            height: 35px !important;
+            min-width: 35px !important;
+            font-size: 17px !important;
+          }
+
+          .students-management-page
+            .sectionTitle {
+            font-size: 16px !important;
+          }
+
+          .students-management-page
+            .sectionSubtitle {
+            font-size: 9px !important;
+          }
+
+          .students-management-page
+            .students-header-buttons
+            button {
+            font-size: 11px !important;
+            padding: 9px 7px !important;
+          }
+
+          .students-management-page
+            .modalTitle {
+            font-size: 16px !important;
+          }
+
+          .students-management-page
+            .modalSubtitle {
+            font-size: 10px !important;
+          }
+
+          .students-management-page
+            .closeButton {
+            width: 32px !important;
+            height: 32px !important;
+            min-width: 32px !important;
+          }
+
+          .students-management-page
+            .formSectionTitle {
+            font-size: 12px !important;
+          }
+
+          .students-management-page
+            .label {
+            font-size: 11px !important;
+          }
+
+          .students-management-page
+            .input,
+          .students-management-page
+            .textarea {
+            font-size: 13px !important;
+          }
+        }
+      `}</style>
     </main>
   );
 }
