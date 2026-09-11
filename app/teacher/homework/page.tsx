@@ -12,6 +12,7 @@ type Homework = {
   due_date: string;
   class_name: string;
   created_at?: string;
+  scheduled_at?: string | null;
 };
 
 type Student = {
@@ -20,6 +21,8 @@ type Student = {
   student_username: string;
   class_name: string | null;
 };
+
+type PostingMode = "now" | "schedule";
 
 export default function TeacherHomeworkPage() {
   const router = useRouter();
@@ -33,6 +36,12 @@ export default function TeacherHomeworkPage() {
   const [dueDate, setDueDate] = useState("");
 
   const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
+
+  const [postingMode, setPostingMode] =
+    useState<PostingMode>("now");
+
+  const [scheduledDateTime, setScheduledDateTime] =
+    useState("");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -51,17 +60,22 @@ export default function TeacherHomeworkPage() {
         await supabase
           .from("homework")
           .select(
-            "id, subject, title, description, due_date, class_name, created_at"
+            "id, subject, title, description, due_date, class_name, created_at, scheduled_at"
           )
           .order("created_at", {
             ascending: false,
           });
 
       if (homeworkError) {
-        console.error("Homework loading error:", homeworkError);
+        console.error(
+          "Homework loading error:",
+          homeworkError
+        );
+
         setError(
           `Homework table could not be loaded: ${homeworkError.message}`
         );
+
         return;
       }
 
@@ -76,17 +90,31 @@ export default function TeacherHomeworkPage() {
           });
 
       if (studentsError) {
-        console.error("Students loading error:", studentsError);
+        console.error(
+          "Students loading error:",
+          studentsError
+        );
+
         setError(
           `Students could not be loaded: ${studentsError.message}`
         );
+
         return;
       }
 
-      setHomework((homeworkData || []) as Homework[]);
-      setStudents((studentsData || []) as Student[]);
+      setHomework(
+        (homeworkData || []) as Homework[]
+      );
+
+      setStudents(
+        (studentsData || []) as Student[]
+      );
     } catch (err) {
-      console.error("Unexpected loading error:", err);
+      console.error(
+        "Unexpected loading error:",
+        err
+      );
+
       setError("Unable to load homework.");
     } finally {
       setLoading(false);
@@ -96,9 +124,12 @@ export default function TeacherHomeworkPage() {
   const classNames = Array.from(
     new Set(
       students
-        .map((student) => student.class_name?.trim())
+        .map((student) =>
+          student.class_name?.trim()
+        )
         .filter(
-          (value): value is string => Boolean(value)
+          (value): value is string =>
+            Boolean(value)
         )
     )
   ).sort();
@@ -123,6 +154,92 @@ export default function TeacherHomeworkPage() {
     setSelectedClasses([]);
   }
 
+  /*
+   * Converts India local date/time from datetime-local
+   * into an ISO UTC timestamp.
+   *
+   * Example:
+   * 2026-09-11T20:30
+   * becomes:
+   * 2026-09-11T15:00:00.000Z
+   *
+   * This guarantees that scheduling is based on IST,
+   * regardless of the teacher's browser timezone.
+   */
+  function convertIndiaDateTimeToISO(
+    value: string
+  ) {
+    if (!value) {
+      return null;
+    }
+
+    const indiaDateTime = `${value}:00+05:30`;
+
+    const date = new Date(
+      indiaDateTime
+    );
+
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+
+    return date.toISOString();
+  }
+
+  function formatDate(date: string) {
+    if (!date) {
+      return "";
+    }
+
+    return new Date(
+      `${date}T00:00:00`
+    ).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+  }
+
+  function formatScheduledDateTime(
+    dateTime?: string | null
+  ) {
+    if (!dateTime) {
+      return "";
+    }
+
+    return new Date(
+      dateTime
+    ).toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  }
+
+  function isScheduledHomework(
+    item: Homework
+  ) {
+    return Boolean(item.scheduled_at);
+  }
+
+  function isScheduledFuture(
+    item: Homework
+  ) {
+    if (!item.scheduled_at) {
+      return false;
+    }
+
+    return (
+      new Date(
+        item.scheduled_at
+      ).getTime() > Date.now()
+    );
+  }
+
   async function addHomework() {
     setError("");
 
@@ -137,7 +254,9 @@ export default function TeacherHomeworkPage() {
     }
 
     if (!description.trim()) {
-      setError("Please enter homework description.");
+      setError(
+        "Please enter homework description."
+      );
       return;
     }
 
@@ -147,14 +266,50 @@ export default function TeacherHomeworkPage() {
     }
 
     if (selectedClasses.length === 0) {
-      setError("Please select at least one class.");
+      setError(
+        "Please select at least one class."
+      );
       return;
+    }
+
+    let scheduledAt: string | null = null;
+
+    if (postingMode === "schedule") {
+      if (!scheduledDateTime) {
+        setError(
+          "Please select scheduled date and time."
+        );
+        return;
+      }
+
+      scheduledAt =
+        convertIndiaDateTimeToISO(
+          scheduledDateTime
+        );
+
+      if (!scheduledAt) {
+        setError(
+          "Invalid scheduled date or time."
+        );
+        return;
+      }
+
+      if (
+        new Date(scheduledAt).getTime() <=
+        Date.now()
+      ) {
+        setError(
+          "Scheduled time must be in the future."
+        );
+        return;
+      }
     }
 
     setSaving(true);
 
     try {
-      const classValue = selectedClasses.join(", ");
+      const classValue =
+        selectedClasses.join(", ");
 
       const { data, error: insertError } =
         await supabase
@@ -162,12 +317,14 @@ export default function TeacherHomeworkPage() {
           .insert({
             subject: subject.trim(),
             title: title.trim(),
-            description: description.trim(),
+            description:
+              description.trim(),
             due_date: dueDate,
             class_name: classValue,
+            scheduled_at: scheduledAt,
           })
           .select(
-            "id, subject, title, description, due_date, class_name, created_at"
+            "id, subject, title, description, due_date, class_name, created_at, scheduled_at"
           )
           .single();
 
@@ -180,6 +337,7 @@ export default function TeacherHomeworkPage() {
         setError(
           `Homework could not be added: ${insertError.message}`
         );
+
         return;
       }
 
@@ -190,32 +348,54 @@ export default function TeacherHomeworkPage() {
         ]);
       }
 
-      const numberOfClasses = selectedClasses.length;
+      const numberOfClasses =
+        selectedClasses.length;
+
+      const wasScheduled =
+        postingMode === "schedule";
 
       setSubject("");
       setTitle("");
       setDescription("");
       setDueDate("");
       setSelectedClasses([]);
+      setPostingMode("now");
+      setScheduledDateTime("");
 
-      alert(
-        `Homework added successfully for ${numberOfClasses} class${
-          numberOfClasses !== 1 ? "es" : ""
-        }.`
-      );
+      if (wasScheduled) {
+        alert(
+          `Homework scheduled successfully for ${numberOfClasses} class${
+            numberOfClasses !== 1
+              ? "es"
+              : ""
+          }.\n\nStudents will see it automatically at the scheduled IST time.`
+        );
+      } else {
+        alert(
+          `Homework added successfully for ${numberOfClasses} class${
+            numberOfClasses !== 1
+              ? "es"
+              : ""
+          }.`
+        );
+      }
     } catch (err) {
       console.error(
         "Unexpected homework insert error:",
         err
       );
 
-      setError("Unable to add homework.");
+      setError(
+        "Unable to add homework."
+      );
     } finally {
       setSaving(false);
     }
   }
 
-  async function deleteHomework(id: number) {
+  async function deleteHomework(
+    id: number
+  ) {
     const confirmed = window.confirm(
       "Are you sure you want to delete this homework?"
     );
@@ -242,6 +422,7 @@ export default function TeacherHomeworkPage() {
         setError(
           `Homework could not be deleted: ${deleteError.message}`
         );
+
         return;
       }
 
@@ -256,22 +437,10 @@ export default function TeacherHomeworkPage() {
         err
       );
 
-      setError("Unable to delete homework.");
+      setError(
+        "Unable to delete homework."
+      );
     }
-  }
-
-  function formatDate(date: string) {
-    if (!date) {
-      return "";
-    }
-
-    return new Date(
-      `${date}T00:00:00`
-    ).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    });
   }
 
   function getAssignedClasses(
@@ -295,7 +464,9 @@ export default function TeacherHomeworkPage() {
 
       return (
         studentClass &&
-        assignedClasses.includes(studentClass)
+        assignedClasses.includes(
+          studentClass
+        )
       );
     }).length;
   }
@@ -323,7 +494,9 @@ export default function TeacherHomeworkPage() {
           <button
             type="button"
             onClick={() =>
-              router.push("/teacher/dashboard")
+              router.push(
+                "/teacher/dashboard"
+              )
             }
             style={styles.backButton}
           >
@@ -367,14 +540,17 @@ export default function TeacherHomeworkPage() {
 
                 <button
                   type="button"
-                  onClick={selectAllClasses}
+                  onClick={
+                    selectAllClasses
+                  }
                   disabled={
                     classNames.length === 0
                   }
                   style={{
                     ...styles.smallButton,
                     opacity:
-                      classNames.length === 0
+                      classNames.length ===
+                      0
                         ? 0.5
                         : 1,
                   }}
@@ -384,8 +560,12 @@ export default function TeacherHomeworkPage() {
 
                 <button
                   type="button"
-                  onClick={clearAllClasses}
-                  style={styles.smallButtonSecondary}
+                  onClick={
+                    clearAllClasses
+                  }
+                  style={
+                    styles.smallButtonSecondary
+                  }
                 >
                   Clear
                 </button>
@@ -399,7 +579,9 @@ export default function TeacherHomeworkPage() {
                 {classNames.map((item) => {
 
                   const selected =
-                    selectedClasses.includes(item);
+                    selectedClasses.includes(
+                      item
+                    );
 
                   return (
                     <button
@@ -423,7 +605,9 @@ export default function TeacherHomeworkPage() {
                             : {}),
                         }}
                       >
-                        {selected ? "✓" : ""}
+                        {selected
+                          ? "✓"
+                          : ""}
                       </span>
 
                       <span>
@@ -445,14 +629,25 @@ export default function TeacherHomeworkPage() {
             <div style={styles.selectedInfo}>
 
               <div>
-                <span style={styles.selectedLabel}>
+                <span
+                  style={
+                    styles.selectedLabel
+                  }
+                >
                   🎯 Selected Classes
                 </span>
               </div>
 
-              <div style={styles.selectedClassesText}>
-                {selectedClasses.length > 0
-                  ? selectedClasses.join(", ")
+              <div
+                style={
+                  styles.selectedClassesText
+                }
+              >
+                {selectedClasses.length >
+                0
+                  ? selectedClasses.join(
+                      ", "
+                    )
                   : "No class selected"}
               </div>
 
@@ -473,7 +668,9 @@ export default function TeacherHomeworkPage() {
                 placeholder="e.g. Mathematics"
                 value={subject}
                 onChange={(e) =>
-                  setSubject(e.target.value)
+                  setSubject(
+                    e.target.value
+                  )
                 }
                 style={styles.input}
               />
@@ -490,7 +687,9 @@ export default function TeacherHomeworkPage() {
                 type="date"
                 value={dueDate}
                 onChange={(e) =>
-                  setDueDate(e.target.value)
+                  setDueDate(
+                    e.target.value
+                  )
                 }
                 style={styles.input}
               />
@@ -513,7 +712,9 @@ export default function TeacherHomeworkPage() {
                 placeholder="Enter homework title"
                 value={title}
                 onChange={(e) =>
-                  setTitle(e.target.value)
+                  setTitle(
+                    e.target.value
+                  )
                 }
                 style={styles.input}
               />
@@ -536,12 +737,15 @@ export default function TeacherHomeworkPage() {
                 placeholder="Write homework instructions..."
                 value={description}
                 onChange={(e) =>
-                  setDescription(e.target.value)
+                  setDescription(
+                    e.target.value
+                  )
                 }
                 style={{
                   ...styles.input,
                   resize: "vertical",
-                  minHeight: "120px",
+                  minHeight:
+                    "120px",
                 }}
               />
 
@@ -549,35 +753,214 @@ export default function TeacherHomeworkPage() {
 
           </div>
 
+          {/* HOMEWORK POSTING MODE */}
+
+          <div style={styles.scheduleSection}>
+
+            <div style={styles.scheduleHeader}>
+
+              <div style={styles.scheduleIcon}>
+                🕐
+              </div>
+
+              <div>
+                <h3
+                  style={
+                    styles.scheduleTitle
+                  }
+                >
+                  Homework Posting
+                </h3>
+
+                <p
+                  style={
+                    styles.scheduleSubtitle
+                  }
+                >
+                  Choose when students should
+                  receive this homework.
+                </p>
+              </div>
+
+            </div>
+
+            <div style={styles.modeGrid}>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setPostingMode("now")
+                }
+                style={{
+                  ...styles.modeButton,
+                  ...(postingMode ===
+                  "now"
+                    ? styles.modeButtonSelected
+                    : {}),
+                }}
+              >
+                <span
+                  style={
+                    styles.modeButtonIcon
+                  }
+                >
+                  ⚡
+                </span>
+
+                <span>
+                  <strong>
+                    Add Now
+                  </strong>
+
+                  <small>
+                    Show to students
+                    immediately
+                  </small>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setPostingMode(
+                    "schedule"
+                  )
+                }
+                style={{
+                  ...styles.modeButton,
+                  ...(postingMode ===
+                  "schedule"
+                    ? styles.modeButtonSelected
+                    : {}),
+                }}
+              >
+                <span
+                  style={
+                    styles.modeButtonIcon
+                  }
+                >
+                  🗓️
+                </span>
+
+                <span>
+                  <strong>
+                    Schedule Homework
+                  </strong>
+
+                  <small>
+                    Show automatically
+                    at selected time
+                  </small>
+                </span>
+              </button>
+
+            </div>
+
+            {postingMode ===
+              "schedule" && (
+              <div
+                style={
+                  styles.scheduleInputBox
+                }
+              >
+
+                <label
+                  style={styles.label}
+                >
+                  Scheduled Date & Time
+                  <span
+                    style={
+                      styles.istLabel
+                    }
+                  >
+                    {" "}
+                    (India Standard Time)
+                  </span>
+                </label>
+
+                <input
+                  type="datetime-local"
+                  value={
+                    scheduledDateTime
+                  }
+                  onChange={(e) =>
+                    setScheduledDateTime(
+                      e.target.value
+                    )
+                  }
+                  style={
+                    styles.input
+                  }
+                />
+
+                <p
+                  style={
+                    styles.scheduleHelp
+                  }
+                >
+                  📌 Students will see this
+                  homework automatically
+                  when this scheduled IST
+                  time arrives.
+                </p>
+
+              </div>
+            )}
+
+          </div>
+
           <div style={styles.assignmentInfo}>
 
-            <div style={styles.assignmentIcon}>
+            <div
+              style={
+                styles.assignmentIcon
+              }
+            >
               🎯
             </div>
 
             <div>
 
-              <div style={styles.assignmentTitle}>
-                Homework will be assigned to
+              <div
+                style={
+                  styles.assignmentTitle
+                }
+              >
+                Homework will be assigned
+                to
               </div>
 
-              <div style={styles.assignmentClass}>
-                {selectedClasses.length > 0
-                  ? selectedClasses.join(" • ")
+              <div
+                style={
+                  styles.assignmentClass
+                }
+              >
+                {selectedClasses.length >
+                0
+                  ? selectedClasses.join(
+                      " • "
+                    )
                   : "Select one or more classes"}
               </div>
 
-              {selectedClasses.length > 0 && (
-                <div style={styles.studentCountText}>
+              {selectedClasses.length >
+                0 && (
+                <div
+                  style={
+                    styles.studentCountText
+                  }
+                >
                   {
-                    students.filter((student) =>
-                      selectedClasses.includes(
-                        student.class_name?.trim() || ""
-                      )
+                    students.filter(
+                      (student) =>
+                        selectedClasses.includes(
+                          student.class_name?.trim() ||
+                            ""
+                        )
                     ).length
                   }{" "}
-                  students will receive this
-                  homework
+                  students will receive
+                  this homework
                 </div>
               )}
 
@@ -593,14 +976,21 @@ export default function TeacherHomeworkPage() {
               disabled={saving}
               style={{
                 ...styles.addButton,
-                opacity: saving ? 0.7 : 1,
+                opacity:
+                  saving ? 0.7 : 1,
                 cursor: saving
                   ? "not-allowed"
                   : "pointer",
               }}
             >
               {saving
-                ? "Adding Homework..."
+                ? postingMode ===
+                  "schedule"
+                  ? "Scheduling Homework..."
+                  : "Adding Homework..."
+                : postingMode ===
+                  "schedule"
+                ? "🗓️ Schedule Homework"
                 : "➕ Add Homework"}
             </button>
 
@@ -623,7 +1013,8 @@ export default function TeacherHomeworkPage() {
               </h2>
 
               <p style={styles.cardSubtitle}>
-                {homework.length} homework item
+                {homework.length} homework
+                item
                 {homework.length !== 1
                   ? "s"
                   : ""}
@@ -636,34 +1027,59 @@ export default function TeacherHomeworkPage() {
           {loading ? (
             <div style={styles.empty}>
 
-              <div style={styles.emptyIcon}>
+              <div
+                style={
+                  styles.emptyIcon
+                }
+              >
                 ⏳
               </div>
 
-              <h3 style={styles.emptyTitle}>
+              <h3
+                style={
+                  styles.emptyTitle
+                }
+              >
                 Loading Homework...
               </h3>
 
             </div>
-          ) : homework.length === 0 ? (
+          ) : homework.length ===
+            0 ? (
             <div style={styles.empty}>
 
-              <div style={styles.emptyIcon}>
+              <div
+                style={
+                  styles.emptyIcon
+                }
+              >
                 📚
               </div>
 
-              <h3 style={styles.emptyTitle}>
+              <h3
+                style={
+                  styles.emptyTitle
+                }
+              >
                 No Homework Added
               </h3>
 
-              <p style={styles.emptyText}>
-                Create your first homework using
-                the form above.
+              <p
+                style={
+                  styles.emptyText
+                }
+              >
+                Create your first homework
+                using the form above.
               </p>
 
             </div>
           ) : (
-            <div style={styles.homeworkList}>
+            <div
+              style={
+                styles.homeworkList
+              }
+            >
 
               {homework.map((item) => {
 
@@ -672,29 +1088,53 @@ export default function TeacherHomeworkPage() {
                     item.class_name
                   );
 
+                const scheduled =
+                  isScheduledHomework(
+                    item
+                  );
+
+                const future =
+                  isScheduledFuture(
+                    item
+                  );
+
                 return (
                   <div
                     key={item.id}
-                    style={styles.homeworkCard}
+                    style={
+                      styles.homeworkCard
+                    }
                   >
 
-                    <div style={styles.homeworkTop}>
+                    <div
+                      style={
+                        styles.homeworkTop
+                      }
+                    >
 
                       <div>
 
                         <div
-                          style={styles.badgeRow}
+                          style={
+                            styles.badgeRow
+                          }
                         >
 
                           {assignedClasses.map(
-                            (classItem) => (
+                            (
+                              classItem
+                            ) => (
                               <span
-                                key={classItem}
+                                key={
+                                  classItem
+                                }
                                 style={
                                   styles.classBadge
                                 }
                               >
-                                {classItem}
+                                {
+                                  classItem
+                                }
                               </span>
                             )
                           )}
@@ -704,8 +1144,25 @@ export default function TeacherHomeworkPage() {
                               styles.subjectBadge
                             }
                           >
-                            {item.subject}
+                            {
+                              item.subject
+                            }
                           </span>
+
+                          {scheduled &&
+                            (
+                              <span
+                                style={
+                                  future
+                                    ? styles.scheduledBadge
+                                    : styles.publishedBadge
+                                }
+                              >
+                                {future
+                                  ? "🕐 Scheduled"
+                                  : "✓ Published"}
+                              </span>
+                            )}
 
                         </div>
 
@@ -722,7 +1179,9 @@ export default function TeacherHomeworkPage() {
                       <button
                         type="button"
                         onClick={() =>
-                          deleteHomework(item.id)
+                          deleteHomework(
+                            item.id
+                          )
                         }
                         style={
                           styles.deleteButton
@@ -738,8 +1197,34 @@ export default function TeacherHomeworkPage() {
                         styles.homeworkDescription
                       }
                     >
-                      {item.description}
+                      {
+                        item.description
+                      }
                     </p>
+
+                    {scheduled &&
+                      item.scheduled_at && (
+                        <div
+                          style={
+                            future
+                              ? styles.scheduledInfo
+                              : styles.publishedInfo
+                          }
+                        >
+                          <span>
+                            {future
+                              ? "🗓️ Scheduled for:"
+                              : "✓ Published at:"}
+                          </span>
+
+                          <strong>
+                            {formatScheduledDateTime(
+                              item.scheduled_at
+                            )}{" "}
+                            IST
+                          </strong>
+                        </div>
+                      )}
 
                     <div
                       style={
@@ -747,7 +1232,11 @@ export default function TeacherHomeworkPage() {
                       }
                     >
 
-                      <div style={styles.dueDate}>
+                      <div
+                        style={
+                          styles.dueDate
+                        }
+                      >
                         📅 Due:{" "}
                         {formatDate(
                           item.due_date
@@ -778,7 +1267,8 @@ export default function TeacherHomeworkPage() {
         </section>
 
         <footer style={styles.footer}>
-          Attendance Portal • Teacher Homework • 2026
+          Attendance Portal • Teacher
+          Homework • 2026
         </footer>
 
       </div>
@@ -812,7 +1302,8 @@ const styles: {
     borderRadius: "22px",
     padding: "25px",
     display: "flex",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     alignItems: "center",
     gap: "15px",
     marginBottom: "18px",
@@ -930,7 +1421,8 @@ const styles: {
 
   classHeaderRow: {
     display: "flex",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     alignItems: "center",
     gap: "10px",
     flexWrap: "wrap",
@@ -955,7 +1447,8 @@ const styles: {
   },
 
   smallButtonSecondary: {
-    border: "1px solid #cbd5e1",
+    border:
+      "1px solid #cbd5e1",
     background: "#ffffff",
     color: "#475569",
     padding: "7px 11px",
@@ -973,7 +1466,8 @@ const styles: {
   },
 
   classOption: {
-    border: "1px solid #cbd5e1",
+    border:
+      "1px solid #cbd5e1",
     background: "#ffffff",
     color: "#334155",
     padding: "11px 12px",
@@ -988,7 +1482,8 @@ const styles: {
   },
 
   classOptionSelected: {
-    border: "2px solid #2563eb",
+    border:
+      "2px solid #2563eb",
     background: "#eff6ff",
     color: "#1d4ed8",
   },
@@ -997,7 +1492,8 @@ const styles: {
     width: "20px",
     height: "20px",
     borderRadius: "5px",
-    border: "1px solid #cbd5e1",
+    border:
+      "1px solid #cbd5e1",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -1008,7 +1504,8 @@ const styles: {
 
   checkboxSelected: {
     background: "#2563eb",
-    border: "1px solid #2563eb",
+    border:
+      "1px solid #2563eb",
     color: "#ffffff",
   },
 
@@ -1016,7 +1513,8 @@ const styles: {
     padding: "14px",
     borderRadius: "9px",
     background: "#fff7ed",
-    border: "1px solid #fed7aa",
+    border:
+      "1px solid #fed7aa",
     color: "#9a3412",
     fontSize: "12px",
     fontWeight: "700",
@@ -1026,7 +1524,8 @@ const styles: {
     marginTop: "12px",
     padding: "12px",
     background: "#eff6ff",
-    border: "1px solid #bfdbfe",
+    border:
+      "1px solid #bfdbfe",
     borderRadius: "9px",
   },
 
@@ -1041,7 +1540,8 @@ const styles: {
     color: "#1d4ed8",
     fontSize: "13px",
     fontWeight: "900",
-    wordBreak: "break-word",
+    wordBreak:
+      "break-word",
   },
 
   formGrid: {
@@ -1066,9 +1566,11 @@ const styles: {
 
   input: {
     width: "100%",
-    boxSizing: "border-box",
+    boxSizing:
+      "border-box",
     padding: "12px 13px",
-    border: "1px solid #cbd5e1",
+    border:
+      "1px solid #cbd5e1",
     borderRadius: "10px",
     background: "#ffffff",
     color: "#0f172a",
@@ -1077,11 +1579,110 @@ const styles: {
     outline: "none",
   },
 
+  scheduleSection: {
+    marginTop: "20px",
+    padding: "17px",
+    background: "#f8fafc",
+    border:
+      "1px solid #e2e8f0",
+    borderRadius: "14px",
+  },
+
+  scheduleHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: "11px",
+    marginBottom: "14px",
+  },
+
+  scheduleIcon: {
+    width: "42px",
+    height: "42px",
+    borderRadius: "11px",
+    background: "#ede9fe",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "20px",
+    flexShrink: 0,
+  },
+
+  scheduleTitle: {
+    margin: 0,
+    color: "#312e81",
+    fontSize: "16px",
+    fontWeight: "900",
+  },
+
+  scheduleSubtitle: {
+    margin: "3px 0 0",
+    color: "#64748b",
+    fontSize: "11px",
+    fontWeight: "600",
+  },
+
+  modeGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(2,minmax(0,1fr))",
+    gap: "10px",
+  },
+
+  modeButton: {
+    border:
+      "1px solid #cbd5e1",
+    background: "#ffffff",
+    color: "#334155",
+    padding: "13px",
+    borderRadius: "11px",
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    cursor: "pointer",
+    textAlign: "left",
+  },
+
+  modeButtonSelected: {
+    border:
+      "2px solid #7c3aed",
+    background: "#f5f3ff",
+    color: "#5b21b6",
+  },
+
+  modeButtonIcon: {
+    fontSize: "22px",
+    flexShrink: 0,
+  },
+
+  scheduleInputBox: {
+    marginTop: "12px",
+    padding: "14px",
+    background: "#ffffff",
+    border:
+      "1px solid #ddd6fe",
+    borderRadius: "10px",
+  },
+
+  istLabel: {
+    color: "#7c3aed",
+    fontSize: "10px",
+    fontWeight: "900",
+  },
+
+  scheduleHelp: {
+    margin: "8px 0 0",
+    color: "#64748b",
+    fontSize: "11px",
+    fontWeight: "700",
+    lineHeight: 1.5,
+  },
+
   assignmentInfo: {
     marginTop: "18px",
     padding: "14px",
     background: "#eff6ff",
-    border: "1px solid #bfdbfe",
+    border:
+      "1px solid #bfdbfe",
     borderRadius: "12px",
     display: "flex",
     alignItems: "center",
@@ -1111,7 +1712,8 @@ const styles: {
     fontSize: "15px",
     fontWeight: "900",
     marginTop: "3px",
-    wordBreak: "break-word",
+    wordBreak:
+      "break-word",
   },
 
   studentCountText: {
@@ -1123,7 +1725,8 @@ const styles: {
 
   actions: {
     display: "flex",
-    justifyContent: "flex-end",
+    justifyContent:
+      "flex-end",
     marginTop: "20px",
   },
 
@@ -1143,7 +1746,8 @@ const styles: {
     padding: "50px 20px",
     background: "#f8fafc",
     borderRadius: "16px",
-    border: "1px dashed #cbd5e1",
+    border:
+      "1px dashed #cbd5e1",
   },
 
   emptyIcon: {
@@ -1172,7 +1776,8 @@ const styles: {
   },
 
   homeworkCard: {
-    border: "1px solid #e2e8f0",
+    border:
+      "1px solid #e2e8f0",
     borderRadius: "16px",
     padding: "18px",
     background: "#f8fafc",
@@ -1180,7 +1785,8 @@ const styles: {
 
   homeworkTop: {
     display: "flex",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     alignItems: "flex-start",
     gap: "15px",
     flexWrap: "wrap",
@@ -1210,7 +1816,28 @@ const styles: {
     borderRadius: "7px",
     fontSize: "10px",
     fontWeight: "900",
-    textTransform: "uppercase",
+    textTransform:
+      "uppercase",
+  },
+
+  scheduledBadge: {
+    display: "inline-block",
+    background: "#fef3c7",
+    color: "#92400e",
+    padding: "5px 9px",
+    borderRadius: "7px",
+    fontSize: "10px",
+    fontWeight: "900",
+  },
+
+  publishedBadge: {
+    display: "inline-block",
+    background: "#dcfce7",
+    color: "#166534",
+    padding: "5px 9px",
+    borderRadius: "7px",
+    fontSize: "10px",
+    fontWeight: "900",
   },
 
   homeworkTitle: {
@@ -1229,13 +1856,47 @@ const styles: {
     whiteSpace: "pre-wrap",
   },
 
+  scheduledInfo: {
+    marginBottom: "12px",
+    padding: "10px 12px",
+    background: "#fffbeb",
+    border:
+      "1px solid #fde68a",
+    borderRadius: "9px",
+    display: "flex",
+    gap: "6px",
+    flexWrap: "wrap",
+    alignItems: "center",
+    color: "#92400e",
+    fontSize: "11px",
+    fontWeight: "700",
+  },
+
+  publishedInfo: {
+    marginBottom: "12px",
+    padding: "10px 12px",
+    background: "#f0fdf4",
+    border:
+      "1px solid #bbf7d0",
+    borderRadius: "9px",
+    display: "flex",
+    gap: "6px",
+    flexWrap: "wrap",
+    alignItems: "center",
+    color: "#166534",
+    fontSize: "11px",
+    fontWeight: "700",
+  },
+
   homeworkBottom: {
     display: "flex",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     alignItems: "center",
     gap: "10px",
     paddingTop: "12px",
-    borderTop: "1px solid #e2e8f0",
+    borderTop:
+      "1px solid #e2e8f0",
     flexWrap: "wrap",
   },
 

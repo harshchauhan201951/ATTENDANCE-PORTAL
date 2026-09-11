@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
@@ -21,11 +21,15 @@ type Homework = {
   created_at: string | null;
 };
 
+type HomeworkTab = "all" | "today";
+
 export default function StudentHomeworkPage() {
   const router = useRouter();
 
   const [student, setStudent] = useState<Student | null>(null);
   const [homework, setHomework] = useState<Homework[]>([]);
+  const [activeTab, setActiveTab] =
+    useState<HomeworkTab>("today");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -97,8 +101,8 @@ export default function StudentHomeworkPage() {
           .select(
             "id, subject, title, description, due_date, class_name, created_at"
           )
-          .order("due_date", {
-            ascending: true,
+          .order("created_at", {
+            ascending: false,
           });
 
       if (homeworkError) {
@@ -145,6 +149,84 @@ export default function StudentHomeworkPage() {
     }
   }
 
+  /*
+   * INDIA DATE / TIME HELPERS
+   *
+   * All "Today's Homework" calculations are based
+   * on India Standard Time (IST), regardless of the
+   * student's device timezone.
+   */
+
+  function getIndiaDateKey(date: Date = new Date()) {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(date);
+  }
+
+  function isPostedTodayInIndia(
+    createdAt: string | null
+  ) {
+    if (!createdAt) {
+      return false;
+    }
+
+    const createdDate = new Date(createdAt);
+
+    if (Number.isNaN(createdDate.getTime())) {
+      return false;
+    }
+
+    return (
+      getIndiaDateKey(createdDate) ===
+      getIndiaDateKey(new Date())
+    );
+  }
+
+  function formatPostedDate(
+    createdAt: string | null
+  ) {
+    if (!createdAt) {
+      return "Date not available";
+    }
+
+    const createdDate = new Date(createdAt);
+
+    if (Number.isNaN(createdDate.getTime())) {
+      return "Date not available";
+    }
+
+    return new Intl.DateTimeFormat("en-IN", {
+      timeZone: "Asia/Kolkata",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    }).format(createdDate);
+  }
+
+  function formatPostedTime(
+    createdAt: string | null
+  ) {
+    if (!createdAt) {
+      return "";
+    }
+
+    const createdDate = new Date(createdAt);
+
+    if (Number.isNaN(createdDate.getTime())) {
+      return "";
+    }
+
+    return new Intl.DateTimeFormat("en-IN", {
+      timeZone: "Asia/Kolkata",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    }).format(createdDate);
+  }
+
   function formatDate(date: string) {
     if (!date) {
       return "";
@@ -174,6 +256,17 @@ export default function StudentHomeworkPage() {
 
     return due < today;
   }
+
+  const todayHomework = useMemo(() => {
+    return homework.filter((item) =>
+      isPostedTodayInIndia(item.created_at)
+    );
+  }, [homework]);
+
+  const visibleHomework =
+    activeTab === "today"
+      ? todayHomework
+      : homework;
 
   function logout() {
     localStorage.removeItem("studentLoggedIn");
@@ -335,9 +428,7 @@ export default function StudentHomeworkPage() {
           {/* LOADING */}
 
           {loading ? (
-            <section
-              style={styles.emptyCard}
-            >
+            <section style={styles.emptyCard}>
               <div style={styles.loadingIcon}>
                 ⏳
               </div>
@@ -351,229 +442,437 @@ export default function StudentHomeworkPage() {
                 assigned to your class.
               </p>
             </section>
-          ) : !error && homework.length === 0 ? (
-            /* NO HOMEWORK */
+          ) : !error ? (
+            <>
+              {/* HOMEWORK TABS */}
 
-            <section
-              style={styles.emptyCard}
-            >
-              <div style={styles.emptyIcon}>
-                📚
-              </div>
-
-              <h2 style={styles.emptyTitle}>
-                No Homework Assigned
-              </h2>
-
-              <p style={styles.emptyText}>
-                There is currently no homework assigned
-                to your class.
-              </p>
-
-              {student?.class_name && (
-                <div style={styles.emptyClass}>
-                  Class: {student.class_name}
-                </div>
-              )}
-            </section>
-          ) : (
-            /* HOMEWORK LIST */
-
-            <section>
-              <div
-                className="homework-section-header"
-                style={styles.sectionHeader}
+              <section
+                className="homework-tabs-card"
+                style={styles.tabsCard}
               >
-                <div className="homework-section-heading">
-                  <div style={styles.sectionEyebrow}>
-                    ACADEMIC WORK
+                <div style={styles.tabsHeader}>
+                  <div>
+                    <div style={styles.tabsEyebrow}>
+                      HOMEWORK
+                    </div>
+
+                    <h2 style={styles.tabsTitle}>
+                      अपना Homework देखें
+                    </h2>
+
+                    <p style={styles.tabsSubtitle}>
+                      India time के अनुसार आज का homework
+                      अलग से देखें।
+                    </p>
                   </div>
 
-                  <h2 style={styles.sectionTitle}>
-                    Assigned Homework
+                  <div style={styles.istBadge}>
+                    🇮🇳 IST
+                  </div>
+                </div>
+
+                <div
+                  className="homework-tabs"
+                  style={styles.tabs}
+                >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setActiveTab("today")
+                    }
+                    className={
+                      activeTab === "today"
+                        ? "homework-tab active"
+                        : "homework-tab"
+                    }
+                    style={{
+                      ...styles.tabButton,
+                      ...(activeTab === "today"
+                        ? styles.activeTabButton
+                        : {}),
+                    }}
+                  >
+                    <span style={styles.tabIcon}>
+                      📅
+                    </span>
+
+                    <span>
+                      आज का Homework
+                    </span>
+
+                    <span
+                      style={{
+                        ...styles.tabCount,
+                        ...(activeTab === "today"
+                          ? styles.activeTabCount
+                          : {}),
+                      }}
+                    >
+                      {todayHomework.length}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setActiveTab("all")
+                    }
+                    className={
+                      activeTab === "all"
+                        ? "homework-tab active"
+                        : "homework-tab"
+                    }
+                    style={{
+                      ...styles.tabButton,
+                      ...(activeTab === "all"
+                        ? styles.activeTabButton
+                        : {}),
+                    }}
+                  >
+                    <span style={styles.tabIcon}>
+                      📚
+                    </span>
+
+                    <span>
+                      बाकी के Homework
+                    </span>
+
+                    <span
+                      style={{
+                        ...styles.tabCount,
+                        ...(activeTab === "all"
+                          ? styles.activeTabCount
+                          : {}),
+                      }}
+                    >
+                      {homework.length}
+                    </span>
+                  </button>
+                </div>
+              </section>
+
+              {/* TODAY EMPTY MESSAGE */}
+
+              {activeTab === "today" &&
+              todayHomework.length === 0 ? (
+                <section
+                  className="homework-today-empty"
+                  style={styles.todayEmptyCard}
+                >
+                  <div style={styles.todayEmptyIcon}>
+                    📭
+                  </div>
+
+                  <div style={styles.todayEmptyBadge}>
+                    आज का Homework
+                  </div>
+
+                  <h2 style={styles.emptyTitle}>
+                    आज का Homework नहीं है
                   </h2>
 
-                  <p style={styles.sectionSubtitle}>
-                    Homework assigned to your class by
-                    your teacher.
+                  <p style={styles.todayEmptyText}>
+                    आज का Homework टीचर की तरफ से नहीं
+                    डाला गया है।
                   </p>
-                </div>
 
-                <div style={styles.readOnlyBadge}>
-                  🔒 READ ONLY
-                </div>
-              </div>
+                  <p style={styles.todayContactText}>
+                    कृपया Homework के लिए टीचर से
+                    संपर्क करें।
+                  </p>
 
-              <div
-                className="homework-list"
-                style={styles.homeworkList}
-              >
-                {homework.map((item) => {
-                  const overdue = isOverdue(
-                    item.due_date
-                  );
+                  <div style={styles.todayDateBadge}>
+                    🇮🇳 आज की तारीख:{" "}
+                    {new Intl.DateTimeFormat("en-IN", {
+                      timeZone: "Asia/Kolkata",
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric",
+                    }).format(new Date())}
+                  </div>
+                </section>
+              ) : visibleHomework.length === 0 ? (
+                /* ALL HOMEWORK EMPTY */
 
-                  return (
-                    <article
-                      key={item.id}
-                      className="homework-card"
-                      style={styles.homeworkCard}
-                    >
-                      <div
-                        className="homework-card-header"
-                        style={styles.homeworkHeader}
-                      >
-                        <div
-                          className="homework-badges"
-                          style={styles.badges}
-                        >
-                          <span
-                            style={
-                              styles.subjectBadge
-                            }
-                          >
-                            {item.subject}
-                          </span>
+                <section
+                  style={styles.emptyCard}
+                >
+                  <div style={styles.emptyIcon}>
+                    📚
+                  </div>
 
-                          <span
-                            style={
-                              styles.classBadge
-                            }
-                          >
-                            {student?.class_name}
-                          </span>
-                        </div>
+                  <h2 style={styles.emptyTitle}>
+                    कोई Homework Assigned नहीं है
+                  </h2>
 
-                        <div
-                          style={{
-                            ...styles.statusBadge,
-                            ...(overdue
-                              ? styles.overdueBadge
-                              : styles.pendingBadge),
-                          }}
-                        >
-                          {overdue
-                            ? "OVERDUE"
-                            : "ACTIVE"}
-                        </div>
+                  <p style={styles.emptyText}>
+                    There is currently no homework
+                    assigned to your class.
+                  </p>
+
+                  {student?.class_name && (
+                    <div style={styles.emptyClass}>
+                      Class: {student.class_name}
+                    </div>
+                  )}
+                </section>
+              ) : (
+                /* HOMEWORK LIST */
+
+                <section>
+                  <div
+                    className="homework-section-header"
+                    style={styles.sectionHeader}
+                  >
+                    <div className="homework-section-heading">
+                      <div style={styles.sectionEyebrow}>
+                        {activeTab === "today"
+                          ? "TODAY'S WORK"
+                          : "ALL ACADEMIC WORK"}
                       </div>
 
-                      <h3
-                        className="homework-title"
-                        style={styles.homeworkTitle}
-                      >
-                        {item.title}
-                      </h3>
+                      <h2 style={styles.sectionTitle}>
+                        {activeTab === "today"
+                          ? "आज का Homework"
+                          : "बाकी के Homework"}
+                      </h2>
 
-                      <div
-                        className="homework-description-box"
-                        style={styles.descriptionBox}
-                      >
-                        <div
-                          style={
-                            styles.descriptionLabel
-                          }
-                        >
-                          HOMEWORK
-                        </div>
+                      <p style={styles.sectionSubtitle}>
+                        {activeTab === "today"
+                          ? "आज India time के अनुसार teacher द्वारा post किया गया homework."
+                          : "आपकी class के लिए teacher द्वारा assigned सभी homework."}
+                      </p>
+                    </div>
 
-                        <p
-                          className="homework-description"
-                          style={
-                            styles.homeworkDescription
-                          }
-                        >
-                          {item.description}
-                        </p>
-                      </div>
+                    <div style={styles.readOnlyBadge}>
+                      🔒 READ ONLY
+                    </div>
+                  </div>
 
-                      <div
-                        className="homework-footer"
-                        style={styles.homeworkFooter}
-                      >
-                        <div
-                          className="homework-due-box"
-                          style={styles.dueBox}
+                  <div
+                    className="homework-list"
+                    style={styles.homeworkList}
+                  >
+                    {visibleHomework.map((item) => {
+                      const overdue = isOverdue(
+                        item.due_date
+                      );
+
+                      return (
+                        <article
+                          key={item.id}
+                          className="homework-card"
+                          style={styles.homeworkCard}
                         >
-                          <div style={styles.dueIcon}>
-                            📅
+                          <div
+                            className="homework-card-header"
+                            style={styles.homeworkHeader}
+                          >
+                            <div
+                              className="homework-badges"
+                              style={styles.badges}
+                            >
+                              <span
+                                style={
+                                  styles.subjectBadge
+                                }
+                              >
+                                {item.subject}
+                              </span>
+
+                              <span
+                                style={
+                                  styles.classBadge
+                                }
+                              >
+                                {student?.class_name}
+                              </span>
+                            </div>
+
+                            <div
+                              style={{
+                                ...styles.statusBadge,
+                                ...(overdue
+                                  ? styles.overdueBadge
+                                  : styles.pendingBadge),
+                              }}
+                            >
+                              {overdue
+                                ? "OVERDUE"
+                                : "ACTIVE"}
+                            </div>
                           </div>
 
-                          <div>
+                          <h3
+                            className="homework-title"
+                            style={styles.homeworkTitle}
+                          >
+                            {item.title}
+                          </h3>
+
+                          <div
+                            className="homework-description-box"
+                            style={styles.descriptionBox}
+                          >
                             <div
                               style={
-                                styles.dueLabel
+                                styles.descriptionLabel
                               }
                             >
-                              DUE DATE
+                              HOMEWORK
+                            </div>
+
+                            <p
+                              className="homework-description"
+                              style={
+                                styles.homeworkDescription
+                              }
+                            >
+                              {item.description}
+                            </p>
+                          </div>
+
+                          {/* POSTED DATE */}
+
+                          <div
+                            className="homework-posted-box"
+                            style={styles.postedBox}
+                          >
+                            <div
+                              style={styles.postedIcon}
+                            >
+                              🕒
                             </div>
 
                             <div
                               style={
-                                styles.dueDate
+                                styles.postedContent
                               }
                             >
-                              {formatDate(
-                                item.due_date
+                              <div
+                                style={
+                                  styles.postedLabel
+                                }
+                              >
+                                HOMEWORK POSTED
+                              </div>
+
+                              <div
+                                style={
+                                  styles.postedDate
+                                }
+                              >
+                                {formatPostedDate(
+                                  item.created_at
+                                )}
+                              </div>
+
+                              {formatPostedTime(
+                                item.created_at
+                              ) && (
+                                <div
+                                  style={
+                                    styles.postedTime
+                                  }
+                                >
+                                  {formatPostedTime(
+                                    item.created_at
+                                  )}{" "}
+                                  • India Standard Time
+                                </div>
                               )}
                             </div>
                           </div>
-                        </div>
 
-                        <div
-                          className="homework-class-visibility"
-                          style={
-                            styles.classVisibility
-                          }
-                        >
-                          <span
-                            style={
-                              styles.visibilityIcon
-                            }
+                          <div
+                            className="homework-footer"
+                            style={styles.homeworkFooter}
                           >
-                            👥
-                          </span>
+                            <div
+                              className="homework-due-box"
+                              style={styles.dueBox}
+                            >
+                              <div
+                                style={styles.dueIcon}
+                              >
+                                📅
+                              </div>
 
-                          <span className="visibility-text">
-                            Assigned to your class{" "}
-                            <strong>
-                              {student?.class_name}
-                            </strong>
-                          </span>
-                        </div>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-          )}
+                              <div>
+                                <div
+                                  style={
+                                    styles.dueLabel
+                                  }
+                                >
+                                  DUE DATE
+                                </div>
 
-          {/* INFORMATION */}
+                                <div
+                                  style={
+                                    styles.dueDate
+                                  }
+                                >
+                                  {formatDate(
+                                    item.due_date
+                                  )}
+                                </div>
+                              </div>
+                            </div>
 
-          {!loading && !error && (
-            <section
-              className="homework-info-card"
-              style={styles.infoCard}
-            >
-              <div style={styles.infoCardIcon}>
-                ℹ️
-              </div>
+                            <div
+                              className="homework-class-visibility"
+                              style={
+                                styles.classVisibility
+                              }
+                            >
+                              <span
+                                style={
+                                  styles.visibilityIcon
+                                }
+                              >
+                                👥
+                              </span>
 
-              <div className="homework-info-content">
-                <div style={styles.infoCardTitle}>
-                  Homework Information
+                              <span className="visibility-text">
+                                Assigned to your class{" "}
+                                <strong>
+                                  {student?.class_name}
+                                </strong>
+                              </span>
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+
+              {/* INFORMATION */}
+
+              <section
+                className="homework-info-card"
+                style={styles.infoCard}
+              >
+                <div style={styles.infoCardIcon}>
+                  ℹ️
                 </div>
 
-                <p style={styles.infoCardText}>
-                  This page is view-only. Homework is
-                  assigned and managed by your teacher.
-                  You can only view homework assigned to
-                  your own class.
-                </p>
-              </div>
-            </section>
-          )}
+                <div className="homework-info-content">
+                  <div style={styles.infoCardTitle}>
+                    Homework Information
+                  </div>
+
+                  <p style={styles.infoCardText}>
+                    आज का Homework India Standard Time
+                    (IST) के अनुसार दिखाया जाता है।
+                    Homework केवल आपकी class के लिए
+                    दिखाई देगा और यह page view-only है।
+                  </p>
+                </div>
+              </section>
+            </>
+          ) : null}
 
           {/* FOOTER */}
 
@@ -648,6 +947,17 @@ export default function StudentHomeworkPage() {
           width: 100%;
           max-width: 100%;
           min-width: 0;
+        }
+
+        .homework-tab {
+          transition:
+            transform 0.15s ease,
+            box-shadow 0.15s ease,
+            background 0.15s ease;
+        }
+
+        .homework-tab:hover {
+          transform: translateY(-1px);
         }
 
         @media (max-width: 768px) {
@@ -736,22 +1046,18 @@ export default function StudentHomeworkPage() {
             margin-left: 0;
           }
 
-          .homework-student-card
-            .homework-student-info
-            .student-name {
-            font-size: 18px !important;
-          }
-
-          .homework-student-card
-            .homework-student-info
-            .username {
-            overflow-wrap: anywhere;
-            word-break: break-word;
-          }
-
           .homework-error-box {
             align-items: flex-start !important;
             padding: 12px !important;
+          }
+
+          .homework-tabs-card {
+            padding: 15px !important;
+            border-radius: 16px !important;
+          }
+
+          .homework-tabs {
+            grid-template-columns: 1fr !important;
           }
 
           .homework-section-header {
@@ -808,6 +1114,10 @@ export default function StudentHomeworkPage() {
           .homework-description {
             font-size: 11px !important;
             line-height: 1.65 !important;
+          }
+
+          .homework-posted-box {
+            margin-top: 11px !important;
           }
 
           .homework-footer {
@@ -875,23 +1185,45 @@ export default function StudentHomeworkPage() {
             gap: 10px !important;
           }
 
-          .homework-student-card > .homework-student-info {
+          .homework-student-card
+            > .homework-student-info {
             min-width: 0;
           }
 
-          .homework-student-card > .homework-class-box,
-          .homework-student-card > .homework-count-box {
+          .homework-student-card
+            > .homework-class-box,
+          .homework-student-card
+            > .homework-count-box {
             margin-left: 0 !important;
             width: 100%;
             min-width: 0;
           }
 
-          .homework-student-card > .homework-class-box {
+          .homework-student-card
+            > .homework-class-box {
             grid-column: 1 / 2;
           }
 
-          .homework-student-card > .homework-count-box {
+          .homework-student-card
+            > .homework-count-box {
             grid-column: 2 / 3;
+          }
+
+          .homework-tabs-card {
+            padding: 12px !important;
+          }
+
+          .homework-tabs-header h2 {
+            font-size: 18px !important;
+          }
+
+          .homework-tab {
+            min-height: 50px !important;
+            font-size: 10px !important;
+          }
+
+          .homework-today-empty {
+            padding: 45px 15px !important;
           }
 
           .homework-card {
@@ -1220,6 +1552,185 @@ const styles: {
     wordBreak: "break-word",
   },
 
+  tabsCard: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "20px",
+    padding: "18px",
+    marginBottom: "18px",
+    boxShadow:
+      "0 8px 25px rgba(15,23,42,0.05)",
+    width: "100%",
+    boxSizing: "border-box",
+  },
+
+  tabsHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "15px",
+    marginBottom: "14px",
+    flexWrap: "wrap",
+  },
+
+  tabsEyebrow: {
+    color: "#2563eb",
+    fontSize: "9px",
+    fontWeight: "1000",
+    letterSpacing: "2px",
+    marginBottom: "3px",
+  },
+
+  tabsTitle: {
+    margin: 0,
+    color: "#172554",
+    fontSize: "21px",
+    fontWeight: "1000",
+  },
+
+  tabsSubtitle: {
+    margin: "4px 0 0",
+    color: "#64748b",
+    fontSize: "10px",
+    fontWeight: "600",
+  },
+
+  istBadge: {
+    background: "#fff7ed",
+    border: "1px solid #fed7aa",
+    color: "#c2410c",
+    padding: "8px 11px",
+    borderRadius: "9px",
+    fontSize: "9px",
+    fontWeight: "1000",
+    whiteSpace: "nowrap",
+  },
+
+  tabs: {
+    display: "grid",
+    gridTemplateColumns:
+      "minmax(0,1fr) minmax(0,1fr)",
+    gap: "10px",
+    width: "100%",
+  },
+
+  tabButton: {
+    border: "1px solid #e2e8f0",
+    background: "#f8fafc",
+    color: "#475569",
+    borderRadius: "12px",
+    padding: "13px 14px",
+    minHeight: "52px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "8px",
+    fontSize: "11px",
+    fontWeight: "1000",
+    cursor: "pointer",
+    width: "100%",
+  },
+
+  activeTabButton: {
+    background:
+      "linear-gradient(135deg,#2563eb,#4f46e5)",
+    color: "#ffffff",
+    border:
+      "1px solid rgba(37,99,235,0.8)",
+    boxShadow:
+      "0 8px 18px rgba(37,99,235,0.18)",
+  },
+
+  tabIcon: {
+    fontSize: "16px",
+    flexShrink: 0,
+  },
+
+  tabCount: {
+    minWidth: "23px",
+    height: "23px",
+    padding: "0 6px",
+    borderRadius: "50%",
+    background: "#e2e8f0",
+    color: "#475569",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "9px",
+    fontWeight: "1000",
+  },
+
+  activeTabCount: {
+    background:
+      "rgba(255,255,255,0.22)",
+    color: "#ffffff",
+  },
+
+  todayEmptyCard: {
+    background: "#ffffff",
+    border: "1px solid #bfdbfe",
+    borderRadius: "20px",
+    padding: "60px 20px",
+    textAlign: "center",
+    boxShadow:
+      "0 8px 25px rgba(37,99,235,0.07)",
+    width: "100%",
+    boxSizing: "border-box",
+  },
+
+  todayEmptyIcon: {
+    width: "72px",
+    height: "72px",
+    margin: "0 auto 14px",
+    borderRadius: "22px",
+    background: "#eff6ff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "34px",
+  },
+
+  todayEmptyBadge: {
+    display: "inline-block",
+    padding: "6px 10px",
+    borderRadius: "8px",
+    background: "#dbeafe",
+    color: "#1d4ed8",
+    fontSize: "9px",
+    fontWeight: "1000",
+    marginBottom: "9px",
+  },
+
+  todayEmptyText: {
+    margin: "8px auto 0",
+    maxWidth: "500px",
+    color: "#475569",
+    fontSize: "13px",
+    lineHeight: 1.6,
+    fontWeight: "700",
+  },
+
+  todayContactText: {
+    margin: "4px auto 0",
+    maxWidth: "500px",
+    color: "#64748b",
+    fontSize: "11px",
+    lineHeight: 1.6,
+    fontWeight: "600",
+  },
+
+  todayDateBadge: {
+    display: "inline-block",
+    marginTop: "17px",
+    padding: "8px 12px",
+    borderRadius: "9px",
+    background: "#f8fafc",
+    border: "1px solid #e2e8f0",
+    color: "#475569",
+    fontSize: "10px",
+    fontWeight: "900",
+  },
+
   emptyCard: {
     background: "#ffffff",
     border: "1px solid #e2e8f0",
@@ -1440,6 +1951,59 @@ const styles: {
     whiteSpace: "pre-wrap",
     overflowWrap: "anywhere",
     wordBreak: "break-word",
+  },
+
+  postedBox: {
+    marginTop: "13px",
+    padding: "11px 13px",
+    borderRadius: "11px",
+    background: "#f0fdf4",
+    border: "1px solid #bbf7d0",
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    width: "100%",
+    minWidth: 0,
+    boxSizing: "border-box",
+  },
+
+  postedIcon: {
+    width: "35px",
+    height: "35px",
+    minWidth: "35px",
+    borderRadius: "9px",
+    background: "#dcfce7",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "16px",
+  },
+
+  postedContent: {
+    minWidth: 0,
+  },
+
+  postedLabel: {
+    color: "#15803d",
+    fontSize: "8px",
+    fontWeight: "1000",
+    letterSpacing: "1px",
+  },
+
+  postedDate: {
+    marginTop: "2px",
+    color: "#166534",
+    fontSize: "11px",
+    fontWeight: "900",
+    overflowWrap: "anywhere",
+  },
+
+  postedTime: {
+    marginTop: "2px",
+    color: "#4d7c0f",
+    fontSize: "9px",
+    fontWeight: "700",
+    overflowWrap: "anywhere",
   },
 
   homeworkFooter: {
