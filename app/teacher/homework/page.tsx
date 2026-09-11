@@ -43,6 +43,9 @@ export default function TeacherHomeworkPage() {
   const [scheduledDateTime, setScheduledDateTime] =
     useState("");
 
+  const [openHomeworkIds, setOpenHomeworkIds] =
+    useState<number[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -154,18 +157,18 @@ export default function TeacherHomeworkPage() {
     setSelectedClasses([]);
   }
 
-  /*
-   * Converts India local date/time from datetime-local
-   * into an ISO UTC timestamp.
-   *
-   * Example:
-   * 2026-09-11T20:30
-   * becomes:
-   * 2026-09-11T15:00:00.000Z
-   *
-   * This guarantees that scheduling is based on IST,
-   * regardless of the teacher's browser timezone.
-   */
+  function toggleHomeworkContent(id: number) {
+    setOpenHomeworkIds((previous) => {
+      if (previous.includes(id)) {
+        return previous.filter(
+          (item) => item !== id
+        );
+      }
+
+      return [...previous, id];
+    });
+  }
+
   function convertIndiaDateTimeToISO(
     value: string
   ) {
@@ -429,6 +432,12 @@ export default function TeacherHomeworkPage() {
       setHomework((previous) =>
         previous.filter(
           (item) => item.id !== id
+        )
+      );
+
+      setOpenHomeworkIds((previous) =>
+        previous.filter(
+          (item) => item !== id
         )
       );
     } catch (err) {
@@ -752,8 +761,6 @@ export default function TeacherHomeworkPage() {
             </div>
 
           </div>
-
-          {/* HOMEWORK POSTING MODE */}
 
           <div style={styles.scheduleSection}>
 
@@ -1098,6 +1105,11 @@ export default function TeacherHomeworkPage() {
                     item
                   );
 
+                const isOpen =
+                  openHomeworkIds.includes(
+                    item.id
+                  );
+
                 return (
                   <div
                     key={item.id}
@@ -1112,7 +1124,12 @@ export default function TeacherHomeworkPage() {
                       }
                     >
 
-                      <div>
+                      <div
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                        }}
+                      >
 
                         <div
                           style={
@@ -1192,15 +1209,120 @@ export default function TeacherHomeworkPage() {
 
                     </div>
 
-                    <p
+                    {/* HOMEWORK CONTENT ACCORDION */}
+
+                    <div
                       style={
-                        styles.homeworkDescription
+                        styles.homeworkContentBox
                       }
                     >
-                      {
-                        item.description
-                      }
-                    </p>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          toggleHomeworkContent(
+                            item.id
+                          )
+                        }
+                        style={{
+                          ...styles.openHomeworkButton,
+                          ...(isOpen
+                            ? styles.openHomeworkButtonActive
+                            : {}),
+                        }}
+                      >
+
+                        <span
+                          style={
+                            styles.openHomeworkLeft
+                          }
+                        >
+                          <span
+                            style={
+                              styles.bookIcon
+                            }
+                          >
+                            📖
+                          </span>
+
+                          <span>
+                            {isOpen
+                              ? "गृह कार्य बंद करें"
+                              : "गृह कार्य खोलें"}
+                          </span>
+                        </span>
+
+                        <span
+                          style={
+                            styles.openArrow
+                          }
+                        >
+                          {isOpen
+                            ? "▲"
+                            : "▼"}
+                        </span>
+
+                      </button>
+
+                      {isOpen && (
+                        <div
+                          style={
+                            styles.homeworkDocument
+                          }
+                        >
+
+                          <div
+                            style={
+                              styles.documentHeader
+                            }
+                          >
+                            <div>
+                              <div
+                                style={
+                                  styles.documentLabel
+                                }
+                              >
+                                📄 गृह कार्य
+                              </div>
+
+                              <div
+                                style={
+                                  styles.documentTitle
+                                }
+                              >
+                                {item.title}
+                              </div>
+                            </div>
+
+                            <div
+                              style={
+                                styles.documentSubject
+                              }
+                            >
+                              {item.subject}
+                            </div>
+                          </div>
+
+                          <div
+                            style={
+                              styles.documentDivider
+                            }
+                          />
+
+                          <div
+                            style={
+                              styles.homeworkDescription
+                            }
+                          >
+                            {
+                              item.description
+                            }
+                          </div>
+
+                        </div>
+                      )}
+
+                    </div>
 
                     {scheduled &&
                       item.scheduled_at && (
@@ -1845,18 +1967,126 @@ const styles: {
     color: "#172554",
     fontSize: "19px",
     fontWeight: "900",
+    lineHeight: 1.4,
+  },
+
+  /*
+   * New गृह कार्य accordion section
+   */
+
+  homeworkContentBox: {
+    marginTop: "15px",
+  },
+
+  openHomeworkButton: {
+    width: "100%",
+    border:
+      "1px solid #bfdbfe",
+    background: "#eff6ff",
+    color: "#1d4ed8",
+    padding: "12px 14px",
+    borderRadius: "10px",
+    display: "flex",
+    justifyContent:
+      "space-between",
+    alignItems: "center",
+    gap: "10px",
+    cursor: "pointer",
+    fontSize: "12px",
+    fontWeight: "900",
+    textAlign: "left",
+  },
+
+  openHomeworkButtonActive: {
+    background: "#dbeafe",
+    border:
+      "1px solid #93c5fd",
+    borderBottomLeftRadius: "0px",
+    borderBottomRightRadius: "0px",
+  },
+
+  openHomeworkLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: "9px",
+  },
+
+  bookIcon: {
+    fontSize: "18px",
+  },
+
+  openArrow: {
+    fontSize: "11px",
+    fontWeight: "900",
+  },
+
+  homeworkDocument: {
+    background: "#ffffff",
+    border:
+      "1px solid #93c5fd",
+    borderTop: "none",
+    borderBottomLeftRadius: "10px",
+    borderBottomRightRadius: "10px",
+    padding: "17px",
+  },
+
+  documentHeader: {
+    display: "flex",
+    justifyContent:
+      "space-between",
+    alignItems: "flex-start",
+    gap: "12px",
+    flexWrap: "wrap",
+  },
+
+  documentLabel: {
+    color: "#64748b",
+    fontSize: "10px",
+    fontWeight: "900",
+    textTransform:
+      "uppercase",
+    letterSpacing: "0.5px",
+  },
+
+  documentTitle: {
+    marginTop: "4px",
+    color: "#172554",
+    fontSize: "15px",
+    fontWeight: "900",
+    lineHeight: 1.4,
+  },
+
+  documentSubject: {
+    background: "#dbeafe",
+    color: "#1d4ed8",
+    padding: "6px 9px",
+    borderRadius: "7px",
+    fontSize: "10px",
+    fontWeight: "900",
+    textTransform:
+      "uppercase",
+  },
+
+  documentDivider: {
+    height: "1px",
+    background: "#e2e8f0",
+    margin:
+      "14px 0",
   },
 
   homeworkDescription: {
-    margin: "14px 0",
-    color: "#475569",
+    margin: 0,
+    color: "#334155",
     fontSize: "13px",
-    lineHeight: 1.6,
+    lineHeight: 1.75,
     fontWeight: "600",
     whiteSpace: "pre-wrap",
+    wordBreak:
+      "break-word",
   },
 
   scheduledInfo: {
+    marginTop: "12px",
     marginBottom: "12px",
     padding: "10px 12px",
     background: "#fffbeb",
@@ -1873,6 +2103,7 @@ const styles: {
   },
 
   publishedInfo: {
+    marginTop: "12px",
     marginBottom: "12px",
     padding: "10px 12px",
     background: "#f0fdf4",
