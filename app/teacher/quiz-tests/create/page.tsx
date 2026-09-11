@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
 
-const SUBJECTS: string[] = [
+const SUBJECTS = [
   "Hindi",
   "English",
   "Mathematics",
@@ -14,69 +14,30 @@ const SUBJECTS: string[] = [
   "Others",
 ];
 
-const CLASS_ORDER: Record<string, number> = {
-  NURSERY: 0,
-  LKG: 0,
-  UKG: 0,
-  "1ST": 1,
-  "2ND": 2,
-  "3RD": 3,
-  "4TH": 4,
-  "5TH": 5,
-  "6TH": 6,
-  "7TH": 7,
-  "8TH": 8,
-  "9TH": 9,
-  "10TH": 10,
-  "11TH": 11,
-  "12TH": 12,
-};
-
-type StudentClassRow = {
-  class_name: string | null;
-};
-
-type QuizInsertData = {
-  title: string;
-  description: string | null;
-  class_name: string | null;
-  target_classes: string[];
-  subject: string;
-  scheduled_date: string;
-  scheduled_time: string;
-  duration_minutes: number;
-  marks_per_question: number;
-  negative_marks: number;
-  pass_percentage: number;
-  is_published: boolean;
-  created_by: number | null;
-};
-
 export default function CreateQuizPage() {
   const router = useRouter();
 
-  const [title, setTitle] = useState<string>("");
-  const [description, setDescription] = useState<string>("");
-  const [date, setDate] = useState<string>("");
-  const [time, setTime] = useState<string>("");
-  const [marks, setMarks] = useState<string>("1");
-  const [negative, setNegative] = useState<string>("0");
-  const [passPercentage, setPassPercentage] =
-    useState<string>("40");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [accessMode, setAccessMode] = useState<
+    "scheduled" | "any_time"
+  >("scheduled");
 
-  const [selectedClasses, setSelectedClasses] =
-    useState<string[]>([]);
-  const [subject, setSubject] = useState<string>("");
+  const [marks, setMarks] = useState("1");
+  const [negative, setNegative] = useState("0");
+  const [passPercentage, setPassPercentage] = useState("40");
+
+  const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
+  const [subject, setSubject] = useState("");
 
   const [classes, setClasses] = useState<string[]>([]);
-  const [loadingClasses, setLoadingClasses] =
-    useState<boolean>(true);
+  const [loadingClasses, setLoadingClasses] = useState(true);
 
-  const [teacherId, setTeacherId] =
-    useState<number | null>(null);
-
-  const [saving, setSaving] = useState<boolean>(false);
-  const [message, setMessage] = useState<string>("");
+  const [teacherId, setTeacherId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     const rawId =
@@ -92,7 +53,7 @@ export default function CreateQuizPage() {
   }, []);
 
   useEffect(() => {
-    async function loadClasses(): Promise<void> {
+    async function loadClasses() {
       setLoadingClasses(true);
       setMessage("");
 
@@ -108,11 +69,9 @@ export default function CreateQuizPage() {
         return;
       }
 
-      const rows = (data ?? []) as StudentClassRow[];
-
-      const uniqueClasses: string[] = Array.from(
+      const uniqueClasses = Array.from(
         new Set(
-          rows
+          (data || [])
             .map((student) =>
               typeof student.class_name === "string"
                 ? student.class_name.trim().toUpperCase()
@@ -122,9 +81,27 @@ export default function CreateQuizPage() {
         )
       );
 
+      const classOrder: Record<string, number> = {
+        NURSERY: 0,
+        LKG: 0,
+        UKG: 0,
+        "1ST": 1,
+        "2ND": 2,
+        "3RD": 3,
+        "4TH": 4,
+        "5TH": 5,
+        "6TH": 6,
+        "7TH": 7,
+        "8TH": 8,
+        "9TH": 9,
+        "10TH": 10,
+        "11TH": 11,
+        "12TH": 12,
+      };
+
       uniqueClasses.sort((a, b) => {
-        const orderA = CLASS_ORDER[a] ?? 999;
-        const orderB = CLASS_ORDER[b] ?? 999;
+        const orderA = classOrder[a] ?? 999;
+        const orderB = classOrder[b] ?? 999;
 
         if (orderA !== orderB) {
           return orderA - orderB;
@@ -137,11 +114,11 @@ export default function CreateQuizPage() {
       setLoadingClasses(false);
     }
 
-    void loadClasses();
+    loadClasses();
   }, []);
 
-  function toggleClass(className: string): void {
-    setSelectedClasses((current: string[]) => {
+  function toggleClass(className: string) {
+    setSelectedClasses((current) => {
       if (current.includes(className)) {
         return current.filter((item) => item !== className);
       }
@@ -150,17 +127,15 @@ export default function CreateQuizPage() {
     });
   }
 
-  function selectAllClasses(): void {
+  function selectAllClasses() {
     setSelectedClasses(classes);
   }
 
-  function clearAllClasses(): void {
+  function clearAllClasses() {
     setSelectedClasses([]);
   }
 
-  async function createQuiz(
-    e: FormEvent<HTMLFormElement>
-  ): Promise<void> {
+  async function createQuiz(e: FormEvent) {
     e.preventDefault();
     setMessage("");
 
@@ -181,8 +156,13 @@ export default function CreateQuizPage() {
       return;
     }
 
-    if (!date || !time) {
-      setMessage("Please select date and start time.");
+    if (!date) {
+      setMessage("Please select quiz date.");
+      return;
+    }
+
+    if (accessMode === "scheduled" && !time) {
+      setMessage("Please select scheduled start time.");
       return;
     }
 
@@ -195,10 +175,7 @@ export default function CreateQuizPage() {
       return;
     }
 
-    if (
-      !Number.isFinite(negativeNumber) ||
-      negativeNumber < 0
-    ) {
+    if (!Number.isFinite(negativeNumber) || negativeNumber < 0) {
       setMessage("Negative marks cannot be negative.");
       return;
     }
@@ -208,15 +185,13 @@ export default function CreateQuizPage() {
       passNumber < 0 ||
       passNumber > 100
     ) {
-      setMessage(
-        "Pass percentage must be between 0 and 100."
-      );
+      setMessage("Pass percentage must be between 0 and 100.");
       return;
     }
 
     setSaving(true);
 
-    const normalizedClasses: string[] = Array.from(
+    const normalizedClasses = Array.from(
       new Set(
         selectedClasses
           .map((item) => item.trim().toUpperCase())
@@ -224,32 +199,34 @@ export default function CreateQuizPage() {
       )
     );
 
-    const quizData: QuizInsertData = {
-      title: cleanTitle,
-      description: description.trim() || null,
-
-      class_name: normalizedClasses[0] || null,
-      target_classes: normalizedClasses,
-
-      subject,
-
-      scheduled_date: date,
-      scheduled_time: time,
-
-      duration_minutes: 30,
-
-      marks_per_question: marksNumber,
-      negative_marks: negativeNumber,
-      pass_percentage: passNumber,
-
-      is_published: false,
-
-      created_by: teacherId,
-    };
-
     const { data, error } = await supabase
       .from("quiz_tests")
-      .insert(quizData)
+      .insert({
+        title: cleanTitle,
+        description: description.trim() || null,
+
+        class_name: normalizedClasses[0] || null,
+        class_names: normalizedClasses,
+        target_classes: normalizedClasses,
+
+        subject,
+
+        scheduled_date: date,
+        scheduled_time:
+          accessMode === "scheduled" ? time : null,
+
+        access_mode: accessMode,
+
+        duration_minutes: 30,
+
+        marks_per_question: marksNumber,
+        negative_marks: negativeNumber,
+        pass_percentage: passNumber,
+
+        is_published: false,
+
+        created_by: teacherId,
+      })
       .select("id")
       .single();
 
@@ -272,7 +249,10 @@ export default function CreateQuizPage() {
         <header className="border-b border-white/10 bg-slate-950/90">
           <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4">
             <div>
-              <h1 className="font-black">CREATE NEW QUIZ</h1>
+              <h1 className="font-black">
+                CREATE NEW QUIZ
+              </h1>
+
               <p className="text-xs text-slate-400">
                 RACER ACADEMY
               </p>
@@ -306,6 +286,7 @@ export default function CreateQuizPage() {
             </div>
 
             <div className="mt-6 space-y-5">
+              {/* CLASSES */}
               <div>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <label className="text-sm font-bold">
@@ -348,7 +329,9 @@ export default function CreateQuizPage() {
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
                       {classes.map((classItem) => {
                         const selected =
-                          selectedClasses.includes(classItem);
+                          selectedClasses.includes(
+                            classItem
+                          );
 
                         return (
                           <button
@@ -380,6 +363,7 @@ export default function CreateQuizPage() {
                 </p>
               </div>
 
+              {/* SUBJECT */}
               <div>
                 <label className="text-sm font-bold">
                   Select Subject
@@ -392,7 +376,9 @@ export default function CreateQuizPage() {
                   }
                   className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none focus:border-indigo-400"
                 >
-                  <option value="">Select Subject</option>
+                  <option value="">
+                    Select Subject
+                  </option>
 
                   {SUBJECTS.map((subjectItem) => (
                     <option
@@ -405,6 +391,7 @@ export default function CreateQuizPage() {
                 </select>
               </div>
 
+              {/* TITLE */}
               <div>
                 <label className="text-sm font-bold">
                   Quiz Title
@@ -421,6 +408,7 @@ export default function CreateQuizPage() {
                 />
               </div>
 
+              {/* DESCRIPTION */}
               <div>
                 <label className="text-sm font-bold">
                   Description
@@ -437,22 +425,76 @@ export default function CreateQuizPage() {
                 />
               </div>
 
-              <div className="grid gap-5 sm:grid-cols-2">
-                <div>
-                  <label className="text-sm font-bold">
-                    Scheduled Date
-                  </label>
+              {/* DATE */}
+              <div>
+                <label className="text-sm font-bold">
+                  Quiz Date
+                </label>
 
-                  <input
-                    type="date"
-                    value={date}
-                    onChange={(e) =>
-                      setDate(e.target.value)
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) =>
+                    setDate(e.target.value)
+                  }
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none focus:border-indigo-400"
+                />
+              </div>
+
+              {/* ACCESS MODE */}
+              <div>
+                <label className="text-sm font-bold">
+                  Test Access
+                </label>
+
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAccessMode("scheduled")
                     }
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none focus:border-indigo-400"
-                  />
-                </div>
+                    className={`rounded-2xl border p-4 text-left transition ${
+                      accessMode === "scheduled"
+                        ? "border-indigo-400 bg-indigo-600 text-white"
+                        : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
+                    }`}
+                  >
+                    <div className="font-black">
+                      Scheduled Time
+                    </div>
 
+                    <div className="mt-1 text-xs opacity-80">
+                      Student can start the test only at
+                      the scheduled time.
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAccessMode("any_time")
+                    }
+                    className={`rounded-2xl border p-4 text-left transition ${
+                      accessMode === "any_time"
+                        ? "border-emerald-400 bg-emerald-600 text-white"
+                        : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
+                    }`}
+                  >
+                    <div className="font-black">
+                      Any Time
+                    </div>
+
+                    <div className="mt-1 text-xs opacity-80">
+                      Student can start once anytime from
+                      5:00 AM to 9:00 PM on the selected
+                      date.
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* SCHEDULED TIME */}
+              {accessMode === "scheduled" && (
                 <div>
                   <label className="text-sm font-bold">
                     Start Time
@@ -466,9 +508,39 @@ export default function CreateQuizPage() {
                     }
                     className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none focus:border-indigo-400"
                   />
-                </div>
-              </div>
 
+                  <p className="mt-1 text-xs text-slate-500">
+                    Student can start the quiz at this
+                    scheduled time.
+                  </p>
+                </div>
+              )}
+
+              {/* ANY TIME INFO */}
+              {accessMode === "any_time" && (
+                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-4">
+                  <p className="text-sm font-bold text-emerald-300">
+                    Any Time Mode
+                  </p>
+
+                  <p className="mt-1 text-xs leading-5 text-slate-300">
+                    Students can start this quiz once
+                    anytime between{" "}
+                    <span className="font-bold text-white">
+                      5:00 AM and 9:00 PM
+                    </span>{" "}
+                    on the selected date.
+                    <br />
+                    The quiz duration remains fixed at{" "}
+                    <span className="font-bold text-white">
+                      30 minutes
+                    </span>
+                    .
+                  </p>
+                </div>
+              )}
+
+              {/* MARKS */}
               <div className="grid gap-5 sm:grid-cols-3">
                 <div>
                   <label className="text-sm font-bold">
@@ -523,6 +595,7 @@ export default function CreateQuizPage() {
                 </div>
               </div>
 
+              {/* PASS */}
               <div>
                 <label className="text-sm font-bold">
                   Pass Percentage
