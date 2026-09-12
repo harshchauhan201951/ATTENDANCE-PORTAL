@@ -180,6 +180,15 @@ export default function TeacherDashboard() {
       icon: "👨‍🏫",
       path: "/teacher/teachers",
     },
+
+    // OPTION 16
+    {
+      title: "About Academy",
+      description:
+        "Manage academy information, classes, fees, timings, faculty and facilities",
+      icon: "🏫",
+      path: "/teacher/academy-profile",
+    },
   ];
 
   return (
@@ -330,6 +339,9 @@ export default function TeacherDashboard() {
               const isVoice =
                 item.title === "Voice & Call";
 
+              const isAcademy =
+                item.title === "About Academy";
+
               return (
                 <button
                   type="button"
@@ -392,6 +404,8 @@ export default function TeacherDashboard() {
                             ? "#ca8a04"
                             : isVoice
                             ? "#0891b2"
+                            : isAcademy
+                            ? "#059669"
                             : "#94a3b8",
                       }}
                     >
@@ -434,6 +448,8 @@ export default function TeacherDashboard() {
                           ? "#ca8a04"
                           : isVoice
                           ? "#0891b2"
+                          : isAcademy
+                          ? "#059669"
                           : "#4f46e5",
                       fontWeight: 700,
                       fontSize: "14px",
