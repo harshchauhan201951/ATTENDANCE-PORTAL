@@ -89,32 +89,44 @@ type InfoModal =
 const defaultAcademyProfile: AcademyProfile = {
   academy_name: "RACER ACADEMY",
   tagline: "Learn • Grow • Achieve",
+
   about_text:
-    "Welcome to RACER ACADEMY. We provide focused academic support and tuition for students from Nursery to Class 10. We focus on concept clarity, regular practice, doubt solving, discipline and individual attention.",
+    "Welcome to RACER ACADEMY. We provide focused academic support and tuition for students from Nursery to Class 10. We focus on concept clarity, regular practice, doubt solving, discipline and individual attention so every child can learn with confidence.",
+
   classes_text:
-    "Nursery to Class 10\nHindi Medium • English Medium\nSubjects: Hindi, English, Mathematics, Science, Social Science and General Knowledge.",
+    "Nursery to Class 10\nHindi Medium • English Medium\nSubjects: Hindi, English, Mathematics, Science, Social Science and General Knowledge.\nRegular practice, doubt solving, revision and tests.",
+
   facilities_text:
-    "Child-friendly learning environment, individual attention, regular tests, revision, doubt solving, homework guidance and progress monitoring.",
+    "• Child-friendly learning environment\n• Individual attention\n• Regular tests and revision\n• Doubt-solving support\n• Homework and practice guidance\n• Progress monitoring\n• Parent-friendly academic communication",
+
   timings_text:
-    "Monday-Saturday\nHindi: 04:00 PM - 05:00 PM\nEnglish: 05:00 PM - 06:00 PM\nMathematics: 06:00 PM - 07:00 PM",
+    "Monday-Saturday\nHindi: 04:00 PM - 05:00 PM\nEnglish: 05:00 PM - 06:00 PM\nMathematics: 06:00 PM - 07:00 PM\nAdditional 1.5-hour subject sessions can be arranged at 50% additional fee.",
+
   faculty_text:
     "Dedicated, experienced and supportive faculty focused on concept clarity, regular practice, student confidence and individual progress.",
+
   achievements_text:
-    "Our students have achieved good academic improvement and strong results after studying at RACER ACADEMY.",
+    "Our students have achieved good academic improvement and strong results after studying at RACER ACADEMY. We focus on helping every child improve concepts, confidence, discipline and performance.",
+
   why_choose_us:
-    "We do not run after fees or profit; we run after the child and the child's learning. Our focus is teaching, concept clarity, personal attention and real academic improvement.",
+    "We do not run after fees or profit; we run after the child and the child's learning. Our focus is teaching, concept clarity, personal attention, regular practice and real academic improvement.",
+
   rules_text:
-    "Every student has the right to ask questions freely and without hesitation. Classes are conducted in a quiet and disciplined environment without unnecessary noise or activities.",
+    "Every student has the right to ask questions freely and without hesitation. Students are encouraged to clear every doubt. Classes are conducted in a quiet, disciplined environment without unnecessary noise or activities. Students should attend regularly, respect teachers and complete assigned work.",
+
   contact_text:
-    "Contact RACER ACADEMY for admissions, batch details and academic guidance.",
+    "Use the phone, WhatsApp, email and contact links below for admission enquiries, batch details and academic guidance.",
+
   address: "",
   phone: "",
   whatsapp: "",
   email: "",
+
   admission_text:
-    "Admissions are open for Nursery to Class 10. Contact the academy for available batches, subjects, medium and fee details.",
+    "Admissions are open for Nursery to Class 10. Contact the academy for available batches, subjects, medium and fee details. Email, phone number, WhatsApp and teacher contact details can be updated below.",
+
   gallery_text:
-    "Child-friendly academy environment, classroom learning, practice sessions and academic growth moments.",
+    "Child-friendly academy environment, classroom learning, practice sessions, student activities and academic growth moments.",
 };
 
 const defaultGalleryImages = [
@@ -132,6 +144,188 @@ const defaultGalleryImages = [
   },
 ];
 
+const defaultSubjects = [
+  "Hindi",
+  "English",
+  "Mathematics",
+  "Science",
+  "Social Science",
+  "General Knowledge",
+];
+
+const defaultClassNames = [
+  "Nursery",
+  "LKG",
+  "UKG",
+  "Class 1",
+  "Class 2",
+  "Class 3",
+  "Class 4",
+  "Class 5",
+  "Class 6",
+  "Class 7",
+  "Class 8",
+  "Class 9",
+  "Class 10",
+];
+
+const defaultMediums = [
+  "Hindi Medium",
+  "English Medium",
+];
+
+function getDefaultFeeAmount(
+  className: string,
+  medium: string
+) {
+  if (
+    className === "Nursery" ||
+    className === "LKG" ||
+    className === "UKG"
+  ) {
+    return 200;
+  }
+
+  const classNumber = Number(
+    className.replace("Class ", "")
+  );
+
+  if (classNumber >= 1 && classNumber <= 5) {
+    return medium === "English Medium" ? 220 : 200;
+  }
+
+  if (classNumber >= 6 && classNumber <= 8) {
+    return medium === "English Medium" ? 270 : 250;
+  }
+
+  if (classNumber >= 9 && classNumber <= 10) {
+    return medium === "English Medium" ? 350 : 300;
+  }
+
+  return 200;
+}
+
+const defaultAcademyFees: AcademyFee[] =
+  defaultClassNames.flatMap(
+    (className, classIndex) =>
+      defaultMediums.flatMap(
+        (medium, mediumIndex) =>
+          defaultSubjects.map(
+            (subject, subjectIndex) => ({
+              id:
+                100000 +
+                classIndex * 1000 +
+                mediumIndex * 100 +
+                subjectIndex,
+
+              class_name: `${className} - ${medium}`,
+
+              subject_name: subject,
+
+              fee_amount:
+                getDefaultFeeAmount(
+                  className,
+                  medium
+                ),
+
+              fee_period: "Monthly",
+
+              description:
+                "Per subject • 1 hour session • 1.5 hour session available at 50% additional fee • No admission fee • No yearly charge",
+            })
+          )
+      )
+  );
+
+const defaultFacilities: AcademyFacility[] = [
+  {
+    id: 1,
+    title: "Child-Friendly Learning Environment",
+    description:
+      "Safe, positive and comfortable atmosphere for students.",
+    icon: "🏫",
+  },
+  {
+    id: 2,
+    title: "Individual Attention",
+    description:
+      "Focused support according to each student's learning needs.",
+    icon: "👨‍🏫",
+  },
+  {
+    id: 3,
+    title: "Regular Tests & Revision",
+    description:
+      "Regular practice, tests and revision to strengthen concepts.",
+    icon: "📝",
+  },
+  {
+    id: 4,
+    title: "Doubt Solving",
+    description:
+      "Students can ask questions freely and clear doubts without hesitation.",
+    icon: "💡",
+  },
+  {
+    id: 5,
+    title: "Homework & Practice Support",
+    description:
+      "Guidance for homework, practice and daily improvement.",
+    icon: "📚",
+  },
+  {
+    id: 6,
+    title: "Quiet & Disciplined Classes",
+    description:
+      "Focused classes without unnecessary noise or activities.",
+    icon: "🤫",
+  },
+];
+
+const defaultTimings: AcademyTiming[] = [
+  {
+    id: 1,
+    title: "HINDI",
+    days: "MONDAY-SATURDAY",
+    start_time: "04:00 PM",
+    end_time: "05:00 PM",
+    description:
+      "1 hour session • Monthly • 1.5 hour session available at 50% additional fee.",
+  },
+  {
+    id: 2,
+    title: "ENGLISH",
+    days: "MONDAY-SATURDAY",
+    start_time: "05:00 PM",
+    end_time: "06:00 PM",
+    description:
+      "1 hour session • Monthly • 1.5 hour session available at 50% additional fee.",
+  },
+  {
+    id: 3,
+    title: "MATHEMATICS",
+    days: "MONDAY-SATURDAY",
+    start_time: "06:00 PM",
+    end_time: "07:00 PM",
+    description:
+      "1 hour session • Monthly • 1.5 hour session available at 50% additional fee.",
+  },
+];
+
+const defaultFaculty: AcademyFaculty[] = [
+  {
+    id: 1,
+    teacher_name: "Experienced Faculty Team",
+    subject: "Academic Support",
+    qualification:
+      "Qualified & Supportive Teaching Team",
+    experience: "Focused on student progress",
+    photo_url: defaultGalleryImages[0].src,
+    description:
+      "Good, experienced and supportive faculty focused on concept clarity, regular practice, confidence and individual attention.",
+  },
+];
+
 export default function HomePage() {
   const router = useRouter();
 
@@ -140,20 +334,36 @@ export default function HomePage() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] =
+    useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const [academy, setAcademy] =
-    useState<AcademyProfile>(defaultAcademyProfile);
+    useState<AcademyProfile>(
+      defaultAcademyProfile
+    );
 
-  const [fees, setFees] = useState<AcademyFee[]>([]);
+  const [fees, setFees] =
+    useState<AcademyFee[]>(
+      defaultAcademyFees
+    );
+
   const [facilities, setFacilities] =
-    useState<AcademyFacility[]>([]);
+    useState<AcademyFacility[]>(
+      defaultFacilities
+    );
+
   const [timings, setTimings] =
-    useState<AcademyTiming[]>([]);
+    useState<AcademyTiming[]>(
+      defaultTimings
+    );
+
   const [faculty, setFaculty] =
-    useState<AcademyFaculty[]>([]);
+    useState<AcademyFaculty[]>(
+      defaultFaculty
+    );
+
   const [announcements, setAnnouncements] =
     useState<AcademyAnnouncement[]>([]);
 
@@ -188,7 +398,9 @@ export default function HomePage() {
 
           supabase
             .from("academy_facilities")
-            .select("id,title,description,icon")
+            .select(
+              "id,title,description,icon"
+            )
             .eq("is_active", true)
             .order("display_order", {
               ascending: true,
@@ -235,29 +447,40 @@ export default function HomePage() {
           });
         }
 
-        if (feesResult.data && !feesResult.error) {
+        if (
+          feesResult.data &&
+          !feesResult.error &&
+          feesResult.data.length > 0
+        ) {
           setFees(feesResult.data);
         }
 
         if (
           facilitiesResult.data &&
-          !facilitiesResult.error
+          !facilitiesResult.error &&
+          facilitiesResult.data.length > 0
         ) {
-          setFacilities(facilitiesResult.data);
+          setFacilities(
+            facilitiesResult.data
+          );
         }
 
         if (
           timingsResult.data &&
-          !timingsResult.error
+          !timingsResult.error &&
+          timingsResult.data.length > 0
         ) {
           setTimings(timingsResult.data);
         }
 
         if (
           facultyResult.data &&
-          !facultyResult.error
+          !facultyResult.error &&
+          facultyResult.data.length > 0
         ) {
-          setFaculty(facultyResult.data);
+          setFaculty(
+            facultyResult.data
+          );
         }
 
         if (
@@ -350,7 +573,9 @@ export default function HomePage() {
         ) {
           const { error: activityError } =
             await supabase
-              .from("student_login_activity")
+              .from(
+                "student_login_activity"
+              )
               .insert({
                 student_id:
                   currentStudentId,
@@ -551,10 +776,14 @@ export default function HomePage() {
             <div className="empty-icon">
               💰
             </div>
-            <h3>Fee details coming soon</h3>
+
+            <h3>
+              Fee details coming soon
+            </h3>
+
             <p>
-              Please contact RACER ACADEMY for
-              current fee information.
+              Please contact RACER ACADEMY
+              for current fee information.
             </p>
           </div>
         );
@@ -563,15 +792,22 @@ export default function HomePage() {
       return (
         <div className="modal-fees">
           <div className="fee-note">
-            <strong>Monthly Fee • Per Subject</strong>
+            <strong>
+              Monthly Fee • Per Subject
+            </strong>
+
             <span>
               Standard session: 1 hour
             </span>
+
             <span>
-              1.5 hour session = 50% additional
+              1.5 hour session = 50%
+              additional
             </span>
+
             <span>
-              No admission fee • No yearly charge
+              No admission fee • No yearly
+              charge
             </span>
           </div>
 
@@ -643,29 +879,26 @@ export default function HomePage() {
             📚
           </div>
 
-          <h3>Nursery to Class 10</h3>
+          <h3>
+            Nursery to Class 10
+          </h3>
 
           <p className="modal-main-text">
             Hindi Medium and English Medium
           </p>
 
           <div className="subject-grid">
-            {[
-              "Hindi",
-              "English",
-              "Mathematics",
-              "Science",
-              "Social Science",
-              "General Knowledge",
-            ].map((subject) => (
-              <div
-                className="subject-pill"
-                key={subject}
-              >
-                <span>✓</span>
-                {subject}
-              </div>
-            ))}
+            {defaultSubjects.map(
+              (subject) => (
+                <div
+                  className="subject-pill"
+                  key={subject}
+                >
+                  <span>✓</span>
+                  {subject}
+                </div>
+              )
+            )}
           </div>
 
           <div className="modal-text-box">
@@ -688,7 +921,9 @@ export default function HomePage() {
                   🕒
                 </div>
 
-                <h3>{timing.title}</h3>
+                <h3>
+                  {timing.title}
+                </h3>
 
                 <div className="timing-time">
                   {timing.start_time} –{" "}
@@ -824,14 +1059,17 @@ export default function HomePage() {
               <span>✓</span>
               Regular academic practice
             </div>
+
             <div>
               <span>✓</span>
               Tests and revision
             </div>
+
             <div>
               <span>✓</span>
               Individual progress
             </div>
+
             <div>
               <span>✓</span>
               Confidence and concept building
@@ -860,6 +1098,7 @@ export default function HomePage() {
             <strong>
               “Free to Ask”
             </strong>
+
             <span>
               Every student can ask questions
               without hesitation.
@@ -904,11 +1143,30 @@ export default function HomePage() {
           ""
         );
 
+      const phoneHref =
+        academy.phone.startsWith("http")
+          ? academy.phone
+          : `tel:${academy.phone}`;
+
+      const whatsappHref =
+        academy.whatsapp.startsWith(
+          "http"
+        )
+          ? academy.whatsapp
+          : `https://wa.me/${cleanWhatsapp}`;
+
+      const emailHref =
+        academy.email.startsWith("http")
+          ? academy.email
+          : `mailto:${academy.email}`;
+
       return (
         <div className="contact-modal-grid">
           <div className="contact-detail-card">
             <span>📍</span>
+
             <h3>Address</h3>
+
             <p>
               {academy.address ||
                 "RACER ACADEMY"}
@@ -917,54 +1175,53 @@ export default function HomePage() {
 
           <div className="contact-detail-card">
             <span>📞</span>
+
             <h3>Phone</h3>
 
             {academy.phone ? (
-              <a
-                href={`tel:${academy.phone}`}
-              >
+              <a href={phoneHref}>
                 {academy.phone}
               </a>
             ) : (
-              <p>Contact academy</p>
+              <p>
+                Contact academy
+              </p>
             )}
           </div>
 
           <div className="contact-detail-card">
             <span>💬</span>
+
             <h3>WhatsApp</h3>
 
             {academy.whatsapp ? (
               <a
-                href={
-                  academy.whatsapp.startsWith(
-                    "http"
-                  )
-                    ? academy.whatsapp
-                    : `https://wa.me/${cleanWhatsapp}`
-                }
+                href={whatsappHref}
                 target="_blank"
                 rel="noopener noreferrer"
               >
                 {academy.whatsapp}
               </a>
             ) : (
-              <p>Available on request</p>
+              <p>
+                Available on request
+              </p>
             )}
           </div>
 
           <div className="contact-detail-card">
             <span>✉️</span>
+
             <h3>Email</h3>
 
             {academy.email ? (
-              <a
-                href={`mailto:${academy.email}`}
-              >
+              <a href={emailHref}>
                 {academy.email}
               </a>
             ) : (
-              <p>Email coming soon</p>
+              <p>
+                Email coming soon
+              </p>
             )}
           </div>
 
@@ -1027,10 +1284,6 @@ export default function HomePage() {
         <div className="background-grid" />
 
         <div className="page-shell">
-          {/* =====================================
-              TOP BRAND
-          ===================================== */}
-
           <header className="top-brand">
             <div className="brand-mark">
               🎓
@@ -1049,15 +1302,7 @@ export default function HomePage() {
             </div>
           </header>
 
-          {/* =====================================
-              MAIN TWO COLUMN AREA
-          ===================================== */}
-
           <section className="main-layout">
-            {/* ===================================
-                ACADEMY SIDE
-            =================================== */}
-
             <div className="academy-side">
               <div className="academy-hero">
                 <div className="hero-glow hero-glow-one" />
@@ -1086,21 +1331,30 @@ export default function HomePage() {
                       <strong>
                         Nursery–10
                       </strong>
-                      <span>Classes</span>
+
+                      <span>
+                        Classes
+                      </span>
                     </div>
 
                     <div>
                       <strong>
                         2
                       </strong>
-                      <span>Mediums</span>
+
+                      <span>
+                        Mediums
+                      </span>
                     </div>
 
                     <div>
                       <strong>
                         6+
                       </strong>
-                      <span>Subjects</span>
+
+                      <span>
+                        Subjects
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1120,8 +1374,6 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* BASIC INFO */}
-
               <div className="basic-info-card">
                 <div className="section-small-title">
                   ACADEMY AT A GLANCE
@@ -1130,7 +1382,9 @@ export default function HomePage() {
                 <h2>
                   Everything you need,
                   <br />
-                  <span>in one place.</span>
+                  <span>
+                    in one place.
+                  </span>
                 </h2>
 
                 <p>
@@ -1153,6 +1407,7 @@ export default function HomePage() {
                       <strong>
                         About Academy
                       </strong>
+
                       <small>
                         Know more about us
                       </small>
@@ -1176,6 +1431,7 @@ export default function HomePage() {
                       <strong>
                         Classes & Subjects
                       </strong>
+
                       <small>
                         Nursery to Class 10
                       </small>
@@ -1199,6 +1455,7 @@ export default function HomePage() {
                       <strong>
                         Fee Structure
                       </strong>
+
                       <small>
                         Monthly • Per Subject
                       </small>
@@ -1222,6 +1479,7 @@ export default function HomePage() {
                       <strong>
                         Batch Timings
                       </strong>
+
                       <small>
                         Monday–Saturday
                       </small>
@@ -1245,6 +1503,7 @@ export default function HomePage() {
                       <strong>
                         Facilities
                       </strong>
+
                       <small>
                         Student-focused support
                       </small>
@@ -1268,6 +1527,7 @@ export default function HomePage() {
                       <strong>
                         Our Faculty
                       </strong>
+
                       <small>
                         Experienced guidance
                       </small>
@@ -1293,6 +1553,7 @@ export default function HomePage() {
                       <strong>
                         Achievements
                       </strong>
+
                       <small>
                         Student progress
                       </small>
@@ -1316,6 +1577,7 @@ export default function HomePage() {
                       <strong>
                         Academy Rules
                       </strong>
+
                       <small>
                         Learn with discipline
                       </small>
@@ -1326,11 +1588,10 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* SHORT HIGHLIGHTS */}
-
               <div className="highlight-strip">
                 <div>
                   <span>🎓</span>
+
                   <strong>
                     Nursery – Class 10
                   </strong>
@@ -1338,6 +1599,7 @@ export default function HomePage() {
 
                 <div>
                   <span>🗣️</span>
+
                   <strong>
                     Free to Ask
                   </strong>
@@ -1345,6 +1607,7 @@ export default function HomePage() {
 
                 <div>
                   <span>📈</span>
+
                   <strong>
                     Progress Focused
                   </strong>
@@ -1371,10 +1634,6 @@ export default function HomePage() {
                 </button>
               </div>
             </div>
-
-            {/* ===================================
-                LOGIN SIDE
-            =================================== */}
 
             <aside className="login-side">
               <section className="racer-login-card">
@@ -1469,9 +1728,7 @@ export default function HomePage() {
                     </label>
 
                     <div className="input-box">
-                      <span>
-                        👤
-                      </span>
+                      <span>👤</span>
 
                       <input
                         id="username"
@@ -1500,9 +1757,7 @@ export default function HomePage() {
                     </label>
 
                     <div className="input-box">
-                      <span>
-                        🔒
-                      </span>
+                      <span>🔒</span>
 
                       <input
                         id="password"
@@ -1548,6 +1803,7 @@ export default function HomePage() {
                   {error && (
                     <div className="login-error">
                       <span>⚠️</span>
+
                       <span>
                         {error}
                       </span>
@@ -1571,9 +1827,8 @@ export default function HomePage() {
                         "student"
                           ? "Student"
                           : "Teacher"}
-                        <span>
-                          →
-                        </span>
+
+                        <span>→</span>
                       </>
                     )}
                   </button>
@@ -1646,10 +1901,6 @@ export default function HomePage() {
           </footer>
         </div>
       </main>
-
-      {/* =========================================
-          DETAILS MODAL
-      ========================================= */}
 
       {activeModal && (
         <div
@@ -2017,6 +2268,7 @@ export default function HomePage() {
           font-size: 27px;
           line-height: 1.15;
           letter-spacing: -0.7px;
+          color: #0f172a;
         }
 
         .basic-info-card h2 span {
@@ -2024,7 +2276,7 @@ export default function HomePage() {
         }
 
         .basic-info-card > p {
-          color: #64748b;
+          color: #475569;
           font-size: 14px;
           line-height: 1.6;
           max-width: 850px;
@@ -2091,7 +2343,7 @@ export default function HomePage() {
         }
 
         .option-card b {
-          color: #64748b;
+          color: #475569;
           font-size: 18px;
         }
 
@@ -2247,7 +2499,7 @@ export default function HomePage() {
         .login-subtitle {
           margin-top: 5px;
           font-size: 10px;
-          color: #94a3b8;
+          color: #64748b;
           font-weight: 700;
         }
 
@@ -2263,7 +2515,7 @@ export default function HomePage() {
         .switch-button {
           border: 0;
           background: transparent;
-          color: #64748b;
+          color: #475569;
           padding: 11px 8px;
           border-radius: 11px;
           font-weight: 850;
@@ -2301,11 +2553,12 @@ export default function HomePage() {
           margin: 10px 0 5px;
           font-size: 25px;
           letter-spacing: -0.6px;
+          color: #0f172a;
         }
 
         .login-heading p {
           margin: 0;
-          color: #64748b;
+          color: #475569;
           font-size: 12px;
           line-height: 1.5;
         }
@@ -2361,12 +2614,13 @@ export default function HomePage() {
         }
 
         .input-box input::placeholder {
-          color: #94a3b8;
+          color: #64748b;
         }
 
         .password-toggle {
           border: 0;
           background: transparent;
+          color: #334155;
           cursor: pointer;
           padding: 4px;
           font-size: 15px;
@@ -2447,7 +2701,7 @@ export default function HomePage() {
           justify-content: center;
           gap: 9px;
           margin-top: 17px;
-          color: #64748b;
+          color: #475569;
           font-size: 10px;
           font-weight: 700;
         }
@@ -2461,7 +2715,7 @@ export default function HomePage() {
           padding-top: 13px;
           border-top: 1px solid #eef2f7;
           text-align: center;
-          color: #94a3b8;
+          color: #64748b;
           font-size: 9px;
           line-height: 1.5;
         }
@@ -2520,7 +2774,7 @@ export default function HomePage() {
           justify-content: space-between;
           gap: 15px;
           padding: 18px 4px 5px;
-          color: #94a3b8;
+          color: #64748b;
           font-size: 10px;
           font-weight: 700;
         }
@@ -2547,7 +2801,8 @@ export default function HomePage() {
           max-height: 90vh;
           overflow: hidden;
           border-radius: 25px;
-          background: white;
+          background: #ffffff;
+          color: #0f172a;
           box-shadow:
             0 30px 90px rgba(0, 0, 0, 0.3);
           display: flex;
@@ -2558,6 +2813,7 @@ export default function HomePage() {
           flex-shrink: 0;
           padding: 20px 22px;
           border-bottom: 1px solid #e2e8f0;
+          background: #ffffff;
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -2574,7 +2830,8 @@ export default function HomePage() {
         .modal-header h2 {
           margin: 3px 0 0;
           font-size: 23px;
-          color: #0f172a;
+          color: #0f172a !important;
+          font-weight: 900;
         }
 
         .modal-close {
@@ -2583,9 +2840,10 @@ export default function HomePage() {
           border: 0;
           border-radius: 11px;
           background: #f1f5f9;
-          color: #334155;
+          color: #0f172a !important;
           font-size: 25px;
           cursor: pointer;
+          font-weight: 700;
         }
 
         .modal-close:hover {
@@ -2595,6 +2853,39 @@ export default function HomePage() {
         .modal-body {
           overflow-y: auto;
           padding: 22px;
+          background: #ffffff;
+          color: #334155;
+        }
+
+        /* IMPORTANT VISIBILITY FIX */
+        .modal-body,
+        .modal-body div,
+        .modal-body p,
+        .modal-body span,
+        .modal-body strong,
+        .modal-body h3,
+        .modal-body td,
+        .modal-body th,
+        .modal-body a {
+          color: #334155;
+        }
+
+        .modal-body h3 {
+          color: #0f172a !important;
+        }
+
+        .modal-body strong {
+          color: #0f172a;
+        }
+
+        .modal-body a {
+          color: #4338ca !important;
+        }
+
+        .modal-body .modal-main-text,
+        .modal-body .timing-time,
+        .modal-body .about-tagline {
+          color: #4f46e5 !important;
         }
 
         .modal-footer {
@@ -2603,13 +2894,14 @@ export default function HomePage() {
           justify-content: flex-end;
           padding: 13px 20px;
           border-top: 1px solid #e2e8f0;
+          background: #ffffff;
         }
 
         .modal-footer button {
           border: 0;
           border-radius: 10px;
           background: #0f172a;
-          color: white;
+          color: #ffffff !important;
           padding: 9px 18px;
           cursor: pointer;
           font-size: 12px;
@@ -2625,18 +2917,22 @@ export default function HomePage() {
           border-radius: 13px;
           background: #f8fafc;
           border: 1px solid #e2e8f0;
-          color: #475569;
+          color: #475569 !important;
           font-size: 11px;
         }
 
         .fee-note strong {
-          color: #047857;
+          color: #047857 !important;
+        }
+
+        .fee-note span {
+          color: #475569 !important;
         }
 
         .fee-note span:not(:last-child)::after {
           content: "•";
           margin-left: 8px;
-          color: #cbd5e1;
+          color: #94a3b8;
         }
 
         .fee-table-wrap {
@@ -2644,28 +2940,36 @@ export default function HomePage() {
           overflow-x: auto;
           border: 1px solid #e2e8f0;
           border-radius: 14px;
+          background: #ffffff;
         }
 
         .fee-table {
           width: 100%;
           min-width: 680px;
           border-collapse: collapse;
+          background: #ffffff;
         }
 
         .fee-table th {
-          background: #f1f5f9;
-          color: #334155;
+          background: #e2e8f0 !important;
+          color: #0f172a !important;
           font-size: 11px;
           text-align: left;
           padding: 11px;
           white-space: nowrap;
+          font-weight: 900;
         }
 
         .fee-table td {
           padding: 10px 11px;
           border-top: 1px solid #e2e8f0;
-          color: #475569;
+          color: #334155 !important;
+          background: #ffffff;
           font-size: 11px;
+        }
+
+        .fee-table td strong {
+          color: #0f172a !important;
         }
 
         .fee-green {
@@ -2680,6 +2984,7 @@ export default function HomePage() {
 
         .modal-section {
           text-align: center;
+          color: #334155;
         }
 
         .big-info-icon,
@@ -2699,11 +3004,11 @@ export default function HomePage() {
         .simple-detail-modal h3 {
           margin: 0 0 6px;
           font-size: 20px;
-          color: #0f172a;
+          color: #0f172a !important;
         }
 
         .modal-main-text {
-          color: #4f46e5;
+          color: #4f46e5 !important;
           font-weight: 850;
           margin: 0;
         }
@@ -2725,24 +3030,25 @@ export default function HomePage() {
           border-radius: 12px;
           background: #f8fafc;
           border: 1px solid #e2e8f0;
-          color: #334155;
+          color: #334155 !important;
           font-size: 12px;
           font-weight: 800;
         }
 
         .subject-pill span {
-          color: #16a34a;
+          color: #16a34a !important;
         }
 
         .modal-text-box {
           padding: 15px;
           border-radius: 13px;
           background: #f8fafc;
-          color: #475569;
+          color: #334155 !important;
           line-height: 1.7;
           white-space: pre-line;
           text-align: left;
           font-size: 13px;
+          border: 1px solid #e2e8f0;
         }
 
         .timing-modal-grid,
@@ -2762,6 +3068,7 @@ export default function HomePage() {
           border-radius: 15px;
           background: #f8fafc;
           border: 1px solid #e2e8f0;
+          color: #334155 !important;
         }
 
         .timing-icon,
@@ -2775,26 +3082,27 @@ export default function HomePage() {
         .contact-detail-card h3 {
           margin: 0 0 6px;
           font-size: 15px;
-          color: #0f172a;
+          color: #0f172a !important;
         }
 
         .timing-time {
-          color: #4f46e5;
+          color: #4f46e5 !important;
           font-weight: 900;
           font-size: 14px;
         }
 
         .timing-days {
-          color: #64748b;
+          color: #475569 !important;
           font-size: 11px;
           margin-top: 3px;
+          font-weight: 700;
         }
 
         .timing-modal-card p,
         .info-modal-card p,
         .contact-detail-card p {
           margin: 8px 0 0;
-          color: #64748b;
+          color: #475569 !important;
           line-height: 1.5;
           font-size: 12px;
         }
@@ -2834,16 +3142,17 @@ export default function HomePage() {
         .faculty-modal-body h3 {
           margin: 0 0 4px;
           font-size: 16px;
+          color: #0f172a !important;
         }
 
         .faculty-modal-body strong {
-          color: #4f46e5;
+          color: #4f46e5 !important;
           font-size: 12px;
         }
 
         .faculty-modal-body p {
           margin: 6px 0 0;
-          color: #64748b;
+          color: #475569 !important;
           font-size: 11px;
           line-height: 1.45;
         }
@@ -2852,10 +3161,11 @@ export default function HomePage() {
           text-align: center;
           max-width: 720px;
           margin: 0 auto;
+          color: #334155;
         }
 
         .simple-detail-modal > p {
-          color: #475569;
+          color: #475569 !important;
           line-height: 1.7;
           white-space: pre-line;
           font-size: 13px;
@@ -2874,13 +3184,14 @@ export default function HomePage() {
           padding: 12px;
           background: #f8fafc;
           border-radius: 12px;
-          color: #475569;
+          border: 1px solid #e2e8f0;
+          color: #334155 !important;
           font-size: 12px;
           font-weight: 700;
         }
 
         .achievement-points span {
-          color: #16a34a;
+          color: #16a34a !important;
           margin-right: 7px;
         }
 
@@ -2895,6 +3206,7 @@ export default function HomePage() {
               #eef2ff,
               #ecfdf5
             );
+          border: 1px solid #dbeafe;
           display: flex;
           flex-direction: column;
           gap: 5px;
@@ -2902,12 +3214,12 @@ export default function HomePage() {
 
         .rule-highlight strong,
         .why-box strong {
-          color: #4f46e5;
+          color: #4f46e5 !important;
         }
 
         .rule-highlight span,
         .why-box span {
-          color: #475569;
+          color: #475569 !important;
           font-size: 12px;
           line-height: 1.5;
         }
@@ -2938,7 +3250,7 @@ export default function HomePage() {
           right: 0;
           bottom: 0;
           padding: 30px 12px 11px;
-          color: white;
+          color: white !important;
           font-size: 12px;
           font-weight: 900;
           background:
@@ -2950,7 +3262,7 @@ export default function HomePage() {
 
         .gallery-description {
           grid-column: 1 / -1;
-          color: #64748b;
+          color: #475569 !important;
           font-size: 12px;
           line-height: 1.6;
         }
@@ -2962,7 +3274,7 @@ export default function HomePage() {
         .contact-detail-card a {
           display: block;
           margin-top: 8px;
-          color: #4f46e5;
+          color: #4338ca !important;
           font-size: 12px;
           font-weight: 800;
           word-break: break-word;
@@ -2983,16 +3295,17 @@ export default function HomePage() {
               #eef2ff,
               #ecfdf5
             );
+          border: 1px solid #dbeafe;
         }
 
         .contact-admission-box strong {
-          color: #4f46e5;
+          color: #4f46e5 !important;
           font-size: 14px;
         }
 
         .contact-admission-box p {
           margin: 7px 0 0;
-          color: #475569;
+          color: #475569 !important;
           line-height: 1.6;
           font-size: 12px;
         }
@@ -3019,6 +3332,7 @@ export default function HomePage() {
         .empty-modal {
           text-align: center;
           padding: 40px 20px;
+          color: #334155;
         }
 
         .empty-icon {
@@ -3028,10 +3342,11 @@ export default function HomePage() {
 
         .empty-modal h3 {
           margin: 0 0 5px;
+          color: #0f172a !important;
         }
 
         .empty-modal p {
-          color: #64748b;
+          color: #475569 !important;
           font-size: 13px;
         }
 
