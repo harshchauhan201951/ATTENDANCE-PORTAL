@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 
@@ -177,7 +177,7 @@ const defaultMediums: FeeMedium[] = [
 
 function getDefaultFeeAmount(
   className: string,
-  medium: string
+  medium: FeeMedium
 ) {
   if (
     className === "Nursery" ||
@@ -330,10 +330,14 @@ const defaultFaculty: AcademyFaculty[] = [
 function getClassNameFromFee(
   fee: AcademyFee
 ) {
+  const rawClassName = (
+    fee.class_name || ""
+  ).trim();
+
   for (const className of defaultClassNames) {
     if (
-      fee.class_name === className ||
-      fee.class_name.startsWith(
+      rawClassName === className ||
+      rawClassName.startsWith(
         `${className} - `
       )
     ) {
@@ -341,28 +345,24 @@ function getClassNameFromFee(
     }
   }
 
-  return fee.class_name
-    .replace(" - Hindi Medium", "")
-    .replace(" - English Medium", "")
+  return rawClassName
+    .replace(/\s*-\s*Hindi Medium/i, "")
+    .replace(/\s*-\s*English Medium/i, "")
     .trim();
 }
 
 function getMediumFromFee(
   fee: AcademyFee
 ): FeeMedium | null {
-  if (
-    fee.class_name
-      .toLowerCase()
-      .includes("hindi medium")
-  ) {
+  const value = (
+    fee.class_name || ""
+  ).toLowerCase();
+
+  if (value.includes("hindi medium")) {
     return "Hindi Medium";
   }
 
-  if (
-    fee.class_name
-      .toLowerCase()
-      .includes("english medium")
-  ) {
+  if (value.includes("english medium")) {
     return "English Medium";
   }
 
@@ -373,41 +373,19 @@ function getComboFee(
   className: string,
   medium: FeeMedium
 ) {
-  if (
-    className === "Nursery" ||
-    className === "LKG" ||
-    className === "UKG"
-  ) {
-    return medium === "Hindi Medium"
-      ? 500
-      : 550;
-  }
+  const oneSubjectFee =
+    getDefaultFeeAmount(
+      className,
+      medium
+    );
 
-  const classNumber = Number(
-    className.replace("Class ", "")
+  // Combo = any 2 subjects for 2 total hours.
+  // The requested starting values are:
+  // Hindi Medium: ₹500 = 2.5 × ₹200
+  // English Medium: ₹550 = 2.5 × ₹220
+  return Math.round(
+    oneSubjectFee * 2.5
   );
-
-  if (classNumber >= 1 && classNumber <= 5) {
-    return medium === "Hindi Medium"
-      ? 500
-      : 550;
-  }
-
-  if (classNumber >= 6 && classNumber <= 8) {
-    return medium === "Hindi Medium"
-      ? 625
-      : 675;
-  }
-
-  if (classNumber >= 9 && classNumber <= 10) {
-    return medium === "Hindi Medium"
-      ? 750
-      : 875;
-  }
-
-  return medium === "Hindi Medium"
-    ? 500
-    : 550;
 }
 
 export default function HomePage() {
@@ -456,6 +434,16 @@ export default function HomePage() {
 
   const [selectedMedium, setSelectedMedium] =
     useState<FeeMedium>("Hindi Medium");
+
+  const selectedMediumFees = useMemo(
+    () =>
+      fees.filter(
+        (fee) =>
+          getMediumFromFee(fee) ===
+          selectedMedium
+      ),
+    [fees, selectedMedium]
+  );
 
   useEffect(() => {
     async function loadAcademyData() {
@@ -570,7 +558,9 @@ export default function HomePage() {
           !timingsResult.error &&
           timingsResult.data.length > 0
         ) {
-          setTimings(timingsResult.data);
+          setTimings(
+            timingsResult.data
+          );
         }
 
         if (
@@ -671,17 +661,18 @@ export default function HomePage() {
           ) &&
           currentStudentId > 0
         ) {
-          const { error: activityError } =
-            await supabase
-              .from(
-                "student_login_activity"
-              )
-              .insert({
-                student_id:
-                  currentStudentId,
-                login_at:
-                  new Date().toISOString(),
-              });
+          const {
+            error: activityError,
+          } = await supabase
+            .from(
+              "student_login_activity"
+            )
+            .insert({
+              student_id:
+                currentStudentId,
+              login_at:
+                new Date().toISOString(),
+            });
 
           if (activityError) {
             console.error(
@@ -874,11 +865,8 @@ export default function HomePage() {
 
   const modalContent = () => {
     if (activeModal === "fees") {
-      const mediumFees = fees.filter(
-        (fee) =>
-          getMediumFromFee(fee) ===
-          selectedMedium
-      );
+      const currentFees =
+        selectedMediumFees;
 
       return (
         <div className="modal-fees">
@@ -893,8 +881,8 @@ export default function HomePage() {
               </h3>
 
               <p>
-                Choose your medium to view
-                class-wise fees.
+                Select a medium, then view
+                every class separately.
               </p>
             </div>
 
@@ -999,7 +987,7 @@ export default function HomePage() {
             </div>
 
             <span>
-              1 Hour + 1.5 Hour
+              1 Hour + 1.5 Hours
             </span>
           </div>
 
@@ -1010,7 +998,7 @@ export default function HomePage() {
               </strong>
 
               <span>
-                Standard monthly session
+                Standard monthly class
               </span>
             </div>
 
@@ -1026,69 +1014,106 @@ export default function HomePage() {
 
             <div>
               <strong>
-                NO EXTRA CHARGES
+                COMBO
               </strong>
 
               <span>
-                No admission fee • No yearly
-                charge
+                Any 2 subjects • 2 hours
+              </span>
+            </div>
+          </div>
+
+          <div className="fee-notice-card">
+            <div className="fee-notice-icon">
+              💡
+            </div>
+
+            <div>
+              <strong>
+                Easy to understand
+              </strong>
+
+              <span>
+                Each class has its own fee
+                box. One-hour and one-and-a-half-hour
+                fees are shown separately.
               </span>
             </div>
           </div>
 
           <div className="class-fee-list">
             {defaultClassNames.map(
-              (className, classIndex) => {
+              (
+                className,
+                classIndex
+              ) => {
                 const classFees =
-                  mediumFees.filter(
+                  currentFees.filter(
                     (fee) =>
                       getClassNameFromFee(
                         fee
                       ) === className
                   );
 
-                const fallbackFees =
+                const rows =
                   defaultSubjects.map(
                     (
                       subject,
                       subjectIndex
-                    ) => ({
-                      id:
-                        900000 +
-                        classIndex * 100 +
-                        subjectIndex,
-                      class_name: `${className} - ${selectedMedium}`,
-                      subject_name:
-                        subject,
-                      fee_amount:
-                        getDefaultFeeAmount(
-                          className,
-                          selectedMedium
-                        ),
-                      fee_period:
-                        "Monthly",
-                      description:
-                        "Per subject",
-                    })
-                  );
+                    ) => {
+                      const databaseFee =
+                        classFees.find(
+                          (item) =>
+                            item.subject_name
+                              .trim()
+                              .toLowerCase() ===
+                            subject
+                              .trim()
+                              .toLowerCase()
+                        );
 
-                const rows =
-                  classFees.length >=
-                  defaultSubjects.length
-                    ? classFees
-                    : fallbackFees;
+                      return (
+                        databaseFee || {
+                          id:
+                            900000 +
+                            classIndex * 100 +
+                            subjectIndex,
+
+                          class_name: `${className} - ${selectedMedium}`,
+
+                          subject_name:
+                            subject,
+
+                          fee_amount:
+                            getDefaultFeeAmount(
+                              className,
+                              selectedMedium
+                            ),
+
+                          fee_period:
+                            "Monthly",
+
+                          description:
+                            "Per subject",
+                        }
+                      );
+                    }
+                  );
 
                 return (
                   <div
                     className="class-fee-card"
-                    key={className}
+                    key={`${selectedMedium}-${className}`}
                   >
                     <div className="class-fee-card-header">
-                      <div>
+                      <div className="class-title-wrap">
                         <span className="class-number">
                           {String(
                             classIndex + 1
-                          ).padStart(2, "0")}
+                          ).padStart(
+                            2,
+                            "0"
+                          )}
                         </span>
 
                         <div>
@@ -1102,15 +1127,33 @@ export default function HomePage() {
                         </div>
                       </div>
 
-                      <span className="class-fee-label">
-                        MONTHLY
-                      </span>
+                      <div className="class-header-price">
+                        <span>
+                          From
+                        </span>
+
+                        <strong>
+                          ₹
+                          {Number(
+                            rows[0]
+                              ?.fee_amount ||
+                              getDefaultFeeAmount(
+                                className,
+                                selectedMedium
+                              )
+                          ).toLocaleString(
+                            "en-IN"
+                          )}
+                        </strong>
+                      </div>
                     </div>
 
                     <div className="fee-session-grid">
                       <div className="fee-session-card one-hour">
                         <div className="fee-session-heading">
-                          <span>⏱️</span>
+                          <span>
+                            ⏱️
+                          </span>
 
                           <div>
                             <strong>
@@ -1118,29 +1161,20 @@ export default function HomePage() {
                             </strong>
 
                             <small>
-                              Per subject /
-                              month
+                              Monthly • per
+                              subject
                             </small>
                           </div>
                         </div>
 
                         <div className="subject-fee-list">
-                          {defaultSubjects.map(
-                            (subject) => {
-                              const fee =
-                                rows.find(
-                                  (item) =>
-                                    item.subject_name
-                                      .trim()
-                                      .toLowerCase() ===
-                                    subject
-                                      .trim()
-                                      .toLowerCase()
-                                );
-
+                          {rows.map(
+                            (
+                              fee
+                            ) => {
                               const amount =
                                 Number(
-                                  fee?.fee_amount
+                                  fee.fee_amount
                                 ) ||
                                 getDefaultFeeAmount(
                                   className,
@@ -1150,10 +1184,12 @@ export default function HomePage() {
                               return (
                                 <div
                                   className="subject-fee-row"
-                                  key={`${className}-${selectedMedium}-1-${subject}`}
+                                  key={`${selectedMedium}-${className}-one-${fee.subject_name}`}
                                 >
                                   <span>
-                                    {subject}
+                                    {
+                                      fee.subject_name
+                                    }
                                   </span>
 
                                   <strong>
@@ -1171,7 +1207,9 @@ export default function HomePage() {
 
                       <div className="fee-session-card one-half-hour">
                         <div className="fee-session-heading">
-                          <span>🕐</span>
+                          <span>
+                            🕐
+                          </span>
 
                           <div>
                             <strong>
@@ -1185,22 +1223,13 @@ export default function HomePage() {
                         </div>
 
                         <div className="subject-fee-list">
-                          {defaultSubjects.map(
-                            (subject) => {
-                              const fee =
-                                rows.find(
-                                  (item) =>
-                                    item.subject_name
-                                      .trim()
-                                      .toLowerCase() ===
-                                    subject
-                                      .trim()
-                                      .toLowerCase()
-                                );
-
+                          {rows.map(
+                            (
+                              fee
+                            ) => {
                               const amount =
                                 Number(
-                                  fee?.fee_amount
+                                  fee.fee_amount
                                 ) ||
                                 getDefaultFeeAmount(
                                   className,
@@ -1208,15 +1237,20 @@ export default function HomePage() {
                                 );
 
                               const oneHalf =
-                                amount * 1.5;
+                                Math.round(
+                                  amount *
+                                    1.5
+                                );
 
                               return (
                                 <div
                                   className="subject-fee-row"
-                                  key={`${className}-${selectedMedium}-1.5-${subject}`}
+                                  key={`${selectedMedium}-${className}-half-${fee.subject_name}`}
                                 >
                                   <span>
-                                    {subject}
+                                    {
+                                      fee.subject_name
+                                    }
                                   </span>
 
                                   <strong>
@@ -1234,12 +1268,14 @@ export default function HomePage() {
                     </div>
 
                     <div className="class-fee-note">
-                      <span>✓</span>
+                      <span>
+                        ✓
+                      </span>
 
                       <span>
-                        Monthly fee • Per
-                        subject • No admission
-                        fee • No yearly charge
+                        No admission fee • No
+                        yearly charge •
+                        Monthly fee
                       </span>
                     </div>
                   </div>
@@ -1261,14 +1297,13 @@ export default function HomePage() {
                   </small>
 
                   <h3>
-                    2 Subjects Combo •
-                    2 Hours
+                    Any 2 Subjects • 2 Hours
                   </h3>
 
                   <p>
-                    Choose any 2 subjects for
-                    a special monthly combo
-                    price.
+                    Choose any two subjects
+                    together under the special
+                    combo plan.
                   </p>
                 </div>
               </div>
@@ -1280,7 +1315,10 @@ export default function HomePage() {
 
             <div className="combo-grid">
               {defaultClassNames.map(
-                (className, classIndex) => {
+                (
+                  className,
+                  classIndex
+                ) => {
                   const comboFee =
                     getComboFee(
                       className,
@@ -1296,7 +1334,10 @@ export default function HomePage() {
                         <span>
                           {String(
                             classIndex + 1
-                          ).padStart(2, "0")}
+                          ).padStart(
+                            2,
+                            "0"
+                          )}
                         </span>
 
                         <strong>
@@ -1319,7 +1360,8 @@ export default function HomePage() {
                       </div>
 
                       <div className="combo-detail">
-                        2 Subjects • 2 Hours
+                        Any 2 subjects •
+                        2 total hours
                       </div>
                     </div>
                   );
@@ -1328,18 +1370,20 @@ export default function HomePage() {
             </div>
 
             <div className="combo-bottom-note">
-              <span>⭐</span>
+              <span>
+                ⭐
+              </span>
 
               <strong>
                 {selectedMedium ===
                 "Hindi Medium"
-                  ? "Hindi Medium Combo starts from ₹500/month"
-                  : "English Medium Combo starts from ₹550/month"}
+                  ? "Starts from ₹500/month"
+                  : "Starts from ₹550/month"}
               </strong>
 
               <span>
-                Choose any 2 subjects •
-                Monthly fee
+                Any 2 subjects • 2 hours
+                total • Monthly
               </span>
             </div>
           </div>
@@ -1468,7 +1512,9 @@ export default function HomePage() {
                 {teacher.photo_url ? (
                   <img
                     src={teacher.photo_url}
-                    alt={teacher.teacher_name}
+                    alt={
+                      teacher.teacher_name
+                    }
                   />
                 ) : (
                   <div className="faculty-placeholder">
@@ -1487,7 +1533,9 @@ export default function HomePage() {
 
                   {teacher.qualification && (
                     <p>
-                      {teacher.qualification}
+                      {
+                        teacher.qualification
+                      }
                     </p>
                   )}
 
@@ -1547,7 +1595,8 @@ export default function HomePage() {
 
             <div>
               <span>✓</span>
-              Confidence and concept building
+              Confidence and concept
+              building
             </div>
           </div>
         </div>
@@ -1562,7 +1611,8 @@ export default function HomePage() {
           </div>
 
           <h3>
-            A child should always feel free to ask.
+            A child should always feel
+            free to ask.
           </h3>
 
           <p>
@@ -1640,7 +1690,9 @@ export default function HomePage() {
           <div className="contact-detail-card">
             <span>📍</span>
 
-            <h3>Address</h3>
+            <h3>
+              Address
+            </h3>
 
             <p>
               {academy.address ||
@@ -1651,7 +1703,9 @@ export default function HomePage() {
           <div className="contact-detail-card">
             <span>📞</span>
 
-            <h3>Phone</h3>
+            <h3>
+              Phone
+            </h3>
 
             {academy.phone ? (
               <a href={phoneHref}>
@@ -1667,7 +1721,9 @@ export default function HomePage() {
           <div className="contact-detail-card">
             <span>💬</span>
 
-            <h3>WhatsApp</h3>
+            <h3>
+              WhatsApp
+            </h3>
 
             {academy.whatsapp ? (
               <a
@@ -1687,7 +1743,9 @@ export default function HomePage() {
           <div className="contact-detail-card">
             <span>✉️</span>
 
-            <h3>Email</h3>
+            <h3>
+              Email
+            </h3>
 
             {academy.email ? (
               <a href={emailHref}>
@@ -1718,7 +1776,9 @@ export default function HomePage() {
         <div className="simple-detail-modal">
           <div className="about-modal-image">
             <img
-              src={defaultGalleryImages[0].src}
+              src={
+                defaultGalleryImages[0].src
+              }
               alt="RACER ACADEMY"
             />
           </div>
@@ -1793,7 +1853,9 @@ export default function HomePage() {
                     <br />
                     Grow.
                     <br />
-                    <span>Achieve.</span>
+                    <span>
+                      Achieve.
+                    </span>
                   </h1>
 
                   <p className="hero-description">
@@ -1837,7 +1899,8 @@ export default function HomePage() {
                 <div className="hero-image-wrap">
                   <img
                     src={
-                      defaultGalleryImages[0].src
+                      defaultGalleryImages[0]
+                        .src
                     }
                     alt="RACER ACADEMY learning environment"
                   />
@@ -1888,7 +1951,9 @@ export default function HomePage() {
                       </small>
                     </span>
 
-                    <b>→</b>
+                    <b>
+                      →
+                    </b>
                   </button>
 
                   <button
@@ -1912,7 +1977,9 @@ export default function HomePage() {
                       </small>
                     </span>
 
-                    <b>→</b>
+                    <b>
+                      →
+                    </b>
                   </button>
 
                   <button
@@ -1932,11 +1999,14 @@ export default function HomePage() {
                       </strong>
 
                       <small>
-                        Hindi / English • Class-wise
+                        Hindi / English •
+                        Class-wise
                       </small>
                     </span>
 
-                    <b>→</b>
+                    <b>
+                      →
+                    </b>
                   </button>
 
                   <button
@@ -1960,7 +2030,9 @@ export default function HomePage() {
                       </small>
                     </span>
 
-                    <b>→</b>
+                    <b>
+                      →
+                    </b>
                   </button>
 
                   <button
@@ -1980,11 +2052,14 @@ export default function HomePage() {
                       </strong>
 
                       <small>
-                        Student-focused support
+                        Student-focused
+                        support
                       </small>
                     </span>
 
-                    <b>→</b>
+                    <b>
+                      →
+                    </b>
                   </button>
 
                   <button
@@ -2004,11 +2079,14 @@ export default function HomePage() {
                       </strong>
 
                       <small>
-                        Experienced guidance
+                        Experienced
+                        guidance
                       </small>
                     </span>
 
-                    <b>→</b>
+                    <b>
+                      →
+                    </b>
                   </button>
 
                   <button
@@ -2034,7 +2112,9 @@ export default function HomePage() {
                       </small>
                     </span>
 
-                    <b>→</b>
+                    <b>
+                      →
+                    </b>
                   </button>
 
                   <button
@@ -2058,7 +2138,9 @@ export default function HomePage() {
                       </small>
                     </span>
 
-                    <b>→</b>
+                    <b>
+                      →
+                    </b>
                   </button>
                 </div>
               </div>
@@ -2149,7 +2231,10 @@ export default function HomePage() {
                     }
                     disabled={loading}
                   >
-                    <span>🎓</span>
+                    <span>
+                      🎓
+                    </span>
+
                     Student
                   </button>
 
@@ -2168,7 +2253,10 @@ export default function HomePage() {
                     }
                     disabled={loading}
                   >
-                    <span>👨‍🏫</span>
+                    <span>
+                      👨‍🏫
+                    </span>
+
                     Teacher
                   </button>
                 </div>
@@ -2203,7 +2291,9 @@ export default function HomePage() {
                     </label>
 
                     <div className="input-box">
-                      <span>👤</span>
+                      <span>
+                        👤
+                      </span>
 
                       <input
                         id="username"
@@ -2221,7 +2311,9 @@ export default function HomePage() {
                             : "Enter teacher username"
                         }
                         autoComplete="username"
-                        disabled={loading}
+                        disabled={
+                          loading
+                        }
                       />
                     </div>
                   </div>
@@ -2232,7 +2324,9 @@ export default function HomePage() {
                     </label>
 
                     <div className="input-box">
-                      <span>🔒</span>
+                      <span>
+                        🔒
+                      </span>
 
                       <input
                         id="password"
@@ -2249,7 +2343,9 @@ export default function HomePage() {
                         }
                         placeholder="Enter your password"
                         autoComplete="current-password"
-                        disabled={loading}
+                        disabled={
+                          loading
+                        }
                       />
 
                       <button
@@ -2257,11 +2353,15 @@ export default function HomePage() {
                         className="password-toggle"
                         onClick={() =>
                           setShowPassword(
-                            (previous) =>
+                            (
+                              previous
+                            ) =>
                               !previous
                           )
                         }
-                        disabled={loading}
+                        disabled={
+                          loading
+                        }
                         aria-label={
                           showPassword
                             ? "Hide password"
@@ -2277,7 +2377,9 @@ export default function HomePage() {
 
                   {error && (
                     <div className="login-error">
-                      <span>⚠️</span>
+                      <span>
+                        ⚠️
+                      </span>
 
                       <span>
                         {error}
@@ -2303,7 +2405,9 @@ export default function HomePage() {
                           ? "Student"
                           : "Teacher"}
 
-                        <span>→</span>
+                        <span>
+                          →
+                        </span>
                       </>
                     )}
                   </button>
@@ -2334,7 +2438,9 @@ export default function HomePage() {
               {announcements.length >
                 0 && (
                 <div className="announcement-mini">
-                  <span>📢</span>
+                  <span>
+                    📢
+                  </span>
 
                   <div>
                     <strong>
@@ -2366,7 +2472,8 @@ export default function HomePage() {
 
           <footer className="page-footer">
             <span>
-              © {new Date().getFullYear()}{" "}
+              ©{" "}
+              {new Date().getFullYear()}{" "}
               RACER ACADEMY
             </span>
 
@@ -2451,6 +2558,11 @@ export default function HomePage() {
           position: relative;
           padding: 18px;
           color: #0f172a;
+          font-family:
+            Inter, ui-sans-serif,
+            system-ui, -apple-system,
+            BlinkMacSystemFont,
+            "Segoe UI", sans-serif;
         }
 
         .background-grid {
@@ -2516,15 +2628,17 @@ export default function HomePage() {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(
-            135deg,
-            #4f46e5,
-            #7c3aed
-          );
+          background:
+            linear-gradient(
+              135deg,
+              #4f46e5,
+              #7c3aed
+            );
           color: white;
           font-size: 24px;
           box-shadow:
-            0 10px 25px rgba(79, 70, 229, 0.25);
+            0 10px 25px
+              rgba(79, 70, 229, 0.25);
         }
 
         .brand-name {
@@ -2536,8 +2650,9 @@ export default function HomePage() {
 
         .brand-tagline {
           font-size: 12px;
-          color: #64748b;
+          color: #475569;
           margin-top: 2px;
+          font-weight: 600;
         }
 
         .main-layout {
@@ -2572,7 +2687,8 @@ export default function HomePage() {
             );
           color: white;
           box-shadow:
-            0 22px 60px rgba(15, 23, 42, 0.18);
+            0 22px 60px
+              rgba(15, 23, 42, 0.18);
         }
 
         .hero-glow {
@@ -2584,7 +2700,12 @@ export default function HomePage() {
         .hero-glow-one {
           width: 340px;
           height: 340px;
-          background: rgba(255, 255, 255, 0.07);
+          background: rgba(
+            255,
+            255,
+            255,
+            0.07
+          );
           right: -130px;
           top: -150px;
         }
@@ -2592,7 +2713,12 @@ export default function HomePage() {
         .hero-glow-two {
           width: 220px;
           height: 220px;
-          background: rgba(125, 211, 252, 0.1);
+          background: rgba(
+            125,
+            211,
+            252,
+            0.1
+          );
           left: -100px;
           bottom: -130px;
         }
@@ -2611,8 +2737,18 @@ export default function HomePage() {
           display: inline-flex;
           padding: 7px 12px;
           border-radius: 999px;
-          background: rgba(255, 255, 255, 0.12);
-          border: 1px solid rgba(255, 255, 255, 0.12);
+          background: rgba(
+            255,
+            255,
+            255,
+            0.12
+          );
+          border: 1px solid rgba(
+            255,
+            255,
+            255,
+            0.12
+          );
           font-size: 11px;
           font-weight: 900;
           letter-spacing: 1px;
@@ -2655,8 +2791,18 @@ export default function HomePage() {
         .hero-mini-stats div {
           padding: 12px;
           border-radius: 15px;
-          background: rgba(255, 255, 255, 0.09);
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(
+            255,
+            255,
+            255,
+            0.09
+          );
+          border: 1px solid rgba(
+            255,
+            255,
+            255,
+            0.1
+          );
         }
 
         .hero-mini-stats strong,
@@ -2689,7 +2835,13 @@ export default function HomePage() {
             linear-gradient(
               90deg,
               #1e3a8a 0%,
-              rgba(30, 58, 138, 0.25) 28%,
+              rgba(
+                30,
+                58,
+                138,
+                0.25
+              )
+                28%,
               transparent 65%
             );
         }
@@ -2709,7 +2861,12 @@ export default function HomePage() {
           right: 22px;
           padding: 11px 14px;
           border-radius: 14px;
-          background: rgba(15, 23, 42, 0.76);
+          background: rgba(
+            15,
+            23,
+            42,
+            0.76
+          );
           backdrop-filter: blur(12px);
           color: white;
           font-size: 12px;
@@ -2727,7 +2884,9 @@ export default function HomePage() {
           background: white;
           border: 1px solid #e2e8f0;
           box-shadow:
-            0 10px 35px rgba(15, 23, 42, 0.07);
+            0 10px 35px
+              rgba(15, 23, 42, 0.07);
+          color: #0f172a;
         }
 
         .section-small-title {
@@ -2769,7 +2928,8 @@ export default function HomePage() {
           border: 1px solid #e2e8f0;
           border-radius: 16px;
           padding: 13px;
-          background: #fff;
+          background: #ffffff;
+          color: #0f172a;
           display: grid;
           grid-template-columns:
             42px minmax(0, 1fr) 20px;
@@ -2786,7 +2946,8 @@ export default function HomePage() {
         .option-card:hover {
           transform: translateY(-2px);
           box-shadow:
-            0 9px 22px rgba(15, 23, 42, 0.08);
+            0 9px 22px
+              rgba(15, 23, 42, 0.08);
           border-color: #c7d2fe;
         }
 
@@ -2806,19 +2967,19 @@ export default function HomePage() {
         }
 
         .option-card strong {
-          color: #0f172a;
+          color: #0f172a !important;
           font-size: 13px;
           font-weight: 900;
         }
 
         .option-card small {
           margin-top: 3px;
-          color: #64748b;
+          color: #64748b !important;
           font-size: 11px;
         }
 
         .option-card b {
-          color: #475569;
+          color: #475569 !important;
           font-size: 18px;
         }
 
@@ -2868,7 +3029,12 @@ export default function HomePage() {
           gap: 9px;
           padding: 13px;
           border-radius: 15px;
-          background: rgba(255, 255, 255, 0.85);
+          background: rgba(
+            255,
+            255,
+            255,
+            0.85
+          );
           border: 1px solid #e2e8f0;
           color: #334155;
           font-size: 12px;
@@ -2914,7 +3080,9 @@ export default function HomePage() {
           border-radius: 27px;
           padding: 27px;
           box-shadow:
-            0 20px 55px rgba(15, 23, 42, 0.12);
+            0 20px 55px
+              rgba(15, 23, 42, 0.12);
+          color: #0f172a;
         }
 
         .login-top-decoration {
@@ -2923,12 +3091,13 @@ export default function HomePage() {
           right: 0;
           top: 0;
           height: 5px;
-          background: linear-gradient(
-            90deg,
-            #4f46e5,
-            #7c3aed,
-            #0ea5e9
-          );
+          background:
+            linear-gradient(
+              90deg,
+              #4f46e5,
+              #7c3aed,
+              #0ea5e9
+            );
         }
 
         .login-logo {
@@ -2953,7 +3122,8 @@ export default function HomePage() {
             );
           font-size: 23px;
           box-shadow:
-            0 8px 20px rgba(79, 70, 229, 0.22);
+            0 8px 20px
+              rgba(79, 70, 229, 0.22);
         }
 
         .login-brand {
@@ -2990,7 +3160,7 @@ export default function HomePage() {
         .switch-button {
           border: 0;
           background: transparent;
-          color: #475569;
+          color: #475569 !important;
           padding: 11px 8px;
           border-radius: 11px;
           font-weight: 850;
@@ -3004,9 +3174,10 @@ export default function HomePage() {
 
         .switch-button.active {
           background: white;
-          color: #4f46e5;
+          color: #4f46e5 !important;
           box-shadow:
-            0 4px 12px rgba(15, 23, 42, 0.08);
+            0 4px 12px
+              rgba(15, 23, 42, 0.08);
         }
 
         .login-heading {
@@ -3018,7 +3189,7 @@ export default function HomePage() {
           padding: 6px 9px;
           border-radius: 8px;
           background: #eef2ff;
-          color: #4f46e5;
+          color: #4f46e5 !important;
           font-size: 9px;
           font-weight: 950;
           letter-spacing: 1px;
@@ -3028,12 +3199,12 @@ export default function HomePage() {
           margin: 10px 0 5px;
           font-size: 25px;
           letter-spacing: -0.6px;
-          color: #0f172a;
+          color: #0f172a !important;
         }
 
         .login-heading p {
           margin: 0;
-          color: #475569;
+          color: #475569 !important;
           font-size: 12px;
           line-height: 1.5;
         }
@@ -3046,7 +3217,7 @@ export default function HomePage() {
         .input-group label {
           display: block;
           margin-bottom: 6px;
-          color: #334155;
+          color: #334155 !important;
           font-size: 11px;
           font-weight: 850;
         }
@@ -3084,18 +3255,20 @@ export default function HomePage() {
           border: 0;
           outline: 0;
           background: transparent;
-          color: #0f172a;
+          color: #0f172a !important;
           font-size: 13px;
+          font-family: inherit;
         }
 
         .input-box input::placeholder {
-          color: #64748b;
+          color: #64748b !important;
+          opacity: 1;
         }
 
         .password-toggle {
           border: 0;
           background: transparent;
-          color: #334155;
+          color: #334155 !important;
           cursor: pointer;
           padding: 4px;
           font-size: 15px;
@@ -3109,7 +3282,7 @@ export default function HomePage() {
           border-radius: 11px;
           background: #fef2f2;
           border: 1px solid #fecaca;
-          color: #b91c1c;
+          color: #b91c1c !important;
           font-size: 11px;
           line-height: 1.45;
           word-break: break-word;
@@ -3125,7 +3298,7 @@ export default function HomePage() {
               #4f46e5,
               #7c3aed
             );
-          color: white;
+          color: white !important;
           font-weight: 900;
           font-size: 13px;
           cursor: pointer;
@@ -3176,7 +3349,7 @@ export default function HomePage() {
           justify-content: center;
           gap: 9px;
           margin-top: 17px;
-          color: #475569;
+          color: #475569 !important;
           font-size: 10px;
           font-weight: 700;
         }
@@ -3190,7 +3363,7 @@ export default function HomePage() {
           padding-top: 13px;
           border-top: 1px solid #eef2f7;
           text-align: center;
-          color: #64748b;
+          color: #64748b !important;
           font-size: 9px;
           line-height: 1.5;
         }
@@ -3198,7 +3371,8 @@ export default function HomePage() {
         .announcement-mini {
           margin-top: 12px;
           display: grid;
-          grid-template-columns: 34px minmax(0, 1fr) 30px;
+          grid-template-columns:
+            34px minmax(0, 1fr) 30px;
           align-items: center;
           gap: 9px;
           padding: 12px;
@@ -3220,14 +3394,14 @@ export default function HomePage() {
         .announcement-mini strong {
           display: block;
           font-size: 10px;
-          color: #4f46e5;
+          color: #4f46e5 !important;
         }
 
         .announcement-mini p {
           margin: 2px 0 0;
           font-size: 11px;
           font-weight: 800;
-          color: #334155;
+          color: #334155 !important;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -3239,7 +3413,7 @@ export default function HomePage() {
           border: 0;
           border-radius: 9px;
           background: #eef2ff;
-          color: #4f46e5;
+          color: #4f46e5 !important;
           cursor: pointer;
           font-weight: 900;
         }
@@ -3249,16 +3423,25 @@ export default function HomePage() {
           justify-content: space-between;
           gap: 15px;
           padding: 18px 4px 5px;
-          color: #64748b;
+          color: #64748b !important;
           font-size: 10px;
           font-weight: 700;
         }
+
+        /* =========================================
+           MODAL
+        ========================================= */
 
         .modal-overlay {
           position: fixed;
           inset: 0;
           z-index: 1000;
-          background: rgba(15, 23, 42, 0.68);
+          background: rgba(
+            15,
+            23,
+            42,
+            0.68
+          );
           backdrop-filter: blur(7px);
           padding: 20px;
           display: flex;
@@ -3272,10 +3455,11 @@ export default function HomePage() {
           max-height: 92vh;
           overflow: hidden;
           border-radius: 25px;
-          background: #ffffff;
-          color: #0f172a;
+          background: #ffffff !important;
+          color: #0f172a !important;
           box-shadow:
-            0 30px 90px rgba(0, 0, 0, 0.3);
+            0 30px 90px
+              rgba(0, 0, 0, 0.3);
           display: flex;
           flex-direction: column;
         }
@@ -3284,7 +3468,7 @@ export default function HomePage() {
           flex-shrink: 0;
           padding: 20px 22px;
           border-bottom: 1px solid #e2e8f0;
-          background: #ffffff;
+          background: #ffffff !important;
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -3292,7 +3476,7 @@ export default function HomePage() {
         }
 
         .modal-small-title {
-          color: #4f46e5;
+          color: #4f46e5 !important;
           font-size: 9px;
           font-weight: 950;
           letter-spacing: 1.2px;
@@ -3324,8 +3508,8 @@ export default function HomePage() {
         .modal-body {
           overflow-y: auto;
           padding: 22px;
-          background: #ffffff;
-          color: #334155;
+          background: #ffffff !important;
+          color: #334155 !important;
         }
 
         .modal-body,
@@ -3337,7 +3521,7 @@ export default function HomePage() {
         .modal-body td,
         .modal-body th,
         .modal-body a {
-          color: #334155;
+          color: #334155 !important;
         }
 
         .modal-body h3 {
@@ -3345,7 +3529,7 @@ export default function HomePage() {
         }
 
         .modal-body strong {
-          color: #0f172a;
+          color: #0f172a !important;
         }
 
         .modal-body a {
@@ -3364,7 +3548,7 @@ export default function HomePage() {
           justify-content: flex-end;
           padding: 13px 20px;
           border-top: 1px solid #e2e8f0;
-          background: #ffffff;
+          background: #ffffff !important;
         }
 
         .modal-footer button {
@@ -3378,9 +3562,9 @@ export default function HomePage() {
           font-weight: 800;
         }
 
-        /* ================================
-           NEW FEE STRUCTURE
-        ================================= */
+        /* =========================================
+           FEE STRUCTURE
+        ========================================= */
 
         .modal-fees {
           width: 100%;
@@ -3437,7 +3621,8 @@ export default function HomePage() {
 
         .medium-selector {
           display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-columns:
+            repeat(2, minmax(0, 1fr));
           gap: 12px;
           margin-bottom: 15px;
         }
@@ -3445,7 +3630,8 @@ export default function HomePage() {
         .medium-option {
           position: relative;
           display: grid;
-          grid-template-columns: 48px minmax(0, 1fr) 28px;
+          grid-template-columns:
+            48px minmax(0, 1fr) 28px;
           align-items: center;
           gap: 11px;
           min-height: 78px;
@@ -3453,6 +3639,7 @@ export default function HomePage() {
           border-radius: 18px;
           border: 2px solid #e2e8f0;
           background: #ffffff;
+          color: #0f172a !important;
           cursor: pointer;
           text-align: left;
           transition:
@@ -3464,7 +3651,8 @@ export default function HomePage() {
         .medium-option:hover {
           transform: translateY(-2px);
           box-shadow:
-            0 10px 25px rgba(15, 23, 42, 0.08);
+            0 10px 25px
+              rgba(15, 23, 42, 0.08);
         }
 
         .medium-option.active.hindi-medium {
@@ -3476,7 +3664,8 @@ export default function HomePage() {
               #ffffff
             );
           box-shadow:
-            0 10px 28px rgba(245, 158, 11, 0.13);
+            0 10px 28px
+              rgba(245, 158, 11, 0.13);
         }
 
         .medium-option.active.english-medium {
@@ -3488,7 +3677,8 @@ export default function HomePage() {
               #ffffff
             );
           box-shadow:
-            0 10px 28px rgba(79, 70, 229, 0.13);
+            0 10px 28px
+              rgba(79, 70, 229, 0.13);
         }
 
         .medium-icon {
@@ -3548,7 +3738,7 @@ export default function HomePage() {
           margin-bottom: 12px;
           border-radius: 14px;
           background: #0f172a;
-          color: white;
+          color: white !important;
         }
 
         .selected-medium-heading > div {
@@ -3577,7 +3767,12 @@ export default function HomePage() {
         .selected-medium-heading > span {
           padding: 7px 10px;
           border-radius: 999px;
-          background: rgba(255, 255, 255, 0.1);
+          background: rgba(
+            255,
+            255,
+            255,
+            0.1
+          );
           color: #dbeafe !important;
           font-size: 9px;
           font-weight: 900;
@@ -3586,9 +3781,10 @@ export default function HomePage() {
 
         .fee-info-strip {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
+          grid-template-columns:
+            repeat(3, 1fr);
           gap: 9px;
-          margin-bottom: 16px;
+          margin-bottom: 12px;
         }
 
         .fee-info-strip > div {
@@ -3616,6 +3812,51 @@ export default function HomePage() {
           line-height: 1.4;
         }
 
+        .fee-notice-card {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 11px 13px;
+          margin-bottom: 16px;
+          border-radius: 14px;
+          background:
+            linear-gradient(
+              135deg,
+              #eff6ff,
+              #eef2ff
+            );
+          border: 1px solid #dbeafe;
+        }
+
+        .fee-notice-icon {
+          width: 35px;
+          height: 35px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #ffffff;
+          font-size: 18px;
+          flex-shrink: 0;
+        }
+
+        .fee-notice-card strong,
+        .fee-notice-card span {
+          display: block;
+        }
+
+        .fee-notice-card strong {
+          color: #1e3a8a !important;
+          font-size: 10px;
+        }
+
+        .fee-notice-card span {
+          margin-top: 2px;
+          color: #475569 !important;
+          font-size: 9px;
+          line-height: 1.45;
+        }
+
         .class-fee-list {
           display: grid;
           gap: 14px;
@@ -3627,7 +3868,8 @@ export default function HomePage() {
           border-radius: 18px;
           background: #ffffff;
           box-shadow:
-            0 6px 20px rgba(15, 23, 42, 0.045);
+            0 6px 20px
+              rgba(15, 23, 42, 0.045);
         }
 
         .class-fee-card-header {
@@ -3645,7 +3887,7 @@ export default function HomePage() {
           border-bottom: 1px solid #e2e8f0;
         }
 
-        .class-fee-card-header > div {
+        .class-title-wrap {
           display: flex;
           align-items: center;
           gap: 10px;
@@ -3682,19 +3924,28 @@ export default function HomePage() {
           font-weight: 700;
         }
 
-        .class-fee-label {
-          padding: 6px 9px;
-          border-radius: 999px;
-          background: #dcfce7;
-          color: #047857 !important;
+        .class-header-price {
+          text-align: right;
+        }
+
+        .class-header-price span {
+          display: block;
+          color: #64748b !important;
           font-size: 8px;
+          font-weight: 700;
+        }
+
+        .class-header-price strong {
+          display: block;
+          color: #047857 !important;
+          font-size: 15px;
           font-weight: 950;
-          letter-spacing: 0.8px;
         }
 
         .fee-session-grid {
           display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-columns:
+            repeat(2, minmax(0, 1fr));
           gap: 12px;
           padding: 12px;
         }
@@ -3788,7 +4039,9 @@ export default function HomePage() {
           font-weight: 950;
         }
 
-        .one-half-hour .subject-fee-row strong {
+        .one-half-hour
+          .subject-fee-row
+          strong {
           color: #7c3aed !important;
         }
 
@@ -3845,8 +4098,10 @@ export default function HomePage() {
           border-radius: 15px;
           background: #ffffff;
           box-shadow:
-            0 6px 16px rgba(245, 158, 11, 0.12);
+            0 6px 16px
+              rgba(245, 158, 11, 0.12);
           font-size: 25px;
+          flex-shrink: 0;
         }
 
         .combo-offer-heading small {
@@ -3889,10 +4144,16 @@ export default function HomePage() {
         .combo-class-card {
           padding: 12px;
           border-radius: 14px;
-          background: rgba(255, 255, 255, 0.92);
+          background: rgba(
+            255,
+            255,
+            255,
+            0.92
+          );
           border: 1px solid #e5e7eb;
           box-shadow:
-            0 4px 14px rgba(15, 23, 42, 0.04);
+            0 4px 14px
+              rgba(15, 23, 42, 0.04);
         }
 
         .combo-class-top {
@@ -3938,6 +4199,7 @@ export default function HomePage() {
           color: #64748b !important;
           font-size: 8px;
           font-weight: 700;
+          line-height: 1.4;
         }
 
         .combo-bottom-note {
@@ -3948,7 +4210,12 @@ export default function HomePage() {
           margin-top: 12px;
           padding: 10px 12px;
           border-radius: 12px;
-          background: rgba(255, 255, 255, 0.8);
+          background: rgba(
+            255,
+            255,
+            255,
+            0.8
+          );
           border: 1px solid #fed7aa;
         }
 
@@ -4525,6 +4792,10 @@ export default function HomePage() {
             align-items: flex-start;
           }
 
+          .class-header-price {
+            min-width: 55px;
+          }
+
           .fee-session-grid {
             grid-template-columns: 1fr;
           }
@@ -4590,12 +4861,23 @@ export default function HomePage() {
           }
 
           .medium-option {
-            grid-template-columns: 42px minmax(0, 1fr) 25px;
+            grid-template-columns:
+              42px minmax(0, 1fr) 25px;
           }
 
           .medium-icon {
             width: 42px;
             height: 42px;
+          }
+
+          .class-fee-card-header {
+            flex-direction: column;
+            gap: 8px;
+          }
+
+          .class-header-price {
+            text-align: left;
+            align-self: flex-start;
           }
         }
       `}</style>
