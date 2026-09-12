@@ -80,91 +80,214 @@ type Announcement = {
   display_order: number;
 };
 
-const emptyProfile: Profile = {
+const defaultProfile: Profile = {
   id: 1,
   academy_name: "RACER ACADEMY",
   tagline: "Learn • Grow • Achieve",
-  about_text: "",
-  classes_text: "",
-  facilities_text: "",
-  timings_text: "",
-  faculty_text: "",
-  achievements_text: "",
-  why_choose_us: "",
-  rules_text: "",
-  contact_text: "",
+  about_text:
+    "RACER ACADEMY is a child-focused tuition academy for students from Nursery to Class 10. We focus on strong concepts, regular practice, personal attention and continuous academic improvement.",
+  classes_text:
+    "Nursery to Class 10\nHindi Medium & English Medium\nHindi • English • Mathematics • Science • Social Science • General Knowledge",
+  facilities_text:
+    "Personal attention • Regular tests • Doubt solving • Concept-based teaching • Homework support • Performance monitoring • Parent communication • Quiet study environment",
+  timings_text:
+    "Evening tuition batches are available from 5:00 PM to 8:00 PM.\nStudents can choose suitable one-hour study slots according to batch availability.",
+  faculty_text:
+    "Our faculty is supportive, experienced and focused on making concepts easy to understand for children of different age groups.",
+  achievements_text:
+    "Students at RACER ACADEMY have shown improvement in school performance, concepts, confidence and regular test results. We believe every student's progress is an achievement.",
+  why_choose_us:
+    "We do not run after fees. We run after the child and their learning.\n\nOur priority is to teach the child properly, clear every doubt, build strong concepts and help the student improve step by step.",
+  rules_text:
+    "Every student has the right to ask questions freely and without hesitation.\n\nStudents are expected to study without unnecessary noise or disturbance, respect teachers and classmates, attend regularly and complete assigned work on time.",
+  contact_text:
+    "For admission, batch availability, subjects and fee information, contact RACER ACADEMY through the phone, WhatsApp or email details provided below.",
   address: "",
   phone: "",
   whatsapp: "",
   email: "",
-  admission_text: "",
-  gallery_text: "",
+  admission_text:
+    "Admissions are open for Nursery to Class 10. Hindi Medium and English Medium options are available subject to batch availability.",
+  gallery_text:
+    "Photos of the academy, classrooms, students learning and academic activities can be added here.",
 };
 
-export default function AcademyProfileEditPage() {
-  const [profile, setProfile] = useState<Profile>(emptyProfile);
-  const [fees, setFees] = useState<Fee[]>([]);
-  const [facilities, setFacilities] = useState<Facility[]>([]);
-  const [timings, setTimings] = useState<Timing[]>([]);
-  const [faculty, setFaculty] = useState<Faculty[]>([]);
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+const subjects = [
+  "Hindi",
+  "English",
+  "Mathematics",
+  "Science",
+  "Social Science",
+  "General Knowledge",
+];
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+const feeClasses = [
+  {
+    class_name: "English Medium - Nursery",
+    amount: 200,
+  },
+  {
+    class_name: "Hindi Medium - Nursery",
+    amount: 200,
+  },
+  {
+    class_name: "English Medium - LKG",
+    amount: 200,
+  },
+  {
+    class_name: "Hindi Medium - LKG",
+    amount: 200,
+  },
+  {
+    class_name: "English Medium - UKG",
+    amount: 200,
+  },
+  {
+    class_name: "Hindi Medium - UKG",
+    amount: 200,
+  },
+  ...[1, 2, 3, 4, 5].flatMap(
+    (classNumber) => [
+      {
+        class_name: `English Medium - Class ${classNumber}`,
+        amount: 220,
+      },
+      {
+        class_name: `Hindi Medium - Class ${classNumber}`,
+        amount: 200,
+      },
+    ]
+  ),
+  ...[6, 7, 8].flatMap(
+    (classNumber) => [
+      {
+        class_name: `English Medium - Class ${classNumber}`,
+        amount: 270,
+      },
+      {
+        class_name: `Hindi Medium - Class ${classNumber}`,
+        amount: 250,
+      },
+    ]
+  ),
+  ...[9, 10].flatMap(
+    (classNumber) => [
+      {
+        class_name: `English Medium - Class ${classNumber}`,
+        amount: 350,
+      },
+      {
+        class_name: `Hindi Medium - Class ${classNumber}`,
+        amount: 300,
+      },
+    ]
+  ),
+];
 
-  const [newFee, setNewFee] = useState({
-    class_name: "",
-    subject_name: "",
-    fee_amount: "",
-    fee_period: "Monthly",
-    description: "",
-  });
+function oneAndHalfHourFee(amount: number) {
+  return Math.round(amount * 1.5);
+}
 
-  const [newFacility, setNewFacility] = useState({
-    title: "",
-    description: "",
-    icon: "⭐",
-  });
+function getTeacherId() {
+  try {
+    const stored =
+      localStorage.getItem(
+        "racer_academy_teacher"
+      ) ||
+      localStorage.getItem("teacher");
 
-  const [newTiming, setNewTiming] = useState({
-    title: "",
-    days: "",
-    start_time: "",
-    end_time: "",
-    description: "",
-  });
+    if (!stored) return 0;
 
-  const [newFaculty, setNewFaculty] = useState({
-    teacher_name: "",
-    subject: "",
-    qualification: "",
-    experience: "",
-    photo_url: "",
-    description: "",
-  });
+    const teacher = JSON.parse(stored);
 
-  const [newAnnouncement, setNewAnnouncement] = useState({
-    title: "",
-    content: "",
-    announcement_date: new Date().toISOString().slice(0, 10),
-  });
-
-  function getTeacherId() {
-    try {
-      const stored =
-        localStorage.getItem("racer_academy_teacher") ||
-        localStorage.getItem("teacher");
-
-      if (!stored) return 0;
-
-      const teacher = JSON.parse(stored);
-      return Number(teacher?.id || 0);
-    } catch {
-      return 0;
-    }
+    return Number(
+      teacher?.id || 0
+    );
+  } catch {
+    return 0;
   }
+}
+
+export default function AcademyProfileEditPage() {
+  const [profile, setProfile] =
+    useState<Profile>(
+      defaultProfile
+    );
+
+  const [fees, setFees] =
+    useState<Fee[]>([]);
+
+  const [facilities, setFacilities] =
+    useState<Facility[]>([]);
+
+  const [timings, setTimings] =
+    useState<Timing[]>([]);
+
+  const [faculty, setFaculty] =
+    useState<Faculty[]>([]);
+
+  const [announcements, setAnnouncements] =
+    useState<Announcement[]>([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [saving, setSaving] =
+    useState(false);
+
+  const [message, setMessage] =
+    useState("");
+
+  const [error, setError] =
+    useState("");
+
+  const [seedingFees, setSeedingFees] =
+    useState(false);
+
+  const [newFee, setNewFee] =
+    useState({
+      class_name: "",
+      subject_name: "",
+      fee_amount: "",
+      fee_period: "Monthly",
+      description: "",
+    });
+
+  const [newFacility, setNewFacility] =
+    useState({
+      title: "",
+      description: "",
+      icon: "⭐",
+    });
+
+  const [newTiming, setNewTiming] =
+    useState({
+      title: "",
+      days: "",
+      start_time: "",
+      end_time: "",
+      description: "",
+    });
+
+  const [newFaculty, setNewFaculty] =
+    useState({
+      teacher_name: "",
+      subject: "",
+      qualification: "",
+      experience: "",
+      photo_url: "",
+      description: "",
+    });
+
+  const [newAnnouncement, setNewAnnouncement] =
+    useState({
+      title: "",
+      content: "",
+      announcement_date:
+        new Date()
+          .toISOString()
+          .slice(0, 10),
+    });
 
   async function loadData() {
     setLoading(true);
@@ -182,54 +305,103 @@ export default function AcademyProfileEditPage() {
         supabase
           .from("academy_profile")
           .select("*")
-          .order("id", { ascending: true })
+          .order("id", {
+            ascending: true,
+          })
           .limit(1)
           .maybeSingle(),
 
         supabase
           .from("academy_subject_fees")
           .select("*")
-          .order("display_order", { ascending: true })
-          .order("class_name", { ascending: true }),
+          .order("display_order", {
+            ascending: true,
+          })
+          .order("class_name", {
+            ascending: true,
+          }),
 
         supabase
           .from("academy_facilities")
           .select("*")
-          .order("display_order", { ascending: true }),
+          .order("display_order", {
+            ascending: true,
+          }),
 
         supabase
           .from("academy_timings")
           .select("*")
-          .order("display_order", { ascending: true }),
+          .order("display_order", {
+            ascending: true,
+          }),
 
         supabase
           .from("academy_faculty")
           .select("*")
-          .order("display_order", { ascending: true }),
+          .order("display_order", {
+            ascending: true,
+          }),
 
         supabase
           .from("academy_announcements")
           .select("*")
-          .order("announcement_date", { ascending: false })
-          .order("display_order", { ascending: true }),
+          .order("announcement_date", {
+            ascending: false,
+          })
+          .order("display_order", {
+            ascending: true,
+          }),
       ]);
 
-      if (profileResult.error) throw profileResult.error;
-      if (feesResult.error) throw feesResult.error;
-      if (facilitiesResult.error) throw facilitiesResult.error;
-      if (timingsResult.error) throw timingsResult.error;
-      if (facultyResult.error) throw facultyResult.error;
-      if (announcementsResult.error) throw announcementsResult.error;
+      if (profileResult.error)
+        throw profileResult.error;
 
-      setProfile(profileResult.data || emptyProfile);
-      setFees(feesResult.data || []);
-      setFacilities(facilitiesResult.data || []);
-      setTimings(timingsResult.data || []);
-      setFaculty(facultyResult.data || []);
-      setAnnouncements(announcementsResult.data || []);
+      if (feesResult.error)
+        throw feesResult.error;
+
+      if (facilitiesResult.error)
+        throw facilitiesResult.error;
+
+      if (timingsResult.error)
+        throw timingsResult.error;
+
+      if (facultyResult.error)
+        throw facultyResult.error;
+
+      if (announcementsResult.error)
+        throw announcementsResult.error;
+
+      setProfile({
+        ...defaultProfile,
+        ...(profileResult.data || {}),
+      });
+
+      setFees(
+        feesResult.data || []
+      );
+
+      setFacilities(
+        facilitiesResult.data || []
+      );
+
+      setTimings(
+        timingsResult.data || []
+      );
+
+      setFaculty(
+        facultyResult.data || []
+      );
+
+      setAnnouncements(
+        announcementsResult.data || []
+      );
     } catch (err: any) {
       console.error(err);
-      setError(err?.message || "Unable to load academy data.");
+
+      setError(
+        err?.message ||
+          "Unable to load academy data."
+      );
     } finally {
       setLoading(false);
     }
@@ -240,10 +412,13 @@ export default function AcademyProfileEditPage() {
   }, []);
 
   async function saveProfile() {
-    const teacherId = getTeacherId();
+    const teacherId =
+      getTeacherId();
 
     if (teacherId !== 1) {
-      setError("Only the main teacher can edit Academy Profile.");
+      setError(
+        "Only the main teacher can edit Academy Profile."
+      );
       return;
     }
 
@@ -252,45 +427,196 @@ export default function AcademyProfileEditPage() {
     setError("");
 
     try {
-      const { error: rpcError } = await supabase.rpc(
-        "academy_update_profile",
-        {
-          p_teacher_id: teacherId,
-          p_academy_name: profile.academy_name,
-          p_tagline: profile.tagline,
-          p_about_text: profile.about_text,
-          p_classes_text: profile.classes_text,
-          p_facilities_text: profile.facilities_text,
-          p_timings_text: profile.timings_text,
-          p_faculty_text: profile.faculty_text,
-          p_achievements_text: profile.achievements_text,
-          p_why_choose_us: profile.why_choose_us,
-          p_rules_text: profile.rules_text,
-          p_contact_text: profile.contact_text,
-          p_address: profile.address,
-          p_phone: profile.phone,
-          p_whatsapp: profile.whatsapp,
-          p_email: profile.email,
-          p_admission_text: profile.admission_text,
-          p_gallery_text: profile.gallery_text,
-        }
+      const { error: rpcError } =
+        await supabase.rpc(
+          "academy_update_profile",
+          {
+            p_teacher_id: teacherId,
+            p_academy_name:
+              profile.academy_name,
+            p_tagline:
+              profile.tagline,
+            p_about_text:
+              profile.about_text,
+            p_classes_text:
+              profile.classes_text,
+            p_facilities_text:
+              profile.facilities_text,
+            p_timings_text:
+              profile.timings_text,
+            p_faculty_text:
+              profile.faculty_text,
+            p_achievements_text:
+              profile.achievements_text,
+            p_why_choose_us:
+              profile.why_choose_us,
+            p_rules_text:
+              profile.rules_text,
+            p_contact_text:
+              profile.contact_text,
+            p_address:
+              profile.address,
+            p_phone:
+              profile.phone,
+            p_whatsapp:
+              profile.whatsapp,
+            p_email:
+              profile.email,
+            p_admission_text:
+              profile.admission_text,
+            p_gallery_text:
+              profile.gallery_text,
+          }
+        );
+
+      if (rpcError)
+        throw rpcError;
+
+      setMessage(
+        "Academy profile saved successfully."
       );
-
-      if (rpcError) throw rpcError;
-
-      setMessage("Academy profile saved successfully.");
     } catch (err: any) {
-      setError(err?.message || "Unable to save profile.");
+      setError(
+        err?.message ||
+          "Unable to save profile."
+      );
     } finally {
       setSaving(false);
     }
   }
 
-  async function addFee() {
-    const teacherId = getTeacherId();
+  async function addDefaultFeeStructure() {
+    const teacherId =
+      getTeacherId();
 
     if (teacherId !== 1) {
-      setError("Only the main teacher can add fees.");
+      setError(
+        "Only the main teacher can create the default fee structure."
+      );
+      return;
+    }
+
+    setSeedingFees(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const existingKeys =
+        new Set(
+          fees.map(
+            (fee) =>
+              `${fee.class_name}|||${fee.subject_name}`
+          )
+        );
+
+      const missingEntries =
+        feeClasses.flatMap(
+          (classInfo) =>
+            subjects.map(
+              (subject) => ({
+                ...classInfo,
+                subject,
+              })
+            )
+        ).filter(
+          (item) =>
+            !existingKeys.has(
+              `${item.class_name}|||${item.subject}`
+            )
+        );
+
+      if (
+        missingEntries.length === 0
+      ) {
+        setMessage(
+          "Default fee structure is already added."
+        );
+        return;
+      }
+
+      const createdFees: Fee[] = [];
+
+      for (
+        let index = 0;
+        index <
+        missingEntries.length;
+        index++
+      ) {
+        const item =
+          missingEntries[index];
+
+        const oneHour =
+          item.amount;
+
+        const oneAndHalf =
+          oneAndHalfHourFee(
+            oneHour
+          );
+
+        const description =
+          `1 Hour: ₹${oneHour} | 1.5 Hours: ₹${oneAndHalf} | Per Subject`;
+
+        const { data, error: rpcError } =
+          await supabase.rpc(
+            "academy_add_fee",
+            {
+              p_teacher_id:
+                teacherId,
+              p_class_name:
+                item.class_name,
+              p_subject_name:
+                item.subject,
+              p_fee_amount:
+                oneHour,
+              p_fee_period:
+                "Monthly",
+              p_description:
+                description,
+              p_display_order:
+                fees.length +
+                createdFees.length,
+            }
+          );
+
+        if (rpcError) {
+          throw rpcError;
+        }
+
+        if (data) {
+          createdFees.push(
+            data as Fee
+          );
+        }
+      }
+
+      setFees((current) => [
+        ...current,
+        ...createdFees,
+      ]);
+
+      setMessage(
+        `${createdFees.length} default fee entries added successfully.`
+      );
+    } catch (err: any) {
+      console.error(err);
+
+      setError(
+        err?.message ||
+          "Unable to create default fee structure."
+      );
+    } finally {
+      setSeedingFees(false);
+    }
+  }
+
+  async function addFee() {
+    const teacherId =
+      getTeacherId();
+
+    if (teacherId !== 1) {
+      setError(
+        "Only the main teacher can add fees."
+      );
       return;
     }
 
@@ -299,31 +625,56 @@ export default function AcademyProfileEditPage() {
       !newFee.subject_name.trim() ||
       !newFee.fee_amount
     ) {
-      setError("Class, subject and fee amount are required.");
+      setError(
+        "Class, subject and fee amount are required."
+      );
       return;
     }
 
     setError("");
 
-    const { data, error: rpcError } = await supabase.rpc(
+    const amount =
+      Number(newFee.fee_amount);
+
+    const description =
+      newFee.description ||
+      `1 Hour: ₹${amount} | 1.5 Hours: ₹${oneAndHalfHourFee(
+        amount
+      )} | Per Subject`;
+
+    const {
+      data,
+      error: rpcError,
+    } = await supabase.rpc(
       "academy_add_fee",
       {
-        p_teacher_id: teacherId,
-        p_class_name: newFee.class_name.trim(),
-        p_subject_name: newFee.subject_name.trim(),
-        p_fee_amount: Number(newFee.fee_amount),
-        p_fee_period: newFee.fee_period,
-        p_description: newFee.description,
-        p_display_order: fees.length,
+        p_teacher_id:
+          teacherId,
+        p_class_name:
+          newFee.class_name.trim(),
+        p_subject_name:
+          newFee.subject_name.trim(),
+        p_fee_amount: amount,
+        p_fee_period:
+          "Monthly",
+        p_description:
+          description,
+        p_display_order:
+          fees.length,
       }
     );
 
     if (rpcError) {
-      setError(rpcError.message);
+      setError(
+        rpcError.message
+      );
       return;
     }
 
-    setFees((current) => [...current, data as Fee]);
+    setFees((current) => [
+      ...current,
+      data as Fee,
+    ]);
 
     setNewFee({
       class_name: "",
@@ -333,57 +684,97 @@ export default function AcademyProfileEditPage() {
       description: "",
     });
 
-    setMessage("Fee added successfully.");
+    setMessage(
+      "Fee added successfully."
+    );
   }
 
-  async function deleteFee(id: number) {
-    const teacherId = getTeacherId();
+  async function deleteFee(
+    id: number
+  ) {
+    const teacherId =
+      getTeacherId();
 
-    if (!confirm("Delete this fee entry?")) return;
+    if (
+      !confirm(
+        "Delete this fee entry?"
+      )
+    ) {
+      return;
+    }
 
-    const { error: rpcError } = await supabase.rpc(
+    const {
+      error: rpcError,
+    } = await supabase.rpc(
       "academy_delete_fee",
       {
-        p_teacher_id: teacherId,
+        p_teacher_id:
+          teacherId,
         p_id: id,
       }
     );
 
     if (rpcError) {
-      setError(rpcError.message);
+      setError(
+        rpcError.message
+      );
       return;
     }
 
-    setFees((current) => current.filter((item) => item.id !== id));
-    setMessage("Fee deleted.");
+    setFees((current) =>
+      current.filter(
+        (item) =>
+          item.id !== id
+      )
+    );
+
+    setMessage(
+      "Fee deleted."
+    );
   }
 
   async function addFacility() {
-    const teacherId = getTeacherId();
+    const teacherId =
+      getTeacherId();
 
     if (!newFacility.title.trim()) {
-      setError("Facility title is required.");
+      setError(
+        "Facility title is required."
+      );
       return;
     }
 
-    const { data, error: rpcError } = await supabase.rpc(
+    const {
+      data,
+      error: rpcError,
+    } = await supabase.rpc(
       "academy_add_facility",
       {
-        p_teacher_id: teacherId,
-        p_title: newFacility.title.trim(),
-        p_description: newFacility.description,
-        p_icon: newFacility.icon,
-        p_display_order: facilities.length,
+        p_teacher_id:
+          teacherId,
+        p_title:
+          newFacility.title.trim(),
+        p_description:
+          newFacility.description,
+        p_icon:
+          newFacility.icon,
+        p_display_order:
+          facilities.length,
         p_is_active: true,
       }
     );
 
     if (rpcError) {
-      setError(rpcError.message);
+      setError(
+        rpcError.message
+      );
       return;
     }
 
-    setFacilities((current) => [...current, data as Facility]);
+    setFacilities((current) => [
+      ...current,
+      data as Facility,
+    ]);
 
     setNewFacility({
       title: "",
@@ -391,59 +782,101 @@ export default function AcademyProfileEditPage() {
       icon: "⭐",
     });
 
-    setMessage("Facility added.");
+    setMessage(
+      "Facility added."
+    );
   }
 
-  async function deleteFacility(id: number) {
-    const teacherId = getTeacherId();
+  async function deleteFacility(
+    id: number
+  ) {
+    const teacherId =
+      getTeacherId();
 
-    if (!confirm("Delete this facility?")) return;
+    if (
+      !confirm(
+        "Delete this facility?"
+      )
+    ) {
+      return;
+    }
 
-    const { error: rpcError } = await supabase.rpc(
+    const {
+      error: rpcError,
+    } = await supabase.rpc(
       "academy_delete_facility",
       {
-        p_teacher_id: teacherId,
+        p_teacher_id:
+          teacherId,
         p_id: id,
       }
     );
 
     if (rpcError) {
-      setError(rpcError.message);
+      setError(
+        rpcError.message
+      );
       return;
     }
 
-    setFacilities((current) => current.filter((item) => item.id !== id));
-    setMessage("Facility deleted.");
+    setFacilities((current) =>
+      current.filter(
+        (item) =>
+          item.id !== id
+      )
+    );
+
+    setMessage(
+      "Facility deleted."
+    );
   }
 
   async function addTiming() {
-    const teacherId = getTeacherId();
+    const teacherId =
+      getTeacherId();
 
     if (!newTiming.title.trim()) {
-      setError("Timing title is required.");
+      setError(
+        "Timing title is required."
+      );
       return;
     }
 
-    const { data, error: rpcError } = await supabase.rpc(
+    const {
+      data,
+      error: rpcError,
+    } = await supabase.rpc(
       "academy_add_timing",
       {
-        p_teacher_id: teacherId,
-        p_title: newTiming.title.trim(),
-        p_days: newTiming.days,
-        p_start_time: newTiming.start_time,
-        p_end_time: newTiming.end_time,
-        p_description: newTiming.description,
-        p_display_order: timings.length,
+        p_teacher_id:
+          teacherId,
+        p_title:
+          newTiming.title.trim(),
+        p_days:
+          newTiming.days,
+        p_start_time:
+          newTiming.start_time,
+        p_end_time:
+          newTiming.end_time,
+        p_description:
+          newTiming.description,
+        p_display_order:
+          timings.length,
         p_is_active: true,
       }
     );
 
     if (rpcError) {
-      setError(rpcError.message);
+      setError(
+        rpcError.message
+      );
       return;
     }
 
-    setTimings((current) => [...current, data as Timing]);
+    setTimings((current) => [
+      ...current,
+      data as Timing,
+    ]);
 
     setNewTiming({
       title: "",
@@ -453,60 +886,103 @@ export default function AcademyProfileEditPage() {
       description: "",
     });
 
-    setMessage("Batch timing added.");
+    setMessage(
+      "Batch timing added."
+    );
   }
 
-  async function deleteTiming(id: number) {
-    const teacherId = getTeacherId();
+  async function deleteTiming(
+    id: number
+  ) {
+    const teacherId =
+      getTeacherId();
 
-    if (!confirm("Delete this batch timing?")) return;
+    if (
+      !confirm(
+        "Delete this batch timing?"
+      )
+    ) {
+      return;
+    }
 
-    const { error: rpcError } = await supabase.rpc(
+    const {
+      error: rpcError,
+    } = await supabase.rpc(
       "academy_delete_timing",
       {
-        p_teacher_id: teacherId,
+        p_teacher_id:
+          teacherId,
         p_id: id,
       }
     );
 
     if (rpcError) {
-      setError(rpcError.message);
+      setError(
+        rpcError.message
+      );
       return;
     }
 
-    setTimings((current) => current.filter((item) => item.id !== id));
-    setMessage("Timing deleted.");
+    setTimings((current) =>
+      current.filter(
+        (item) =>
+          item.id !== id
+      )
+    );
+
+    setMessage(
+      "Timing deleted."
+    );
   }
 
   async function addFaculty() {
-    const teacherId = getTeacherId();
+    const teacherId =
+      getTeacherId();
 
     if (!newFaculty.teacher_name.trim()) {
-      setError("Teacher name is required.");
+      setError(
+        "Teacher name is required."
+      );
       return;
     }
 
-    const { data, error: rpcError } = await supabase.rpc(
+    const {
+      data,
+      error: rpcError,
+    } = await supabase.rpc(
       "academy_add_faculty",
       {
-        p_teacher_id: teacherId,
-        p_teacher_name: newFaculty.teacher_name.trim(),
-        p_subject: newFaculty.subject,
-        p_qualification: newFaculty.qualification,
-        p_experience: newFaculty.experience,
-        p_photo_url: newFaculty.photo_url,
-        p_description: newFaculty.description,
-        p_display_order: faculty.length,
+        p_teacher_id:
+          teacherId,
+        p_teacher_name:
+          newFaculty.teacher_name.trim(),
+        p_subject:
+          newFaculty.subject,
+        p_qualification:
+          newFaculty.qualification,
+        p_experience:
+          newFaculty.experience,
+        p_photo_url:
+          newFaculty.photo_url,
+        p_description:
+          newFaculty.description,
+        p_display_order:
+          faculty.length,
         p_is_active: true,
       }
     );
 
     if (rpcError) {
-      setError(rpcError.message);
+      setError(
+        rpcError.message
+      );
       return;
     }
 
-    setFaculty((current) => [...current, data as Faculty]);
+    setFaculty((current) => [
+      ...current,
+      data as Faculty,
+    ]);
 
     setNewFaculty({
       teacher_name: "",
@@ -517,93 +993,159 @@ export default function AcademyProfileEditPage() {
       description: "",
     });
 
-    setMessage("Faculty member added.");
+    setMessage(
+      "Faculty member added."
+    );
   }
 
-  async function deleteFaculty(id: number) {
-    const teacherId = getTeacherId();
+  async function deleteFaculty(
+    id: number
+  ) {
+    const teacherId =
+      getTeacherId();
 
-    if (!confirm("Delete this faculty member?")) return;
+    if (
+      !confirm(
+        "Delete this faculty member?"
+      )
+    ) {
+      return;
+    }
 
-    const { error: rpcError } = await supabase.rpc(
+    const {
+      error: rpcError,
+    } = await supabase.rpc(
       "academy_delete_faculty",
       {
-        p_teacher_id: teacherId,
+        p_teacher_id:
+          teacherId,
         p_id: id,
       }
     );
 
     if (rpcError) {
-      setError(rpcError.message);
+      setError(
+        rpcError.message
+      );
       return;
     }
 
-    setFaculty((current) => current.filter((item) => item.id !== id));
-    setMessage("Faculty member deleted.");
+    setFaculty((current) =>
+      current.filter(
+        (item) =>
+          item.id !== id
+      )
+    );
+
+    setMessage(
+      "Faculty member deleted."
+    );
   }
 
   async function addAnnouncement() {
-    const teacherId = getTeacherId();
+    const teacherId =
+      getTeacherId();
 
-    if (!newAnnouncement.title.trim()) {
-      setError("Announcement title is required.");
+    if (
+      !newAnnouncement.title.trim()
+    ) {
+      setError(
+        "Announcement title is required."
+      );
       return;
     }
 
-    const { data, error: rpcError } = await supabase.rpc(
+    const {
+      data,
+      error: rpcError,
+    } = await supabase.rpc(
       "academy_add_announcement",
       {
-        p_teacher_id: teacherId,
-        p_title: newAnnouncement.title.trim(),
-        p_content: newAnnouncement.content,
-        p_announcement_date: newAnnouncement.announcement_date,
+        p_teacher_id:
+          teacherId,
+        p_title:
+          newAnnouncement.title.trim(),
+        p_content:
+          newAnnouncement.content,
+        p_announcement_date:
+          newAnnouncement.announcement_date,
         p_is_active: true,
-        p_display_order: announcements.length,
+        p_display_order:
+          announcements.length,
       }
     );
 
     if (rpcError) {
-      setError(rpcError.message);
+      setError(
+        rpcError.message
+      );
       return;
     }
 
-    setAnnouncements((current) => [
-      data as Announcement,
-      ...current,
-    ]);
+    setAnnouncements(
+      (current) => [
+        data as Announcement,
+        ...current,
+      ]
+    );
 
     setNewAnnouncement({
       title: "",
       content: "",
-      announcement_date: new Date().toISOString().slice(0, 10),
+      announcement_date:
+        new Date()
+          .toISOString()
+          .slice(0, 10),
     });
 
-    setMessage("Announcement added.");
+    setMessage(
+      "Announcement added."
+    );
   }
 
-  async function deleteAnnouncement(id: number) {
-    const teacherId = getTeacherId();
+  async function deleteAnnouncement(
+    id: number
+  ) {
+    const teacherId =
+      getTeacherId();
 
-    if (!confirm("Delete this announcement?")) return;
+    if (
+      !confirm(
+        "Delete this announcement?"
+      )
+    ) {
+      return;
+    }
 
-    const { error: rpcError } = await supabase.rpc(
+    const {
+      error: rpcError,
+    } = await supabase.rpc(
       "academy_delete_announcement",
       {
-        p_teacher_id: teacherId,
+        p_teacher_id:
+          teacherId,
         p_id: id,
       }
     );
 
     if (rpcError) {
-      setError(rpcError.message);
+      setError(
+        rpcError.message
+      );
       return;
     }
 
-    setAnnouncements((current) =>
-      current.filter((item) => item.id !== id)
+    setAnnouncements(
+      (current) =>
+        current.filter(
+          (item) =>
+            item.id !== id
+        )
     );
 
-    setMessage("Announcement deleted.");
+    setMessage(
+      "Announcement deleted."
+    );
   }
 
   function updateProfile(
@@ -619,7 +1161,9 @@ export default function AcademyProfileEditPage() {
   if (loading) {
     return (
       <main style={styles.page}>
-        <div style={styles.loading}>Loading Academy Editor...</div>
+        <div style={styles.loading}>
+          Loading Academy Editor...
+        </div>
       </main>
     );
   }
@@ -631,16 +1175,22 @@ export default function AcademyProfileEditPage() {
           <div>
             <button
               onClick={() =>
-                (window.location.href = "/teacher/academy-profile")
+                (window.location.href =
+                  "/teacher/academy-profile")
               }
               style={styles.backButton}
             >
               ← Academy Profile
             </button>
 
-            <h1 style={styles.title}>Edit Academy Profile</h1>
+            <h1 style={styles.title}>
+              Edit Academy Profile
+            </h1>
+
             <p style={styles.subtitle}>
-              Manage the information displayed to students and parents.
+              Manage the information
+              displayed to students and
+              parents.
             </p>
           </div>
 
@@ -649,7 +1199,9 @@ export default function AcademyProfileEditPage() {
             disabled={saving}
             style={styles.saveButton}
           >
-            {saving ? "Saving..." : "💾 Save Profile"}
+            {saving
+              ? "Saving..."
+              : "💾 Save Profile"}
           </button>
         </header>
 
@@ -666,149 +1218,237 @@ export default function AcademyProfileEditPage() {
         )}
 
         <section style={styles.section}>
-          <h2 style={styles.sectionTitle}>🏫 Basic Academy Information</h2>
+          <h2 style={styles.sectionTitle}>
+            🏫 Basic Academy Information
+          </h2>
 
           <div style={styles.formGrid}>
             <Field
               label="Academy Name"
-              value={profile.academy_name}
+              value={
+                profile.academy_name
+              }
               onChange={(value) =>
-                updateProfile("academy_name", value)
+                updateProfile(
+                  "academy_name",
+                  value
+                )
               }
             />
 
             <Field
               label="Tagline"
-              value={profile.tagline}
+              value={
+                profile.tagline
+              }
               onChange={(value) =>
-                updateProfile("tagline", value)
+                updateProfile(
+                  "tagline",
+                  value
+                )
               }
             />
           </div>
 
           <TextArea
             label="About Academy"
-            value={profile.about_text}
+            value={
+              profile.about_text
+            }
             onChange={(value) =>
-              updateProfile("about_text", value)
+              updateProfile(
+                "about_text",
+                value
+              )
             }
           />
 
           <TextArea
             label="Classes & Subjects"
-            value={profile.classes_text}
+            value={
+              profile.classes_text
+            }
             onChange={(value) =>
-              updateProfile("classes_text", value)
+              updateProfile(
+                "classes_text",
+                value
+              )
             }
           />
 
           <TextArea
             label="Facilities"
-            value={profile.facilities_text}
+            value={
+              profile.facilities_text
+            }
             onChange={(value) =>
-              updateProfile("facilities_text", value)
+              updateProfile(
+                "facilities_text",
+                value
+              )
             }
           />
 
           <TextArea
             label="Batch Timings Information"
-            value={profile.timings_text}
+            value={
+              profile.timings_text
+            }
             onChange={(value) =>
-              updateProfile("timings_text", value)
+              updateProfile(
+                "timings_text",
+                value
+              )
             }
           />
 
           <TextArea
             label="Faculty Information"
-            value={profile.faculty_text}
+            value={
+              profile.faculty_text
+            }
             onChange={(value) =>
-              updateProfile("faculty_text", value)
+              updateProfile(
+                "faculty_text",
+                value
+              )
             }
           />
 
           <TextArea
             label="Achievements"
-            value={profile.achievements_text}
+            value={
+              profile.achievements_text
+            }
             onChange={(value) =>
-              updateProfile("achievements_text", value)
+              updateProfile(
+                "achievements_text",
+                value
+              )
             }
           />
 
           <TextArea
             label="Why Choose Us"
-            value={profile.why_choose_us}
+            value={
+              profile.why_choose_us
+            }
             onChange={(value) =>
-              updateProfile("why_choose_us", value)
+              updateProfile(
+                "why_choose_us",
+                value
+              )
             }
           />
 
           <TextArea
             label="Academy Rules"
-            value={profile.rules_text}
+            value={
+              profile.rules_text
+            }
             onChange={(value) =>
-              updateProfile("rules_text", value)
+              updateProfile(
+                "rules_text",
+                value
+              )
             }
           />
 
           <TextArea
             label="Admission Information"
-            value={profile.admission_text}
+            value={
+              profile.admission_text
+            }
             onChange={(value) =>
-              updateProfile("admission_text", value)
+              updateProfile(
+                "admission_text",
+                value
+              )
             }
           />
 
           <TextArea
             label="Gallery Information"
-            value={profile.gallery_text}
+            value={
+              profile.gallery_text
+            }
             onChange={(value) =>
-              updateProfile("gallery_text", value)
+              updateProfile(
+                "gallery_text",
+                value
+              )
             }
           />
         </section>
 
         <section style={styles.section}>
-          <h2 style={styles.sectionTitle}>📞 Contact Details</h2>
+          <h2 style={styles.sectionTitle}>
+            📞 Contact Details
+          </h2>
 
           <div style={styles.formGrid}>
             <Field
-              label="Phone"
+              label="Phone Number"
               value={profile.phone}
               onChange={(value) =>
-                updateProfile("phone", value)
+                updateProfile(
+                  "phone",
+                  value
+                )
               }
+              placeholder="Enter phone number"
             />
 
             <Field
-              label="WhatsApp"
-              value={profile.whatsapp}
-              onChange={(value) =>
-                updateProfile("whatsapp", value)
+              label="WhatsApp Number or Link"
+              value={
+                profile.whatsapp
               }
+              onChange={(value) =>
+                updateProfile(
+                  "whatsapp",
+                  value
+                )
+              }
+              placeholder="Number or https://wa.me/..."
             />
 
             <Field
               label="Email"
               value={profile.email}
               onChange={(value) =>
-                updateProfile("email", value)
+                updateProfile(
+                  "email",
+                  value
+                )
               }
+              placeholder="Enter email"
             />
 
             <Field
               label="Address"
-              value={profile.address}
+              value={
+                profile.address
+              }
               onChange={(value) =>
-                updateProfile("address", value)
+                updateProfile(
+                  "address",
+                  value
+                )
               }
             />
           </div>
 
           <TextArea
             label="Contact Information"
-            value={profile.contact_text}
+            value={
+              profile.contact_text
+            }
             onChange={(value) =>
-              updateProfile("contact_text", value)
+              updateProfile(
+                "contact_text",
+                value
+              )
             }
           />
 
@@ -817,106 +1457,255 @@ export default function AcademyProfileEditPage() {
             disabled={saving}
             style={styles.saveButton}
           >
-            {saving ? "Saving..." : "💾 Save Contact & Profile"}
+            {saving
+              ? "Saving..."
+              : "💾 Save Contact & Profile"}
           </button>
         </section>
 
         <section style={styles.section}>
           <h2 style={styles.sectionTitle}>
-            💰 Subject-wise Fee Structure
+            💰 Default Fee Structure
+          </h2>
+
+          <div style={styles.feeInfo}>
+            <div>
+              <strong>
+                Monthly • Per Subject •
+                1 Hour
+              </strong>
+            </div>
+
+            <div>
+              1.5 Hour fee is automatically
+              calculated as 50% extra.
+            </div>
+
+            <div>
+              <strong>
+                Nursery–UKG:
+              </strong>{" "}
+              ₹200 both mediums
+            </div>
+
+            <div>
+              <strong>
+                Class 1–5:
+              </strong>{" "}
+              Hindi ₹200 • English ₹220
+            </div>
+
+            <div>
+              <strong>
+                Class 6–8:
+              </strong>{" "}
+              Hindi ₹250 • English ₹270
+            </div>
+
+            <div>
+              <strong>
+                Class 9–10:
+              </strong>{" "}
+              Hindi ₹300 • English ₹350
+            </div>
+          </div>
+
+          <button
+            onClick={
+              addDefaultFeeStructure
+            }
+            disabled={seedingFees}
+            style={
+              styles.defaultFeeButton
+            }
+          >
+            {seedingFees
+              ? "Adding Default Fees..."
+              : "⚡ Add Default Fee Structure"}
+          </button>
+
+          <p
+            style={
+              styles.helperText
+            }
+          >
+            This will automatically add
+            the required classes, both
+            mediums and all standard
+            subjects. Existing fee entries
+            will not be duplicated.
+          </p>
+        </section>
+
+        <section style={styles.section}>
+          <h2 style={styles.sectionTitle}>
+            💰 Add / Manage Individual Fee
           </h2>
 
           <div style={styles.addBox}>
             <div style={styles.formGrid}>
               <Field
-                label="Class"
-                value={newFee.class_name}
+                label="Class / Medium"
+                value={
+                  newFee.class_name
+                }
                 onChange={(value) =>
                   setNewFee({
                     ...newFee,
-                    class_name: value,
+                    class_name:
+                      value,
                   })
                 }
-                placeholder="Example: Class 5"
+                placeholder="Example: English Medium - Class 5"
               />
 
               <Field
                 label="Subject"
-                value={newFee.subject_name}
+                value={
+                  newFee.subject_name
+                }
                 onChange={(value) =>
                   setNewFee({
                     ...newFee,
-                    subject_name: value,
+                    subject_name:
+                      value,
                   })
                 }
                 placeholder="Example: Mathematics"
               />
 
               <Field
-                label="Fee Amount"
-                value={newFee.fee_amount}
+                label="1 Hour Fee"
+                value={
+                  newFee.fee_amount
+                }
                 onChange={(value) =>
                   setNewFee({
                     ...newFee,
-                    fee_amount: value,
+                    fee_amount:
+                      value,
                   })
                 }
-                placeholder="Example: 800"
+                placeholder="Example: 220"
                 type="number"
               />
 
               <Field
                 label="Period"
-                value={newFee.fee_period}
+                value={
+                  newFee.fee_period
+                }
                 onChange={(value) =>
                   setNewFee({
                     ...newFee,
-                    fee_period: value,
+                    fee_period:
+                      value,
                   })
                 }
                 placeholder="Monthly"
               />
             </div>
 
+            {newFee.fee_amount && (
+              <div
+                style={
+                  styles.calculatedFee
+                }
+              >
+                1.5 Hour Fee: ₹
+                {oneAndHalfHourFee(
+                  Number(
+                    newFee.fee_amount
+                  )
+                ).toLocaleString(
+                  "en-IN"
+                )}
+              </div>
+            )}
+
             <TextArea
               label="Description"
-              value={newFee.description}
+              value={
+                newFee.description
+              }
               onChange={(value) =>
                 setNewFee({
                   ...newFee,
-                  description: value,
+                  description:
+                    value,
                 })
               }
             />
 
-            <button onClick={addFee} style={styles.addButton}>
+            <button
+              onClick={addFee}
+              style={styles.addButton}
+            >
               + Add Fee
             </button>
           </div>
 
           <div style={styles.list}>
             {fees.map((fee) => (
-              <div key={fee.id} style={styles.listItem}>
+              <div
+                key={fee.id}
+                style={styles.listItem}
+              >
                 <div>
                   <strong>
-                    {fee.class_name} — {fee.subject_name}
+                    {fee.class_name} —{" "}
+                    {fee.subject_name}
                   </strong>
 
-                  <div style={styles.smallText}>
-                    ₹{Number(fee.fee_amount).toLocaleString("en-IN")} /{" "}
-                    {fee.fee_period}
+                  <div
+                    style={
+                      styles.smallText
+                    }
+                  >
+                    1 Hour: ₹
+                    {Number(
+                      fee.fee_amount
+                    ).toLocaleString(
+                      "en-IN"
+                    )}{" "}
+                    / {fee.fee_period}
+                  </div>
+
+                  <div
+                    style={
+                      styles.smallText
+                    }
+                  >
+                    1.5 Hours: ₹
+                    {oneAndHalfHourFee(
+                      Number(
+                        fee.fee_amount
+                      )
+                    ).toLocaleString(
+                      "en-IN"
+                    )}
                   </div>
 
                   {fee.description && (
-                    <div style={styles.smallText}>
+                    <div
+                      style={
+                        styles.smallText
+                      }
+                    >
                       {fee.description}
                     </div>
                   )}
                 </div>
 
                 <button
-                  onClick={() => deleteFee(fee.id)}
-                  style={styles.deleteButton}
+                  onClick={() =>
+                    deleteFee(
+                      fee.id
+                    )
+                  }
+                  style={
+                    styles.deleteButton
+                  }
                 >
                   Delete
                 </button>
@@ -926,13 +1715,17 @@ export default function AcademyProfileEditPage() {
         </section>
 
         <section style={styles.section}>
-          <h2 style={styles.sectionTitle}>✨ Facilities</h2>
+          <h2 style={styles.sectionTitle}>
+            ✨ Facilities
+          </h2>
 
           <div style={styles.addBox}>
             <div style={styles.formGrid}>
               <Field
                 label="Facility Title"
-                value={newFacility.title}
+                value={
+                  newFacility.title
+                }
                 onChange={(value) =>
                   setNewFacility({
                     ...newFacility,
@@ -944,7 +1737,9 @@ export default function AcademyProfileEditPage() {
 
               <Field
                 label="Icon"
-                value={newFacility.icon}
+                value={
+                  newFacility.icon
+                }
                 onChange={(value) =>
                   setNewFacility({
                     ...newFacility,
@@ -957,17 +1752,22 @@ export default function AcademyProfileEditPage() {
 
             <TextArea
               label="Description"
-              value={newFacility.description}
+              value={
+                newFacility.description
+              }
               onChange={(value) =>
                 setNewFacility({
                   ...newFacility,
-                  description: value,
+                  description:
+                    value,
                 })
               }
             />
 
             <button
-              onClick={addFacility}
+              onClick={
+                addFacility
+              }
               style={styles.addButton}
             >
               + Add Facility
@@ -975,49 +1775,85 @@ export default function AcademyProfileEditPage() {
           </div>
 
           <div style={styles.list}>
-            {facilities.map((facility) => (
-              <div key={facility.id} style={styles.listItem}>
-                <div>
-                  <strong>
-                    {facility.icon || "⭐"} {facility.title}
-                  </strong>
-
-                  <div style={styles.smallText}>
-                    {facility.description}
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => deleteFacility(facility.id)}
-                  style={styles.deleteButton}
+            {facilities.map(
+              (facility) => (
+                <div
+                  key={facility.id}
+                  style={
+                    styles.listItem
+                  }
                 >
-                  Delete
-                </button>
-              </div>
-            ))}
+                  <div>
+                    <strong>
+                      {facility.icon ||
+                        "⭐"}{" "}
+                      {
+                        facility.title
+                      }
+                    </strong>
+
+                    <div
+                      style={
+                        styles.smallText
+                      }
+                    >
+                      {
+                        facility.description
+                      }
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      deleteFacility(
+                        facility.id
+                      )
+                    }
+                    style={
+                      styles.deleteButton
+                    }
+                  >
+                    Delete
+                  </button>
+                </div>
+              )
+            )}
           </div>
         </section>
 
         <section style={styles.section}>
-          <h2 style={styles.sectionTitle}>⏰ Batch Timings</h2>
+          <h2 style={styles.sectionTitle}>
+            ⏰ Batch Timings
+          </h2>
+
+          <div style={styles.timingInfo}>
+            <strong>
+              Default Academy Timing:
+            </strong>{" "}
+            5:00 PM – 8:00 PM
+          </div>
 
           <div style={styles.addBox}>
             <div style={styles.formGrid}>
               <Field
                 label="Batch Title"
-                value={newTiming.title}
+                value={
+                  newTiming.title
+                }
                 onChange={(value) =>
                   setNewTiming({
                     ...newTiming,
                     title: value,
                   })
                 }
-                placeholder="Example: Class 8 Evening Batch"
+                placeholder="Example: Evening Tuition Batch"
               />
 
               <Field
                 label="Days"
-                value={newTiming.days}
+                value={
+                  newTiming.days
+                }
                 onChange={(value) =>
                   setNewTiming({
                     ...newTiming,
@@ -1029,11 +1865,14 @@ export default function AcademyProfileEditPage() {
 
               <Field
                 label="Start Time"
-                value={newTiming.start_time}
+                value={
+                  newTiming.start_time
+                }
                 onChange={(value) =>
                   setNewTiming({
                     ...newTiming,
-                    start_time: value,
+                    start_time:
+                      value,
                   })
                 }
                 placeholder="05:00 PM"
@@ -1041,30 +1880,38 @@ export default function AcademyProfileEditPage() {
 
               <Field
                 label="End Time"
-                value={newTiming.end_time}
+                value={
+                  newTiming.end_time
+                }
                 onChange={(value) =>
                   setNewTiming({
                     ...newTiming,
-                    end_time: value,
+                    end_time:
+                      value,
                   })
                 }
-                placeholder="06:00 PM"
+                placeholder="08:00 PM"
               />
             </div>
 
             <TextArea
               label="Description"
-              value={newTiming.description}
+              value={
+                newTiming.description
+              }
               onChange={(value) =>
                 setNewTiming({
                   ...newTiming,
-                  description: value,
+                  description:
+                    value,
                 })
               }
             />
 
             <button
-              onClick={addTiming}
+              onClick={
+                addTiming
+              }
               style={styles.addButton}
             >
               + Add Timing
@@ -1072,107 +1919,160 @@ export default function AcademyProfileEditPage() {
           </div>
 
           <div style={styles.list}>
-            {timings.map((timing) => (
-              <div key={timing.id} style={styles.listItem}>
-                <div>
-                  <strong>{timing.title}</strong>
-
-                  <div style={styles.smallText}>
-                    {timing.days} • {timing.start_time} -{" "}
-                    {timing.end_time}
-                  </div>
-
-                  <div style={styles.smallText}>
-                    {timing.description}
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => deleteTiming(timing.id)}
-                  style={styles.deleteButton}
+            {timings.map(
+              (timing) => (
+                <div
+                  key={timing.id}
+                  style={
+                    styles.listItem
+                  }
                 >
-                  Delete
-                </button>
-              </div>
-            ))}
+                  <div>
+                    <strong>
+                      {timing.title}
+                    </strong>
+
+                    <div
+                      style={
+                        styles.smallText
+                      }
+                    >
+                      {timing.days} •{" "}
+                      {
+                        timing.start_time
+                      }{" "}
+                      -{" "}
+                      {
+                        timing.end_time
+                      }
+                    </div>
+
+                    <div
+                      style={
+                        styles.smallText
+                      }
+                    >
+                      {
+                        timing.description
+                      }
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      deleteTiming(
+                        timing.id
+                      )
+                    }
+                    style={
+                      styles.deleteButton
+                    }
+                  >
+                    Delete
+                  </button>
+                </div>
+              )
+            )}
           </div>
         </section>
 
         <section style={styles.section}>
-          <h2 style={styles.sectionTitle}>👨‍🏫 Teachers / Faculty</h2>
+          <h2 style={styles.sectionTitle}>
+            👨‍🏫 Teachers / Faculty
+          </h2>
 
           <div style={styles.addBox}>
             <div style={styles.formGrid}>
               <Field
                 label="Teacher Name"
-                value={newFaculty.teacher_name}
+                value={
+                  newFaculty.teacher_name
+                }
                 onChange={(value) =>
                   setNewFaculty({
                     ...newFaculty,
-                    teacher_name: value,
+                    teacher_name:
+                      value,
                   })
                 }
               />
 
               <Field
                 label="Subject"
-                value={newFaculty.subject}
+                value={
+                  newFaculty.subject
+                }
                 onChange={(value) =>
                   setNewFaculty({
                     ...newFaculty,
-                    subject: value,
+                    subject:
+                      value,
                   })
                 }
               />
 
               <Field
                 label="Qualification"
-                value={newFaculty.qualification}
+                value={
+                  newFaculty.qualification
+                }
                 onChange={(value) =>
                   setNewFaculty({
                     ...newFaculty,
-                    qualification: value,
+                    qualification:
+                      value,
                   })
                 }
               />
 
               <Field
                 label="Experience"
-                value={newFaculty.experience}
+                value={
+                  newFaculty.experience
+                }
                 onChange={(value) =>
                   setNewFaculty({
                     ...newFaculty,
-                    experience: value,
+                    experience:
+                      value,
                   })
                 }
               />
 
               <Field
                 label="Photo URL"
-                value={newFaculty.photo_url}
+                value={
+                  newFaculty.photo_url
+                }
                 onChange={(value) =>
                   setNewFaculty({
                     ...newFaculty,
-                    photo_url: value,
+                    photo_url:
+                      value,
                   })
                 }
-                placeholder="Photos later"
+                placeholder="Photo URL"
               />
             </div>
 
             <TextArea
               label="Faculty Description"
-              value={newFaculty.description}
+              value={
+                newFaculty.description
+              }
               onChange={(value) =>
                 setNewFaculty({
                   ...newFaculty,
-                  description: value,
+                  description:
+                    value,
                 })
               }
             />
 
             <button
-              onClick={addFaculty}
+              onClick={
+                addFaculty
+              }
               style={styles.addButton}
             >
               + Add Faculty
@@ -1180,42 +2080,75 @@ export default function AcademyProfileEditPage() {
           </div>
 
           <div style={styles.list}>
-            {faculty.map((teacher) => (
-              <div key={teacher.id} style={styles.listItem}>
-                <div>
-                  <strong>{teacher.teacher_name}</strong>
-
-                  <div style={styles.smallText}>
-                    {teacher.subject}
-                  </div>
-
-                  <div style={styles.smallText}>
-                    {teacher.qualification}
-                    {teacher.experience
-                      ? ` • ${teacher.experience}`
-                      : ""}
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => deleteFaculty(teacher.id)}
-                  style={styles.deleteButton}
+            {faculty.map(
+              (teacher) => (
+                <div
+                  key={teacher.id}
+                  style={
+                    styles.listItem
+                  }
                 >
-                  Delete
-                </button>
-              </div>
-            ))}
+                  <div>
+                    <strong>
+                      {
+                        teacher.teacher_name
+                      }
+                    </strong>
+
+                    <div
+                      style={
+                        styles.smallText
+                      }
+                    >
+                      {
+                        teacher.subject
+                      }
+                    </div>
+
+                    <div
+                      style={
+                        styles.smallText
+                      }
+                    >
+                      {
+                        teacher.qualification
+                      }
+                      {teacher.experience
+                        ? ` • ${teacher.experience}`
+                        : ""}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      deleteFaculty(
+                        teacher.id
+                      )
+                    }
+                    style={
+                      styles.deleteButton
+                    }
+                  >
+                    Delete
+                  </button>
+                </div>
+              )
+            )}
           </div>
         </section>
 
         <section style={styles.section}>
-          <h2 style={styles.sectionTitle}>📢 Announcements</h2>
+          <h2 style={styles.sectionTitle}>
+            📢 Announcements
+          </h2>
 
           <div style={styles.addBox}>
             <div style={styles.formGrid}>
               <Field
                 label="Title"
-                value={newAnnouncement.title}
+                value={
+                  newAnnouncement.title
+                }
                 onChange={(value) =>
                   setNewAnnouncement({
                     ...newAnnouncement,
@@ -1226,11 +2159,14 @@ export default function AcademyProfileEditPage() {
 
               <Field
                 label="Date"
-                value={newAnnouncement.announcement_date}
+                value={
+                  newAnnouncement.announcement_date
+                }
                 onChange={(value) =>
                   setNewAnnouncement({
                     ...newAnnouncement,
-                    announcement_date: value,
+                    announcement_date:
+                      value,
                   })
                 }
                 type="date"
@@ -1239,7 +2175,9 @@ export default function AcademyProfileEditPage() {
 
             <TextArea
               label="Announcement"
-              value={newAnnouncement.content}
+              value={
+                newAnnouncement.content
+              }
               onChange={(value) =>
                 setNewAnnouncement({
                   ...newAnnouncement,
@@ -1249,7 +2187,9 @@ export default function AcademyProfileEditPage() {
             />
 
             <button
-              onClick={addAnnouncement}
+              onClick={
+                addAnnouncement
+              }
               style={styles.addButton}
             >
               + Add Announcement
@@ -1257,43 +2197,75 @@ export default function AcademyProfileEditPage() {
           </div>
 
           <div style={styles.list}>
-            {announcements.map((item) => (
-              <div key={item.id} style={styles.listItem}>
-                <div>
-                  <strong>{item.title}</strong>
-
-                  <div style={styles.smallText}>
-                    {item.announcement_date}
-                  </div>
-
-                  <div style={styles.smallText}>
-                    {item.content}
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => deleteAnnouncement(item.id)}
-                  style={styles.deleteButton}
+            {announcements.map(
+              (item) => (
+                <div
+                  key={item.id}
+                  style={
+                    styles.listItem
+                  }
                 >
-                  Delete
-                </button>
-              </div>
-            ))}
+                  <div>
+                    <strong>
+                      {item.title}
+                    </strong>
+
+                    <div
+                      style={
+                        styles.smallText
+                      }
+                    >
+                      {
+                        item.announcement_date
+                      }
+                    </div>
+
+                    <div
+                      style={
+                        styles.smallText
+                      }
+                    >
+                      {item.content}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      deleteAnnouncement(
+                        item.id
+                      )
+                    }
+                    style={
+                      styles.deleteButton
+                    }
+                  >
+                    Delete
+                  </button>
+                </div>
+              )
+            )}
           </div>
         </section>
 
-        <div style={styles.bottomActions}>
+        <div
+          style={
+            styles.bottomActions
+          }
+        >
           <button
             onClick={saveProfile}
             disabled={saving}
             style={styles.saveButton}
           >
-            {saving ? "Saving..." : "💾 Save All Profile Information"}
+            {saving
+              ? "Saving..."
+              : "💾 Save All Profile Information"}
           </button>
 
           <button
             onClick={() =>
-              (window.location.href = "/teacher/academy-profile")
+              (window.location.href =
+                "/teacher/academy-profile")
             }
             style={styles.viewButton}
           >
@@ -1314,19 +2286,29 @@ function Field({
 }: {
   label: string;
   value: string;
-  onChange: (value: string) => void;
+  onChange: (
+    value: string
+  ) => void;
   placeholder?: string;
   type?: string;
 }) {
   return (
     <label style={styles.field}>
-      <span style={styles.label}>{label}</span>
+      <span style={styles.label}>
+        {label}
+      </span>
 
       <input
         type={type}
         value={value}
-        placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
+        placeholder={
+          placeholder
+        }
+        onChange={(event) =>
+          onChange(
+            event.target.value
+          )
+        }
         style={styles.input}
       />
     </label>
@@ -1340,15 +2322,23 @@ function TextArea({
 }: {
   label: string;
   value: string;
-  onChange: (value: string) => void;
+  onChange: (
+    value: string
+  ) => void;
 }) {
   return (
     <label style={styles.field}>
-      <span style={styles.label}>{label}</span>
+      <span style={styles.label}>
+        {label}
+      </span>
 
       <textarea
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) =>
+          onChange(
+            event.target.value
+          )
+        }
         rows={4}
         style={styles.textarea}
       />
@@ -1356,14 +2346,17 @@ function TextArea({
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
+const styles: Record<
+  string,
+  React.CSSProperties
+> = {
   page: {
     minHeight: "100vh",
     background: "#f4f7fb",
     color: "#172033",
     padding: "20px",
     fontFamily:
-      "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+      "Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif",
   },
 
   container: {
@@ -1404,11 +2397,13 @@ const styles: Record<string, React.CSSProperties> = {
 
   section: {
     background: "#fff",
-    border: "1px solid #e2e7f0",
+    border:
+      "1px solid #e2e7f0",
     borderRadius: "20px",
     padding: "24px",
     marginBottom: "20px",
-    boxShadow: "0 8px 25px rgba(25,40,75,.05)",
+    boxShadow:
+      "0 8px 25px rgba(25,40,75,.05)",
   },
 
   sectionTitle: {
@@ -1419,7 +2414,8 @@ const styles: Record<string, React.CSSProperties> = {
 
   formGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gridTemplateColumns:
+      "repeat(auto-fit,minmax(220px,1fr))",
     gap: "15px",
   },
 
@@ -1439,7 +2435,8 @@ const styles: Record<string, React.CSSProperties> = {
   input: {
     width: "100%",
     boxSizing: "border-box",
-    border: "1px solid #d9dfeb",
+    border:
+      "1px solid #d9dfeb",
     borderRadius: "10px",
     padding: "12px",
     outline: "none",
@@ -1450,7 +2447,8 @@ const styles: Record<string, React.CSSProperties> = {
   textarea: {
     width: "100%",
     boxSizing: "border-box",
-    border: "1px solid #d9dfeb",
+    border:
+      "1px solid #d9dfeb",
     borderRadius: "10px",
     padding: "12px",
     outline: "none",
@@ -1471,7 +2469,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   viewButton: {
-    border: "1px solid #d5dce8",
+    border:
+      "1px solid #d5dce8",
     borderRadius: "11px",
     background: "#fff",
     color: "#172033",
@@ -1480,9 +2479,64 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
   },
 
+  feeInfo: {
+    display: "grid",
+    gap: "8px",
+    background:
+      "linear-gradient(135deg,#eff6ff,#f5f3ff)",
+    border:
+      "1px solid #dbeafe",
+    borderRadius: "14px",
+    padding: "18px",
+    marginBottom: "14px",
+    color: "#334155",
+    lineHeight: 1.6,
+  },
+
+  defaultFeeButton: {
+    border: "none",
+    borderRadius: "11px",
+    background:
+      "linear-gradient(135deg,#047857,#059669)",
+    color: "#fff",
+    padding: "13px 18px",
+    fontWeight: 900,
+    cursor: "pointer",
+  },
+
+  helperText: {
+    color: "#64748b",
+    fontSize: "13px",
+    lineHeight: 1.5,
+    marginBottom: 0,
+  },
+
+  calculatedFee: {
+    background: "#f5f3ff",
+    border:
+      "1px solid #ddd6fe",
+    color: "#6d28d9",
+    borderRadius: "10px",
+    padding: "11px 13px",
+    fontWeight: 900,
+    marginBottom: "12px",
+  },
+
+  timingInfo: {
+    background: "#ecfdf5",
+    border:
+      "1px solid #bbf7d0",
+    color: "#166534",
+    borderRadius: "12px",
+    padding: "13px 15px",
+    marginBottom: "16px",
+    fontWeight: 700,
+  },
+
   addBox: {
     background: "#f7f9fd",
-    border: "1px solid #e1e6ef",
+    border:
+      "1px solid #e1e6ef",
     borderRadius: "14px",
     padding: "18px",
     marginBottom: "16px",
@@ -1510,7 +2564,8 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: "15px",
     padding: "15px",
-    border: "1px solid #e2e7ef",
+    border:
+      "1px solid #e2e7ef",
     borderRadius: "12px",
     background: "#fff",
   },
@@ -1535,7 +2590,8 @@ const styles: Record<string, React.CSSProperties> = {
 
   success: {
     background: "#eaf8ef",
-    border: "1px solid #b9e6c8",
+    border:
+      "1px solid #b9e6c8",
     color: "#176b34",
     borderRadius: "12px",
     padding: "12px 15px",
@@ -1545,7 +2601,8 @@ const styles: Record<string, React.CSSProperties> = {
 
   error: {
     background: "#fff0f0",
-    border: "1px solid #f0c0c0",
+    border:
+      "1px solid #f0c0c0",
     color: "#a52626",
     borderRadius: "12px",
     padding: "12px 15px",
