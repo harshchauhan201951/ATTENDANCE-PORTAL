@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 
@@ -10,6 +10,7 @@ const supabase = createClient(
 );
 
 type LoginType = "student" | "teacher";
+type FeeMedium = "Hindi Medium" | "English Medium";
 
 type AcademyProfile = {
   academy_name: string;
@@ -169,14 +170,14 @@ const defaultClassNames = [
   "Class 10",
 ];
 
-const defaultMediums = [
+const defaultMediums: FeeMedium[] = [
   "Hindi Medium",
   "English Medium",
 ];
 
 function getDefaultFeeAmount(
   className: string,
-  medium: string
+  medium: FeeMedium
 ) {
   if (
     className === "Nursery" ||
@@ -326,6 +327,67 @@ const defaultFaculty: AcademyFaculty[] = [
   },
 ];
 
+function getClassNameFromFee(
+  fee: AcademyFee
+) {
+  const rawClassName = (
+    fee.class_name || ""
+  ).trim();
+
+  for (const className of defaultClassNames) {
+    if (
+      rawClassName === className ||
+      rawClassName.startsWith(
+        `${className} - `
+      )
+    ) {
+      return className;
+    }
+  }
+
+  return rawClassName
+    .replace(/\s*-\s*Hindi Medium/i, "")
+    .replace(/\s*-\s*English Medium/i, "")
+    .trim();
+}
+
+function getMediumFromFee(
+  fee: AcademyFee
+): FeeMedium | null {
+  const value = (
+    fee.class_name || ""
+  ).toLowerCase();
+
+  if (value.includes("hindi medium")) {
+    return "Hindi Medium";
+  }
+
+  if (value.includes("english medium")) {
+    return "English Medium";
+  }
+
+  return null;
+}
+
+function getComboFee(
+  className: string,
+  medium: FeeMedium
+) {
+  const oneSubjectFee =
+    getDefaultFeeAmount(
+      className,
+      medium
+    );
+
+  // Combo = any 2 subjects for 2 total hours.
+  // The requested starting values are:
+  // Hindi Medium: ₹500 = 2.5 × ₹200
+  // English Medium: ₹550 = 2.5 × ₹220
+  return Math.round(
+    oneSubjectFee * 2.5
+  );
+}
+
 export default function HomePage() {
   const router = useRouter();
 
@@ -369,6 +431,19 @@ export default function HomePage() {
 
   const [activeModal, setActiveModal] =
     useState<InfoModal>(null);
+
+  const [selectedMedium, setSelectedMedium] =
+    useState<FeeMedium>("Hindi Medium");
+
+  const selectedMediumFees = useMemo(
+    () =>
+      fees.filter(
+        (fee) =>
+          getMediumFromFee(fee) ===
+          selectedMedium
+      ),
+    [fees, selectedMedium]
+  );
 
   useEffect(() => {
     async function loadAcademyData() {
@@ -452,7 +527,20 @@ export default function HomePage() {
           !feesResult.error &&
           feesResult.data.length > 0
         ) {
-          setFees(feesResult.data);
+          const databaseFees =
+            feesResult.data as AcademyFee[];
+
+          const hasMediumData =
+            databaseFees.some(
+              (fee) =>
+                getMediumFromFee(fee) !== null
+            );
+
+          if (hasMediumData) {
+            setFees(databaseFees);
+          } else {
+            setFees(defaultAcademyFees);
+          }
         }
 
         if (
@@ -470,7 +558,9 @@ export default function HomePage() {
           !timingsResult.error &&
           timingsResult.data.length > 0
         ) {
-          setTimings(timingsResult.data);
+          setTimings(
+            timingsResult.data
+          );
         }
 
         if (
@@ -527,11 +617,36 @@ export default function HomePage() {
           ? "student_login"
           : "teacher_login";
 
-      const { data, error: loginError } =
+      const enteredUsername = username.trim();
+
+      let { data, error: loginError } =
         await supabase.rpc(functionName, {
-          p_username: username.trim(),
+          p_username: enteredUsername,
           p_password: password,
         });
+
+      // Teacher usernames are sometimes stored with a different case.
+      // Keep the student login flow exactly as it is, but retry Teacher Login
+      // once with a normalized lowercase username if the first attempt fails
+      // or returns no teacher record.
+      if (
+        loginType === "teacher" &&
+        (loginError ||
+          !data ||
+          (Array.isArray(data) && data.length === 0)) &&
+        enteredUsername !== enteredUsername.toLowerCase()
+      ) {
+        const retryResult = await supabase.rpc(
+          "teacher_login",
+          {
+            p_username: enteredUsername.toLowerCase(),
+            p_password: password,
+          }
+        );
+
+        data = retryResult.data;
+        loginError = retryResult.error;
+      }
 
       if (loginError) {
         setError(
@@ -552,7 +667,7 @@ export default function HomePage() {
         setError(
           loginType === "student"
             ? "Student Login Error: Login function returned no student data."
-            : "Teacher Login Error: Login function returned no teacher data."
+            : "Teacher Login Error: Invalid teacher username or password."
         );
         return;
       }
@@ -571,17 +686,18 @@ export default function HomePage() {
           ) &&
           currentStudentId > 0
         ) {
-          const { error: activityError } =
-            await supabase
-              .from(
-                "student_login_activity"
-              )
-              .insert({
-                student_id:
-                  currentStudentId,
-                login_at:
-                  new Date().toISOString(),
-              });
+          const {
+            error: activityError,
+          } = await supabase
+            .from(
+              "student_login_activity"
+            )
+            .insert({
+              student_id:
+                currentStudentId,
+              login_at:
+                new Date().toISOString(),
+            });
 
           if (activityError) {
             console.error(
@@ -735,6 +851,10 @@ export default function HomePage() {
     modal: InfoModal
   ) => {
     setActiveModal(modal);
+
+    if (modal === "fees") {
+      setSelectedMedium("Hindi Medium");
+    }
   };
 
   const closeModal = () => {
@@ -770,103 +890,527 @@ export default function HomePage() {
 
   const modalContent = () => {
     if (activeModal === "fees") {
-      if (fees.length === 0) {
-        return (
-          <div className="empty-modal">
-            <div className="empty-icon">
-              💰
-            </div>
-
-            <h3>
-              Fee details coming soon
-            </h3>
-
-            <p>
-              Please contact RACER ACADEMY
-              for current fee information.
-            </p>
-          </div>
-        );
-      }
+      const currentFees =
+        selectedMediumFees;
 
       return (
         <div className="modal-fees">
-          <div className="fee-note">
-            <strong>
-              Monthly Fee • Per Subject
-            </strong>
+          <div className="fee-intro">
+            <div>
+              <div className="fee-intro-label">
+                RACER ACADEMY
+              </div>
+
+              <h3>
+                Monthly Fee Structure
+              </h3>
+
+              <p>
+                Select a medium, then view
+                every class separately.
+              </p>
+            </div>
+
+            <div className="fee-intro-badge">
+              Per Subject
+            </div>
+          </div>
+
+          <div className="medium-selector">
+            <button
+              type="button"
+              className={
+                selectedMedium ===
+                "Hindi Medium"
+                  ? "medium-option active hindi-medium"
+                  : "medium-option hindi-medium"
+              }
+              onClick={() =>
+                setSelectedMedium(
+                  "Hindi Medium"
+                )
+              }
+            >
+              <span className="medium-icon">
+                🇮🇳
+              </span>
+
+              <span>
+                <strong>
+                  Hindi Medium
+                </strong>
+
+                <small>
+                  हिंदी माध्यम
+                </small>
+              </span>
+
+              <b>
+                {selectedMedium ===
+                "Hindi Medium"
+                  ? "✓"
+                  : "→"}
+              </b>
+            </button>
+
+            <button
+              type="button"
+              className={
+                selectedMedium ===
+                "English Medium"
+                  ? "medium-option active english-medium"
+                  : "medium-option english-medium"
+              }
+              onClick={() =>
+                setSelectedMedium(
+                  "English Medium"
+                )
+              }
+            >
+              <span className="medium-icon">
+                🇬🇧
+              </span>
+
+              <span>
+                <strong>
+                  English Medium
+                </strong>
+
+                <small>
+                  English
+                </small>
+              </span>
+
+              <b>
+                {selectedMedium ===
+                "English Medium"
+                  ? "✓"
+                  : "→"}
+              </b>
+            </button>
+          </div>
+
+          <div className="selected-medium-heading">
+            <div>
+              <span>
+                {selectedMedium ===
+                "Hindi Medium"
+                  ? "🇮🇳"
+                  : "🇬🇧"}
+              </span>
+
+              <div>
+                <strong>
+                  {selectedMedium}
+                </strong>
+
+                <small>
+                  Nursery to Class 10 •
+                  Monthly • Per Subject
+                </small>
+              </div>
+            </div>
 
             <span>
-              Standard session: 1 hour
-            </span>
-
-            <span>
-              1.5 hour session = 50%
-              additional
-            </span>
-
-            <span>
-              No admission fee • No yearly
-              charge
+              1 Hour + 1.5 Hours
             </span>
           </div>
 
-          <div className="fee-table-wrap">
-            <table className="fee-table">
-              <thead>
-                <tr>
-                  <th>Class / Medium</th>
-                  <th>Subject</th>
-                  <th>1 Hour</th>
-                  <th>1.5 Hour</th>
-                  <th>Period</th>
-                </tr>
-              </thead>
+          <div className="fee-info-strip">
+            <div>
+              <strong>
+                1 HOUR
+              </strong>
 
-              <tbody>
-                {fees.map((fee) => {
-                  const amount =
-                    Number(
-                      fee.fee_amount
-                    ) || 0;
+              <span>
+                Standard monthly class
+              </span>
+            </div>
+
+            <div>
+              <strong>
+                1.5 HOURS
+              </strong>
+
+              <span>
+                50% additional fee
+              </span>
+            </div>
+
+            <div>
+              <strong>
+                COMBO
+              </strong>
+
+              <span>
+                Any 2 subjects • 2 hours
+              </span>
+            </div>
+          </div>
+
+          <div className="fee-notice-card">
+            <div className="fee-notice-icon">
+              💡
+            </div>
+
+            <div>
+              <strong>
+                Easy to understand
+              </strong>
+
+              <span>
+                Each class has its own fee
+                box. One-hour and one-and-a-half-hour
+                fees are shown separately.
+              </span>
+            </div>
+          </div>
+
+          <div className="class-fee-list">
+            {defaultClassNames.map(
+              (
+                className,
+                classIndex
+              ) => {
+                const classFees =
+                  currentFees.filter(
+                    (fee) =>
+                      getClassNameFromFee(
+                        fee
+                      ) === className
+                  );
+
+                const rows =
+                  defaultSubjects.map(
+                    (
+                      subject,
+                      subjectIndex
+                    ) => {
+                      const databaseFee =
+                        classFees.find(
+                          (item) =>
+                            item.subject_name
+                              .trim()
+                              .toLowerCase() ===
+                            subject
+                              .trim()
+                              .toLowerCase()
+                        );
+
+                      return (
+                        databaseFee || {
+                          id:
+                            900000 +
+                            classIndex * 100 +
+                            subjectIndex,
+
+                          class_name: `${className} - ${selectedMedium}`,
+
+                          subject_name:
+                            subject,
+
+                          fee_amount:
+                            getDefaultFeeAmount(
+                              className,
+                              selectedMedium
+                            ),
+
+                          fee_period:
+                            "Monthly",
+
+                          description:
+                            "Per subject",
+                        }
+                      );
+                    }
+                  );
+
+                return (
+                  <div
+                    className="class-fee-card"
+                    key={`${selectedMedium}-${className}`}
+                  >
+                    <div className="class-fee-card-header">
+                      <div className="class-title-wrap">
+                        <span className="class-number">
+                          {String(
+                            classIndex + 1
+                          ).padStart(
+                            2,
+                            "0"
+                          )}
+                        </span>
+
+                        <div>
+                          <strong>
+                            {className}
+                          </strong>
+
+                          <small>
+                            {selectedMedium}
+                          </small>
+                        </div>
+                      </div>
+
+                      <div className="class-header-price">
+                        <span>
+                          From
+                        </span>
+
+                        <strong>
+                          ₹
+                          {Number(
+                            rows[0]
+                              ?.fee_amount ||
+                              getDefaultFeeAmount(
+                                className,
+                                selectedMedium
+                              )
+                          ).toLocaleString(
+                            "en-IN"
+                          )}
+                        </strong>
+                      </div>
+                    </div>
+
+                    <div className="fee-session-grid">
+                      <div className="fee-session-card one-hour">
+                        <div className="fee-session-heading">
+                          <span>
+                            ⏱️
+                          </span>
+
+                          <div>
+                            <strong>
+                              1 HOUR CLASS
+                            </strong>
+
+                            <small>
+                              Monthly • per
+                              subject
+                            </small>
+                          </div>
+                        </div>
+
+                        <div className="subject-fee-list">
+                          {rows.map(
+                            (
+                              fee
+                            ) => {
+                              const amount =
+                                Number(
+                                  fee.fee_amount
+                                ) ||
+                                getDefaultFeeAmount(
+                                  className,
+                                  selectedMedium
+                                );
+
+                              return (
+                                <div
+                                  className="subject-fee-row"
+                                  key={`${selectedMedium}-${className}-one-${fee.subject_name}`}
+                                >
+                                  <span>
+                                    {
+                                      fee.subject_name
+                                    }
+                                  </span>
+
+                                  <strong>
+                                    ₹
+                                    {amount.toLocaleString(
+                                      "en-IN"
+                                    )}
+                                  </strong>
+                                </div>
+                              );
+                            }
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="fee-session-card one-half-hour">
+                        <div className="fee-session-heading">
+                          <span>
+                            🕐
+                          </span>
+
+                          <div>
+                            <strong>
+                              1.5 HOUR CLASS
+                            </strong>
+
+                            <small>
+                              50% additional
+                            </small>
+                          </div>
+                        </div>
+
+                        <div className="subject-fee-list">
+                          {rows.map(
+                            (
+                              fee
+                            ) => {
+                              const amount =
+                                Number(
+                                  fee.fee_amount
+                                ) ||
+                                getDefaultFeeAmount(
+                                  className,
+                                  selectedMedium
+                                );
+
+                              const oneHalf =
+                                Math.round(
+                                  amount *
+                                    1.5
+                                );
+
+                              return (
+                                <div
+                                  className="subject-fee-row"
+                                  key={`${selectedMedium}-${className}-half-${fee.subject_name}`}
+                                >
+                                  <span>
+                                    {
+                                      fee.subject_name
+                                    }
+                                  </span>
+
+                                  <strong>
+                                    ₹
+                                    {oneHalf.toLocaleString(
+                                      "en-IN"
+                                    )}
+                                  </strong>
+                                </div>
+                              );
+                            }
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="class-fee-note">
+                      <span>
+                        ✓
+                      </span>
+
+                      <span>
+                        No admission fee • No
+                        yearly charge •
+                        Monthly fee
+                      </span>
+                    </div>
+                  </div>
+                );
+              }
+            )}
+          </div>
+
+          <div className="combo-offer-section">
+            <div className="combo-offer-heading">
+              <div>
+                <span className="combo-offer-icon">
+                  🎁
+                </span>
+
+                <div>
+                  <small>
+                    SPECIAL MONTHLY OFFER
+                  </small>
+
+                  <h3>
+                    Any 2 Subjects • 2 Hours
+                  </h3>
+
+                  <p>
+                    Choose any two subjects
+                    together under the special
+                    combo plan.
+                  </p>
+                </div>
+              </div>
+
+              <span className="combo-medium-badge">
+                {selectedMedium}
+              </span>
+            </div>
+
+            <div className="combo-grid">
+              {defaultClassNames.map(
+                (
+                  className,
+                  classIndex
+                ) => {
+                  const comboFee =
+                    getComboFee(
+                      className,
+                      selectedMedium
+                    );
 
                   return (
-                    <tr key={fee.id}>
-                      <td>
+                    <div
+                      className="combo-class-card"
+                      key={`combo-${selectedMedium}-${className}`}
+                    >
+                      <div className="combo-class-top">
+                        <span>
+                          {String(
+                            classIndex + 1
+                          ).padStart(
+                            2,
+                            "0"
+                          )}
+                        </span>
+
                         <strong>
-                          {fee.class_name}
+                          {className}
                         </strong>
-                      </td>
+                      </div>
 
-                      <td>
-                        {fee.subject_name}
-                      </td>
+                      <div className="combo-price">
+                        <span>
+                          ₹
+                        </span>
 
-                      <td className="fee-green">
-                        ₹
-                        {amount.toLocaleString(
+                        {comboFee.toLocaleString(
                           "en-IN"
                         )}
-                      </td>
 
-                      <td className="fee-purple">
-                        ₹
-                        {(
-                          amount * 1.5
-                        ).toLocaleString(
-                          "en-IN"
-                        )}
-                      </td>
+                        <small>
+                          /month
+                        </small>
+                      </div>
 
-                      <td>
-                        {fee.fee_period ||
-                          "Monthly"}
-                      </td>
-                    </tr>
+                      <div className="combo-detail">
+                        Any 2 subjects •
+                        2 total hours
+                      </div>
+                    </div>
                   );
-                })}
-              </tbody>
-            </table>
+                }
+              )}
+            </div>
+
+            <div className="combo-bottom-note">
+              <span>
+                ⭐
+              </span>
+
+              <strong>
+                {selectedMedium ===
+                "Hindi Medium"
+                  ? "Starts from ₹500/month"
+                  : "Starts from ₹550/month"}
+              </strong>
+
+              <span>
+                Any 2 subjects • 2 hours
+                total • Monthly
+              </span>
+            </div>
           </div>
         </div>
       );
@@ -993,7 +1537,9 @@ export default function HomePage() {
                 {teacher.photo_url ? (
                   <img
                     src={teacher.photo_url}
-                    alt={teacher.teacher_name}
+                    alt={
+                      teacher.teacher_name
+                    }
                   />
                 ) : (
                   <div className="faculty-placeholder">
@@ -1012,7 +1558,9 @@ export default function HomePage() {
 
                   {teacher.qualification && (
                     <p>
-                      {teacher.qualification}
+                      {
+                        teacher.qualification
+                      }
                     </p>
                   )}
 
@@ -1072,7 +1620,8 @@ export default function HomePage() {
 
             <div>
               <span>✓</span>
-              Confidence and concept building
+              Confidence and concept
+              building
             </div>
           </div>
         </div>
@@ -1087,7 +1636,8 @@ export default function HomePage() {
           </div>
 
           <h3>
-            A child should always feel free to ask.
+            A child should always feel
+            free to ask.
           </h3>
 
           <p>
@@ -1165,7 +1715,9 @@ export default function HomePage() {
           <div className="contact-detail-card">
             <span>📍</span>
 
-            <h3>Address</h3>
+            <h3>
+              Address
+            </h3>
 
             <p>
               {academy.address ||
@@ -1176,7 +1728,9 @@ export default function HomePage() {
           <div className="contact-detail-card">
             <span>📞</span>
 
-            <h3>Phone</h3>
+            <h3>
+              Phone
+            </h3>
 
             {academy.phone ? (
               <a href={phoneHref}>
@@ -1192,7 +1746,9 @@ export default function HomePage() {
           <div className="contact-detail-card">
             <span>💬</span>
 
-            <h3>WhatsApp</h3>
+            <h3>
+              WhatsApp
+            </h3>
 
             {academy.whatsapp ? (
               <a
@@ -1212,7 +1768,9 @@ export default function HomePage() {
           <div className="contact-detail-card">
             <span>✉️</span>
 
-            <h3>Email</h3>
+            <h3>
+              Email
+            </h3>
 
             {academy.email ? (
               <a href={emailHref}>
@@ -1243,7 +1801,9 @@ export default function HomePage() {
         <div className="simple-detail-modal">
           <div className="about-modal-image">
             <img
-              src={defaultGalleryImages[0].src}
+              src={
+                defaultGalleryImages[0].src
+              }
               alt="RACER ACADEMY"
             />
           </div>
@@ -1318,7 +1878,9 @@ export default function HomePage() {
                     <br />
                     Grow.
                     <br />
-                    <span>Achieve.</span>
+                    <span>
+                      Achieve.
+                    </span>
                   </h1>
 
                   <p className="hero-description">
@@ -1362,7 +1924,8 @@ export default function HomePage() {
                 <div className="hero-image-wrap">
                   <img
                     src={
-                      defaultGalleryImages[0].src
+                      defaultGalleryImages[0]
+                        .src
                     }
                     alt="RACER ACADEMY learning environment"
                   />
@@ -1413,7 +1976,9 @@ export default function HomePage() {
                       </small>
                     </span>
 
-                    <b>→</b>
+                    <b>
+                      →
+                    </b>
                   </button>
 
                   <button
@@ -1437,7 +2002,9 @@ export default function HomePage() {
                       </small>
                     </span>
 
-                    <b>→</b>
+                    <b>
+                      →
+                    </b>
                   </button>
 
                   <button
@@ -1457,11 +2024,14 @@ export default function HomePage() {
                       </strong>
 
                       <small>
-                        Monthly • Per Subject
+                        Hindi / English •
+                        Class-wise
                       </small>
                     </span>
 
-                    <b>→</b>
+                    <b>
+                      →
+                    </b>
                   </button>
 
                   <button
@@ -1485,7 +2055,9 @@ export default function HomePage() {
                       </small>
                     </span>
 
-                    <b>→</b>
+                    <b>
+                      →
+                    </b>
                   </button>
 
                   <button
@@ -1505,11 +2077,14 @@ export default function HomePage() {
                       </strong>
 
                       <small>
-                        Student-focused support
+                        Student-focused
+                        support
                       </small>
                     </span>
 
-                    <b>→</b>
+                    <b>
+                      →
+                    </b>
                   </button>
 
                   <button
@@ -1529,11 +2104,14 @@ export default function HomePage() {
                       </strong>
 
                       <small>
-                        Experienced guidance
+                        Experienced
+                        guidance
                       </small>
                     </span>
 
-                    <b>→</b>
+                    <b>
+                      →
+                    </b>
                   </button>
 
                   <button
@@ -1559,7 +2137,9 @@ export default function HomePage() {
                       </small>
                     </span>
 
-                    <b>→</b>
+                    <b>
+                      →
+                    </b>
                   </button>
 
                   <button
@@ -1583,7 +2163,9 @@ export default function HomePage() {
                       </small>
                     </span>
 
-                    <b>→</b>
+                    <b>
+                      →
+                    </b>
                   </button>
                 </div>
               </div>
@@ -1674,7 +2256,10 @@ export default function HomePage() {
                     }
                     disabled={loading}
                   >
-                    <span>🎓</span>
+                    <span>
+                      🎓
+                    </span>
+
                     Student
                   </button>
 
@@ -1693,7 +2278,10 @@ export default function HomePage() {
                     }
                     disabled={loading}
                   >
-                    <span>👨‍🏫</span>
+                    <span>
+                      👨‍🏫
+                    </span>
+
                     Teacher
                   </button>
                 </div>
@@ -1728,7 +2316,9 @@ export default function HomePage() {
                     </label>
 
                     <div className="input-box">
-                      <span>👤</span>
+                      <span>
+                        👤
+                      </span>
 
                       <input
                         id="username"
@@ -1746,7 +2336,9 @@ export default function HomePage() {
                             : "Enter teacher username"
                         }
                         autoComplete="username"
-                        disabled={loading}
+                        disabled={
+                          loading
+                        }
                       />
                     </div>
                   </div>
@@ -1757,7 +2349,9 @@ export default function HomePage() {
                     </label>
 
                     <div className="input-box">
-                      <span>🔒</span>
+                      <span>
+                        🔒
+                      </span>
 
                       <input
                         id="password"
@@ -1774,7 +2368,9 @@ export default function HomePage() {
                         }
                         placeholder="Enter your password"
                         autoComplete="current-password"
-                        disabled={loading}
+                        disabled={
+                          loading
+                        }
                       />
 
                       <button
@@ -1782,11 +2378,15 @@ export default function HomePage() {
                         className="password-toggle"
                         onClick={() =>
                           setShowPassword(
-                            (previous) =>
+                            (
+                              previous
+                            ) =>
                               !previous
                           )
                         }
-                        disabled={loading}
+                        disabled={
+                          loading
+                        }
                         aria-label={
                           showPassword
                             ? "Hide password"
@@ -1802,7 +2402,9 @@ export default function HomePage() {
 
                   {error && (
                     <div className="login-error">
-                      <span>⚠️</span>
+                      <span>
+                        ⚠️
+                      </span>
 
                       <span>
                         {error}
@@ -1828,7 +2430,9 @@ export default function HomePage() {
                           ? "Student"
                           : "Teacher"}
 
-                        <span>→</span>
+                        <span>
+                          →
+                        </span>
                       </>
                     )}
                   </button>
@@ -1859,7 +2463,9 @@ export default function HomePage() {
               {announcements.length >
                 0 && (
                 <div className="announcement-mini">
-                  <span>📢</span>
+                  <span>
+                    📢
+                  </span>
 
                   <div>
                     <strong>
@@ -1891,7 +2497,8 @@ export default function HomePage() {
 
           <footer className="page-footer">
             <span>
-              © {new Date().getFullYear()}{" "}
+              ©{" "}
+              {new Date().getFullYear()}{" "}
               RACER ACADEMY
             </span>
 
@@ -1976,6 +2583,11 @@ export default function HomePage() {
           position: relative;
           padding: 18px;
           color: #0f172a;
+          font-family:
+            Inter, ui-sans-serif,
+            system-ui, -apple-system,
+            BlinkMacSystemFont,
+            "Segoe UI", sans-serif;
         }
 
         .background-grid {
@@ -2041,15 +2653,17 @@ export default function HomePage() {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(
-            135deg,
-            #4f46e5,
-            #7c3aed
-          );
+          background:
+            linear-gradient(
+              135deg,
+              #4f46e5,
+              #7c3aed
+            );
           color: white;
           font-size: 24px;
           box-shadow:
-            0 10px 25px rgba(79, 70, 229, 0.25);
+            0 10px 25px
+              rgba(79, 70, 229, 0.25);
         }
 
         .brand-name {
@@ -2061,8 +2675,9 @@ export default function HomePage() {
 
         .brand-tagline {
           font-size: 12px;
-          color: #64748b;
+          color: #475569;
           margin-top: 2px;
+          font-weight: 600;
         }
 
         .main-layout {
@@ -2097,7 +2712,8 @@ export default function HomePage() {
             );
           color: white;
           box-shadow:
-            0 22px 60px rgba(15, 23, 42, 0.18);
+            0 22px 60px
+              rgba(15, 23, 42, 0.18);
         }
 
         .hero-glow {
@@ -2109,7 +2725,12 @@ export default function HomePage() {
         .hero-glow-one {
           width: 340px;
           height: 340px;
-          background: rgba(255, 255, 255, 0.07);
+          background: rgba(
+            255,
+            255,
+            255,
+            0.07
+          );
           right: -130px;
           top: -150px;
         }
@@ -2117,7 +2738,12 @@ export default function HomePage() {
         .hero-glow-two {
           width: 220px;
           height: 220px;
-          background: rgba(125, 211, 252, 0.1);
+          background: rgba(
+            125,
+            211,
+            252,
+            0.1
+          );
           left: -100px;
           bottom: -130px;
         }
@@ -2136,8 +2762,18 @@ export default function HomePage() {
           display: inline-flex;
           padding: 7px 12px;
           border-radius: 999px;
-          background: rgba(255, 255, 255, 0.12);
-          border: 1px solid rgba(255, 255, 255, 0.12);
+          background: rgba(
+            255,
+            255,
+            255,
+            0.12
+          );
+          border: 1px solid rgba(
+            255,
+            255,
+            255,
+            0.12
+          );
           font-size: 11px;
           font-weight: 900;
           letter-spacing: 1px;
@@ -2180,8 +2816,18 @@ export default function HomePage() {
         .hero-mini-stats div {
           padding: 12px;
           border-radius: 15px;
-          background: rgba(255, 255, 255, 0.09);
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(
+            255,
+            255,
+            255,
+            0.09
+          );
+          border: 1px solid rgba(
+            255,
+            255,
+            255,
+            0.1
+          );
         }
 
         .hero-mini-stats strong,
@@ -2214,7 +2860,13 @@ export default function HomePage() {
             linear-gradient(
               90deg,
               #1e3a8a 0%,
-              rgba(30, 58, 138, 0.25) 28%,
+              rgba(
+                30,
+                58,
+                138,
+                0.25
+              )
+                28%,
               transparent 65%
             );
         }
@@ -2234,7 +2886,12 @@ export default function HomePage() {
           right: 22px;
           padding: 11px 14px;
           border-radius: 14px;
-          background: rgba(15, 23, 42, 0.76);
+          background: rgba(
+            15,
+            23,
+            42,
+            0.76
+          );
           backdrop-filter: blur(12px);
           color: white;
           font-size: 12px;
@@ -2252,7 +2909,9 @@ export default function HomePage() {
           background: white;
           border: 1px solid #e2e8f0;
           box-shadow:
-            0 10px 35px rgba(15, 23, 42, 0.07);
+            0 10px 35px
+              rgba(15, 23, 42, 0.07);
+          color: #0f172a;
         }
 
         .section-small-title {
@@ -2294,7 +2953,8 @@ export default function HomePage() {
           border: 1px solid #e2e8f0;
           border-radius: 16px;
           padding: 13px;
-          background: #fff;
+          background: #ffffff;
+          color: #0f172a;
           display: grid;
           grid-template-columns:
             42px minmax(0, 1fr) 20px;
@@ -2311,7 +2971,8 @@ export default function HomePage() {
         .option-card:hover {
           transform: translateY(-2px);
           box-shadow:
-            0 9px 22px rgba(15, 23, 42, 0.08);
+            0 9px 22px
+              rgba(15, 23, 42, 0.08);
           border-color: #c7d2fe;
         }
 
@@ -2331,19 +2992,19 @@ export default function HomePage() {
         }
 
         .option-card strong {
-          color: #0f172a;
+          color: #0f172a !important;
           font-size: 13px;
           font-weight: 900;
         }
 
         .option-card small {
           margin-top: 3px;
-          color: #64748b;
+          color: #64748b !important;
           font-size: 11px;
         }
 
         .option-card b {
-          color: #475569;
+          color: #475569 !important;
           font-size: 18px;
         }
 
@@ -2393,7 +3054,12 @@ export default function HomePage() {
           gap: 9px;
           padding: 13px;
           border-radius: 15px;
-          background: rgba(255, 255, 255, 0.85);
+          background: rgba(
+            255,
+            255,
+            255,
+            0.85
+          );
           border: 1px solid #e2e8f0;
           color: #334155;
           font-size: 12px;
@@ -2439,7 +3105,9 @@ export default function HomePage() {
           border-radius: 27px;
           padding: 27px;
           box-shadow:
-            0 20px 55px rgba(15, 23, 42, 0.12);
+            0 20px 55px
+              rgba(15, 23, 42, 0.12);
+          color: #0f172a;
         }
 
         .login-top-decoration {
@@ -2448,12 +3116,13 @@ export default function HomePage() {
           right: 0;
           top: 0;
           height: 5px;
-          background: linear-gradient(
-            90deg,
-            #4f46e5,
-            #7c3aed,
-            #0ea5e9
-          );
+          background:
+            linear-gradient(
+              90deg,
+              #4f46e5,
+              #7c3aed,
+              #0ea5e9
+            );
         }
 
         .login-logo {
@@ -2478,7 +3147,8 @@ export default function HomePage() {
             );
           font-size: 23px;
           box-shadow:
-            0 8px 20px rgba(79, 70, 229, 0.22);
+            0 8px 20px
+              rgba(79, 70, 229, 0.22);
         }
 
         .login-brand {
@@ -2515,7 +3185,7 @@ export default function HomePage() {
         .switch-button {
           border: 0;
           background: transparent;
-          color: #475569;
+          color: #475569 !important;
           padding: 11px 8px;
           border-radius: 11px;
           font-weight: 850;
@@ -2529,9 +3199,10 @@ export default function HomePage() {
 
         .switch-button.active {
           background: white;
-          color: #4f46e5;
+          color: #4f46e5 !important;
           box-shadow:
-            0 4px 12px rgba(15, 23, 42, 0.08);
+            0 4px 12px
+              rgba(15, 23, 42, 0.08);
         }
 
         .login-heading {
@@ -2543,7 +3214,7 @@ export default function HomePage() {
           padding: 6px 9px;
           border-radius: 8px;
           background: #eef2ff;
-          color: #4f46e5;
+          color: #4f46e5 !important;
           font-size: 9px;
           font-weight: 950;
           letter-spacing: 1px;
@@ -2553,12 +3224,12 @@ export default function HomePage() {
           margin: 10px 0 5px;
           font-size: 25px;
           letter-spacing: -0.6px;
-          color: #0f172a;
+          color: #0f172a !important;
         }
 
         .login-heading p {
           margin: 0;
-          color: #475569;
+          color: #475569 !important;
           font-size: 12px;
           line-height: 1.5;
         }
@@ -2571,7 +3242,7 @@ export default function HomePage() {
         .input-group label {
           display: block;
           margin-bottom: 6px;
-          color: #334155;
+          color: #334155 !important;
           font-size: 11px;
           font-weight: 850;
         }
@@ -2609,18 +3280,20 @@ export default function HomePage() {
           border: 0;
           outline: 0;
           background: transparent;
-          color: #0f172a;
+          color: #0f172a !important;
           font-size: 13px;
+          font-family: inherit;
         }
 
         .input-box input::placeholder {
-          color: #64748b;
+          color: #64748b !important;
+          opacity: 1;
         }
 
         .password-toggle {
           border: 0;
           background: transparent;
-          color: #334155;
+          color: #334155 !important;
           cursor: pointer;
           padding: 4px;
           font-size: 15px;
@@ -2634,7 +3307,7 @@ export default function HomePage() {
           border-radius: 11px;
           background: #fef2f2;
           border: 1px solid #fecaca;
-          color: #b91c1c;
+          color: #b91c1c !important;
           font-size: 11px;
           line-height: 1.45;
           word-break: break-word;
@@ -2650,7 +3323,7 @@ export default function HomePage() {
               #4f46e5,
               #7c3aed
             );
-          color: white;
+          color: white !important;
           font-weight: 900;
           font-size: 13px;
           cursor: pointer;
@@ -2701,7 +3374,7 @@ export default function HomePage() {
           justify-content: center;
           gap: 9px;
           margin-top: 17px;
-          color: #475569;
+          color: #475569 !important;
           font-size: 10px;
           font-weight: 700;
         }
@@ -2715,7 +3388,7 @@ export default function HomePage() {
           padding-top: 13px;
           border-top: 1px solid #eef2f7;
           text-align: center;
-          color: #64748b;
+          color: #64748b !important;
           font-size: 9px;
           line-height: 1.5;
         }
@@ -2723,7 +3396,8 @@ export default function HomePage() {
         .announcement-mini {
           margin-top: 12px;
           display: grid;
-          grid-template-columns: 34px minmax(0, 1fr) 30px;
+          grid-template-columns:
+            34px minmax(0, 1fr) 30px;
           align-items: center;
           gap: 9px;
           padding: 12px;
@@ -2745,14 +3419,14 @@ export default function HomePage() {
         .announcement-mini strong {
           display: block;
           font-size: 10px;
-          color: #4f46e5;
+          color: #4f46e5 !important;
         }
 
         .announcement-mini p {
           margin: 2px 0 0;
           font-size: 11px;
           font-weight: 800;
-          color: #334155;
+          color: #334155 !important;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -2764,7 +3438,7 @@ export default function HomePage() {
           border: 0;
           border-radius: 9px;
           background: #eef2ff;
-          color: #4f46e5;
+          color: #4f46e5 !important;
           cursor: pointer;
           font-weight: 900;
         }
@@ -2774,7 +3448,7 @@ export default function HomePage() {
           justify-content: space-between;
           gap: 15px;
           padding: 18px 4px 5px;
-          color: #64748b;
+          color: #64748b !important;
           font-size: 10px;
           font-weight: 700;
         }
@@ -2787,7 +3461,12 @@ export default function HomePage() {
           position: fixed;
           inset: 0;
           z-index: 1000;
-          background: rgba(15, 23, 42, 0.68);
+          background: rgba(
+            15,
+            23,
+            42,
+            0.68
+          );
           backdrop-filter: blur(7px);
           padding: 20px;
           display: flex;
@@ -2797,14 +3476,15 @@ export default function HomePage() {
 
         .details-modal {
           width: 100%;
-          max-width: 1050px;
-          max-height: 90vh;
+          max-width: 1120px;
+          max-height: 92vh;
           overflow: hidden;
           border-radius: 25px;
-          background: #ffffff;
-          color: #0f172a;
+          background: #ffffff !important;
+          color: #0f172a !important;
           box-shadow:
-            0 30px 90px rgba(0, 0, 0, 0.3);
+            0 30px 90px
+              rgba(0, 0, 0, 0.3);
           display: flex;
           flex-direction: column;
         }
@@ -2813,7 +3493,7 @@ export default function HomePage() {
           flex-shrink: 0;
           padding: 20px 22px;
           border-bottom: 1px solid #e2e8f0;
-          background: #ffffff;
+          background: #ffffff !important;
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -2821,7 +3501,7 @@ export default function HomePage() {
         }
 
         .modal-small-title {
-          color: #4f46e5;
+          color: #4f46e5 !important;
           font-size: 9px;
           font-weight: 950;
           letter-spacing: 1.2px;
@@ -2853,11 +3533,10 @@ export default function HomePage() {
         .modal-body {
           overflow-y: auto;
           padding: 22px;
-          background: #ffffff;
-          color: #334155;
+          background: #ffffff !important;
+          color: #334155 !important;
         }
 
-        /* IMPORTANT VISIBILITY FIX */
         .modal-body,
         .modal-body div,
         .modal-body p,
@@ -2867,7 +3546,7 @@ export default function HomePage() {
         .modal-body td,
         .modal-body th,
         .modal-body a {
-          color: #334155;
+          color: #334155 !important;
         }
 
         .modal-body h3 {
@@ -2875,7 +3554,7 @@ export default function HomePage() {
         }
 
         .modal-body strong {
-          color: #0f172a;
+          color: #0f172a !important;
         }
 
         .modal-body a {
@@ -2894,7 +3573,7 @@ export default function HomePage() {
           justify-content: flex-end;
           padding: 13px 20px;
           border-top: 1px solid #e2e8f0;
-          background: #ffffff;
+          background: #ffffff !important;
         }
 
         .modal-footer button {
@@ -2908,78 +3587,675 @@ export default function HomePage() {
           font-weight: 800;
         }
 
-        .fee-note {
+        /* =========================================
+           FEE STRUCTURE
+        ========================================= */
+
+        .modal-fees {
+          width: 100%;
+        }
+
+        .fee-intro {
           display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-          padding: 13px;
+          align-items: center;
+          justify-content: space-between;
+          gap: 15px;
+          padding: 18px;
+          margin-bottom: 14px;
+          border-radius: 18px;
+          background:
+            linear-gradient(
+              135deg,
+              #eef2ff,
+              #eff6ff 50%,
+              #ecfdf5
+            );
+          border: 1px solid #dbeafe;
+        }
+
+        .fee-intro-label {
+          color: #4f46e5 !important;
+          font-size: 9px;
+          font-weight: 950;
+          letter-spacing: 1.4px;
+          margin-bottom: 4px;
+        }
+
+        .fee-intro h3 {
+          margin: 0;
+          font-size: 22px;
+          color: #0f172a !important;
+        }
+
+        .fee-intro p {
+          margin: 5px 0 0;
+          color: #475569 !important;
+          font-size: 12px;
+        }
+
+        .fee-intro-badge {
+          flex-shrink: 0;
+          padding: 9px 13px;
+          border-radius: 999px;
+          background: white;
+          border: 1px solid #c7d2fe;
+          color: #4338ca !important;
+          font-size: 10px;
+          font-weight: 900;
+        }
+
+        .medium-selector {
+          display: grid;
+          grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+          gap: 12px;
           margin-bottom: 15px;
+        }
+
+        .medium-option {
+          position: relative;
+          display: grid;
+          grid-template-columns:
+            48px minmax(0, 1fr) 28px;
+          align-items: center;
+          gap: 11px;
+          min-height: 78px;
+          padding: 12px 14px;
+          border-radius: 18px;
+          border: 2px solid #e2e8f0;
+          background: #ffffff;
+          color: #0f172a !important;
+          cursor: pointer;
+          text-align: left;
+          transition:
+            transform 0.18s ease,
+            border-color 0.18s ease,
+            box-shadow 0.18s ease;
+        }
+
+        .medium-option:hover {
+          transform: translateY(-2px);
+          box-shadow:
+            0 10px 25px
+              rgba(15, 23, 42, 0.08);
+        }
+
+        .medium-option.active.hindi-medium {
+          border-color: #f59e0b;
+          background:
+            linear-gradient(
+              135deg,
+              #fff7ed,
+              #ffffff
+            );
+          box-shadow:
+            0 10px 28px
+              rgba(245, 158, 11, 0.13);
+        }
+
+        .medium-option.active.english-medium {
+          border-color: #4f46e5;
+          background:
+            linear-gradient(
+              135deg,
+              #eef2ff,
+              #ffffff
+            );
+          box-shadow:
+            0 10px 28px
+              rgba(79, 70, 229, 0.13);
+        }
+
+        .medium-icon {
+          width: 48px;
+          height: 48px;
+          border-radius: 15px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #f8fafc;
+          font-size: 27px;
+        }
+
+        .medium-option strong {
+          display: block;
+          font-size: 15px;
+          color: #0f172a !important;
+          font-weight: 950;
+        }
+
+        .medium-option small {
+          display: block;
+          margin-top: 3px;
+          font-size: 11px;
+          color: #64748b !important;
+          font-weight: 700;
+        }
+
+        .medium-option b {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 28px;
+          border-radius: 9px;
+          background: #f1f5f9;
+          color: #475569 !important;
+          font-size: 14px;
+        }
+
+        .medium-option.active.hindi-medium b {
+          background: #f59e0b;
+          color: #ffffff !important;
+        }
+
+        .medium-option.active.english-medium b {
+          background: #4f46e5;
+          color: #ffffff !important;
+        }
+
+        .selected-medium-heading {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 13px 15px;
+          margin-bottom: 12px;
+          border-radius: 14px;
+          background: #0f172a;
+          color: white !important;
+        }
+
+        .selected-medium-heading > div {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .selected-medium-heading > div > span {
+          font-size: 24px;
+        }
+
+        .selected-medium-heading strong {
+          display: block;
+          color: #ffffff !important;
+          font-size: 14px;
+        }
+
+        .selected-medium-heading small {
+          display: block;
+          margin-top: 2px;
+          color: #cbd5e1 !important;
+          font-size: 10px;
+        }
+
+        .selected-medium-heading > span {
+          padding: 7px 10px;
+          border-radius: 999px;
+          background: rgba(
+            255,
+            255,
+            255,
+            0.1
+          );
+          color: #dbeafe !important;
+          font-size: 9px;
+          font-weight: 900;
+          white-space: nowrap;
+        }
+
+        .fee-info-strip {
+          display: grid;
+          grid-template-columns:
+            repeat(3, 1fr);
+          gap: 9px;
+          margin-bottom: 12px;
+        }
+
+        .fee-info-strip > div {
+          padding: 11px;
           border-radius: 13px;
           background: #f8fafc;
           border: 1px solid #e2e8f0;
-          color: #475569 !important;
-          font-size: 11px;
         }
 
-        .fee-note strong {
-          color: #047857 !important;
+        .fee-info-strip strong,
+        .fee-info-strip span {
+          display: block;
         }
 
-        .fee-note span {
-          color: #475569 !important;
+        .fee-info-strip strong {
+          color: #4f46e5 !important;
+          font-size: 10px;
+          font-weight: 950;
         }
 
-        .fee-note span:not(:last-child)::after {
-          content: "•";
-          margin-left: 8px;
-          color: #94a3b8;
+        .fee-info-strip span {
+          margin-top: 3px;
+          color: #64748b !important;
+          font-size: 9px;
+          line-height: 1.4;
         }
 
-        .fee-table-wrap {
-          width: 100%;
-          overflow-x: auto;
-          border: 1px solid #e2e8f0;
+        .fee-notice-card {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 11px 13px;
+          margin-bottom: 16px;
           border-radius: 14px;
-          background: #ffffff;
+          background:
+            linear-gradient(
+              135deg,
+              #eff6ff,
+              #eef2ff
+            );
+          border: 1px solid #dbeafe;
         }
 
-        .fee-table {
-          width: 100%;
-          min-width: 680px;
-          border-collapse: collapse;
+        .fee-notice-icon {
+          width: 35px;
+          height: 35px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           background: #ffffff;
+          font-size: 18px;
+          flex-shrink: 0;
         }
 
-        .fee-table th {
-          background: #e2e8f0 !important;
-          color: #0f172a !important;
+        .fee-notice-card strong,
+        .fee-notice-card span {
+          display: block;
+        }
+
+        .fee-notice-card strong {
+          color: #1e3a8a !important;
+          font-size: 10px;
+        }
+
+        .fee-notice-card span {
+          margin-top: 2px;
+          color: #475569 !important;
+          font-size: 9px;
+          line-height: 1.45;
+        }
+
+        .class-fee-list {
+          display: grid;
+          gap: 14px;
+        }
+
+        .class-fee-card {
+          overflow: hidden;
+          border: 1px solid #dbe3ef;
+          border-radius: 18px;
+          background: #ffffff;
+          box-shadow:
+            0 6px 20px
+              rgba(15, 23, 42, 0.045);
+        }
+
+        .class-fee-card-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 13px 15px;
+          background:
+            linear-gradient(
+              90deg,
+              #f8fafc,
+              #eef2ff
+            );
+          border-bottom: 1px solid #e2e8f0;
+        }
+
+        .class-title-wrap {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .class-number {
+          width: 38px;
+          height: 38px;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #4f46e5;
+          color: white !important;
           font-size: 11px;
-          text-align: left;
-          padding: 11px;
-          white-space: nowrap;
-          font-weight: 900;
+          font-weight: 950;
         }
 
-        .fee-table td {
-          padding: 10px 11px;
-          border-top: 1px solid #e2e8f0;
-          color: #334155 !important;
-          background: #ffffff;
-          font-size: 11px;
+        .class-fee-card-header strong,
+        .class-fee-card-header small {
+          display: block;
         }
 
-        .fee-table td strong {
+        .class-fee-card-header strong {
           color: #0f172a !important;
+          font-size: 15px;
+          font-weight: 950;
         }
 
-        .fee-green {
+        .class-fee-card-header small {
+          margin-top: 2px;
+          color: #64748b !important;
+          font-size: 10px;
+          font-weight: 700;
+        }
+
+        .class-header-price {
+          text-align: right;
+        }
+
+        .class-header-price span {
+          display: block;
+          color: #64748b !important;
+          font-size: 8px;
+          font-weight: 700;
+        }
+
+        .class-header-price strong {
+          display: block;
           color: #047857 !important;
+          font-size: 15px;
+          font-weight: 950;
+        }
+
+        .fee-session-grid {
+          display: grid;
+          grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+          gap: 12px;
+          padding: 12px;
+        }
+
+        .fee-session-card {
+          border: 1px solid #e2e8f0;
+          border-radius: 15px;
+          overflow: hidden;
+          background: #ffffff;
+        }
+
+        .fee-session-card.one-hour {
+          border-color: #bbf7d0;
+        }
+
+        .fee-session-card.one-half-hour {
+          border-color: #ddd6fe;
+        }
+
+        .fee-session-heading {
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          padding: 11px 12px;
+          border-bottom: 1px solid #e2e8f0;
+        }
+
+        .one-hour .fee-session-heading {
+          background: #f0fdf4;
+        }
+
+        .one-half-hour .fee-session-heading {
+          background: #f5f3ff;
+        }
+
+        .fee-session-heading > span {
+          width: 32px;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 9px;
+          background: white;
+          font-size: 17px;
+        }
+
+        .fee-session-heading strong,
+        .fee-session-heading small {
+          display: block;
+        }
+
+        .fee-session-heading strong {
+          color: #0f172a !important;
+          font-size: 10px;
+          font-weight: 950;
+        }
+
+        .fee-session-heading small {
+          margin-top: 2px;
+          color: #64748b !important;
+          font-size: 9px;
+        }
+
+        .subject-fee-list {
+          padding: 5px 10px 8px;
+        }
+
+        .subject-fee-row {
+          min-height: 35px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          border-bottom: 1px dashed #e2e8f0;
+          color: #334155 !important;
+          font-size: 10px;
+        }
+
+        .subject-fee-row:last-child {
+          border-bottom: 0;
+        }
+
+        .subject-fee-row span {
+          color: #475569 !important;
+          font-weight: 700;
+        }
+
+        .subject-fee-row strong {
+          color: #047857 !important;
+          font-size: 11px;
+          font-weight: 950;
+        }
+
+        .one-half-hour
+          .subject-fee-row
+          strong {
+          color: #7c3aed !important;
+        }
+
+        .class-fee-note {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 9px 13px;
+          background: #f8fafc;
+          border-top: 1px solid #e2e8f0;
+          color: #64748b !important;
+          font-size: 9px;
+        }
+
+        .class-fee-note span:first-child {
+          color: #16a34a !important;
+          font-weight: 950;
+        }
+
+        .combo-offer-section {
+          margin-top: 18px;
+          padding: 17px;
+          border-radius: 20px;
+          background:
+            linear-gradient(
+              135deg,
+              #fff7ed,
+              #fffbeb 45%,
+              #f5f3ff
+            );
+          border: 2px solid #fed7aa;
+        }
+
+        .combo-offer-heading {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 14px;
+        }
+
+        .combo-offer-heading > div {
+          display: flex;
+          align-items: center;
+          gap: 11px;
+        }
+
+        .combo-offer-icon {
+          width: 48px;
+          height: 48px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 15px;
+          background: #ffffff;
+          box-shadow:
+            0 6px 16px
+              rgba(245, 158, 11, 0.12);
+          font-size: 25px;
+          flex-shrink: 0;
+        }
+
+        .combo-offer-heading small {
+          color: #c2410c !important;
+          font-size: 8px;
+          font-weight: 950;
+          letter-spacing: 1px;
+        }
+
+        .combo-offer-heading h3 {
+          margin: 2px 0 0;
+          color: #0f172a !important;
+          font-size: 18px;
+        }
+
+        .combo-offer-heading p {
+          margin: 3px 0 0;
+          color: #64748b !important;
+          font-size: 10px;
+        }
+
+        .combo-medium-badge {
+          padding: 7px 10px;
+          border-radius: 999px;
+          background: #ffffff;
+          border: 1px solid #ddd6fe;
+          color: #4f46e5 !important;
+          font-size: 9px;
+          font-weight: 950;
+          white-space: nowrap;
+        }
+
+        .combo-grid {
+          display: grid;
+          grid-template-columns:
+            repeat(4, minmax(0, 1fr));
+          gap: 9px;
+        }
+
+        .combo-class-card {
+          padding: 12px;
+          border-radius: 14px;
+          background: rgba(
+            255,
+            255,
+            255,
+            0.92
+          );
+          border: 1px solid #e5e7eb;
+          box-shadow:
+            0 4px 14px
+              rgba(15, 23, 42, 0.04);
+        }
+
+        .combo-class-top {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .combo-class-top span {
+          color: #94a3b8 !important;
+          font-size: 8px;
           font-weight: 900;
         }
 
-        .fee-purple {
-          color: #7c3aed !important;
+        .combo-class-top strong {
+          color: #334155 !important;
+          font-size: 10px;
           font-weight: 900;
+        }
+
+        .combo-price {
+          margin-top: 8px;
+          color: #7c3aed !important;
+          font-size: 21px;
+          font-weight: 950;
+          letter-spacing: -0.5px;
+        }
+
+        .combo-price span {
+          color: #7c3aed !important;
+          font-size: 13px;
+        }
+
+        .combo-price small {
+          color: #64748b !important;
+          font-size: 8px;
+          font-weight: 800;
+          margin-left: 2px;
+        }
+
+        .combo-detail {
+          margin-top: 3px;
+          color: #64748b !important;
+          font-size: 8px;
+          font-weight: 700;
+          line-height: 1.4;
+        }
+
+        .combo-bottom-note {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 7px;
+          margin-top: 12px;
+          padding: 10px 12px;
+          border-radius: 12px;
+          background: rgba(
+            255,
+            255,
+            255,
+            0.8
+          );
+          border: 1px solid #fed7aa;
+        }
+
+        .combo-bottom-note span:first-child {
+          font-size: 15px;
+        }
+
+        .combo-bottom-note strong {
+          color: #c2410c !important;
+          font-size: 10px;
+        }
+
+        .combo-bottom-note span:last-child {
+          color: #64748b !important;
+          font-size: 9px;
         }
 
         .modal-section {
@@ -3368,6 +4644,11 @@ export default function HomePage() {
           .hero-content {
             min-height: 365px;
           }
+
+          .combo-grid {
+            grid-template-columns:
+              repeat(3, minmax(0, 1fr));
+          }
         }
 
         @media (max-width: 900px) {
@@ -3393,6 +4674,15 @@ export default function HomePage() {
           }
 
           .option-grid {
+            grid-template-columns:
+              repeat(2, minmax(0, 1fr));
+          }
+
+          .fee-session-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .combo-grid {
             grid-template-columns:
               repeat(2, minmax(0, 1fr));
           }
@@ -3501,6 +4791,50 @@ export default function HomePage() {
             padding: 15px;
           }
 
+          .fee-intro {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+
+          .medium-selector {
+            grid-template-columns: 1fr;
+          }
+
+          .selected-medium-heading {
+            align-items: flex-start;
+            flex-direction: column;
+          }
+
+          .selected-medium-heading > span {
+            align-self: flex-start;
+          }
+
+          .fee-info-strip {
+            grid-template-columns: 1fr;
+          }
+
+          .class-fee-card-header {
+            align-items: flex-start;
+          }
+
+          .class-header-price {
+            min-width: 55px;
+          }
+
+          .fee-session-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .combo-offer-heading {
+            align-items: flex-start;
+            flex-direction: column;
+          }
+
+          .combo-grid {
+            grid-template-columns:
+              repeat(2, minmax(0, 1fr));
+          }
+
           .subject-grid {
             grid-template-columns:
               repeat(2, minmax(0, 1fr));
@@ -3545,6 +4879,30 @@ export default function HomePage() {
 
           .secure-footer {
             flex-wrap: wrap;
+          }
+
+          .combo-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .medium-option {
+            grid-template-columns:
+              42px minmax(0, 1fr) 25px;
+          }
+
+          .medium-icon {
+            width: 42px;
+            height: 42px;
+          }
+
+          .class-fee-card-header {
+            flex-direction: column;
+            gap: 8px;
+          }
+
+          .class-header-price {
+            text-align: left;
+            align-self: flex-start;
           }
         }
       `}</style>
