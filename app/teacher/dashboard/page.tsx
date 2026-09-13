@@ -72,6 +72,9 @@ export default function TeacherDashboard() {
 
   /*
    * TEACHER DASHBOARD MENU
+   *
+   * Existing 12 options are preserved.
+   * Additional modules are added as 13-16.
    */
   const menuItems = [
     {
@@ -122,9 +125,6 @@ export default function TeacherDashboard() {
       path: "/teacher/payments",
     },
 
-    /*
-     * HOMEWORK
-     */
     {
       title: "Homework",
       description:
@@ -133,9 +133,6 @@ export default function TeacherDashboard() {
       path: "/teacher/homework",
     },
 
-    /*
-     * ANNOUNCEMENTS
-     */
     {
       title: "Announcements",
       description:
@@ -144,9 +141,6 @@ export default function TeacherDashboard() {
       path: "/teacher/announcements",
     },
 
-    /*
-     * STUDENT LOGIN ACTIVITY
-     */
     {
       title: "Student Login Activity",
       description:
@@ -171,15 +165,56 @@ export default function TeacherDashboard() {
       path: "/teacher/settings",
     },
 
-    /*
-     * STUDENT DIRECTORY - OPTION 12
-     */
     {
       title: "Student Directory",
       description:
         "View and export complete student details",
       icon: "👨‍🎓",
       path: "/teacher/student-directory",
+    },
+
+    /*
+     * OPTION 13
+     */
+    {
+      title: "Extra Classes",
+      description:
+        "Manage extra classes and attendance",
+      icon: "➕",
+      path: "/teacher/extra-class",
+    },
+
+    /*
+     * OPTION 14
+     */
+    {
+      title: "Quiz Tests",
+      description:
+        "Create, manage and review student quiz tests",
+      icon: "🧠",
+      path: "/teacher/quiz-tests",
+    },
+
+    /*
+     * OPTION 15
+     */
+    {
+      title: "Voice & Call Center",
+      description:
+        "Contact students and manage academy communication",
+      icon: "📞",
+      path: "/teacher/voice-call",
+    },
+
+    /*
+     * OPTION 16
+     */
+    {
+      title: "Teachers",
+      description:
+        "Manage teacher accounts and teacher information",
+      icon: "👨‍🏫",
+      path: "/teacher/teachers",
     },
   ];
 
