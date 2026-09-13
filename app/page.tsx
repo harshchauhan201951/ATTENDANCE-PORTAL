@@ -187,9 +187,7 @@ function getDefaultFeeAmount(
     return 200;
   }
 
-  const classNumber = Number(
-    className.replace("Class ", "")
-  );
+  const classNumber = Number(className.replace("Class ", ""));
 
   if (classNumber >= 1 && classNumber <= 5) {
     return medium === "English Medium" ? 220 : 200;
@@ -206,37 +204,35 @@ function getDefaultFeeAmount(
   return 200;
 }
 
-const defaultAcademyFees: AcademyFee[] =
-  defaultClassNames.flatMap(
-    (className, classIndex) =>
-      defaultMediums.flatMap(
-        (medium, mediumIndex) =>
-          defaultSubjects.map(
-            (subject, subjectIndex) => ({
-              id:
-                100000 +
-                classIndex * 1000 +
-                mediumIndex * 100 +
-                subjectIndex,
+const defaultAcademyFees: AcademyFee[] = defaultClassNames.flatMap(
+  (className, classIndex) =>
+    defaultMediums.flatMap(
+      (medium, mediumIndex) =>
+        defaultSubjects.map(
+          (subject, subjectIndex) => ({
+            id:
+              100000 +
+              classIndex * 1000 +
+              mediumIndex * 100 +
+              subjectIndex,
 
-              class_name: `${className} - ${medium}`,
+            class_name: `${className} - ${medium}`,
 
-              subject_name: subject,
+            subject_name: subject,
 
-              fee_amount:
-                getDefaultFeeAmount(
-                  className,
-                  medium
-                ),
+            fee_amount: getDefaultFeeAmount(
+              className,
+              medium
+            ),
 
-              fee_period: "Monthly",
+            fee_period: "Monthly",
 
-              description:
-                "Per subject • 1 hour session • 1.5 hour session available at 50% additional fee • No admission fee • No yearly charge",
-            })
-          )
-      )
-  );
+            description:
+              "Per subject • 1 hour session • 1.5 hour session available at 50% additional fee • No admission fee • No yearly charge",
+          })
+        )
+    )
+);
 
 const defaultFacilities: AcademyFacility[] = [
   {
@@ -379,10 +375,6 @@ function getComboFee(
       medium
     );
 
-  // Combo = any 2 subjects for 2 total hours.
-  // The requested starting values are:
-  // Hindi Medium: ₹500 = 2.5 × ₹200
-  // English Medium: ₹550 = 2.5 × ₹220
   return Math.round(
     oneSubjectFee * 2.5
   );
@@ -597,10 +589,16 @@ export default function HomePage() {
   ) => {
     e.preventDefault();
 
+    if (loading) {
+      return;
+    }
+
     setError("");
 
+    const cleanUsername = username.trim();
+
     if (
-      !username.trim() ||
+      !cleanUsername ||
       !password.trim()
     ) {
       setError(
@@ -612,71 +610,45 @@ export default function HomePage() {
     try {
       setLoading(true);
 
-      const functionName =
-        loginType === "student"
-          ? "student_login"
-          : "teacher_login";
-
-      const enteredUsername = username.trim();
-
-      let { data, error: loginError } =
-        await supabase.rpc(functionName, {
-          p_username: enteredUsername,
-          p_password: password,
-        });
-
-      // Teacher usernames are sometimes stored with a different case.
-      // Keep the student login flow exactly as it is, but retry Teacher Login
-      // once with a normalized lowercase username if the first attempt fails
-      // or returns no teacher record.
-      if (
-        loginType === "teacher" &&
-        (loginError ||
-          !data ||
-          (Array.isArray(data) && data.length === 0)) &&
-        enteredUsername !== enteredUsername.toLowerCase()
-      ) {
-        const retryResult = await supabase.rpc(
-          "teacher_login",
+      if (loginType === "student") {
+        const {
+          data,
+          error: loginError,
+        } = await supabase.rpc(
+          "student_login",
           {
-            p_username: enteredUsername.toLowerCase(),
-            p_password: password,
+            p_username:
+              cleanUsername,
+            p_password:
+              password,
           }
         );
 
-        data = retryResult.data;
-        loginError = retryResult.error;
-      }
+        if (loginError) {
+          console.error(
+            "Student login RPC error:",
+            loginError
+          );
 
-      if (loginError) {
-        setError(
-          `${
-            loginType === "student"
-              ? "Student"
-              : "Teacher"
-          } Login Error: ${loginError.message}`
-        );
-        return;
-      }
+          setError(
+            `Student Login Error: ${loginError.message}`
+          );
+          return;
+        }
 
-      if (
-        !data ||
-        (Array.isArray(data) &&
-          data.length === 0)
-      ) {
-        setError(
-          loginType === "student"
-            ? "Student Login Error: Login function returned no student data."
-            : "Teacher Login Error: Invalid teacher username or password."
-        );
-        return;
-      }
+        if (
+          !data ||
+          !Array.isArray(data) ||
+          data.length === 0
+        ) {
+          setError(
+            "Student Login Error: Invalid username or password."
+          );
+          return;
+        }
 
-      const userData = Array.isArray(data)
-        ? data[0]
-        : data;
+        const userData = data[0];
 
-      if (loginType === "student") {
         const currentStudentId =
           Number(userData.id);
 
@@ -724,7 +696,9 @@ export default function HomePage() {
 
         localStorage.setItem(
           "studentId",
-          String(userData.id || "")
+          String(
+            userData.id || ""
+          )
         );
 
         localStorage.setItem(
@@ -758,6 +732,73 @@ export default function HomePage() {
         return;
       }
 
+      // =========================================
+      // TEACHER LOGIN
+      // =========================================
+
+      const {
+        data: teacherData,
+        error: teacherLoginError,
+      } = await supabase.rpc(
+        "teacher_login",
+        {
+          p_username:
+            cleanUsername,
+          p_password:
+            password,
+        }
+      );
+
+      if (teacherLoginError) {
+        console.error(
+          "Teacher login RPC error:",
+          teacherLoginError
+        );
+
+        setError(
+          `Teacher Login Error: ${teacherLoginError.message}`
+        );
+        return;
+      }
+
+      if (
+        !teacherData ||
+        !Array.isArray(teacherData) ||
+        teacherData.length === 0
+      ) {
+        setError(
+          "Teacher Login Error: Invalid username or password."
+        );
+        return;
+      }
+
+      const userData =
+        teacherData[0];
+
+      if (
+        !userData ||
+        !userData.id ||
+        !userData.teacher_username
+      ) {
+        console.error(
+          "Invalid teacher RPC response:",
+          teacherData
+        );
+
+        setError(
+          "Teacher Login Error: Teacher account data was not returned correctly."
+        );
+        return;
+      }
+
+      const teacherUsername =
+        String(
+          userData.teacher_username
+        ).trim();
+
+      const teacherId =
+        String(userData.id);
+
       localStorage.setItem(
         "racer_academy_teacher",
         JSON.stringify(userData)
@@ -775,26 +816,22 @@ export default function HomePage() {
 
       localStorage.setItem(
         "teacherUsername",
-        userData.teacher_username ||
-          ""
+        teacherUsername
       );
 
       localStorage.setItem(
         "teacher_username",
-        userData.teacher_username ||
-          ""
+        teacherUsername
       );
 
       localStorage.setItem(
         "teacherName",
-        userData.teacher_username ||
-          "Teacher"
+        teacherUsername || "Teacher"
       );
 
       localStorage.setItem(
         "teacher_name",
-        userData.teacher_username ||
-          "Teacher"
+        teacherUsername || "Teacher"
       );
 
       localStorage.setItem(
@@ -804,16 +841,20 @@ export default function HomePage() {
 
       localStorage.setItem(
         "attendance_username",
-        userData.teacher_username ||
-          ""
+        teacherUsername
       );
 
       localStorage.setItem(
         "attendance_teacher_id",
-        String(userData.id || "")
+        teacherId
       );
 
-      router.push("/teacher");
+      // Force a fresh navigation after all teacher login data
+      // has been written to localStorage. This avoids a stale
+      // client-side route/auth check preventing the dashboard
+      // from opening immediately after login.
+      window.location.replace("/teacher");
+      return;
     } catch (err) {
       console.error(
         "UNEXPECTED LOGIN ERROR:",
@@ -3453,10 +3494,6 @@ export default function HomePage() {
           font-weight: 700;
         }
 
-        /* =========================================
-           MODAL
-        ========================================= */
-
         .modal-overlay {
           position: fixed;
           inset: 0;
@@ -3586,10 +3623,6 @@ export default function HomePage() {
           font-size: 12px;
           font-weight: 800;
         }
-
-        /* =========================================
-           FEE STRUCTURE
-        ========================================= */
 
         .modal-fees {
           width: 100%;
