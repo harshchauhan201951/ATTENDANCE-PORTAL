@@ -596,10 +596,11 @@ export default function HomePage() {
     setError("");
 
     const cleanUsername = username.trim();
+    const cleanPassword = password;
 
     if (
       !cleanUsername ||
-      !password.trim()
+      !cleanPassword.trim()
     ) {
       setError(
         "Please enter username and password."
@@ -609,6 +610,10 @@ export default function HomePage() {
 
     try {
       setLoading(true);
+
+      // =========================================================
+      // STUDENT LOGIN
+      // =========================================================
 
       if (loginType === "student") {
         const {
@@ -620,7 +625,7 @@ export default function HomePage() {
             p_username:
               cleanUsername,
             p_password:
-              password,
+              cleanPassword,
           }
         );
 
@@ -732,9 +737,14 @@ export default function HomePage() {
         return;
       }
 
-      // =========================================
+      // =========================================================
       // TEACHER LOGIN
-      // =========================================
+      // =========================================================
+
+      console.log(
+        "Starting teacher login:",
+        cleanUsername
+      );
 
       const {
         data: teacherData,
@@ -745,8 +755,13 @@ export default function HomePage() {
           p_username:
             cleanUsername,
           p_password:
-            password,
+            cleanPassword,
         }
+      );
+
+      console.log(
+        "Teacher RPC response:",
+        teacherData
       );
 
       if (teacherLoginError) {
@@ -766,6 +781,11 @@ export default function HomePage() {
         !Array.isArray(teacherData) ||
         teacherData.length === 0
       ) {
+        console.error(
+          "Teacher login returned no rows:",
+          teacherData
+        );
+
         setError(
           "Teacher Login Error: Invalid username or password."
         );
@@ -775,9 +795,15 @@ export default function HomePage() {
       const userData =
         teacherData[0];
 
+      console.log(
+        "Teacher user data:",
+        userData
+      );
+
       if (
         !userData ||
-        !userData.id ||
+        userData.id === null ||
+        userData.id === undefined ||
         !userData.teacher_username
       ) {
         console.error(
@@ -798,6 +824,10 @@ export default function HomePage() {
 
       const teacherId =
         String(userData.id);
+
+      // =========================================================
+      // SAVE TEACHER DATA IN LOCAL STORAGE
+      // =========================================================
 
       localStorage.setItem(
         "racer_academy_teacher",
@@ -835,6 +865,16 @@ export default function HomePage() {
       );
 
       localStorage.setItem(
+        "teacherId",
+        teacherId
+      );
+
+      localStorage.setItem(
+        "teacher_id",
+        teacherId
+      );
+
+      localStorage.setItem(
         "attendance_role",
         "teacher"
       );
@@ -849,11 +889,88 @@ export default function HomePage() {
         teacherId
       );
 
-      // Force a fresh navigation after all teacher login data
-      // has been written to localStorage. This avoids a stale
-      // client-side route/auth check preventing the dashboard
-      // from opening immediately after login.
-      window.location.replace("/teacher");
+      // =========================================================
+      // ALSO SAVE TEACHER SESSION DATA
+      // Some teacher pages may read sessionStorage instead
+      // of localStorage.
+      // =========================================================
+
+      sessionStorage.setItem(
+        "teacherLoggedIn",
+        "true"
+      );
+
+      sessionStorage.setItem(
+        "teacherUsername",
+        teacherUsername
+      );
+
+      sessionStorage.setItem(
+        "teacher_username",
+        teacherUsername
+      );
+
+      sessionStorage.setItem(
+        "teacherName",
+        teacherUsername || "Teacher"
+      );
+
+      sessionStorage.setItem(
+        "teacher_name",
+        teacherUsername || "Teacher"
+      );
+
+      sessionStorage.setItem(
+        "teacherId",
+        teacherId
+      );
+
+      sessionStorage.setItem(
+        "teacher_id",
+        teacherId
+      );
+
+      sessionStorage.setItem(
+        "attendance_role",
+        "teacher"
+      );
+
+      sessionStorage.setItem(
+        "attendance_username",
+        teacherUsername
+      );
+
+      sessionStorage.setItem(
+        "attendance_teacher_id",
+        teacherId
+      );
+
+      console.log(
+        "Teacher login data saved:",
+        {
+          teacherId,
+          teacherUsername,
+          teacherLoggedIn:
+            localStorage.getItem(
+              "teacherLoggedIn"
+            ),
+          attendanceRole:
+            localStorage.getItem(
+              "attendance_role"
+            ),
+        }
+      );
+
+      // =========================================================
+      // REDIRECT TO TEACHER DASHBOARD
+      // Hard navigation makes sure the /teacher page
+      // reloads after all login data has been saved.
+      // =========================================================
+
+      window.location.replace(
+        "/teacher"
+      );
+
       return;
     } catch (err) {
       console.error(
