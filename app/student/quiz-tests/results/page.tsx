@@ -48,6 +48,41 @@ type ResultItem = QuizResult & {
   quiz: Quiz | null;
 };
 
+type QuizOption = {
+  id: number;
+  question_id: number;
+  option_text: string;
+  option_order: number;
+  is_correct: boolean;
+};
+
+type QuizQuestion = {
+  id: number;
+  quiz_id: number;
+  question_text: string;
+  question_order: number;
+  marks: number | null;
+  negative_marks: number | null;
+};
+
+type QuizAnswer = {
+  id?: number;
+  result_id: number;
+  question_id: number;
+  selected_option_id: number | null;
+  is_correct: boolean;
+  marks_awarded: number;
+  answered_at: string | null;
+};
+
+type QuestionReview = {
+  question: QuizQuestion;
+  options: QuizOption[];
+  answer: QuizAnswer | null;
+  selectedOption: QuizOption | null;
+  correctOption: QuizOption | null;
+};
+
 function normalizeClass(value: unknown): string {
   if (typeof value !== "string") {
     return "";
@@ -207,8 +242,14 @@ function ResultsContent() {
   const [selectedResult, setSelectedResult] =
     useState<QuizResult | null>(null);
 
+  const [questionReviews, setQuestionReviews] =
+    useState<QuestionReview[]>([]);
+
   const [loading, setLoading] =
     useState(true);
+
+  const [reviewLoading, setReviewLoading] =
+    useState(false);
 
   const [error, setError] =
     useState("");
@@ -618,6 +659,201 @@ function ResultsContent() {
     setSelectedResult(
       result
     );
+
+    await loadQuestionReview(
+      result.id,
+      quizId
+    );
+  }
+
+  async function loadQuestionReview(
+    resultId: number,
+    quizId: number
+  ) {
+    setReviewLoading(true);
+
+    try {
+      const {
+        data: answerData,
+        error: answerError,
+      } = await supabase
+        .from("quiz_answers")
+        .select(
+          "id,result_id,question_id,selected_option_id,is_correct,marks_awarded,answered_at"
+        )
+        .eq(
+          "result_id",
+          resultId
+        );
+
+      if (answerError) {
+        console.error(
+          "Quiz answers load error:",
+          answerError
+        );
+
+        setQuestionReviews([]);
+        return;
+      }
+
+      const answers =
+        (answerData ||
+          []) as QuizAnswer[];
+
+      const {
+        data: questionData,
+        error: questionError,
+      } = await supabase
+        .from("quiz_questions")
+        .select(
+          "id,quiz_id,question_text,question_order,marks,negative_marks"
+        )
+        .eq(
+          "quiz_id",
+          quizId
+        )
+        .order(
+          "question_order",
+          {
+            ascending: true,
+          }
+        );
+
+      if (questionError) {
+        console.error(
+          "Quiz questions load error:",
+          questionError
+        );
+
+        setQuestionReviews([]);
+        return;
+      }
+
+      const questions =
+        (questionData ||
+          []) as QuizQuestion[];
+
+      const questionIds =
+        questions.map(
+          (question) =>
+            Number(question.id)
+        );
+
+      let options: QuizOption[] =
+        [];
+
+      if (
+        questionIds.length > 0
+      ) {
+        const {
+          data: optionData,
+          error: optionError,
+        } = await supabase
+          .from("quiz_options")
+          .select(
+            "id,question_id,option_text,option_order,is_correct"
+          )
+          .in(
+            "question_id",
+            questionIds
+          )
+          .order(
+            "option_order",
+            {
+              ascending: true,
+            }
+          );
+
+        if (optionError) {
+          console.error(
+            "Quiz options load error:",
+            optionError
+          );
+
+          setQuestionReviews([]);
+          return;
+        }
+
+        options =
+          (optionData ||
+            []) as QuizOption[];
+      }
+
+      const answerMap =
+        new Map<
+          number,
+          QuizAnswer
+        >();
+
+      answers.forEach(
+        (answer) => {
+          answerMap.set(
+            Number(
+              answer.question_id
+            ),
+            answer
+          );
+        }
+      );
+
+      const review =
+        questions.map(
+          (question) => {
+            const questionOptions =
+              options.filter(
+                (option) =>
+                  Number(
+                    option.question_id
+                  ) ===
+                  Number(
+                    question.id
+                  )
+              );
+
+            const answer =
+              answerMap.get(
+                Number(
+                  question.id
+                )
+              ) || null;
+
+            const selectedOption =
+              answer?.selected_option_id
+                ? questionOptions.find(
+                    (option) =>
+                      Number(
+                        option.id
+                      ) ===
+                      Number(
+                        answer.selected_option_id
+                      )
+                  ) || null
+                : null;
+
+            const correctOption =
+              questionOptions.find(
+                (option) =>
+                  option.is_correct ===
+                  true
+              ) || null;
+
+            return {
+              question,
+              options:
+                questionOptions,
+              answer,
+              selectedOption,
+              correctOption,
+            };
+          }
+        );
+
+      setQuestionReviews(
+        review
+      );
+    } finally {
+      setReviewLoading(false);
+    }
   }
 
   if (loading) {
@@ -1187,61 +1423,348 @@ function ResultsContent() {
 
           <section className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-6">
 
-            <h3 className="text-xl font-black">
-              Question Performance
-            </h3>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
-            <div className="mt-5 space-y-3">
+              <div>
+                <p className="text-xs font-black tracking-[0.2em] text-indigo-400">
+                  ANSWER REVIEW
+                </p>
 
-              <div className="flex items-center justify-between rounded-2xl bg-emerald-500/10 p-4">
-                <div>
-                  <p className="font-bold text-emerald-300">
-                    Correct Answers
-                  </p>
+                <h3 className="mt-1 text-2xl font-black">
+                  Question-wise Answer Report
+                </h3>
 
-                  <p className="text-xs text-slate-400">
-                    Questions answered correctly
-                  </p>
-                </div>
-
-                <strong className="text-2xl text-emerald-300">
-                  {result.correct_answers}
-                </strong>
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  Your submitted answers and the correct answers
+                  are shown below. This report remains available
+                  after submission.
+                </p>
               </div>
 
-              <div className="flex items-center justify-between rounded-2xl bg-red-500/10 p-4">
-                <div>
-                  <p className="font-bold text-red-300">
-                    Wrong Answers
-                  </p>
+              <div className="rounded-xl bg-indigo-500/10 px-4 py-3 text-center">
+                <p className="text-[10px] font-bold text-indigo-300">
+                  TOTAL QUESTIONS
+                </p>
 
-                  <p className="text-xs text-slate-400">
-                    Questions answered incorrectly
-                  </p>
-                </div>
-
-                <strong className="text-2xl text-red-300">
-                  {result.wrong_answers}
-                </strong>
-              </div>
-
-              <div className="flex items-center justify-between rounded-2xl bg-amber-500/10 p-4">
-                <div>
-                  <p className="font-bold text-amber-300">
-                    Unanswered
-                  </p>
-
-                  <p className="text-xs text-slate-400">
-                    Questions left unanswered
-                  </p>
-                </div>
-
-                <strong className="text-2xl text-amber-300">
-                  {result.unanswered}
-                </strong>
+                <p className="text-xl font-black">
+                  {questionReviews.length ||
+                    result.total_questions}
+                </p>
               </div>
 
             </div>
+
+            {reviewLoading ? (
+              <div className="mt-6 rounded-2xl border border-white/10 bg-slate-900/60 p-8 text-center">
+
+                <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-indigo-500" />
+
+                <p className="font-bold">
+                  Loading Answer Review...
+                </p>
+
+                <p className="mt-2 text-xs text-slate-500">
+                  Preparing your question-wise report.
+                </p>
+
+              </div>
+            ) : questionReviews.length === 0 ? (
+              <div className="mt-6 rounded-2xl border border-dashed border-white/10 bg-slate-900/60 p-8 text-center">
+
+                <p className="font-black">
+                  Answer review is not available.
+                </p>
+
+                <p className="mt-2 text-xs leading-5 text-slate-500">
+                  Your score is available above.
+                </p>
+
+              </div>
+            ) : (
+              <div className="mt-6 space-y-5">
+
+                {questionReviews.map(
+                  (
+                    review,
+                    index
+                  ) => {
+
+                    const answer =
+                      review.answer;
+
+                    const isUnanswered =
+                      !answer ||
+                      answer.selected_option_id ===
+                        null ||
+                      !review.selectedOption;
+
+                    const isCorrect =
+                      Boolean(
+                        answer?.is_correct
+                      ) &&
+                      !isUnanswered;
+
+                    const isWrong =
+                      !isUnanswered &&
+                      !isCorrect;
+
+                    const statusText =
+                      isCorrect
+                        ? "CORRECT"
+                        : isWrong
+                          ? "WRONG"
+                          : "NOT ANSWERED";
+
+                    const statusClass =
+                      isCorrect
+                        ? "border-emerald-400/20 bg-emerald-500/10"
+                        : isWrong
+                          ? "border-red-400/20 bg-red-500/10"
+                          : "border-amber-400/20 bg-amber-500/10";
+
+                    const badgeClass =
+                      isCorrect
+                        ? "bg-emerald-500/20 text-emerald-300"
+                        : isWrong
+                          ? "bg-red-500/20 text-red-300"
+                          : "bg-amber-500/20 text-amber-300";
+
+                    return (
+                      <article
+                        key={
+                          review.question.id
+                        }
+                        className={`overflow-hidden rounded-2xl border ${statusClass}`}
+                      >
+
+                        <div className="border-b border-white/10 p-5">
+
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+
+                            <div className="flex gap-3">
+
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sm font-black">
+                                {index + 1}
+                              </div>
+
+                              <div>
+                                <p className="text-[10px] font-black tracking-[0.15em] text-slate-500">
+                                  QUESTION {index + 1}
+                                </p>
+
+                                <h4 className="mt-2 text-base font-black leading-7 sm:text-lg">
+                                  {review.question.question_text}
+                                </h4>
+                              </div>
+
+                            </div>
+
+                            <span
+                              className={`shrink-0 self-start rounded-full px-3 py-1.5 text-[10px] font-black ${badgeClass}`}
+                            >
+                              {statusText}
+                            </span>
+
+                          </div>
+
+                        </div>
+
+                        <div className="grid gap-4 p-5 md:grid-cols-2">
+
+                          <div
+                            className={`rounded-2xl p-4 ${
+                              isCorrect
+                                ? "bg-emerald-500/10"
+                                : isWrong
+                                  ? "bg-red-500/10"
+                                  : "bg-amber-500/10"
+                            }`}
+                          >
+
+                            <p
+                              className={`text-[10px] font-black tracking-[0.15em] ${
+                                isCorrect
+                                  ? "text-emerald-300"
+                                  : isWrong
+                                    ? "text-red-300"
+                                    : "text-amber-300"
+                              }`}
+                            >
+                              YOUR ANSWER
+                            </p>
+
+                            {review.selectedOption ? (
+                              <div className="mt-3 flex items-start gap-3">
+
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 text-xs font-black">
+                                  {String.fromCharCode(
+                                    65 +
+                                      Math.max(
+                                        0,
+                                        Number(
+                                          review.selectedOption.option_order
+                                        ) - 1
+                                      )
+                                  )}
+                                </div>
+
+                                <p className="text-sm font-bold leading-6">
+                                  {
+                                    review
+                                      .selectedOption
+                                      .option_text
+                                  }
+                                </p>
+
+                              </div>
+                            ) : (
+                              <p className="mt-3 text-sm font-bold text-amber-200">
+                                Not Answered
+                              </p>
+                            )}
+
+                          </div>
+
+                          <div className="rounded-2xl bg-emerald-500/10 p-4">
+
+                            <p className="text-[10px] font-black tracking-[0.15em] text-emerald-300">
+                              CORRECT ANSWER
+                            </p>
+
+                            {review.correctOption ? (
+                              <div className="mt-3 flex items-start gap-3">
+
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/20 text-xs font-black text-emerald-300">
+                                  {String.fromCharCode(
+                                    65 +
+                                      Math.max(
+                                        0,
+                                        Number(
+                                          review.correctOption.option_order
+                                        ) - 1
+                                      )
+                                  )}
+                                </div>
+
+                                <p className="text-sm font-bold leading-6 text-emerald-100">
+                                  {
+                                    review
+                                      .correctOption
+                                      .option_text
+                                  }
+                                </p>
+
+                              </div>
+                            ) : (
+                              <p className="mt-3 text-sm font-bold text-slate-500">
+                                Correct answer unavailable
+                              </p>
+                            )}
+
+                          </div>
+
+                        </div>
+
+                        <div className="border-t border-white/10 px-5 py-4">
+
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+
+                            <div className="flex flex-wrap gap-2">
+
+                              {review.options.map(
+                                (
+                                  option
+                                ) => {
+
+                                  const selected =
+                                    Number(
+                                      review
+                                        .answer
+                                        ?.selected_option_id
+                                    ) ===
+                                    Number(
+                                      option.id
+                                    );
+
+                                  const correct =
+                                    option.is_correct ===
+                                    true;
+
+                                  return (
+                                    <span
+                                      key={
+                                        option.id
+                                      }
+                                      className={`rounded-lg border px-3 py-1.5 text-[10px] font-bold ${
+                                        correct
+                                          ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-300"
+                                          : selected
+                                            ? "border-red-400/30 bg-red-500/10 text-red-300"
+                                            : "border-white/10 bg-white/5 text-slate-500"
+                                      }`}
+                                    >
+                                      {String.fromCharCode(
+                                        65 +
+                                          Math.max(
+                                            0,
+                                            Number(
+                                              option.option_order
+                                            ) - 1
+                                          )
+                                      )}
+
+                                      {correct
+                                        ? " • Correct"
+                                        : selected
+                                          ? " • Your Answer"
+                                          : ""}
+                                    </span>
+                                  );
+                                }
+                              )}
+
+                            </div>
+
+                            <div className="rounded-xl bg-slate-950/60 px-4 py-2">
+
+                              <span className="text-[10px] font-bold text-slate-500">
+                                MARKS
+                              </span>
+
+                              <strong
+                                className={`ml-2 text-sm ${
+                                  Number(
+                                    answer?.marks_awarded ||
+                                      0
+                                  ) > 0
+                                    ? "text-emerald-300"
+                                    : Number(
+                                          answer?.marks_awarded ||
+                                            0
+                                        ) < 0
+                                      ? "text-red-300"
+                                      : "text-slate-300"
+                                }`}
+                              >
+                                {numberText(
+                                  answer?.marks_awarded ||
+                                    0
+                                )}
+                              </strong>
+
+                            </div>
+
+                          </div>
+
+                        </div>
+
+                      </article>
+                    );
+                  }
+                )}
+
+              </div>
+            )}
 
           </section>
 
