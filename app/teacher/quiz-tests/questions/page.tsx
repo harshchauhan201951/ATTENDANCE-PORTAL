@@ -7,6 +7,7 @@ import {
   useMemo,
   useState,
 } from "react";
+
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
@@ -112,7 +113,7 @@ function parseBulkQuestions(text: string): ParsedQuestion[] {
     const line = rawLine.trim();
 
     const questionMatch = line.match(
-      /^(?:Q(?:UESTION)?\s*)?(\d+)\s*[\.\):\-]\s*(.+)$/i
+      /^(?:Q(?:UESTION)?\s*)?(\d+)\s*[.):\-]\s*(.+)$/i
     );
 
     if (questionMatch) {
@@ -138,11 +139,12 @@ function parseBulkQuestions(text: string): ParsedQuestion[] {
     }
 
     const optionMatch = line.match(
-      /^([ABCD])\s*[\.\):\-]\s*(.+)$/i
+      /^([ABCD])\s*[.):\-]\s*(.+)$/i
     );
 
     if (optionMatch && currentQuestion) {
       const letter = optionMatch[1].toUpperCase();
+
       const index = ["A", "B", "C", "D"].indexOf(letter);
 
       if (index !== -1) {
@@ -151,13 +153,15 @@ function parseBulkQuestions(text: string): ParsedQuestion[] {
         }
 
         currentQuestion.options[index] = optionMatch[2].trim();
+
         currentOptionIndex = index;
+
         continue;
       }
     }
 
     const numberedOptionMatch = line.match(
-      /^([1-4])\s*[\.\):\-]\s*(.+)$/i
+      /^([1-4])\s*[.):\-]\s*(.+)$/i
     );
 
     if (numberedOptionMatch && currentQuestion) {
@@ -167,8 +171,11 @@ function parseBulkQuestions(text: string): ParsedQuestion[] {
         currentQuestion.options.push("");
       }
 
-      currentQuestion.options[index] = numberedOptionMatch[2].trim();
+      currentQuestion.options[index] =
+        numberedOptionMatch[2].trim();
+
       currentOptionIndex = index;
+
       continue;
     }
 
@@ -187,8 +194,286 @@ function parseBulkQuestions(text: string): ParsedQuestion[] {
     (question) =>
       question.question_text.trim().length > 0 &&
       question.options.length === 4 &&
-      question.options.every((option) => option.trim().length > 0)
+      question.options.every(
+        (option) => option.trim().length > 0
+      )
   );
+}
+
+/**
+ * Parses bulk answers.
+ *
+ * Supported formats:
+ *
+ * 1. B
+ * 2. C
+ * 3. A
+ *
+ * OR:
+ *
+ * Q1: B
+ * Q2: C
+ * Q3: A
+ *
+ * OR:
+ *
+ * 1) B
+ * 2) C
+ * 3) A
+ *
+ * OR simple sequential:
+ *
+ * B
+ * C
+ * A
+ * D
+ *
+ * OR:
+ *
+ * Answer: B
+ * Answer: C
+ * Answer: A
+ */
+function parseBulkAnswers(text: string): {
+  answers: Array<{
+    questionNumber: number;
+    answerIndex: number;
+  }>;
+  invalidLines: string[];
+} {
+  const normalized = text
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .trim();
+
+  if (!normalized) {
+    return {
+      answers: [],
+      invalidLines: [],
+    };
+  }
+
+  const lines = normalized
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const answers: Array<{
+    questionNumber: number;
+    answerIndex: number;
+  }> = [];
+
+  const invalidLines: string[] = [];
+
+  let sequentialQuestionNumber = 1;
+
+  for (const line of lines) {
+    /**
+     * Numbered formats:
+     *
+     * 1. B
+     * 1) B
+     * 1: B
+     * 1 - B
+     * Q1: B
+     * Q1. B
+     * Question 1: B
+     * Answer 1: B
+     */
+    const numberedMatch = line.match(
+      /^(?:Q(?:UESTION)?|ANSWER|ANS)?\s*(\d+)\s*[.):\-]\s*([ABCD1-4])\s*$/i
+    );
+
+    if (numberedMatch) {
+      const questionNumber = Number(numberedMatch[1]);
+
+      const answerIndex = normalizeAnswer(
+        numberedMatch[2]
+      );
+
+      if (
+        questionNumber > 0 &&
+        answerIndex !== null
+      ) {
+        answers.push({
+          questionNumber,
+          answerIndex,
+        });
+
+        sequentialQuestionNumber =
+          Math.max(
+            sequentialQuestionNumber,
+            questionNumber + 1
+          );
+
+        continue;
+      }
+    }
+
+    /**
+     * Formats:
+     *
+     * Q1 B
+     * Q1 = B
+     * Question 1 B
+     * Answer 1 B
+     */
+    const looseNumberedMatch = line.match(
+      /^(?:Q(?:UESTION)?|ANSWER|ANS)?\s*(\d+)\s*(?:=|is|:|-|\s)\s*([ABCD1-4])\s*$/i
+    );
+
+    if (looseNumberedMatch) {
+      const questionNumber = Number(
+        looseNumberedMatch[1]
+      );
+
+      const answerIndex = normalizeAnswer(
+        looseNumberedMatch[2]
+      );
+
+      if (
+        questionNumber > 0 &&
+        answerIndex !== null
+      ) {
+        answers.push({
+          questionNumber,
+          answerIndex,
+        });
+
+        sequentialQuestionNumber =
+          Math.max(
+            sequentialQuestionNumber,
+            questionNumber + 1
+          );
+
+        continue;
+      }
+    }
+
+    /**
+     * Simple format:
+     *
+     * B
+     * C
+     * A
+     * D
+     */
+    const simpleMatch = line.match(
+      /^(?:ANSWER|ANS|CORRECT\s*ANSWER|RIGHT\s*ANSWER)\s*[:\-]?\s*([ABCD1-4])$/i
+    );
+
+    if (simpleMatch) {
+      const answerIndex = normalizeAnswer(
+        simpleMatch[1]
+      );
+
+      if (answerIndex !== null) {
+        answers.push({
+          questionNumber: sequentialQuestionNumber,
+          answerIndex,
+        });
+
+        sequentialQuestionNumber++;
+
+        continue;
+      }
+    }
+
+    const singleAnswerMatch = line.match(
+      /^([ABCD1-4])$/i
+    );
+
+    if (singleAnswerMatch) {
+      const answerIndex = normalizeAnswer(
+        singleAnswerMatch[1]
+      );
+
+      if (answerIndex !== null) {
+        answers.push({
+          questionNumber: sequentialQuestionNumber,
+          answerIndex,
+        });
+
+        sequentialQuestionNumber++;
+
+        continue;
+      }
+    }
+
+    /**
+     * Also support:
+     *
+     * 1. B  2. C  3. A
+     *
+     * when multiple answers are accidentally placed
+     * on one line.
+     */
+    const multipleMatches = [
+      ...line.matchAll(
+        /(?:Q(?:UESTION)?\s*)?(\d+)\s*[.):\-]\s*([ABCD1-4])\b/gi
+      ),
+    ];
+
+    if (multipleMatches.length > 0) {
+      let foundAny = false;
+
+      for (const match of multipleMatches) {
+        const questionNumber = Number(match[1]);
+
+        const answerIndex = normalizeAnswer(
+          match[2]
+        );
+
+        if (
+          questionNumber > 0 &&
+          answerIndex !== null
+        ) {
+          answers.push({
+            questionNumber,
+            answerIndex,
+          });
+
+          sequentialQuestionNumber =
+            Math.max(
+              sequentialQuestionNumber,
+              questionNumber + 1
+            );
+
+          foundAny = true;
+        }
+      }
+
+      if (foundAny) {
+        continue;
+      }
+    }
+
+    invalidLines.push(line);
+  }
+
+  /**
+   * Keep the latest answer if the same question number
+   * appears more than once.
+   */
+  const uniqueMap = new Map<
+    number,
+    {
+      questionNumber: number;
+      answerIndex: number;
+    }
+  >();
+
+  for (const answer of answers) {
+    uniqueMap.set(answer.questionNumber, answer);
+  }
+
+  return {
+    answers: Array.from(uniqueMap.values()).sort(
+      (a, b) =>
+        a.questionNumber - b.questionNumber
+    ),
+    invalidLines,
+  };
 }
 
 function TeacherQuizQuestionsContent() {
@@ -203,119 +488,151 @@ function TeacherQuizQuestionsContent() {
   const quizId = Number(quizIdParam);
 
   const [quiz, setQuiz] = useState<Quiz | null>(null);
-  const [questions, setQuestions] = useState<QuestionItem[]>([]);
+  const [questions, setQuestions] = useState<
+    QuestionItem[]
+  >([]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] =
+    useState<number | null>(null);
 
   const [pasteText, setPasteText] = useState("");
+
+  const [bulkAnswerText, setBulkAnswerText] =
+    useState("");
+
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const [showPasteBox, setShowPasteBox] = useState(true);
+  const [showPasteBox, setShowPasteBox] =
+    useState(true);
 
-  const validQuizId = Number.isInteger(quizId) && quizId > 0;
+  const [showAnswerBox, setShowAnswerBox] =
+    useState(true);
 
-  const loadQuizAndQuestions = useCallback(async () => {
-    if (!validQuizId) {
-      setError("Invalid quiz ID.");
-      setLoading(false);
-      return;
-    }
+  const validQuizId =
+    Number.isInteger(quizId) && quizId > 0;
 
-    setLoading(true);
-    setError("");
-    setMessage("");
-
-    try {
-      const { data: quizData, error: quizError } = await supabase
-        .from("quiz_tests")
-        .select(
-          "id,title,description,scheduled_date,scheduled_time,duration_minutes,marks_per_question,negative_marks,pass_percentage,is_published"
-        )
-        .eq("id", quizId)
-        .maybeSingle();
-
-      if (quizError) {
-        throw new Error(
-          `Unable to load quiz: ${quizError.message}`
-        );
-      }
-
-      if (!quizData) {
-        throw new Error("Quiz not found.");
-      }
-
-      setQuiz(quizData as Quiz);
-
-      const {
-        data: questionData,
-        error: questionError,
-      } = await supabase
-        .from("quiz_questions")
-        .select("id,quiz_id,question_text,question_order")
-        .eq("quiz_id", quizId)
-        .order("question_order", { ascending: true });
-
-      if (questionError) {
-        throw new Error(
-          `Unable to load questions: ${questionError.message}`
-        );
-      }
-
-      const questionRows = (questionData || []) as Array<{
-        id: number;
-        quiz_id: number;
-        question_text: string;
-        question_order: number;
-      }>;
-
-      if (questionRows.length === 0) {
-        setQuestions([]);
+  const loadQuizAndQuestions = useCallback(
+    async () => {
+      if (!validQuizId) {
+        setError("Invalid quiz ID.");
+        setLoading(false);
         return;
       }
 
-      const questionIds = questionRows.map((question) => question.id);
+      setLoading(true);
+      setError("");
+      setMessage("");
 
-      const {
-        data: optionData,
-        error: optionError,
-      } = await supabase
-        .from("quiz_options")
-        .select(
-          "id,question_id,option_text,option_order,is_correct"
-        )
-        .in("question_id", questionIds)
-        .order("option_order", { ascending: true });
-
-      if (optionError) {
-        throw new Error(
-          `Unable to load options: ${optionError.message}`
-        );
-      }
-
-      const optionRows = (optionData || []) as QuizOption[];
-
-      const combined: QuestionItem[] = questionRows.map(
-        (question) => {
-          const questionOptions = optionRows
-            .filter(
-              (option) =>
-                Number(option.question_id) === Number(question.id)
+      try {
+        const { data: quizData, error: quizError } =
+          await supabase
+            .from("quiz_tests")
+            .select(
+              "id,title,description,scheduled_date,scheduled_time,duration_minutes,marks_per_question,negative_marks,pass_percentage,is_published"
             )
-            .sort(
-              (a, b) =>
-                Number(a.option_order) -
-                Number(b.option_order)
-            );
+            .eq("id", quizId)
+            .maybeSingle();
 
-          const options: QuizOption[] = [0, 1, 2, 3].map(
-            (index) => {
-              const existing = questionOptions.find(
-                (option) =>
-                  Number(option.option_order) === index + 1
-              );
+        if (quizError) {
+          throw new Error(
+            `Unable to load quiz: ${quizError.message}`
+          );
+        }
+
+        if (!quizData) {
+          throw new Error("Quiz not found.");
+        }
+
+        setQuiz(quizData as Quiz);
+
+        const {
+          data: questionData,
+          error: questionError,
+        } = await supabase
+          .from("quiz_questions")
+          .select(
+            "id,quiz_id,question_text,question_order"
+          )
+          .eq("quiz_id", quizId)
+          .order("question_order", {
+            ascending: true,
+          });
+
+        if (questionError) {
+          throw new Error(
+            `Unable to load questions: ${questionError.message}`
+          );
+        }
+
+        const questionRows =
+          (questionData || []) as Array<{
+            id: number;
+            quiz_id: number;
+            question_text: string;
+            question_order: number;
+          }>;
+
+        if (questionRows.length === 0) {
+          setQuestions([]);
+          return;
+        }
+
+        const questionIds = questionRows.map(
+          (question) => question.id
+        );
+
+        const {
+          data: optionData,
+          error: optionError,
+        } = await supabase
+          .from("quiz_options")
+          .select(
+            "id,question_id,option_text,option_order,is_correct"
+          )
+          .in("question_id", questionIds)
+          .order("option_order", {
+            ascending: true,
+          });
+
+        if (optionError) {
+          throw new Error(
+            `Unable to load options: ${optionError.message}`
+          );
+        }
+
+        const optionRows =
+          (optionData || []) as QuizOption[];
+
+        const combined: QuestionItem[] =
+          questionRows.map((question) => {
+            const questionOptions =
+              optionRows
+                .filter(
+                  (option) =>
+                    Number(option.question_id) ===
+                    Number(question.id)
+                )
+                .sort(
+                  (a, b) =>
+                    Number(a.option_order) -
+                    Number(b.option_order)
+                );
+
+            const options: QuizOption[] = [
+              0,
+              1,
+              2,
+              3,
+            ].map((index) => {
+              const existing =
+                questionOptions.find(
+                  (option) =>
+                    Number(option.option_order) ===
+                    index + 1
+                );
 
               return (
                 existing || {
@@ -325,32 +642,37 @@ function TeacherQuizQuestionsContent() {
                   is_correct: false,
                 }
               );
-            }
-          );
+            });
 
-          return {
-            id: question.id,
-            quiz_id: question.quiz_id,
-            question_text: question.question_text || "",
-            question_order: question.question_order,
-            options,
-          };
-        }
-      );
+            return {
+              id: question.id,
+              quiz_id: question.quiz_id,
+              question_text:
+                question.question_text || "",
+              question_order:
+                question.question_order,
+              options,
+            };
+          });
 
-      setQuestions(combined);
-    } catch (loadError) {
-      console.error("Questions page loading error:", loadError);
+        setQuestions(combined);
+      } catch (loadError) {
+        console.error(
+          "Questions page loading error:",
+          loadError
+        );
 
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "Unable to load quiz questions."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [quizId, validQuizId]);
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Unable to load quiz questions."
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [quizId, validQuizId]
+  );
 
   useEffect(() => {
     void loadQuizAndQuestions();
@@ -363,8 +685,8 @@ function TeacherQuizQuestionsContent() {
       (question) =>
         question.question_text.trim() &&
         question.options.length === 4 &&
-        question.options.every(
-          (option) => option.option_text.trim()
+        question.options.every((option) =>
+          option.option_text.trim()
         ) &&
         question.options.some(
           (option) => option.is_correct
@@ -472,7 +794,9 @@ function TeacherQuizQuestionsContent() {
     ]);
   }
 
-  function removeLocalQuestion(questionIndex: number) {
+  function removeLocalQuestion(
+    questionIndex: number
+  ) {
     setQuestions((current) =>
       current
         .filter((_, index) => index !== questionIndex)
@@ -497,10 +821,11 @@ function TeacherQuizQuestionsContent() {
     setError("");
 
     try {
-      const { error: optionDeleteError } = await supabase
-        .from("quiz_options")
-        .delete()
-        .eq("question_id", questionId);
+      const { error: optionDeleteError } =
+        await supabase
+          .from("quiz_options")
+          .delete()
+          .eq("question_id", questionId);
 
       if (optionDeleteError) {
         throw new Error(
@@ -508,11 +833,12 @@ function TeacherQuizQuestionsContent() {
         );
       }
 
-      const { error: questionDeleteError } = await supabase
-        .from("quiz_questions")
-        .delete()
-        .eq("id", questionId)
-        .eq("quiz_id", quizId);
+      const { error: questionDeleteError } =
+        await supabase
+          .from("quiz_questions")
+          .delete()
+          .eq("id", questionId)
+          .eq("quiz_id", quizId);
 
       if (questionDeleteError) {
         throw new Error(
@@ -529,9 +855,14 @@ function TeacherQuizQuestionsContent() {
           }))
       );
 
-      setMessage("Question deleted successfully.");
+      setMessage(
+        "Question deleted successfully."
+      );
     } catch (deleteError) {
-      console.error("Delete question error:", deleteError);
+      console.error(
+        "Delete question error:",
+        deleteError
+      );
 
       setError(
         deleteError instanceof Error
@@ -556,10 +887,11 @@ function TeacherQuizQuestionsContent() {
       return;
     }
 
-    const newQuestions: QuestionItem[] = parsed.map(
-      (item, index) => ({
+    const newQuestions: QuestionItem[] =
+      parsed.map((item, index) => ({
         question_text: item.question_text,
-        question_order: questions.length + index + 1,
+        question_order:
+          questions.length + index + 1,
         options: item.options.map(
           (optionText, optionIndex) => ({
             option_text: optionText,
@@ -569,8 +901,7 @@ function TeacherQuizQuestionsContent() {
           })
         ),
         isNew: true,
-      })
-    );
+      }));
 
     setQuestions((current) => [
       ...current,
@@ -578,13 +909,132 @@ function TeacherQuizQuestionsContent() {
     ]);
 
     setPasteText("");
-    setMessage(
-      `${parsed.length} question${
-        parsed.length === 1 ? "" : "s"
-      } added. Select the correct answers and save.`
-    );
+
+    const questionsWithAnswers = parsed.filter(
+      (item) => item.answerIndex !== null
+    ).length;
+
+    if (questionsWithAnswers > 0) {
+      setMessage(
+        `${parsed.length} question${
+          parsed.length === 1 ? "" : "s"
+        } added. ${questionsWithAnswers} ${
+          questionsWithAnswers === 1
+            ? "answer was"
+            : "answers were"
+        } detected automatically.`
+      );
+    } else {
+      setMessage(
+        `${parsed.length} question${
+          parsed.length === 1 ? "" : "s"
+        } added. You can now paste all correct answers in Bulk Paste Answers.`
+      );
+    }
 
     setShowPasteBox(false);
+  }
+
+  /**
+   * BULK ANSWERS
+   *
+   * Applies each parsed answer to the corresponding
+   * question in the current question list.
+   */
+  function handleParseBulkAnswers() {
+    setError("");
+    setMessage("");
+
+    if (questions.length === 0) {
+      setError(
+        "Please add or paste questions first."
+      );
+      return;
+    }
+
+    const parsed = parseBulkAnswers(
+      bulkAnswerText
+    );
+
+    if (parsed.answers.length === 0) {
+      setError(
+        "No valid answers found. Paste answers like 1. B, 2. C, 3. A or simply B, C, A."
+      );
+      return;
+    }
+
+    const outOfRange = parsed.answers.filter(
+      (answer) =>
+        answer.questionNumber < 1 ||
+        answer.questionNumber > questions.length
+    );
+
+    if (outOfRange.length > 0) {
+      const numbers = outOfRange
+        .map((answer) => answer.questionNumber)
+        .join(", ");
+
+      setError(
+        `These question numbers do not exist: ${numbers}. You currently have ${questions.length} questions.`
+      );
+      return;
+    }
+
+    setQuestions((current) =>
+      current.map((question, index) => {
+        const questionNumber = index + 1;
+
+        const answer = parsed.answers.find(
+          (item) =>
+            item.questionNumber ===
+            questionNumber
+        );
+
+        if (!answer) {
+          return question;
+        }
+
+        return {
+          ...question,
+          options: question.options.map(
+            (option, optionIndex) => ({
+              ...option,
+              is_correct:
+                optionIndex ===
+                answer.answerIndex,
+            })
+          ),
+        };
+      })
+    );
+
+    const skippedQuestions =
+      questions.length - parsed.answers.length;
+
+    let successMessage = `${parsed.answers.length} correct answer${
+      parsed.answers.length === 1
+        ? ""
+        : "s"
+    } automatically assigned to the questions.`;
+
+    if (skippedQuestions > 0) {
+      successMessage += ` ${skippedQuestions} question${
+        skippedQuestions === 1
+          ? ""
+          : "s"
+      } did not receive an answer.`;
+    }
+
+    if (parsed.invalidLines.length > 0) {
+      successMessage += ` ${parsed.invalidLines.length} invalid line${
+        parsed.invalidLines.length === 1
+          ? ""
+          : "s"
+      } ignored.`;
+    }
+
+    setMessage(successMessage);
+    setBulkAnswerText("");
   }
 
   function moveQuestion(
@@ -607,7 +1057,10 @@ function TeacherQuizQuestionsContent() {
       const copy = [...current];
 
       const temp = copy[questionIndex];
-      copy[questionIndex] = copy[targetIndex];
+
+      copy[questionIndex] =
+        copy[targetIndex];
+
       copy[targetIndex] = temp;
 
       return copy.map((question, index) => ({
@@ -624,12 +1077,16 @@ function TeacherQuizQuestionsContent() {
     }
 
     if (!quiz) {
-      setError("Quiz information is not loaded.");
+      setError(
+        "Quiz information is not loaded."
+      );
       return;
     }
 
     if (questions.length === 0) {
-      setError("Please add at least one question.");
+      setError(
+        "Please add at least one question."
+      );
       return;
     }
 
@@ -654,19 +1111,26 @@ function TeacherQuizQuestionsContent() {
           );
         }
 
-        const cleanOptions = question.options.map(
-          (option) => option.option_text.trim()
-        );
+        const cleanOptions =
+          question.options.map(
+            (option) =>
+              option.option_text.trim()
+          );
 
-        if (cleanOptions.some((option) => !option)) {
+        if (
+          cleanOptions.some(
+            (option) => !option
+          )
+        ) {
           throw new Error(
             `Please fill all 4 options for Question ${question.question_order}.`
           );
         }
 
-        const correctCount = question.options.filter(
-          (option) => option.is_correct
-        ).length;
+        const correctCount =
+          question.options.filter(
+            (option) => option.is_correct
+          ).length;
 
         if (correctCount !== 1) {
           throw new Error(
@@ -679,20 +1143,22 @@ function TeacherQuizQuestionsContent() {
        * Temporarily move saved question orders high enough
        * to avoid unique-order conflicts during reordering.
        */
-      const savedQuestions = questions.filter(
-        (question) => question.id
-      );
+      const savedQuestions =
+        questions.filter(
+          (question) => question.id
+        );
 
       if (savedQuestions.length > 0) {
         const temporaryOrderBase =
-          100000 + Date.now() % 10000;
+          100000 + (Date.now() % 10000);
 
         for (
           let index = 0;
           index < savedQuestions.length;
           index++
         ) {
-          const question = savedQuestions[index];
+          const question =
+            savedQuestions[index];
 
           const { error } = await supabase
             .from("quiz_questions")
@@ -711,7 +1177,8 @@ function TeacherQuizQuestionsContent() {
         }
       }
 
-      const finalQuestions: QuestionItem[] = [];
+      const finalQuestions: QuestionItem[] =
+        [];
 
       for (
         let index = 0;
@@ -723,17 +1190,20 @@ function TeacherQuizQuestionsContent() {
         let questionId = question.id;
 
         if (questionId) {
-          const { data, error } = await supabase
-            .from("quiz_questions")
-            .update({
-              question_text:
-                question.question_text.trim(),
-              question_order: index + 1,
-            })
-            .eq("id", questionId)
-            .eq("quiz_id", quizId)
-            .select("id,quiz_id,question_text,question_order")
-            .maybeSingle();
+          const { data, error } =
+            await supabase
+              .from("quiz_questions")
+              .update({
+                question_text:
+                  question.question_text.trim(),
+                question_order: index + 1,
+              })
+              .eq("id", questionId)
+              .eq("quiz_id", quizId)
+              .select(
+                "id,quiz_id,question_text,question_order"
+              )
+              .maybeSingle();
 
           if (error) {
             throw new Error(
@@ -745,24 +1215,27 @@ function TeacherQuizQuestionsContent() {
 
           if (!data) {
             throw new Error(
-              `Question ${index + 1} could not be updated.`
+              `Question ${
+                index + 1
+              } could not be updated.`
             );
           }
 
           questionId = Number(data.id);
         } else {
-          const { data, error } = await supabase
-            .from("quiz_questions")
-            .insert({
-              quiz_id: quizId,
-              question_text:
-                question.question_text.trim(),
-              question_order: index + 1,
-            })
-            .select(
-              "id,quiz_id,question_text,question_order"
-            )
-            .single();
+          const { data, error } =
+            await supabase
+              .from("quiz_questions")
+              .insert({
+                quiz_id: quizId,
+                question_text:
+                  question.question_text.trim(),
+                question_order: index + 1,
+              })
+              .select(
+                "id,quiz_id,question_text,question_order"
+              )
+              .single();
 
           if (error) {
             throw new Error(
@@ -774,7 +1247,9 @@ function TeacherQuizQuestionsContent() {
 
           if (!data) {
             throw new Error(
-              `Question ${index + 1} was not created.`
+              `Question ${
+                index + 1
+              } was not created.`
             );
           }
 
@@ -791,15 +1266,17 @@ function TeacherQuizQuestionsContent() {
             .map((option) => option.id)
             .filter(
               (id): id is number =>
-                typeof id === "number" && id > 0
+                typeof id === "number" &&
+                id > 0
             );
 
         if (existingOptionIds.length > 0) {
-          const { error: deleteOldError } =
-            await supabase
-              .from("quiz_options")
-              .delete()
-              .eq("question_id", questionId);
+          const {
+            error: deleteOldError,
+          } = await supabase
+            .from("quiz_options")
+            .delete()
+            .eq("question_id", questionId);
 
           if (deleteOldError) {
             throw new Error(
@@ -810,23 +1287,28 @@ function TeacherQuizQuestionsContent() {
           }
         }
 
-        const optionRows = question.options.map(
-          (option, optionIndex) => ({
-            question_id: questionId,
-            option_text:
-              option.option_text.trim(),
-            option_order: optionIndex + 1,
-            is_correct: option.is_correct,
-          })
-        );
+        const optionRows =
+          question.options.map(
+            (option, optionIndex) => ({
+              question_id: questionId,
+              option_text:
+                option.option_text.trim(),
+              option_order:
+                optionIndex + 1,
+              is_correct:
+                option.is_correct,
+            })
+          );
 
-        const { data: insertedOptions, error: optionError } =
-          await supabase
-            .from("quiz_options")
-            .insert(optionRows)
-            .select(
-              "id,question_id,option_text,option_order,is_correct"
-            );
+        const {
+          data: insertedOptions,
+          error: optionError,
+        } = await supabase
+          .from("quiz_options")
+          .insert(optionRows)
+          .select(
+            "id,question_id,option_text,option_order,is_correct"
+          );
 
         if (optionError) {
           throw new Error(
@@ -849,13 +1331,19 @@ function TeacherQuizQuestionsContent() {
       }
 
       setQuestions(finalQuestions);
+
       setMessage(
         `${finalQuestions.length} question${
-          finalQuestions.length === 1 ? "" : "s"
+          finalQuestions.length === 1
+            ? ""
+            : "s"
         } and all options saved successfully.`
       );
     } catch (saveError) {
-      console.error("Save questions error:", saveError);
+      console.error(
+        "Save questions error:",
+        saveError
+      );
 
       setError(
         saveError instanceof Error
@@ -897,6 +1385,7 @@ function TeacherQuizQuestionsContent() {
     const parts = time.split(":");
 
     let hour = Number(parts[0]);
+
     const minute = parts[1] || "00";
 
     if (Number.isNaN(hour)) {
@@ -960,6 +1449,7 @@ function TeacherQuizQuestionsContent() {
     <main className="min-h-screen bg-slate-950 text-white">
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
         {/* HEADER */}
+
         <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/90 backdrop-blur-xl">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
             <div className="min-w-0">
@@ -994,37 +1484,49 @@ function TeacherQuizQuestionsContent() {
 
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
           {/* QUIZ INFO */}
+
           {quiz && (
             <section className="mb-6 rounded-3xl border border-indigo-400/20 bg-gradient-to-r from-indigo-600/20 to-purple-600/10 p-5">
               <div className="flex flex-wrap gap-3 text-xs text-slate-300">
                 <span className="rounded-full bg-white/10 px-3 py-1.5">
-                  Date: {formatDate(quiz.scheduled_date)}
+                  Date:{" "}
+                  {formatDate(
+                    quiz.scheduled_date
+                  )}
                 </span>
 
                 <span className="rounded-full bg-white/10 px-3 py-1.5">
-                  Time: {formatTime(quiz.scheduled_time)}
+                  Time:{" "}
+                  {formatTime(
+                    quiz.scheduled_time
+                  )}
                 </span>
 
                 <span className="rounded-full bg-white/10 px-3 py-1.5">
-                  Duration: {quiz.duration_minutes} min
+                  Duration:{" "}
+                  {quiz.duration_minutes} min
                 </span>
 
                 <span className="rounded-full bg-white/10 px-3 py-1.5">
-                  Marks: {quiz.marks_per_question}
+                  Marks:{" "}
+                  {quiz.marks_per_question}
                 </span>
 
                 <span className="rounded-full bg-white/10 px-3 py-1.5">
-                  Negative: {quiz.negative_marks}
+                  Negative:{" "}
+                  {quiz.negative_marks}
                 </span>
 
                 <span className="rounded-full bg-white/10 px-3 py-1.5">
-                  Pass: {quiz.pass_percentage}%
+                  Pass:{" "}
+                  {quiz.pass_percentage}%
                 </span>
               </div>
             </section>
           )}
 
           {/* MESSAGES */}
+
           {error && (
             <div className="mb-5 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-300">
               {error}
@@ -1037,12 +1539,15 @@ function TeacherQuizQuestionsContent() {
             </div>
           )}
 
-          {/* BULK PASTE */}
-          <section className="mb-8 overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-blue-500/5 to-transparent">
+          {/* BULK PASTE QUESTIONS */}
+
+          <section className="mb-6 overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-blue-500/5 to-transparent">
             <button
               type="button"
               onClick={() =>
-                setShowPasteBox((current) => !current)
+                setShowPasteBox(
+                  (current) => !current
+                )
               }
               className="flex w-full items-center justify-between gap-4 p-5 text-left"
             >
@@ -1052,8 +1557,9 @@ function TeacherQuizQuestionsContent() {
                 </h2>
 
                 <p className="mt-1 text-sm text-slate-400">
-                  Copy questions and A/B/C/D options directly from ChatGPT and
-                  paste them here.
+                  Copy questions and A/B/C/D
+                  options directly from ChatGPT
+                  and paste them here.
                 </p>
               </div>
 
@@ -1067,20 +1573,30 @@ function TeacherQuizQuestionsContent() {
                 <textarea
                   value={pasteText}
                   onChange={(event) =>
-                    setPasteText(event.target.value)
+                    setPasteText(
+                      event.target.value
+                    )
                   }
                   placeholder={`Paste like this:
 
 1. What is the capital of India?
+
 A. Mumbai
+
 B. New Delhi
+
 C. Kolkata
+
 D. Chennai
 
 2. Which planet is known as the Red Planet?
+
 A. Earth
+
 B. Venus
+
 C. Mars
+
 D. Jupiter`}
                   className="min-h-[260px] w-full rounded-2xl border border-white/10 bg-slate-950/80 p-4 text-sm leading-6 text-white outline-none placeholder:text-slate-600 focus:border-cyan-400/40"
                 />
@@ -1088,8 +1604,12 @@ D. Jupiter`}
                 <div className="mt-4 flex flex-wrap items-center gap-3">
                   <button
                     type="button"
-                    onClick={handleParsePaste}
-                    disabled={!pasteText.trim()}
+                    onClick={
+                      handleParsePaste
+                    }
+                    disabled={
+                      !pasteText.trim()
+                    }
                     className="rounded-xl bg-cyan-600 px-5 py-3 text-sm font-black transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Parse Questions
@@ -1097,15 +1617,119 @@ D. Jupiter`}
 
                   <button
                     type="button"
-                    onClick={() => setPasteText("")}
+                    onClick={() =>
+                      setPasteText("")
+                    }
                     className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-bold text-slate-300 hover:bg-white/10"
                   >
                     Clear
                   </button>
 
                   <p className="text-xs text-slate-500">
-                    Supports numbered questions, Q1 format, A/B/C/D and
-                    optional Answer: B.
+                    Supports numbered
+                    questions, Q1 format,
+                    A/B/C/D and optional
+                    Answer: B.
+                  </p>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* NEW BULK PASTE ANSWERS */}
+
+          <section className="mb-8 overflow-hidden rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent">
+            <button
+              type="button"
+              onClick={() =>
+                setShowAnswerBox(
+                  (current) => !current
+                )
+              }
+              className="flex w-full items-center justify-between gap-4 p-5 text-left"
+            >
+              <div>
+                <h2 className="text-lg font-black">
+                  Bulk Paste Answers
+                </h2>
+
+                <p className="mt-1 text-sm text-slate-400">
+                  Paste all correct answers at
+                  once. They will automatically
+                  be assigned to the matching
+                  questions.
+                </p>
+              </div>
+
+              <span className="text-xl text-emerald-300">
+                {showAnswerBox ? "−" : "+"}
+              </span>
+            </button>
+
+            {showAnswerBox && (
+              <div className="border-t border-white/10 p-5">
+                <textarea
+                  value={bulkAnswerText}
+                  onChange={(event) =>
+                    setBulkAnswerText(
+                      event.target.value
+                    )
+                  }
+                  placeholder={`Paste correct answers like this:
+
+1. B
+2. C
+3. A
+4. D
+5. B
+
+OR simply:
+
+B
+C
+A
+D
+B
+
+OR:
+
+Q1: B
+Q2: C
+Q3: A
+Q4: D`}
+                  className="min-h-[220px] w-full rounded-2xl border border-white/10 bg-slate-950/80 p-4 text-sm leading-6 text-white outline-none placeholder:text-slate-600 focus:border-emerald-400/40"
+                />
+
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={
+                      handleParseBulkAnswers
+                    }
+                    disabled={
+                      !bulkAnswerText.trim() ||
+                      questions.length === 0
+                    }
+                    className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-black transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Parse Answers
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setBulkAnswerText("")
+                    }
+                    className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-bold text-slate-300 hover:bg-white/10"
+                  >
+                    Clear
+                  </button>
+
+                  <p className="text-xs text-slate-500">
+                    Answers are matched by
+                    question number. Example:
+                    1. B means Question 1 =
+                    option B.
                   </p>
                 </div>
               </div>
@@ -1113,6 +1737,7 @@ D. Jupiter`}
           </section>
 
           {/* TOP ACTIONS */}
+
           <section className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-xl font-black">
@@ -1120,7 +1745,9 @@ D. Jupiter`}
               </h2>
 
               <p className="mt-1 text-sm text-slate-400">
-                {completedQuestions} of {totalQuestions} questions are ready.
+                {completedQuestions} of{" "}
+                {totalQuestions} questions are
+                ready.
               </p>
             </div>
 
@@ -1136,7 +1763,10 @@ D. Jupiter`}
               <button
                 type="button"
                 onClick={saveAllQuestions}
-                disabled={saving || totalQuestions === 0}
+                disabled={
+                  saving ||
+                  totalQuestions === 0
+                }
                 className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-black transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {saving
@@ -1147,17 +1777,21 @@ D. Jupiter`}
           </section>
 
           {/* EMPTY STATE */}
+
           {questions.length === 0 && (
             <section className="rounded-3xl border border-dashed border-white/15 bg-white/5 p-10 text-center">
-              <div className="text-5xl">?</div>
+              <div className="text-5xl">
+                ?
+              </div>
 
               <h3 className="mt-4 text-xl font-black">
                 No questions yet
               </h3>
 
               <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-400">
-                Paste all your ChatGPT questions above or add questions
-                manually.
+                Paste all your ChatGPT
+                questions above or add
+                questions manually.
               </p>
 
               <button
@@ -1171,241 +1805,278 @@ D. Jupiter`}
           )}
 
           {/* QUESTIONS */}
+
           <section className="space-y-5">
-            {questions.map((question, questionIndex) => {
-              const correctIndex =
-                question.options.findIndex(
-                  (option) => option.is_correct
-                );
+            {questions.map(
+              (question, questionIndex) => {
+                const correctIndex =
+                  question.options.findIndex(
+                    (option) =>
+                      option.is_correct
+                  );
 
-              const isReady =
-                question.question_text.trim() &&
-                question.options.length === 4 &&
-                question.options.every(
-                  (option) =>
-                    option.option_text.trim()
-                ) &&
-                correctIndex !== -1;
+                const isReady =
+                  question.question_text.trim() &&
+                  question.options.length ===
+                    4 &&
+                  question.options.every(
+                    (option) =>
+                      option.option_text.trim()
+                  ) &&
+                  correctIndex !== -1;
 
-              return (
-                <article
-                  key={
-                    question.id ??
-                    `new-${questionIndex}`
-                  }
-                  className={`rounded-3xl border bg-white/5 p-5 shadow-xl ${
-                    isReady
-                      ? "border-emerald-400/15"
-                      : "border-amber-400/20"
-                  }`}
-                >
-                  {/* QUESTION HEADER */}
-                  <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/20 font-black text-indigo-300">
-                        {questionIndex + 1}
+                return (
+                  <article
+                    key={
+                      question.id ??
+                      `new-${questionIndex}`
+                    }
+                    className={`rounded-3xl border bg-white/5 p-5 shadow-xl ${
+                      isReady
+                        ? "border-emerald-400/15"
+                        : "border-amber-400/20"
+                    }`}
+                  >
+                    {/* QUESTION HEADER */}
+
+                    <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/20 font-black text-indigo-300">
+                          {questionIndex +
+                            1}
+                        </div>
+
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                            Question{" "}
+                            {questionIndex +
+                              1}
+                          </p>
+
+                          <p
+                            className={`text-xs font-bold ${
+                              isReady
+                                ? "text-emerald-400"
+                                : "text-amber-400"
+                            }`}
+                          >
+                            {isReady
+                              ? "Ready"
+                              : "Needs attention"}
+                          </p>
+                        </div>
                       </div>
 
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                          Question {questionIndex + 1}
-                        </p>
-
-                        <p
-                          className={`text-xs font-bold ${
-                            isReady
-                              ? "text-emerald-400"
-                              : "text-amber-400"
-                          }`}
-                        >
-                          {isReady
-                            ? "Ready"
-                            : "Needs attention"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        disabled={questionIndex === 0}
-                        onClick={() =>
-                          moveQuestion(
-                            questionIndex,
-                            "up"
-                          )
-                        }
-                        className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold disabled:opacity-30"
-                      >
-                        ↑ Up
-                      </button>
-
-                      <button
-                        type="button"
-                        disabled={
-                          questionIndex ===
-                          questions.length - 1
-                        }
-                        onClick={() =>
-                          moveQuestion(
-                            questionIndex,
-                            "down"
-                          )
-                        }
-                        className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold disabled:opacity-30"
-                      >
-                        ↓ Down
-                      </button>
-
-                      {question.id ? (
+                      <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
                           disabled={
-                            deletingId === question.id
+                            questionIndex ===
+                            0
                           }
                           onClick={() =>
-                            deleteSavedQuestion(
+                            moveQuestion(
                               questionIndex,
-                              question.id as number
+                              "up"
                             )
                           }
-                          className="rounded-lg border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-300 hover:bg-red-500/20 disabled:opacity-40"
+                          className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold disabled:opacity-30"
                         >
-                          {deletingId ===
-                          question.id
-                            ? "Deleting..."
-                            : "Delete"}
+                          ↑ Up
                         </button>
-                      ) : (
+
                         <button
                           type="button"
+                          disabled={
+                            questionIndex ===
+                            questions.length -
+                              1
+                          }
                           onClick={() =>
-                            removeLocalQuestion(
-                              questionIndex
+                            moveQuestion(
+                              questionIndex,
+                              "down"
                             )
                           }
-                          className="rounded-lg border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-300 hover:bg-red-500/20"
+                          className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold disabled:opacity-30"
                         >
-                          Remove
+                          ↓ Down
                         </button>
-                      )}
+
+                        {question.id ? (
+                          <button
+                            type="button"
+                            disabled={
+                              deletingId ===
+                              question.id
+                            }
+                            onClick={() =>
+                              deleteSavedQuestion(
+                                questionIndex,
+                                question.id as number
+                              )
+                            }
+                            className="rounded-lg border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-300 hover:bg-red-500/20 disabled:opacity-40"
+                          >
+                            {deletingId ===
+                            question.id
+                              ? "Deleting..."
+                              : "Delete"}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              removeLocalQuestion(
+                                questionIndex
+                              )
+                            }
+                            className="rounded-lg border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-300 hover:bg-red-500/20"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* QUESTION TEXT */}
-                  <div>
-                    <label className="mb-2 block text-sm font-bold text-slate-300">
-                      Question
-                    </label>
+                    {/* QUESTION TEXT */}
 
-                    <textarea
-                      value={question.question_text}
-                      onChange={(event) =>
-                        updateQuestionText(
-                          questionIndex,
-                          event.target.value
-                        )
-                      }
-                      placeholder="Enter question..."
-                      className="min-h-[100px] w-full rounded-2xl border border-white/10 bg-slate-950/70 p-4 text-sm leading-6 text-white outline-none placeholder:text-slate-600 focus:border-indigo-400/40"
-                    />
-                  </div>
-
-                  {/* OPTIONS */}
-                  <div className="mt-6">
-                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                      <label className="text-sm font-bold text-slate-300">
-                        Options
+                    <div>
+                      <label className="mb-2 block text-sm font-bold text-slate-300">
+                        Question
                       </label>
 
-                      <span className="text-xs text-slate-500">
-                        Click an option to mark it as the correct answer.
-                      </span>
+                      <textarea
+                        value={
+                          question.question_text
+                        }
+                        onChange={(event) =>
+                          updateQuestionText(
+                            questionIndex,
+                            event.target.value
+                          )
+                        }
+                        placeholder="Enter question..."
+                        className="min-h-[100px] w-full rounded-2xl border border-white/10 bg-slate-950/70 p-4 text-sm leading-6 text-white outline-none placeholder:text-slate-600 focus:border-indigo-400/40"
+                      />
                     </div>
 
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {question.options.map(
-                        (option, optionIndex) => {
-                          const letter =
-                            ["A", "B", "C", "D"][
-                              optionIndex
-                            ];
+                    {/* OPTIONS */}
 
-                          const selected =
-                            option.is_correct;
+                    <div className="mt-6">
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <label className="text-sm font-bold text-slate-300">
+                          Options
+                        </label>
 
-                          return (
-                            <button
-                              type="button"
-                              key={`${question.id ?? questionIndex}-${optionIndex}`}
-                              onClick={() =>
-                                selectCorrectOption(
-                                  questionIndex,
-                                  optionIndex
-                                )
-                              }
-                              className={`rounded-2xl border p-3 text-left transition ${
-                                selected
-                                  ? "border-emerald-400/60 bg-emerald-500/10"
-                                  : "border-white/10 bg-slate-950/50 hover:border-indigo-400/30"
-                              }`}
-                            >
-                              <div className="flex items-start gap-3">
-                                <div
-                                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-black ${
-                                    selected
-                                      ? "bg-emerald-500 text-white"
-                                      : "bg-white/10 text-slate-300"
-                                  }`}
-                                >
-                                  {letter}
-                                </div>
+                        <span className="text-xs text-slate-500">
+                          Click an option to
+                          mark it as the
+                          correct answer.
+                        </span>
+                      </div>
 
-                                <div className="min-w-0 flex-1">
-                                  <input
-                                    type="text"
-                                    value={
-                                      option.option_text
-                                    }
-                                    onChange={(event) =>
-                                      updateOptionText(
-                                        questionIndex,
-                                        optionIndex,
-                                        event.target.value
-                                      )
-                                    }
-                                    onClick={(event) =>
-                                      event.stopPropagation()
-                                    }
-                                    placeholder={`Option ${letter}`}
-                                    className="w-full border-0 bg-transparent px-0 py-2 text-sm text-white outline-none placeholder:text-slate-600"
-                                  />
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {question.options.map(
+                          (
+                            option,
+                            optionIndex
+                          ) => {
+                            const letter =
+                              [
+                                "A",
+                                "B",
+                                "C",
+                                "D",
+                              ][
+                                optionIndex
+                              ];
 
+                            const selected =
+                              option.is_correct;
+
+                            return (
+                              <button
+                                type="button"
+                                key={`${question.id ?? questionIndex}-${optionIndex}`}
+                                onClick={() =>
+                                  selectCorrectOption(
+                                    questionIndex,
+                                    optionIndex
+                                  )
+                                }
+                                className={`rounded-2xl border p-3 text-left transition ${
+                                  selected
+                                    ? "border-emerald-400/60 bg-emerald-500/10"
+                                    : "border-white/10 bg-slate-950/50 hover:border-indigo-400/30"
+                                }`}
+                              >
+                                <div className="flex items-start gap-3">
                                   <div
-                                    className={`text-[11px] font-black uppercase ${
+                                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-black ${
                                       selected
-                                        ? "text-emerald-400"
-                                        : "text-slate-600"
+                                        ? "bg-emerald-500 text-white"
+                                        : "bg-white/10 text-slate-300"
                                     }`}
                                   >
-                                    {selected
-                                      ? "Correct Answer"
-                                      : "Click to mark correct"}
+                                    {
+                                      letter
+                                    }
+                                  </div>
+
+                                  <div className="min-w-0 flex-1">
+                                    <input
+                                      type="text"
+                                      value={
+                                        option.option_text
+                                      }
+                                      onChange={(
+                                        event
+                                      ) =>
+                                        updateOptionText(
+                                          questionIndex,
+                                          optionIndex,
+                                          event
+                                            .target
+                                            .value
+                                        )
+                                      }
+                                      onClick={(
+                                        event
+                                      ) =>
+                                        event.stopPropagation()
+                                      }
+                                      placeholder={`Option ${letter}`}
+                                      className="w-full border-0 bg-transparent px-0 py-2 text-sm text-white outline-none placeholder:text-slate-600"
+                                    />
+
+                                    <div
+                                      className={`text-[11px] font-black uppercase ${
+                                        selected
+                                          ? "text-emerald-400"
+                                          : "text-slate-600"
+                                      }`}
+                                    >
+                                      {selected
+                                        ? "Correct Answer"
+                                        : "Click to mark correct"}
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            </button>
-                          );
-                        }
-                      )}
+                              </button>
+                            );
+                          }
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </article>
-              );
-            })}
+                  </article>
+                );
+              }
+            )}
           </section>
 
           {/* BOTTOM SAVE */}
+
           {questions.length > 0 && (
             <section className="mt-8 rounded-3xl border border-emerald-400/20 bg-emerald-500/5 p-5">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1415,7 +2086,8 @@ D. Jupiter`}
                   </h3>
 
                   <p className="mt-1 text-xs text-slate-400">
-                    Make sure every question has 4 options and exactly one
+                    Make sure every question has
+                    4 options and exactly one
                     correct answer.
                   </p>
                 </div>
