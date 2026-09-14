@@ -18,9 +18,6 @@ type Status = "Present" | "Absent";
 type ExtraClass = {
   id: number;
   class_date: string;
-  class_time: string | null;
-  subject: string | null;
-  topic: string | null;
   remarks: string | null;
   created_at?: string;
 };
@@ -30,9 +27,6 @@ type ExtraClassAttendance = {
   extra_class_id: number;
   student_id: number;
   extra_class_date: string;
-  class_time: string | null;
-  subject: string | null;
-  topic: string | null;
   status: Status;
   remarks: string | null;
   created_at?: string;
@@ -60,20 +54,6 @@ function formatDate(date: string) {
   });
 }
 
-function formatTime(time: string | null) {
-  if (!time) return "-";
-
-  const [hourString, minute] = time.split(":");
-  const hour = Number(hourString);
-
-  if (Number.isNaN(hour)) return time;
-
-  const suffix = hour >= 12 ? "PM" : "AM";
-  const displayHour = hour % 12 || 12;
-
-  return `${displayHour}:${minute} ${suffix}`;
-}
-
 function getMonthName(monthValue: string) {
   if (!monthValue) return "";
 
@@ -95,9 +75,7 @@ export default function ExtraClassPage() {
   const [classDate, setClassDate] = useState(
     new Date().toISOString().split("T")[0]
   );
-  const [classTime, setClassTime] = useState("");
-  const [subject, setSubject] = useState("");
-  const [topic, setTopic] = useState("");
+
   const [remarks, setRemarks] = useState("");
 
   const [studentSearch, setStudentSearch] = useState("");
@@ -206,9 +184,6 @@ export default function ExtraClassPage() {
     setSelectedClassId(null);
 
     setClassDate(new Date().toISOString().split("T")[0]);
-    setClassTime("");
-    setSubject("");
-    setTopic("");
     setRemarks("");
 
     setStudentSearch("");
@@ -240,9 +215,6 @@ export default function ExtraClassPage() {
     setSelectedClassId(extraClass.id);
 
     setClassDate(extraClass.class_date);
-    setClassTime(extraClass.class_time || "");
-    setSubject(extraClass.subject || "");
-    setTopic(extraClass.topic || "");
     setRemarks(extraClass.remarks || "");
 
     const studentIds = classAttendance.map((item) => item.student_id);
@@ -405,16 +377,6 @@ export default function ExtraClassPage() {
       return;
     }
 
-    if (!subject.trim()) {
-      showMessage("Please enter subject.", "error");
-      return;
-    }
-
-    if (!topic.trim()) {
-      showMessage("Please enter topic.", "error");
-      return;
-    }
-
     if (selectedStudents.length === 0) {
       showMessage(
         "Please select at least one student.",
@@ -437,9 +399,6 @@ export default function ExtraClassPage() {
           .from("extra_classes")
           .insert({
             class_date: classDate,
-            class_time: classTime || null,
-            subject: subject.trim(),
-            topic: topic.trim(),
             remarks: remarks.trim() || null,
           })
           .select("*")
@@ -459,9 +418,6 @@ export default function ExtraClassPage() {
           .from("extra_classes")
           .update({
             class_date: classDate,
-            class_time: classTime || null,
-            subject: subject.trim(),
-            topic: topic.trim(),
             remarks: remarks.trim() || null,
           })
           .eq("id", classId);
@@ -488,9 +444,6 @@ export default function ExtraClassPage() {
         extra_class_id: classId,
         student_id: studentId,
         extra_class_date: classDate,
-        class_time: classTime || null,
-        subject: subject.trim(),
-        topic: topic.trim(),
         status: statusMap[studentId] || "Absent",
         remarks: remarks.trim() || null,
       }));
@@ -510,21 +463,17 @@ export default function ExtraClassPage() {
         "success"
       );
 
-      // Reload data before editing the saved class.
+      // Reload data.
       await loadData();
 
       if (classId !== null) {
         setSelectedClassId(classId);
 
-        const savedClass =
-          classes.find((item) => item.id === classId) || {
-            id: classId,
-            class_date: classDate,
-            class_time: classTime || null,
-            subject: subject.trim(),
-            topic: topic.trim(),
-            remarks: remarks.trim() || null,
-          };
+        const savedClass: ExtraClass = {
+          id: classId,
+          class_date: classDate,
+          remarks: remarks.trim() || null,
+        };
 
         setTimeout(() => {
           editClass(savedClass);
@@ -550,21 +499,24 @@ export default function ExtraClassPage() {
 
   async function deleteClass(extraClass: ExtraClass) {
     const confirmed = window.confirm(
-      `Delete this Extra Class?\n\n${
-        extraClass.subject || "Extra Class"
-      }\n${extraClass.topic || ""}\n${formatDate(
+      `Delete this Extra Class?\n\n${formatDate(
         extraClass.class_date
-      )} ${
-        extraClass.class_time
-          ? `at ${formatTime(extraClass.class_time)}`
-          : ""
-      }\n\nIts attendance records will also be deleted.`
+      )}\n\nIts attendance records will also be deleted.`
     );
 
     if (!confirmed) return;
 
     try {
       setDeleting(true);
+
+      const { error: attendanceDeleteError } = await supabase
+        .from("extra_class_attendance")
+        .delete()
+        .eq("extra_class_id", extraClass.id);
+
+      if (attendanceDeleteError) {
+        throw new Error(attendanceDeleteError.message);
+      }
 
       const { error } = await supabase
         .from("extra_classes")
@@ -636,12 +588,6 @@ export default function ExtraClassPage() {
     if (query) {
       result = result.filter((item) => {
         return (
-          (item.subject || "")
-            .toLowerCase()
-            .includes(query) ||
-          (item.topic || "")
-            .toLowerCase()
-            .includes(query) ||
           (item.remarks || "")
             .toLowerCase()
             .includes(query) ||
@@ -774,9 +720,9 @@ export default function ExtraClassPage() {
               </h2>
 
               <p>
-                First create the class details, then
-                select the students who attended this
-                Extra Class.
+                Select the Extra Class date, add any
+                remarks, then select the students who
+                attended this Extra Class.
               </p>
             </div>
 
@@ -801,44 +747,6 @@ export default function ExtraClassPage() {
                 onChange={(e) =>
                   setClassDate(e.target.value)
                 }
-              />
-            </label>
-
-            <label className="field">
-              <span>Time</span>
-
-              <input
-                type="time"
-                value={classTime}
-                onChange={(e) =>
-                  setClassTime(e.target.value)
-                }
-              />
-            </label>
-
-            <label className="field">
-              <span>Subject *</span>
-
-              <input
-                type="text"
-                value={subject}
-                onChange={(e) =>
-                  setSubject(e.target.value)
-                }
-                placeholder="e.g. Mathematics"
-              />
-            </label>
-
-            <label className="field">
-              <span>Topic *</span>
-
-              <input
-                type="text"
-                value={topic}
-                onChange={(e) =>
-                  setTopic(e.target.value)
-                }
-                placeholder="e.g. Trigonometry"
               />
             </label>
 
@@ -1252,7 +1160,7 @@ export default function ExtraClassPage() {
                 onChange={(e) =>
                   setHistorySearch(e.target.value)
                 }
-                placeholder="Search subject, topic or date..."
+                placeholder="Search remarks or date..."
               />
             </div>
           </div>
@@ -1318,13 +1226,13 @@ export default function ExtraClassPage() {
                         <div className="history-title-row">
                           <div>
                             <div className="history-subject">
-                              {extraClass.subject ||
-                                "Extra Class"}
+                              EXTRA CLASS
                             </div>
 
                             <h3>
-                              {extraClass.topic ||
-                                "No topic"}
+                              {formatDate(
+                                extraClass.class_date
+                              )}
                             </h3>
                           </div>
 
@@ -1335,13 +1243,6 @@ export default function ExtraClassPage() {
                         </div>
 
                         <div className="history-meta">
-                          <span>
-                            🕐{" "}
-                            {formatTime(
-                              extraClass.class_time
-                            )}
-                          </span>
-
                           <span>
                             👨‍🎓 {stats.total} Students
                           </span>
@@ -1642,10 +1543,7 @@ export default function ExtraClassPage() {
 
         .details-grid {
           display: grid;
-          grid-template-columns: repeat(
-            4,
-            minmax(0, 1fr)
-          );
+          grid-template-columns: minmax(0, 1fr);
           gap: 16px;
         }
 
@@ -2402,13 +2300,6 @@ export default function ExtraClassPage() {
         }
 
         @media (max-width: 1050px) {
-          .details-grid {
-            grid-template-columns: repeat(
-              2,
-              minmax(0, 1fr)
-            );
-          }
-
           .summary-grid {
             grid-template-columns: repeat(
               2,
@@ -2446,10 +2337,6 @@ export default function ExtraClassPage() {
 
           .section-heading {
             flex-direction: column;
-          }
-
-          .details-grid {
-            grid-template-columns: 1fr;
           }
 
           .summary-grid {
