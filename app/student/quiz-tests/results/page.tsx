@@ -343,9 +343,6 @@ function ResultsContent() {
      *
      * Use stored ID only when there is NO usable
      * username available.
-     *
-     * This is important because an old studentId may
-     * belong to another student.
      */
     if (
       !currentStudent &&
@@ -432,8 +429,6 @@ function ResultsContent() {
       );
 
     /*
-     * IMPORTANT:
-     *
      * Replace ALL potentially stale localStorage identity
      * values with the VERIFIED database identity.
      */
@@ -460,6 +455,11 @@ function ResultsContent() {
 
       localStorage.setItem(
         "studentUsername",
+        actualStudentUsername
+      );
+
+      localStorage.setItem(
+        "student_username_login",
         actualStudentUsername
       );
     }
@@ -496,10 +496,6 @@ function ResultsContent() {
 
     /*
      * Clear old result data immediately.
-     *
-     * This prevents a previous student's result from
-     * remaining visible while the current student's result
-     * is being loaded.
      */
     setQuestionReviews([]);
     setSelectedResult(null);
@@ -720,12 +716,9 @@ function ResultsContent() {
     setSelectedQuiz(quiz);
 
     /*
-     * CRITICAL SECURITY/OWNERSHIP FILTER:
+     * CRITICAL:
      *
-     * Both quiz_id AND student_id are required.
-     *
-     * studentId here is already VERIFIED from the
-     * current student's username.
+     * Both quiz_id and student_id are required.
      */
     const {
       data: resultData,
@@ -756,14 +749,6 @@ function ResultsContent() {
       );
     }
 
-    /*
-     * DO NOT use sessionStorage as a fallback.
-     *
-     * The database result is the source of truth.
-     *
-     * A cached result from another browser/student session
-     * must never be allowed to appear here.
-     */
     const result =
       (resultData ||
         null) as QuizResult | null;
@@ -786,17 +771,12 @@ function ResultsContent() {
       );
     }
 
-    /*
-     * The result card now belongs ONLY to the verified
-     * currently logged-in student.
-     */
     setSelectedResult(
       result
     );
 
     /*
-     * Use this exact result ID for the question-wise
-     * answer review.
+     * Use THIS exact result ID.
      */
     await loadQuestionReview(
       Number(result.id),
@@ -813,7 +793,7 @@ function ResultsContent() {
     try {
       /*
        * 1. Get answers belonging ONLY to this exact
-       *    submitted result.
+       * submitted result.
        */
       const {
         data: answerData,
@@ -843,7 +823,7 @@ function ResultsContent() {
           []) as QuizAnswer[];
 
       /*
-       * 2. Get all questions belonging to this quiz.
+       * 2. Get ALL questions belonging to this quiz.
        */
       const {
         data: questionData,
@@ -890,10 +870,10 @@ function ResultsContent() {
         );
 
       /*
-       * 3. Get options for these questions.
+       * 3. Get ALL options.
        *
-       * Correct answers are only loaded on the
-       * submitted-result page.
+       * is_correct is fetched ONLY on this submitted
+       * result page. It is NOT fetched during the active quiz.
        */
       const {
         data: optionData,
@@ -981,7 +961,12 @@ function ResultsContent() {
       );
 
       /*
-       * 6. Build the complete question-wise review.
+       * 6. Build complete question-wise report.
+       *
+       * Every question is included:
+       * - answered correctly
+       * - answered incorrectly
+       * - not answered
        */
       const review =
         questions.map(
@@ -1132,16 +1117,40 @@ function ResultsContent() {
                 </p>
               </div>
 
-              <button
-                onClick={() =>
-                  router.push(
-                    "/student/quiz-tests"
-                  )
-                }
-                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold hover:bg-white/10"
-              >
-                ← Quiz Tests
-              </button>
+              <div className="flex flex-wrap justify-end gap-2">
+
+                <button
+                  onClick={() =>
+                    router.back()
+                  }
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold hover:bg-white/10"
+                >
+                  ← Back
+                </button>
+
+                <button
+                  onClick={() =>
+                    router.push(
+                      "/student/dashboard"
+                    )
+                  }
+                  className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-black hover:bg-indigo-500"
+                >
+                  Dashboard
+                </button>
+
+                <button
+                  onClick={() =>
+                    router.push(
+                      "/student/quiz-tests"
+                    )
+                  }
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold hover:bg-white/10"
+                >
+                  ← Quiz Tests
+                </button>
+
+              </div>
 
             </div>
           </header>
@@ -1203,7 +1212,10 @@ function ResultsContent() {
               <div className="grid gap-5 md:grid-cols-2">
 
                 {results.map(
-                  (item, index) => {
+                  (
+                    item,
+                    index
+                  ) => {
                     const passed =
                       String(
                         item.result_status
@@ -1417,16 +1429,40 @@ function ResultsContent() {
               </p>
             </div>
 
-            <button
-              onClick={() =>
-                router.push(
-                  "/student/quiz-tests/results"
-                )
-              }
-              className="rounded-xl bg-white/5 px-4 py-2 text-sm font-bold hover:bg-white/10"
-            >
-              ← All Results
-            </button>
+            <div className="flex flex-wrap justify-end gap-2">
+
+              <button
+                onClick={() =>
+                  router.back()
+                }
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold hover:bg-white/10"
+              >
+                ← Back
+              </button>
+
+              <button
+                onClick={() =>
+                  router.push(
+                    "/student/dashboard"
+                  )
+                }
+                className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-black hover:bg-indigo-500"
+              >
+                Dashboard
+              </button>
+
+              <button
+                onClick={() =>
+                  router.push(
+                    "/student/quiz-tests/results"
+                  )
+                }
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold hover:bg-white/10"
+              >
+                ← All Results
+              </button>
+
+            </div>
 
           </div>
         </header>
@@ -1628,9 +1664,9 @@ function ResultsContent() {
                 </h3>
 
                 <p className="mt-2 text-sm leading-6 text-slate-400">
-                  Your submitted answers and the correct answers
-                  are shown below. This report remains available
-                  after submission.
+                  Your complete submitted answer history is
+                  shown below. Every question shows your answer,
+                  the correct answer and the marks obtained.
                 </p>
               </div>
 
@@ -1657,7 +1693,7 @@ function ResultsContent() {
                 </p>
 
                 <p className="mt-2 text-xs text-slate-500">
-                  Preparing your question-wise report.
+                  Preparing your complete question-wise report.
                 </p>
 
               </div>
@@ -2117,6 +2153,30 @@ function ResultsContent() {
               className="rounded-2xl bg-indigo-600 px-5 py-4 font-black hover:bg-indigo-500"
             >
               QUIZ HISTORY →
+            </button>
+
+          </div>
+
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+
+            <button
+              onClick={() =>
+                router.back()
+              }
+              className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4 font-black hover:bg-white/10"
+            >
+              ← BACK
+            </button>
+
+            <button
+              onClick={() =>
+                router.push(
+                  "/student/dashboard"
+                )
+              }
+              className="rounded-2xl bg-indigo-600 px-5 py-4 font-black hover:bg-indigo-500"
+            >
+              GO TO DASHBOARD
             </button>
 
           </div>
