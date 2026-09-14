@@ -83,6 +83,13 @@ type QuestionReview = {
   correctOption: QuizOption | null;
 };
 
+type Student = {
+  id: number;
+  student_name: string | null;
+  student_username: string | null;
+  class_name: string | null;
+};
+
 function normalizeClass(value: unknown): string {
   if (typeof value !== "string") {
     return "";
@@ -258,7 +265,30 @@ function ResultsContent() {
     loadPage();
   }, [quizIdParam]);
 
+  /*
+   * IMPORTANT:
+   *
+   * The currently logged-in student's USERNAME is the
+   * primary identity source.
+   *
+   * A stale studentId from a previous login must NEVER
+   * override the current student's username.
+   */
   async function getStudent() {
+    const storedUsername =
+      (
+        localStorage.getItem(
+          "student_username"
+        ) ||
+        localStorage.getItem(
+          "studentUsername"
+        ) ||
+        localStorage.getItem(
+          "student_username_login"
+        ) ||
+        ""
+      ).trim();
+
     const storedId =
       localStorage.getItem(
         "attendance_student_id"
@@ -270,89 +300,17 @@ function ResultsContent() {
         "student_id"
       );
 
-    const storedUsername =
-      localStorage.getItem(
-        "student_username"
-      ) ||
-      localStorage.getItem(
-        "studentUsername"
-      );
-
-    let studentId: number | null =
-      null;
-
-    let name =
-      localStorage.getItem(
-        "attendance_student_name"
-      ) ||
-      localStorage.getItem(
-        "studentName"
-      ) ||
-      localStorage.getItem(
-        "student_name"
-      ) ||
-      "";
-
-    let className = "";
-
-    const parsedId =
-      Number(storedId);
-
-    if (
-      Number.isFinite(parsedId) &&
-      parsedId > 0
-    ) {
-      studentId = parsedId;
-    }
+    let currentStudent:
+      | Student
+      | null = null;
 
     /*
-     * First verify the stored student ID.
-     * The result page must always use the actual
-     * student record corresponding to the current login.
+     * FIRST PRIORITY:
+     *
+     * Resolve the student directly from the username
+     * belonging to the current login.
      */
-    if (studentId) {
-      const {
-        data,
-        error: studentError,
-      } = await supabase
-        .from("students")
-        .select(
-          "id,student_name,student_username,class_name"
-        )
-        .eq("id", studentId)
-        .maybeSingle();
-
-      if (studentError) {
-        console.error(
-          "Student ID lookup error:",
-          studentError
-        );
-      }
-
-      if (data) {
-        studentId =
-          Number(data.id);
-
-        name =
-          data.student_name ||
-          name;
-
-        className =
-          normalizeClass(
-            data.class_name
-          );
-      }
-    }
-
-    /*
-     * If the ID is missing/invalid, resolve the
-     * student from the login username.
-     */
-    if (
-      (!studentId ||
-        !className) &&
-      storedUsername
-    ) {
+    if (storedUsername) {
       const {
         data,
         error: usernameError,
@@ -375,39 +333,178 @@ function ResultsContent() {
       }
 
       if (data) {
-        studentId =
-          Number(data.id);
-
-        name =
-          data.student_name ||
-          name;
-
-        className =
-          normalizeClass(
-            data.class_name
-          );
+        currentStudent =
+          data as Student;
       }
     }
 
-    if (!studentId) {
+    /*
+     * FALLBACK ONLY:
+     *
+     * Use stored ID only when there is NO usable
+     * username available.
+     *
+     * This is important because an old studentId may
+     * belong to another student.
+     */
+    if (
+      !currentStudent &&
+      !storedUsername &&
+      storedId
+    ) {
+      const numericId =
+        Number(storedId);
+
+      if (
+        Number.isFinite(numericId) &&
+        numericId > 0
+      ) {
+        const {
+          data,
+          error: idError,
+        } = await supabase
+          .from("students")
+          .select(
+            "id,student_name,student_username,class_name"
+          )
+          .eq(
+            "id",
+            numericId
+          )
+          .maybeSingle();
+
+        if (idError) {
+          console.error(
+            "Student ID lookup error:",
+            idError
+          );
+        }
+
+        if (data) {
+          currentStudent =
+            data as Student;
+        }
+      }
+    }
+
+    if (!currentStudent) {
       throw new Error(
         "Student login information not found. Please login again."
       );
     }
 
+    const actualStudentId =
+      Number(currentStudent.id);
+
+    if (
+      !Number.isFinite(
+        actualStudentId
+      ) ||
+      actualStudentId <= 0
+    ) {
+      throw new Error(
+        "Invalid student account. Please login again."
+      );
+    }
+
+    const actualStudentUsername =
+      (
+        currentStudent.student_username ||
+        storedUsername
+      ).trim();
+
+    const actualStudentName =
+      currentStudent.student_name ||
+      localStorage.getItem(
+        "attendance_student_name"
+      ) ||
+      localStorage.getItem(
+        "studentName"
+      ) ||
+      localStorage.getItem(
+        "student_name"
+      ) ||
+      "";
+
+    const actualStudentClass =
+      normalizeClass(
+        currentStudent.class_name
+      );
+
+    /*
+     * IMPORTANT:
+     *
+     * Replace ALL potentially stale localStorage identity
+     * values with the VERIFIED database identity.
+     */
+    localStorage.setItem(
+      "attendance_student_id",
+      String(actualStudentId)
+    );
+
+    localStorage.setItem(
+      "studentId",
+      String(actualStudentId)
+    );
+
+    localStorage.setItem(
+      "student_id",
+      String(actualStudentId)
+    );
+
+    if (actualStudentUsername) {
+      localStorage.setItem(
+        "student_username",
+        actualStudentUsername
+      );
+
+      localStorage.setItem(
+        "studentUsername",
+        actualStudentUsername
+      );
+    }
+
+    if (actualStudentName) {
+      localStorage.setItem(
+        "attendance_student_name",
+        actualStudentName
+      );
+
+      localStorage.setItem(
+        "studentName",
+        actualStudentName
+      );
+
+      localStorage.setItem(
+        "student_name",
+        actualStudentName
+      );
+    }
+
     return {
-      id: studentId,
-      name,
-      className,
+      id: actualStudentId,
+      name: actualStudentName,
+      className: actualStudentClass,
+      username:
+        actualStudentUsername,
     };
   }
 
   async function loadPage() {
     setLoading(true);
     setError("");
+
+    /*
+     * Clear old result data immediately.
+     *
+     * This prevents a previous student's result from
+     * remaining visible while the current student's result
+     * is being loaded.
+     */
     setQuestionReviews([]);
     setSelectedResult(null);
     setSelectedQuiz(null);
+    setResults([]);
 
     try {
       const student =
@@ -453,6 +550,10 @@ function ResultsContent() {
     studentId: number,
     currentClass: string
   ) {
+    /*
+     * ONLY results belonging to the verified current
+     * student's database ID are loaded.
+     */
     const {
       data: resultData,
       error: resultError,
@@ -569,7 +670,7 @@ function ResultsContent() {
     quizId: number
   ) {
     /*
-     * Load the quiz first.
+     * Load the selected quiz first.
      */
     const {
       data: quizData,
@@ -601,9 +702,8 @@ function ResultsContent() {
       quizData as Quiz;
 
     /*
-     * Security/ownership check:
-     * the selected quiz must belong to the
-     * logged-in student's assigned class.
+     * Make sure the quiz belongs to the current
+     * student's assigned class.
      */
     if (
       currentClass &&
@@ -620,12 +720,12 @@ function ResultsContent() {
     setSelectedQuiz(quiz);
 
     /*
-     * IMPORTANT:
-     * Always filter by BOTH quiz_id AND the
-     * currently logged-in student's student_id.
+     * CRITICAL SECURITY/OWNERSHIP FILTER:
      *
-     * This prevents another student's result
-     * from being displayed.
+     * Both quiz_id AND student_id are required.
+     *
+     * studentId here is already VERIFIED from the
+     * current student's username.
      */
     const {
       data: resultData,
@@ -635,11 +735,11 @@ function ResultsContent() {
       .select("*")
       .eq(
         "quiz_id",
-        quizId
+        Number(quizId)
       )
       .eq(
         "student_id",
-        studentId
+        Number(studentId)
       )
       .order(
         "submitted_at",
@@ -656,45 +756,17 @@ function ResultsContent() {
       );
     }
 
-    let result =
+    /*
+     * DO NOT use sessionStorage as a fallback.
+     *
+     * The database result is the source of truth.
+     *
+     * A cached result from another browser/student session
+     * must never be allowed to appear here.
+     */
+    const result =
       (resultData ||
         null) as QuizResult | null;
-
-    /*
-     * Session fallback is also strictly checked
-     * against the current logged-in student.
-     */
-    if (!result) {
-      try {
-        const stored =
-          sessionStorage.getItem(
-            `quiz-result-${quizId}`
-          );
-
-        if (stored) {
-          const parsed =
-            JSON.parse(
-              stored
-            ) as QuizResult;
-
-          if (
-            Number(
-              parsed.quiz_id
-            ) === quizId &&
-            Number(
-              parsed.student_id
-            ) === studentId
-          ) {
-            result = parsed;
-          }
-        }
-      } catch (storageError) {
-        console.error(
-          "Session result error:",
-          storageError
-        );
-      }
-    }
 
     if (!result) {
       throw new Error(
@@ -703,8 +775,7 @@ function ResultsContent() {
     }
 
     /*
-     * Final ownership check before displaying
-     * anything from the result.
+     * Final ownership verification.
      */
     if (
       Number(result.student_id) !==
@@ -715,14 +786,17 @@ function ResultsContent() {
       );
     }
 
+    /*
+     * The result card now belongs ONLY to the verified
+     * currently logged-in student.
+     */
     setSelectedResult(
       result
     );
 
     /*
-     * Use THIS exact result ID for answer review.
-     * Therefore the review can never belong to
-     * another student's submission.
+     * Use this exact result ID for the question-wise
+     * answer review.
      */
     await loadQuestionReview(
       Number(result.id),
@@ -738,8 +812,8 @@ function ResultsContent() {
 
     try {
       /*
-       * 1. Get answers belonging ONLY to this
-       *    exact submitted result.
+       * 1. Get answers belonging ONLY to this exact
+       *    submitted result.
        */
       const {
         data: answerData,
@@ -769,8 +843,7 @@ function ResultsContent() {
           []) as QuizAnswer[];
 
       /*
-       * 2. Get all questions belonging to
-       *    this quiz.
+       * 2. Get all questions belonging to this quiz.
        */
       const {
         data: questionData,
@@ -805,10 +878,6 @@ function ResultsContent() {
         (questionData ||
           []) as QuizQuestion[];
 
-      /*
-       * If the quiz has no questions, there is
-       * nothing to review.
-       */
       if (questions.length === 0) {
         setQuestionReviews([]);
         return;
@@ -821,11 +890,10 @@ function ResultsContent() {
         );
 
       /*
-       * 3. Get all options for those questions.
+       * 3. Get options for these questions.
        *
-       * Correct answers are fetched ONLY here,
-       * on the submitted-result page.
-       * They are NOT fetched by the active quiz page.
+       * Correct answers are only loaded on the
+       * submitted-result page.
        */
       const {
         data: optionData,
@@ -913,8 +981,7 @@ function ResultsContent() {
       );
 
       /*
-       * 6. Build the complete question-wise
-       *    review.
+       * 6. Build the complete question-wise review.
        */
       const review =
         questions.map(
