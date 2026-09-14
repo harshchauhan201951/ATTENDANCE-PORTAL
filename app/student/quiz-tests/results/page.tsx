@@ -305,6 +305,11 @@ function ResultsContent() {
       studentId = parsedId;
     }
 
+    /*
+     * First verify the stored student ID.
+     * The result page must always use the actual
+     * student record corresponding to the current login.
+     */
     if (studentId) {
       const {
         data,
@@ -339,6 +344,10 @@ function ResultsContent() {
       }
     }
 
+    /*
+     * If the ID is missing/invalid, resolve the
+     * student from the login username.
+     */
     if (
       (!studentId ||
         !className) &&
@@ -396,6 +405,9 @@ function ResultsContent() {
   async function loadPage() {
     setLoading(true);
     setError("");
+    setQuestionReviews([]);
+    setSelectedResult(null);
+    setSelectedQuiz(null);
 
     try {
       const student =
@@ -412,6 +424,7 @@ function ResultsContent() {
       if (isDetail) {
         await loadSingleResult(
           student.id,
+          student.className,
           parsedQuizId
         );
       } else {
@@ -552,8 +565,12 @@ function ResultsContent() {
 
   async function loadSingleResult(
     studentId: number,
+    currentClass: string,
     quizId: number
   ) {
+    /*
+     * Load the quiz first.
+     */
     const {
       data: quizData,
       error: quizError,
@@ -583,8 +600,33 @@ function ResultsContent() {
     const quiz =
       quizData as Quiz;
 
+    /*
+     * Security/ownership check:
+     * the selected quiz must belong to the
+     * logged-in student's assigned class.
+     */
+    if (
+      currentClass &&
+      !matchesClass(
+        quiz,
+        currentClass
+      )
+    ) {
+      throw new Error(
+        "This quiz result does not belong to your assigned class."
+      );
+    }
+
     setSelectedQuiz(quiz);
 
+    /*
+     * IMPORTANT:
+     * Always filter by BOTH quiz_id AND the
+     * currently logged-in student's student_id.
+     *
+     * This prevents another student's result
+     * from being displayed.
+     */
     const {
       data: resultData,
       error: resultError,
@@ -618,6 +660,10 @@ function ResultsContent() {
       (resultData ||
         null) as QuizResult | null;
 
+    /*
+     * Session fallback is also strictly checked
+     * against the current logged-in student.
+     */
     if (!result) {
       try {
         const stored =
@@ -652,7 +698,20 @@ function ResultsContent() {
 
     if (!result) {
       throw new Error(
-        "Result not found for this quiz."
+        "Result not found for this student."
+      );
+    }
+
+    /*
+     * Final ownership check before displaying
+     * anything from the result.
+     */
+    if (
+      Number(result.student_id) !==
+      Number(studentId)
+    ) {
+      throw new Error(
+        "This result does not belong to the logged-in student."
       );
     }
 
@@ -660,9 +719,14 @@ function ResultsContent() {
       result
     );
 
+    /*
+     * Use THIS exact result ID for answer review.
+     * Therefore the review can never belong to
+     * another student's submission.
+     */
     await loadQuestionReview(
-      result.id,
-      quizId
+      Number(result.id),
+      Number(result.quiz_id)
     );
   }
 
@@ -673,6 +737,10 @@ function ResultsContent() {
     setReviewLoading(true);
 
     try {
+      /*
+       * 1. Get answers belonging ONLY to this
+       *    exact submitted result.
+       */
       const {
         data: answerData,
         error: answerError,
@@ -700,6 +768,10 @@ function ResultsContent() {
         (answerData ||
           []) as QuizAnswer[];
 
+      /*
+       * 2. Get all questions belonging to
+       *    this quiz.
+       */
       const {
         data: questionData,
         error: questionError,
@@ -733,52 +805,64 @@ function ResultsContent() {
         (questionData ||
           []) as QuizQuestion[];
 
+      /*
+       * If the quiz has no questions, there is
+       * nothing to review.
+       */
+      if (questions.length === 0) {
+        setQuestionReviews([]);
+        return;
+      }
+
       const questionIds =
         questions.map(
           (question) =>
             Number(question.id)
         );
 
-      let options: QuizOption[] =
-        [];
+      /*
+       * 3. Get all options for those questions.
+       *
+       * Correct answers are fetched ONLY here,
+       * on the submitted-result page.
+       * They are NOT fetched by the active quiz page.
+       */
+      const {
+        data: optionData,
+        error: optionError,
+      } = await supabase
+        .from("quiz_options")
+        .select(
+          "id,question_id,option_text,option_order,is_correct"
+        )
+        .in(
+          "question_id",
+          questionIds
+        )
+        .order(
+          "option_order",
+          {
+            ascending: true,
+          }
+        );
 
-      if (
-        questionIds.length > 0
-      ) {
-        const {
-          data: optionData,
-          error: optionError,
-        } = await supabase
-          .from("quiz_options")
-          .select(
-            "id,question_id,option_text,option_order,is_correct"
-          )
-          .in(
-            "question_id",
-            questionIds
-          )
-          .order(
-            "option_order",
-            {
-              ascending: true,
-            }
-          );
+      if (optionError) {
+        console.error(
+          "Quiz options load error:",
+          optionError
+        );
 
-        if (optionError) {
-          console.error(
-            "Quiz options load error:",
-            optionError
-          );
-
-          setQuestionReviews([]);
-          return;
-        }
-
-        options =
-          (optionData ||
-            []) as QuizOption[];
+        setQuestionReviews([]);
+        return;
       }
 
+      const options =
+        (optionData ||
+          []) as QuizOption[];
+
+      /*
+       * 4. Map answers by question ID.
+       */
       const answerMap =
         new Map<
           number,
@@ -796,29 +880,64 @@ function ResultsContent() {
         }
       );
 
+      /*
+       * 5. Map options by question ID.
+       */
+      const optionMap =
+        new Map<
+          number,
+          QuizOption[]
+        >();
+
+      options.forEach(
+        (option) => {
+          const questionId =
+            Number(
+              option.question_id
+            );
+
+          const existing =
+            optionMap.get(
+              questionId
+            ) || [];
+
+          existing.push(
+            option
+          );
+
+          optionMap.set(
+            questionId,
+            existing
+          );
+        }
+      );
+
+      /*
+       * 6. Build the complete question-wise
+       *    review.
+       */
       const review =
         questions.map(
           (question) => {
-            const questionOptions =
-              options.filter(
-                (option) =>
-                  Number(
-                    option.question_id
-                  ) ===
-                  Number(
-                    question.id
-                  )
+            const questionId =
+              Number(
+                question.id
               );
+
+            const questionOptions =
+              optionMap.get(
+                questionId
+              ) || [];
 
             const answer =
               answerMap.get(
-                Number(
-                  question.id
-                )
+                questionId
               ) || null;
 
             const selectedOption =
-              answer?.selected_option_id
+              answer &&
+              answer.selected_option_id !==
+                null
                 ? questionOptions.find(
                     (option) =>
                       Number(
@@ -851,6 +970,13 @@ function ResultsContent() {
       setQuestionReviews(
         review
       );
+    } catch (reviewError) {
+      console.error(
+        "Question review error:",
+        reviewError
+      );
+
+      setQuestionReviews([]);
     } finally {
       setReviewLoading(false);
     }
