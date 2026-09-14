@@ -375,7 +375,9 @@ export default function StudentQuizTestsPage() {
       getStartTime(
         quiz
       ).getTime() +
-        quiz.duration_minutes *
+        Number(
+          quiz.duration_minutes || 0
+        ) *
           60 *
           1000
     );
@@ -406,7 +408,7 @@ export default function StudentQuizTestsPage() {
 
     if (
       now >= start &&
-      now <= end
+      now < end
     ) {
       return "LIVE";
     }
@@ -463,35 +465,52 @@ export default function StudentQuizTestsPage() {
     return student.class_name;
   }
 
+  /*
+   * LIVE NOW
+   *
+   * Only published quizzes whose scheduled
+   * time has started and whose duration has
+   * not finished are shown here.
+   */
   const liveQuizzes =
     quizzes.filter(
       (quiz) =>
+        quiz.is_published &&
         getStatus(
           quiz
         ) === "LIVE"
     );
 
+  /*
+   * UPCOMING
+   *
+   * Only published quizzes whose scheduled
+   * time is still in the future are shown here.
+   */
   const upcomingQuizzes =
     quizzes.filter(
       (quiz) =>
+        quiz.is_published &&
         getStatus(
           quiz
         ) === "UPCOMING"
     );
 
+  /*
+   * AVAILABLE
+   *
+   * Available means the quiz is currently
+   * live and can be attempted.
+   *
+   * Upcoming quizzes are NOT included here.
+   */
   const availableQuizzes =
     quizzes.filter(
-      (quiz) => {
-        const status =
-          getStatus(
-            quiz
-          );
-
-        return (
-          status === "LIVE" ||
-          status === "UPCOMING"
-        );
-      }
+      (quiz) =>
+        quiz.is_published &&
+        getStatus(
+          quiz
+        ) === "LIVE"
     );
 
   const passedResults =
@@ -1236,9 +1255,7 @@ export default function StudentQuizTestsPage() {
                     <QuizCard
                       key={quiz.id}
                       quiz={quiz}
-                      status={getStatus(
-                        quiz
-                      )}
+                      status="LIVE"
                       attempted={hasAttempted(
                         quiz.id
                       )}
@@ -1466,7 +1483,7 @@ export default function StudentQuizTestsPage() {
           </span>
 
           <span>
-            Quiz duration is fixed at 30 minutes.
+            Quiz timing is controlled by the teacher's scheduled settings.
           </span>
         </footer>
       </div>
