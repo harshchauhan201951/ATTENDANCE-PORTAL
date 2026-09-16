@@ -54,12 +54,6 @@ type StartResponse = {
   success: boolean;
   resultId?: number;
   resumed?: boolean;
-
-  /*
-   * The API can return either "message" or "error".
-   * Keep both because /api/quiz-tests/start currently
-   * uses "error".
-   */
   message?: string;
   error?: string;
   details?: string;
@@ -141,73 +135,254 @@ function formatTime(totalSeconds: number) {
   )}`;
 }
 
+/*
+ * Read logged-in student.
+ *
+ * Supports both localStorage and sessionStorage
+ * and all student session key formats used by
+ * RACER ACADEMY.
+ */
 function readStudent(): StudentData | null {
   if (typeof window === "undefined") {
     return null;
   }
 
-  const possibleKeys = [
+  const storages: Storage[] = [
+    window.localStorage,
+    window.sessionStorage,
+  ];
+
+  const objectKeys = [
     "student",
     "studentData",
     "loggedInStudent",
+    "studentLoggedIn",
   ];
 
-  for (const key of possibleKeys) {
-    try {
-      const raw =
-        window.localStorage.getItem(key);
+  const usernameKeys = [
+    "student_username",
+    "studentUsername",
+    "attendance_username",
+    "username",
+  ];
 
-      if (!raw) continue;
-
-      const parsed = JSON.parse(raw);
-
-      const id = Number(parsed?.id);
-
-      if (
-        Number.isInteger(id) &&
-        id > 0
-      ) {
-        return {
-          id,
-          student_name:
-            parsed?.student_name || null,
-          student_username:
-            parsed?.student_username || null,
-          class_name:
-            parsed?.class_name || null,
-        };
-      }
-    } catch {
-      // Continue with the next key.
-    }
-  }
-
-  const storedIdKeys = [
+  const idKeys = [
     "attendance_student_id",
     "studentId",
     "student_id",
   ];
 
-  for (const key of storedIdKeys) {
-    const raw =
-      window.localStorage.getItem(key);
+  /*
+   * Convert any supported stored student object
+   * into the standard StudentData structure.
+   */
+  const parseStudentObject = (
+    raw: string
+  ): StudentData | null => {
+    try {
+      const parsed: unknown =
+        JSON.parse(raw);
 
-    const id = Number(raw);
+      if (
+        !parsed ||
+        typeof parsed !== "object"
+      ) {
+        return null;
+      }
 
-    if (
-      Number.isInteger(id) &&
-      id > 0
-    ) {
+      const objectValue =
+        parsed as Record<
+          string,
+          unknown
+        >;
+
+      const nestedStudent =
+        objectValue.student &&
+        typeof objectValue.student ===
+          "object"
+          ? (objectValue.student as Record<
+              string,
+              unknown
+            >)
+          : null;
+
+      const source =
+        nestedStudent || objectValue;
+
+      const possibleIds: unknown[] = [
+        source.id,
+        source.studentId,
+        source.student_id,
+        source.attendance_student_id,
+        objectValue.id,
+        objectValue.studentId,
+        objectValue.student_id,
+        objectValue.attendance_student_id,
+      ];
+
+      let id = 0;
+
+      for (const value of possibleIds) {
+        const numericId =
+          Number(value);
+
+        if (
+          Number.isInteger(
+            numericId
+          ) &&
+          numericId > 0
+        ) {
+          id = numericId;
+          break;
+        }
+      }
+
+      const studentName =
+        source.student_name ??
+        source.studentName ??
+        objectValue.student_name ??
+        objectValue.studentName ??
+        null;
+
+      const studentUsername =
+        source.student_username ??
+        source.studentUsername ??
+        source.username ??
+        objectValue.student_username ??
+        objectValue.studentUsername ??
+        objectValue.username ??
+        null;
+
+      const className =
+        source.class_name ??
+        source.className ??
+        objectValue.class_name ??
+        objectValue.className ??
+        null;
+
+      if (
+        id <= 0 &&
+        !studentUsername
+      ) {
+        return null;
+      }
+
       return {
         id,
-        student_name: null,
+        student_name:
+          studentName !== null
+            ? String(studentName)
+            : null,
         student_username:
-          window.localStorage.getItem(
-            "student_username"
-          ),
-        class_name: null,
+          studentUsername !== null
+            ? String(studentUsername)
+            : null,
+        class_name:
+          className !== null
+            ? String(className)
+            : null,
       };
+    } catch {
+      return null;
     }
+  };
+
+  /*
+   * 1. Check student objects in both storages.
+   */
+  for (const storage of storages) {
+    for (const key of objectKeys) {
+      try {
+        const raw =
+          storage.getItem(key);
+
+        if (!raw) {
+          continue;
+        }
+
+        const student =
+          parseStudentObject(raw);
+
+        if (student) {
+          return student;
+        }
+      } catch {
+        // Continue searching.
+      }
+    }
+  }
+
+  /*
+   * 2. Find stored username.
+   */
+  let username: string | null =
+    null;
+
+  for (const storage of storages) {
+    for (const key of usernameKeys) {
+      try {
+        const value =
+          storage.getItem(key);
+
+        if (value) {
+          username = value;
+          break;
+        }
+      } catch {
+        // Continue searching.
+      }
+    }
+
+    if (username) {
+      break;
+    }
+  }
+
+  /*
+   * 3. Find stored numeric student ID.
+   */
+  for (const storage of storages) {
+    for (const key of idKeys) {
+      try {
+        const raw =
+          storage.getItem(key);
+
+        if (!raw) {
+          continue;
+        }
+
+        const id = Number(raw);
+
+        if (
+          Number.isInteger(id) &&
+          id > 0
+        ) {
+          return {
+            id,
+            student_name: null,
+            student_username:
+              username,
+            class_name: null,
+          };
+        }
+      } catch {
+        // Continue searching.
+      }
+    }
+  }
+
+  /*
+   * 4. If only username exists, return it.
+   * initialize() will resolve the real student ID.
+   */
+  if (username) {
+    return {
+      id: 0,
+      student_name: null,
+      student_username:
+        username,
+      class_name: null,
+    };
   }
 
   return null;
@@ -237,18 +412,6 @@ function saveStudentSession(
     id
   );
 
-  if (student.student_username) {
-    window.localStorage.setItem(
-      "student_username",
-      student.student_username
-    );
-
-    window.sessionStorage.setItem(
-      "student_username",
-      student.student_username
-    );
-  }
-
   window.sessionStorage.setItem(
     "attendance_student_id",
     id
@@ -263,6 +426,18 @@ function saveStudentSession(
     "student_id",
     id
   );
+
+  if (student.student_username) {
+    window.localStorage.setItem(
+      "student_username",
+      student.student_username
+    );
+
+    window.sessionStorage.setItem(
+      "student_username",
+      student.student_username
+    );
+  }
 
   if (student.student_name) {
     window.sessionStorage.setItem(
@@ -596,68 +771,138 @@ function StudentQuizAttemptContent() {
           readStudent();
 
         /*
-         * If only an ID/username is available,
-         * resolve the complete student record.
+         * Resolve the student if we only have:
+         * - username
+         * - ID without complete details
+         * - ID = 0 with username
          */
         if (
           currentStudent &&
-          (!currentStudent.student_name ||
-            !currentStudent.class_name)
+          (
+            currentStudent.id <= 0 ||
+            !currentStudent.student_name ||
+            !currentStudent.class_name
+          )
         ) {
-          const query =
-            currentStudent.student_username
-              ? supabase
-                  .from("students")
-                  .select(
-                    "id,student_name,student_username,class_name"
-                  )
-                  .eq(
-                    "student_username",
-                    currentStudent.student_username
-                  )
-                  .maybeSingle()
-              : supabase
-                  .from("students")
-                  .select(
-                    "id,student_name,student_username,class_name"
-                  )
-                  .eq(
-                    "id",
-                    currentStudent.id
-                  )
-                  .maybeSingle();
+          let data: StudentData | null =
+            null;
 
-          const {
-            data,
-            error:
-              studentLookupError,
-          } = await query;
+          let studentLookupError:
+            | {
+                message: string;
+              }
+            | null = null;
+
+          if (
+            currentStudent.student_username
+          ) {
+            const result =
+              await supabase
+                .from("students")
+                .select(
+                  "id,student_name,student_username,class_name"
+                )
+                .eq(
+                  "student_username",
+                  currentStudent.student_username
+                )
+                .maybeSingle();
+
+            data =
+              result.data as StudentData | null;
+
+            studentLookupError =
+              result.error
+                ? {
+                    message:
+                      result.error.message,
+                  }
+                : null;
+          } else if (
+            currentStudent.id > 0
+          ) {
+            const result =
+              await supabase
+                .from("students")
+                .select(
+                  "id,student_name,student_username,class_name"
+                )
+                .eq(
+                  "id",
+                  currentStudent.id
+                )
+                .maybeSingle();
+
+            data =
+              result.data as StudentData | null;
+
+            studentLookupError =
+              result.error
+                ? {
+                    message:
+                      result.error.message,
+                  }
+                : null;
+          }
 
           if (
             studentLookupError
           ) {
             throw new Error(
-              studentLookupError.message
+              `Unable to load student: ${studentLookupError.message}`
             );
           }
 
-          if (data) {
-            currentStudent =
-              data as StudentData;
+          if (!data) {
+            throw new Error(
+              currentStudent.student_username
+                ? `Student not found for username: ${currentStudent.student_username}`
+                : `Student not found for ID: ${currentStudent.id}`
+            );
           }
+
+          currentStudent =
+            data;
         }
 
         /*
-         * Final fallback using username.
+         * Final username fallback.
+         * Checks both localStorage and sessionStorage.
          */
         if (!currentStudent) {
-          const username =
-            typeof window !==
-            "undefined"
-              ? window.localStorage.getItem(
-                  "student_username"
-                )
-              : null;
+          let username: string | null =
+            null;
+
+          const usernameKeys = [
+            "student_username",
+            "studentUsername",
+            "attendance_username",
+            "username",
+          ];
+
+          for (const key of usernameKeys) {
+            const localValue =
+              window.localStorage.getItem(
+                key
+              );
+
+            if (localValue) {
+              username =
+                localValue;
+              break;
+            }
+
+            const sessionValue =
+              window.sessionStorage.getItem(
+                key
+              );
+
+            if (sessionValue) {
+              username =
+                sessionValue;
+              break;
+            }
+          }
 
           if (username) {
             const {
@@ -677,7 +922,7 @@ function StudentQuizAttemptContent() {
 
             if (usernameError) {
               throw new Error(
-                usernameError.message
+                `Unable to load student: ${usernameError.message}`
               );
             }
 
@@ -688,9 +933,12 @@ function StudentQuizAttemptContent() {
           }
         }
 
-        if (!currentStudent) {
+        if (
+          !currentStudent ||
+          currentStudent.id <= 0
+        ) {
           throw new Error(
-            "Student login information not found."
+            "Student login information not found. Please login again."
           );
         }
 
@@ -758,16 +1006,6 @@ function StudentQuizAttemptContent() {
             return;
           }
 
-          /*
-           * IMPORTANT FIX:
-           *
-           * /api/quiz-tests/start returns "error",
-           * not only "message".
-           *
-           * Previously the frontend ignored data.error
-           * and always displayed:
-           * "Unable to start quiz."
-           */
           throw new Error(
             getApiError(data)
           );
