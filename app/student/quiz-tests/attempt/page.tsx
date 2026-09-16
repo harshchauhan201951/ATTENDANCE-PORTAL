@@ -54,21 +54,38 @@ type StartResponse = {
   success: boolean;
   resultId?: number;
   resumed?: boolean;
+
+  /*
+   * The API can return either "message" or "error".
+   * Keep both because /api/quiz-tests/start currently
+   * uses "error".
+   */
   message?: string;
+  error?: string;
+  details?: string;
+
   quiz?: QuizTest & {
-    startTime: string;
-    scheduledEnd: string;
-    attemptEnd: string;
+    startTime?: string;
+    scheduledEnd?: string;
+    attemptEnd?: string;
   };
+
   startedAt?: string;
+  scheduledStart?: string;
+  attemptWindowStart?: string;
+  attemptWindowEnd?: string;
+  endAt?: string;
   remainingMilliseconds?: number;
   questions?: QuizQuestion[];
   alreadySubmitted?: boolean;
+  timeExpired?: boolean;
 };
 
 type SubmitResponse = {
   success: boolean;
   message?: string;
+  error?: string;
+  details?: string;
   alreadySubmitted?: boolean;
   resultId?: number;
   result?: {
@@ -255,6 +272,28 @@ function saveStudentSession(
   }
 }
 
+function getApiError(
+  data: StartResponse
+) {
+  return (
+    data.error ||
+    data.message ||
+    data.details ||
+    "Unable to start quiz."
+  );
+}
+
+function getSubmitApiError(
+  data: SubmitResponse
+) {
+  return (
+    data.error ||
+    data.message ||
+    data.details ||
+    "Unable to submit quiz."
+  );
+}
+
 function StudentQuizAttemptContent() {
   const router = useRouter();
 
@@ -278,9 +317,9 @@ function StudentQuizAttemptContent() {
   const [quiz, setQuiz] =
     useState<
       (QuizTest & {
-        startTime: string;
-        scheduledEnd: string;
-        attemptEnd: string;
+        startTime?: string;
+        scheduledEnd?: string;
+        attemptEnd?: string;
       }) | null
     >(null);
 
@@ -413,23 +452,6 @@ function StudentQuizAttemptContent() {
             currentAnswers
           );
 
-          /*
-           * IMPORTANT:
-           * The submit API expects answers in this format:
-           *
-           * {
-           *   "questionId": selectedOptionId
-           * }
-           *
-           * Example:
-           * {
-           *   "101": 501,
-           *   "102": 506
-           * }
-           *
-           * Previously this was sent as an array of objects,
-           * which the submit API could not read correctly.
-           */
           const answerPayload: Record<
             string,
             number | null
@@ -481,8 +503,7 @@ function StudentQuizAttemptContent() {
             }
 
             throw new Error(
-              data.message ||
-                "Unable to submit quiz."
+              getSubmitApiError(data)
             );
           }
 
@@ -705,8 +726,24 @@ function StudentQuizAttemptContent() {
             }
           );
 
-        const data =
-          (await response.json()) as StartResponse;
+        let data: StartResponse;
+
+        try {
+          data =
+            (await response.json()) as StartResponse;
+        } catch {
+          throw new Error(
+            `Unable to start quiz. Server returned status ${response.status}.`
+          );
+        }
+
+        console.log(
+          "START QUIZ RESPONSE:",
+          {
+            status: response.status,
+            data,
+          }
+        );
 
         if (
           !response.ok ||
@@ -721,9 +758,18 @@ function StudentQuizAttemptContent() {
             return;
           }
 
+          /*
+           * IMPORTANT FIX:
+           *
+           * /api/quiz-tests/start returns "error",
+           * not only "message".
+           *
+           * Previously the frontend ignored data.error
+           * and always displayed:
+           * "Unable to start quiz."
+           */
           throw new Error(
-            data.message ||
-              "Unable to start quiz."
+            getApiError(data)
           );
         }
 
@@ -1097,7 +1143,7 @@ function StudentQuizAttemptContent() {
             Quiz Not Available
           </h1>
 
-          <p className="mt-3 text-sm text-red-200">
+          <p className="mt-3 whitespace-pre-wrap text-sm text-red-200">
             {error}
           </p>
 
