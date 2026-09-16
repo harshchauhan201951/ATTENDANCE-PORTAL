@@ -136,11 +136,12 @@ function formatTime(totalSeconds: number) {
 }
 
 /*
- * Read logged-in student.
+ * Read logged-in student information.
  *
- * Supports both localStorage and sessionStorage
- * and all student session key formats used by
- * RACER ACADEMY.
+ * IMPORTANT:
+ * If username exists, it is kept along with the ID.
+ * initialize() will resolve the canonical students.id
+ * from Supabase using the username.
  */
 function readStudent(): StudentData | null {
   if (typeof window === "undefined") {
@@ -172,10 +173,6 @@ function readStudent(): StudentData | null {
     "student_id",
   ];
 
-  /*
-   * Convert any supported stored student object
-   * into the standard StudentData structure.
-   */
   const parseStudentObject = (
     raw: string
   ): StudentData | null => {
@@ -275,7 +272,7 @@ function readStudent(): StudentData | null {
             : null,
         student_username:
           studentUsername !== null
-            ? String(studentUsername)
+            ? String(studentUsername).trim()
             : null,
         class_name:
           className !== null
@@ -288,7 +285,7 @@ function readStudent(): StudentData | null {
   };
 
   /*
-   * 1. Check student objects in both storages.
+   * 1. Check stored student objects.
    */
   for (const storage of storages) {
     for (const key of objectKeys) {
@@ -313,7 +310,7 @@ function readStudent(): StudentData | null {
   }
 
   /*
-   * 2. Find stored username.
+   * 2. Find username.
    */
   let username: string | null =
     null;
@@ -324,8 +321,12 @@ function readStudent(): StudentData | null {
         const value =
           storage.getItem(key);
 
-        if (value) {
-          username = value;
+        if (
+          value &&
+          value.trim()
+        ) {
+          username =
+            value.trim();
           break;
         }
       } catch {
@@ -339,8 +340,10 @@ function readStudent(): StudentData | null {
   }
 
   /*
-   * 3. Find stored numeric student ID.
+   * 3. Find numeric ID.
    */
+  let numericId = 0;
+
   for (const storage of storages) {
     for (const key of idKeys) {
       try {
@@ -351,33 +354,39 @@ function readStudent(): StudentData | null {
           continue;
         }
 
-        const id = Number(raw);
+        const id =
+          Number(raw);
 
         if (
           Number.isInteger(id) &&
           id > 0
         ) {
-          return {
-            id,
-            student_name: null,
-            student_username:
-              username,
-            class_name: null,
-          };
+          numericId = id;
+          break;
         }
       } catch {
         // Continue searching.
       }
     }
+
+    if (numericId > 0) {
+      break;
+    }
   }
 
   /*
-   * 4. If only username exists, return it.
-   * initialize() will resolve the real student ID.
+   * Username is retained even when an ID
+   * is also available.
+   *
+   * initialize() will prefer username and
+   * fetch the real students.id.
    */
-  if (username) {
+  if (
+    username ||
+    numericId > 0
+  ) {
     return {
-      id: 0,
+      id: numericId,
       student_name: null,
       student_username:
         username,
@@ -437,6 +446,16 @@ function saveStudentSession(
       "student_username",
       student.student_username
     );
+
+    window.localStorage.setItem(
+      "studentUsername",
+      student.student_username
+    );
+
+    window.sessionStorage.setItem(
+      "studentUsername",
+      student.student_username
+    );
   }
 
   if (student.student_name) {
@@ -444,6 +463,24 @@ function saveStudentSession(
       "attendance_student_name",
       student.student_name
     );
+  }
+
+  /*
+   * Also save the complete canonical student
+   * object so future pages receive the correct ID.
+   */
+  try {
+    window.localStorage.setItem(
+      "student",
+      JSON.stringify(student)
+    );
+
+    window.sessionStorage.setItem(
+      "student",
+      JSON.stringify(student)
+    );
+  } catch {
+    // Ignore storage errors.
   }
 }
 
@@ -770,184 +807,170 @@ function StudentQuizAttemptContent() {
         let currentStudent =
           readStudent();
 
-        /*
-         * Resolve the student if we only have:
-         * - username
-         * - ID without complete details
-         * - ID = 0 with username
-         */
-        if (
-          currentStudent &&
-          (
-            currentStudent.id <= 0 ||
-            !currentStudent.student_name ||
-            !currentStudent.class_name
-          )
-        ) {
-          let data: StudentData | null =
-            null;
-
-          let studentLookupError:
-            | {
-                message: string;
-              }
-            | null = null;
-
-          if (
-            currentStudent.student_username
-          ) {
-            const result =
-              await supabase
-                .from("students")
-                .select(
-                  "id,student_name,student_username,class_name"
-                )
-                .eq(
-                  "student_username",
-                  currentStudent.student_username
-                )
-                .maybeSingle();
-
-            data =
-              result.data as StudentData | null;
-
-            studentLookupError =
-              result.error
-                ? {
-                    message:
-                      result.error.message,
-                  }
-                : null;
-          } else if (
-            currentStudent.id > 0
-          ) {
-            const result =
-              await supabase
-                .from("students")
-                .select(
-                  "id,student_name,student_username,class_name"
-                )
-                .eq(
-                  "id",
-                  currentStudent.id
-                )
-                .maybeSingle();
-
-            data =
-              result.data as StudentData | null;
-
-            studentLookupError =
-              result.error
-                ? {
-                    message:
-                      result.error.message,
-                  }
-                : null;
-          }
-
-          if (
-            studentLookupError
-          ) {
-            throw new Error(
-              `Unable to load student: ${studentLookupError.message}`
-            );
-          }
-
-          if (!data) {
-            throw new Error(
-              currentStudent.student_username
-                ? `Student not found for username: ${currentStudent.student_username}`
-                : `Student not found for ID: ${currentStudent.id}`
-            );
-          }
-
-          currentStudent =
-            data;
-        }
-
-        /*
-         * Final username fallback.
-         * Checks both localStorage and sessionStorage.
-         */
         if (!currentStudent) {
-          let username: string | null =
-            null;
-
-          const usernameKeys = [
-            "student_username",
-            "studentUsername",
-            "attendance_username",
-            "username",
-          ];
-
-          for (const key of usernameKeys) {
-            const localValue =
-              window.localStorage.getItem(
-                key
-              );
-
-            if (localValue) {
-              username =
-                localValue;
-              break;
-            }
-
-            const sessionValue =
-              window.sessionStorage.getItem(
-                key
-              );
-
-            if (sessionValue) {
-              username =
-                sessionValue;
-              break;
-            }
-          }
-
-          if (username) {
-            const {
-              data,
-              error:
-                usernameError,
-            } = await supabase
-              .from("students")
-              .select(
-                "id,student_name,student_username,class_name"
-              )
-              .eq(
-                "student_username",
-                username
-              )
-              .maybeSingle();
-
-            if (usernameError) {
-              throw new Error(
-                `Unable to load student: ${usernameError.message}`
-              );
-            }
-
-            if (data) {
-              currentStudent =
-                data as StudentData;
-            }
-          }
-        }
-
-        if (
-          !currentStudent ||
-          currentStudent.id <= 0
-        ) {
           throw new Error(
             "Student login information not found. Please login again."
           );
         }
 
+        /*
+         * IMPORTANT FIX:
+         *
+         * If username is available, ALWAYS resolve
+         * the student from Supabase using username.
+         *
+         * This prevents an incorrect/stale stored
+         * numeric ID from being sent to the API.
+         */
+        if (
+          currentStudent.student_username
+        ) {
+          const username =
+            currentStudent.student_username.trim();
+
+          console.log(
+            "Resolving student by username:",
+            username
+          );
+
+          const {
+            data,
+            error:
+              usernameError,
+          } = await supabase
+            .from("students")
+            .select(
+              "id,student_name,student_username,class_name"
+            )
+            .eq(
+              "student_username",
+              username
+            )
+            .limit(1)
+            .maybeSingle();
+
+          if (usernameError) {
+            console.error(
+              "Student username lookup error:",
+              usernameError
+            );
+
+            throw new Error(
+              `Unable to load student: ${usernameError.message}`
+            );
+          }
+
+          if (!data) {
+            throw new Error(
+              `Student not found for username: ${username}`
+            );
+          }
+
+          currentStudent =
+            data as StudentData;
+
+          console.log(
+            "Canonical student resolved:",
+            {
+              id:
+                currentStudent.id,
+              username:
+                currentStudent.student_username,
+              name:
+                currentStudent.student_name,
+              class:
+                currentStudent.class_name,
+            }
+          );
+        } else if (
+          currentStudent.id > 0
+        ) {
+          /*
+           * No username available.
+           * Use numeric students.id as fallback.
+           */
+          const {
+            data,
+            error:
+              idLookupError,
+          } = await supabase
+            .from("students")
+            .select(
+              "id,student_name,student_username,class_name"
+            )
+            .eq(
+              "id",
+              currentStudent.id
+            )
+            .limit(1)
+            .maybeSingle();
+
+          if (idLookupError) {
+            console.error(
+              "Student ID lookup error:",
+              idLookupError
+            );
+
+            throw new Error(
+              `Unable to load student: ${idLookupError.message}`
+            );
+          }
+
+          if (!data) {
+            throw new Error(
+              `Student not found for ID: ${currentStudent.id}`
+            );
+          }
+
+          currentStudent =
+            data as StudentData;
+        }
+
+        /*
+         * Final safety check.
+         */
+        if (
+          !currentStudent ||
+          !Number.isInteger(
+            Number(currentStudent.id)
+          ) ||
+          Number(currentStudent.id) <= 0
+        ) {
+          throw new Error(
+            "Valid student ID could not be found. Please login again."
+          );
+        }
+
+        /*
+         * Make absolutely sure ID is numeric.
+         */
+        currentStudent = {
+          ...currentStudent,
+          id: Number(
+            currentStudent.id
+          ),
+        };
+
         setStudent(
           currentStudent
         );
 
+        /*
+         * Save the canonical student information.
+         */
         saveStudentSession(
           currentStudent
+        );
+
+        console.log(
+          "Starting quiz with student:",
+          {
+            quizId,
+            studentId:
+              currentStudent.id,
+            studentUsername:
+              currentStudent.student_username,
+          }
         );
 
         /*
@@ -988,7 +1011,8 @@ function StudentQuizAttemptContent() {
         console.log(
           "START QUIZ RESPONSE:",
           {
-            status: response.status,
+            status:
+              response.status,
             data,
           }
         );
