@@ -12,7 +12,6 @@ import {
   useRouter,
   useSearchParams,
 } from "next/navigation";
-import { supabase } from "../../../../lib/supabase";
 
 type QuizTest = {
   id: number;
@@ -816,162 +815,23 @@ function StudentQuizAttemptContent() {
         /*
          * IMPORTANT FIX:
          *
-         * If username is available, ALWAYS resolve
-         * the student from Supabase using username.
+         * Do NOT query the students table directly from
+         * the browser. The browser may be blocked by
+         * Supabase RLS.
          *
-         * This prevents an incorrect/stale stored
-         * numeric ID from being sent to the API.
+         * Send the stored student information to the
+         * server API. The server uses the service-role
+         * client to resolve the canonical student record.
          */
+
         if (
-          currentStudent.student_username
-        ) {
-          const username =
-            currentStudent.student_username.trim();
-
-          console.log(
-            "Resolving student by username:",
-            username
-          );
-
-          const {
-            data,
-            error:
-              usernameError,
-          } = await supabase
-            .from("students")
-            .select(
-              "id,student_name,student_username,class_name"
-            )
-            .eq(
-              "student_username",
-              username
-            )
-            .limit(1)
-            .maybeSingle();
-
-          if (usernameError) {
-            console.error(
-              "Student username lookup error:",
-              usernameError
-            );
-
-            throw new Error(
-              `Unable to load student: ${usernameError.message}`
-            );
-          }
-
-          if (!data) {
-            throw new Error(
-              `Student not found for username: ${username}`
-            );
-          }
-
-          currentStudent =
-            data as StudentData;
-
-          console.log(
-            "Canonical student resolved:",
-            {
-              id:
-                currentStudent.id,
-              username:
-                currentStudent.student_username,
-              name:
-                currentStudent.student_name,
-              class:
-                currentStudent.class_name,
-            }
-          );
-        } else if (
-          currentStudent.id > 0
-        ) {
-          /*
-           * No username available.
-           * Use numeric students.id as fallback.
-           */
-          const {
-            data,
-            error:
-              idLookupError,
-          } = await supabase
-            .from("students")
-            .select(
-              "id,student_name,student_username,class_name"
-            )
-            .eq(
-              "id",
-              currentStudent.id
-            )
-            .limit(1)
-            .maybeSingle();
-
-          if (idLookupError) {
-            console.error(
-              "Student ID lookup error:",
-              idLookupError
-            );
-
-            throw new Error(
-              `Unable to load student: ${idLookupError.message}`
-            );
-          }
-
-          if (!data) {
-            throw new Error(
-              `Student not found for ID: ${currentStudent.id}`
-            );
-          }
-
-          currentStudent =
-            data as StudentData;
-        }
-
-        /*
-         * Final safety check.
-         */
-        if (
-          !currentStudent ||
-          !Number.isInteger(
-            Number(currentStudent.id)
-          ) ||
-          Number(currentStudent.id) <= 0
+          !currentStudent.student_username &&
+          currentStudent.id <= 0
         ) {
           throw new Error(
-            "Valid student ID could not be found. Please login again."
+            "Valid student login information could not be found. Please login again."
           );
         }
-
-        /*
-         * Make absolutely sure ID is numeric.
-         */
-        currentStudent = {
-          ...currentStudent,
-          id: Number(
-            currentStudent.id
-          ),
-        };
-
-        setStudent(
-          currentStudent
-        );
-
-        /*
-         * Save the canonical student information.
-         */
-        saveStudentSession(
-          currentStudent
-        );
-
-        console.log(
-          "Starting quiz with student:",
-          {
-            quizId,
-            studentId:
-              currentStudent.id,
-            studentUsername:
-              currentStudent.student_username,
-          }
-        );
 
         /*
          * API is the authority for:

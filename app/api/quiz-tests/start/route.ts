@@ -111,20 +111,26 @@ export async function POST(
       body?.studentId
     );
 
+    const studentUsername =
+      typeof body?.studentUsername === "string"
+        ? body.studentUsername.trim()
+        : "";
+
     console.log(
       "START QUIZ REQUEST:",
       {
         quizId,
         studentId,
+        studentUsername,
       }
     );
 
-    if (!quizId || !studentId) {
+    if (!quizId || (!studentId && !studentUsername)) {
       return NextResponse.json(
         {
           success: false,
           error:
-            "Quiz ID and Student ID are required.",
+            "Quiz ID and student information are required.",
         },
         { status: 400 }
       );
@@ -145,17 +151,36 @@ export async function POST(
      *
      */
 
-    const {
-      data: student,
-      error: studentError,
-    } = await supabaseAdmin
-      .from("students")
-      .select(
-        "id, student_name, student_username, class_name"
-      )
-      .eq("id", studentId)
-      .limit(1)
-      .maybeSingle();
+    let student: any = null;
+    let studentError: any = null;
+
+    if (studentUsername) {
+      const result = await supabaseAdmin
+        .from("students")
+        .select(
+          "id, student_name, student_username, class_name"
+        )
+        .eq("student_username", studentUsername)
+        .limit(1)
+        .maybeSingle();
+
+      student = result.data;
+      studentError = result.error;
+    }
+
+    if (!student && !studentError && studentId) {
+      const result = await supabaseAdmin
+        .from("students")
+        .select(
+          "id, student_name, student_username, class_name"
+        )
+        .eq("id", studentId)
+        .limit(1)
+        .maybeSingle();
+
+      student = result.data;
+      studentError = result.error;
+    }
 
     if (studentError) {
       console.error(
@@ -171,12 +196,9 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Unable to load student.",
-          details:
-            studentError.message,
-          code:
-            studentError.code,
+          error: "Unable to load student.",
+          details: studentError.message,
+          code: studentError.code,
         },
         { status: 500 }
       );
@@ -187,31 +209,46 @@ export async function POST(
         "START STUDENT NOT FOUND:",
         {
           studentId,
+          studentUsername,
         }
       );
 
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Student not found.",
-          details:
-            `No student was found with ID ${studentId}.`,
+          error: studentUsername
+            ? `Student not found for username: ${studentUsername}`
+            : "Student not found.",
+          details: studentUsername
+            ? `No student was found with username ${studentUsername}.`
+            : `No student was found with ID ${studentId}.`,
         },
         { status: 404 }
+      );
+    }
+
+    const canonicalStudentId = Number(student.id);
+
+    if (
+      !Number.isInteger(canonicalStudentId) ||
+      canonicalStudentId <= 0
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid student record.",
+        },
+        { status: 500 }
       );
     }
 
     console.log(
       "START STUDENT FOUND:",
       {
-        id: student.id,
-        student_name:
-          student.student_name,
-        student_username:
-          student.student_username,
-        class_name:
-          student.class_name,
+        id: canonicalStudentId,
+        student_name: student.student_name,
+        student_username: student.student_username,
+        class_name: student.class_name,
       }
     );
 
@@ -350,7 +387,7 @@ export async function POST(
       .from("quiz_results")
       .select("*")
       .eq("quiz_id", quizId)
-      .eq("student_id", studentId)
+      .eq("student_id", canonicalStudentId)
       .order(
         "id",
         {
@@ -506,7 +543,7 @@ export async function POST(
         .from("quiz_results")
         .insert({
           quiz_id: quizId,
-          student_id: studentId,
+          student_id: canonicalStudentId,
           total_questions: 0,
           correct_answers: 0,
           wrong_answers: 0,
@@ -600,7 +637,7 @@ export async function POST(
         success: true,
         resultId,
         quizId,
-        studentId,
+        studentId: canonicalStudentId,
 
         startedAt:
           startedAt.toISOString(),
@@ -737,6 +774,144 @@ export async function POST(
             details:
               optionsError.message,
             code:
+              optionsError.code,
+          },
+          { status: 500 }
+        );
+      }
+
+      options =
+        optionRows || [];
+    }
+
+    /*
+     * ---------------------------------------------------------
+     * REMOVE CORRECT ANSWER
+     * ---------------------------------------------------------
+     *
+     * Student must never receive is_correct.
+     */
+
+    const questionsWithOptions =
+      (questions || []).map(
+        (question) => ({
+          ...question,
+
+          options: options
+            .filter(
+              (option) =>
+                Number(
+                  option.question_id
+                ) ===
+                Number(question.id)
+            )
+            .map((option) => {
+              const {
+                is_correct,
+                ...safeOption
+              } = option;
+
+              return safeOption;
+            }),
+        })
+      );
+
+    /*
+     * ---------------------------------------------------------
+     * FINAL RESPONSE
+     * ---------------------------------------------------------
+     */
+
+    return NextResponse.json({
+      success: true,
+
+      resultId,
+
+      quizId,
+
+      studentId: canonicalStudentId,
+
+      startedAt:
+        startedAt.toISOString(),
+
+      /*
+       * Original teacher schedule.
+       *
+       * Can be null for an Any Time quiz if
+       * scheduled_time is not available.
+       */
+      scheduledStart:
+        scheduledStart
+          ? scheduledStart.toISOString()
+          : null,
+
+      /*
+       * Student start window.
+       */
+      attemptWindowStart:
+        attemptWindow.start.toISOString(),
+
+      attemptWindowEnd:
+        attemptWindow.end.toISOString(),
+
+      /*
+       * Actual timer end.
+       */
+      endAt:
+        attemptEnd.toISOString(),
+
+      remainingMilliseconds,
+
+      timeExpired: false,
+
+      alreadyStarted:
+        Boolean(existingResult),
+
+      /*
+       * Student information.
+       */
+      student: {
+        id: student.id,
+        student_name:
+          student.student_name ??
+          null,
+        student_username:
+          student.student_username ??
+          null,
+        class_name:
+          student.class_name ??
+          null,
+      },
+
+      quiz: {
+        ...quiz,
+        duration_minutes:
+          durationMinutes,
+      },
+
+      questions:
+        questionsWithOptions,
+    });
+  } catch (error) {
+    console.error(
+      "START QUIZ UNEXPECTED ERROR:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          "Unable to start quiz.",
+        details:
+          error instanceof Error
+            ? error.message
+            : "Unknown server error",
+      },
+      { status: 500 }
+    );
+  }
+}         code:
               optionsError.code,
           },
           { status: 500 }
