@@ -55,7 +55,6 @@ type QuizQuestion = {
   question_text: string;
   question_order: number;
   marks: number | null;
-  negative_marks: number | null;
 };
 
 type QuizAnswer = {
@@ -608,7 +607,7 @@ async function fetchQuestionReviews(
     supabase
       .from("quiz_questions")
       .select(
-        "id,quiz_id,question_text,question_order,marks,negative_marks"
+        "id,quiz_id,question_text,question_order,marks"
       )
       .eq("quiz_id", quizId)
       .order("question_order", {
