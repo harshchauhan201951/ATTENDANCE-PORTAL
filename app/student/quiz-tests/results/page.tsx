@@ -218,6 +218,806 @@ function timeText(
   return `${hour}:${minute} ${period}`;
 }
 
+/*
+ * PDF helpers
+ *
+ * The PDF generator intentionally uses absolute Tm
+ * positioning for every line. This prevents the
+ * blank-PDF / text-position issue caused by Td.
+ */
+
+function pdfEscape(value: string): string {
+  return String(value)
+    .replace(/\\/g, "\\\\")
+    .replace(/\(/g, "\\(")
+    .replace(/\)/g, "\\)")
+    .replace(/\r/g, " ")
+    .replace(/\n/g, " ");
+}
+
+function pdfSafeText(value: unknown): string {
+  const text = String(value ?? "—");
+
+  /*
+   * Standard PDF Helvetica does not contain Hindi/
+   * Devanagari glyphs. Keep printable Latin characters
+   * and replace unsupported characters safely instead
+   * of corrupting the PDF structure.
+   */
+  return text
+    .split("")
+    .map((char) => {
+      const code = char.charCodeAt(0);
+
+      if (
+        code >= 32 &&
+        code <= 126
+      ) {
+        return char;
+      }
+
+      if (
+        code >= 160 &&
+        code <= 255
+      ) {
+        return char;
+      }
+
+      return "?";
+    })
+    .join("");
+}
+
+function wrapPdfText(
+  text: string,
+  maxChars = 88
+): string[] {
+  const safe =
+    pdfSafeText(text);
+
+  if (!safe) {
+    return [""];
+  }
+
+  const words =
+    safe.split(/\s+/);
+
+  const lines: string[] = [];
+
+  let current = "";
+
+  words.forEach((word) => {
+    if (!word) {
+      return;
+    }
+
+    if (word.length > maxChars) {
+      if (current) {
+        lines.push(current);
+        current = "";
+      }
+
+      let remaining = word;
+
+      while (
+        remaining.length >
+        maxChars
+      ) {
+        lines.push(
+          remaining.slice(
+            0,
+            maxChars
+          )
+        );
+
+        remaining =
+          remaining.slice(
+            maxChars
+          );
+      }
+
+      current = remaining;
+      return;
+    }
+
+    const candidate =
+      current
+        ? `${current} ${word}`
+        : word;
+
+    if (
+      candidate.length >
+      maxChars
+    ) {
+      if (current) {
+        lines.push(current);
+      }
+
+      current = word;
+    } else {
+      current = candidate;
+    }
+  });
+
+  if (current) {
+    lines.push(current);
+  }
+
+  return lines.length
+    ? lines
+    : [""];
+}
+
+function createPdfDocument(
+  lines: Array<{
+    text: string;
+    size?: number;
+    bold?: boolean;
+    gapBefore?: number;
+  }>
+): Blob {
+  const pageWidth = 595;
+  const pageHeight = 842;
+
+  const marginLeft = 42;
+  const marginTop = 800;
+  const bottomLimit = 45;
+
+  const pages: string[][] = [];
+  let currentPage: string[] = [];
+
+  let y = marginTop;
+
+  function newPage() {
+    if (currentPage.length > 0) {
+      pages.push(currentPage);
+    }
+
+    currentPage = [];
+    y = marginTop;
+  }
+
+  function addText(
+    text: string,
+    size: number,
+    bold: boolean,
+    gapBefore: number
+  ) {
+    y -= gapBefore;
+
+    const wrapped =
+      wrapPdfText(
+        text,
+        size >= 14
+          ? 75
+          : 88
+      );
+
+    const lineHeight =
+      size >= 16
+        ? 22
+        : size >= 12
+          ? 18
+          : 15;
+
+    wrapped.forEach(
+      (line) => {
+        if (
+          y <
+          bottomLimit
+        ) {
+          newPage();
+        }
+
+        const font =
+          bold
+            ? "/F2"
+            : "/F1";
+
+        currentPage.push(
+          `${font} ${size} Tf\n` +
+            `1 0 0 1 ${marginLeft} ${y} Tm\n` +
+            `(${pdfEscape(
+              line
+            )}) Tj\n`
+        );
+
+        y -= lineHeight;
+      }
+    );
+  }
+
+  lines.forEach(
+    (item) => {
+      addText(
+        item.text,
+        item.size || 10,
+        Boolean(
+          item.bold
+        ),
+        item.gapBefore || 0
+      );
+    }
+  );
+
+  if (
+    currentPage.length > 0
+  ) {
+    pages.push(
+      currentPage
+    );
+  }
+
+  const objects: string[] = [];
+
+  objects.push(
+    "<< /Type /Catalog /Pages 2 0 R >>"
+  );
+
+  const pageObjectNumbers: number[] =
+    [];
+
+  /*
+   * Objects:
+   * 1 catalog
+   * 2 pages
+   * then page/content pairs
+   * then fonts
+   */
+
+  let objectNumber = 3;
+
+  pages.forEach(() => {
+    pageObjectNumbers.push(
+      objectNumber
+    );
+
+    objectNumber += 2;
+  });
+
+  const fontRegularObject =
+    objectNumber++;
+
+  const fontBoldObject =
+    objectNumber++;
+
+  const pagesKids =
+    pageObjectNumbers
+      .map(
+        (num) =>
+          `${num} 0 R`
+      )
+      .join(" ");
+
+  objects.push(
+    `<< /Type /Pages /Kids [${pagesKids}] /Count ${pages.length} >>`
+  );
+
+  let pageIndex = 0;
+
+  pages.forEach(
+    (pageLines) => {
+      const pageObject =
+        pageObjectNumbers[
+          pageIndex
+        ];
+
+      const contentObject =
+        pageObject + 1;
+
+      const content =
+        pageLines.join("");
+
+      objects.push(
+        `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 ${fontRegularObject} 0 R /F2 ${fontBoldObject} 0 R >> >> /Contents ${contentObject} 0 R >>`
+      );
+
+      objects.push(
+        `<< /Length ${content.length} >>\nstream\n${content}endstream`
+      );
+
+      pageIndex++;
+    }
+  );
+
+  objects.push(
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
+  );
+
+  objects.push(
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"
+  );
+
+  let pdf =
+    "%PDF-1.4\n";
+
+  const offsets: number[] = [
+    0,
+  ];
+
+  objects.forEach(
+    (object, index) => {
+      offsets.push(
+        pdf.length
+      );
+
+      pdf +=
+        `${index + 1} 0 obj\n` +
+        `${object}\n` +
+        "endobj\n";
+    }
+  );
+
+  const xrefOffset =
+    pdf.length;
+
+  pdf +=
+    `xref\n0 ${objects.length + 1}\n` +
+    "0000000000 65535 f \n";
+
+  for (
+    let i = 1;
+    i < offsets.length;
+    i++
+  ) {
+    pdf += `${String(
+      offsets[i]
+    ).padStart(
+      10,
+      "0"
+    )} 00000 n \n`;
+  }
+
+  pdf +=
+    `trailer\n<< /Size ${
+      objects.length + 1
+    } /Root 1 0 R >>\n` +
+    `startxref\n${xrefOffset}\n` +
+    "%%EOF";
+
+  return new Blob(
+    [pdf],
+    {
+      type: "application/pdf",
+    }
+  );
+}
+
+function downloadPdfBlob(
+  blob: Blob,
+  fileName: string
+) {
+  const url =
+    URL.createObjectURL(blob);
+
+  const anchor =
+    document.createElement(
+      "a"
+    );
+
+  anchor.href = url;
+  anchor.download =
+    fileName;
+
+  document.body.appendChild(
+    anchor
+  );
+
+  anchor.click();
+
+  anchor.remove();
+
+  setTimeout(() => {
+    URL.revokeObjectURL(
+      url
+    );
+  }, 1000);
+}
+
+function buildPdfLines(
+  studentName: string,
+  studentClass: string,
+  quiz: Quiz,
+  result: QuizResult,
+  questionReviews: QuestionReview[]
+): Array<{
+  text: string;
+  size?: number;
+  bold?: boolean;
+  gapBefore?: number;
+}> {
+  const passed =
+    String(
+      result.result_status
+    ).toUpperCase() ===
+    "PASS";
+
+  const lines: Array<{
+    text: string;
+    size?: number;
+    bold?: boolean;
+    gapBefore?: number;
+  }> = [];
+
+  lines.push({
+    text: "RACER ACADEMY",
+    size: 18,
+    bold: true,
+  });
+
+  lines.push({
+    text: "STUDENT QUIZ RESULT",
+    size: 14,
+    bold: true,
+    gapBefore: 5,
+  });
+
+  lines.push({
+    text: "==============================================",
+    size: 9,
+    gapBefore: 5,
+  });
+
+  lines.push({
+    text: `Student Name: ${studentName || "—"}`,
+    size: 11,
+    bold: true,
+    gapBefore: 10,
+  });
+
+  lines.push({
+    text: `Class: ${studentClass || "—"}`,
+    size: 11,
+  });
+
+  lines.push({
+    text: `Quiz: ${quiz.title || `Quiz #${quiz.id}`}`,
+    size: 11,
+    bold: true,
+    gapBefore: 8,
+  });
+
+  lines.push({
+    text: `Subject: ${quiz.subject || "—"}`,
+    size: 10,
+  });
+
+  lines.push({
+    text: `Quiz Date: ${dateText(
+      quiz.scheduled_date
+    )}`,
+    size: 10,
+  });
+
+  lines.push({
+    text: `Start Time: ${timeText(
+      quiz.scheduled_time
+    )}`,
+    size: 10,
+  });
+
+  lines.push({
+    text: `Duration: ${
+      quiz.duration_minutes || 30
+    } Minutes`,
+    size: 10,
+  });
+
+  lines.push({
+    text: "----------------------------------------------",
+    size: 9,
+    gapBefore: 8,
+  });
+
+  lines.push({
+    text: `Result: ${
+      passed
+        ? "PASSED"
+        : "FAILED"
+    }`,
+    size: 13,
+    bold: true,
+    gapBefore: 8,
+  });
+
+  lines.push({
+    text: `Percentage: ${numberText(
+      result.percentage
+    )}%`,
+    size: 11,
+    bold: true,
+  });
+
+  lines.push({
+    text: `Obtained Marks: ${numberText(
+      result.obtained_marks
+    )} / ${numberText(
+      result.total_marks
+    )}`,
+    size: 11,
+    bold: true,
+  });
+
+  lines.push({
+    text: `Total Questions: ${numberText(
+      result.total_questions
+    )}`,
+    size: 10,
+  });
+
+  lines.push({
+    text: `Correct Answers: ${numberText(
+      result.correct_answers
+    )}`,
+    size: 10,
+  });
+
+  lines.push({
+    text: `Wrong Answers: ${numberText(
+      result.wrong_answers
+    )}`,
+    size: 10,
+  });
+
+  lines.push({
+    text: `Unanswered: ${numberText(
+      result.unanswered
+    )}`,
+    size: 10,
+  });
+
+  lines.push({
+    text: `Pass Percentage: ${numberText(
+      quiz.pass_percentage
+    )}%`,
+    size: 10,
+  });
+
+  lines.push({
+    text: "----------------------------------------------",
+    size: 9,
+    gapBefore: 8,
+  });
+
+  lines.push({
+    text: "SUBMISSION DETAILS",
+    size: 13,
+    bold: true,
+    gapBefore: 8,
+  });
+
+  lines.push({
+    text: `Started At: ${dateTimeText(
+      result.started_at
+    )}`,
+    size: 10,
+  });
+
+  lines.push({
+    text: `Submitted At: ${dateTimeText(
+      result.submitted_at
+    )}`,
+    size: 10,
+  });
+
+  lines.push({
+    text: `Submission Type: ${
+      result.submission_type ||
+      "MANUAL SUBMISSION"
+    }`,
+    size: 10,
+  });
+
+  lines.push({
+    text: "----------------------------------------------",
+    size: 9,
+    gapBefore: 8,
+  });
+
+  lines.push({
+    text: "QUESTION-WISE ANSWER REPORT",
+    size: 13,
+    bold: true,
+    gapBefore: 8,
+  });
+
+  if (
+    questionReviews.length === 0
+  ) {
+    lines.push({
+      text: "Question-wise answer review is not available.",
+      size: 10,
+      gapBefore: 8,
+    });
+  } else {
+    questionReviews.forEach(
+      (
+        review,
+        index
+      ) => {
+        const answer =
+          review.answer;
+
+        const unanswered =
+          !answer ||
+          answer.selected_option_id ===
+            null ||
+          !review.selectedOption;
+
+        const correct =
+          Boolean(
+            answer?.is_correct
+          ) &&
+          !unanswered;
+
+        const status =
+          correct
+            ? "CORRECT"
+            : unanswered
+              ? "NOT ANSWERED"
+              : "WRONG";
+
+        lines.push({
+          text: `Question ${
+            index + 1
+          }: ${status}`,
+          size: 11,
+          bold: true,
+          gapBefore: 12,
+        });
+
+        lines.push({
+          text: `Q: ${review.question.question_text}`,
+          size: 10,
+          gapBefore: 4,
+        });
+
+        lines.push({
+          text: `Your Answer: ${
+            review.selectedOption
+              ?.option_text ||
+            "Not Answered"
+          }`,
+          size: 10,
+          gapBefore: 4,
+        });
+
+        lines.push({
+          text: `Correct Answer: ${
+            review.correctOption
+              ?.option_text ||
+            "Unavailable"
+          }`,
+          size: 10,
+        });
+
+        lines.push({
+          text: `Marks Obtained: ${numberText(
+            answer?.marks_awarded ||
+              0
+          )}`,
+          size: 10,
+        });
+
+        if (
+          review.options.length >
+          0
+        ) {
+          review.options.forEach(
+            (option) => {
+              const letter =
+                String.fromCharCode(
+                  65 +
+                    Math.max(
+                      0,
+                      Number(
+                        option.option_order
+                      ) - 1
+                    )
+                );
+
+              let marker = "";
+
+              if (
+                option.is_correct
+              ) {
+                marker =
+                  " [CORRECT]";
+              } else if (
+                Number(
+                  answer
+                    ?.selected_option_id
+                ) ===
+                Number(
+                  option.id
+                )
+              ) {
+                marker =
+                  " [YOUR ANSWER]";
+              }
+
+              lines.push({
+                text: `Option ${letter}: ${option.option_text}${marker}`,
+                size: 9,
+                gapBefore: 2,
+              });
+            }
+          );
+        }
+      }
+    );
+  }
+
+  lines.push({
+    text: "----------------------------------------------",
+    size: 9,
+    gapBefore: 12,
+  });
+
+  lines.push({
+    text: "RACER ACADEMY • Quiz Result",
+    size: 9,
+    gapBefore: 8,
+  });
+
+  return lines;
+}
+
+function downloadResultPdf(
+  studentName: string,
+  studentClass: string,
+  quiz: Quiz,
+  result: QuizResult,
+  questionReviews: QuestionReview[] = []
+) {
+  const lines =
+    buildPdfLines(
+      studentName,
+      studentClass,
+      quiz,
+      result,
+      questionReviews
+    );
+
+  const blob =
+    createPdfDocument(
+      lines
+    );
+
+  const safeTitle =
+    pdfSafeText(
+      quiz.title ||
+        `Quiz-${quiz.id}`
+    )
+      .replace(
+        /[^a-zA-Z0-9-_]+/g,
+        "-"
+      )
+      .replace(
+        /^-+|-+$/g,
+        ""
+      );
+
+  const safeName =
+    pdfSafeText(
+      studentName ||
+        "Student"
+    )
+      .replace(
+        /[^a-zA-Z0-9-_]+/g,
+        "-"
+      )
+      .replace(
+        /^-+|-+$/g,
+        ""
+      );
+
+  downloadPdfBlob(
+    blob,
+    `RACER-ACADEMY-${safeName}-${safeTitle}-RESULT.pdf`
+  );
+}
+
 function ResultsContent() {
   const router = useRouter();
 
@@ -265,15 +1065,6 @@ function ResultsContent() {
     loadPage();
   }, [quizIdParam]);
 
-  /*
-   * IMPORTANT:
-   *
-   * The currently logged-in student's USERNAME is the
-   * primary identity source.
-   *
-   * A stale studentId from a previous login must NEVER
-   * override the current student's username.
-   */
   async function getStudent() {
     const storedUsername =
       (
@@ -304,12 +1095,6 @@ function ResultsContent() {
       | Student
       | null = null;
 
-    /*
-     * FIRST PRIORITY:
-     *
-     * Resolve the student directly from the username
-     * belonging to the current login.
-     */
     if (storedUsername) {
       const {
         data,
@@ -338,12 +1123,6 @@ function ResultsContent() {
       }
     }
 
-    /*
-     * FALLBACK ONLY:
-     *
-     * Use stored ID only when there is NO usable
-     * username available.
-     */
     if (
       !currentStudent &&
       !storedUsername &&
@@ -428,10 +1207,6 @@ function ResultsContent() {
         currentStudent.class_name
       );
 
-    /*
-     * Replace ALL potentially stale localStorage identity
-     * values with the VERIFIED database identity.
-     */
     localStorage.setItem(
       "attendance_student_id",
       String(actualStudentId)
@@ -494,9 +1269,6 @@ function ResultsContent() {
     setLoading(true);
     setError("");
 
-    /*
-     * Clear old result data immediately.
-     */
     setQuestionReviews([]);
     setSelectedResult(null);
     setSelectedQuiz(null);
@@ -546,10 +1318,6 @@ function ResultsContent() {
     studentId: number,
     currentClass: string
   ) {
-    /*
-     * ONLY results belonging to the verified current
-     * student's database ID are loaded.
-     */
     const {
       data: resultData,
       error: resultError,
@@ -665,9 +1433,6 @@ function ResultsContent() {
     currentClass: string,
     quizId: number
   ) {
-    /*
-     * Load the selected quiz first.
-     */
     const {
       data: quizData,
       error: quizError,
@@ -697,10 +1462,6 @@ function ResultsContent() {
     const quiz =
       quizData as Quiz;
 
-    /*
-     * Make sure the quiz belongs to the current
-     * student's assigned class.
-     */
     if (
       currentClass &&
       !matchesClass(
@@ -715,11 +1476,6 @@ function ResultsContent() {
 
     setSelectedQuiz(quiz);
 
-    /*
-     * CRITICAL:
-     *
-     * Both quiz_id and student_id are required.
-     */
     const {
       data: resultData,
       error: resultError,
@@ -759,9 +1515,6 @@ function ResultsContent() {
       );
     }
 
-    /*
-     * Final ownership verification.
-     */
     if (
       Number(result.student_id) !==
       Number(studentId)
@@ -775,9 +1528,6 @@ function ResultsContent() {
       result
     );
 
-    /*
-     * Use THIS exact result ID.
-     */
     await loadQuestionReview(
       Number(result.id),
       Number(result.quiz_id)
@@ -791,10 +1541,6 @@ function ResultsContent() {
     setReviewLoading(true);
 
     try {
-      /*
-       * 1. Get answers belonging ONLY to this exact
-       * submitted result.
-       */
       const {
         data: answerData,
         error: answerError,
@@ -822,9 +1568,6 @@ function ResultsContent() {
         (answerData ||
           []) as QuizAnswer[];
 
-      /*
-       * 2. Get ALL questions belonging to this quiz.
-       */
       const {
         data: questionData,
         error: questionError,
@@ -869,12 +1612,6 @@ function ResultsContent() {
             Number(question.id)
         );
 
-      /*
-       * 3. Get ALL options.
-       *
-       * is_correct is fetched ONLY on this submitted
-       * result page. It is NOT fetched during the active quiz.
-       */
       const {
         data: optionData,
         error: optionError,
@@ -908,9 +1645,6 @@ function ResultsContent() {
         (optionData ||
           []) as QuizOption[];
 
-      /*
-       * 4. Map answers by question ID.
-       */
       const answerMap =
         new Map<
           number,
@@ -928,9 +1662,6 @@ function ResultsContent() {
         }
       );
 
-      /*
-       * 5. Map options by question ID.
-       */
       const optionMap =
         new Map<
           number,
@@ -960,14 +1691,6 @@ function ResultsContent() {
         }
       );
 
-      /*
-       * 6. Build complete question-wise report.
-       *
-       * Every question is included:
-       * - answered correctly
-       * - answered incorrectly
-       * - not answered
-       */
       const review =
         questions.map(
           (question) => {
@@ -1319,7 +2042,8 @@ function ResultsContent() {
                               <p className="text-[9px] font-bold text-emerald-200/60">
                                 CORRECT
                               </p>
-                            </div>
+                           
+</div>
 
                             <div className="rounded-xl bg-red-500/10 p-3 text-center">
                               <p className="text-lg font-black text-red-300">
