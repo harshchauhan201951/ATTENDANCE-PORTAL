@@ -140,15 +140,6 @@ export async function POST(
      * ---------------------------------------------------------
      * LOAD STUDENT
      * ---------------------------------------------------------
-     *
-     * Student ID comes from the logged-in student session.
-     *
-     * We use the exact numeric ID and explicitly handle:
-     *
-     * 1. Database error
-     * 2. Student not found
-     * 3. Invalid student ID
-     *
      */
 
     let student: any = null;
@@ -160,7 +151,10 @@ export async function POST(
         .select(
           "id, student_name, student_username, class_name"
         )
-        .eq("student_username", studentUsername)
+        .eq(
+          "student_username",
+          studentUsername
+        )
         .limit(1)
         .maybeSingle();
 
@@ -196,9 +190,12 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-          error: "Unable to load student.",
-          details: studentError.message,
-          code: studentError.code,
+          error:
+            "Unable to load student.",
+          details:
+            studentError.message,
+          code:
+            studentError.code,
         },
         { status: 500 }
       );
@@ -227,16 +224,20 @@ export async function POST(
       );
     }
 
-    const canonicalStudentId = Number(student.id);
+    const canonicalStudentId =
+      Number(student.id);
 
     if (
-      !Number.isInteger(canonicalStudentId) ||
+      !Number.isInteger(
+        canonicalStudentId
+      ) ||
       canonicalStudentId <= 0
     ) {
       return NextResponse.json(
         {
           success: false,
-          error: "Invalid student record.",
+          error:
+            "Invalid student record.",
         },
         { status: 500 }
       );
@@ -246,9 +247,12 @@ export async function POST(
       "START STUDENT FOUND:",
       {
         id: canonicalStudentId,
-        student_name: student.student_name,
-        student_username: student.student_username,
-        class_name: student.class_name,
+        student_name:
+          student.student_name,
+        student_username:
+          student.student_username,
+        class_name:
+          student.class_name,
       }
     );
 
@@ -332,18 +336,22 @@ export async function POST(
      * It is NOT used as the mandatory student start time.
      */
 
-    const scheduledStart = parseIST(
-      quiz.scheduled_date,
-      quiz.scheduled_time
-    );
+    const scheduledStart =
+      parseIST(
+        quiz.scheduled_date,
+        quiz.scheduled_time
+      );
 
     /*
-     * scheduled_time may be unavailable for an Any Time quiz.
+     * ---------------------------------------------------------
+     * STUDENT ATTEMPT WINDOW
+     * ---------------------------------------------------------
      *
-     * Therefore, do not block the student if only the
-     * teacher scheduled_time is missing/invalid.
+     * Any Time quiz:
      *
-     * The actual student window is based on scheduled_date.
+     * 05:00 AM IST
+     * through
+     * before 09:00 PM IST
      */
 
     const attemptWindow =
@@ -366,13 +374,14 @@ export async function POST(
       );
     }
 
-    const durationMinutes = Math.max(
-      1,
-      safeNumber(
-        quiz.duration_minutes,
-        30
-      )
-    );
+    const durationMinutes =
+      Math.max(
+        1,
+        safeNumber(
+          quiz.duration_minutes,
+          30
+        )
+      );
 
     /*
      * ---------------------------------------------------------
@@ -387,7 +396,10 @@ export async function POST(
       .from("quiz_results")
       .select("*")
       .eq("quiz_id", quizId)
-      .eq("student_id", canonicalStudentId)
+      .eq(
+        "student_id",
+        canonicalStudentId
+      )
       .order(
         "id",
         {
@@ -485,8 +497,6 @@ export async function POST(
        * until before:
        *
        * 09:00 PM IST
-       *
-       * Teacher scheduled_time does not control starting.
        */
 
       if (now < attemptWindow.start) {
@@ -543,7 +553,8 @@ export async function POST(
         .from("quiz_results")
         .insert({
           quiz_id: quizId,
-          student_id: canonicalStudentId,
+          student_id:
+            canonicalStudentId,
           total_questions: 0,
           correct_answers: 0,
           wrong_answers: 0,
@@ -607,15 +618,16 @@ export async function POST(
      * Duration = 30 minutes
      * End = 09:10 PM
      *
-     * The 09:00 PM time is only the NEW ATTEMPT START cutoff.
+     * 09:00 PM is only the NEW ATTEMPT START cutoff.
      */
 
-    const attemptEnd = new Date(
-      startedAt.getTime() +
-        durationMinutes *
-          60 *
-          1000
-    );
+    const attemptEnd =
+      new Date(
+        startedAt.getTime() +
+          durationMinutes *
+            60 *
+            1000
+      );
 
     const remainingMilliseconds =
       Math.max(
@@ -637,7 +649,8 @@ export async function POST(
         success: true,
         resultId,
         quizId,
-        studentId: canonicalStudentId,
+        studentId:
+          canonicalStudentId,
 
         startedAt:
           startedAt.toISOString(),
@@ -829,7 +842,8 @@ export async function POST(
 
       quizId,
 
-      studentId: canonicalStudentId,
+      studentId:
+        canonicalStudentId,
 
       startedAt:
         startedAt.toISOString(),
@@ -840,6 +854,7 @@ export async function POST(
        * Can be null for an Any Time quiz if
        * scheduled_time is not available.
        */
+
       scheduledStart:
         scheduledStart
           ? scheduledStart.toISOString()
@@ -848,6 +863,7 @@ export async function POST(
       /*
        * Student start window.
        */
+
       attemptWindowStart:
         attemptWindow.start.toISOString(),
 
@@ -857,6 +873,7 @@ export async function POST(
       /*
        * Actual timer end.
        */
+
       endAt:
         attemptEnd.toISOString(),
 
@@ -870,152 +887,18 @@ export async function POST(
       /*
        * Student information.
        */
+
       student: {
         id: student.id,
+
         student_name:
           student.student_name ??
           null,
+
         student_username:
           student.student_username ??
           null,
-        class_name:
-          student.class_name ??
-          null,
-      },
 
-      quiz: {
-        ...quiz,
-        duration_minutes:
-          durationMinutes,
-      },
-
-      questions:
-        questionsWithOptions,
-    });
-  } catch (error) {
-    console.error(
-      "START QUIZ UNEXPECTED ERROR:",
-      error
-    );
-
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          "Unable to start quiz.",
-        details:
-          error instanceof Error
-            ? error.message
-            : "Unknown server error",
-      },
-      { status: 500 }
-    );
-  }
-}         code:
-              optionsError.code,
-          },
-          { status: 500 }
-        );
-      }
-
-      options =
-        optionRows || [];
-    }
-
-    /*
-     * ---------------------------------------------------------
-     * REMOVE CORRECT ANSWER
-     * ---------------------------------------------------------
-     *
-     * Student must never receive is_correct.
-     */
-
-    const questionsWithOptions =
-      (questions || []).map(
-        (question) => ({
-          ...question,
-
-          options: options
-            .filter(
-              (option) =>
-                Number(
-                  option.question_id
-                ) ===
-                Number(question.id)
-            )
-            .map((option) => {
-              const {
-                is_correct,
-                ...safeOption
-              } = option;
-
-              return safeOption;
-            }),
-        })
-      );
-
-    /*
-     * ---------------------------------------------------------
-     * FINAL RESPONSE
-     * ---------------------------------------------------------
-     */
-
-    return NextResponse.json({
-      success: true,
-
-      resultId,
-
-      quizId,
-
-      studentId,
-
-      startedAt:
-        startedAt.toISOString(),
-
-      /*
-       * Original teacher schedule.
-       *
-       * Can be null for an Any Time quiz if
-       * scheduled_time is not available.
-       */
-      scheduledStart:
-        scheduledStart
-          ? scheduledStart.toISOString()
-          : null,
-
-      /*
-       * Student start window.
-       */
-      attemptWindowStart:
-        attemptWindow.start.toISOString(),
-
-      attemptWindowEnd:
-        attemptWindow.end.toISOString(),
-
-      /*
-       * Actual timer end.
-       */
-      endAt:
-        attemptEnd.toISOString(),
-
-      remainingMilliseconds,
-
-      timeExpired: false,
-
-      alreadyStarted:
-        Boolean(existingResult),
-
-      /*
-       * Student information.
-       */
-      student: {
-        id: student.id,
-        student_name:
-          student.student_name ??
-          null,
-        student_username:
-          student.student_username ??
-          null,
         class_name:
           student.class_name ??
           null,
