@@ -251,6 +251,9 @@ function TeacherResultsContent() {
   const [selectedQuizId, setSelectedQuizId] =
     useState("");
 
+  const [selectedClass, setSelectedClass] =
+    useState("ALL");
+
   const [totalQuestions, setTotalQuestions] =
     useState(0);
 
@@ -359,6 +362,14 @@ function TeacherResultsContent() {
   ]);
 
   /*
+   * Reset class filter when quiz changes.
+   */
+  useEffect(() => {
+    setSelectedClass("ALL");
+    setSearch("");
+  }, [selectedQuizId]);
+
+  /*
    * Load selected quiz,
    * ALL students,
    * ALL quiz results,
@@ -445,9 +456,6 @@ function TeacherResultsContent() {
 
         /*
          * Fetch EVERY student.
-         *
-         * User requested all fetched
-         * student details.
          */
         const {
           data: studentData,
@@ -472,10 +480,6 @@ function TeacherResultsContent() {
         /*
          * Only students from the
          * selected quiz classes.
-         *
-         * If quiz has no class
-         * restriction, every student
-         * is eligible.
          */
         const eligibleStudents =
           allStudents.filter(
@@ -487,13 +491,7 @@ function TeacherResultsContent() {
           );
 
         /*
-         * Fetch ALL results for this
-         * quiz.
-         *
-         * We do NOT restrict this query
-         * to students, because we need
-         * to correctly match submitted
-         * students afterwards.
+         * Fetch ALL results for this quiz.
          */
         const {
           data: resultData,
@@ -518,9 +516,6 @@ function TeacherResultsContent() {
 
         /*
          * Group results by student.
-         *
-         * If duplicate result rows
-         * exist, latest one wins.
          */
         const resultMap =
           new Map<
@@ -560,14 +555,10 @@ function TeacherResultsContent() {
         );
 
         /*
-         * IMPORTANT:
+         * Build rows from eligible students.
          *
-         * Build rows from ELIGIBLE
-         * STUDENTS, not from results.
-         *
-         * This is what makes students
-         * who never attempted the quiz
-         * appear with zero.
+         * This keeps students who never
+         * attempted the quiz with zero.
          */
         const rows: ResultRow[] =
           eligibleStudents.map(
@@ -597,9 +588,8 @@ function TeacherResultsContent() {
           );
 
         /*
-         * Put submitted students
-         * first, followed by
-         * NOT ATTEMPTED students.
+         * Put submitted students first,
+         * followed by NOT ATTEMPTED.
          */
         rows.sort(
           (a, b) => {
@@ -650,6 +640,56 @@ function TeacherResultsContent() {
     loadResults();
   }, [selectedQuizId]);
 
+  /*
+   * ALL CLASSES available in the
+   * currently loaded result students.
+   */
+  const availableClasses =
+    useMemo(() => {
+      const classes =
+        results
+          .map((row) =>
+            normalizeClass(
+              row.student.class_name
+            )
+          )
+          .filter(Boolean);
+
+      return Array.from(
+        new Set(classes)
+      ).sort((a, b) =>
+        a.localeCompare(b, undefined, {
+          numeric: true,
+          sensitivity: "base",
+        })
+      );
+    }, [results]);
+
+  /*
+   * Class-wise filtered results.
+   */
+  const classFilteredResults =
+    useMemo(() => {
+      if (
+        selectedClass === "ALL"
+      ) {
+        return results;
+      }
+
+      return results.filter(
+        (row) =>
+          normalizeClass(
+            row.student.class_name
+          ) === selectedClass
+      );
+    }, [
+      results,
+      selectedClass,
+    ]);
+
+  /*
+   * Search inside selected class.
+   */
   const filteredResults =
     useMemo(() => {
       const query =
@@ -658,10 +698,10 @@ function TeacherResultsContent() {
           .toLowerCase();
 
       if (!query) {
-        return results;
+        return classFilteredResults;
       }
 
-      return results.filter(
+      return classFilteredResults.filter(
         (row) => {
           const student =
             row.student;
@@ -689,24 +729,28 @@ function TeacherResultsContent() {
         }
       );
     }, [
-      results,
+      classFilteredResults,
       search,
     ]);
 
+  /*
+   * Stats are now based on the
+   * selected class.
+   */
   const attemptedCount =
-    results.filter(
+    classFilteredResults.filter(
       (row) =>
         row.isAttempted
     ).length;
 
   const notAttemptedCount =
-    results.filter(
+    classFilteredResults.filter(
       (row) =>
         !row.isAttempted
     ).length;
 
   const passed =
-    results.filter(
+    classFilteredResults.filter(
       (row) =>
         row.isAttempted &&
         String(
@@ -718,7 +762,7 @@ function TeacherResultsContent() {
     ).length;
 
   const failed =
-    results.filter(
+    classFilteredResults.filter(
       (row) =>
         row.isAttempted &&
         String(
@@ -731,7 +775,7 @@ function TeacherResultsContent() {
 
   const averagePercentage =
     attemptedCount > 0
-      ? results
+      ? classFilteredResults
           .filter(
             (row) =>
               row.isAttempted
@@ -914,6 +958,10 @@ function TeacherResultsContent() {
                   value
                 );
 
+                setSelectedClass(
+                  "ALL"
+                );
+
                 setSearch("");
               }}
               className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-4 text-sm font-bold text-white outline-none focus:border-indigo-400"
@@ -1052,7 +1100,7 @@ function TeacherResultsContent() {
                 <div className="rounded-2xl bg-white/5 p-4 text-center">
                   <div className="text-2xl font-black">
                     {
-                      results.length
+                      classFilteredResults.length
                     }
                   </div>
 
@@ -1111,12 +1159,59 @@ function TeacherResultsContent() {
             </div>
           </section>
 
+          {/* CLASS FILTER */}
+          <section className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-5 shadow-2xl">
+            <div className="mb-3">
+              <h3 className="text-lg font-black">
+                Class Wise Results
+              </h3>
+
+              <p className="mt-1 text-xs text-slate-400">
+                Select a class to view students
+                and their quiz results class-wise.
+              </p>
+            </div>
+
+            <select
+              value={selectedClass}
+              onChange={(e) => {
+                setSelectedClass(
+                  e.target.value
+                );
+                setSearch("");
+              }}
+              className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-4 text-sm font-bold text-white outline-none focus:border-indigo-400"
+            >
+              <option
+                value="ALL"
+                className="bg-slate-900"
+              >
+                ALL CLASSES
+              </option>
+
+              {availableClasses.map(
+                (className) => (
+                  <option
+                    key={className}
+                    value={className}
+                    className="bg-slate-900"
+                  >
+                    CLASS {className}
+                  </option>
+                )
+              )}
+            </select>
+          </section>
+
           {/* STUDENT RESULTS */}
           <section className="mt-6">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="text-xl font-black">
                   Student Results
+                  {selectedClass !==
+                    "ALL" &&
+                    ` • CLASS ${selectedClass}`}
                 </h3>
 
                 <p className="mt-1 text-sm text-slate-400">
@@ -1148,7 +1243,7 @@ function TeacherResultsContent() {
 
                 <p className="mt-2 text-sm text-slate-400">
                   No eligible student matches
-                  your search.
+                  your selected class/search.
                 </p>
               </div>
             ) : (
