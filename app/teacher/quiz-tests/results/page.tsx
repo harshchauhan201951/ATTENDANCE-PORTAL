@@ -189,11 +189,10 @@ function createPdf(
     let remaining = String(text);
 
     while (remaining.length > maxChars) {
-      let breakAt =
-        remaining.lastIndexOf(
-          " ",
-          maxChars
-        );
+      let breakAt = remaining.lastIndexOf(
+        " ",
+        maxChars
+      );
 
       if (breakAt <= 0) {
         breakAt = maxChars;
@@ -204,7 +203,9 @@ function createPdf(
       );
 
       remaining =
-        remaining.slice(breakAt).trimStart();
+        remaining
+          .slice(breakAt)
+          .trimStart();
     }
 
     wrappedLines.push(remaining);
@@ -240,16 +241,15 @@ function createPdf(
 
   const objects: string[] = [];
 
+  // Object 1 - Catalog
   objects.push(
     "<< /Type /Catalog /Pages 2 0 R >>"
   );
 
+  // Object 2 - Pages
   objects.push("");
 
   const pageObjectNumbers: number[] = [];
-
-  const fontObjectNumber =
-    3 + pages.length * 2;
 
   pages.forEach(
     (pageLines, pageIndex) => {
@@ -266,17 +266,15 @@ function createPdf(
       objects[
         pageObjectNumber - 1
       ] =
-        `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 ${fontObjectNumber} 0 R >> >> /Contents ${contentObjectNumber} 0 R >>`;
+        `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 FONT_OBJECT >> >> /Contents ${contentObjectNumber} 0 R >>`;
 
-      let stream =
-        "BT\n";
+      let stream = "BT\n";
 
       pageLines.forEach(
         (line, lineIndex) => {
           const y =
             topY -
-            lineIndex *
-              lineHeight;
+            lineIndex * lineHeight;
 
           const fontSize =
             pageIndex === 0 &&
@@ -284,10 +282,15 @@ function createPdf(
               ? 16
               : 10;
 
+          /*
+           * IMPORTANT:
+           * Tm sets an ABSOLUTE text position.
+           * This fixes the old Td positioning bug.
+           */
           stream +=
-            `/F1 ${fontSize} Tf\n${marginLeft} ${y} Td\n(${pdfEscape(
-              line
-            )}) Tj\n-${marginLeft} 0 Td\n`;
+            `/F1 ${fontSize} Tf\n` +
+            `1 0 0 1 ${marginLeft} ${y} Tm\n` +
+            `(${pdfEscape(line)}) Tj\n`;
         }
       );
 
@@ -296,7 +299,30 @@ function createPdf(
       objects[
         contentObjectNumber - 1
       ] =
-        `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`;
+        `<< /Length ${stream.length} >>\n` +
+        `stream\n` +
+        `${stream}\n` +
+        `endstream`;
+    }
+  );
+
+  // Font object
+  const fontObjectNumber =
+    3 + pages.length * 2;
+
+  objects[
+    fontObjectNumber - 1
+  ] =
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
+
+  // Replace FONT_OBJECT placeholder
+  objects.forEach(
+    (object, index) => {
+      objects[index] =
+        object.replace(
+          /FONT_OBJECT/g,
+          `${fontObjectNumber} 0 R`
+        );
     }
   );
 
@@ -306,14 +332,9 @@ function createPdf(
         (number) =>
           `${number} 0 R`
       )
-      .join(" ")}] /Count ${
-      pages.length
-    } >>`;
-
-  objects[
-    fontObjectNumber - 1
-  ] =
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
+      .join(
+        " "
+      )}] /Count ${pages.length} >>`;
 
   let pdf = "%PDF-1.4\n";
 
@@ -324,11 +345,14 @@ function createPdf(
       offsets.push(pdf.length);
 
       pdf +=
-        `${index + 1} 0 obj\n${object}\nendobj\n`;
+        `${index + 1} 0 obj\n` +
+        `${object}\n` +
+        `endobj\n`;
     }
   );
 
-  const xrefOffset = pdf.length;
+  const xrefOffset =
+    pdf.length;
 
   pdf +=
     `xref\n0 ${
@@ -353,13 +377,20 @@ function createPdf(
   }
 
   pdf +=
-    `trailer\n<< /Size ${
+    `trailer\n` +
+    `<< /Size ${
       objects.length + 1
-    } /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+    } /Root 1 0 R >>\n` +
+    `startxref\n` +
+    `${xrefOffset}\n` +
+    `%%EOF`;
 
-  return new Blob([pdf], {
-    type: "application/pdf",
-  });
+  return new Blob(
+    [pdf],
+    {
+      type: "application/pdf",
+    }
+  );
 }
 
 function downloadPdf(
