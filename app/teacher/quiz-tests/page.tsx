@@ -92,6 +92,10 @@ export default function TeacherQuizTestsPage() {
     router.push(`/teacher/quiz-tests/results?quizId=${quizId}`);
   }
 
+  function openQuizQuestions(quizId: number) {
+    router.push(`/teacher/quiz-tests/questions?quizId=${quizId}`);
+  }
+
   const totalQuizzes = quizzes.length;
 
   const publishedQuizzes = quizzes.filter(
@@ -283,7 +287,7 @@ export default function TeacherQuizTestsPage() {
               {/* QUESTIONS */}
               <button
                 onClick={() =>
-                  router.push("/teacher/quiz-tests/questions")
+                  router.push("/teacher/quiz-tests/manage")
                 }
                 className="group rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-600/20 to-pink-600/10 p-6 text-left transition hover:-translate-y-1 hover:border-purple-400/40 hover:bg-purple-500/20"
               >
@@ -302,8 +306,8 @@ export default function TeacherQuizTestsPage() {
                 </h4>
 
                 <p className="mt-2 text-sm leading-6 text-slate-400">
-                  Add questions, multiple options and select the correct
-                  answer.
+                  Open a quiz from Manage Quizzes to add questions, multiple
+                  options and select the correct answer.
                 </p>
               </button>
 
@@ -490,6 +494,16 @@ export default function TeacherQuizTestsPage() {
                       </div>
 
                       <div className="flex shrink-0 flex-wrap gap-2">
+                        {/* QUESTIONS */}
+                        <button
+                          onClick={() =>
+                            openQuizQuestions(quiz.id)
+                          }
+                          className="rounded-xl border border-purple-400/20 bg-purple-500/10 px-4 py-2 text-sm font-bold text-purple-300 transition hover:bg-purple-500/20"
+                        >
+                          Questions
+                        </button>
+
                         {/* RESULTS */}
                         <button
                           onClick={() =>
