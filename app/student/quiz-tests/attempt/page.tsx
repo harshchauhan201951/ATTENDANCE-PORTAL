@@ -53,9 +53,12 @@ type StartResponse = {
   success: boolean;
   resultId?: number;
   resumed?: boolean;
+  alreadyStarted?: boolean;
   message?: string;
   error?: string;
   details?: string;
+
+  student?: StudentData;
 
   quiz?: QuizTest & {
     startTime?: string;
@@ -137,10 +140,8 @@ function formatTime(totalSeconds: number) {
 /*
  * Read logged-in student information.
  *
- * IMPORTANT:
- * If username exists, it is kept along with the ID.
- * initialize() will resolve the canonical students.id
- * from Supabase using the username.
+ * Username and ID are both retained whenever available.
+ * The API will use username first and ID as fallback.
  */
 function readStudent(): StudentData | null {
   if (typeof window === "undefined") {
@@ -373,13 +374,6 @@ function readStudent(): StudentData | null {
     }
   }
 
-  /*
-   * Username is retained even when an ID
-   * is also available.
-   *
-   * initialize() will prefer username and
-   * fetch the real students.id.
-   */
   if (
     username ||
     numericId > 0
@@ -464,10 +458,6 @@ function saveStudentSession(
     );
   }
 
-  /*
-   * Also save the complete canonical student
-   * object so future pages receive the correct ID.
-   */
   try {
     window.localStorage.setItem(
       "student",
@@ -486,8 +476,18 @@ function saveStudentSession(
 function getApiError(
   data: StartResponse
 ) {
+  if (data.error) {
+    if (
+      data.details &&
+      data.details !== data.error
+    ) {
+      return `${data.error}\n${data.details}`;
+    }
+
+    return data.error;
+  }
+
   return (
-    data.error ||
     data.message ||
     data.details ||
     "Unable to start quiz."
@@ -803,7 +803,7 @@ function StudentQuizAttemptContent() {
       }
 
       try {
-        let currentStudent =
+        const currentStudent =
           readStudent();
 
         if (!currentStudent) {
@@ -811,18 +811,6 @@ function StudentQuizAttemptContent() {
             "Student login information not found. Please login again."
           );
         }
-
-        /*
-         * IMPORTANT FIX:
-         *
-         * Do NOT query the students table directly from
-         * the browser. The browser may be blocked by
-         * Supabase RLS.
-         *
-         * Send the stored student information to the
-         * server API. The server uses the service-role
-         * client to resolve the canonical student record.
-         */
 
         if (
           !currentStudent.student_username &&
@@ -834,11 +822,11 @@ function StudentQuizAttemptContent() {
         }
 
         /*
-         * API is the authority for:
-         * - one attempt
-         * - schedule
-         * - timer
-         * - question loading
+         * Send BOTH identifiers.
+         *
+         * Username is preferred by the server because
+         * it comes directly from the student login session.
+         * Numeric ID remains available as fallback.
          */
         const response =
           await fetch(
@@ -851,8 +839,15 @@ function StudentQuizAttemptContent() {
               },
               body: JSON.stringify({
                 quizId,
+
                 studentId:
-                  currentStudent.id,
+                  currentStudent.id > 0
+                    ? currentStudent.id
+                    : undefined,
+
+                studentUsername:
+                  currentStudent.student_username ||
+                  undefined,
               }),
             }
           );
@@ -892,6 +887,45 @@ function StudentQuizAttemptContent() {
 
           throw new Error(
             getApiError(data)
+          );
+        }
+
+        /*
+         * Server returns the canonical student record.
+         * Always use that ID from this point onward.
+         */
+        if (data.student) {
+          const canonicalStudent: StudentData = {
+            id: Number(
+              data.student.id
+            ),
+            student_name:
+              data.student
+                .student_name ??
+              currentStudent.student_name ??
+              null,
+            student_username:
+              data.student
+                .student_username ??
+              currentStudent.student_username ??
+              null,
+            class_name:
+              data.student
+                .class_name ??
+              currentStudent.class_name ??
+              null,
+          };
+
+          setStudent(
+            canonicalStudent
+          );
+
+          saveStudentSession(
+            canonicalStudent
+          );
+        } else {
+          setStudent(
+            currentStudent
           );
         }
 
@@ -992,12 +1026,20 @@ function StudentQuizAttemptContent() {
           )
         );
 
+        const canonicalId =
+          data.student?.id
+            ? Number(
+                data.student.id
+              )
+            : currentStudent.id;
+
         if (
           typeof window !==
-          "undefined"
+          "undefined" &&
+          canonicalId > 0
         ) {
           window.localStorage.setItem(
-            `quiz-attempt-started-${quizId}-${currentStudent.id}`,
+            `quiz-attempt-started-${quizId}-${canonicalId}`,
             "true"
           );
         }
