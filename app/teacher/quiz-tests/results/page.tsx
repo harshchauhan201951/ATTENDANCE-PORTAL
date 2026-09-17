@@ -105,27 +105,6 @@ function getQuizClasses(quiz: Quiz | null) {
   return legacy ? [legacy] : [];
 }
 
-function isStudentEligible(
-  student: Student,
-  quiz: Quiz
-) {
-  const quizClasses =
-    getQuizClasses(quiz);
-
-  if (quizClasses.length === 0) {
-    return true;
-  }
-
-  const studentClass =
-    normalizeClass(
-      student.class_name
-    );
-
-  return quizClasses.includes(
-    studentClass
-  );
-}
-
 function formatDateTime(
   value: string | null
 ) {
@@ -221,6 +200,510 @@ function getLatestResult(
   return sorted[0];
 }
 
+/* ---------------- PDF HELPERS ---------------- */
+
+function pdfEscape(value: string) {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/\(/g, "\\(")
+    .replace(/\)/g, "\\)")
+    .replace(/[^\x20-\x7E]/g, " ");
+}
+
+function createSimplePdf(
+  title: string,
+  lines: string[]
+) {
+  const safeLines = [
+    title,
+    "",
+    ...lines,
+  ];
+
+  const pageWidth = 595;
+  const pageHeight = 842;
+
+  const marginLeft = 42;
+  const topY = 800;
+  const lineHeight = 17;
+
+  const maxLinesPerPage = 44;
+
+  const pages: string[][] = [];
+
+  for (
+    let i = 0;
+    i < safeLines.length;
+    i += maxLinesPerPage
+  ) {
+    pages.push(
+      safeLines.slice(
+        i,
+        i + maxLinesPerPage
+      )
+    );
+  }
+
+  if (pages.length === 0) {
+    pages.push([]);
+  }
+
+  const objects: string[] = [];
+
+  objects.push(
+    "<< /Type /Catalog /Pages 2 0 R >>"
+  );
+
+  const pageObjectNumbers: number[] = [];
+
+  const fontObjectNumber =
+    3 + pages.length * 2;
+
+  pages.forEach(
+    (pageLines, pageIndex) => {
+      const pageObjectNumber =
+        3 + pageIndex * 2;
+
+      const contentObjectNumber =
+        pageObjectNumber + 1;
+
+      pageObjectNumbers.push(
+        pageObjectNumber
+      );
+
+      objects[
+        pageObjectNumber - 1
+      ] =
+        `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 ${fontObjectNumber} 0 R >> >> /Contents ${contentObjectNumber} 0 R >>`;
+
+      let stream =
+        "BT\n/F1 11 Tf\n";
+
+      pageLines.forEach(
+        (line, lineIndex) => {
+          const y =
+            topY -
+            lineIndex *
+              lineHeight;
+
+          const fontSize =
+            lineIndex === 0 &&
+            pageIndex === 0
+              ? 16
+              : 11;
+
+          const safeText =
+            pdfEscape(
+              String(line)
+            );
+
+          stream +=
+            `/F1 ${fontSize} Tf\n${marginLeft} ${y} Td\n(${safeText}) Tj\n${-marginLeft} 0 Td\n`;
+        }
+      );
+
+      stream +=
+        "ET";
+
+      objects[
+        contentObjectNumber - 1
+      ] =
+        `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`;
+    }
+  );
+
+  objects[1] =
+    `<< /Type /Pages /Kids [${pageObjectNumbers
+      .map(
+        (number) =>
+          `${number} 0 R`
+      )
+      .join(
+        " "
+      )}] /Count ${pages.length} >>`;
+
+  objects[
+    fontObjectNumber - 1
+  ] =
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
+
+  let pdf =
+    "%PDF-1.4\n";
+
+  const offsets: number[] = [
+    0,
+  ];
+
+  objects.forEach(
+    (object, index) => {
+      offsets.push(
+        pdf.length
+      );
+
+      pdf +=
+        `${index + 1} 0 obj\n${object}\nendobj\n`;
+    }
+  );
+
+  const xrefOffset =
+    pdf.length;
+
+  pdf +=
+    `xref\n0 ${objects.length + 1}\n`;
+
+  pdf +=
+    "0000000000 65535 f \n";
+
+  for (
+    let i = 1;
+    i <= objects.length;
+    i++
+  ) {
+    pdf +=
+      `${String(
+        offsets[i]
+      ).padStart(
+        10,
+        "0"
+      )} 00000 n \n`;
+  }
+
+  pdf +=
+    `trailer\n<< /Size ${
+      objects.length + 1
+    } /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+  return new Blob(
+    [pdf],
+    {
+      type: "application/pdf",
+    }
+  );
+}
+
+function downloadPdf(
+  filename: string,
+  title: string,
+  lines: string[]
+) {
+  const blob =
+    createSimplePdf(
+      title,
+      lines
+    );
+
+  const url =
+    URL.createObjectURL(
+      blob
+    );
+
+  const anchor =
+    document.createElement(
+      "a"
+    );
+
+  anchor.href = url;
+  anchor.download =
+    filename;
+
+  document.body.appendChild(
+    anchor
+  );
+
+  anchor.click();
+
+  anchor.remove();
+
+  setTimeout(() => {
+    URL.revokeObjectURL(
+      url
+    );
+  }, 1000);
+}
+
+function buildStudentPdfLines(
+  row: ResultRow,
+  quiz: Quiz,
+  totalQuestions: number
+) {
+  const result =
+    row.isAttempted &&
+    row.result
+      ? row.result
+      : null;
+
+  const questions =
+    result &&
+    Number(
+      result.total_questions
+    ) > 0
+      ? Number(
+          result.total_questions
+        )
+      : totalQuestions;
+
+  const totalMarks =
+    result
+      ? Number(
+          result.total_marks || 0
+        )
+      : questions *
+        Number(
+          quiz.marks_per_question ||
+            0
+        );
+
+  const obtainedMarks =
+    result
+      ? Number(
+          result.obtained_marks || 0
+        )
+      : 0;
+
+  const percentage =
+    result
+      ? Number(
+          result.percentage || 0
+        )
+      : 0;
+
+  const status =
+    result
+      ? String(
+          result.result_status ||
+            ""
+        ).toUpperCase()
+      : "NOT ATTEMPTED";
+
+  return [
+    `Student Name: ${
+      row.student.student_name ||
+      `Student #${row.student.id}`
+    }`,
+    `Username: ${
+      row.student.student_username ||
+      "—"
+    }`,
+    `Student ID: ${row.student.id}`,
+    `Class: ${
+      normalizeClass(
+        row.student.class_name
+      ) || "—"
+    }`,
+    `Admission Date: ${formatDate(
+      row.student.admission_date
+    )}`,
+    `Date of Birth: ${formatDate(
+      row.student.date_of_birth
+    )}`,
+    "",
+    `Quiz: ${quiz.title}`,
+    `Subject: ${
+      quiz.subject || "—"
+    }`,
+    `Quiz Date: ${formatDate(
+      quiz.scheduled_date
+    )}`,
+    `Total Questions: ${questions}`,
+    `Correct Answers: ${
+      result
+        ? Number(
+            result.correct_answers ||
+              0
+          )
+        : 0
+    }`,
+    `Wrong Answers: ${
+      result
+        ? Number(
+            result.wrong_answers ||
+              0
+          )
+        : 0
+    }`,
+    `Unanswered: ${
+      result
+        ? Number(
+            result.unanswered ||
+              0
+          )
+        : questions
+    }`,
+    `Obtained Marks: ${formatNumber(
+      obtainedMarks
+    )}`,
+    `Total Marks: ${formatNumber(
+      totalMarks
+    )}`,
+    `Percentage: ${formatNumber(
+      percentage
+    )}%`,
+    `Result: ${status}`,
+    `Submission: ${
+      result
+        ? result.submission_type ||
+          "manual"
+        : "not_attempted"
+    }`,
+    `Submitted: ${
+      result
+        ? formatDateTime(
+            result.submitted_at
+          )
+        : "Not submitted"
+    }`,
+    "",
+    "RACER ACADEMY",
+    "Teacher Quiz Result",
+  ];
+}
+
+function buildOverallPdfLines(
+  rows: ResultRow[],
+  quiz: Quiz,
+  totalQuestions: number
+) {
+  const lines: string[] = [];
+
+  lines.push(
+    `Quiz: ${quiz.title}`
+  );
+
+  lines.push(
+    `Subject: ${
+      quiz.subject || "—"
+    }`
+  );
+
+  lines.push(
+    `Quiz Date: ${formatDate(
+      quiz.scheduled_date
+    )}`
+  );
+
+  lines.push(
+    `Total Students: ${rows.length}`
+  );
+
+  lines.push("");
+
+  rows.forEach(
+    (row, index) => {
+      const result =
+        row.isAttempted &&
+        row.result
+          ? row.result
+          : null;
+
+      const questions =
+        result &&
+        Number(
+          result.total_questions
+        ) > 0
+          ? Number(
+              result.total_questions
+            )
+          : totalQuestions;
+
+      const totalMarks =
+        result
+          ? Number(
+              result.total_marks || 0
+            )
+          : questions *
+            Number(
+              quiz.marks_per_question ||
+                0
+            );
+
+      const obtainedMarks =
+        result
+          ? Number(
+              result.obtained_marks || 0
+            )
+          : 0;
+
+      const percentage =
+        result
+          ? Number(
+              result.percentage || 0
+            )
+          : 0;
+
+      const status =
+        result
+          ? String(
+              result.result_status ||
+                ""
+            ).toUpperCase()
+          : "NOT ATTEMPTED";
+
+      lines.push(
+        `${index + 1}. ${
+          row.student
+            .student_name ||
+          `Student #${row.student.id}`
+        }`
+      );
+
+      lines.push(
+        `   Username: ${
+          row.student
+            .student_username ||
+          "—"
+        }`
+      );
+
+      lines.push(
+        `   Student ID: ${
+          row.student.id
+        }`
+      );
+
+      lines.push(
+        `   Class: ${
+          normalizeClass(
+            row.student
+              .class_name
+          ) || "—"
+        }`
+      );
+
+      lines.push(
+        `   Marks: ${formatNumber(
+          obtainedMarks
+        )} / ${formatNumber(
+          totalMarks
+        )}`
+      );
+
+      lines.push(
+        `   Percentage: ${formatNumber(
+          percentage
+        )}%`
+      );
+
+      lines.push(
+        `   Status: ${status}`
+      );
+
+      lines.push("");
+    }
+  );
+
+  lines.push(
+    "RACER ACADEMY"
+  );
+
+  lines.push(
+    "Teacher Quiz Results"
+  );
+
+  return lines;
+}
+
+/* ---------------- MAIN PAGE ---------------- */
+
 function TeacherResultsContent() {
   const router = useRouter();
 
@@ -238,6 +721,9 @@ function TeacherResultsContent() {
 
   const [results, setResults] =
     useState<ResultRow[]>([]);
+
+  const [allStudents, setAllStudents] =
+    useState<Student[]>([]);
 
   const [loading, setLoading] =
     useState(true);
@@ -260,9 +746,6 @@ function TeacherResultsContent() {
   const [loadingQuizzes, setLoadingQuizzes] =
     useState(true);
 
-  /*
-   * Load ALL quizzes.
-   */
   useEffect(() => {
     async function loadQuizzes() {
       setLoadingQuizzes(true);
@@ -334,9 +817,6 @@ function TeacherResultsContent() {
     loadQuizzes();
   }, [quizIdParam]);
 
-  /*
-   * Keep selected quiz in URL.
-   */
   useEffect(() => {
     if (!selectedQuizId) {
       return;
@@ -361,20 +841,11 @@ function TeacherResultsContent() {
     searchParams,
   ]);
 
-  /*
-   * Reset class filter when quiz changes.
-   */
   useEffect(() => {
     setSelectedClass("ALL");
     setSearch("");
   }, [selectedQuizId]);
 
-  /*
-   * Load selected quiz,
-   * ALL students,
-   * ALL quiz results,
-   * and question count.
-   */
   useEffect(() => {
     async function loadResults() {
       const quizId =
@@ -395,9 +866,6 @@ function TeacherResultsContent() {
       setError("");
 
       try {
-        /*
-         * Fetch selected quiz.
-         */
         const {
           data: quizData,
           error: quizError,
@@ -426,12 +894,6 @@ function TeacherResultsContent() {
           selectedQuiz
         );
 
-        /*
-         * Fetch all questions so that
-         * NOT ATTEMPTED students can
-         * still receive the correct
-         * question count.
-         */
         const {
           data: questionData,
           error: questionError,
@@ -454,9 +916,6 @@ function TeacherResultsContent() {
           );
         }
 
-        /*
-         * Fetch EVERY student.
-         */
         const {
           data: studentData,
           error: studentError,
@@ -473,26 +932,14 @@ function TeacherResultsContent() {
           );
         }
 
-        const allStudents =
+        const fetchedStudents =
           (studentData ||
             []) as Student[];
 
-        /*
-         * Only students from the
-         * selected quiz classes.
-         */
-        const eligibleStudents =
-          allStudents.filter(
-            (student) =>
-              isStudentEligible(
-                student,
-                selectedQuiz
-              )
-          );
+        setAllStudents(
+          fetchedStudents
+        );
 
-        /*
-         * Fetch ALL results for this quiz.
-         */
         const {
           data: resultData,
           error: resultError,
@@ -514,9 +961,6 @@ function TeacherResultsContent() {
           (resultData ||
             []) as QuizResult[];
 
-        /*
-         * Group results by student.
-         */
         const resultMap =
           new Map<
             number,
@@ -554,14 +998,8 @@ function TeacherResultsContent() {
           }
         );
 
-        /*
-         * Build rows from eligible students.
-         *
-         * This keeps students who never
-         * attempted the quiz with zero.
-         */
         const rows: ResultRow[] =
-          eligibleStudents.map(
+          fetchedStudents.map(
             (student) => {
               const studentResults =
                 resultMap.get(
@@ -587,10 +1025,6 @@ function TeacherResultsContent() {
             }
           );
 
-        /*
-         * Put submitted students first,
-         * followed by NOT ATTEMPTED.
-         */
         rows.sort(
           (a, b) => {
             if (
@@ -640,17 +1074,13 @@ function TeacherResultsContent() {
     loadResults();
   }, [selectedQuizId]);
 
-  /*
-   * ALL CLASSES available in the
-   * currently loaded result students.
-   */
   const availableClasses =
     useMemo(() => {
       const classes =
-        results
-          .map((row) =>
+        allStudents
+          .map((student) =>
             normalizeClass(
-              row.student.class_name
+              student.class_name
             )
           )
           .filter(Boolean);
@@ -658,16 +1088,18 @@ function TeacherResultsContent() {
       return Array.from(
         new Set(classes)
       ).sort((a, b) =>
-        a.localeCompare(b, undefined, {
-          numeric: true,
-          sensitivity: "base",
-        })
+        a.localeCompare(
+          b,
+          undefined,
+          {
+            numeric: true,
+            sensitivity:
+              "base",
+          }
+        )
       );
-    }, [results]);
+    }, [allStudents]);
 
-  /*
-   * Class-wise filtered results.
-   */
   const classFilteredResults =
     useMemo(() => {
       if (
@@ -687,9 +1119,6 @@ function TeacherResultsContent() {
       selectedClass,
     ]);
 
-  /*
-   * Search inside selected class.
-   */
   const filteredResults =
     useMemo(() => {
       const query =
@@ -710,12 +1139,6 @@ function TeacherResultsContent() {
             student.student_name,
             student.student_username,
             student.class_name,
-            student.father_name,
-            student.mother_name,
-            student.father_phone,
-            student.mother_phone,
-            student.city,
-            student.address,
           ];
 
           return searchableValues.some(
@@ -733,10 +1156,6 @@ function TeacherResultsContent() {
       search,
     ]);
 
-  /*
-   * Stats are now based on the
-   * selected class.
-   */
   const attemptedCount =
     classFilteredResults.filter(
       (row) =>
@@ -855,6 +1274,69 @@ function TeacherResultsContent() {
     };
   }
 
+  function handleDownloadStudentPdf(
+    row: ResultRow
+  ) {
+    if (!quiz) return;
+
+    const studentName =
+      row.student.student_name ||
+      `Student-${row.student.id}`;
+
+    const safeName =
+      studentName
+        .replace(
+          /[^a-zA-Z0-9-_]+/g,
+          "_"
+        )
+        .replace(
+          /^_+|_+$/g,
+          ""
+        );
+
+    const lines =
+      buildStudentPdfLines(
+        row,
+        quiz,
+        totalQuestions
+      );
+
+    downloadPdf(
+      `RACER-ACADEMY-${safeName}-Quiz-Result.pdf`,
+      `RACER ACADEMY - QUIZ RESULT`,
+      lines
+    );
+  }
+
+  function handleDownloadOverallPdf() {
+    if (!quiz) return;
+
+    if (
+      filteredResults.length ===
+      0
+    ) {
+      return;
+    }
+
+    const lines =
+      buildOverallPdfLines(
+        filteredResults,
+        quiz,
+        totalQuestions
+      );
+
+    const className =
+      selectedClass === "ALL"
+        ? "ALL-CLASSES"
+        : `CLASS-${selectedClass}`;
+
+    downloadPdf(
+      `RACER-ACADEMY-${className}-Quiz-Results.pdf`,
+      `RACER ACADEMY - OVERALL QUIZ RESULTS`,
+      lines
+    );
+  }
+
   if (
     loadingQuizzes ||
     loading
@@ -933,7 +1415,6 @@ function TeacherResultsContent() {
         </header>
 
         <div className="mx-auto max-w-7xl px-4 py-8">
-          {/* ALL QUIZZES */}
           <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-5 shadow-2xl">
             <div className="mb-3">
               <h2 className="text-lg font-black">
@@ -985,7 +1466,6 @@ function TeacherResultsContent() {
             </select>
           </section>
 
-          {/* QUIZ HEADER */}
           <section className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
               <div>
@@ -1105,7 +1585,7 @@ function TeacherResultsContent() {
                   </div>
 
                   <div className="text-[10px] font-bold text-slate-500">
-                    ELIGIBLE
+                    STUDENTS
                   </div>
                 </div>
 
@@ -1159,7 +1639,6 @@ function TeacherResultsContent() {
             </div>
           </section>
 
-          {/* CLASS FILTER */}
           <section className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-5 shadow-2xl">
             <div className="mb-3">
               <h3 className="text-lg font-black">
@@ -1167,8 +1646,8 @@ function TeacherResultsContent() {
               </h3>
 
               <p className="mt-1 text-xs text-slate-400">
-                Select a class to view students
-                and their quiz results class-wise.
+                Select a class to view all students
+                of that class.
               </p>
             </div>
 
@@ -1203,7 +1682,6 @@ function TeacherResultsContent() {
             </select>
           </section>
 
-          {/* STUDENT RESULTS */}
           <section className="mt-6">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -1221,17 +1699,33 @@ function TeacherResultsContent() {
                 </p>
               </div>
 
-              <input
-                type="text"
-                value={search}
-                onChange={(e) =>
-                  setSearch(
-                    e.target.value
-                  )
-                }
-                placeholder="Search name, username, class, parent, phone..."
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none focus:border-indigo-400 sm:max-w-md"
-              />
+              <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) =>
+                    setSearch(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Search name, username, class..."
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none focus:border-indigo-400 sm:w-[330px]"
+                />
+
+                <button
+                  type="button"
+                  onClick={
+                    handleDownloadOverallPdf
+                  }
+                  disabled={
+                    filteredResults.length ===
+                    0
+                  }
+                  className="rounded-xl bg-indigo-600 px-5 py-3 text-sm font-black text-white shadow-lg hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  DOWNLOAD ALL RESULTS PDF
+                </button>
+              </div>
             </div>
 
             {filteredResults.length ===
@@ -1242,8 +1736,8 @@ function TeacherResultsContent() {
                 </h4>
 
                 <p className="mt-2 text-sm text-slate-400">
-                  No eligible student matches
-                  your selected class/search.
+                  No student matches your
+                  selected class/search.
                 </p>
               </div>
             ) : (
@@ -1290,7 +1784,6 @@ function TeacherResultsContent() {
                         }`}
                       >
                         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-                          {/* STUDENT DETAILS */}
                           <div className="flex min-w-0 items-start gap-4">
                             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/15 font-black text-indigo-300">
                               {index +
@@ -1341,7 +1834,6 @@ function TeacherResultsContent() {
                                 </span>
                               </div>
 
-                              {/* ALL FETCHED STUDENT DETAILS */}
                               <div className="mt-4 grid grid-cols-1 gap-x-6 gap-y-2 text-xs text-slate-400 sm:grid-cols-2">
                                 <div>
                                   <span className="text-slate-600">
@@ -1381,90 +1873,6 @@ function TeacherResultsContent() {
                                     )}
                                   </strong>
                                 </div>
-
-                                <div>
-                                  <span className="text-slate-600">
-                                    Father:
-                                  </span>{" "}
-                                  <strong className="text-slate-300">
-                                    {row
-                                      .student
-                                      .father_name ||
-                                      "—"}
-                                  </strong>
-                                </div>
-
-                                <div>
-                                  <span className="text-slate-600">
-                                    Father Phone:
-                                  </span>{" "}
-                                  <strong className="text-slate-300">
-                                    {row
-                                      .student
-                                      .father_phone ||
-                                      "—"}
-                                  </strong>
-                                </div>
-
-                                <div>
-                                  <span className="text-slate-600">
-                                    Mother:
-                                  </span>{" "}
-                                  <strong className="text-slate-300">
-                                    {row
-                                      .student
-                                      .mother_name ||
-                                      "—"}
-                                  </strong>
-                                </div>
-
-                                <div>
-                                  <span className="text-slate-600">
-                                    Mother Phone:
-                                  </span>{" "}
-                                  <strong className="text-slate-300">
-                                    {row
-                                      .student
-                                      .mother_phone ||
-                                      "—"}
-                                  </strong>
-                                </div>
-
-                                <div>
-                                  <span className="text-slate-600">
-                                    City:
-                                  </span>{" "}
-                                  <strong className="text-slate-300">
-                                    {row
-                                      .student
-                                      .city ||
-                                      "—"}
-                                  </strong>
-                                </div>
-
-                                <div className="sm:col-span-2">
-                                  <span className="text-slate-600">
-                                    Address:
-                                  </span>{" "}
-                                  <strong className="text-slate-300">
-                                    {row
-                                      .student
-                                      .address ||
-                                      "—"}
-                                  </strong>
-                                </div>
-
-                                <div>
-                                  <span className="text-slate-600">
-                                    Blood Group:
-                                  </span>{" "}
-                                  <strong className="text-slate-300">
-                                    {row
-                                      .student
-                                      .blood_group ||
-                                      "—"}
-                                  </strong>
-                                </div>
                               </div>
 
                               <p className="mt-3 text-xs text-slate-500">
@@ -1477,7 +1885,6 @@ function TeacherResultsContent() {
                             </div>
                           </div>
 
-                          {/* RESULT CARDS */}
                           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:min-w-[560px]">
                             <div className="rounded-2xl bg-white/5 p-4 text-center">
                               <div className="text-xl font-black">
@@ -1530,7 +1937,6 @@ function TeacherResultsContent() {
                           </div>
                         </div>
 
-                        {/* RESULT FOOTER */}
                         <div className="mt-5 flex flex-col gap-3 border-t border-white/10 pt-4 lg:flex-row lg:items-center lg:justify-between">
                           <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-400">
                             <span>
@@ -1579,21 +1985,35 @@ function TeacherResultsContent() {
                             )}
                           </div>
 
-                          <span
-                            className={`rounded-full px-5 py-2 text-center text-xs font-black ${
-                              isNotAttempted
-                                ? "bg-amber-500/15 text-amber-300"
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleDownloadStudentPdf(
+                                  row
+                                )
+                              }
+                              className="rounded-full bg-indigo-600 px-5 py-2 text-center text-xs font-black text-white hover:bg-indigo-500"
+                            >
+                              DOWNLOAD PDF
+                            </button>
+
+                            <span
+                              className={`rounded-full px-5 py-2 text-center text-xs font-black ${
+                                isNotAttempted
+                                  ? "bg-amber-500/15 text-amber-300"
+                                  : isPass
+                                  ? "bg-emerald-500/15 text-emerald-300"
+                                  : "bg-red-500/15 text-red-300"
+                              }`}
+                            >
+                              {isNotAttempted
+                                ? "NOT ATTEMPTED • 0"
                                 : isPass
-                                ? "bg-emerald-500/15 text-emerald-300"
-                                : "bg-red-500/15 text-red-300"
-                            }`}
-                          >
-                            {isNotAttempted
-                              ? "NOT ATTEMPTED • 0"
-                              : isPass
-                              ? "PASS"
-                              : "FAIL"}
-                          </span>
+                                ? "PASS"
+                                : "FAIL"}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     );
@@ -1602,6 +2022,25 @@ function TeacherResultsContent() {
               </div>
             )}
           </section>
+
+          <div className="mt-6 flex justify-center">
+            <button
+              type="button"
+              onClick={
+                handleDownloadOverallPdf
+              }
+              disabled={
+                filteredResults.length ===
+                0
+              }
+              className="rounded-2xl bg-indigo-600 px-8 py-4 text-sm font-black text-white shadow-xl hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              DOWNLOAD OVERALL RESULTS PDF
+              {selectedClass !==
+                "ALL" &&
+                ` • CLASS ${selectedClass}`}
+            </button>
+          </div>
 
           <div className="py-8 text-center text-xs text-slate-500">
             RACER ACADEMY • Teacher Quiz Results
