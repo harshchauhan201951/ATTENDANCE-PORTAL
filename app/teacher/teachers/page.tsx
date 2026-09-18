@@ -15,20 +15,38 @@ type Teacher = {
   created_at: string;
 };
 
+type Student = {
+  id: number;
+  student_username: string;
+  student_name: string | null;
+  class_name: string | null;
+  section: string | null;
+};
+
 export default function TeacherManagementPage() {
   const router = useRouter();
 
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-
-  const [showPassword, setShowPassword] =
-    useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const [loading, setLoading] = useState(true);
+  const [loadingStudents, setLoadingStudents] = useState(false);
   const [adding, setAdding] = useState(false);
-  const [deletingId, setDeletingId] =
-    useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  const [assigningTeacher, setAssigningTeacher] =
+    useState<Teacher | null>(null);
+
+  const [assignedStudentIds, setAssignedStudentIds] = useState<number[]>(
+    []
+  );
+
+  const [studentSearch, setStudentSearch] = useState("");
+  const [savingAssignments, setSavingAssignments] = useState(false);
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -39,9 +57,7 @@ export default function TeacherManagementPage() {
 
     const { data, error } = await supabase
       .from("teachers")
-      .select(
-        "id, teacher_username, created_at"
-      )
+      .select("id, teacher_username, created_at")
       .order("id", {
         ascending: true,
       });
@@ -56,8 +72,31 @@ export default function TeacherManagementPage() {
     setLoading(false);
   }
 
+  async function loadStudents() {
+    setLoadingStudents(true);
+
+    const { data, error } = await supabase
+      .from("students")
+      .select(
+        "id, student_username, student_name, class_name, section"
+      )
+      .order("id", {
+        ascending: true,
+      });
+
+    if (error) {
+      setError(error.message);
+      setStudents([]);
+    } else {
+      setStudents(data || []);
+    }
+
+    setLoadingStudents(false);
+  }
+
   useEffect(() => {
     loadTeachers();
+    loadStudents();
   }, []);
 
   async function handleAddTeacher(
@@ -68,32 +107,24 @@ export default function TeacherManagementPage() {
     setMessage("");
     setError("");
 
-    const cleanUsername =
-      username.trim();
+    const cleanUsername = username.trim();
 
     if (!cleanUsername) {
-      setError(
-        "Teacher username is required."
-      );
+      setError("Teacher username is required.");
       return;
     }
 
     if (password.length < 4) {
-      setError(
-        "Password must be at least 4 characters."
-      );
+      setError("Password must be at least 4 characters.");
       return;
     }
 
     setAdding(true);
 
-    const { error } = await supabase.rpc(
-      "create_teacher",
-      {
-        p_username: cleanUsername,
-        p_password: password,
-      }
-    );
+    const { error } = await supabase.rpc("create_teacher", {
+      p_username: cleanUsername,
+      p_password: password,
+    });
 
     if (error) {
       setError(error.message);
@@ -105,22 +136,16 @@ export default function TeacherManagementPage() {
     setPassword("");
     setShowPassword(false);
 
-    setMessage(
-      "Teacher added successfully."
-    );
+    setMessage("Teacher added successfully.");
 
     await loadTeachers();
 
     setAdding(false);
   }
 
-  async function handleDeleteTeacher(
-    teacher: Teacher
-  ) {
+  async function handleDeleteTeacher(teacher: Teacher) {
     if (teacher.id === 1) {
-      setError(
-        "The main teacher cannot be deleted."
-      );
+      setError("The main teacher cannot be deleted.");
       return;
     }
 
@@ -136,12 +161,9 @@ export default function TeacherManagementPage() {
     setError("");
     setDeletingId(teacher.id);
 
-    const { error } = await supabase.rpc(
-      "delete_teacher",
-      {
-        p_teacher_id: teacher.id,
-      }
-    );
+    const { error } = await supabase.rpc("delete_teacher", {
+      p_teacher_id: teacher.id,
+    });
 
     if (error) {
       setError(error.message);
@@ -149,14 +171,145 @@ export default function TeacherManagementPage() {
       return;
     }
 
-    setMessage(
-      "Teacher deleted successfully."
-    );
+    setMessage("Teacher deleted successfully.");
 
     await loadTeachers();
 
     setDeletingId(null);
   }
+
+  async function openAssignment(teacher: Teacher) {
+    setMessage("");
+    setError("");
+    setStudentSearch("");
+
+    setAssigningTeacher(teacher);
+
+    if (teacher.id === 1) {
+      setAssignedStudentIds([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("teacher_student_assignments")
+      .select("student_id")
+      .eq("teacher_id", teacher.id);
+
+    if (error) {
+      setError(error.message);
+      setAssignedStudentIds([]);
+      return;
+    }
+
+    setAssignedStudentIds(
+      (data || []).map((row) => Number(row.student_id))
+    );
+  }
+
+  function closeAssignment() {
+    if (savingAssignments) {
+      return;
+    }
+
+    setAssigningTeacher(null);
+    setStudentSearch("");
+  }
+
+  function toggleStudent(studentId: number) {
+    setAssignedStudentIds((current) => {
+      if (current.includes(studentId)) {
+        return current.filter((id) => id !== studentId);
+      }
+
+      return [...current, studentId];
+    });
+  }
+
+  function selectAllVisibleStudents() {
+    const visibleIds = filteredStudents.map((student) => student.id);
+
+    setAssignedStudentIds((current) => {
+      const merged = new Set([...current, ...visibleIds]);
+      return Array.from(merged);
+    });
+  }
+
+  function removeAllVisibleStudents() {
+    const visibleIds = new Set(
+      filteredStudents.map((student) => student.id)
+    );
+
+    setAssignedStudentIds((current) =>
+      current.filter((id) => !visibleIds.has(id))
+    );
+  }
+
+  async function saveAssignments() {
+    if (!assigningTeacher) {
+      return;
+    }
+
+    if (assigningTeacher.id === 1) {
+      setError("The main teacher automatically has access to all students.");
+      return;
+    }
+
+    setSavingAssignments(true);
+    setMessage("");
+    setError("");
+
+    const { error: deleteError } = await supabase
+      .from("teacher_student_assignments")
+      .delete()
+      .eq("teacher_id", assigningTeacher.id);
+
+    if (deleteError) {
+      setError(deleteError.message);
+      setSavingAssignments(false);
+      return;
+    }
+
+    if (assignedStudentIds.length > 0) {
+      const rows = assignedStudentIds.map((studentId) => ({
+        teacher_id: assigningTeacher.id,
+        student_id: studentId,
+      }));
+
+      const { error: insertError } = await supabase
+        .from("teacher_student_assignments")
+        .insert(rows);
+
+      if (insertError) {
+        setError(insertError.message);
+        setSavingAssignments(false);
+        return;
+      }
+    }
+
+    setMessage(
+      `Students assigned successfully to ${assigningTeacher.teacher_username}.`
+    );
+
+    setSavingAssignments(false);
+    closeAssignment();
+  }
+
+  const filteredStudents = students.filter((student) => {
+    const search = studentSearch.trim().toLowerCase();
+
+    if (!search) {
+      return true;
+    }
+
+    return (
+      (student.student_name || "").toLowerCase().includes(search) ||
+      student.student_username.toLowerCase().includes(search) ||
+      (student.class_name || "").toLowerCase().includes(search) ||
+      (student.section || "").toLowerCase().includes(search)
+    );
+  });
+
+  const assignedCount = assignedStudentIds.length;
 
   return (
     <main
@@ -166,8 +319,7 @@ export default function TeacherManagementPage() {
           "linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #f8fafc 100%)",
         padding: "24px",
         boxSizing: "border-box",
-        fontFamily:
-          "Arial, Helvetica, sans-serif",
+        fontFamily: "Arial, Helvetica, sans-serif",
       }}
     >
       <div
@@ -184,11 +336,9 @@ export default function TeacherManagementPage() {
             borderRadius: "20px",
             padding: "24px",
             marginBottom: "22px",
-            boxShadow:
-              "0 8px 30px rgba(15,23,42,0.08)",
+            boxShadow: "0 8px 30px rgba(15,23,42,0.08)",
             display: "flex",
-            justifyContent:
-              "space-between",
+            justifyContent: "space-between",
             alignItems: "center",
             gap: "15px",
             flexWrap: "wrap",
@@ -220,22 +370,18 @@ export default function TeacherManagementPage() {
 
             <p
               style={{
-                margin:
-                  "7px 0 0",
+                margin: "7px 0 0",
                 color: "#64748b",
                 fontSize: "14px",
               }}
             >
-              Add and manage academy
-              teachers.
+              Add teachers and assign students.
             </p>
           </div>
 
           <button
             type="button"
-            onClick={() =>
-              router.push("/teacher")
-            }
+            onClick={() => router.push("/teacher")}
             style={{
               border: "none",
               background: "#4f46e5",
@@ -258,14 +404,12 @@ export default function TeacherManagementPage() {
             borderRadius: "20px",
             padding: "24px",
             marginBottom: "22px",
-            boxShadow:
-              "0 8px 30px rgba(15,23,42,0.07)",
+            boxShadow: "0 8px 30px rgba(15,23,42,0.07)",
           }}
         >
           <h2
             style={{
-              margin:
-                "0 0 6px",
+              margin: "0 0 6px",
               color: "#0f172a",
               fontSize: "21px",
               fontWeight: 900,
@@ -276,20 +420,16 @@ export default function TeacherManagementPage() {
 
           <p
             style={{
-              margin:
-                "0 0 20px",
+              margin: "0 0 20px",
               color: "#64748b",
               fontSize: "13px",
             }}
           >
-            Create login credentials
-            for a new teacher.
+            Create login credentials for a new teacher.
           </p>
 
           <form
-            onSubmit={
-              handleAddTeacher
-            }
+            onSubmit={handleAddTeacher}
             style={{
               display: "grid",
               gridTemplateColumns:
@@ -314,20 +454,14 @@ export default function TeacherManagementPage() {
               <input
                 type="text"
                 value={username}
-                onChange={(e) =>
-                  setUsername(
-                    e.target.value
-                  )
-                }
+                onChange={(e) => setUsername(e.target.value)}
                 placeholder="Enter username"
                 autoComplete="off"
                 style={{
                   width: "100%",
-                  boxSizing:
-                    "border-box",
+                  boxSizing: "border-box",
                   padding: "13px 14px",
-                  border:
-                    "1px solid #cbd5e1",
+                  border: "1px solid #cbd5e1",
                   borderRadius: "11px",
                   outline: "none",
                   fontSize: "14px",
@@ -355,28 +489,17 @@ export default function TeacherManagementPage() {
                 }}
               >
                 <input
-                  type={
-                    showPassword
-                      ? "text"
-                      : "password"
-                  }
+                  type={showPassword ? "text" : "password"}
                   value={password}
-                  onChange={(e) =>
-                    setPassword(
-                      e.target.value
-                    )
-                  }
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter password"
                   autoComplete="new-password"
                   style={{
                     flex: 1,
                     minWidth: 0,
-                    boxSizing:
-                      "border-box",
-                    padding:
-                      "13px 14px",
-                    border:
-                      "1px solid #cbd5e1",
+                    boxSizing: "border-box",
+                    padding: "13px 14px",
+                    border: "1px solid #cbd5e1",
                     borderRadius: "11px",
                     outline: "none",
                     fontSize: "14px",
@@ -385,24 +508,17 @@ export default function TeacherManagementPage() {
 
                 <button
                   type="button"
-                  onClick={() =>
-                    setShowPassword(
-                      !showPassword
-                    )
-                  }
+                  onClick={() => setShowPassword(!showPassword)}
                   style={{
                     border: "1px solid #cbd5e1",
                     background: "#f8fafc",
                     borderRadius: "11px",
-                    padding:
-                      "0 13px",
+                    padding: "0 13px",
                     cursor: "pointer",
                     fontWeight: 800,
                   }}
                 >
-                  {showPassword
-                    ? "Hide"
-                    : "Show"}
+                  {showPassword ? "Hide" : "Show"}
                 </button>
               </div>
             </div>
@@ -412,22 +528,16 @@ export default function TeacherManagementPage() {
               disabled={adding}
               style={{
                 border: "none",
-                background: adding
-                  ? "#94a3b8"
-                  : "#4f46e5",
+                background: adding ? "#94a3b8" : "#4f46e5",
                 color: "#ffffff",
                 padding: "13px 18px",
                 borderRadius: "11px",
                 fontWeight: 900,
-                cursor: adding
-                  ? "not-allowed"
-                  : "pointer",
+                cursor: adding ? "not-allowed" : "pointer",
                 minHeight: "46px",
               }}
             >
-              {adding
-                ? "Adding..."
-                : "+ Add Teacher"}
+              {adding ? "Adding..." : "+ Add Teacher"}
             </button>
           </form>
 
@@ -457,8 +567,7 @@ export default function TeacherManagementPage() {
                 borderRadius: "10px",
                 fontSize: "13px",
                 fontWeight: 700,
-                overflowWrap:
-                  "anywhere",
+                overflowWrap: "anywhere",
               }}
             >
               {error}
@@ -473,15 +582,13 @@ export default function TeacherManagementPage() {
             background: "#ffffff",
             borderRadius: "20px",
             padding: "24px",
-            boxShadow:
-              "0 8px 30px rgba(15,23,42,0.07)",
+            boxShadow: "0 8px 30px rgba(15,23,42,0.07)",
           }}
         >
           <div
             style={{
               display: "flex",
-              justifyContent:
-                "space-between",
+              justifyContent: "space-between",
               alignItems: "center",
               gap: "12px",
               marginBottom: "18px",
@@ -502,16 +609,12 @@ export default function TeacherManagementPage() {
 
               <p
                 style={{
-                  margin:
-                    "6px 0 0",
+                  margin: "6px 0 0",
                   color: "#64748b",
                   fontSize: "13px",
                 }}
               >
-                Total teachers:{" "}
-                <strong>
-                  {teachers.length}
-                </strong>
+                Total teachers: <strong>{teachers.length}</strong>
               </p>
             </div>
 
@@ -520,22 +623,16 @@ export default function TeacherManagementPage() {
               onClick={loadTeachers}
               disabled={loading}
               style={{
-                border:
-                  "1px solid #cbd5e1",
+                border: "1px solid #cbd5e1",
                 background: "#ffffff",
                 color: "#334155",
-                padding:
-                  "10px 14px",
+                padding: "10px 14px",
                 borderRadius: "10px",
                 fontWeight: 800,
-                cursor: loading
-                  ? "not-allowed"
-                  : "pointer",
+                cursor: loading ? "not-allowed" : "pointer",
               }}
             >
-              {loading
-                ? "Refreshing..."
-                : "↻ Refresh"}
+              {loading ? "Refreshing..." : "↻ Refresh"}
             </button>
           </div>
 
@@ -550,8 +647,7 @@ export default function TeacherManagementPage() {
             >
               Loading teachers...
             </div>
-          ) : teachers.length ===
-            0 ? (
+          ) : teachers.length === 0 ? (
             <div
               style={{
                 padding: "30px",
@@ -570,167 +666,486 @@ export default function TeacherManagementPage() {
                 gap: "12px",
               }}
             >
-              {teachers.map(
-                (teacher) => (
+              {teachers.map((teacher) => (
+                <div
+                  key={teacher.id}
+                  style={{
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "14px",
+                    padding: "16px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: "15px",
+                    flexWrap: "wrap",
+                  }}
+                >
                   <div
-                    key={teacher.id}
                     style={{
-                      border:
-                        "1px solid #e2e8f0",
-                      borderRadius:
-                        "14px",
-                      padding:
-                        "16px",
                       display: "flex",
-                      justifyContent:
-                        "space-between",
-                      alignItems:
-                        "center",
-                      gap: "15px",
-                      flexWrap:
-                        "wrap",
+                      alignItems: "center",
+                      gap: "13px",
                     }}
                   >
                     <div
                       style={{
-                        display:
-                          "flex",
-                        alignItems:
-                          "center",
-                        gap: "13px",
+                        width: "46px",
+                        height: "46px",
+                        borderRadius: "50%",
+                        background:
+                          "linear-gradient(135deg,#e0e7ff,#c7d2fe)",
+                        color: "#4338ca",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "20px",
+                        fontWeight: 900,
                       }}
                     >
-                      <div
-                        style={{
-                          width: "46px",
-                          height: "46px",
-                          borderRadius:
-                            "50%",
-                          background:
-                            "linear-gradient(135deg,#e0e7ff,#c7d2fe)",
-                          color:
-                            "#4338ca",
-                          display:
-                            "flex",
-                          alignItems:
-                            "center",
-                          justifyContent:
-                            "center",
-                          fontSize:
-                            "20px",
-                          fontWeight:
-                            900,
-                        }}
-                      >
-                        {teacher.teacher_username
-                          .charAt(
-                            0
-                          )
-                          .toUpperCase()}
-                      </div>
-
-                      <div>
-                        <div
-                          style={{
-                            color:
-                              "#0f172a",
-                            fontSize:
-                              "16px",
-                            fontWeight:
-                              900,
-                          }}
-                        >
-                          {
-                            teacher.teacher_username
-                          }
-                        </div>
-
-                        <div
-                          style={{
-                            marginTop:
-                              "4px",
-                            color:
-                              "#94a3b8",
-                            fontSize:
-                              "12px",
-                          }}
-                        >
-                          Teacher ID:{" "}
-                          {teacher.id}
-                        </div>
-                      </div>
+                      {teacher.teacher_username
+                        .charAt(0)
+                        .toUpperCase()}
                     </div>
 
-                    {teacher.id ===
-                    1 ? (
+                    <div>
+                      <div
+                        style={{
+                          color: "#0f172a",
+                          fontSize: "16px",
+                          fontWeight: 900,
+                        }}
+                      >
+                        {teacher.teacher_username}
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: "4px",
+                          color: "#94a3b8",
+                          fontSize: "12px",
+                        }}
+                      >
+                        Teacher ID: {teacher.id}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    {teacher.id === 1 ? (
                       <span
                         style={{
-                          background:
-                            "#dcfce7",
-                          color:
-                            "#166534",
-                          padding:
-                            "8px 12px",
-                          borderRadius:
-                            "999px",
-                          fontSize:
-                            "12px",
-                          fontWeight:
-                            900,
+                          background: "#dcfce7",
+                          color: "#166534",
+                          padding: "8px 12px",
+                          borderRadius: "999px",
+                          fontSize: "12px",
+                          fontWeight: 900,
                         }}
                       >
-                        MAIN TEACHER
+                        MAIN TEACHER • ALL STUDENTS
                       </span>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleDeleteTeacher(
-                            teacher
-                          )
-                        }
-                        disabled={
-                          deletingId ===
-                          teacher.id
-                        }
-                        style={{
-                          border:
-                            "none",
-                          background:
-                            deletingId ===
-                            teacher.id
-                              ? "#94a3b8"
-                              : "#fee2e2",
-                          color:
-                            deletingId ===
-                            teacher.id
-                              ? "#ffffff"
-                              : "#b91c1c",
-                          padding:
-                            "9px 14px",
-                          borderRadius:
-                            "10px",
-                          fontWeight:
-                            900,
-                          cursor:
-                            deletingId ===
-                            teacher.id
-                              ? "not-allowed"
-                              : "pointer",
-                        }}
-                      >
-                        {deletingId ===
-                        teacher.id
-                          ? "Deleting..."
-                          : "Delete"}
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => openAssignment(teacher)}
+                          style={{
+                            border: "none",
+                            background: "#e0e7ff",
+                            color: "#3730a3",
+                            padding: "9px 14px",
+                            borderRadius: "10px",
+                            fontWeight: 900,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Assign Students
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTeacher(teacher)}
+                          disabled={deletingId === teacher.id}
+                          style={{
+                            border: "none",
+                            background:
+                              deletingId === teacher.id
+                                ? "#94a3b8"
+                                : "#fee2e2",
+                            color:
+                              deletingId === teacher.id
+                                ? "#ffffff"
+                                : "#b91c1c",
+                            padding: "9px 14px",
+                            borderRadius: "10px",
+                            fontWeight: 900,
+                            cursor:
+                              deletingId === teacher.id
+                                ? "not-allowed"
+                                : "pointer",
+                          }}
+                        >
+                          {deletingId === teacher.id
+                            ? "Deleting..."
+                            : "Delete"}
+                        </button>
+                      </>
                     )}
                   </div>
-                )
-              )}
+                </div>
+              ))}
             </div>
           )}
         </section>
+
+        {/* ASSIGN STUDENTS MODAL */}
+
+        {assigningTeacher && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(15,23,42,0.55)",
+              zIndex: 1000,
+              padding: "18px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxSizing: "border-box",
+            }}
+          >
+            <div
+              style={{
+                width: "100%",
+                maxWidth: "760px",
+                maxHeight: "92vh",
+                overflow: "hidden",
+                background: "#ffffff",
+                borderRadius: "20px",
+                boxShadow: "0 20px 60px rgba(15,23,42,0.25)",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              <div
+                style={{
+                  padding: "20px",
+                  borderBottom: "1px solid #e2e8f0",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: "12px",
+                }}
+              >
+                <div>
+                  <div
+                    style={{
+                      color: "#6366f1",
+                      fontSize: "12px",
+                      fontWeight: 900,
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    STUDENT ASSIGNMENT
+                  </div>
+
+                  <h2
+                    style={{
+                      margin: "5px 0 0",
+                      color: "#0f172a",
+                      fontSize: "21px",
+                      fontWeight: 900,
+                    }}
+                  >
+                    {assigningTeacher.teacher_username}
+                  </h2>
+
+                  <p
+                    style={{
+                      margin: "5px 0 0",
+                      color: "#64748b",
+                      fontSize: "13px",
+                    }}
+                  >
+                    Selected students:{" "}
+                    <strong>{assignedCount}</strong>
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeAssignment}
+                  disabled={savingAssignments}
+                  style={{
+                    width: "38px",
+                    height: "38px",
+                    border: "1px solid #cbd5e1",
+                    background: "#f8fafc",
+                    borderRadius: "10px",
+                    cursor: savingAssignments
+                      ? "not-allowed"
+                      : "pointer",
+                    fontSize: "18px",
+                    fontWeight: 900,
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+
+              <div
+                style={{
+                  padding: "16px 20px",
+                  borderBottom: "1px solid #e2e8f0",
+                }}
+              >
+                <input
+                  type="text"
+                  value={studentSearch}
+                  onChange={(e) => setStudentSearch(e.target.value)}
+                  placeholder="Search student name, username, class..."
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "13px 14px",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "11px",
+                    outline: "none",
+                    fontSize: "14px",
+                  }}
+                />
+
+                <div
+                  style={{
+                    marginTop: "11px",
+                    display: "flex",
+                    gap: "8px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={selectAllVisibleStudents}
+                    disabled={loadingStudents || filteredStudents.length === 0}
+                    style={{
+                      border: "none",
+                      background: "#4f46e5",
+                      color: "#ffffff",
+                      padding: "9px 13px",
+                      borderRadius: "9px",
+                      fontWeight: 800,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Select All Visible
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={removeAllVisibleStudents}
+                    disabled={loadingStudents || filteredStudents.length === 0}
+                    style={{
+                      border: "1px solid #cbd5e1",
+                      background: "#ffffff",
+                      color: "#334155",
+                      padding: "9px 13px",
+                      borderRadius: "9px",
+                      fontWeight: 800,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Remove Visible
+                  </button>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  flex: 1,
+                  overflowY: "auto",
+                  padding: "14px 20px",
+                }}
+              >
+                {loadingStudents ? (
+                  <div
+                    style={{
+                      padding: "30px",
+                      textAlign: "center",
+                      color: "#64748b",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Loading students...
+                  </div>
+                ) : filteredStudents.length === 0 ? (
+                  <div
+                    style={{
+                      padding: "30px",
+                      textAlign: "center",
+                      color: "#64748b",
+                      background: "#f8fafc",
+                      borderRadius: "12px",
+                    }}
+                  >
+                    No students found.
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      display: "grid",
+                      gap: "9px",
+                    }}
+                  >
+                    {filteredStudents.map((student) => {
+                      const selected = assignedStudentIds.includes(
+                        student.id
+                      );
+
+                      return (
+                        <button
+                          key={student.id}
+                          type="button"
+                          onClick={() => toggleStudent(student.id)}
+                          style={{
+                            width: "100%",
+                            border: selected
+                              ? "2px solid #4f46e5"
+                              : "1px solid #e2e8f0",
+                            background: selected ? "#eef2ff" : "#ffffff",
+                            borderRadius: "12px",
+                            padding: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "12px",
+                            textAlign: "left",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: "24px",
+                              height: "24px",
+                              flexShrink: 0,
+                              borderRadius: "7px",
+                              border: selected
+                                ? "2px solid #4f46e5"
+                                : "2px solid #cbd5e1",
+                              background: selected
+                                ? "#4f46e5"
+                                : "#ffffff",
+                              color: "#ffffff",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: "14px",
+                              fontWeight: 900,
+                            }}
+                          >
+                            {selected ? "✓" : ""}
+                          </div>
+
+                          <div
+                            style={{
+                              minWidth: 0,
+                              flex: 1,
+                            }}
+                          >
+                            <div
+                              style={{
+                                color: "#0f172a",
+                                fontSize: "14px",
+                                fontWeight: 900,
+                              }}
+                            >
+                              {student.student_name ||
+                                student.student_username}
+                            </div>
+
+                            <div
+                              style={{
+                                marginTop: "3px",
+                                color: "#64748b",
+                                fontSize: "12px",
+                              }}
+                            >
+                              {student.student_username}
+                              {student.class_name
+                                ? ` • ${student.class_name}`
+                                : ""}
+                              {student.section
+                                ? ` • ${student.section}`
+                                : ""}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div
+                style={{
+                  padding: "16px 20px",
+                  borderTop: "1px solid #e2e8f0",
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "9px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={closeAssignment}
+                  disabled={savingAssignments}
+                  style={{
+                    border: "1px solid #cbd5e1",
+                    background: "#ffffff",
+                    color: "#334155",
+                    padding: "11px 16px",
+                    borderRadius: "10px",
+                    fontWeight: 800,
+                    cursor: savingAssignments
+                      ? "not-allowed"
+                      : "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={saveAssignments}
+                  disabled={savingAssignments}
+                  style={{
+                    border: "none",
+                    background: savingAssignments
+                      ? "#94a3b8"
+                      : "#4f46e5",
+                    color: "#ffffff",
+                    padding: "11px 18px",
+                    borderRadius: "10px",
+                    fontWeight: 900,
+                    cursor: savingAssignments
+                      ? "not-allowed"
+                      : "pointer",
+                  }}
+                >
+                  {savingAssignments
+                    ? "Saving..."
+                    : `Save Assignment (${assignedCount})`}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <footer
           style={{
