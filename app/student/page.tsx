@@ -4,14 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 
-type DashboardCard = {
-  icon: string;
-  title: string;
-  description: string;
-  path: string;
-  className: string;
-};
-
 type Announcement = {
   id: number;
   title: string;
@@ -19,6 +11,14 @@ type Announcement = {
   created_at: string;
   likeCount: number;
   likedByMe: boolean;
+};
+
+type Service = {
+  icon: string;
+  title: string;
+  description: string;
+  path: string;
+  section: string;
 };
 
 export default function StudentDashboardPage() {
@@ -31,13 +31,11 @@ export default function StudentDashboardPage() {
 
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [announcementLoading, setAnnouncementLoading] = useState(true);
-  const [likingId, setLikingId] = useState<number | null>(null);
-
   const [announcementOpen, setAnnouncementOpen] = useState(false);
+  const [likingId, setLikingId] = useState<number | null>(null);
 
   useEffect(() => {
     initializeStudent();
-
     updateTime();
 
     const interval = setInterval(updateTime, 1000);
@@ -56,13 +54,15 @@ export default function StudentDashboardPage() {
       localStorage.getItem("studentUsername") ||
       "";
 
-    const savedStudentId = localStorage.getItem("studentId");
+    const savedStudentId =
+      localStorage.getItem("studentId");
 
     setStudentName(name);
     setUsername(savedUsername);
 
     if (savedUsername) {
-      const resolvedId = await resolveStudentId(savedUsername);
+      const resolvedId =
+        await resolveStudentId(savedUsername);
 
       if (resolvedId !== null) {
         setStudentId(resolvedId);
@@ -74,7 +74,6 @@ export default function StudentDashboardPage() {
 
         await loadAnnouncements(resolvedId);
         await registerPushNotifications(resolvedId);
-
         return;
       }
     }
@@ -87,12 +86,9 @@ export default function StudentDashboardPage() {
 
         await loadAnnouncements(parsedId);
         await registerPushNotifications(parsedId);
-
         return;
       }
     }
-
-    setStudentId(null);
 
     await loadAnnouncements(null);
   }
@@ -112,77 +108,28 @@ export default function StudentDashboardPage() {
           "Student ID lookup error:",
           error
         );
-
         return null;
       }
 
-      if (!data?.id) {
-        console.error(
-          "Student ID not found for username:",
-          studentUsername
-        );
-
-        return null;
-      }
-
-      return Number(data.id);
+      return data?.id ? Number(data.id) : null;
     } catch (error) {
-      console.error(
-        "Unexpected student ID lookup error:",
-        error
-      );
-
+      console.error(error);
       return null;
     }
   }
-
-  /*
-   * =====================================================
-   * PUSH NOTIFICATION REGISTRATION
-   * =====================================================
-   */
 
   async function registerPushNotifications(
     currentStudentId: number
   ) {
     try {
-      if (typeof window === "undefined") {
-        return;
-      }
+      if (typeof window === "undefined") return;
 
-      if (!("serviceWorker" in navigator)) {
-        console.warn(
-          "Service Worker is not supported by this browser."
-        );
-
-        return;
-      }
-
-      if (!("PushManager" in window)) {
-        console.warn(
-          "Push notifications are not supported by this browser."
-        );
-
-        return;
-      }
-
-      if (!("Notification" in window)) {
-        console.warn(
-          "Notifications are not supported by this browser."
-        );
-
-        return;
-      }
+      if (!("serviceWorker" in navigator)) return;
+      if (!("PushManager" in window)) return;
+      if (!("Notification" in window)) return;
 
       const registration =
-        await navigator.serviceWorker.register(
-          "/sw.js"
-        );
-
-      console.log(
-        "Push service worker registered:",
-        registration.scope
-      );
+        await navigator.serviceWorker.register("/sw.js");
 
       let permission = Notification.permission;
 
@@ -191,76 +138,40 @@ export default function StudentDashboardPage() {
           await Notification.requestPermission();
       }
 
-      if (permission !== "granted") {
-        console.warn(
-          "Notification permission was not granted."
-        );
-
-        return;
-      }
+      if (permission !== "granted") return;
 
       let subscription =
         await registration.pushManager.getSubscription();
 
       if (!subscription) {
         const vapidPublicKey =
-          process.env
-            .NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+          process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
-        if (!vapidPublicKey) {
-          console.error(
-            "NEXT_PUBLIC_VAPID_PUBLIC_KEY is missing."
-          );
-
-          return;
-        }
-
-        const applicationServerKey =
-          urlBase64ToArrayBuffer(
-            vapidPublicKey
-          );
+        if (!vapidPublicKey) return;
 
         subscription =
           await registration.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey,
+            applicationServerKey:
+              urlBase64ToArrayBuffer(
+                vapidPublicKey
+              ),
           });
       }
 
-      const response = await fetch(
-        "/api/push/subscribe",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            studentId: currentStudentId,
-            subscription:
-              subscription.toJSON(),
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorText =
-          await response.text();
-
-        console.error(
-          "Push subscription API error:",
-          errorText
-        );
-
-        return;
-      }
-
-      console.log(
-        "Student push notification registration completed."
-      );
+      await fetch("/api/push/subscribe", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          studentId: currentStudentId,
+          subscription: subscription.toJSON(),
+        }),
+      });
     } catch (error) {
       console.error(
-        "Push notification registration error:",
+        "Push registration error:",
         error
       );
     }
@@ -271,9 +182,7 @@ export default function StudentDashboardPage() {
   ): ArrayBuffer {
     const padding =
       "=".repeat(
-        (4 -
-          (base64String.length % 4)) %
-          4
+        (4 - (base64String.length % 4)) % 4
       );
 
     const base64 = (
@@ -282,19 +191,12 @@ export default function StudentDashboardPage() {
       .replace(/-/g, "+")
       .replace(/_/g, "/");
 
-    const rawData =
-      window.atob(base64);
+    const rawData = window.atob(base64);
 
     const outputArray =
-      new Uint8Array(
-        rawData.length
-      );
+      new Uint8Array(rawData.length);
 
-    for (
-      let i = 0;
-      i < rawData.length;
-      i++
-    ) {
+    for (let i = 0; i < rawData.length; i++) {
       outputArray[i] =
         rawData.charCodeAt(i);
     }
@@ -315,12 +217,6 @@ export default function StudentDashboardPage() {
     );
   }
 
-  /*
-   * =====================================================
-   * LOAD ANNOUNCEMENTS
-   * =====================================================
-   */
-
   async function loadAnnouncements(
     currentStudentId: number | null
   ) {
@@ -340,144 +236,86 @@ export default function StudentDashboardPage() {
         });
 
       if (announcementError) {
-        console.error(
-          "Announcements loading error:",
-          announcementError
-        );
-
+        console.error(announcementError);
         setAnnouncements([]);
-
         return;
       }
 
-      const announcementRows =
-        announcementData || [];
+      const rows = announcementData || [];
 
-      if (announcementRows.length === 0) {
+      if (rows.length === 0) {
         setAnnouncements([]);
-
         return;
       }
 
-      const announcementIds =
-        announcementRows.map(
-          (announcement) =>
-            announcement.id
-        );
+      const ids = rows.map(
+        (item) => item.id
+      );
 
-      const {
-        data: likesData,
-        error: likesError,
-      } = await supabase
-        .from("announcement_likes")
-        .select(
-          "announcement_id, student_id"
-        )
-        .in(
-          "announcement_id",
-          announcementIds
-        );
+      const { data: likesData } =
+        await supabase
+          .from("announcement_likes")
+          .select(
+            "announcement_id, student_id"
+          )
+          .in(
+            "announcement_id",
+            ids
+          );
 
-      if (likesError) {
-        console.error(
-          "Announcement likes loading error:",
-          likesError
-        );
-      }
+      const likes = likesData || [];
 
-      const likes =
-        likesData || [];
+      setAnnouncements(
+        rows.map((announcement) => {
+          const announcementLikes =
+            likes.filter(
+              (like) =>
+                Number(
+                  like.announcement_id
+                ) === Number(announcement.id)
+            );
 
-      const formattedAnnouncements =
-        announcementRows.map(
-          (announcement) => {
-            const announcementLikes =
-              likes.filter(
-                (like) =>
-                  Number(
-                    like.announcement_id
-                  ) ===
-                  Number(
-                    announcement.id
-                  )
-              );
-
-            const likedByMe =
+          return {
+            id: Number(announcement.id),
+            title: announcement.title,
+            message: announcement.message,
+            created_at:
+              announcement.created_at,
+            likeCount:
+              announcementLikes.length,
+            likedByMe:
               currentStudentId !== null &&
               announcementLikes.some(
                 (like) =>
-                  Number(
-                    like.student_id
-                  ) ===
-                  Number(
-                    currentStudentId
-                  )
-              );
-
-            return {
-              id: Number(
-                announcement.id
+                  Number(like.student_id) ===
+                  Number(currentStudentId)
               ),
-              title:
-                announcement.title,
-              message:
-                announcement.message,
-              created_at:
-                announcement.created_at,
-              likeCount:
-                announcementLikes.length,
-              likedByMe,
-            };
-          }
-        );
-
-      setAnnouncements(
-        formattedAnnouncements
+          };
+        })
       );
     } catch (error) {
-      console.error(
-        "Unexpected announcements error:",
-        error
-      );
-
+      console.error(error);
       setAnnouncements([]);
     } finally {
       setAnnouncementLoading(false);
     }
   }
 
-  /*
-   * =====================================================
-   * LIKE / UNLIKE
-   * =====================================================
-   */
-
   async function toggleLike(
     announcementId: number
   ) {
-    let currentStudentId =
-      studentId;
+    let currentStudentId = studentId;
 
-    if (
-      !currentStudentId &&
-      username
-    ) {
-      const resolvedId =
-        await resolveStudentId(
-          username
-        );
+    if (!currentStudentId && username) {
+      currentStudentId =
+        await resolveStudentId(username);
 
-      if (resolvedId !== null) {
-        currentStudentId =
-          resolvedId;
-
-        setStudentId(
-          resolvedId
-        );
+      if (currentStudentId) {
+        setStudentId(currentStudentId);
 
         localStorage.setItem(
           "studentId",
-          String(resolvedId)
+          String(currentStudentId)
         );
       }
     }
@@ -486,38 +324,26 @@ export default function StudentDashboardPage() {
       alert(
         "Student information could not be found. Please login again."
       );
-
       return;
     }
 
-    if (likingId !== null) {
-      return;
-    }
+    if (likingId !== null) return;
 
-    const selectedAnnouncement =
+    const selected =
       announcements.find(
         (item) =>
-          item.id ===
-          announcementId
+          item.id === announcementId
       );
 
-    if (!selectedAnnouncement) {
-      return;
-    }
+    if (!selected) return;
 
-    setLikingId(
-      announcementId
-    );
+    setLikingId(announcementId);
 
     try {
-      if (
-        selectedAnnouncement.likedByMe
-      ) {
+      if (selected.likedByMe) {
         const { error } =
           await supabase
-            .from(
-              "announcement_likes"
-            )
+            .from("announcement_likes")
             .delete()
             .eq(
               "announcement_id",
@@ -529,37 +355,24 @@ export default function StudentDashboardPage() {
             );
 
         if (error) {
-          console.error(
-            "Unlike error:",
-            error
-          );
-
-          alert(
-            `Could not remove like: ${error.message}`
-          );
-
+          alert(error.message);
           return;
         }
 
-        setAnnouncements(
-          (previous) =>
-            previous.map(
-              (item) =>
-                item.id ===
-                announcementId
-                  ? {
-                      ...item,
-                      likedByMe:
-                        false,
-                      likeCount:
-                        Math.max(
-                          0,
-                          item.likeCount -
-                            1
-                        ),
-                    }
-                  : item
-            )
+        setAnnouncements((previous) =>
+          previous.map((item) =>
+            item.id === announcementId
+              ? {
+                  ...item,
+                  likedByMe: false,
+                  likeCount:
+                    Math.max(
+                      0,
+                      item.likeCount - 1
+                    ),
+                }
+              : item
+          )
         );
 
         return;
@@ -567,9 +380,7 @@ export default function StudentDashboardPage() {
 
       const { error } =
         await supabase
-          .from(
-            "announcement_likes"
-          )
+          .from("announcement_likes")
           .insert({
             announcement_id:
               announcementId,
@@ -578,48 +389,28 @@ export default function StudentDashboardPage() {
           });
 
       if (error) {
-        console.error(
-          "Like error:",
-          error
-        );
-
-        if (
-          error.code ===
-          "23505"
-        ) {
+        if (error.code === "23505") {
           await loadAnnouncements(
             currentStudentId
           );
         } else {
-          alert(
-            `Could not like announcement: ${error.message}`
-          );
+          alert(error.message);
         }
 
         return;
       }
 
-      setAnnouncements(
-        (previous) =>
-          previous.map(
-            (item) =>
-              item.id ===
-              announcementId
-                ? {
-                    ...item,
-                    likedByMe:
-                      true,
-                    likeCount:
-                      item.likeCount +
-                      1,
-                  }
-                : item
-          )
-      );
-    } catch (error) {
-      console.error(
-        "Unexpected like error:",
-        error
+      setAnnouncements((previous) =>
+        previous.map((item) =>
+          item.id === announcementId
+            ? {
+                ...item,
+                likedByMe: true,
+                likeCount:
+                  item.likeCount + 1,
+              }
+            : item
+        )
       );
     } finally {
       setLikingId(null);
@@ -656,16 +447,8 @@ export default function StudentDashboardPage() {
     router.push("/");
   }
 
-  function formatAnnouncementDate(
-    date: string
-  ) {
-    if (!date) {
-      return "";
-    }
-
-    return new Date(
-      date
-    ).toLocaleString(
+  function formatDate(date: string) {
+    return new Date(date).toLocaleString(
       "en-IN",
       {
         day: "2-digit",
@@ -678,378 +461,446 @@ export default function StudentDashboardPage() {
   }
 
   const latestAnnouncement =
-    announcements.length > 0
-      ? announcements[0]
-      : null;
+    announcements[0] || null;
 
   const firstLetter =
-    studentName
-      .charAt(0)
-      .toUpperCase();
+    studentName.charAt(0).toUpperCase();
 
-  const cards: DashboardCard[] = [
+  const services: Service[] = [
     {
-      icon: "📊",
-      title: "My Attendance",
+      icon: "🏠",
+      title: "Home",
       description:
-        "View your current attendance and attendance percentage.",
-      path: "/student/attendance",
-      className: "blue",
+        "Your student dashboard and latest updates.",
+      path: "/student",
+      section: "MAIN",
     },
     {
-      icon: "📜",
-      title: "Attendance History",
+      icon: "🕐",
+      title: "Time Table",
       description:
-        "Check your previous attendance records and details.",
-      path: "/student/attendance-history",
-      className: "purple",
+        "View today's, tomorrow's and weekly class timetable.",
+      path: "/student/timetable",
+      section: "ACADEMIC",
+    },
+    {
+      icon: "📊",
+      title: "Attendance",
+      description:
+        "Check today's, semester and detailed attendance.",
+      path: "/student/attendance",
+      section: "ACADEMIC",
     },
     {
       icon: "📅",
+      title: "Attendance History",
+      description:
+        "View previous attendance records.",
+      path: "/student/attendance-history",
+      section: "ACADEMIC",
+    },
+    {
+      icon: "📆",
       title: "Academic Calendar",
       description:
-        "View important academic dates and calendar information.",
+        "View important academic dates.",
       path: "/student/calendar",
-      className: "green",
-    },
-    {
-      icon: "📈",
-      title: "Reports",
-      description:
-        "View your attendance reports and performance details.",
-      path: "/student/reports",
-      className: "orange",
-    },
-    {
-      icon: "💰",
-      title: "Fees",
-      description:
-        "Check your student fee information and payment details.",
-      path: "/student/fees",
-      className: "pink",
+      section: "ACADEMIC",
     },
     {
       icon: "📚",
       title: "Homework",
       description:
-        "View homework assigned to your class by your teacher.",
+        "View homework assigned by your teacher.",
       path: "/student/homework",
-      className: "indigo",
+      section: "ACADEMIC",
+    },
+    {
+      icon: "🧠",
+      title: "Quiz Tests",
+      description:
+        "Attempt quizzes and check your results.",
+      path: "/student/quiz-tests",
+      section: "ACADEMIC",
+    },
+    {
+      icon: "📢",
+      title: "Announcements",
+      description:
+        "Read all announcements from the academy.",
+      path: "/student/announcements",
+      section: "COMMUNICATION",
+    },
+    {
+      icon: "💬",
+      title: "Ask Query",
+      description:
+        "Send your academic query to the academy.",
+      path: "/student/ask-query",
+      section: "COMMUNICATION",
+    },
+    {
+      icon: "🔔",
+      title: "Notifications",
+      description:
+        "View important student notifications.",
+      path: "/student/announcements",
+      section: "COMMUNICATION",
+    },
+    {
+      icon: "💰",
+      title: "Fees",
+      description:
+        "Check fees and payment information.",
+      path: "/student/fees",
+      section: "ACCOUNT",
+    },
+    {
+      icon: "📑",
+      title: "Reports",
+      description:
+        "View attendance and performance reports.",
+      path: "/student/reports",
+      section: "ACCOUNT",
+    },
+    {
+      icon: "👤",
+      title: "Profile",
+      description:
+        "View your student and academic information.",
+      path: "/student/profile",
+      section: "ACCOUNT",
     },
     {
       icon: "⚙️",
       title: "Settings",
       description:
-        "Manage your account, name and password.",
+        "Manage your student account settings.",
       path: "/student/settings",
-      className: "cyan",
+      section: "ACCOUNT",
     },
+  ];
 
-    // NEW QUIZ TESTS OPTION
-    {
-      icon: "🧠",
-      title: "QUIZ TESTS",
-      description:
-        "Attempt scheduled quizzes, view your scores and quiz history.",
-      path: "/student/quiz-tests",
-      className: "quiz",
-    },
+  const groupedServices = [
+    "MAIN",
+    "ACADEMIC",
+    "COMMUNICATION",
+    "ACCOUNT",
   ];
 
   return (
     <main style={styles.page}>
       <div style={styles.container}>
 
-        {/* TOP NAVIGATION */}
+        {/* HEADER */}
 
-        <nav style={styles.navbar}>
-          <div style={styles.brandArea}>
-            <div style={styles.brandIcon}>
-              🎓
+        <header style={styles.header}>
+          <div style={styles.brand}>
+            <div style={styles.logo}>
+              RA
             </div>
 
             <div>
               <div style={styles.brandName}>
-                ATTENDANCE PORTAL
+                RACER ACADEMY
               </div>
 
               <div style={styles.brandSub}>
-                STUDENT CENTER
+                STUDENT PORTAL
               </div>
             </div>
           </div>
 
-          <div style={styles.navRight}>
+          <div style={styles.headerActions}>
             <div style={styles.clock}>
-              🕒 {time}
+              🕐 {time}
             </div>
 
             <button
               type="button"
+              onClick={() =>
+                router.push(
+                  "/student/announcements"
+                )
+              }
+              style={styles.iconButton}
+              aria-label="Notifications"
+            >
+              🔔
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  "/student/profile"
+                )
+              }
+              style={styles.profileMini}
+              aria-label="Profile"
+            >
+              {firstLetter}
+            </button>
+
+            <button
+              type="button"
               onClick={logout}
-              style={styles.logoutButton}
+              style={styles.logout}
             >
               Logout
             </button>
           </div>
-        </nav>
+        </header>
 
-        {/* HERO */}
+        {/* WELCOME */}
 
         <section style={styles.hero}>
-          <div style={styles.heroGlowOne} />
-          <div style={styles.heroGlowTwo} />
-
-          <div style={styles.heroContent}>
+          <div style={styles.heroLeft}>
             <div style={styles.avatar}>
               {firstLetter}
             </div>
 
-            <div style={styles.welcomeArea}>
-              <div style={styles.smallGreeting}>
-                STUDENT DASHBOARD
+            <div style={styles.heroText}>
+              <div style={styles.eyebrow}>
+                HELLO, {studentName.toUpperCase()}
               </div>
 
-              <h1 style={styles.welcomeTitle}>
-                Welcome, {studentName}
+              <h1 style={styles.heroTitle}>
+                Welcome to your Student Portal
               </h1>
 
-              <p style={styles.welcomeText}>
-                Manage your attendance,
-                academic information,
-                homework, reports, fees
-                and account settings from
-                one place.
+              <p style={styles.heroDescription}>
+                Manage your classes, attendance,
+                homework, quizzes, fees,
+                reports and communication
+                from one place.
               </p>
 
               {username && (
-                <div
-                  style={
-                    styles.usernameBadge
-                  }
-                >
-                  Username: {username}
+                <div style={styles.username}>
+                  Student ID: {username}
                 </div>
               )}
             </div>
           </div>
 
-          <div style={styles.heroSide}>
-            <div style={styles.statusDot} />
-
+          <div style={styles.activeBox}>
+            <span style={styles.activeDot} />
             <div>
-              <div style={styles.onlineText}>
+              <div style={styles.activeTitle}>
                 ACCOUNT ACTIVE
               </div>
-
-              <div style={styles.onlineSub}>
-                Student Portal
+              <div style={styles.activeSub}>
+                RACER ACADEMY
               </div>
             </div>
           </div>
         </section>
 
-        {/* LATEST ANNOUNCEMENT TAB */}
+        {/* QUICK ACCESS */}
 
-        <section
-          style={
-            styles.announcementSection
-          }
-        >
-          <div
-            style={
-              styles.latestAnnouncementHeader
-            }
-          >
-            <div
-              style={
-                styles.latestAnnouncementLeft
-              }
-            >
-              <div
-                style={
-                  styles.latestAnnouncementIcon
-                }
-              >
-                📢
+        <section style={styles.quickSection}>
+          <div style={styles.sectionHeader}>
+            <div>
+              <div style={styles.sectionEyebrow}>
+                QUICK ACCESS
               </div>
 
-              <div>
-                <div
-                  style={
-                    styles.announcementEyebrow
-                  }
-                >
-                  📢 IMPORTANT
-                </div>
-
-                <h2
-                  style={
-                    styles.announcementTitle
-                  }
-                >
-                  Latest Announcement
-                </h2>
-
-                <p
-                  style={
-                    styles.announcementSubtitle
-                  }
-                >
-                  Your latest update from
-                  the teacher.
-                </p>
-              </div>
+              <h2 style={styles.sectionTitle}>
+                Student Services
+              </h2>
             </div>
 
-            {latestAnnouncement && (
-              <div
-                style={
-                  styles.latestBadge
-                }
-              >
-                NEW
+            <div style={styles.countBadge}>
+              {services.length} SERVICES
+            </div>
+          </div>
+
+          {groupedServices.map(
+            (section) => {
+              const sectionServices =
+                services.filter(
+                  (item) =>
+                    item.section === section
+                );
+
+              if (
+                sectionServices.length === 0
+              ) {
+                return null;
+              }
+
+              return (
+                <div
+                  key={section}
+                  style={styles.serviceSection}
+                >
+                  <div
+                    style={
+                      styles.sectionLabel
+                    }
+                  >
+                    {section}
+                  </div>
+
+                  <div
+                    style={
+                      styles.serviceGrid
+                    }
+                  >
+                    {sectionServices.map(
+                      (service) => (
+                        <button
+                          key={service.path}
+                          type="button"
+                          onClick={() =>
+                            router.push(
+                              service.path
+                            )
+                          }
+                          style={
+                            styles.serviceCard
+                          }
+                        >
+                          <div
+                            style={
+                              styles.serviceIcon
+                            }
+                          >
+                            {service.icon}
+                          </div>
+
+                          <div
+                            style={
+                              styles.serviceContent
+                            }
+                          >
+                            <h3
+                              style={
+                                styles.serviceTitle
+                              }
+                            >
+                              {service.title}
+                            </h3>
+
+                            <p
+                              style={
+                                styles.serviceDescription
+                              }
+                            >
+                              {
+                                service.description
+                              }
+                            </p>
+                          </div>
+
+                          <div
+                            style={
+                              styles.serviceArrow
+                            }
+                          >
+                            →
+                          </div>
+                        </button>
+                      )
+                    )}
+                  </div>
+                </div>
+              );
+            }
+          )}
+        </section>
+
+        {/* LATEST ANNOUNCEMENT */}
+
+        <section style={styles.announcementSection}>
+          <div style={styles.sectionHeader}>
+            <div>
+              <div style={styles.sectionEyebrow}>
+                COMMUNICATION
               </div>
-            )}
+
+              <h2 style={styles.sectionTitle}>
+                Latest Announcement
+              </h2>
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  "/student/announcements"
+                )
+              }
+              style={styles.viewAllButton}
+            >
+              View All →
+            </button>
           </div>
 
           {announcementLoading ? (
-            <div
-              style={
-                styles.announcementLoading
-              }
-            >
-              <div
-                style={
-                  styles.loadingIcon
-                }
-              >
+            <div style={styles.emptyBox}>
+              <div style={styles.loadingCircle}>
                 ⏳
               </div>
 
               <div>
-                <div
-                  style={
-                    styles.loadingTitle
-                  }
-                >
-                  Checking Latest Announcement...
-                </div>
+                <strong>
+                  Loading announcements...
+                </strong>
 
-                <div
-                  style={
-                    styles.loadingText
-                  }
-                >
-                  Please wait.
-                </div>
+                <p>
+                  Please wait while we
+                  check for updates.
+                </p>
               </div>
             </div>
           ) : !latestAnnouncement ? (
-            <div
-              style={
-                styles.noAnnouncements
-              }
-            >
-              <div
-                style={
-                  styles.noAnnouncementIcon
-                }
-              >
+            <div style={styles.emptyBox}>
+              <div style={styles.emptyIcon}>
                 📭
               </div>
 
               <div>
-                <h3
-                  style={
-                    styles.noAnnouncementTitle
-                  }
-                >
-                  No Announcements Yet
-                </h3>
+                <strong>
+                  No announcements yet
+                </strong>
 
-                <p
-                  style={
-                    styles.noAnnouncementText
-                  }
-                >
+                <p>
                   Your teacher has not
-                  published any announcement
-                  yet.
+                  published an announcement.
                 </p>
               </div>
             </div>
           ) : (
-            <div
-              style={
-                styles.latestAnnouncementCard
-              }
-            >
-              <div
-                style={
-                  styles.latestAnnouncementCardTop
-                }
-              >
-                <div
-                  style={
-                    styles.announcementIcon
-                  }
-                >
+            <div style={styles.announcementCard}>
+              <div style={styles.announcementTop}>
+                <div style={styles.announcementIcon}>
                   📢
                 </div>
 
-                <div
-                  style={
-                    styles.announcementCardContent
-                  }
-                >
-                  <div
-                    style={
-                      styles.announcementMeta
-                    }
-                  >
-                    <span
-                      style={
-                        styles.teacherBadge
-                      }
-                    >
+                <div style={styles.announcementContent}>
+                  <div style={styles.meta}>
+                    <span style={styles.teacherBadge}>
                       TEACHER
                     </span>
 
-                    <span
-                      style={
-                        styles.latestText
-                      }
-                    >
-                      LATEST ANNOUNCEMENT
+                    <span style={styles.newBadge}>
+                      LATEST
                     </span>
 
-                    <span
-                      style={
-                        styles.announcementDate
-                      }
-                    >
-                      {formatAnnouncementDate(
+                    <span style={styles.date}>
+                      {formatDate(
                         latestAnnouncement.created_at
                       )}
                     </span>
                   </div>
 
-                  <h3
-                    style={
-                      styles.announcementCardTitle
-                    }
-                  >
-                    {
-                      latestAnnouncement.title
-                    }
+                  <h3 style={styles.announcementTitle}>
+                    {latestAnnouncement.title}
                   </h3>
 
-                  <p
-                    style={
-                      styles.latestPreview
-                    }
-                  >
+                  <p style={styles.announcementMessage}>
                     {getAnnouncementPreview(
                       latestAnnouncement.message
                     )}
@@ -1057,155 +908,77 @@ export default function StudentDashboardPage() {
                 </div>
               </div>
 
-              <div
-                style={
-                  styles.latestAnnouncementBottom
-                }
-              >
-                <div
-                  style={
-                    styles.everyoneText
-                  }
-                >
+              <div style={styles.announcementBottom}>
+                <span style={styles.forAll}>
                   👥 For all students
-                </div>
+                </span>
 
                 <button
                   type="button"
                   onClick={() =>
-                    setAnnouncementOpen(
-                      true
-                    )
+                    setAnnouncementOpen(true)
                   }
-                  style={
-                    styles.openAnnouncementButton
-                  }
+                  style={styles.openButton}
                 >
-                  Open Announcement
-                  <span>→</span>
+                  Open Announcement →
                 </button>
               </div>
             </div>
           )}
         </section>
 
-        {/* ANNOUNCEMENT MODAL */}
+        {/* MODAL */}
 
         {announcementOpen &&
           latestAnnouncement && (
             <div
-              style={
-                styles.modalOverlay
-              }
+              style={styles.overlay}
               onClick={() =>
-                setAnnouncementOpen(
-                  false
-                )
+                setAnnouncementOpen(false)
               }
             >
               <div
-                style={
-                  styles.modal
-                }
+                style={styles.modal}
                 onClick={(event) =>
                   event.stopPropagation()
                 }
               >
-                <div
-                  style={
-                    styles.modalHeader
-                  }
-                >
-                  <div
-                    style={
-                      styles.modalHeaderLeft
-                    }
-                  >
-                    <div
-                      style={
-                        styles.modalIcon
-                      }
-                    >
-                      📢
+                <div style={styles.modalHeader}>
+                  <div>
+                    <div style={styles.modalEyebrow}>
+                      LATEST ANNOUNCEMENT
                     </div>
 
-                    <div>
-                      <div
-                        style={
-                          styles.modalEyebrow
-                        }
-                      >
-                        LATEST ANNOUNCEMENT
-                      </div>
-
-                      <div
-                        style={
-                          styles.modalTeacher
-                        }
-                      >
-                        TEACHER
-                      </div>
-                    </div>
+                    <h2 style={styles.modalTitle}>
+                      {latestAnnouncement.title}
+                    </h2>
                   </div>
 
                   <button
                     type="button"
                     onClick={() =>
-                      setAnnouncementOpen(
-                        false
-                      )
+                      setAnnouncementOpen(false)
                     }
-                    style={
-                      styles.closeButton
-                    }
-                    aria-label="Close announcement"
+                    style={styles.closeButton}
                   >
                     ×
                   </button>
                 </div>
 
-                <div
-                  style={
-                    styles.modalDate
-                  }
-                >
-                  {formatAnnouncementDate(
+                <div style={styles.modalDate}>
+                  {formatDate(
                     latestAnnouncement.created_at
                   )}
                 </div>
 
-                <h2
-                  style={
-                    styles.modalTitle
-                  }
-                >
-                  {
-                    latestAnnouncement.title
-                  }
-                </h2>
-
-                <div
-                  style={
-                    styles.modalMessage
-                  }
-                >
-                  {
-                    latestAnnouncement.message
-                  }
+                <div style={styles.modalMessage}>
+                  {latestAnnouncement.message}
                 </div>
 
-                <div
-                  style={
-                    styles.modalBottom
-                  }
-                >
-                  <div
-                    style={
-                      styles.everyoneText
-                    }
-                  >
+                <div style={styles.modalFooter}>
+                  <span style={styles.forAll}>
                     👥 For all students
-                  </div>
+                  </span>
 
                   <button
                     type="button"
@@ -1221,202 +994,35 @@ export default function StudentDashboardPage() {
                     style={{
                       ...styles.likeButton,
                       ...(latestAnnouncement.likedByMe
-                        ? styles.likeButtonActive
+                        ? styles.likeActive
                         : {}),
-                      opacity:
-                        likingId ===
-                        latestAnnouncement.id
-                          ? 0.65
-                          : 1,
-                      cursor:
-                        likingId ===
-                        latestAnnouncement.id
-                          ? "not-allowed"
-                          : "pointer",
                     }}
                   >
                     {latestAnnouncement.likedByMe
                       ? "❤️ Liked"
-                      : "🤍 Like"}
-
-                    <span
-                      style={
-                        styles.likeCount
-                      }
-                    >
-                      {
-                        latestAnnouncement.likeCount
-                      }
-                    </span>
+                      : "🤍 Like"}{" "}
+                    {latestAnnouncement.likeCount}
                   </button>
                 </div>
               </div>
             </div>
           )}
 
-        {/* NOTICE */}
+        {/* PROFILE PROMO */}
 
-        <section style={styles.notice}>
-          <div style={styles.noticeIcon}>
-            ℹ️
-          </div>
-
-          <div>
-            <div style={styles.noticeTitle}>
-              Student Information Center
-            </div>
-
-            <p style={styles.noticeText}>
-              Use the options below to check
-              your attendance, academic
-              calendar, homework, reports,
-              fees, quiz tests and account
-              settings.
-            </p>
-          </div>
-        </section>
-
-        {/* SERVICES */}
-
-        <section>
-          <div style={styles.sectionHeading}>
-            <div>
-              <div
-                style={
-                  styles.sectionEyebrow
-                }
-              >
-                STUDENT SERVICES
-              </div>
-
-              <h2 style={styles.sectionTitle}>
-                Your Dashboard
-              </h2>
-            </div>
-
-            <div style={styles.serviceCount}>
-              {cards.length} OPTIONS
-            </div>
-          </div>
-
-          <div style={styles.cardGrid}>
-            {cards.map((card) => {
-              const styleKey =
-                `card${card.className
-                  .charAt(0)
-                  .toUpperCase()}${card.className.slice(
-                  1
-                )}`;
-
-              return (
-                <button
-                  key={card.path}
-                  type="button"
-                  onClick={() =>
-                    router.push(
-                      card.path
-                    )
-                  }
-                  style={
-                    styles.serviceCard
-                  }
-                >
-                  <div
-                    style={{
-                      ...styles.cardTop,
-                      ...(styles[
-                        styleKey
-                      ] || {}),
-                    }}
-                  >
-                    <div
-                      style={
-                        styles.cardIcon
-                      }
-                    >
-                      {card.icon}
-                    </div>
-
-                    <div
-                      style={
-                        styles.arrow
-                      }
-                    >
-                      →
-                    </div>
-                  </div>
-
-                  <div
-                    style={
-                      styles.cardBody
-                    }
-                  >
-                    <h3
-                      style={
-                        styles.cardTitle
-                      }
-                    >
-                      {card.title}
-                    </h3>
-
-                    <p
-                      style={
-                        styles.cardDescription
-                      }
-                    >
-                      {
-                        card.description
-                      }
-                    </p>
-
-                    <div
-                      style={
-                        styles.openLink
-                      }
-                    >
-                      <span>
-                        Open
-                      </span>
-
-                      <span>
-                        →
-                      </span>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* PROFILE PANEL */}
-
-        <section
-          style={
-            styles.bottomPanel
-          }
-        >
-          <div style={styles.bottomIcon}>
+        <section style={styles.profilePanel}>
+          <div style={styles.profilePanelIcon}>
             👤
           </div>
 
-          <div style={styles.bottomText}>
-            <h3
-              style={
-                styles.bottomTitle
-              }
-            >
-              Keep your profile updated
+          <div style={styles.profilePanelText}>
+            <h3>
+              Keep your student profile updated
             </h3>
 
-            <p
-              style={
-                styles.bottomDescription
-              }
-            >
-              Your personal information is
-              managed through your student
-              profile.
+            <p>
+              View your personal and academic
+              information in your student profile.
             </p>
           </div>
 
@@ -1427,9 +1033,7 @@ export default function StudentDashboardPage() {
                 "/student/profile"
               )
             }
-            style={
-              styles.profileButton
-            }
+            style={styles.profileButton}
           >
             View Profile →
           </button>
@@ -1438,50 +1042,87 @@ export default function StudentDashboardPage() {
         {/* FOOTER */}
 
         <footer style={styles.footer}>
-          <div style={styles.footerBrand}>
-            🎓 Attendance Portal
-          </div>
+          <strong>
+            RACER ACADEMY
+          </strong>
 
-          <div>
+          <span>
             Student Portal • 2026
-          </div>
+          </span>
         </footer>
       </div>
+
+      {/* MOBILE BOTTOM NAV */}
+
+      <nav style={styles.mobileNav}>
+        <button
+          type="button"
+          onClick={() =>
+            router.push("/student")
+          }
+          style={styles.mobileNavItem}
+        >
+          <span>🏠</span>
+          <small>Home</small>
+        </button>
+
+        <button
+          type="button"
+          onClick={() =>
+            router.push(
+              "/student/timetable"
+            )
+          }
+          style={styles.mobileNavItem}
+        >
+          <span>🕐</span>
+          <small>Time Table</small>
+        </button>
+
+        <button
+          type="button"
+          onClick={() =>
+            router.push(
+              "/student/ask-query"
+            )
+          }
+          style={styles.mobileNavItem}
+        >
+          <span>💬</span>
+          <small>Ask Query</small>
+        </button>
+
+        <button
+          type="button"
+          onClick={() =>
+            router.push(
+              "/student/profile"
+            )
+          }
+          style={styles.mobileNavItem}
+        >
+          <span>👤</span>
+          <small>Profile</small>
+        </button>
+      </nav>
     </main>
   );
 }
 
-/*
- * =====================================================
- * ANNOUNCEMENT PREVIEW
- * =====================================================
- */
-
 function getAnnouncementPreview(
   message: string
-): string {
+) {
   if (!message) {
     return "You have a new announcement from your teacher.";
   }
 
-  const cleanMessage =
+  const clean =
     message.replace(/\s+/g, " ").trim();
 
-  if (cleanMessage.length <= 170) {
-    return cleanMessage;
-  }
-
-  return (
-    cleanMessage.substring(0, 170) +
-    "..."
-  );
+  return clean.length <= 190
+    ? clean
+    : `${clean.substring(0, 190)}...`;
 }
-
-/*
- * =====================================================
- * STYLES
- * =====================================================
- */
 
 const styles: {
   [key: string]: React.CSSProperties;
@@ -1489,8 +1130,9 @@ const styles: {
   page: {
     minHeight: "100vh",
     background:
-      "linear-gradient(135deg,#f8fafc 0%,#eef2ff 50%,#f0f9ff 100%)",
-    padding: "18px",
+      "linear-gradient(135deg,#f8fafc,#eef2ff,#f0f9ff)",
+    padding: "16px",
+    paddingBottom: "30px",
     boxSizing: "border-box",
     fontFamily:
       "Arial, Helvetica, sans-serif",
@@ -1498,46 +1140,48 @@ const styles: {
   },
 
   container: {
-    width: "100%",
     maxWidth: "1250px",
+    width: "100%",
     margin: "0 auto",
   },
 
-  navbar: {
-    background: "#ffffff",
+  header: {
+    background: "#fff",
     border: "1px solid #e2e8f0",
     borderRadius: "18px",
-    padding: "14px 18px",
+    padding: "12px 16px",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     gap: "15px",
-    marginBottom: "18px",
     boxShadow:
-      "0 8px 25px rgba(15,23,42,0.06)",
+      "0 7px 25px rgba(15,23,42,.06)",
+    marginBottom: "16px",
     flexWrap: "wrap",
   },
 
-  brandArea: {
+  brand: {
     display: "flex",
     alignItems: "center",
-    gap: "11px",
+    gap: "10px",
   },
 
-  brandIcon: {
-    width: "45px",
-    height: "45px",
+  logo: {
+    width: "44px",
+    height: "44px",
     borderRadius: "13px",
     background:
-      "linear-gradient(135deg,#2563eb,#7c3aed)",
+      "linear-gradient(135deg,#2563eb,#4f46e5)",
+    color: "#fff",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "22px",
+    fontSize: "16px",
+    fontWeight: "1000",
   },
 
   brandName: {
-    fontSize: "13px",
+    fontSize: "14px",
     fontWeight: "1000",
     letterSpacing: "1px",
     color: "#172554",
@@ -1546,33 +1190,55 @@ const styles: {
   brandSub: {
     marginTop: "3px",
     fontSize: "9px",
-    fontWeight: "900",
-    letterSpacing: "2px",
+    letterSpacing: "1.5px",
     color: "#64748b",
+    fontWeight: "900",
   },
 
-  navRight: {
+  headerActions: {
     display: "flex",
     alignItems: "center",
-    gap: "10px",
+    gap: "8px",
     flexWrap: "wrap",
   },
 
   clock: {
     background: "#f8fafc",
     border: "1px solid #e2e8f0",
-    padding: "9px 12px",
     borderRadius: "9px",
-    color: "#475569",
-    fontSize: "11px",
+    padding: "9px 11px",
+    fontSize: "10px",
     fontWeight: "800",
+    color: "#475569",
   },
 
-  logoutButton: {
+  iconButton: {
+    border: "1px solid #e2e8f0",
+    background: "#fff",
+    width: "38px",
+    height: "38px",
+    borderRadius: "10px",
+    cursor: "pointer",
+    fontSize: "17px",
+  },
+
+  profileMini: {
+    width: "38px",
+    height: "38px",
+    borderRadius: "50%",
+    border: "none",
+    background:
+      "linear-gradient(135deg,#2563eb,#7c3aed)",
+    color: "#fff",
+    fontWeight: "1000",
+    cursor: "pointer",
+  },
+
+  logout: {
     border: "none",
     background: "#0f172a",
-    color: "#ffffff",
-    padding: "10px 15px",
+    color: "#fff",
+    padding: "10px 14px",
     borderRadius: "9px",
     fontWeight: "900",
     cursor: "pointer",
@@ -1581,451 +1247,412 @@ const styles: {
   hero: {
     position: "relative",
     overflow: "hidden",
+    borderRadius: "24px",
+    padding: "30px",
     background:
       "linear-gradient(135deg,#172554,#2563eb,#4f46e5)",
-    borderRadius: "25px",
-    padding: "34px",
-    minHeight: "220px",
+    color: "#fff",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: "25px",
+    gap: "20px",
     marginBottom: "18px",
     boxShadow:
-      "0 18px 45px rgba(37,99,235,0.22)",
-    boxSizing: "border-box",
+      "0 18px 45px rgba(37,99,235,.22)",
   },
 
-  heroGlowOne: {
-    position: "absolute",
-    width: "230px",
-    height: "230px",
-    borderRadius: "50%",
-    background:
-      "rgba(255,255,255,0.08)",
-    right: "120px",
-    top: "-100px",
-  },
-
-  heroGlowTwo: {
-    position: "absolute",
-    width: "180px",
-    height: "180px",
-    borderRadius: "50%",
-    background:
-      "rgba(255,255,255,0.06)",
-    right: "-40px",
-    bottom: "-90px",
-  },
-
-  heroContent: {
-    position: "relative",
-    zIndex: 2,
+  heroLeft: {
     display: "flex",
     alignItems: "center",
-    gap: "20px",
+    gap: "18px",
     minWidth: 0,
   },
 
   avatar: {
-    width: "88px",
-    height: "88px",
-    minWidth: "88px",
-    borderRadius: "24px",
-    background: "#ffffff",
+    width: "82px",
+    height: "82px",
+    minWidth: "82px",
+    borderRadius: "23px",
+    background: "#fff",
     color: "#2563eb",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "38px",
+    fontSize: "35px",
     fontWeight: "1000",
     boxShadow:
-      "0 12px 30px rgba(0,0,0,0.18)",
+      "0 10px 30px rgba(0,0,0,.18)",
   },
 
-  welcomeArea: {
+  heroText: {
     minWidth: 0,
   },
 
-  smallGreeting: {
+  eyebrow: {
     color: "#bfdbfe",
     fontSize: "10px",
     fontWeight: "1000",
     letterSpacing: "2px",
-    marginBottom: "8px",
   },
 
-  welcomeTitle: {
-    margin: 0,
-    color: "#ffffff",
-    fontSize: "30px",
+  heroTitle: {
+    margin: "7px 0 0",
+    fontSize: "29px",
     lineHeight: 1.2,
     fontWeight: "1000",
-    wordBreak: "break-word",
   },
 
-  welcomeText: {
-    margin: "9px 0 0",
+  heroDescription: {
+    margin: "8px 0 0",
     color: "#dbeafe",
-    fontSize: "13px",
-    fontWeight: "600",
+    fontSize: "12px",
     lineHeight: 1.6,
-    maxWidth: "600px",
+    maxWidth: "650px",
+    fontWeight: "600",
   },
 
-  usernameBadge: {
+  username: {
     display: "inline-block",
-    marginTop: "13px",
-    padding: "7px 11px",
+    marginTop: "12px",
+    padding: "7px 10px",
     borderRadius: "8px",
     background:
-      "rgba(255,255,255,0.13)",
+      "rgba(255,255,255,.13)",
     border:
-      "1px solid rgba(255,255,255,0.22)",
-    color: "#ffffff",
-    fontSize: "11px",
+      "1px solid rgba(255,255,255,.2)",
+    fontSize: "10px",
     fontWeight: "900",
   },
 
-  heroSide: {
-    position: "relative",
-    zIndex: 2,
+  activeBox: {
     background:
-      "rgba(255,255,255,0.12)",
+      "rgba(255,255,255,.12)",
     border:
-      "1px solid rgba(255,255,255,0.2)",
-    borderRadius: "14px",
-    padding: "13px 15px",
+      "1px solid rgba(255,255,255,.2)",
+    borderRadius: "13px",
+    padding: "12px 14px",
     display: "flex",
     alignItems: "center",
     gap: "9px",
-    minWidth: "155px",
+    minWidth: "150px",
   },
 
-  statusDot: {
+  activeDot: {
     width: "10px",
     height: "10px",
     borderRadius: "50%",
     background: "#4ade80",
     boxShadow:
-      "0 0 0 5px rgba(74,222,128,0.15)",
+      "0 0 0 5px rgba(74,222,128,.15)",
   },
 
-  onlineText: {
-    color: "#ffffff",
-    fontSize: "10px",
-    fontWeight: "1000",
-    letterSpacing: "1px",
-  },
-
-  onlineSub: {
-    marginTop: "3px",
-    color: "#bfdbfe",
-    fontSize: "10px",
-    fontWeight: "700",
-  },
-
-  announcementSection: {
-    background: "#ffffff",
-    border: "1px solid #dbeafe",
-    borderRadius: "20px",
-    padding: "20px",
-    marginBottom: "25px",
-    boxShadow:
-      "0 8px 26px rgba(15,23,42,0.06)",
-  },
-
-  latestAnnouncementHeader: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "15px",
-    marginBottom: "16px",
-    flexWrap: "wrap",
-  },
-
-  latestAnnouncementLeft: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    minWidth: 0,
-  },
-
-  latestAnnouncementIcon: {
-    width: "48px",
-    height: "48px",
-    minWidth: "48px",
-    borderRadius: "14px",
-    background:
-      "linear-gradient(135deg,#dbeafe,#ede9fe)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "23px",
-  },
-
-  latestBadge: {
-    background: "#dcfce7",
-    color: "#15803d",
-    border: "1px solid #bbf7d0",
-    padding: "8px 12px",
-    borderRadius: "9px",
+  activeTitle: {
     fontSize: "9px",
     fontWeight: "1000",
     letterSpacing: "1px",
   },
 
-  announcementEyebrow: {
+  activeSub: {
+    marginTop: "3px",
+    fontSize: "9px",
+    color: "#bfdbfe",
+  },
+
+  quickSection: {
+    background: "#fff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "20px",
+    padding: "20px",
+    marginBottom: "18px",
+    boxShadow:
+      "0 7px 24px rgba(15,23,42,.05)",
+  },
+
+  sectionHeader: {
+    display: "flex",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: "12px",
+    marginBottom: "18px",
+    flexWrap: "wrap",
+  },
+
+  sectionEyebrow: {
     color: "#2563eb",
     fontSize: "9px",
     fontWeight: "1000",
     letterSpacing: "2px",
-    marginBottom: "4px",
   },
 
-  announcementTitle: {
-    margin: 0,
+  sectionTitle: {
+    margin: "4px 0 0",
+    fontSize: "23px",
+    fontWeight: "1000",
     color: "#172554",
-    fontSize: "24px",
+  },
+
+  countBadge: {
+    padding: "8px 11px",
+    borderRadius: "9px",
+    background: "#f8fafc",
+    border: "1px solid #e2e8f0",
+    color: "#64748b",
+    fontSize: "9px",
     fontWeight: "1000",
   },
 
-  announcementSubtitle: {
-    margin: "5px 0 0",
-    color: "#64748b",
-    fontSize: "11px",
-    fontWeight: "600",
+  serviceSection: {
+    marginTop: "18px",
   },
 
-  latestAnnouncementCard: {
-    background:
-      "linear-gradient(135deg,#f8fbff,#ffffff)",
-    border: "1px solid #bfdbfe",
-    borderRadius: "16px",
-    padding: "16px",
+  sectionLabel: {
+    fontSize: "9px",
+    fontWeight: "1000",
+    color: "#94a3b8",
+    letterSpacing: "1.5px",
+    marginBottom: "9px",
   },
 
-  latestAnnouncementCardTop: {
+  serviceGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(3,minmax(0,1fr))",
+    gap: "12px",
+  },
+
+  serviceCard: {
+    border: "1px solid #e2e8f0",
+    background: "#fff",
+    borderRadius: "15px",
+    padding: "14px",
+    textAlign: "left",
+    cursor: "pointer",
     display: "flex",
-    alignItems: "flex-start",
-    gap: "13px",
+    alignItems: "center",
+    gap: "11px",
+    minWidth: 0,
+    boxShadow:
+      "0 5px 16px rgba(15,23,42,.04)",
   },
 
-  announcementIcon: {
+  serviceIcon: {
     width: "45px",
     height: "45px",
     minWidth: "45px",
-    borderRadius: "12px",
-    background:
-      "linear-gradient(135deg,#dbeafe,#ede9fe)",
+    borderRadius: "13px",
+    background: "#eff6ff",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     fontSize: "21px",
   },
 
-  announcementCardContent: {
+  serviceContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  serviceTitle: {
+    margin: 0,
+    fontSize: "14px",
+    fontWeight: "1000",
+    color: "#172554",
+  },
+
+  serviceDescription: {
+    margin: "4px 0 0",
+    color: "#64748b",
+    fontSize: "10px",
+    lineHeight: 1.5,
+    fontWeight: "600",
+  },
+
+  serviceArrow: {
+    color: "#2563eb",
+    fontSize: "18px",
+    fontWeight: "1000",
+  },
+
+  announcementSection: {
+    background: "#fff",
+    border: "1px solid #dbeafe",
+    borderRadius: "20px",
+    padding: "20px",
+    marginBottom: "18px",
+    boxShadow:
+      "0 7px 24px rgba(15,23,42,.05)",
+  },
+
+  viewAllButton: {
+    border: "1px solid #dbeafe",
+    background: "#eff6ff",
+    color: "#2563eb",
+    padding: "8px 11px",
+    borderRadius: "9px",
+    fontSize: "10px",
+    fontWeight: "1000",
+    cursor: "pointer",
+  },
+
+  emptyBox: {
+    background: "#f8fafc",
+    border: "1px dashed #cbd5e1",
+    borderRadius: "14px",
+    padding: "18px",
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+  },
+
+  loadingCircle: {
+    fontSize: "25px",
+  },
+
+  emptyIcon: {
+    width: "45px",
+    height: "45px",
+    borderRadius: "12px",
+    background: "#eff6ff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "21px",
+  },
+
+  announcementCard: {
+    border: "1px solid #bfdbfe",
+    borderRadius: "15px",
+    padding: "15px",
+    background:
+      "linear-gradient(135deg,#f8fbff,#fff)",
+  },
+
+  announcementTop: {
+    display: "flex",
+    gap: "12px",
+    alignItems: "flex-start",
+  },
+
+  announcementIcon: {
+    width: "44px",
+    height: "44px",
+    minWidth: "44px",
+    borderRadius: "12px",
+    background: "#eff6ff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "20px",
+  },
+
+  announcementContent: {
     minWidth: 0,
     flex: 1,
   },
 
-  announcementMeta: {
+  meta: {
     display: "flex",
+    gap: "7px",
     alignItems: "center",
-    gap: "8px",
     flexWrap: "wrap",
   },
 
   teacherBadge: {
     background: "#dbeafe",
     color: "#1d4ed8",
-    padding: "4px 7px",
-    borderRadius: "6px",
+    padding: "4px 6px",
+    borderRadius: "5px",
     fontSize: "8px",
     fontWeight: "1000",
-    letterSpacing: "0.7px",
   },
 
-  latestText: {
+  newBadge: {
     background: "#dcfce7",
     color: "#15803d",
-    padding: "4px 7px",
-    borderRadius: "6px",
+    padding: "4px 6px",
+    borderRadius: "5px",
     fontSize: "8px",
     fontWeight: "1000",
-    letterSpacing: "0.7px",
   },
 
-  announcementDate: {
+  date: {
     color: "#94a3b8",
     fontSize: "9px",
-    fontWeight: "700",
   },
 
-  announcementCardTitle: {
+  announcementTitle: {
     margin: "7px 0 0",
     color: "#172554",
-    fontSize: "18px",
+    fontSize: "17px",
     fontWeight: "1000",
-    wordBreak: "break-word",
   },
 
-  latestPreview: {
-    margin: "7px 0 0",
+  announcementMessage: {
+    margin: "6px 0 0",
     color: "#475569",
-    fontSize: "12px",
-    lineHeight: 1.65,
+    fontSize: "11px",
+    lineHeight: 1.6,
     fontWeight: "600",
-    wordBreak: "break-word",
   },
 
-  latestAnnouncementBottom: {
-    marginTop: "14px",
-    paddingTop: "12px",
+  announcementBottom: {
+    marginTop: "13px",
+    paddingTop: "11px",
     borderTop: "1px solid #e2e8f0",
     display: "flex",
-    alignItems: "center",
     justifyContent: "space-between",
+    alignItems: "center",
     gap: "10px",
     flexWrap: "wrap",
   },
 
-  openAnnouncementButton: {
-    border: "none",
-    background:
-      "linear-gradient(135deg,#2563eb,#4f46e5)",
-    color: "#ffffff",
-    padding: "10px 14px",
-    borderRadius: "10px",
-    fontSize: "11px",
-    fontWeight: "1000",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    gap: "9px",
-    boxShadow:
-      "0 7px 18px rgba(37,99,235,0.18)",
-  },
-
-  announcementLoading: {
-    display: "flex",
-    alignItems: "center",
-    gap: "13px",
-    padding: "18px",
-    background: "#f8fafc",
-    borderRadius: "14px",
-    border: "1px dashed #cbd5e1",
-  },
-
-  loadingIcon: {
-    fontSize: "27px",
-  },
-
-  loadingTitle: {
-    color: "#334155",
-    fontSize: "13px",
-    fontWeight: "900",
-  },
-
-  loadingText: {
-    marginTop: "3px",
-    color: "#64748b",
-    fontSize: "10px",
-    fontWeight: "600",
-  },
-
-  noAnnouncements: {
-    display: "flex",
-    alignItems: "center",
-    gap: "14px",
-    padding: "20px",
-    background: "#f8fafc",
-    borderRadius: "14px",
-    border: "1px dashed #cbd5e1",
-  },
-
-  noAnnouncementIcon: {
-    width: "48px",
-    height: "48px",
-    borderRadius: "13px",
-    background: "#eff6ff",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "23px",
-    flexShrink: 0,
-  },
-
-  noAnnouncementTitle: {
-    margin: 0,
-    color: "#334155",
-    fontSize: "14px",
-    fontWeight: "1000",
-  },
-
-  noAnnouncementText: {
-    margin: "4px 0 0",
-    color: "#64748b",
-    fontSize: "11px",
-    fontWeight: "600",
-  },
-
-  everyoneText: {
+  forAll: {
     color: "#64748b",
     fontSize: "10px",
     fontWeight: "800",
   },
 
-  modalOverlay: {
+  openButton: {
+    border: "none",
+    background:
+      "linear-gradient(135deg,#2563eb,#4f46e5)",
+    color: "#fff",
+    padding: "9px 12px",
+    borderRadius: "9px",
+    fontSize: "10px",
+    fontWeight: "1000",
+    cursor: "pointer",
+  },
+
+  overlay: {
     position: "fixed",
     inset: 0,
     zIndex: 9999,
     background:
-      "rgba(15,23,42,0.62)",
+      "rgba(15,23,42,.65)",
+    backdropFilter: "blur(5px)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: "18px",
-    boxSizing: "border-box",
-    backdropFilter: "blur(5px)",
+    padding: "16px",
   },
 
   modal: {
     width: "100%",
-    maxWidth: "720px",
+    maxWidth: "700px",
     maxHeight: "88vh",
     overflowY: "auto",
-    background: "#ffffff",
-    borderRadius: "22px",
-    padding: "22px",
+    background: "#fff",
+    borderRadius: "20px",
+    padding: "20px",
     boxSizing: "border-box",
-    boxShadow:
-      "0 25px 70px rgba(0,0,0,0.28)",
   },
 
   modalHeader: {
     display: "flex",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     gap: "12px",
-  },
-
-  modalHeaderLeft: {
-    display: "flex",
-    alignItems: "center",
-    gap: "11px",
-  },
-
-  modalIcon: {
-    width: "45px",
-    height: "45px",
-    borderRadius: "12px",
-    background:
-      "linear-gradient(135deg,#dbeafe,#ede9fe)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "21px",
   },
 
   modalEyebrow: {
@@ -2035,313 +1662,83 @@ const styles: {
     letterSpacing: "1.5px",
   },
 
-  modalTeacher: {
-    marginTop: "3px",
-    color: "#64748b",
-    fontSize: "9px",
-    fontWeight: "900",
+  modalTitle: {
+    margin: "5px 0 0",
+    color: "#172554",
+    fontSize: "22px",
+    fontWeight: "1000",
   },
 
   closeButton: {
-    width: "36px",
-    height: "36px",
+    width: "34px",
+    height: "34px",
     borderRadius: "50%",
     border: "1px solid #e2e8f0",
     background: "#f8fafc",
     color: "#475569",
-    fontSize: "25px",
-    lineHeight: 1,
+    fontSize: "22px",
     cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
   },
 
   modalDate: {
-    marginTop: "14px",
+    marginTop: "12px",
     color: "#94a3b8",
     fontSize: "10px",
-    fontWeight: "700",
-  },
-
-  modalTitle: {
-    margin: "9px 0 0",
-    color: "#172554",
-    fontSize: "23px",
-    lineHeight: 1.3,
-    fontWeight: "1000",
-    wordBreak: "break-word",
   },
 
   modalMessage: {
-    marginTop: "16px",
+    marginTop: "15px",
+    padding: "15px",
+    borderRadius: "13px",
+    background: "#f8fafc",
+    border: "1px solid #e2e8f0",
     color: "#334155",
     fontSize: "13px",
     lineHeight: 1.8,
-    fontWeight: "600",
     whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
-    background: "#f8fafc",
-    border: "1px solid #e2e8f0",
-    borderRadius: "14px",
-    padding: "16px",
   },
 
-  modalBottom: {
-    marginTop: "17px",
-    paddingTop: "14px",
+  modalFooter: {
+    marginTop: "15px",
+    paddingTop: "13px",
     borderTop: "1px solid #e2e8f0",
     display: "flex",
-    alignItems: "center",
     justifyContent: "space-between",
+    alignItems: "center",
     gap: "10px",
     flexWrap: "wrap",
   },
 
   likeButton: {
     border: "1px solid #cbd5e1",
-    background: "#ffffff",
+    background: "#fff",
     color: "#475569",
-    padding: "8px 11px",
-    borderRadius: "9px",
-    fontSize: "11px",
-    fontWeight: "1000",
-    display: "flex",
-    alignItems: "center",
-    gap: "7px",
-  },
-
-  likeButtonActive: {
-    background: "#fff1f2",
-    border:
-      "1px solid #fecdd3",
-    color: "#be123c",
-  },
-
-  likeCount: {
-    background: "#f1f5f9",
-    color: "#475569",
-    minWidth: "19px",
-    height: "19px",
-    padding: "0 4px",
-    borderRadius: "999px",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "9px",
-    fontWeight: "1000",
-  },
-
-  notice: {
-    background: "#ffffff",
-    border: "1px solid #dbeafe",
-    borderRadius: "17px",
-    padding: "15px 18px",
-    display: "flex",
-    alignItems: "center",
-    gap: "13px",
-    marginBottom: "25px",
-    boxShadow:
-      "0 7px 22px rgba(15,23,42,0.05)",
-  },
-
-  noticeIcon: {
-    width: "40px",
-    height: "40px",
-    minWidth: "40px",
-    borderRadius: "11px",
-    background: "#eff6ff",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "19px",
-  },
-
-  noticeTitle: {
-    color: "#172554",
-    fontSize: "13px",
-    fontWeight: "900",
-  },
-
-  noticeText: {
-    margin: "3px 0 0",
-    color: "#64748b",
-    fontSize: "11px",
-    lineHeight: 1.5,
-    fontWeight: "600",
-  },
-
-  sectionHeading: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-    gap: "15px",
-    marginBottom: "15px",
-  },
-
-  sectionEyebrow: {
-    color: "#2563eb",
-    fontSize: "9px",
-    fontWeight: "1000",
-    letterSpacing: "2px",
-    marginBottom: "3px",
-  },
-
-  sectionTitle: {
-    margin: 0,
-    fontSize: "24px",
-    fontWeight: "1000",
-    color: "#172554",
-  },
-
-  serviceCount: {
-    background: "#ffffff",
-    border: "1px solid #e2e8f0",
-    color: "#64748b",
     padding: "8px 11px",
     borderRadius: "9px",
     fontSize: "10px",
-    fontWeight: "900",
-  },
-
-  cardGrid: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(3,minmax(0,1fr))",
-    gap: "15px",
-  },
-
-  serviceCard: {
-    border: "1px solid #e2e8f0",
-    background: "#ffffff",
-    borderRadius: "19px",
-    overflow: "hidden",
-    padding: 0,
-    textAlign: "left",
+    fontWeight: "1000",
     cursor: "pointer",
-    boxShadow:
-      "0 7px 22px rgba(15,23,42,0.05)",
   },
 
-  cardTop: {
-    padding: "15px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
+  likeActive: {
+    background: "#fff1f2",
+    border: "1px solid #fecdd3",
+    color: "#be123c",
   },
 
-  cardBlue: {
+  profilePanel: {
     background:
-      "linear-gradient(135deg,#dbeafe,#bfdbfe)",
-  },
-
-  cardPurple: {
-    background:
-      "linear-gradient(135deg,#ede9fe,#ddd6fe)",
-  },
-
-  cardGreen: {
-    background:
-      "linear-gradient(135deg,#dcfce7,#bbf7d0)",
-  },
-
-  cardOrange: {
-    background:
-      "linear-gradient(135deg,#ffedd5,#fed7aa)",
-  },
-
-  cardPink: {
-    background:
-      "linear-gradient(135deg,#fce7f3,#fbcfe8)",
-  },
-
-  cardIndigo: {
-    background:
-      "linear-gradient(135deg,#e0e7ff,#c7d2fe)",
-  },
-
-  cardCyan: {
-    background:
-      "linear-gradient(135deg,#cffafe,#a5f3fc)",
-  },
-
-  // NEW QUIZ CARD STYLE
-  cardQuiz: {
-    background:
-      "linear-gradient(135deg,#fef9c3,#fde68a)",
-  },
-
-  cardIcon: {
-    width: "47px",
-    height: "47px",
-    borderRadius: "14px",
-    background:
-      "rgba(255,255,255,0.72)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "23px",
-  },
-
-  arrow: {
-    width: "30px",
-    height: "30px",
-    borderRadius: "50%",
-    background:
-      "rgba(255,255,255,0.65)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "#172554",
-    fontWeight: "1000",
-  },
-
-  cardBody: {
-    padding: "17px",
-  },
-
-  cardTitle: {
-    margin: 0,
-    color: "#172554",
-    fontSize: "17px",
-    fontWeight: "1000",
-  },
-
-  cardDescription: {
-    margin: "7px 0 0",
-    color: "#64748b",
-    fontSize: "11px",
-    lineHeight: 1.6,
-    minHeight: "36px",
-    fontWeight: "600",
-  },
-
-  openLink: {
-    marginTop: "13px",
-    color: "#2563eb",
-    fontSize: "11px",
-    fontWeight: "1000",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-
-  bottomPanel: {
-    marginTop: "20px",
-    background:
-      "linear-gradient(135deg,#ffffff,#f8fafc)",
+      "linear-gradient(135deg,#fff,#f8fafc)",
     border: "1px solid #e2e8f0",
     borderRadius: "18px",
-    padding: "17px",
+    padding: "16px",
     display: "flex",
     alignItems: "center",
-    gap: "13px",
-    boxShadow:
-      "0 7px 22px rgba(15,23,42,0.05)",
+    gap: "12px",
     flexWrap: "wrap",
   },
 
-  bottomIcon: {
+  profilePanelIcon: {
     width: "48px",
     height: "48px",
     borderRadius: "13px",
@@ -2349,53 +1746,97 @@ const styles: {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "23px",
+    fontSize: "22px",
   },
 
-  bottomText: {
+  profilePanelText: {
     flex: 1,
     minWidth: "200px",
-  },
-
-  bottomTitle: {
-    margin: 0,
-    color: "#172554",
-    fontSize: "14px",
-    fontWeight: "1000",
-  },
-
-  bottomDescription: {
-    margin: "4px 0 0",
-    color: "#64748b",
-    fontSize: "11px",
-    fontWeight: "600",
   },
 
   profileButton: {
     border: "none",
     background: "#2563eb",
-    color: "#ffffff",
-    padding: "10px 15px",
+    color: "#fff",
+    padding: "10px 14px",
     borderRadius: "9px",
     fontWeight: "900",
     cursor: "pointer",
   },
 
   footer: {
-    marginTop: "25px",
-    padding: "18px 5px",
+    marginTop: "20px",
+    padding: "17px 5px",
     borderTop: "1px solid #e2e8f0",
     display: "flex",
     justifyContent: "space-between",
     gap: "10px",
+    flexWrap: "wrap",
     color: "#94a3b8",
     fontSize: "10px",
-    fontWeight: "700",
-    flexWrap: "wrap",
   },
 
-  footerBrand: {
+  mobileNav: {
+    position: "fixed",
+    bottom: "10px",
+    left: "10px",
+    right: "10px",
+    zIndex: 5000,
+    background: "rgba(255,255,255,.96)",
+    backdropFilter: "blur(12px)",
+    border: "1px solid #e2e8f0",
+    borderRadius: "17px",
+    padding: "7px 5px",
+    display: "none",
+    gridTemplateColumns:
+      "repeat(4,1fr)",
+    boxShadow:
+      "0 10px 30px rgba(15,23,42,.15)",
+  },
+
+  mobileNavItem: {
+    border: "none",
+    background: "transparent",
+    padding: "6px 2px",
+    borderRadius: "10px",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "3px",
     color: "#475569",
-    fontWeight: "900",
+    cursor: "pointer",
+    fontWeight: "800",
   },
 };
+
+/* RESPONSIVE CSS */
+
+if (
+  typeof document !== "undefined"
+) {
+  const styleId =
+    "racer-student-dashboard-responsive";
+
+  if (!document.getElementById(styleId)) {
+    const style =
+      document.createElement("style");
+
+    style.id = styleId;
+
+    style.innerHTML = `
+      @media (max-width: 900px) {
+        .racer-student-dashboard-placeholder {
+          display: none;
+        }
+      }
+
+      @media (max-width: 700px) {
+        body {
+          margin: 0;
+        }
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+}
