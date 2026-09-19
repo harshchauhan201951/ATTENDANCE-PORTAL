@@ -2,18 +2,23 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../lib/supabase";
+import { useRouter } from "next/navigation";
 
 type Student = {
   id: number;
-  student_name?: string | null;
-  student_username?: string | null;
-  father_name?: string | null;
-  mother_name?: string | null;
+  student_name: string | null;
+  student_username: string;
   admission_date?: string | null;
-  date_of_birth?: string | null;
+  class_name?: string | null;
 };
 
-type Status = "Present" | "Absent";
+type AttendanceRecord = {
+  id: number;
+  student_id: number;
+  attendance_date: string;
+  status: string;
+  marked_by_teacher_id?: number | null;
+};
 
 type ExtraClass = {
   id: number;
@@ -27,75 +32,96 @@ type ExtraClassAttendance = {
   extra_class_id: number;
   student_id: number;
   extra_class_date: string;
-  status: Status;
+  status: "Present" | "Absent";
   remarks: string | null;
   created_at?: string;
 };
 
-type StatusMap = Record<number, Status>;
+type AttendanceTab =
+  | "today"
+  | "date-wise"
+  | "extra-class"
+  | "reporting"
+  | "month-wise";
 
-function getStudentName(student: Student) {
-  return student.student_name?.trim() || `Student #${student.id}`;
-}
-
-function getStudentUsername(student: Student) {
-  return student.student_username?.trim() || "No username";
-}
+const MAIN_TEACHER_ID = 1;
 
 function formatDate(date: string) {
   if (!date) return "-";
 
-  const d = new Date(`${date}T00:00:00`);
-
-  return d.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  return new Date(`${date}T00:00:00`).toLocaleDateString(
+    "en-IN",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }
+  );
 }
 
-function getMonthName(monthValue: string) {
-  if (!monthValue) return "";
+function getStudentName(student: Student) {
+  return (
+    student.student_name?.trim() ||
+    `Student #${student.id}`
+  );
+}
 
-  const date = new Date(`${monthValue}-01T00:00:00`);
+function getToday() {
+  return new Date().toISOString().split("T")[0];
+}
 
-  return date.toLocaleDateString("en-IN", {
+function getMonthValue(date: string) {
+  return date ? date.slice(0, 7) : "";
+}
+
+function getMonthName(month: string) {
+  if (!month) return "";
+
+  return new Date(
+    `${month}-01T00:00:00`
+  ).toLocaleDateString("en-IN", {
     month: "long",
     year: "numeric",
   });
 }
 
-export default function ExtraClassPage() {
+export default function TeacherAttendancePage() {
+  const router = useRouter();
+
   const [students, setStudents] = useState<Student[]>([]);
-  const [classes, setClasses] = useState<ExtraClass[]>([]);
-  const [attendance, setAttendance] = useState<ExtraClassAttendance[]>([]);
+  const [attendance, setAttendance] = useState<
+    AttendanceRecord[]
+  >([]);
 
-  const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
+  const [extraClasses, setExtraClasses] = useState<
+    ExtraClass[]
+  >([]);
 
-  const [classDate, setClassDate] = useState(
-    new Date().toISOString().split("T")[0]
+  const [extraClassAttendance, setExtraClassAttendance] =
+    useState<ExtraClassAttendance[]>([]);
+
+  const [selectedDate, setSelectedDate] =
+    useState(getToday());
+
+  const [search, setSearch] = useState("");
+
+  const [month, setMonth] = useState(
+    getToday().slice(0, 7)
   );
 
-  const [remarks, setRemarks] = useState("");
-
-  const [studentSearch, setStudentSearch] = useState("");
-  const [historySearch, setHistorySearch] = useState("");
-
-  const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
-  const [statusMap, setStatusMap] = useState<StatusMap>({});
-
-  const [historyMonth, setHistoryMonth] = useState("");
+  const [activeTab, setActiveTab] =
+    useState<AttendanceTab>("today");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
   const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState<
-    "success" | "error" | "info"
-  >("info");
 
-  const isEditing = selectedClassId !== null;
+  const [teacherId, setTeacherId] =
+    useState<number | null>(null);
+
+  const [isMainTeacher, setIsMainTeacher] =
+    useState(false);
 
   // ---------------------------------------------------------
   // LOAD DATA
@@ -104,53 +130,280 @@ export default function ExtraClassPage() {
   async function loadData() {
     try {
       setLoading(true);
+      setMessage("");
 
-      const [studentsResult, classesResult, attendanceResult] =
-        await Promise.all([
+      const storedTeacherId =
+        window.localStorage.getItem(
+          "attendance_teacher_id"
+        );
+
+      if (!storedTeacherId) {
+        throw new Error(
+          "Teacher session not found. Please login again."
+        );
+      }
+
+      const currentTeacherId =
+        Number(storedTeacherId);
+
+      if (!Number.isFinite(currentTeacherId)) {
+        throw new Error(
+          "Invalid teacher session. Please login again."
+        );
+      }
+
+      const mainTeacher =
+        currentTeacherId === MAIN_TEACHER_ID;
+
+      setTeacherId(currentTeacherId);
+      setIsMainTeacher(mainTeacher);
+
+      // -----------------------------------------------------
+      // MAIN TEACHER
+      // -----------------------------------------------------
+
+      if (mainTeacher) {
+        const [
+          studentsResult,
+          attendanceResult,
+          extraClassesResult,
+          extraClassAttendanceResult,
+        ] = await Promise.all([
           supabase
             .from("students")
             .select("*")
-            .order("id", { ascending: true }),
+            .order("id", {
+              ascending: true,
+            }),
+
+          supabase
+            .from("attendance")
+            .select("*")
+            .order("attendance_date", {
+              ascending: false,
+            })
+            .order("id", {
+              ascending: false,
+            }),
 
           supabase
             .from("extra_classes")
             .select("*")
-            .order("class_date", { ascending: false })
-            .order("id", { ascending: false }),
+            .order("class_date", {
+              ascending: false,
+            })
+            .order("id", {
+              ascending: false,
+            }),
 
           supabase
             .from("extra_class_attendance")
             .select("*")
-            .order("id", { ascending: true }),
+            .order("id", {
+              ascending: true,
+            }),
         ]);
 
-      if (studentsResult.error) {
-        throw new Error(studentsResult.error.message);
+        if (studentsResult.error)
+          throw new Error(
+            studentsResult.error.message
+          );
+
+        if (attendanceResult.error)
+          throw new Error(
+            attendanceResult.error.message
+          );
+
+        if (extraClassesResult.error)
+          throw new Error(
+            extraClassesResult.error.message
+          );
+
+        if (extraClassAttendanceResult.error)
+          throw new Error(
+            extraClassAttendanceResult.error.message
+          );
+
+        setStudents(
+          (studentsResult.data ||
+            []) as Student[]
+        );
+
+        setAttendance(
+          (attendanceResult.data ||
+            []) as AttendanceRecord[]
+        );
+
+        setExtraClasses(
+          (extraClassesResult.data ||
+            []) as ExtraClass[]
+        );
+
+        setExtraClassAttendance(
+          (extraClassAttendanceResult.data ||
+            []) as ExtraClassAttendance[]
+        );
+
+        return;
       }
 
-      if (classesResult.error) {
-        throw new Error(classesResult.error.message);
+      // -----------------------------------------------------
+      // ASSIGNED TEACHER
+      // -----------------------------------------------------
+
+      const {
+        data: assignments,
+        error: assignmentError,
+      } = await supabase
+        .from("teacher_student_assignments")
+        .select("student_id")
+        .eq("teacher_id", currentTeacherId);
+
+      if (assignmentError) {
+        throw new Error(
+          assignmentError.message
+        );
       }
 
-      if (attendanceResult.error) {
-        throw new Error(attendanceResult.error.message);
-      }
-
-      setStudents((studentsResult.data || []) as Student[]);
-      setClasses((classesResult.data || []) as ExtraClass[]);
-      setAttendance(
-        (attendanceResult.data || []) as ExtraClassAttendance[]
+      const assignedStudentIds = Array.from(
+        new Set(
+          (assignments || [])
+            .map((item) =>
+              Number(item.student_id)
+            )
+            .filter((id) =>
+              Number.isFinite(id)
+            )
+        )
       );
+
+      if (assignedStudentIds.length === 0) {
+        setStudents([]);
+        setAttendance([]);
+        setExtraClasses([]);
+        setExtraClassAttendance([]);
+        return;
+      }
+
+      const [
+        studentsResult,
+        attendanceResult,
+        extraClassAttendanceResult,
+      ] = await Promise.all([
+        supabase
+          .from("students")
+          .select("*")
+          .in("id", assignedStudentIds)
+          .order("id", {
+            ascending: true,
+          }),
+
+        supabase
+          .from("attendance")
+          .select("*")
+          .in(
+            "student_id",
+            assignedStudentIds
+          )
+          .order("attendance_date", {
+            ascending: false,
+          })
+          .order("id", {
+            ascending: false,
+          }),
+
+        supabase
+          .from("extra_class_attendance")
+          .select("*")
+          .in(
+            "student_id",
+            assignedStudentIds
+          )
+          .order("id", {
+            ascending: true,
+          }),
+      ]);
+
+      if (studentsResult.error)
+        throw new Error(
+          studentsResult.error.message
+        );
+
+      if (attendanceResult.error)
+        throw new Error(
+          attendanceResult.error.message
+        );
+
+      if (extraClassAttendanceResult.error)
+        throw new Error(
+          extraClassAttendanceResult.error.message
+        );
+
+      const assignedExtraAttendance =
+        (extraClassAttendanceResult.data ||
+          []) as ExtraClassAttendance[];
+
+      const assignedClassIds = Array.from(
+        new Set(
+          assignedExtraAttendance.map(
+            (item) => item.extra_class_id
+          )
+        )
+      );
+
+      let assignedClasses: ExtraClass[] = [];
+
+      if (assignedClassIds.length > 0) {
+        const {
+          data: classData,
+          error: classError,
+        } = await supabase
+          .from("extra_classes")
+          .select("*")
+          .in("id", assignedClassIds)
+          .order("class_date", {
+            ascending: false,
+          })
+          .order("id", {
+            ascending: false,
+          });
+
+        if (classError) {
+          throw new Error(
+            classError.message
+          );
+        }
+
+        assignedClasses =
+          (classData || []) as ExtraClass[];
+      }
+
+      setStudents(
+        (studentsResult.data ||
+          []) as Student[]
+      );
+
+      setAttendance(
+        (attendanceResult.data ||
+          []) as AttendanceRecord[]
+      );
+
+      setExtraClassAttendance(
+        assignedExtraAttendance
+      );
+
+      setExtraClasses(assignedClasses);
     } catch (error) {
-      console.error("Extra class load error:", error);
+      console.error(
+        "Teacher attendance load error:",
+        error
+      );
 
       setMessage(
         error instanceof Error
           ? error.message
-          : "Unable to load Extra Class data."
+          : "Unable to load attendance."
       );
-
-      setMessageType("error");
     } finally {
       setLoading(false);
     }
@@ -161,100 +414,24 @@ export default function ExtraClassPage() {
   }, []);
 
   // ---------------------------------------------------------
-  // MESSAGE
-  // ---------------------------------------------------------
-
-  function showMessage(
-    text: string,
-    type: "success" | "error" | "info" = "info"
-  ) {
-    setMessage(text);
-    setMessageType(type);
-
-    window.setTimeout(() => {
-      setMessage("");
-    }, 4500);
-  }
-
-  // ---------------------------------------------------------
-  // NEW CLASS
-  // ---------------------------------------------------------
-
-  function startNewClass() {
-    setSelectedClassId(null);
-
-    setClassDate(new Date().toISOString().split("T")[0]);
-    setRemarks("");
-
-    setStudentSearch("");
-    setSelectedStudents([]);
-
-    const newStatusMap: StatusMap = {};
-
-    students.forEach((student) => {
-      newStatusMap[student.id] = "Present";
-    });
-
-    setStatusMap(newStatusMap);
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  }
-
-  // ---------------------------------------------------------
-  // EDIT CLASS
-  // ---------------------------------------------------------
-
-  function editClass(extraClass: ExtraClass) {
-    const classAttendance = attendance.filter(
-      (item) => item.extra_class_id === extraClass.id
-    );
-
-    setSelectedClassId(extraClass.id);
-
-    setClassDate(extraClass.class_date);
-    setRemarks(extraClass.remarks || "");
-
-    const studentIds = classAttendance.map((item) => item.student_id);
-
-    setSelectedStudents(studentIds);
-
-    const newStatusMap: StatusMap = {};
-
-    students.forEach((student) => {
-      const record = classAttendance.find(
-        (item) => item.student_id === student.id
-      );
-
-      newStatusMap[student.id] = record?.status || "Absent";
-    });
-
-    setStatusMap(newStatusMap);
-    setStudentSearch("");
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  }
-
-  // ---------------------------------------------------------
-  // STUDENT FILTER
+  // SEARCH
   // ---------------------------------------------------------
 
   const filteredStudents = useMemo(() => {
-    const query = studentSearch.trim().toLowerCase();
+    const query = search
+      .trim()
+      .toLowerCase();
 
     if (!query) return students;
 
     return students.filter((student) => {
-      const name = getStudentName(student).toLowerCase();
+      const name =
+        getStudentName(student).toLowerCase();
 
-      const username = (
-        student.student_username || ""
-      ).toLowerCase();
+      const username =
+        (
+          student.student_username || ""
+        ).toLowerCase();
 
       const id = String(student.id);
 
@@ -264,123 +441,239 @@ export default function ExtraClassPage() {
         id.includes(query)
       );
     });
-  }, [students, studentSearch]);
+  }, [students, search]);
 
   // ---------------------------------------------------------
-  // STUDENT SELECTION
+  // REGULAR ATTENDANCE
   // ---------------------------------------------------------
 
-  function toggleStudent(studentId: number) {
-    setSelectedStudents((current) => {
-      if (current.includes(studentId)) {
-        return current.filter((id) => id !== studentId);
-      }
+  const attendanceForSelectedDate =
+    useMemo(() => {
+      return attendance.filter(
+        (item) =>
+          item.attendance_date ===
+          selectedDate
+      );
+    }, [attendance, selectedDate]);
 
-      return [...current, studentId];
-    });
-
-    setStatusMap((current) => ({
-      ...current,
-      [studentId]: current[studentId] || "Present",
-    }));
-  }
-
-  function selectAllFilteredStudents() {
-    const ids = filteredStudents.map((student) => student.id);
-
-    setSelectedStudents((current) => {
-      return Array.from(new Set([...current, ...ids]));
-    });
-
-    setStatusMap((current) => {
-      const updated = { ...current };
-
-      ids.forEach((id) => {
-        updated[id] = updated[id] || "Present";
-      });
-
-      return updated;
-    });
-  }
-
-  function deselectAllFilteredStudents() {
-    const ids = new Set(
-      filteredStudents.map((student) => student.id)
-    );
-
-    setSelectedStudents((current) =>
-      current.filter((id) => !ids.has(id))
+  function getAttendance(
+    studentId: number,
+    date = selectedDate
+  ) {
+    return attendance.find(
+      (item) =>
+        item.student_id === studentId &&
+        item.attendance_date === date
     );
   }
 
-  // ---------------------------------------------------------
-  // ATTENDANCE
-  // ---------------------------------------------------------
-
-  function updateStatus(studentId: number, status: Status) {
-    setStatusMap((current) => ({
-      ...current,
-      [studentId]: status,
-    }));
+  function isStudentAllowed(studentId: number) {
+    return students.some(
+      (student) => student.id === studentId
+    );
   }
 
-  function markAllPresent() {
-    setStatusMap((current) => {
-      const updated = { ...current };
-
-      selectedStudents.forEach((studentId) => {
-        updated[studentId] = "Present";
-      });
-
-      return updated;
-    });
-  }
-
-  function markAllAbsent() {
-    setStatusMap((current) => {
-      const updated = { ...current };
-
-      selectedStudents.forEach((studentId) => {
-        updated[studentId] = "Absent";
-      });
-
-      return updated;
-    });
-  }
-
-  // ---------------------------------------------------------
-  // SUMMARY
-  // ---------------------------------------------------------
-
-  const selectedTotal = selectedStudents.length;
-
-  const selectedPresent = selectedStudents.filter(
-    (id) => statusMap[id] === "Present"
-  ).length;
-
-  const selectedAbsent = selectedStudents.filter(
-    (id) => statusMap[id] === "Absent"
-  ).length;
-
-  const selectedPercentage =
-    selectedTotal > 0
-      ? Math.round((selectedPresent / selectedTotal) * 100)
-      : 0;
-
-  // ---------------------------------------------------------
-  // SAVE CLASS
-  // ---------------------------------------------------------
-
-  async function saveClass() {
-    if (!classDate) {
-      showMessage("Please select Extra Class date.", "error");
+  async function markAttendance(
+    studentId: number,
+    status: "Present" | "Absent"
+  ) {
+    if (!teacherId) {
+      setMessage(
+        "Teacher session not found. Please login again."
+      );
       return;
     }
 
-    if (selectedStudents.length === 0) {
-      showMessage(
-        "Please select at least one student.",
-        "error"
+    if (!isStudentAllowed(studentId)) {
+      setMessage(
+        "You can only manage students assigned to you."
+      );
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setMessage("");
+
+      const existing = getAttendance(
+        studentId,
+        selectedDate
+      );
+
+      if (existing) {
+        const { data, error } =
+          await supabase
+            .from("attendance")
+            .update({
+              status,
+              marked_by_teacher_id:
+                teacherId,
+            })
+            .eq("id", existing.id)
+            .select("*")
+            .single();
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        setAttendance((current) =>
+          current.map((item) =>
+            item.id === existing.id
+              ? (data as AttendanceRecord)
+              : item
+          )
+        );
+      } else {
+        const { data, error } =
+          await supabase
+            .from("attendance")
+            .insert({
+              student_id: studentId,
+              attendance_date:
+                selectedDate,
+              status,
+              marked_by_teacher_id:
+                teacherId,
+            })
+            .select("*")
+            .single();
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        setAttendance((current) => [
+          ...current,
+          data as AttendanceRecord,
+        ]);
+      }
+
+      setMessage(
+        `${status} marked successfully.`
+      );
+    } catch (error) {
+      console.error(
+        "Mark attendance error:",
+        error
+      );
+
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to save attendance."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function markAll(
+    status: "Present" | "Absent"
+  ) {
+    if (!teacherId) {
+      setMessage(
+        "Teacher session not found."
+      );
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setMessage("");
+
+      for (const student of students) {
+        const existing = getAttendance(
+          student.id,
+          selectedDate
+        );
+
+        if (existing) {
+          const { data, error } =
+            await supabase
+              .from("attendance")
+              .update({
+                status,
+                marked_by_teacher_id:
+                  teacherId,
+              })
+              .eq("id", existing.id)
+              .select("*")
+              .single();
+
+          if (error) {
+            throw new Error(
+              error.message
+            );
+          }
+
+          setAttendance((current) =>
+            current.map((item) =>
+              item.id === existing.id
+                ? (data as AttendanceRecord)
+                : item
+            )
+          );
+        } else {
+          const { data, error } =
+            await supabase
+              .from("attendance")
+              .insert({
+                student_id: student.id,
+                attendance_date:
+                  selectedDate,
+                status,
+                marked_by_teacher_id:
+                  teacherId,
+              })
+              .select("*")
+              .single();
+
+          if (error) {
+            throw new Error(
+              error.message
+            );
+          }
+
+          setAttendance((current) => [
+            ...current,
+            data as AttendanceRecord,
+          ]);
+        }
+      }
+
+      setMessage(
+        `All students marked ${status}.`
+      );
+    } catch (error) {
+      console.error(
+        "Mark all error:",
+        error
+      );
+
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to mark attendance."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteAttendance(
+    studentId: number
+  ) {
+    const record = getAttendance(
+      studentId,
+      selectedDate
+    );
+
+    if (!record) return;
+
+    if (!isStudentAllowed(studentId)) {
+      setMessage(
+        "You cannot modify this student's attendance."
       );
       return;
     }
@@ -388,105 +681,35 @@ export default function ExtraClassPage() {
     try {
       setSaving(true);
 
-      let classId = selectedClassId;
-
-      // -----------------------------------------------------
-      // CREATE CLASS
-      // -----------------------------------------------------
-
-      if (!classId) {
-        const { data, error } = await supabase
-          .from("extra_classes")
-          .insert({
-            class_date: classDate,
-            remarks: remarks.trim() || null,
-          })
-          .select("*")
-          .single();
-
-        if (error) {
-          throw new Error(error.message);
-        }
-
-        classId = data.id;
-      } else {
-        // ---------------------------------------------------
-        // UPDATE CLASS
-        // ---------------------------------------------------
-
-        const { error } = await supabase
-          .from("extra_classes")
-          .update({
-            class_date: classDate,
-            remarks: remarks.trim() || null,
-          })
-          .eq("id", classId);
-
-        if (error) {
-          throw new Error(error.message);
-        }
-
-        const { error: deleteAttendanceError } = await supabase
-          .from("extra_class_attendance")
+      const { error } =
+        await supabase
+          .from("attendance")
           .delete()
-          .eq("extra_class_id", classId);
+          .eq("id", record.id);
 
-        if (deleteAttendanceError) {
-          throw new Error(deleteAttendanceError.message);
-        }
+      if (error) {
+        throw new Error(error.message);
       }
 
-      // -----------------------------------------------------
-      // INSERT ATTENDANCE
-      // -----------------------------------------------------
-
-      const attendanceRows = selectedStudents.map((studentId) => ({
-        extra_class_id: classId,
-        student_id: studentId,
-        extra_class_date: classDate,
-        status: statusMap[studentId] || "Absent",
-        remarks: remarks.trim() || null,
-      }));
-
-      const { error: attendanceInsertError } = await supabase
-        .from("extra_class_attendance")
-        .insert(attendanceRows);
-
-      if (attendanceInsertError) {
-        throw new Error(attendanceInsertError.message);
-      }
-
-      showMessage(
-        isEditing
-          ? "Extra Class updated successfully."
-          : "Extra Class created successfully.",
-        "success"
+      setAttendance((current) =>
+        current.filter(
+          (item) => item.id !== record.id
+        )
       );
 
-      // Reload data.
-      await loadData();
-
-      if (classId !== null) {
-        setSelectedClassId(classId);
-
-        const savedClass: ExtraClass = {
-          id: classId,
-          class_date: classDate,
-          remarks: remarks.trim() || null,
-        };
-
-        setTimeout(() => {
-          editClass(savedClass);
-        }, 150);
-      }
+      setMessage(
+        "Attendance record removed."
+      );
     } catch (error) {
-      console.error("Save extra class error:", error);
+      console.error(
+        "Delete attendance error:",
+        error
+      );
 
-      showMessage(
+      setMessage(
         error instanceof Error
           ? error.message
-          : "Unable to save Extra Class.",
-        "error"
+          : "Unable to delete attendance."
       );
     } finally {
       setSaving(false);
@@ -494,134 +717,58 @@ export default function ExtraClassPage() {
   }
 
   // ---------------------------------------------------------
-  // DELETE CLASS
+  // TODAY STATS
   // ---------------------------------------------------------
 
-  async function deleteClass(extraClass: ExtraClass) {
-    const confirmed = window.confirm(
-      `Delete this Extra Class?\n\n${formatDate(
-        extraClass.class_date
-      )}\n\nIts attendance records will also be deleted.`
-    );
-
-    if (!confirmed) return;
-
-    try {
-      setDeleting(true);
-
-      const { error: attendanceDeleteError } = await supabase
-        .from("extra_class_attendance")
-        .delete()
-        .eq("extra_class_id", extraClass.id);
-
-      if (attendanceDeleteError) {
-        throw new Error(attendanceDeleteError.message);
-      }
-
-      const { error } = await supabase
-        .from("extra_classes")
-        .delete()
-        .eq("id", extraClass.id);
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      if (selectedClassId === extraClass.id) {
-        startNewClass();
-      }
-
-      await loadData();
-
-      showMessage(
-        "Extra Class deleted successfully.",
-        "success"
-      );
-    } catch (error) {
-      console.error("Delete extra class error:", error);
-
-      showMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to delete Extra Class.",
-        "error"
-      );
-    } finally {
-      setDeleting(false);
-    }
-  }
-
-  // ---------------------------------------------------------
-  // HISTORY
-  // ---------------------------------------------------------
-
-  const availableMonths = useMemo(() => {
-    const months = Array.from(
-      new Set(
-        classes.map((item) =>
-          item.class_date.slice(0, 7)
-        )
-      )
-    );
-
-    return months.sort((a, b) => b.localeCompare(a));
-  }, [classes]);
-
-  useEffect(() => {
-    if (!historyMonth && availableMonths.length > 0) {
-      setHistoryMonth(availableMonths[0]);
-    }
-  }, [availableMonths, historyMonth]);
-
-  const historyClasses = useMemo(() => {
-    let result = classes;
-
-    if (historyMonth) {
-      result = result.filter(
-        (item) =>
-          item.class_date.slice(0, 7) === historyMonth
-      );
-    }
-
-    const query = historySearch.trim().toLowerCase();
-
-    if (query) {
-      result = result.filter((item) => {
-        return (
-          (item.remarks || "")
-            .toLowerCase()
-            .includes(query) ||
-          item.class_date.includes(query)
-        );
-      });
-    }
-
-    return result;
-  }, [classes, historyMonth, historySearch]);
-
-  function getClassAttendance(classId: number) {
-    return attendance.filter(
-      (item) => item.extra_class_id === classId
-    );
-  }
-
-  function getClassStats(classId: number) {
-    const classAttendance =
-      getClassAttendance(classId);
-
-    const total = classAttendance.length;
-
-    const present = classAttendance.filter(
+  const todayPresent =
+    attendanceForSelectedDate.filter(
       (item) => item.status === "Present"
     ).length;
 
-    const absent = classAttendance.filter(
+  const todayAbsent =
+    attendanceForSelectedDate.filter(
       (item) => item.status === "Absent"
+    ).length;
+
+  const todayMarked =
+    todayPresent + todayAbsent;
+
+  const todayPercentage =
+    todayMarked > 0
+      ? Math.round(
+          (todayPresent / todayMarked) * 100
+        )
+      : 0;
+
+  // ---------------------------------------------------------
+  // REGULAR STUDENT STATS
+  // ---------------------------------------------------------
+
+  function getStudentRegularStats(
+    studentId: number
+  ) {
+    const records = attendance.filter(
+      (item) =>
+        item.student_id === studentId
+    );
+
+    const total = records.length;
+
+    const present = records.filter(
+      (item) =>
+        item.status === "Present"
+    ).length;
+
+    const absent = records.filter(
+      (item) =>
+        item.status === "Absent"
     ).length;
 
     const percentage =
       total > 0
-        ? Math.round((present / total) * 100)
+        ? Math.round(
+            (present / total) * 100
+          )
         : 0;
 
     return {
@@ -633,697 +780,1402 @@ export default function ExtraClassPage() {
   }
 
   // ---------------------------------------------------------
-  // CLASS VIEW
+  // MONTH STATS
   // ---------------------------------------------------------
 
-  function viewClass(extraClass: ExtraClass) {
-    editClass(extraClass);
+  const monthRecords = useMemo(() => {
+    return attendance.filter(
+      (item) =>
+        item.attendance_date.startsWith(
+          month
+        )
+    );
+  }, [attendance, month]);
+
+  const monthPresent =
+    monthRecords.filter(
+      (item) => item.status === "Present"
+    ).length;
+
+  const monthAbsent =
+    monthRecords.filter(
+      (item) => item.status === "Absent"
+    ).length;
+
+  const monthTotal =
+    monthPresent + monthAbsent;
+
+  const monthPercentage =
+    monthTotal > 0
+      ? Math.round(
+          (monthPresent / monthTotal) * 100
+        )
+      : 0;
+
+  // ---------------------------------------------------------
+  // EXTRA CLASS STATS
+  // ---------------------------------------------------------
+
+  function getExtraClassStats(
+    studentId: number
+  ) {
+    const records =
+      extraClassAttendance.filter(
+        (item) =>
+          item.student_id === studentId
+      );
+
+    const total = records.length;
+
+    const present = records.filter(
+      (item) =>
+        item.status === "Present"
+    ).length;
+
+    const absent = records.filter(
+      (item) =>
+        item.status === "Absent"
+    ).length;
+
+    const percentage =
+      total > 0
+        ? Math.round(
+            (present / total) * 100
+          )
+        : 0;
+
+    return {
+      total,
+      present,
+      absent,
+      percentage,
+    };
   }
+
+  const extraClassTotal =
+    extraClassAttendance.length;
+
+  const extraClassPresent =
+    extraClassAttendance.filter(
+      (item) =>
+        item.status === "Present"
+    ).length;
+
+  const extraClassAbsent =
+    extraClassAttendance.filter(
+      (item) =>
+        item.status === "Absent"
+    ).length;
+
+  const extraClassPercentage =
+    extraClassTotal > 0
+      ? Math.round(
+          (extraClassPresent /
+            extraClassTotal) *
+            100
+        )
+      : 0;
+
+  const extraClassMonths = useMemo(() => {
+    return Array.from(
+      new Set(
+        extraClasses.map((item) =>
+          getMonthValue(item.class_date)
+        )
+      )
+    ).sort((a, b) =>
+      b.localeCompare(a)
+    );
+  }, [extraClasses]);
+
+  // ---------------------------------------------------------
+  // EXTRA CLASS STUDENT DATA
+  // ---------------------------------------------------------
+
+  const extraClassStudents =
+    useMemo(() => {
+      return filteredStudents.map(
+        (student) => {
+          const stats =
+            getExtraClassStats(
+              student.id
+            );
+
+          const records =
+            extraClassAttendance
+              .filter(
+                (item) =>
+                  item.student_id ===
+                  student.id
+              )
+              .sort((a, b) =>
+                b.extra_class_date.localeCompare(
+                  a.extra_class_date
+                )
+              );
+
+          return {
+            student,
+            stats,
+            records,
+          };
+        }
+      );
+    }, [
+      filteredStudents,
+      extraClassAttendance,
+    ]);
+
+  // ---------------------------------------------------------
+  // TAB
+  // ---------------------------------------------------------
+
+  function openTab(
+    tab: AttendanceTab
+  ) {
+    setActiveTab(tab);
+
+    // IMPORTANT:
+    // Extra Class stays inside this page.
+    // It no longer redirects to /teacher/extra-class.
+  }
+
+  // ---------------------------------------------------------
+  // DATE RECORDS
+  // ---------------------------------------------------------
+
+  const dateRecords =
+    filteredStudents.map(
+      (student) => ({
+        student,
+        record: getAttendance(
+          student.id,
+          selectedDate
+        ),
+      })
+    );
 
   // ---------------------------------------------------------
   // RENDER
   // ---------------------------------------------------------
 
   return (
-    <main className="extra-page">
+    <main className="attendance-page">
       <div className="page-shell">
         {/* HEADER */}
+
         <header className="top-header">
           <div>
             <div className="brand-small">
               RACER ACADEMY
             </div>
 
-            <h1>Extra Classes</h1>
+            <h1>Teacher Attendance</h1>
 
             <p>
-              Create extra classes, select students and
-              manage attendance class-wise.
+              Manage student attendance and
+              Extra Class attendance.
             </p>
+
+            <div
+              className={`access-badge ${
+                isMainTeacher
+                  ? "main"
+                  : "assigned"
+              }`}
+            >
+              {isMainTeacher
+                ? "MAIN TEACHER • ALL STUDENTS ACCESS"
+                : "ASSIGNED TEACHER • ASSIGNED STUDENTS ONLY"}
+            </div>
           </div>
 
           <div className="header-actions">
-            <a
-              href="/teacher"
-              className="back-button"
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() =>
+                router.push("/teacher/dashboard")
+              }
             >
-              ← Teacher Dashboard
-            </a>
+              ← Dashboard
+            </button>
 
             <button
               type="button"
-              className="new-class-button"
-              onClick={startNewClass}
+              className="refresh-button"
+              onClick={loadData}
+              disabled={loading}
             >
-              ＋ New Extra Class
+              ↻ Refresh
             </button>
           </div>
         </header>
 
         {/* MESSAGE */}
-        {message && (
-          <div className={`message ${messageType}`}>
-            <span>
-              {messageType === "success"
-                ? "✓"
-                : messageType === "error"
-                ? "!"
-                : "i"}
-            </span>
 
-            <p>{message}</p>
+        {message && (
+          <div className="message-box">
+            <span>i</span>
+
+            <strong>{message}</strong>
 
             <button
               type="button"
-              onClick={() => setMessage("")}
-              aria-label="Close message"
+              onClick={() =>
+                setMessage("")
+              }
             >
               ×
             </button>
           </div>
         )}
 
-        {/* CREATE / EDIT CLASS */}
-        <section className="create-card">
-          <div className="section-heading">
-            <div>
-              <span className="section-kicker">
-                {isEditing
-                  ? "EDIT MODE"
-                  : "CREATE MODE"}
-              </span>
+        {/* TABS */}
 
-              <h2>
-                {isEditing
-                  ? "Edit Extra Class"
-                  : "Create New Extra Class"}
-              </h2>
+        <section className="tabs-card">
+          <button
+            type="button"
+            className={
+              activeTab === "today"
+                ? "tab active"
+                : "tab"
+            }
+            onClick={() =>
+              openTab("today")
+            }
+          >
+            <span>TD</span>
+            Today
+          </button>
 
-              <p>
-                Select the Extra Class date, add any
-                remarks, then select the students who
-                attended this Extra Class.
-              </p>
-            </div>
+          <button
+            type="button"
+            className={
+              activeTab === "date-wise"
+                ? "tab active"
+                : "tab"
+            }
+            onClick={() =>
+              openTab("date-wise")
+            }
+          >
+            <span>DW</span>
+            Date Wise
+          </button>
 
-            {isEditing && (
-              <button
-                type="button"
-                className="cancel-edit"
-                onClick={startNewClass}
-              >
-                + Create New
-              </button>
-            )}
-          </div>
+          <button
+            type="button"
+            className={
+              activeTab === "extra-class"
+                ? "tab active extra-tab"
+                : "tab"
+            }
+            onClick={() =>
+              openTab("extra-class")
+            }
+          >
+            <span>EC</span>
+            Extra Class
+          </button>
 
-          <div className="details-grid">
-            <label className="field">
-              <span>Date *</span>
+          <button
+            type="button"
+            className={
+              activeTab === "reporting"
+                ? "tab active"
+                : "tab"
+            }
+            onClick={() =>
+              openTab("reporting")
+            }
+          >
+            <span>RP</span>
+            Reporting
+          </button>
 
-              <input
-                type="date"
-                value={classDate}
-                onChange={(e) =>
-                  setClassDate(e.target.value)
-                }
-              />
-            </label>
-
-            <label className="field full-width">
-              <span>Remarks / Instructions</span>
-
-              <textarea
-                value={remarks}
-                onChange={(e) =>
-                  setRemarks(e.target.value)
-                }
-                placeholder="Extra class instructions, homework, important notes..."
-                rows={3}
-              />
-            </label>
-          </div>
+          <button
+            type="button"
+            className={
+              activeTab === "month-wise"
+                ? "tab active"
+                : "tab"
+            }
+            onClick={() =>
+              openTab("month-wise")
+            }
+          >
+            <span>MW</span>
+            Month Wise
+          </button>
         </section>
 
-        {/* SUMMARY */}
-        <section className="summary-grid">
-          <div className="summary-card">
-            <div className="summary-icon blue">
-              👨‍🎓
-            </div>
+        {loading ? (
+          <section className="loading-card">
+            <div className="loader" />
+            <h3>Loading Attendance...</h3>
+            <p>
+              Please wait while the teacher
+              attendance data is loaded.
+            </p>
+          </section>
+        ) : (
+          <>
+            {/* =================================================
+                TODAY
+            ================================================= */}
 
-            <div>
-              <span>Selected</span>
-              <strong>{selectedTotal}</strong>
-            </div>
-          </div>
+            {activeTab === "today" && (
+              <>
+                <section className="control-card">
+                  <div>
+                    <span className="section-kicker">
+                      TODAY
+                    </span>
 
-          <div className="summary-card">
-            <div className="summary-icon green">
-              ✓
-            </div>
+                    <h2>
+                      Today's Attendance
+                    </h2>
 
-            <div>
-              <span>Present</span>
-              <strong>{selectedPresent}</strong>
-            </div>
-          </div>
+                    <p>
+                      Mark attendance for
+                      {formatDate(
+                        selectedDate
+                      )}
+                    </p>
+                  </div>
 
-          <div className="summary-card">
-            <div className="summary-icon red">
-              ×
-            </div>
-
-            <div>
-              <span>Absent</span>
-              <strong>{selectedAbsent}</strong>
-            </div>
-          </div>
-
-          <div className="summary-card percentage-card">
-            <div className="circle-progress">
-              <svg viewBox="0 0 42 42">
-                <circle
-                  className="circle-bg"
-                  cx="21"
-                  cy="21"
-                  r="15.9155"
-                />
-
-                <circle
-                  className="circle-value"
-                  cx="21"
-                  cy="21"
-                  r="15.9155"
-                  strokeDasharray={`${selectedPercentage} ${
-                    100 - selectedPercentage
-                  }`}
-                  strokeDashoffset="25"
-                />
-              </svg>
-
-              <strong>{selectedPercentage}%</strong>
-            </div>
-
-            <div>
-              <span>Attendance</span>
-
-              <strong className="percentage-number">
-                {selectedPercentage}%
-              </strong>
-            </div>
-          </div>
-        </section>
-
-        {/* STUDENTS */}
-        <section className="attendance-card">
-          <div className="section-heading student-heading">
-            <div>
-              <span className="section-kicker">
-                STEP 2
-              </span>
-
-              <h2>
-                Select Students & Attendance
-              </h2>
-
-              <p>
-                Select only the students who attended
-                this Extra Class.
-              </p>
-            </div>
-
-            <div className="attendance-actions">
-              <button
-                type="button"
-                className="present-all"
-                onClick={markAllPresent}
-                disabled={selectedTotal === 0}
-              >
-                ✓ All Present
-              </button>
-
-              <button
-                type="button"
-                className="absent-all"
-                onClick={markAllAbsent}
-                disabled={selectedTotal === 0}
-              >
-                × All Absent
-              </button>
-            </div>
-          </div>
-
-          <div className="student-toolbar">
-            <div className="search-box">
-              <span>⌕</span>
-
-              <input
-                type="text"
-                value={studentSearch}
-                onChange={(e) =>
-                  setStudentSearch(e.target.value)
-                }
-                placeholder="Search student by name, username or ID..."
-              />
-
-              {studentSearch && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setStudentSearch("")
-                  }
-                >
-                  ×
-                </button>
-              )}
-            </div>
-
-            <div className="selection-actions">
-              <button
-                type="button"
-                onClick={
-                  selectAllFilteredStudents
-                }
-                disabled={
-                  filteredStudents.length === 0
-                }
-              >
-                Select All
-              </button>
-
-              <button
-                type="button"
-                onClick={
-                  deselectAllFilteredStudents
-                }
-                disabled={
-                  filteredStudents.length === 0
-                }
-              >
-                Clear
-              </button>
-            </div>
-          </div>
-
-          <div className="selection-info">
-            <span>
-              <strong>{selectedTotal}</strong>{" "}
-              students selected
-            </span>
-
-            <span>
-              Showing{" "}
-              <strong>
-                {filteredStudents.length}
-              </strong>{" "}
-              of{" "}
-              <strong>{students.length}</strong>
-            </span>
-          </div>
-
-          {loading ? (
-            <div className="loading-box">
-              <div className="loader" />
-
-              <p>Loading students...</p>
-            </div>
-          ) : filteredStudents.length === 0 ? (
-            <div className="empty-box">
-              <div>👨‍🎓</div>
-
-              <h3>No students found</h3>
-
-              <p>
-                Try another search.
-              </p>
-            </div>
-          ) : (
-            <div className="students-list">
-              {filteredStudents.map(
-                (student, index) => {
-                  const selected =
-                    selectedStudents.includes(
-                      student.id
-                    );
-
-                  const status =
-                    statusMap[student.id] ||
-                    "Present";
-
-                  const studentName =
-                    getStudentName(student);
-
-                  const studentUsername =
-                    getStudentUsername(student);
-
-                  return (
-                    <div
-                      key={student.id}
-                      className={`student-row ${
-                        selected
-                          ? "selected"
-                          : ""
-                      }`}
+                  <div className="control-actions">
+                    <button
+                      type="button"
+                      className="present-all-button"
+                      onClick={() =>
+                        markAll("Present")
+                      }
+                      disabled={saving}
                     >
-                      <button
-                        type="button"
-                        className="student-select-area"
-                        onClick={() =>
-                          toggleStudent(
-                            student.id
+                      ✓ Mark All Present
+                    </button>
+
+                    <button
+                      type="button"
+                      className="absent-all-button"
+                      onClick={() =>
+                        markAll("Absent")
+                      }
+                      disabled={saving}
+                    >
+                      × Mark All Absent
+                    </button>
+                  </div>
+                </section>
+
+                <section className="stats-grid">
+                  <div className="stat-card">
+                    <span>Total Students</span>
+                    <strong>
+                      {students.length}
+                    </strong>
+                  </div>
+
+                  <div className="stat-card present">
+                    <span>Present</span>
+                    <strong>
+                      {todayPresent}
+                    </strong>
+                  </div>
+
+                  <div className="stat-card absent">
+                    <span>Absent</span>
+                    <strong>
+                      {todayAbsent}
+                    </strong>
+                  </div>
+
+                  <div className="stat-card percentage">
+                    <span>Marked Attendance</span>
+                    <strong>
+                      {todayPercentage}%
+                    </strong>
+                  </div>
+                </section>
+
+                <section className="attendance-card">
+                  <div className="card-heading">
+                    <div>
+                      <span className="section-kicker">
+                        STUDENTS
+                      </span>
+
+                      <h2>
+                        Today's Student Attendance
+                      </h2>
+                    </div>
+
+                    <div className="search-wrapper">
+                      <span>⌕</span>
+
+                      <input
+                        value={search}
+                        onChange={(e) =>
+                          setSearch(
+                            e.target.value
                           )
                         }
-                      >
-                        <div className="student-checkbox">
-                          {selected ? "✓" : ""}
-                        </div>
-
-                        <div className="student-avatar">
-                          {studentName
-                            .charAt(0)
-                            .toUpperCase()}
-                        </div>
-
-                        <div className="student-information">
-                          <strong>
-                            {studentName}
-                          </strong>
-
-                          <div className="student-details">
-                            <span className="student-username">
-                              Username:{" "}
-                              <b>
-                                {studentUsername}
-                              </b>
-                            </span>
-
-                            <span className="student-id">
-                              Student ID:{" "}
-                              <b>{student.id}</b>
-                            </span>
-                          </div>
-                        </div>
-
-                        <span className="serial-number">
-                          #{index + 1}
-                        </span>
-                      </button>
-
-                      {selected && (
-                        <div className="status-buttons">
-                          <button
-                            type="button"
-                            className={
-                              status === "Present"
-                                ? "status-present active"
-                                : "status-present"
-                            }
-                            onClick={() =>
-                              updateStatus(
-                                student.id,
-                                "Present"
-                              )
-                            }
-                          >
-                            ✓ Present
-                          </button>
-
-                          <button
-                            type="button"
-                            className={
-                              status === "Absent"
-                                ? "status-absent active"
-                                : "status-absent"
-                            }
-                            onClick={() =>
-                              updateStatus(
-                                student.id,
-                                "Absent"
-                              )
-                            }
-                          >
-                            × Absent
-                          </button>
-                        </div>
-                      )}
+                        placeholder="Search student..."
+                      />
                     </div>
-                  );
-                }
-              )}
-            </div>
-          )}
+                  </div>
 
-          {/* SAVE */}
-          <div className="save-area">
-            <div>
-              <strong>
-                {isEditing
-                  ? "Ready to update this Extra Class?"
-                  : "Ready to save this Extra Class?"}
-              </strong>
-
-              <span>
-                {selectedTotal} students ·{" "}
-                {selectedPresent} present ·{" "}
-                {selectedAbsent} absent
-              </span>
-            </div>
-
-            <button
-              type="button"
-              className="save-button"
-              onClick={saveClass}
-              disabled={saving || loading}
-            >
-              {saving
-                ? "Saving..."
-                : isEditing
-                ? "✓ Update Extra Class"
-                : "✓ Save Extra Class"}
-            </button>
-          </div>
-        </section>
-
-        {/* HISTORY */}
-        <section className="history-card">
-          <div className="section-heading">
-            <div>
-              <span className="section-kicker">
-                HISTORY
-              </span>
-
-              <h2>Extra Class History</h2>
-
-              <p>
-                Every Extra Class is shown separately,
-                even when multiple classes happen on
-                the same date.
-              </p>
-            </div>
-
-            <div className="history-count">
-              {historyClasses.length}{" "}
-              {historyClasses.length === 1
-                ? "Class"
-                : "Classes"}
-            </div>
-          </div>
-
-          <div className="history-toolbar">
-            <select
-              value={historyMonth}
-              onChange={(e) =>
-                setHistoryMonth(e.target.value)
-              }
-            >
-              <option value="">
-                All Months
-              </option>
-
-              {availableMonths.map((month) => (
-                <option
-                  key={month}
-                  value={month}
-                >
-                  {getMonthName(month)}
-                </option>
-              ))}
-            </select>
-
-            <div className="history-search">
-              <span>⌕</span>
-
-              <input
-                type="text"
-                value={historySearch}
-                onChange={(e) =>
-                  setHistorySearch(e.target.value)
-                }
-                placeholder="Search remarks or date..."
-              />
-            </div>
-          </div>
-
-          {historyClasses.length === 0 ? (
-            <div className="empty-history">
-              <div className="empty-history-icon">
-                📚
-              </div>
-
-              <h3>No Extra Classes Found</h3>
-
-              <p>
-                Create your first Extra Class and its
-                history will appear here.
-              </p>
-            </div>
-          ) : (
-            <div className="history-list">
-              {historyClasses.map(
-                (extraClass) => {
-                  const stats =
-                    getClassStats(
-                      extraClass.id
-                    );
-
-                  return (
-                    <article
-                      key={extraClass.id}
-                      className="history-class"
-                    >
-                      <div className="history-date">
-                        <span>
-                          {new Date(
-                            `${extraClass.class_date}T00:00:00`
-                          ).toLocaleDateString(
-                            "en-IN",
-                            {
-                              weekday: "short",
-                            }
-                          )}
-                        </span>
-
-                        <strong>
-                          {new Date(
-                            `${extraClass.class_date}T00:00:00`
-                          ).getDate()}
-                        </strong>
-
-                        <small>
-                          {new Date(
-                            `${extraClass.class_date}T00:00:00`
-                          ).toLocaleDateString(
-                            "en-IN",
-                            {
-                              month: "short",
-                            }
-                          )}
-                        </small>
+                  <div className="student-list">
+                    {filteredStudents.length ===
+                    0 ? (
+                      <div className="empty-box">
+                        No students found.
                       </div>
+                    ) : (
+                      filteredStudents.map(
+                        (student, index) => {
+                          const record =
+                            getAttendance(
+                              student.id
+                            );
 
-                      <div className="history-main">
-                        <div className="history-title-row">
-                          <div>
-                            <div className="history-subject">
-                              EXTRA CLASS
+                          const status =
+                            record?.status;
+
+                          return (
+                            <div
+                              key={student.id}
+                              className="attendance-row"
+                            >
+                              <div className="serial">
+                                {index + 1}
+                              </div>
+
+                              <div className="avatar">
+                                {getStudentName(
+                                  student
+                                )
+                                  .charAt(0)
+                                  .toUpperCase()}
+                              </div>
+
+                              <div className="student-main">
+                                <strong>
+                                  {getStudentName(
+                                    student
+                                  )}
+                                </strong>
+
+                                <div className="student-meta">
+                                  <span>
+                                    Username:{" "}
+                                    <b>
+                                      {
+                                        student.student_username
+                                      }
+                                    </b>
+                                  </span>
+
+                                  <span>
+                                    Student ID:{" "}
+                                    <b>
+                                      {student.id}
+                                    </b>
+                                  </span>
+                                </div>
+
+                                {record &&
+                                  record.marked_by_teacher_id &&
+                                  record.marked_by_teacher_id !==
+                                    MAIN_TEACHER_ID && (
+                                    <small className="marked-by">
+                                      Marked by Teacher #
+                                      {
+                                        record.marked_by_teacher_id
+                                      }
+                                    </small>
+                                  )}
+                              </div>
+
+                              <div className="status-actions">
+                                <button
+                                  type="button"
+                                  className={
+                                    status ===
+                                    "Present"
+                                      ? "present active"
+                                      : "present"
+                                  }
+                                  onClick={() =>
+                                    markAttendance(
+                                      student.id,
+                                      "Present"
+                                    )
+                                  }
+                                  disabled={saving}
+                                >
+                                  ✓ Present
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className={
+                                    status ===
+                                    "Absent"
+                                      ? "absent active"
+                                      : "absent"
+                                  }
+                                  onClick={() =>
+                                    markAttendance(
+                                      student.id,
+                                      "Absent"
+                                    )
+                                  }
+                                  disabled={saving}
+                                >
+                                  × Absent
+                                </button>
+
+                                {record && (
+                                  <button
+                                    type="button"
+                                    className="remove-button"
+                                    onClick={() =>
+                                      deleteAttendance(
+                                        student.id
+                                      )
+                                    }
+                                    disabled={saving}
+                                  >
+                                    Remove
+                                  </button>
+                                )}
+                              </div>
                             </div>
+                          );
+                        }
+                      )
+                    )}
+                  </div>
+                </section>
+              </>
+            )}
 
-                            <h3>
-                              {formatDate(
-                                extraClass.class_date
-                              )}
-                            </h3>
-                          </div>
+            {/* =================================================
+                DATE WISE
+            ================================================= */}
 
-                          <span className="class-id">
-                            CLASS #
-                            {extraClass.id}
-                          </span>
-                        </div>
+            {activeTab === "date-wise" && (
+              <>
+                <section className="control-card">
+                  <div>
+                    <span className="section-kicker">
+                      DATE WISE
+                    </span>
 
-                        <div className="history-meta">
-                          <span>
-                            👨‍🎓 {stats.total} Students
-                          </span>
+                    <h2>
+                      Attendance by Date
+                    </h2>
 
-                          <span className="meta-present">
-                            ✓ {stats.present} Present
-                          </span>
+                    <p>
+                      Select any date to view
+                      or mark attendance.
+                    </p>
+                  </div>
 
-                          <span className="meta-absent">
-                            × {stats.absent} Absent
-                          </span>
-                        </div>
+                  <div className="date-picker">
+                    <label>
+                      Select Date
+                    </label>
 
-                        {extraClass.remarks && (
-                          <div className="history-remarks">
-                            <strong>
-                              Note:
-                            </strong>{" "}
-                            {extraClass.remarks}
-                          </div>
+                    <input
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) =>
+                        setSelectedDate(
+                          e.target.value
+                        )
+                      }
+                    />
+                  </div>
+                </section>
+
+                <section className="stats-grid">
+                  <div className="stat-card">
+                    <span>Selected Date</span>
+                    <strong className="small-value">
+                      {formatDate(
+                        selectedDate
+                      )}
+                    </strong>
+                  </div>
+
+                  <div className="stat-card present">
+                    <span>Present</span>
+                    <strong>
+                      {todayPresent}
+                    </strong>
+                  </div>
+
+                  <div className="stat-card absent">
+                    <span>Absent</span>
+                    <strong>
+                      {todayAbsent}
+                    </strong>
+                  </div>
+
+                  <div className="stat-card percentage">
+                    <span>Attendance</span>
+                    <strong>
+                      {todayPercentage}%
+                    </strong>
+                  </div>
+                </section>
+
+                <section className="attendance-card">
+                  <div className="card-heading">
+                    <div>
+                      <span className="section-kicker">
+                        DATE RECORD
+                      </span>
+
+                      <h2>
+                        {formatDate(
+                          selectedDate
                         )}
+                      </h2>
+                    </div>
 
-                        <div className="history-bottom">
-                          <div className="history-progress">
-                            <div className="progress-track">
-                              <div
-                                className="progress-fill"
-                                style={{
-                                  width: `${stats.percentage}%`,
-                                }}
-                              />
+                    <div className="search-wrapper">
+                      <span>⌕</span>
+
+                      <input
+                        value={search}
+                        onChange={(e) =>
+                          setSearch(
+                            e.target.value
+                          )
+                        }
+                        placeholder="Search student..."
+                      />
+                    </div>
+                  </div>
+
+                  <div className="student-list">
+                    {dateRecords.map(
+                      ({
+                        student,
+                        record,
+                      }) => (
+                        <div
+                          key={student.id}
+                          className="attendance-row"
+                        >
+                          <div className="avatar">
+                            {getStudentName(
+                              student
+                            )
+                              .charAt(0)
+                              .toUpperCase()}
+                          </div>
+
+                          <div className="student-main">
+                            <strong>
+                              {getStudentName(
+                                student
+                              )}
+                            </strong>
+
+                            <div className="student-meta">
+                              <span>
+                                {
+                                  student.student_username
+                                }
+                              </span>
+
+                              <span>
+                                ID:{" "}
+                                {student.id}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="status-actions">
+                            <button
+                              type="button"
+                              className={
+                                record?.status ===
+                                "Present"
+                                  ? "present active"
+                                  : "present"
+                              }
+                              onClick={() =>
+                                markAttendance(
+                                  student.id,
+                                  "Present"
+                                )
+                              }
+                              disabled={saving}
+                            >
+                              ✓ Present
+                            </button>
+
+                            <button
+                              type="button"
+                              className={
+                                record?.status ===
+                                "Absent"
+                                  ? "absent active"
+                                  : "absent"
+                              }
+                              onClick={() =>
+                                markAttendance(
+                                  student.id,
+                                  "Absent"
+                                )
+                              }
+                              disabled={saving}
+                            >
+                              × Absent
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </section>
+              </>
+            )}
+
+            {/* =================================================
+                EXTRA CLASS
+            ================================================= */}
+
+            {activeTab === "extra-class" && (
+              <>
+                <section className="extra-hero">
+                  <div>
+                    <span className="extra-kicker">
+                      EXTRA CLASS ATTENDANCE
+                    </span>
+
+                    <h2>
+                      Extra Class Attendance
+                    </h2>
+
+                    <p>
+                      Student-wise attendance for
+                      Extra Classes is shown here
+                      separately from regular
+                      attendance.
+                    </p>
+
+                    {!isMainTeacher && (
+                      <div className="extra-access-note">
+                        Only students assigned to
+                        you are shown.
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="extra-hero-icon">
+                    EC
+                  </div>
+                </section>
+
+                <section className="extra-summary-grid">
+                  <div className="extra-summary-card blue-card">
+                    <span>
+                      Extra Classes
+                    </span>
+
+                    <strong>
+                      {extraClasses.length}
+                    </strong>
+
+                    <small>
+                      Classes recorded
+                    </small>
+                  </div>
+
+                  <div className="extra-summary-card green-card">
+                    <span>
+                      Present
+                    </span>
+
+                    <strong>
+                      {extraClassPresent}
+                    </strong>
+
+                    <small>
+                      Extra class attendance
+                    </small>
+                  </div>
+
+                  <div className="extra-summary-card red-card">
+                    <span>
+                      Absent
+                    </span>
+
+                    <strong>
+                      {extraClassAbsent}
+                    </strong>
+
+                    <small>
+                      Extra class attendance
+                    </small>
+                  </div>
+
+                  <div className="extra-summary-card purple-card">
+                    <span>
+                      Attendance
+                    </span>
+
+                    <strong>
+                      {extraClassPercentage}%
+                    </strong>
+
+                    <small>
+                      Extra Class Attendance
+                    </small>
+                  </div>
+                </section>
+
+                <section className="extra-filter-card">
+                  <div>
+                    <span className="section-kicker">
+                      STUDENT SEARCH
+                    </span>
+
+                    <h2>
+                      Student Extra Class
+                      Records
+                    </h2>
+
+                    <p>
+                      Search a student to see
+                      their complete Extra Class
+                      attendance.
+                    </p>
+                  </div>
+
+                  <div className="extra-search">
+                    <span>⌕</span>
+
+                    <input
+                      value={search}
+                      onChange={(e) =>
+                        setSearch(
+                          e.target.value
+                        )
+                      }
+                      placeholder="Search student by name, username or ID..."
+                    />
+                  </div>
+                </section>
+
+                {extraClassStudents.length ===
+                0 ? (
+                  <section className="extra-empty">
+                    <div className="extra-empty-icon">
+                      EC
+                    </div>
+
+                    <h3>
+                      No Extra Class
+                      Attendance Found
+                    </h3>
+
+                    <p>
+                      Extra Class attendance
+                      records will appear here
+                      after they are created.
+                    </p>
+                  </section>
+                ) : (
+                  <section className="extra-student-grid">
+                    {extraClassStudents.map(
+                      ({
+                        student,
+                        stats,
+                        records,
+                      }) => (
+                        <article
+                          key={student.id}
+                          className="extra-student-card"
+                        >
+                          <div className="extra-student-header">
+                            <div className="extra-student-avatar">
+                              {getStudentName(
+                                student
+                              )
+                                .charAt(0)
+                                .toUpperCase()}
                             </div>
 
+                            <div>
+                              <h3>
+                                {getStudentName(
+                                  student
+                                )}
+                              </h3>
+
+                              <div className="extra-student-meta">
+                                <span>
+                                  {
+                                    student.student_username
+                                  }
+                                </span>
+
+                                <span>
+                                  Student ID:{" "}
+                                  {student.id}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="unique-extra-attendance">
+                            <div className="unique-label">
+                              EXTRA CLASS
+                              ATTENDANCE
+                            </div>
+
+                            <div className="unique-main">
+                              <strong>
+                                {stats.percentage}%
+                              </strong>
+
+                              <span>
+                                Attendance
+                              </span>
+                            </div>
+
+                            <div className="unique-line">
+                              <div>
+                                <b>
+                                  {
+                                    stats.present
+                                  }
+                                </b>
+
+                                <span>
+                                  Present
+                                </span>
+                              </div>
+
+                              <div>
+                                <b>
+                                  {
+                                    stats.absent
+                                  }
+                                </b>
+
+                                <span>
+                                  Absent
+                                </span>
+                              </div>
+
+                              <div>
+                                <b>
+                                  {
+                                    stats.total
+                                  }
+                                </b>
+
+                                <span>
+                                  Total
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {records.length > 0 ? (
+                            <div className="extra-records">
+                              <div className="extra-records-title">
+                                Recent Extra
+                                Classes
+                              </div>
+
+                              {records
+                                .slice(0, 5)
+                                .map(
+                                  (
+                                    record
+                                  ) => (
+                                    <div
+                                      key={
+                                        record.id
+                                      }
+                                      className="extra-record-row"
+                                    >
+                                      <div>
+                                        <strong>
+                                          {formatDate(
+                                            record.extra_class_date
+                                          )}
+                                        </strong>
+
+                                        <span>
+                                          Extra
+                                          Class #
+                                          {
+                                            record.extra_class_id
+                                          }
+                                        </span>
+                                      </div>
+
+                                      <span
+                                        className={
+                                          record.status ===
+                                          "Present"
+                                            ? "extra-present"
+                                            : "extra-absent"
+                                        }
+                                      >
+                                        {record.status ===
+                                        "Present"
+                                          ? "✓ Present"
+                                          : "× Absent"}
+                                      </span>
+                                    </div>
+                                  )
+                                )}
+                            </div>
+                          ) : (
+                            <div className="no-extra-records">
+                              No Extra Class
+                              attendance
+                              recorded.
+                            </div>
+                          )}
+                        </article>
+                      )
+                    )}
+                  </section>
+                )}
+              </>
+            )}
+
+            {/* =================================================
+                REPORTING
+            ================================================= */}
+
+            {activeTab === "reporting" && (
+              <>
+                <section className="control-card">
+                  <div>
+                    <span className="section-kicker">
+                      REPORTING
+                    </span>
+
+                    <h2>
+                      Student Attendance
+                      Report
+                    </h2>
+
+                    <p>
+                      Regular attendance
+                      statistics for every
+                      student.
+                    </p>
+                  </div>
+
+                  <div className="search-wrapper">
+                    <span>⌕</span>
+
+                    <input
+                      value={search}
+                      onChange={(e) =>
+                        setSearch(
+                          e.target.value
+                        )
+                      }
+                      placeholder="Search student..."
+                    />
+                  </div>
+                </section>
+
+                <section className="report-grid">
+                  {filteredStudents.map(
+                    (student) => {
+                      const stats =
+                        getStudentRegularStats(
+                          student.id
+                        );
+
+                      return (
+                        <article
+                          key={student.id}
+                          className="report-card"
+                        >
+                          <div className="report-header">
+                            <div className="report-avatar">
+                              {getStudentName(
+                                student
+                              )
+                                .charAt(0)
+                                .toUpperCase()}
+                            </div>
+
+                            <div>
+                              <h3>
+                                {getStudentName(
+                                  student
+                                )}
+                              </h3>
+
+                              <p>
+                                {
+                                  student.student_username
+                                }{" "}
+                                · ID{" "}
+                                {student.id}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="report-percent">
                             <strong>
                               {stats.percentage}%
-                              Attendance
                             </strong>
+
+                            <span>
+                              Regular Attendance
+                            </span>
                           </div>
 
-                          <div className="history-actions">
-                            <button
-                              type="button"
-                              className="view-button"
-                              onClick={() =>
-                                viewClass(
-                                  extraClass
-                                )
-                              }
-                            >
-                              View / Edit
-                            </button>
+                          <div className="report-stats">
+                            <div>
+                              <b>
+                                {stats.total}
+                              </b>
 
-                            <button
-                              type="button"
-                              className="delete-button"
-                              onClick={() =>
-                                deleteClass(
-                                  extraClass
-                                )
-                              }
-                              disabled={deleting}
-                            >
-                              🗑 Delete
-                            </button>
+                              <span>
+                                Total
+                              </span>
+                            </div>
+
+                            <div>
+                              <b>
+                                {stats.present}
+                              </b>
+
+                              <span>
+                                Present
+                              </span>
+                            </div>
+
+                            <div>
+                              <b>
+                                {stats.absent}
+                              </b>
+
+                              <span>
+                                Absent
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    </article>
-                  );
-                }
-              )}
-            </div>
-          )}
-        </section>
+                        </article>
+                      );
+                    }
+                  )}
+                </section>
+              </>
+            )}
 
-        {/* FOOTER */}
+            {/* =================================================
+                MONTH WISE
+            ================================================= */}
+
+            {activeTab === "month-wise" && (
+              <>
+                <section className="control-card">
+                  <div>
+                    <span className="section-kicker">
+                      MONTH WISE
+                    </span>
+
+                    <h2>
+                      Monthly Attendance
+                    </h2>
+
+                    <p>
+                      View attendance
+                      statistics month by
+                      month.
+                    </p>
+                  </div>
+
+                  <div className="date-picker">
+                    <label>
+                      Select Month
+                    </label>
+
+                    <input
+                      type="month"
+                      value={month}
+                      onChange={(e) =>
+                        setMonth(
+                          e.target.value
+                        )
+                      }
+                    />
+                  </div>
+                </section>
+
+                <section className="stats-grid">
+                  <div className="stat-card">
+                    <span>Month</span>
+                    <strong className="small-value">
+                      {getMonthName(month)}
+                    </strong>
+                  </div>
+
+                  <div className="stat-card present">
+                    <span>Present</span>
+                    <strong>
+                      {monthPresent}
+                    </strong>
+                  </div>
+
+                  <div className="stat-card absent">
+                    <span>Absent</span>
+                    <strong>
+                      {monthAbsent}
+                    </strong>
+                  </div>
+
+                  <div className="stat-card percentage">
+                    <span>Attendance</span>
+                    <strong>
+                      {monthPercentage}%
+                    </strong>
+                  </div>
+                </section>
+
+                <section className="attendance-card">
+                  <div className="card-heading">
+                    <div>
+                      <span className="section-kicker">
+                        MONTHLY STUDENTS
+                      </span>
+
+                      <h2>
+                        {getMonthName(
+                          month
+                        )}
+                      </h2>
+                    </div>
+                  </div>
+
+                  <div className="student-list">
+                    {students.map(
+                      (student) => {
+                        const records =
+                          monthRecords.filter(
+                            (item) =>
+                              item.student_id ===
+                              student.id
+                          );
+
+                        const present =
+                          records.filter(
+                            (item) =>
+                              item.status ===
+                              "Present"
+                          ).length;
+
+                        const absent =
+                          records.filter(
+                            (item) =>
+                              item.status ===
+                              "Absent"
+                          ).length;
+
+                        const total =
+                          present + absent;
+
+                        const percentage =
+                          total > 0
+                            ? Math.round(
+                                (present /
+                                  total) *
+                                  100
+                              )
+                            : 0;
+
+                        return (
+                          <div
+                            key={
+                              student.id
+                            }
+                            className="month-row"
+                          >
+                            <div className="avatar">
+                              {getStudentName(
+                                student
+                              )
+                                .charAt(0)
+                                .toUpperCase()}
+                            </div>
+
+                            <div className="student-main">
+                              <strong>
+                                {getStudentName(
+                                  student
+                                )}
+                              </strong>
+
+                              <div className="student-meta">
+                                <span>
+                                  {
+                                    student.student_username
+                                  }
+                                </span>
+
+                                <span>
+                                  ID:{" "}
+                                  {
+                                    student.id
+                                  }
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="month-numbers">
+                              <span className="month-present">
+                                {present} Present
+                              </span>
+
+                              <span className="month-absent">
+                                {absent} Absent
+                              </span>
+
+                              <strong>
+                                {percentage}%
+                              </strong>
+                            </div>
+                          </div>
+                        );
+                      }
+                    )}
+                  </div>
+                </section>
+              </>
+            )}
+          </>
+        )}
+
         <footer className="page-footer">
-          <strong>RACER ACADEMY</strong>
+          <strong>
+            RACER ACADEMY
+          </strong>
 
           <span>
-            Extra Class Management System
+            Teacher Attendance Management
           </span>
         </footer>
       </div>
@@ -1333,13 +2185,13 @@ export default function ExtraClassPage() {
           box-sizing: border-box;
         }
 
-        .extra-page {
+        .attendance-page {
           min-height: 100vh;
           background:
             radial-gradient(
               circle at top right,
-              rgba(37, 99, 235, 0.09),
-              transparent 30%
+              rgba(37, 99, 235, 0.08),
+              transparent 32%
             ),
             #f5f7fb;
           color: #172033;
@@ -1356,8 +2208,8 @@ export default function ExtraClassPage() {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
-          gap: 24px;
-          margin-bottom: 24px;
+          gap: 20px;
+          margin-bottom: 20px;
         }
 
         .brand-small {
@@ -1365,7 +2217,7 @@ export default function ExtraClassPage() {
           font-size: 12px;
           font-weight: 900;
           letter-spacing: 2px;
-          margin-bottom: 7px;
+          margin-bottom: 6px;
         }
 
         .top-header h1 {
@@ -1377,502 +2229,382 @@ export default function ExtraClassPage() {
         }
 
         .top-header p {
-          margin: 9px 0 0;
+          margin: 8px 0 0;
           color: #64748b;
           font-size: 14px;
         }
 
-        .header-actions {
-          display: flex;
-          gap: 10px;
-          align-items: center;
-          flex-wrap: wrap;
-          justify-content: flex-end;
-        }
-
-        .back-button,
-        .new-class-button,
-        .cancel-edit {
-          border-radius: 12px;
-          padding: 12px 16px;
-          font-weight: 800;
-          text-decoration: none;
-          border: 1px solid #dbe2ea;
-          cursor: pointer;
-          transition: 0.2s ease;
-        }
-
-        .back-button {
-          background: #fff;
-          color: #334155;
-        }
-
-        .back-button:hover {
-          background: #f8fafc;
-          transform: translateY(-1px);
-        }
-
-        .new-class-button {
-          border: 0;
-          background: linear-gradient(
-            135deg,
-            #2563eb,
-            #4f46e5
-          );
-          color: white;
-          box-shadow: 0 10px 25px
-            rgba(37, 99, 235, 0.22);
-        }
-
-        .new-class-button:hover {
-          transform: translateY(-2px);
-        }
-
-        .message {
-          display: flex;
-          align-items: center;
-          gap: 11px;
-          padding: 13px 15px;
-          border-radius: 14px;
-          margin-bottom: 18px;
-          border: 1px solid;
-        }
-
-        .message span {
-          width: 28px;
-          height: 28px;
-          border-radius: 50%;
-          display: grid;
-          place-items: center;
+        .access-badge {
+          display: inline-flex;
+          margin-top: 11px;
+          padding: 7px 11px;
+          border-radius: 999px;
+          font-size: 10px;
           font-weight: 900;
+          letter-spacing: 0.5px;
         }
 
-        .message p {
-          flex: 1;
-          margin: 0;
-          font-size: 14px;
-          font-weight: 700;
+        .access-badge.main {
+          background: #dcfce7;
+          color: #15803d;
         }
 
-        .message button {
-          border: 0;
-          background: transparent;
-          cursor: pointer;
-          font-size: 20px;
-          color: inherit;
-        }
-
-        .message.success {
-          background: #ecfdf5;
-          border-color: #a7f3d0;
-          color: #047857;
-        }
-
-        .message.success span {
-          background: #d1fae5;
-        }
-
-        .message.error {
-          background: #fef2f2;
-          border-color: #fecaca;
-          color: #b91c1c;
-        }
-
-        .message.error span {
-          background: #fee2e2;
-        }
-
-        .message.info {
-          background: #eff6ff;
-          border-color: #bfdbfe;
+        .access-badge.assigned {
+          background: #dbeafe;
           color: #1d4ed8;
         }
 
-        .message.info span {
-          background: #dbeafe;
-        }
-
-        .create-card,
-        .attendance-card,
-        .history-card {
-          background: rgba(255, 255, 255, 0.94);
-          border: 1px solid #e5eaf1;
-          border-radius: 22px;
-          padding: 24px;
-          box-shadow: 0 12px 40px
-            rgba(15, 23, 42, 0.055);
-          margin-bottom: 20px;
-        }
-
-        .section-heading {
+        .header-actions {
           display: flex;
-          align-items: flex-start;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .secondary-button,
+        .refresh-button {
+          border: 1px solid #dbe2ea;
+          background: white;
+          color: #334155;
+          border-radius: 11px;
+          padding: 11px 15px;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .refresh-button {
+          color: #2563eb;
+          background: #eff6ff;
+          border-color: #bfdbfe;
+        }
+
+        .refresh-button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .message-box {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 13px 15px;
+          margin-bottom: 15px;
+          border: 1px solid #bfdbfe;
+          border-radius: 13px;
+          background: #eff6ff;
+          color: #1d4ed8;
+        }
+
+        .message-box span {
+          width: 25px;
+          height: 25px;
+          display: grid;
+          place-items: center;
+          border-radius: 50%;
+          background: #dbeafe;
+          font-weight: 900;
+        }
+
+        .message-box strong {
+          flex: 1;
+          font-size: 13px;
+        }
+
+        .message-box button {
+          border: 0;
+          background: transparent;
+          color: inherit;
+          font-size: 20px;
+          cursor: pointer;
+        }
+
+        .tabs-card {
+          display: flex;
+          gap: 7px;
+          padding: 7px;
+          background: white;
+          border: 1px solid #e5eaf1;
+          border-radius: 17px;
+          box-shadow: 0 8px 25px
+            rgba(15, 23, 42, 0.045);
+          margin-bottom: 18px;
+          overflow-x: auto;
+        }
+
+        .tab {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          min-width: 130px;
+          border: 0;
+          border-radius: 11px;
+          background: transparent;
+          color: #64748b;
+          padding: 11px 14px;
+          font-weight: 850;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+
+        .tab span {
+          width: 25px;
+          height: 25px;
+          display: grid;
+          place-items: center;
+          border-radius: 7px;
+          background: #f1f5f9;
+          color: #64748b;
+          font-size: 9px;
+          font-weight: 900;
+        }
+
+        .tab.active {
+          background: #eff6ff;
+          color: #1d4ed8;
+        }
+
+        .tab.active span {
+          background: #2563eb;
+          color: white;
+        }
+
+        .tab.extra-tab.active {
+          background: #f5f3ff;
+          color: #6d28d9;
+        }
+
+        .tab.extra-tab.active span {
+          background: #7c3aed;
+        }
+
+        .control-card,
+        .attendance-card,
+        .extra-filter-card {
+          background: rgba(255, 255, 255, 0.96);
+          border: 1px solid #e5eaf1;
+          border-radius: 20px;
+          padding: 22px;
+          box-shadow: 0 10px 32px
+            rgba(15, 23, 42, 0.045);
+          margin-bottom: 18px;
+        }
+
+        .control-card {
+          display: flex;
+          align-items: center;
           justify-content: space-between;
           gap: 20px;
-          margin-bottom: 22px;
         }
 
         .section-kicker {
           display: inline-block;
+          color: #2563eb;
           font-size: 10px;
           font-weight: 900;
-          letter-spacing: 1.8px;
-          color: #2563eb;
-          margin-bottom: 6px;
+          letter-spacing: 1.7px;
+          margin-bottom: 5px;
         }
 
-        .section-heading h2 {
+        .control-card h2,
+        .card-heading h2,
+        .extra-filter-card h2 {
           margin: 0;
           font-size: 22px;
           font-weight: 900;
           letter-spacing: -0.5px;
         }
 
-        .section-heading p {
-          margin: 7px 0 0;
+        .control-card p,
+        .extra-filter-card p {
+          margin: 6px 0 0;
           color: #64748b;
           font-size: 13px;
-          line-height: 1.5;
         }
 
-        .cancel-edit {
-          background: #eff6ff;
-          color: #1d4ed8;
-          border-color: #bfdbfe;
-        }
-
-        .details-grid {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr);
-          gap: 16px;
-        }
-
-        .field {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .field.full-width {
-          grid-column: 1 / -1;
-        }
-
-        .field span {
-          font-size: 12px;
-          font-weight: 900;
-          color: #475569;
-        }
-
-        .field input,
-        .field textarea,
-        .history-toolbar select,
-        .search-box input,
-        .history-search input {
-          width: 100%;
-          border: 1px solid #dce3ec;
-          background: #fbfcfe;
-          color: #172033;
-          border-radius: 12px;
-          padding: 12px 13px;
-          outline: none;
-          font: inherit;
-          transition: 0.2s ease;
-        }
-
-        .field input:focus,
-        .field textarea:focus,
-        .history-toolbar select:focus,
-        .search-box input:focus,
-        .history-search input:focus {
-          border-color: #60a5fa;
-          background: white;
-          box-shadow: 0 0 0 4px
-            rgba(37, 99, 235, 0.08);
-        }
-
-        .field textarea {
-          resize: vertical;
-          min-height: 82px;
-        }
-
-        .summary-grid {
-          display: grid;
-          grid-template-columns: repeat(
-            4,
-            minmax(0, 1fr)
-          );
-          gap: 14px;
-          margin-bottom: 20px;
-        }
-
-        .summary-card {
-          display: flex;
-          align-items: center;
-          gap: 13px;
-          min-height: 100px;
-          padding: 18px;
-          background: white;
-          border: 1px solid #e5eaf1;
-          border-radius: 18px;
-          box-shadow: 0 10px 28px
-            rgba(15, 23, 42, 0.045);
-        }
-
-        .summary-icon {
-          width: 48px;
-          height: 48px;
-          border-radius: 14px;
-          display: grid;
-          place-items: center;
-          font-size: 21px;
-          font-weight: 900;
-          flex-shrink: 0;
-        }
-
-        .summary-icon.blue {
-          background: #dbeafe;
-          color: #2563eb;
-        }
-
-        .summary-icon.green {
-          background: #dcfce7;
-          color: #15803d;
-        }
-
-        .summary-icon.red {
-          background: #fee2e2;
-          color: #dc2626;
-        }
-
-        .summary-card > div:last-child {
-          display: flex;
-          flex-direction: column;
-          gap: 3px;
-        }
-
-        .summary-card span {
-          font-size: 12px;
-          color: #64748b;
-          font-weight: 700;
-        }
-
-        .summary-card strong {
-          font-size: 26px;
-          line-height: 1;
-          font-weight: 900;
-        }
-
-        .percentage-card {
-          position: relative;
-        }
-
-        .circle-progress {
-          width: 58px;
-          height: 58px;
-          position: relative;
-          flex-shrink: 0;
-        }
-
-        .circle-progress svg {
-          width: 100%;
-          height: 100%;
-          transform: rotate(-90deg);
-        }
-
-        .circle-progress circle {
-          fill: none;
-          stroke-width: 3.5;
-        }
-
-        .circle-bg {
-          stroke: #e5e7eb;
-        }
-
-        .circle-value {
-          stroke: #2563eb;
-          stroke-linecap: round;
-        }
-
-        .circle-progress strong {
-          position: absolute;
-          inset: 0;
-          display: grid;
-          place-items: center;
-          font-size: 11px;
-          color: #1d4ed8;
-        }
-
-        .percentage-number {
-          display: none !important;
-        }
-
-        .student-heading {
-          margin-bottom: 18px;
-        }
-
-        .attendance-actions {
+        .control-actions {
           display: flex;
           gap: 8px;
           flex-wrap: wrap;
         }
 
-        .attendance-actions button,
-        .selection-actions button {
-          border: 1px solid #dce3ec;
+        .present-all-button,
+        .absent-all-button {
           border-radius: 10px;
           padding: 10px 13px;
-          background: white;
-          font-weight: 800;
+          font-weight: 850;
           cursor: pointer;
-          transition: 0.2s ease;
+          border: 1px solid;
         }
 
-        .attendance-actions button:disabled,
-        .selection-actions button:disabled {
-          opacity: 0.45;
+        .present-all-button {
+          color: #15803d;
+          background: #f0fdf4;
+          border-color: #bbf7d0;
+        }
+
+        .absent-all-button {
+          color: #dc2626;
+          background: #fef2f2;
+          border-color: #fecaca;
+        }
+
+        .control-actions button:disabled {
+          opacity: 0.5;
           cursor: not-allowed;
         }
 
-        .present-all {
-          color: #15803d;
-          background: #f0fdf4 !important;
-          border-color: #bbf7d0 !important;
-        }
-
-        .absent-all {
-          color: #dc2626;
-          background: #fef2f2 !important;
-          border-color: #fecaca !important;
-        }
-
-        .student-toolbar {
+        .date-picker {
           display: flex;
+          flex-direction: column;
+          gap: 6px;
+          min-width: 210px;
+        }
+
+        .date-picker label {
+          font-size: 11px;
+          font-weight: 900;
+          color: #475569;
+        }
+
+        .date-picker input {
+          border: 1px solid #dce3ec;
+          border-radius: 10px;
+          padding: 11px 12px;
+          background: #fbfcfe;
+          color: #172033;
+          font: inherit;
+          outline: none;
+        }
+
+        .stats-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
           gap: 12px;
-          align-items: center;
-          margin-bottom: 12px;
+          margin-bottom: 18px;
         }
 
-        .search-box,
-        .history-search {
-          flex: 1;
+        .stat-card {
+          background: white;
+          border: 1px solid #e5eaf1;
+          border-radius: 17px;
+          padding: 18px;
+          box-shadow: 0 8px 25px
+            rgba(15, 23, 42, 0.035);
+        }
+
+        .stat-card span {
+          display: block;
+          color: #64748b;
+          font-size: 11px;
+          font-weight: 800;
+          margin-bottom: 7px;
+        }
+
+        .stat-card strong {
+          font-size: 29px;
+          font-weight: 900;
+        }
+
+        .stat-card.present strong {
+          color: #15803d;
+        }
+
+        .stat-card.absent strong {
+          color: #dc2626;
+        }
+
+        .stat-card.percentage strong {
+          color: #2563eb;
+        }
+
+        .small-value {
+          font-size: 16px !important;
+        }
+
+        .card-heading {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 18px;
+          margin-bottom: 18px;
+        }
+
+        .search-wrapper,
+        .extra-search {
           position: relative;
+          width: 300px;
         }
 
-        .search-box > span,
-        .history-search > span {
+        .search-wrapper span,
+        .extra-search span {
           position: absolute;
-          left: 13px;
+          left: 12px;
           top: 50%;
           transform: translateY(-50%);
           color: #94a3b8;
-          font-size: 20px;
-          pointer-events: none;
+          font-size: 19px;
         }
 
-        .search-box input,
-        .history-search input {
-          padding-left: 40px;
+        .search-wrapper input,
+        .extra-search input {
+          width: 100%;
+          border: 1px solid #dce3ec;
+          background: #fbfcfe;
+          border-radius: 11px;
+          padding: 11px 12px 11px 38px;
+          outline: none;
+          font: inherit;
         }
 
-        .search-box button {
-          position: absolute;
-          right: 7px;
-          top: 50%;
-          transform: translateY(-50%);
-          border: 0;
-          background: #e2e8f0;
-          width: 27px;
-          height: 27px;
-          border-radius: 50%;
-          cursor: pointer;
-          color: #475569;
-          font-weight: 900;
+        .search-wrapper input:focus,
+        .extra-search input:focus {
+          border-color: #60a5fa;
+          box-shadow: 0 0 0 4px
+            rgba(37, 99, 235, 0.07);
         }
 
-        .selection-actions {
-          display: flex;
-          gap: 8px;
-        }
-
-        .selection-actions button {
-          color: #334155;
-        }
-
-        .selection-info {
-          display: flex;
-          justify-content: space-between;
-          gap: 15px;
-          padding: 10px 2px 14px;
-          color: #64748b;
-          font-size: 12px;
-        }
-
-        .selection-info strong {
-          color: #1e293b;
-        }
-
-        .students-list {
+        .student-list {
           border: 1px solid #e6ebf1;
-          border-radius: 16px;
+          border-radius: 15px;
           overflow: hidden;
         }
 
-        .student-row {
-          display: flex;
-          align-items: center;
-          min-height: 78px;
-          border-bottom: 1px solid #edf1f5;
-          background: white;
-          transition: 0.18s ease;
-        }
-
-        .student-row:last-child {
-          border-bottom: 0;
-        }
-
-        .student-row.selected {
-          background: #f8fbff;
-        }
-
-        .student-row:hover {
-          background: #f8fafc;
-        }
-
-        .student-select-area {
-          flex: 1;
-          min-width: 0;
+        .attendance-row,
+        .month-row {
           display: flex;
           align-items: center;
           gap: 12px;
-          border: 0;
-          background: transparent;
-          text-align: left;
-          padding: 12px 14px;
-          cursor: pointer;
+          min-height: 76px;
+          padding: 11px 14px;
+          border-bottom: 1px solid #edf1f5;
         }
 
-        .student-checkbox {
-          width: 24px;
-          height: 24px;
-          border: 2px solid #cbd5e1;
-          border-radius: 7px;
+        .attendance-row:last-child,
+        .month-row:last-child {
+          border-bottom: 0;
+        }
+
+        .attendance-row:hover,
+        .month-row:hover {
+          background: #f8fafc;
+        }
+
+        .serial {
+          width: 26px;
+          color: #94a3b8;
+          font-size: 11px;
+          font-weight: 900;
+          text-align: center;
+        }
+
+        .avatar,
+        .report-avatar,
+        .extra-student-avatar {
+          width: 43px;
+          height: 43px;
+          flex-shrink: 0;
           display: grid;
           place-items: center;
-          color: white;
-          background: white;
-          font-size: 13px;
-          font-weight: 900;
-          flex-shrink: 0;
-        }
-
-        .student-row.selected .student-checkbox {
-          background: #2563eb;
-          border-color: #2563eb;
-        }
-
-        .student-avatar {
-          width: 42px;
-          height: 42px;
           border-radius: 12px;
           background: linear-gradient(
             135deg,
@@ -1880,173 +2612,124 @@ export default function ExtraClassPage() {
             #ede9fe
           );
           color: #3730a3;
-          display: grid;
-          place-items: center;
           font-weight: 900;
-          flex-shrink: 0;
-          font-size: 16px;
         }
 
-        .student-information {
+        .student-main {
           min-width: 0;
-          display: flex;
-          flex-direction: column;
-          gap: 5px;
+          flex: 1;
         }
 
-        .student-information strong {
-          font-size: 14px;
+        .student-main > strong {
+          display: block;
           color: #1e293b;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .student-details {
-          display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 8px;
-        }
-
-        .student-information span {
-          font-size: 11px;
-        }
-
-        .student-username {
-          color: #2563eb;
-        }
-
-        .student-id {
-          color: #64748b;
-        }
-
-        .student-information b {
+          font-size: 14px;
           font-weight: 900;
         }
 
-        .serial-number {
-          margin-left: auto;
-          color: #cbd5e1;
-          font-size: 11px;
+        .student-meta {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          margin-top: 4px;
+          color: #64748b;
+          font-size: 10px;
+        }
+
+        .student-meta b {
+          font-weight: 900;
+        }
+
+        .marked-by {
+          display: inline-block;
+          margin-top: 5px;
+          color: #2563eb;
+          font-size: 10px;
           font-weight: 800;
         }
 
-        .status-buttons {
+        .status-actions {
           display: flex;
+          align-items: center;
           gap: 6px;
-          padding: 0 13px 0 5px;
         }
 
-        .status-buttons button {
+        .status-actions button {
           border-radius: 9px;
           padding: 8px 10px;
           border: 1px solid;
           font-size: 11px;
           font-weight: 900;
           cursor: pointer;
-          transition: 0.15s ease;
         }
 
-        .status-present {
+        .status-actions button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .status-actions .present {
           color: #15803d;
           background: #f0fdf4;
           border-color: #bbf7d0;
         }
 
-        .status-present.active {
+        .status-actions .present.active {
           color: white;
           background: #16a34a;
           border-color: #16a34a;
         }
 
-        .status-absent {
+        .status-actions .absent {
           color: #dc2626;
           background: #fef2f2;
           border-color: #fecaca;
         }
 
-        .status-absent.active {
+        .status-actions .absent.active {
           color: white;
           background: #dc2626;
           border-color: #dc2626;
         }
 
-        .save-area {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 20px;
-          margin-top: 18px;
-          padding: 17px;
-          border-radius: 15px;
-          background: linear-gradient(
-            135deg,
-            #f8fafc,
-            #eff6ff
-          );
-          border: 1px solid #dbeafe;
+        .remove-button {
+          color: #64748b !important;
+          background: #f8fafc !important;
+          border-color: #e2e8f0 !important;
         }
 
-        .save-area > div {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-
-        .save-area strong {
-          font-size: 14px;
-        }
-
-        .save-area span {
-          color: #64748b;
-          font-size: 12px;
-        }
-
-        .save-button {
-          border: 0;
-          border-radius: 11px;
-          background: linear-gradient(
-            135deg,
-            #2563eb,
-            #4f46e5
-          );
-          color: white;
-          padding: 13px 20px;
-          font-weight: 900;
-          cursor: pointer;
-          box-shadow: 0 8px 20px
-            rgba(37, 99, 235, 0.2);
-        }
-
-        .save-button:disabled {
-          opacity: 0.55;
-          cursor: not-allowed;
-        }
-
-        .loading-box,
         .empty-box,
-        .empty-history {
+        .loading-card,
+        .extra-empty {
           text-align: center;
           padding: 55px 20px;
           color: #64748b;
         }
 
-        .loading-box p,
-        .empty-box p,
-        .empty-history p {
-          margin: 8px 0 0;
+        .loading-card {
+          background: white;
+          border: 1px solid #e5eaf1;
+          border-radius: 20px;
+        }
+
+        .loading-card h3 {
+          margin: 15px 0 0;
+          color: #334155;
+        }
+
+        .loading-card p {
+          margin: 6px 0 0;
           font-size: 13px;
         }
 
         .loader {
-          width: 32px;
-          height: 32px;
+          width: 34px;
+          height: 34px;
+          margin: 0 auto;
           border: 3px solid #dbeafe;
           border-top-color: #2563eb;
           border-radius: 50%;
           animation: spin 0.8s linear infinite;
-          margin: 0 auto;
         }
 
         @keyframes spin {
@@ -2055,233 +2738,457 @@ export default function ExtraClassPage() {
           }
         }
 
-        .empty-box > div,
-        .empty-history-icon {
-          font-size: 42px;
-        }
+        /* EXTRA CLASS */
 
-        .empty-box h3,
-        .empty-history h3 {
-          margin: 12px 0 0;
-          color: #334155;
-        }
-
-        .history-count {
-          background: #eff6ff;
-          color: #1d4ed8;
-          border-radius: 999px;
-          padding: 8px 12px;
-          font-size: 12px;
-          font-weight: 900;
-          white-space: nowrap;
-        }
-
-        .history-toolbar {
+        .extra-hero {
           display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 20px;
+          padding: 25px;
+          margin-bottom: 16px;
+          border-radius: 21px;
+          background: linear-gradient(
+            135deg,
+            #f5f3ff,
+            #eff6ff
+          );
+          border: 1px solid #ddd6fe;
+        }
+
+        .extra-kicker {
+          display: block;
+          color: #7c3aed;
+          font-size: 10px;
+          font-weight: 900;
+          letter-spacing: 1.7px;
+          margin-bottom: 6px;
+        }
+
+        .extra-hero h2 {
+          margin: 0;
+          font-size: 26px;
+          font-weight: 900;
+          letter-spacing: -0.7px;
+        }
+
+        .extra-hero p {
+          margin: 7px 0 0;
+          max-width: 700px;
+          color: #64748b;
+          font-size: 13px;
+          line-height: 1.55;
+        }
+
+        .extra-access-note {
+          display: inline-block;
+          margin-top: 11px;
+          padding: 7px 10px;
+          border-radius: 8px;
+          background: #dbeafe;
+          color: #1d4ed8;
+          font-size: 10px;
+          font-weight: 900;
+        }
+
+        .extra-hero-icon {
+          width: 76px;
+          height: 76px;
+          display: grid;
+          place-items: center;
+          flex-shrink: 0;
+          border-radius: 21px;
+          background: linear-gradient(
+            135deg,
+            #7c3aed,
+            #4f46e5
+          );
+          color: white;
+          font-size: 19px;
+          font-weight: 900;
+          box-shadow: 0 12px 25px
+            rgba(124, 58, 237, 0.2);
+        }
+
+        .extra-summary-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
           gap: 12px;
           margin-bottom: 18px;
         }
 
-        .history-toolbar select {
-          width: 220px;
-          flex-shrink: 0;
-        }
-
-        .history-search {
-          max-width: 420px;
-          margin-left: auto;
-        }
-
-        .history-list {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-
-        .history-class {
-          display: flex;
-          gap: 15px;
-          border: 1px solid #e5eaf1;
+        .extra-summary-card {
+          min-height: 125px;
+          padding: 18px;
           border-radius: 17px;
-          padding: 15px;
-          background: #fff;
-          transition: 0.2s ease;
-        }
-
-        .history-class:hover {
-          border-color: #bfdbfe;
-          box-shadow: 0 10px 25px
-            rgba(37, 99, 235, 0.07);
-          transform: translateY(-1px);
-        }
-
-        .history-date {
-          width: 72px;
-          height: 80px;
-          border-radius: 14px;
-          background: linear-gradient(
-            145deg,
-            #eff6ff,
-            #eef2ff
-          );
-          color: #1d4ed8;
+          border: 1px solid;
           display: flex;
           flex-direction: column;
           justify-content: center;
-          align-items: center;
-          flex-shrink: 0;
         }
 
-        .history-date span {
-          font-size: 10px;
-          font-weight: 800;
-          text-transform: uppercase;
+        .extra-summary-card span {
+          font-size: 11px;
+          font-weight: 900;
         }
 
-        .history-date strong {
-          font-size: 27px;
+        .extra-summary-card strong {
+          margin-top: 4px;
+          font-size: 30px;
           line-height: 1;
-          margin: 2px 0;
+          font-weight: 900;
         }
 
-        .history-date small {
+        .extra-summary-card small {
+          margin-top: 7px;
           font-size: 10px;
-          font-weight: 800;
-        }
-
-        .history-main {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .history-title-row {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 15px;
-        }
-
-        .history-subject {
-          color: #2563eb;
-          font-size: 11px;
-          font-weight: 900;
-          text-transform: uppercase;
-          letter-spacing: 0.7px;
-          margin-bottom: 3px;
-        }
-
-        .history-title-row h3 {
-          margin: 0;
-          font-size: 17px;
-          font-weight: 900;
-          color: #172033;
-        }
-
-        .class-id {
-          color: #94a3b8;
-          font-size: 10px;
-          font-weight: 900;
-          white-space: nowrap;
-        }
-
-        .history-meta {
-          display: flex;
-          align-items: center;
-          gap: 13px;
-          flex-wrap: wrap;
-          margin-top: 9px;
-          color: #64748b;
-          font-size: 11px;
           font-weight: 700;
+          opacity: 0.75;
         }
 
-        .meta-present {
+        .blue-card {
+          background: #eff6ff;
+          border-color: #bfdbfe;
+          color: #1d4ed8;
+        }
+
+        .green-card {
+          background: #f0fdf4;
+          border-color: #bbf7d0;
           color: #15803d;
         }
 
-        .meta-absent {
+        .red-card {
+          background: #fef2f2;
+          border-color: #fecaca;
           color: #dc2626;
         }
 
-        .history-remarks {
-          margin-top: 10px;
-          padding: 9px 11px;
-          border-radius: 9px;
-          background: #f8fafc;
-          color: #64748b;
-          font-size: 11px;
-          line-height: 1.5;
+        .purple-card {
+          background: #f5f3ff;
+          border-color: #ddd6fe;
+          color: #6d28d9;
         }
 
-        .history-bottom {
+        .extra-filter-card {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 20px;
+        }
+
+        .extra-search {
+          width: 360px;
+        }
+
+        .extra-student-grid {
+          display: grid;
+          grid-template-columns: repeat(
+            2,
+            minmax(0, 1fr)
+          );
+          gap: 15px;
+        }
+
+        .extra-student-card {
+          background: white;
+          border: 1px solid #e5eaf1;
+          border-radius: 20px;
+          padding: 18px;
+          box-shadow: 0 9px 30px
+            rgba(15, 23, 42, 0.045);
+        }
+
+        .extra-student-header {
           display: flex;
           align-items: center;
-          justify-content: space-between;
-          gap: 15px;
-          margin-top: 13px;
+          gap: 12px;
+          margin-bottom: 15px;
         }
 
-        .history-progress {
-          flex: 1;
-          max-width: 430px;
+        .extra-student-header h3 {
+          margin: 0;
+          color: #172033;
+          font-size: 16px;
+          font-weight: 900;
+        }
+
+        .extra-student-meta {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin-top: 5px;
+          color: #64748b;
+          font-size: 10px;
+          font-weight: 700;
+        }
+
+        .unique-extra-attendance {
+          padding: 16px;
+          border-radius: 17px;
+          background:
+            radial-gradient(
+              circle at top right,
+              rgba(124, 58, 237, 0.12),
+              transparent 45%
+            ),
+            #f8f7ff;
+          border: 1px solid #e4ddff;
+        }
+
+        .unique-label {
+          color: #7c3aed;
+          font-size: 9px;
+          font-weight: 900;
+          letter-spacing: 1.5px;
+        }
+
+        .unique-main {
+          display: flex;
+          align-items: baseline;
+          gap: 8px;
+          margin-top: 6px;
+        }
+
+        .unique-main strong {
+          color: #5b21b6;
+          font-size: 36px;
+          line-height: 1;
+          font-weight: 950;
+        }
+
+        .unique-main span {
+          color: #64748b;
+          font-size: 11px;
+          font-weight: 800;
+        }
+
+        .unique-line {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 8px;
+          margin-top: 14px;
+        }
+
+        .unique-line div {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .unique-line b {
+          color: #334155;
+          font-size: 16px;
+          font-weight: 900;
+        }
+
+        .unique-line span {
+          color: #94a3b8;
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        .extra-records {
+          margin-top: 15px;
+        }
+
+        .extra-records-title {
+          margin-bottom: 7px;
+          color: #475569;
+          font-size: 10px;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0.7px;
+        }
+
+        .extra-record-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 10px;
+          padding: 9px 0;
+          border-top: 1px solid #edf1f5;
+        }
+
+        .extra-record-row div {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .extra-record-row strong {
+          color: #334155;
+          font-size: 11px;
+        }
+
+        .extra-record-row span {
+          color: #94a3b8;
+          font-size: 9px;
+        }
+
+        .extra-present,
+        .extra-absent {
+          font-weight: 900 !important;
+          font-size: 10px !important;
+        }
+
+        .extra-present {
+          color: #15803d !important;
+        }
+
+        .extra-absent {
+          color: #dc2626 !important;
+        }
+
+        .no-extra-records {
+          margin-top: 14px;
+          padding: 11px;
+          border-radius: 9px;
+          background: #f8fafc;
+          color: #94a3b8;
+          text-align: center;
+          font-size: 10px;
+          font-weight: 800;
+        }
+
+        .extra-empty {
+          background: white;
+          border: 1px solid #e5eaf1;
+          border-radius: 20px;
+        }
+
+        .extra-empty-icon {
+          width: 65px;
+          height: 65px;
+          display: grid;
+          place-items: center;
+          margin: 0 auto;
+          border-radius: 18px;
+          background: #f5f3ff;
+          color: #7c3aed;
+          font-weight: 900;
+        }
+
+        .extra-empty h3 {
+          margin: 14px 0 0;
+          color: #334155;
+        }
+
+        .extra-empty p {
+          margin: 7px 0 0;
+          font-size: 12px;
+        }
+
+        /* REPORT */
+
+        .report-grid {
+          display: grid;
+          grid-template-columns: repeat(
+            3,
+            minmax(0, 1fr)
+          );
+          gap: 14px;
+        }
+
+        .report-card {
+          background: white;
+          border: 1px solid #e5eaf1;
+          border-radius: 18px;
+          padding: 17px;
+          box-shadow: 0 8px 25px
+            rgba(15, 23, 42, 0.04);
+        }
+
+        .report-header {
           display: flex;
           align-items: center;
           gap: 10px;
         }
 
-        .progress-track {
-          flex: 1;
-          height: 7px;
-          background: #e2e8f0;
-          border-radius: 99px;
-          overflow: hidden;
-        }
-
-        .progress-fill {
-          height: 100%;
-          background: linear-gradient(
-            90deg,
-            #2563eb,
-            #4f46e5
-          );
-          border-radius: inherit;
-        }
-
-        .history-progress strong {
-          font-size: 11px;
-          color: #334155;
-          white-space: nowrap;
-        }
-
-        .history-actions {
-          display: flex;
-          gap: 7px;
-        }
-
-        .view-button,
-        .delete-button {
-          border-radius: 9px;
-          padding: 8px 11px;
-          font-size: 11px;
+        .report-header h3 {
+          margin: 0;
+          font-size: 14px;
           font-weight: 900;
-          cursor: pointer;
         }
 
-        .view-button {
-          color: #1d4ed8;
+        .report-header p {
+          margin: 4px 0 0;
+          color: #64748b;
+          font-size: 9px;
+        }
+
+        .report-percent {
+          margin: 17px 0;
+          padding: 15px;
+          border-radius: 13px;
           background: #eff6ff;
-          border: 1px solid #bfdbfe;
         }
 
-        .delete-button {
+        .report-percent strong {
+          display: block;
+          color: #1d4ed8;
+          font-size: 29px;
+          font-weight: 900;
+        }
+
+        .report-percent span {
+          color: #64748b;
+          font-size: 10px;
+          font-weight: 800;
+        }
+
+        .report-stats {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 8px;
+        }
+
+        .report-stats div {
+          text-align: center;
+          padding: 9px 5px;
+          border-radius: 9px;
+          background: #f8fafc;
+        }
+
+        .report-stats b {
+          display: block;
+          color: #334155;
+          font-size: 16px;
+        }
+
+        .report-stats span {
+          color: #94a3b8;
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        /* MONTH */
+
+        .month-numbers {
+          display: flex;
+          align-items: center;
+          gap: 13px;
+        }
+
+        .month-numbers span {
+          font-size: 10px;
+          font-weight: 900;
+        }
+
+        .month-present {
+          color: #15803d;
+        }
+
+        .month-absent {
           color: #dc2626;
-          background: #fef2f2;
-          border: 1px solid #fecaca;
         }
 
-        .delete-button:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
+        .month-numbers strong {
+          min-width: 45px;
+          color: #2563eb;
+          font-size: 17px;
+          font-weight: 900;
+          text-align: right;
         }
 
         .page-footer {
@@ -2289,9 +3196,9 @@ export default function ExtraClassPage() {
           justify-content: center;
           align-items: center;
           gap: 8px;
+          padding: 12px 0 20px;
           color: #94a3b8;
-          font-size: 11px;
-          padding: 8px 0 20px;
+          font-size: 10px;
         }
 
         .page-footer strong {
@@ -2300,231 +3207,171 @@ export default function ExtraClassPage() {
         }
 
         @media (max-width: 1050px) {
-          .summary-grid {
+          .stats-grid,
+          .extra-summary-grid {
             grid-template-columns: repeat(
               2,
-              minmax(0, 1fr)
+              1fr
+            );
+          }
+
+          .extra-student-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .report-grid {
+            grid-template-columns: repeat(
+              2,
+              1fr
             );
           }
         }
 
         @media (max-width: 760px) {
-          .extra-page {
+          .attendance-page {
             padding: 12px;
           }
 
-          .top-header {
+          .top-header,
+          .control-card,
+          .extra-filter-card {
             flex-direction: column;
+            align-items: stretch;
           }
 
           .header-actions {
             width: 100%;
-            justify-content: stretch;
           }
 
-          .back-button,
-          .new-class-button {
+          .header-actions button {
             flex: 1;
-            text-align: center;
           }
 
-          .create-card,
-          .attendance-card,
-          .history-card {
-            padding: 16px;
-            border-radius: 17px;
+          .tabs-card {
+            overflow-x: auto;
           }
 
-          .section-heading {
-            flex-direction: column;
+          .tab {
+            min-width: 115px;
           }
 
-          .summary-grid {
+          .control-actions {
+            width: 100%;
+          }
+
+          .control-actions button {
+            flex: 1;
+          }
+
+          .stats-grid,
+          .extra-summary-grid,
+          .report-grid {
             grid-template-columns: repeat(
               2,
-              minmax(0, 1fr)
+              1fr
             );
           }
 
-          .summary-card {
-            min-height: 88px;
-            padding: 13px;
+          .card-heading {
+            flex-direction: column;
           }
 
-          .summary-icon {
-            width: 40px;
-            height: 40px;
-            font-size: 17px;
-          }
-
-          .summary-card strong {
-            font-size: 22px;
-          }
-
-          .student-heading {
-            gap: 12px;
-          }
-
-          .attendance-actions {
+          .search-wrapper,
+          .extra-search {
             width: 100%;
           }
 
-          .attendance-actions button {
-            flex: 1;
+          .status-actions {
+            flex-wrap: wrap;
           }
 
-          .student-toolbar {
+          .attendance-row,
+          .month-row {
+            align-items: flex-start;
+          }
+
+          .month-numbers {
             flex-direction: column;
-            align-items: stretch;
+            align-items: flex-end;
+            gap: 4px;
           }
 
-          .selection-actions {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
+          .extra-hero {
+            align-items: flex-start;
           }
 
-          .student-row {
-            align-items: stretch;
-            flex-direction: column;
-          }
-
-          .student-select-area {
-            min-height: 72px;
-          }
-
-          .serial-number {
-            display: none;
-          }
-
-          .status-buttons {
-            padding: 0 13px 12px 50px;
-          }
-
-          .status-buttons button {
-            flex: 1;
-          }
-
-          .save-area {
-            flex-direction: column;
-            align-items: stretch;
-          }
-
-          .save-button {
-            width: 100%;
-          }
-
-          .history-toolbar {
-            flex-direction: column;
-          }
-
-          .history-toolbar select,
-          .history-search {
-            width: 100%;
-            max-width: none;
-            margin: 0;
-          }
-
-          .history-class {
-            padding: 12px;
-            gap: 10px;
-          }
-
-          .history-date {
-            width: 57px;
-            height: 68px;
-          }
-
-          .history-date strong {
-            font-size: 23px;
-          }
-
-          .history-title-row {
-            flex-direction: column;
-            gap: 5px;
-          }
-
-          .history-bottom {
-            flex-direction: column;
-            align-items: stretch;
-          }
-
-          .history-progress {
-            max-width: none;
-          }
-
-          .history-actions {
-            width: 100%;
-          }
-
-          .view-button,
-          .delete-button {
-            flex: 1;
+          .extra-hero-icon {
+            width: 58px;
+            height: 58px;
           }
         }
 
-        @media (max-width: 430px) {
-          .top-header h1 {
-            font-size: 29px;
-          }
-
-          .summary-grid {
+        @media (max-width: 500px) {
+          .stats-grid,
+          .extra-summary-grid,
+          .report-grid {
+            grid-template-columns: 1fr 1fr;
             gap: 8px;
           }
 
-          .summary-card {
-            padding: 11px;
-            gap: 8px;
+          .stat-card {
+            padding: 13px;
           }
 
-          .summary-icon {
-            width: 34px;
-            height: 34px;
-            border-radius: 10px;
-            font-size: 14px;
+          .stat-card strong {
+            font-size: 22px;
           }
 
-          .summary-card span {
-            font-size: 10px;
+          .extra-summary-card {
+            min-height: 105px;
+            padding: 13px;
           }
 
-          .summary-card strong {
-            font-size: 19px;
+          .extra-summary-card strong {
+            font-size: 24px;
           }
 
-          .circle-progress {
-            width: 45px;
-            height: 45px;
+          .attendance-row {
+            flex-wrap: wrap;
           }
 
-          .student-details {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 2px;
+          .serial {
+            display: none;
           }
 
-          .history-class {
-            flex-direction: column;
+          .student-main {
+            min-width: calc(
+              100% - 60px
+            );
           }
 
-          .history-date {
+          .status-actions {
             width: 100%;
-            height: 48px;
-            flex-direction: row;
-            gap: 5px;
+            padding-left: 55px;
           }
 
-          .history-date strong {
-            font-size: 21px;
+          .status-actions button {
+            flex: 1;
           }
 
-          .history-date span,
-          .history-date small {
-            font-size: 10px;
+          .remove-button {
+            flex: 0 !important;
           }
 
-          .history-progress {
+          .unique-line {
+            gap: 4px;
+          }
+
+          .unique-main strong {
+            font-size: 31px;
+          }
+
+          .month-numbers {
+            margin-left: auto;
+          }
+
+          .page-footer {
             flex-direction: column;
-            align-items: stretch;
           }
         }
       `}</style>
