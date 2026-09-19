@@ -20,6 +20,7 @@ type AttendanceRecord = {
   student_id: number;
   attendance_date: string;
   status: string;
+  marked_by_teacher_id?: number | null;
 };
 
 type AttendanceTab =
@@ -28,6 +29,8 @@ type AttendanceTab =
   | "extra-class"
   | "reporting"
   | "month-wise";
+
+const MAIN_TEACHER_ID = 1;
 
 export default function TeacherAttendancePage() {
   const router = useRouter();
@@ -49,38 +52,193 @@ export default function TeacherAttendancePage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
+  const [teacherId, setTeacherId] = useState<number | null>(null);
+  const [isMainTeacher, setIsMainTeacher] = useState(false);
+
   useEffect(() => {
-    loadData();
+    const savedTeacherId =
+      localStorage.getItem("attendance_teacher_id");
+
+    if (!savedTeacherId) {
+      setMessage(
+        "Teacher session not found. Please login again."
+      );
+      setLoading(false);
+      return;
+    }
+
+    const parsedTeacherId = Number(savedTeacherId);
+
+    if (
+      !Number.isInteger(parsedTeacherId) ||
+      parsedTeacherId <= 0
+    ) {
+      setMessage(
+        "Invalid teacher session. Please login again."
+      );
+      setLoading(false);
+      return;
+    }
+
+    setTeacherId(parsedTeacherId);
+    setIsMainTeacher(
+      parsedTeacherId === MAIN_TEACHER_ID
+    );
+
+    loadData(parsedTeacherId);
   }, []);
 
-  async function loadData() {
+  async function loadData(currentTeacherId?: number) {
     setLoading(true);
     setMessage("");
 
     try {
-      const { data: studentData, error: studentError } =
-        await supabase
-          .from("students")
-          .select("id, student_name, student_username")
-          .order("id", { ascending: true });
+      const activeTeacherId =
+        currentTeacherId ??
+        teacherId ??
+        Number(
+          localStorage.getItem(
+            "attendance_teacher_id"
+          )
+        );
+
+      if (
+        !activeTeacherId ||
+        !Number.isInteger(activeTeacherId)
+      ) {
+        throw new Error(
+          "Teacher session not found. Please login again."
+        );
+      }
+
+      const mainTeacher =
+        activeTeacherId === MAIN_TEACHER_ID;
+
+      setTeacherId(activeTeacherId);
+      setIsMainTeacher(mainTeacher);
+
+      let allowedStudentIds: number[] | null =
+        null;
+
+      /*
+       * MAIN TEACHER
+       * Can access all students.
+       */
+      if (!mainTeacher) {
+        /*
+         * ASSIGNED TEACHER
+         * Only assigned student IDs are loaded.
+         */
+        const {
+          data: assignmentData,
+          error: assignmentError,
+        } = await supabase
+          .from("teacher_student_assignments")
+          .select("student_id")
+          .eq("teacher_id", activeTeacherId);
+
+        if (assignmentError) {
+          throw new Error(
+            assignmentError.message
+          );
+        }
+
+        allowedStudentIds = (
+          assignmentData || []
+        )
+          .map((item) => Number(item.student_id))
+          .filter(
+            (id) =>
+              Number.isInteger(id) && id > 0
+          );
+      }
+
+      /*
+       * LOAD ONLY ALLOWED STUDENTS
+       */
+      let studentQuery = supabase
+        .from("students")
+        .select(
+          "id, student_name, student_username"
+        )
+        .order("id", { ascending: true });
+
+      if (!mainTeacher) {
+        if (
+          !allowedStudentIds ||
+          allowedStudentIds.length === 0
+        ) {
+          setStudents([]);
+          setAttendance([]);
+          setLoading(false);
+          return;
+        }
+
+        studentQuery = studentQuery.in(
+          "id",
+          allowedStudentIds
+        );
+      }
+
+      const {
+        data: studentData,
+        error: studentError,
+      } = await studentQuery;
 
       if (studentError) {
         throw new Error(studentError.message);
       }
 
-      const { data: attendanceData, error: attendanceError } =
-        await supabase
-          .from("attendance")
-          .select("id, student_id, attendance_date, status")
-          .order("attendance_date", {
-            ascending: false,
-          });
+      const loadedStudents =
+        studentData || [];
 
-      if (attendanceError) {
-        throw new Error(attendanceError.message);
+      setStudents(loadedStudents);
+
+      /*
+       * LOAD ATTENDANCE ONLY FOR LOADED STUDENTS.
+       *
+       * This prevents assigned teachers from
+       * receiving attendance records of
+       * unassigned students.
+       */
+      let attendanceQuery = supabase
+        .from("attendance")
+        .select(
+          "id, student_id, attendance_date, status, marked_by_teacher_id"
+        )
+        .order("attendance_date", {
+          ascending: false,
+        });
+
+      if (!mainTeacher) {
+        const loadedStudentIds =
+          loadedStudents.map(
+            (student) => student.id
+          );
+
+        if (loadedStudentIds.length === 0) {
+          setAttendance([]);
+          setLoading(false);
+          return;
+        }
+
+        attendanceQuery = attendanceQuery.in(
+          "student_id",
+          loadedStudentIds
+        );
       }
 
-      setStudents(studentData || []);
+      const {
+        data: attendanceData,
+        error: attendanceError,
+      } = await attendanceQuery;
+
+      if (attendanceError) {
+        throw new Error(
+          attendanceError.message
+        );
+      }
+
       setAttendance(attendanceData || []);
     } catch (error) {
       setMessage(
@@ -91,6 +249,16 @@ export default function TeacherAttendancePage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function isStudentAllowed(studentId: number) {
+    if (isMainTeacher) {
+      return true;
+    }
+
+    return students.some(
+      (student) => student.id === studentId
+    );
   }
 
   const filteredStudents = useMemo(() => {
@@ -133,6 +301,20 @@ export default function TeacherAttendancePage() {
     studentId: number,
     status: "Present" | "Absent"
   ) {
+    if (!isStudentAllowed(studentId)) {
+      setMessage(
+        "You are not allowed to modify this student's attendance."
+      );
+      return;
+    }
+
+    if (!teacherId) {
+      setMessage(
+        "Teacher session not found. Please login again."
+      );
+      return;
+    }
+
     setSaving(true);
     setMessage("");
 
@@ -148,8 +330,10 @@ export default function TeacherAttendancePage() {
           .from("attendance")
           .update({
             status,
+            marked_by_teacher_id: teacherId,
           })
           .eq("id", existing.id)
+          .eq("student_id", studentId)
           .select()
           .single();
 
@@ -169,6 +353,7 @@ export default function TeacherAttendancePage() {
             student_id: studentId,
             attendance_date: selectedDate,
             status,
+            marked_by_teacher_id: teacherId,
           })
           .select()
           .single();
@@ -200,15 +385,30 @@ export default function TeacherAttendancePage() {
   async function markAll(
     status: "Present" | "Absent"
   ) {
+    if (!teacherId) {
+      setMessage(
+        "Teacher session not found. Please login again."
+      );
+      return;
+    }
+
     if (students.length === 0) {
-      setMessage("No students found.");
+      setMessage(
+        isMainTeacher
+          ? "No students found."
+          : "No students have been assigned to you."
+      );
       return;
     }
 
     const confirmed = window.confirm(
       `Are you sure you want to mark ALL ${
         students.length
-      } students as ${status} for ${formatDate(
+      } ${
+        isMainTeacher
+          ? "students"
+          : "assigned students"
+      } as ${status} for ${formatDate(
         selectedDate
       )}?`
     );
@@ -223,7 +423,11 @@ export default function TeacherAttendancePage() {
     try {
       const existingRecords = attendance.filter(
         (record) =>
-          record.attendance_date === selectedDate
+          record.attendance_date === selectedDate &&
+          students.some(
+            (student) =>
+              student.id === record.student_id
+          )
       );
 
       const existingByStudent = new Map(
@@ -259,8 +463,10 @@ export default function TeacherAttendancePage() {
           .from("attendance")
           .update({
             status,
+            marked_by_teacher_id: teacherId,
           })
           .eq("id", existing.id)
+          .eq("student_id", student.id)
           .select()
           .single();
 
@@ -282,6 +488,7 @@ export default function TeacherAttendancePage() {
             student_id: student.id,
             attendance_date: selectedDate,
             status,
+            marked_by_teacher_id: teacherId,
           })
         );
 
@@ -322,7 +529,11 @@ export default function TeacherAttendancePage() {
       });
 
       setMessage(
-        `All ${students.length} students marked ${status} successfully.`
+        `All ${students.length} ${
+          isMainTeacher
+            ? "students"
+            : "assigned students"
+        } marked ${status} successfully.`
       );
     } catch (error) {
       setMessage(
@@ -336,9 +547,15 @@ export default function TeacherAttendancePage() {
   }
 
   async function deleteAttendance() {
+    const allowedStudentIds =
+      students.map((student) => student.id);
+
     const dateRecords = attendance.filter(
       (record) =>
-        record.attendance_date === selectedDate
+        record.attendance_date === selectedDate &&
+        allowedStudentIds.includes(
+          record.student_id
+        )
     );
 
     if (dateRecords.length === 0) {
@@ -355,7 +572,11 @@ export default function TeacherAttendancePage() {
         selectedDate
       )}?\n\n${
         dateRecords.length
-      } attendance records will be permanently deleted.`
+      } ${
+        isMainTeacher
+          ? ""
+          : "assigned-student "
+      }attendance records will be permanently deleted.`
     );
 
     if (!confirmed) {
@@ -366,10 +587,27 @@ export default function TeacherAttendancePage() {
     setMessage("");
 
     try {
-      const { error } = await supabase
+      if (allowedStudentIds.length === 0) {
+        throw new Error(
+          "No assigned students found."
+        );
+      }
+
+      let deleteQuery = supabase
         .from("attendance")
         .delete()
-        .eq("attendance_date", selectedDate);
+        .eq(
+          "attendance_date",
+          selectedDate
+        );
+
+      deleteQuery = deleteQuery.in(
+        "student_id",
+        allowedStudentIds
+      );
+
+      const { error } =
+        await deleteQuery;
 
       if (error) {
         throw new Error(error.message);
@@ -378,13 +616,22 @@ export default function TeacherAttendancePage() {
       setAttendance((current) =>
         current.filter(
           (record) =>
-            record.attendance_date !==
-            selectedDate
+            !(
+              record.attendance_date ===
+                selectedDate &&
+              allowedStudentIds.includes(
+                record.student_id
+              )
+            )
         )
       );
 
       setMessage(
-        `All attendance for ${formatDate(
+        `${
+          isMainTeacher
+            ? "All"
+            : "Assigned-student"
+        } attendance for ${formatDate(
           selectedDate
         )} deleted successfully.`
       );
@@ -594,6 +841,14 @@ export default function TeacherAttendancePage() {
     }
   }
 
+  function goBack() {
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/teacher/dashboard");
+    }
+  }
+
   if (loading) {
     return (
       <main style={styles.page}>
@@ -645,7 +900,30 @@ export default function TeacherAttendancePage() {
 
           <div style={styles.headerActions}>
             <button
-              onClick={loadData}
+              type="button"
+              onClick={goBack}
+              disabled={saving}
+              style={styles.backButton}
+            >
+              Back
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  "/teacher/dashboard"
+                )
+              }
+              disabled={saving}
+              style={styles.dashboardButton}
+            >
+              Dashboard
+            </button>
+
+            <button
+              type="button"
+              onClick={() => loadData()}
               disabled={saving}
               style={{
                 ...styles.refreshButton,
@@ -674,6 +952,16 @@ export default function TeacherAttendancePage() {
               records, reporting and monthly
               attendance from one place.
             </p>
+
+            <div style={styles.accessBadge}>
+              {isMainTeacher
+                ? "MAIN TEACHER • ALL STUDENTS"
+                : `ASSIGNED TEACHER • ${students.length} ASSIGNED STUDENT${
+                    students.length === 1
+                      ? ""
+                      : "S"
+                  }`}
+            </div>
           </div>
 
           <div style={styles.heroDate}>
@@ -786,7 +1074,11 @@ export default function TeacherAttendancePage() {
             <section style={styles.statsGrid}>
               <Stat
                 icon="ST"
-                title="Total Students"
+                title={
+                  isMainTeacher
+                    ? "Total Students"
+                    : "Assigned Students"
+                }
                 value={String(
                   totalStudents
                 )}
@@ -876,7 +1168,11 @@ export default function TeacherAttendancePage() {
                   }
                 >
                   Apply an attendance status
-                  to all students for{" "}
+                  to all{" "}
+                  {isMainTeacher
+                    ? "students"
+                    : "assigned students"}{" "}
+                  for{" "}
                   <strong>
                     {formatDate(
                       selectedDate
@@ -1009,8 +1305,18 @@ export default function TeacherAttendancePage() {
               {filteredStudents.length ===
               0 ? (
                 <EmptyState
-                  title="No Students Found"
-                  text="No student matches your search."
+                  title={
+                    students.length === 0
+                      ? "No Assigned Students"
+                      : "No Students Found"
+                  }
+                  text={
+                    students.length === 0
+                      ? isMainTeacher
+                        ? "No students are available."
+                        : "No students have been assigned to you."
+                      : "No student matches your search."
+                  }
                 />
               ) : (
                 <div
@@ -1712,8 +2018,16 @@ export default function TeacherAttendancePage() {
               {students.length ===
               0 ? (
                 <EmptyState
-                  title="No Students Found"
-                  text="Student attendance reports will appear when students are available."
+                  title={
+                    isMainTeacher
+                      ? "No Students Found"
+                      : "No Assigned Students"
+                  }
+                  text={
+                    isMainTeacher
+                      ? "Student attendance reports will appear when students are available."
+                      : "Student attendance reports will appear after students are assigned to you."
+                  }
                 />
               ) : (
                 <div
@@ -2328,6 +2642,7 @@ function AttendanceTabButton({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       style={{
         ...styles.tabButton,
@@ -2551,6 +2866,30 @@ const styles: {
   headerActions: {
     display: "flex",
     gap: "8px",
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+  },
+
+  backButton: {
+    border: "1px solid #cbd5e1",
+    background: "#ffffff",
+    color: "#334155",
+    padding: "11px 15px",
+    borderRadius: "10px",
+    fontWeight: "900",
+    fontSize: "13px",
+    cursor: "pointer",
+  },
+
+  dashboardButton: {
+    border: "none",
+    background: "#4f46e5",
+    color: "#ffffff",
+    padding: "11px 15px",
+    borderRadius: "10px",
+    fontWeight: "900",
+    fontSize: "13px",
+    cursor: "pointer",
   },
 
   refreshButton: {
@@ -2595,6 +2934,21 @@ const styles: {
     fontWeight: "900",
     letterSpacing: "1px",
     marginBottom: "10px",
+  },
+
+  accessBadge: {
+    display: "inline-block",
+    marginTop: "13px",
+    padding: "7px 11px",
+    borderRadius: "999px",
+    background:
+      "rgba(255,255,255,0.13)",
+    border:
+      "1px solid rgba(255,255,255,0.25)",
+    color: "#dbeafe",
+    fontSize: "10px",
+    fontWeight: "900",
+    letterSpacing: "0.5px",
   },
 
   title: {
