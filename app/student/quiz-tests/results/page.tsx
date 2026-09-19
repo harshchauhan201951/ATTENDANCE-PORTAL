@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import jsPDF from "jspdf";
 import { supabase } from "../../../../lib/supabase";
 
 type Quiz = {
@@ -167,515 +168,578 @@ function timeText(value: string | null) {
 }
 
 /*
- * Reliable PDF generator.
+ * jsPDF uses the built-in Helvetica font.
  *
- * Important:
- * The previous generator used JavaScript string length
- * for PDF byte offsets. That can produce an invalid PDF
- * because PDF xref offsets are BYTE offsets, not character
- * offsets.
+ * The important part here is that we no longer manually
+ * construct PDF objects, streams, xref tables or byte
+ * offsets. jsPDF creates the complete valid PDF file.
  *
- * This version builds the complete PDF as UTF-8 bytes and
- * calculates all xref offsets from the actual byte array.
+ * Unsupported Unicode characters are converted to a safe
+ * printable representation so that the PDF itself remains
+ * valid and openable in Chrome / Edge / Adobe Reader.
  */
-
-function escapePdfText(value: string) {
-  return String(value ?? "")
-    .replace(/\\/g, "\\\\")
-    .replace(/\(/g, "\\(")
-    .replace(/\)/g, "\\)")
-    .replace(/\r/g, "")
-    .replace(/\n/g, " ");
-}
-
-function wrapPdfText(value: string, maxCharacters = 88) {
-  const text = String(value || "-")
+function pdfSafeText(value: unknown) {
+  const text = String(value ?? "-")
+    .replace(/\r/g, " ")
+    .replace(/\n/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
-  if (!text) return ["-"];
+  if (!text) return "-";
 
-  const words = text.split(" ");
-  const lines: string[] = [];
-  let current = "";
+  return Array.from(text)
+    .map((character) => {
+      const code = character.charCodeAt(0);
 
-  for (const word of words) {
-    if (!current) {
-      current = word;
-      continue;
-    }
+      if (code >= 32 && code <= 126) {
+        return character;
+      }
 
-    if (`${current} ${word}`.length <= maxCharacters) {
-      current += ` ${word}`;
-    } else {
-      lines.push(current);
-      current = word;
-    }
-  }
-
-  if (current) {
-    lines.push(current);
-  }
-
-  return lines;
+      return "?";
+    })
+    .join("");
 }
 
-function createPdfBlob(pages: string[][]) {
-  /*
-   * PDF object numbering:
-   *
-   * 1 = Font
-   * 2 = Pages
-   * 3,5,7... = Page objects
-   * 4,6,8... = Content objects
-   * 1 = Catalog
-   */
+function splitPdfText(
+  doc: jsPDF,
+  value: unknown,
+  width: number
+) {
+  const safeText = pdfSafeText(value);
 
-  const objects: string[] = [];
+  const lines = doc.splitTextToSize(
+    safeText,
+    width
+  );
 
-  // Object 1: Helvetica font
-  objects[1] =
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
+  return Array.isArray(lines)
+    ? lines
+    : [String(lines)];
+}
 
-  // Object 2: Pages
-  const pageObjectNumbers: number[] = [];
-
-  pages.forEach((_, index) => {
-    pageObjectNumbers.push(3 + index * 2);
-  });
-
-  objects[2] =
-    `<< /Type /Pages /Kids [${pageObjectNumbers
-      .map((number) => `${number} 0 R`)
-      .join(" ")}] /Count ${pages.length} >>`;
-
-  // Page and content objects
-  pages.forEach((commands, index) => {
-    const pageObjectNumber = 3 + index * 2;
-    const contentObjectNumber = 4 + index * 2;
-
-    const content = commands.join("\n");
-
-    objects[pageObjectNumber] =
-      `<< /Type /Page /Parent 2 0 R ` +
-      `/MediaBox [0 0 595 842] ` +
-      `/Resources << /Font << /F1 1 0 R >> >> ` +
-      `/Contents ${contentObjectNumber} 0 R >>`;
-
-    /*
-     * Content is ASCII because all text is sanitized.
-     * Length is therefore safely represented in bytes.
-     */
-    const contentBytes = new TextEncoder().encode(content);
-
-    objects[contentObjectNumber] =
-      `<< /Length ${contentBytes.length} >>\n` +
-      `stream\n` +
-      content +
-      `\nendstream`;
-  });
-
-  /*
-   * Object 0 is reserved by PDF.
-   * Catalog is object 3? No — page numbering above starts
-   * from object 3, so we need Catalog at object 1 and move
-   * everything accordingly.
-   *
-   * Rebuild using explicit object map to avoid numbering errors.
-   */
-
-  const finalObjects: Array<string | null> = [];
-
-  finalObjects[0] = null;
-
-  // 1 = Catalog
-  finalObjects[1] =
-    "<< /Type /Catalog /Pages 2 0 R >>";
-
-  // 2 = Pages
-  finalObjects[2] =
-    `<< /Type /Pages /Kids [${pageObjectNumbers
-      .map((number) => `${number} 0 R`)
-      .join(" ")}] /Count ${pages.length} >>`;
-
-  // 3 = Font
-  finalObjects[3] =
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
-
-  /*
-   * Reassign page/content objects starting from 4.
-   */
-
-  const actualPageObjects: number[] = [];
-
-  pages.forEach((commands, index) => {
-    const pageObjectNumber = 4 + index * 2;
-    const contentObjectNumber = 5 + index * 2;
-
-    actualPageObjects.push(pageObjectNumber);
-
-    const content = commands.join("\n");
-    const contentBytes = new TextEncoder().encode(content);
-
-    finalObjects[pageObjectNumber] =
-      `<< /Type /Page /Parent 2 0 R ` +
-      `/MediaBox [0 0 595 842] ` +
-      `/Resources << /Font << /F1 3 0 R >> >> ` +
-      `/Contents ${contentObjectNumber} 0 R >>`;
-
-    finalObjects[contentObjectNumber] =
-      `<< /Length ${contentBytes.length} >>\n` +
-      `stream\n` +
-      content +
-      `\nendstream`;
-  });
-
-  // Correct the Pages Kids list.
-  finalObjects[2] =
-    `<< /Type /Pages /Kids [${actualPageObjects
-      .map((number) => `${number} 0 R`)
-      .join(" ")}] /Count ${pages.length} >>`;
-
-  /*
-   * Build the PDF as bytes.
-   *
-   * The critical fix is that xref offsets are calculated
-   * using UTF-8 byte length rather than JS string length.
-   */
-
-  const encoder = new TextEncoder();
-
-  const chunks: Uint8Array[] = [];
-  let totalLength = 0;
-
-  function addText(text: string) {
-    const bytes = encoder.encode(text);
-    chunks.push(bytes);
-    totalLength += bytes.length;
+function addPdfWrappedText(
+  doc: jsPDF,
+  value: unknown,
+  options: {
+    x: number;
+    y: number;
+    width: number;
+    fontSize?: number;
+    bold?: boolean;
+    lineHeight?: number;
+    bottomMargin?: number;
   }
+) {
+  const pageHeight =
+    doc.internal.pageSize.getHeight();
 
-  addText("%PDF-1.4\n");
-  addText("%\xFF\xFF\xFF\xFF\n");
+  const {
+    x,
+    width,
+    fontSize = 10,
+    bold = false,
+    lineHeight = 5,
+    bottomMargin = 15,
+  } = options;
 
-  const offsets: number[] = new Array(
-    finalObjects.length
-  ).fill(0);
+  let y = options.y;
 
-  let currentOffset = totalLength;
+  doc.setFont(
+    "helvetica",
+    bold ? "bold" : "normal"
+  );
 
-  for (let i = 1; i < finalObjects.length; i++) {
-    const object = finalObjects[i];
+  doc.setFontSize(fontSize);
 
-    if (object == null) {
-      continue;
+  const lines = splitPdfText(
+    doc,
+    value,
+    width
+  );
+
+  for (const line of lines) {
+    if (
+      y + lineHeight >
+      pageHeight - bottomMargin
+    ) {
+      doc.addPage();
+
+      y = 18;
+
+      doc.setFont(
+        "helvetica",
+        bold ? "bold" : "normal"
+      );
+
+      doc.setFontSize(fontSize);
     }
 
-    offsets[i] = currentOffset;
-
-    const objectText =
-      `${i} 0 obj\n${object}\nendobj\n`;
-
-    addText(objectText);
-
-    currentOffset = totalLength;
-  }
-
-  const xrefOffset = totalLength;
-
-  addText(
-    `xref\n0 ${finalObjects.length}\n`
-  );
-
-  addText(
-    "0000000000 65535 f \n"
-  );
-
-  for (let i = 1; i < finalObjects.length; i++) {
-    addText(
-      `${String(offsets[i]).padStart(
-        10,
-        "0"
-      )} 00000 n \n`
+    doc.text(
+      String(line),
+      x,
+      y
     );
+
+    y += lineHeight;
   }
 
-  addText(
-    "trailer\n" +
-      `<< /Size ${finalObjects.length} /Root 1 0 R >>\n` +
-      "startxref\n" +
-      `${xrefOffset}\n` +
-      "%%EOF\n"
-  );
-
-  const output = new Uint8Array(totalLength);
-  let position = 0;
-
-  for (const chunk of chunks) {
-    output.set(chunk, position);
-    position += chunk.length;
-  }
-
-  return new Blob([output], {
-    type: "application/pdf",
-  });
+  return y;
 }
 
-function buildPdfPages(
+function buildResultPdf(
   result: QuizResult,
   quiz: Quiz,
   reviews: QuestionReview[],
   studentName: string,
   studentClass: string
 ) {
-  const pages: string[][] = [];
-  let commands: string[] = [];
-  let y = 810;
+  const doc = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: "a4",
+    compress: true,
+  });
 
-  function newPage() {
-    if (commands.length > 0) {
-      pages.push(commands);
+  const pageWidth =
+    doc.internal.pageSize.getWidth();
+
+  const pageHeight =
+    doc.internal.pageSize.getHeight();
+
+  const margin = 15;
+
+  const contentWidth =
+    pageWidth - margin * 2;
+
+  let y = 18;
+
+  function ensureSpace(
+    requiredHeight = 10
+  ) {
+    if (
+      y + requiredHeight >
+      pageHeight - 16
+    ) {
+      doc.addPage();
+      y = 18;
     }
-
-    commands = [];
-    y = 810;
   }
 
-  function ensureSpace(required = 30) {
-    if (y < required) {
-      newPage();
-    }
-  }
-
-  function text(
-    value: string,
+  function addText(
+    value: unknown,
     size = 10,
     bold = false,
-    x = 40
+    gapAfter = 5
   ) {
-    ensureSpace(size + 10);
+    ensureSpace(size + gapAfter + 4);
 
-    commands.push(
-      "BT",
-      `/F1 ${size} Tf`,
-      `1 0 0 1 ${x} ${y} Tm`,
-      `(${escapePdfText(value)}) Tj`,
-      "ET"
+    y = addPdfWrappedText(
+      doc,
+      value,
+      {
+        x: margin,
+        y,
+        width: contentWidth,
+        fontSize: size,
+        bold,
+        lineHeight:
+          size <= 9 ? 4.5 : 5.5,
+        bottomMargin: 16,
+      }
     );
 
-    y -= size + 6;
-
-    void bold;
+    y += gapAfter;
   }
 
-  function lineGap(size = 8) {
-    y -= size;
+  function addSectionTitle(
+    title: string
+  ) {
+    ensureSpace(14);
+
+    doc.setFont(
+      "helvetica",
+      "bold"
+    );
+
+    doc.setFontSize(12);
+
+    doc.text(
+      pdfSafeText(title),
+      margin,
+      y
+    );
+
+    y += 7;
+
+    doc.setLineWidth(0.3);
+
+    doc.line(
+      margin,
+      y,
+      pageWidth - margin,
+      y
+    );
+
+    y += 7;
   }
 
-  text("RACER ACADEMY", 20, true);
-  text("STUDENT QUIZ RESULT", 14, true);
+  /*
+   * Header
+   */
+  doc.setFont(
+    "helvetica",
+    "bold"
+  );
 
-  lineGap(5);
+  doc.setFontSize(20);
 
-  text(
+  doc.text(
+    "RACER ACADEMY",
+    margin,
+    y
+  );
+
+  y += 8;
+
+  doc.setFontSize(14);
+
+  doc.text(
+    "STUDENT QUIZ RESULT",
+    margin,
+    y
+  );
+
+  y += 10;
+
+  doc.setLineWidth(0.5);
+
+  doc.line(
+    margin,
+    y,
+    pageWidth - margin,
+    y
+  );
+
+  y += 9;
+
+  /*
+   * Student / Quiz information
+   */
+  addText(
     `Student Name: ${studentName || "-"}`,
     10,
-    true
+    true,
+    3
   );
 
-  text(
+  addText(
     `Class: ${studentClass || "-"}`,
-    10
+    10,
+    false,
+    3
   );
 
-  text(
+  addText(
     `Quiz: ${quiz.title || "-"}`,
     10,
-    true
+    true,
+    3
   );
 
-  text(
+  addText(
     `Subject: ${quiz.subject || "-"}`,
-    10
+    10,
+    false,
+    7
   );
 
-  lineGap(6);
+  /*
+   * Result summary
+   */
+  addSectionTitle(
+    "RESULT SUMMARY"
+  );
 
-  text(
-    `Result: ${result.result_status || "-"}`,
+  addText(
+    `Result Status: ${
+      result.result_status || "-"
+    }`,
     11,
-    true
+    true,
+    3
   );
 
-  text(
+  addText(
     `Percentage: ${numberText(
       result.percentage
     )}%`,
     10,
-    true
+    true,
+    3
   );
 
-  text(
+  addText(
     `Obtained Marks: ${numberText(
       result.obtained_marks
-    )} / ${numberText(result.total_marks)}`,
-    10
+    )} / ${numberText(
+      result.total_marks
+    )}`,
+    10,
+    false,
+    3
   );
 
-  text(
+  addText(
     `Total Questions: ${numberText(
       result.total_questions
     )}`,
-    10
+    10,
+    false,
+    3
   );
 
-  text(
-    `Correct: ${numberText(
+  addText(
+    `Correct Answers: ${numberText(
       result.correct_answers
     )}`,
-    10
+    10,
+    false,
+    3
   );
 
-  text(
-    `Wrong: ${numberText(
+  addText(
+    `Wrong Answers: ${numberText(
       result.wrong_answers
     )}`,
-    10
+    10,
+    false,
+    3
   );
 
-  text(
+  addText(
     `Not Answered: ${numberText(
       result.unanswered
     )}`,
-    10
+    10,
+    false,
+    3
   );
 
-  text(
+  addText(
     `Pass Percentage: ${numberText(
       quiz.pass_percentage
     )}%`,
-    10
+    10,
+    false,
+    3
   );
 
-  text(
+  addText(
     `Duration: ${numberText(
       quiz.duration_minutes || 30
     )} minutes`,
-    10
+    10,
+    false,
+    3
   );
 
-  text(
+  addText(
     `Quiz Date: ${dateText(
       quiz.scheduled_date
     )}`,
-    10
+    10,
+    false,
+    3
   );
 
-  text(
+  addText(
     `Scheduled Time: ${timeText(
       quiz.scheduled_time
     )}`,
-    10
+    10,
+    false,
+    3
   );
 
-  text(
+  addText(
     `Started At: ${dateTimeText(
       result.started_at
     )}`,
-    10
+    10,
+    false,
+    3
   );
 
-  text(
+  addText(
     `Submitted At: ${dateTimeText(
       result.submitted_at
     )}`,
-    10
+    10,
+    false,
+    3
   );
 
-  text(
+  addText(
     `Submission Type: ${
       result.submission_type || "-"
     }`,
-    10
+    10,
+    false,
+    8
   );
 
-  lineGap(10);
-
-  text(
-    "QUESTION-WISE ANSWER REVIEW",
-    13,
-    true
+  /*
+   * Question review
+   */
+  addSectionTitle(
+    "QUESTION-WISE ANSWER REVIEW"
   );
 
-  lineGap(4);
-
-  reviews.forEach((review, index) => {
-    ensureSpace(150);
-
-    const questionNumber = index + 1;
-
-    wrapPdfText(
-      `Q${questionNumber}. ${
-        review.question.question_text
-      }`
-    ).forEach((line, lineIndex) => {
-      text(
-        line,
-        10,
-        true
-      );
-
-      void lineIndex;
-    });
-
-    const selectedText =
-      review.selectedOption?.option_text ||
-      "Not Answered";
-
-    const correctText =
-      review.correctOption?.option_text ||
-      "Not Available";
-
-    const status =
-      !review.answer ||
-      review.answer.selected_option_id === null
-        ? "NOT ANSWERED"
-        : review.answer.is_correct
-        ? "CORRECT"
-        : "WRONG";
-
-    wrapPdfText(
-      `Student Answer: ${selectedText}`
-    ).forEach((line) => {
-      text(line, 9);
-    });
-
-    wrapPdfText(
-      `Correct Answer: ${correctText}`
-    ).forEach((line) => {
-      text(line, 9);
-    });
-
-    text(
-      `Status: ${status}`,
-      9,
-      true
+  if (reviews.length === 0) {
+    addText(
+      "Question review is not available.",
+      10,
+      false,
+      5
     );
+  } else {
+    reviews.forEach(
+      (review, index) => {
+        ensureSpace(25);
 
-    text(
-      `Marks Awarded: ${numberText(
-        review.answer?.marks_awarded ?? 0
-      )}`,
-      9
+        /*
+         * Question number
+         */
+        addText(
+          `Q${index + 1}. ${
+            review.question.question_text
+          }`,
+          10,
+          true,
+          4
+        );
+
+        const selectedText =
+          review.selectedOption
+            ?.option_text ||
+          "Not Answered";
+
+        const correctText =
+          review.correctOption
+            ?.option_text ||
+          "Not Available";
+
+        const status =
+          !review.answer ||
+          review.answer
+            .selected_option_id ===
+            null
+            ? "NOT ANSWERED"
+            : review.answer.is_correct
+            ? "CORRECT"
+            : "WRONG";
+
+        addText(
+          `Student Answer: ${selectedText}`,
+          9,
+          false,
+          3
+        );
+
+        addText(
+          `Correct Answer: ${correctText}`,
+          9,
+          false,
+          3
+        );
+
+        addText(
+          `Status: ${status}`,
+          9,
+          true,
+          3
+        );
+
+        addText(
+          `Marks Awarded: ${numberText(
+            review.answer
+              ?.marks_awarded ?? 0
+          )}`,
+          9,
+          false,
+          7
+        );
+
+        if (
+          index <
+          reviews.length - 1
+        ) {
+          ensureSpace(4);
+
+          doc.setLineWidth(0.2);
+
+          doc.line(
+            margin,
+            y,
+            pageWidth - margin,
+            y
+          );
+
+          y += 7;
+        }
+      }
     );
-
-    lineGap(8);
-  });
-
-  if (commands.length > 0) {
-    pages.push(commands);
   }
 
-  return pages;
+  /*
+   * Footer on every page.
+   */
+  const totalPages =
+    doc.getNumberOfPages();
+
+  for (
+    let page = 1;
+    page <= totalPages;
+    page++
+  ) {
+    doc.setPage(page);
+
+    doc.setFont(
+      "helvetica",
+      "normal"
+    );
+
+    doc.setFontSize(8);
+
+    doc.setTextColor(
+      100,
+      100,
+      100
+    );
+
+    doc.text(
+      "RACER ACADEMY",
+      margin,
+      pageHeight - 8
+    );
+
+    doc.text(
+      `Page ${page} of ${totalPages}`,
+      pageWidth - margin,
+      pageHeight - 8,
+      {
+        align: "right",
+      }
+    );
+
+    doc.setTextColor(
+      0,
+      0,
+      0
+    );
+  }
+
+  return doc;
 }
 
 async function fetchQuestionReviews(
@@ -733,7 +797,8 @@ async function fetchQuestionReviews(
   }
 
   const answers =
-    (answersResponse.data || []) as QuizAnswer[];
+    (answersResponse.data ||
+      []) as QuizAnswer[];
 
   const questions =
     (questionsResponse.data ||
@@ -743,57 +808,66 @@ async function fetchQuestionReviews(
     (optionsResponse.data ||
       []) as QuizOption[];
 
-  return questions.map((question) => {
-    const answer =
-      answers.find(
-        (item) =>
-          Number(item.question_id) ===
-          Number(question.id)
-      ) || null;
+  return questions.map(
+    (question) => {
+      const answer =
+        answers.find(
+          (item) =>
+            Number(
+              item.question_id
+            ) ===
+            Number(question.id)
+        ) || null;
 
-    const questionOptions =
-      options.filter(
-        (option) =>
-          Number(option.question_id) ===
-          Number(question.id)
-      );
+      const questionOptions =
+        options.filter(
+          (option) =>
+            Number(
+              option.question_id
+            ) ===
+            Number(question.id)
+        );
 
-    const selectedOption =
-      answer?.selected_option_id != null
-        ? questionOptions.find(
-            (option) =>
-              Number(option.id) ===
-              Number(
-                answer.selected_option_id
-              )
-          ) || null
-        : null;
+      const selectedOption =
+        answer?.selected_option_id !=
+        null
+          ? questionOptions.find(
+              (option) =>
+                Number(option.id) ===
+                Number(
+                  answer.selected_option_id
+                )
+            ) || null
+          : null;
 
-    const correctOption =
-      questionOptions.find(
-        (option) => option.is_correct
-      ) || null;
+      const correctOption =
+        questionOptions.find(
+          (option) =>
+            option.is_correct
+        ) || null;
 
-    return {
-      question,
-      options: questionOptions,
-      answer,
-      selectedOption,
-      correctOption,
-    };
-  });
+      return {
+        question,
+        options: questionOptions,
+        answer,
+        selectedOption,
+        correctOption,
+      };
+    }
+  );
 }
 
 function ResultsContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+
+  const searchParams =
+    useSearchParams();
 
   const quizIdParam =
     searchParams.get("quizId");
 
-  const isDetail = Boolean(
-    quizIdParam
-  );
+  const isDetail =
+    Boolean(quizIdParam);
 
   const [
     studentName,
@@ -818,12 +892,16 @@ function ResultsContent() {
   const [
     selectedResult,
     setSelectedResult,
-  ] = useState<QuizResult | null>(null);
+  ] = useState<QuizResult | null>(
+    null
+  );
 
   const [
     questionReviews,
     setQuestionReviews,
-  ] = useState<QuestionReview[]>([]);
+  ] = useState<QuestionReview[]>(
+    []
+  );
 
   const [
     loading,
@@ -838,7 +916,9 @@ function ResultsContent() {
   const [
     pdfLoadingId,
     setPdfLoadingId,
-  ] = useState<number | null>(null);
+  ] = useState<number | null>(
+    null
+  );
 
   const [
     error,
@@ -865,24 +945,33 @@ function ResultsContent() {
       localStorage.getItem(
         "attendance_student_id"
       ) ||
-      localStorage.getItem("studentId") ||
-      localStorage.getItem("student_id");
+      localStorage.getItem(
+        "studentId"
+      ) ||
+      localStorage.getItem(
+        "student_id"
+      );
 
-    let currentStudent: Student | null =
-      null;
+    let currentStudent:
+      | Student
+      | null = null;
 
-    if (storedUsername?.trim()) {
-      const { data, error } =
-        await supabase
-          .from("students")
-          .select(
-            "id,student_name,student_username,class_name"
-          )
-          .eq(
-            "student_username",
-            storedUsername.trim()
-          )
-          .maybeSingle();
+    if (
+      storedUsername?.trim()
+    ) {
+      const {
+        data,
+        error,
+      } = await supabase
+        .from("students")
+        .select(
+          "id,student_name,student_username,class_name"
+        )
+        .eq(
+          "student_username",
+          storedUsername.trim()
+        )
+        .maybeSingle();
 
       if (error) {
         console.error(
@@ -897,21 +986,32 @@ function ResultsContent() {
       }
     }
 
-    if (!currentStudent && storedId) {
-      const numericId = Number(storedId);
+    if (
+      !currentStudent &&
+      storedId
+    ) {
+      const numericId =
+        Number(storedId);
 
       if (
-        Number.isFinite(numericId) &&
+        Number.isFinite(
+          numericId
+        ) &&
         numericId > 0
       ) {
-        const { data, error } =
-          await supabase
-            .from("students")
-            .select(
-              "id,student_name,student_username,class_name"
-            )
-            .eq("id", numericId)
-            .maybeSingle();
+        const {
+          data,
+          error,
+        } = await supabase
+          .from("students")
+          .select(
+            "id,student_name,student_username,class_name"
+          )
+          .eq(
+            "id",
+            numericId
+          )
+          .maybeSingle();
 
         if (error) {
           console.error(
@@ -933,12 +1033,16 @@ function ResultsContent() {
 
     localStorage.setItem(
       "attendance_student_id",
-      String(currentStudent.id)
+      String(
+        currentStudent.id
+      )
     );
 
     localStorage.setItem(
       "studentId",
-      String(currentStudent.id)
+      String(
+        currentStudent.id
+      )
     );
 
     if (
@@ -955,7 +1059,9 @@ function ResultsContent() {
       );
     }
 
-    if (currentStudent.student_name) {
+    if (
+      currentStudent.student_name
+    ) {
       localStorage.setItem(
         "attendance_student_name",
         currentStudent.student_name
@@ -968,7 +1074,8 @@ function ResultsContent() {
     }
 
     setStudentName(
-      currentStudent.student_name || ""
+      currentStudent.student_name ||
+        ""
     );
 
     setStudentClass(
@@ -1043,7 +1150,10 @@ function ResultsContent() {
       .select(
         "id,quiz_id,student_id,total_questions,correct_answers,wrong_answers,unanswered,total_marks,obtained_marks,percentage,result_status,started_at,submitted_at,submission_type,created_at"
       )
-      .eq("student_id", studentId)
+      .eq(
+        "student_id",
+        studentId
+      )
       .order("created_at", {
         ascending: false,
       });
@@ -1055,9 +1165,12 @@ function ResultsContent() {
     }
 
     const rawResults =
-      (resultData || []) as QuizResult[];
+      (resultData ||
+        []) as QuizResult[];
 
-    if (rawResults.length === 0) {
+    if (
+      rawResults.length === 0
+    ) {
       setResults([]);
       return;
     }
@@ -1065,7 +1178,10 @@ function ResultsContent() {
     const quizIds = [
       ...new Set(
         rawResults.map(
-          (item) => Number(item.quiz_id)
+          (item) =>
+            Number(
+              item.quiz_id
+            )
         )
       ),
     ];
@@ -1078,7 +1194,10 @@ function ResultsContent() {
       .select(
         "id,title,description,class_name,target_classes,subject,scheduled_date,scheduled_time,duration_minutes,marks_per_question,negative_marks,pass_percentage"
       )
-      .in("id", quizIds);
+      .in(
+        "id",
+        quizIds
+      );
 
     if (quizError) {
       throw new Error(
@@ -1087,16 +1206,20 @@ function ResultsContent() {
     }
 
     const quizzes =
-      (quizData || []) as Quiz[];
+      (quizData ||
+        []) as Quiz[];
 
-    const quizMap = new Map<
-      number,
-      Quiz
-    >();
+    const quizMap =
+      new Map<number, Quiz>();
 
-    quizzes.forEach((quiz) => {
-      quizMap.set(Number(quiz.id), quiz);
-    });
+    quizzes.forEach(
+      (quiz) => {
+        quizMap.set(
+          Number(quiz.id),
+          quiz
+        );
+      }
+    );
 
     const filteredResults =
       rawResults
@@ -1104,11 +1227,14 @@ function ResultsContent() {
           ...result,
           quiz:
             quizMap.get(
-              Number(result.quiz_id)
+              Number(
+                result.quiz_id
+              )
             ) || null,
         }))
         .filter((item) => {
-          if (!item.quiz) return false;
+          if (!item.quiz)
+            return false;
 
           return matchesClass(
             item.quiz,
@@ -1127,7 +1253,9 @@ function ResultsContent() {
     currentClass: string
   ) {
     if (
-      !Number.isFinite(quizId) ||
+      !Number.isFinite(
+        quizId
+      ) ||
       quizId <= 0
     ) {
       throw new Error(
@@ -1143,7 +1271,10 @@ function ResultsContent() {
       .select(
         "id,title,description,class_name,target_classes,subject,scheduled_date,scheduled_time,duration_minutes,marks_per_question,negative_marks,pass_percentage"
       )
-      .eq("id", quizId)
+      .eq(
+        "id",
+        quizId
+      )
       .maybeSingle();
 
     if (quizError) {
@@ -1158,7 +1289,8 @@ function ResultsContent() {
       );
     }
 
-    const quiz = quizData as Quiz;
+    const quiz =
+      quizData as Quiz;
 
     if (
       !matchesClass(
@@ -1179,8 +1311,14 @@ function ResultsContent() {
       .select(
         "id,quiz_id,student_id,total_questions,correct_answers,wrong_answers,unanswered,total_marks,obtained_marks,percentage,result_status,started_at,submitted_at,submission_type,created_at"
       )
-      .eq("quiz_id", quizId)
-      .eq("student_id", studentId)
+      .eq(
+        "quiz_id",
+        quizId
+      )
+      .eq(
+        "student_id",
+        studentId
+      )
       .order("created_at", {
         ascending: false,
       })
@@ -1224,7 +1362,9 @@ function ResultsContent() {
           quizId
         );
 
-      setQuestionReviews(reviews);
+      setQuestionReviews(
+        reviews
+      );
     } catch (reviewError) {
       console.error(
         "Question review error:",
@@ -1246,31 +1386,46 @@ function ResultsContent() {
   async function downloadResultPdf(
     item?: ResultItem
   ) {
-    setPdfLoadingId(
+    const loadingId =
       item?.id ??
-        selectedResult?.id ??
-        null
+      selectedResult?.id ??
+      null;
+
+    setPdfLoadingId(
+      loadingId
     );
 
     try {
-      let result: QuizResult | null =
-        item || selectedResult;
+      let result:
+        | QuizResult
+        | null =
+        item ||
+        selectedResult;
 
-      let quiz: Quiz | null =
-        item?.quiz || selectedQuiz;
+      let quiz:
+        | Quiz
+        | null =
+        item?.quiz ||
+        selectedQuiz;
 
-      if (!result || !quiz) {
+      if (
+        !result ||
+        !quiz
+      ) {
         throw new Error(
           "Result details are not available."
         );
       }
 
       let reviews =
-        item?.id === selectedResult?.id
+        item?.id ===
+        selectedResult?.id
           ? questionReviews
           : [];
 
-      if (reviews.length === 0) {
+      if (
+        reviews.length === 0
+      ) {
         reviews =
           await fetchQuestionReviews(
             result.id,
@@ -1278,8 +1433,8 @@ function ResultsContent() {
           );
       }
 
-      const pages =
-        buildPdfPages(
+      const doc =
+        buildResultPdf(
           result,
           quiz,
           reviews,
@@ -1287,63 +1442,42 @@ function ResultsContent() {
           studentClass
         );
 
-      if (!pages.length) {
-        throw new Error(
-          "Unable to create PDF pages."
-        );
-      }
-
-      const blob =
-        createPdfBlob(pages);
-
-      if (blob.size < 100) {
-        throw new Error(
-          "Generated PDF is empty."
-        );
-      }
-
-      const url =
-        URL.createObjectURL(blob);
-
       const safeQuizTitle =
-        (quiz.title || "Quiz")
+        (quiz.title ||
+          "Quiz")
           .replace(
             /[^a-z0-9]+/gi,
             "-"
           )
           .replace(
             /^-+|-+$/g,
-            "") || "Quiz";
+            "") ||
+        "Quiz";
+
+      const safeStudentName =
+        (studentName ||
+          "Student")
+          .replace(
+            /[^a-z0-9]+/gi,
+            "-"
+          )
+          .replace(
+            /^-+|-+$/g,
+            "") ||
+        "Student";
 
       const fileName =
-        `RACER-ACADEMY-${safeQuizTitle}-Result.pdf`;
+        `RACER-ACADEMY-${safeStudentName}-${safeQuizTitle}-Result.pdf`;
 
       /*
-       * Use a normal browser anchor download.
-       * This works on Chrome/Edge and avoids opening
-       * an incomplete blob URL before it is ready.
+       * jsPDF directly creates the PDF Blob/download.
+       *
+       * No custom Blob URL, PDF object numbering,
+       * xref calculation or manual byte handling.
        */
-
-      const anchor =
-        document.createElement("a");
-
-      anchor.style.display = "none";
-      anchor.href = url;
-      anchor.download = fileName;
-
-      document.body.appendChild(anchor);
-
-      anchor.click();
-
-      anchor.remove();
-
-      /*
-       * Give the browser enough time to start the
-       * download before releasing the object URL.
-       */
-      setTimeout(() => {
-        URL.revokeObjectURL(url);
-      }, 5000);
+      doc.save(
+        fileName
+      );
     } catch (pdfError) {
       console.error(
         "PDF generation error:",
@@ -1356,7 +1490,9 @@ function ResultsContent() {
           : "Unable to generate PDF."
       );
     } finally {
-      setPdfLoadingId(null);
+      setPdfLoadingId(
+        null
+      );
     }
   }
 
@@ -1370,36 +1506,78 @@ function ResultsContent() {
       : "text-red-400 bg-red-500/10 border-red-400/20";
   }
 
+  function handleRefresh() {
+    loadPage();
+  }
+
+  function handleBack() {
+    router.back();
+  }
+
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
         <header className="border-b border-white/10 bg-slate-950/90 backdrop-blur-xl">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4">
-            <div>
-              <h1 className="text-xl font-black">
-                {isDetail
-                  ? "QUIZ RESULT"
-                  : "MY QUIZ RESULTS"}
-              </h1>
+          <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h1 className="text-xl font-black">
+                  {isDetail
+                    ? "QUIZ RESULT"
+                    : "MY QUIZ RESULTS"}
+                </h1>
 
-              <p className="text-xs text-slate-400">
-                RACER ACADEMY
-                {studentClass
-                  ? ` • CLASS ${studentClass}`
-                  : ""}
-              </p>
+                <p className="text-xs text-slate-400">
+                  RACER ACADEMY
+                  {studentClass
+                    ? ` • CLASS ${studentClass}`
+                    : ""}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={handleBack}
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold transition hover:bg-white/10"
+                >
+                  ← Back
+                </button>
+
+                <button
+                  onClick={() =>
+                    router.push(
+                      "/student"
+                    )
+                  }
+                  className="rounded-xl border border-indigo-400/20 bg-indigo-500/10 px-4 py-2 text-sm font-semibold text-indigo-300 transition hover:bg-indigo-500/20"
+                >
+                  Dashboard
+                </button>
+
+                <button
+                  onClick={
+                    handleRefresh
+                  }
+                  disabled={loading}
+                  className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {loading
+                    ? "Refreshing..."
+                    : "Refresh"}
+                </button>
+
+                <button
+                  onClick={() =>
+                    router.push(
+                      "/student/quiz-tests"
+                    )
+                  }
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold transition hover:bg-white/10"
+                >
+                  ← Quiz Tests
+                </button>
+              </div>
             </div>
-
-            <button
-              onClick={() =>
-                router.push(
-                  "/student/quiz-tests"
-                )
-              }
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold hover:bg-white/10"
-            >
-              ← Quiz Tests
-            </button>
           </div>
         </header>
 
@@ -1422,16 +1600,39 @@ function ResultsContent() {
                 {error}
               </p>
 
-              <button
-                onClick={loadPage}
-                className="mt-5 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-black hover:bg-indigo-500"
-              >
-                TRY AGAIN
-              </button>
+              <div className="mt-5 flex flex-wrap justify-center gap-3">
+                <button
+                  onClick={
+                    loadPage
+                  }
+                  className="rounded-xl bg-indigo-600 px-5 py-3 text-sm font-black hover:bg-indigo-500"
+                >
+                  TRY AGAIN
+                </button>
+
+                <button
+                  onClick={() =>
+                    router.push(
+                      "/student"
+                    )
+                  }
+                  className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-black hover:bg-white/10"
+                >
+                  DASHBOARD
+                </button>
+
+                <button
+                  onClick={handleBack}
+                  className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-black hover:bg-white/10"
+                >
+                  ← BACK
+                </button>
+              </div>
             </div>
           ) : !isDetail ? (
             <>
-              {results.length === 0 ? (
+              {results.length ===
+              0 ? (
                 <div className="rounded-3xl border border-dashed border-white/10 bg-white/5 p-10 text-center">
                   <div className="text-5xl">
                     RESULTS
@@ -1442,8 +1643,10 @@ function ResultsContent() {
                   </h2>
 
                   <p className="mt-2 text-sm text-slate-400">
-                    Your completed quiz results
-                    will appear here.
+                    Your completed
+                    quiz results
+                    will appear
+                    here.
                   </p>
                 </div>
               ) : (
@@ -1451,19 +1654,23 @@ function ResultsContent() {
                   {results.map(
                     (item) => (
                       <div
-                        key={item.id}
+                        key={
+                          item.id
+                        }
                         className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl backdrop-blur-xl"
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div>
                             <h2 className="text-xl font-black">
-                              {item.quiz
+                              {item
+                                .quiz
                                 ?.title ||
                                 "Quiz"}
                             </h2>
 
                             <p className="mt-1 text-xs text-slate-500">
-                              {item.quiz
+                              {item
+                                .quiz
                                 ?.subject ||
                                 "Quiz"}
                             </p>
@@ -1825,7 +2032,8 @@ function ResultsContent() {
                         return (
                           <div
                             key={
-                              review.question
+                              review
+                                .question
                                 .id
                             }
                             className="rounded-2xl border border-white/10 bg-slate-950/50 p-5"
@@ -2028,20 +2236,33 @@ function ResultsContent() {
               </h2>
 
               <p className="mt-2 text-sm text-slate-400">
-                The requested quiz result could
-                not be found.
+                The requested quiz result
+                could not be found.
               </p>
 
-              <button
-                onClick={() =>
-                  router.push(
-                    "/student/quiz-tests/results"
-                  )
-                }
-                className="mt-5 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-black hover:bg-indigo-500"
-              >
-                VIEW ALL RESULTS
-              </button>
+              <div className="mt-5 flex flex-wrap justify-center gap-3">
+                <button
+                  onClick={() =>
+                    router.push(
+                      "/student/quiz-tests/results"
+                    )
+                  }
+                  className="rounded-xl bg-indigo-600 px-5 py-3 text-sm font-black hover:bg-indigo-500"
+                >
+                  VIEW ALL RESULTS
+                </button>
+
+                <button
+                  onClick={() =>
+                    router.push(
+                      "/student"
+                    )
+                  }
+                  className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-black hover:bg-white/10"
+                >
+                  DASHBOARD
+                </button>
+              </div>
             </div>
           )}
         </div>
