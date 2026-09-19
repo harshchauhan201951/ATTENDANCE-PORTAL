@@ -84,13 +84,11 @@ export default function StudentAttendancePage() {
   const [activeTab, setActiveTab] =
     useState<AttendanceTab>("today");
 
-  const [selectedDate, setSelectedDate] = useState(
-    getLocalDateString()
-  );
+  const [selectedDate, setSelectedDate] =
+    useState(getLocalDateString());
 
-  const [selectedMonth, setSelectedMonth] = useState(
-    getLocalMonthString()
-  );
+  const [selectedMonth, setSelectedMonth] =
+    useState(getLocalMonthString());
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -345,12 +343,6 @@ export default function StudentAttendancePage() {
         )
       : 0;
 
-  /*
-   * ---------------------------------------------------------
-   * ADMISSION-DATE BASED ATTENDANCE
-   * ---------------------------------------------------------
-   */
-
   const admissionDate =
     student?.admission_date || null;
 
@@ -498,12 +490,6 @@ export default function StudentAttendancePage() {
     reportingRecords,
   ]);
 
-  /*
-   * ---------------------------------------------------------
-   * MONTH-WISE DATA
-   * ---------------------------------------------------------
-   */
-
   const selectedMonthRecords =
     unifiedAttendance.filter(
       (record) =>
@@ -530,12 +516,6 @@ export default function StudentAttendancePage() {
         )
       : 0;
 
-  /*
-   * ---------------------------------------------------------
-   * TODAY
-   * ---------------------------------------------------------
-   */
-
   const todayRecords =
     unifiedAttendance.filter(
       (record) =>
@@ -551,12 +531,6 @@ export default function StudentAttendancePage() {
     todayRecords.filter((record) =>
       isAbsent(record.status)
     ).length;
-
-  /*
-   * ---------------------------------------------------------
-   * STATUS HELPERS
-   * ---------------------------------------------------------
-   */
 
   function getStatusStyle(
     status: string
@@ -583,12 +557,6 @@ export default function StudentAttendancePage() {
       border: "1px solid #fde68a",
     };
   }
-
-  /*
-   * ---------------------------------------------------------
-   * DATE HELPERS
-   * ---------------------------------------------------------
-   */
 
   function formatDate(date: string) {
     const d = new Date(
@@ -647,12 +615,6 @@ export default function StudentAttendancePage() {
     });
   }
 
-  /*
-   * ---------------------------------------------------------
-   * LOGOUT
-   * ---------------------------------------------------------
-   */
-
   function logout() {
     const keys = [
       "student_username",
@@ -671,47 +633,47 @@ export default function StudentAttendancePage() {
     window.location.href = "/";
   }
 
-  /*
-   * ---------------------------------------------------------
-   * NAVIGATION
-   * ---------------------------------------------------------
-   */
-
   const tabs: {
     id: AttendanceTab;
     title: string;
     subtitle: string;
-    icon: string;
+    number: string;
+    symbol: string;
   }[] = [
     {
       id: "today",
       title: "Today's Attendance",
       subtitle: "Today's attendance",
-      icon: "01",
+      number: "01",
+      symbol: "TODAY",
     },
     {
       id: "date-wise",
       title: "Date Wise / Period Wise",
       subtitle: "View attendance by date",
-      icon: "02",
+      number: "02",
+      symbol: "DATE",
     },
     {
       id: "extra-class",
       title: "Extra Class",
       subtitle: "Additional classes",
-      icon: "03",
+      number: "03",
+      symbol: "EXTRA",
     },
     {
       id: "reporting",
       title: "Reporting",
       subtitle: "Admission-date report",
-      icon: "04",
+      number: "04",
+      symbol: "REPORT",
     },
     {
       id: "month-wise",
       title: "Month Wise Attendance",
       subtitle: "Monthly attendance",
-      icon: "05",
+      number: "05",
+      symbol: "MONTH",
     },
   ];
 
@@ -722,9 +684,11 @@ export default function StudentAttendancePage() {
           <div style={styles.loadingIcon}>
             RA
           </div>
+
           <strong>
             Loading Attendance...
           </strong>
+
           <span>
             Please wait while we fetch your
             attendance.
@@ -737,9 +701,13 @@ export default function StudentAttendancePage() {
   return (
     <main style={styles.page}>
       <div style={styles.container}>
+
         {/* HEADER */}
 
-        <header className="attendance-header" style={styles.header}>
+        <header
+          className="attendance-header"
+          style={styles.header}
+        >
           <div style={styles.headerLeft}>
             <div style={styles.smallTitle}>
               RACER ACADEMY
@@ -754,12 +722,15 @@ export default function StudentAttendancePage() {
             </p>
           </div>
 
-          <div className="header-buttons" style={styles.headerButtons}>
+          <div
+            className="header-buttons"
+            style={styles.headerButtons}
+          >
             <Link
               href="/student/dashboard"
               style={styles.backButton}
             >
-              Dashboard
+              ← Dashboard
             </Link>
 
             <button
@@ -797,7 +768,10 @@ export default function StudentAttendancePage() {
                 "Student"}
             </h2>
 
-            <div className="student-meta" style={styles.studentMeta}>
+            <div
+              className="student-meta"
+              style={styles.studentMeta}
+            >
               <span>
                 Username:{" "}
                 {student?.student_username || "—"}
@@ -819,7 +793,10 @@ export default function StudentAttendancePage() {
             </div>
           </div>
 
-          <div className="profile-percentage" style={styles.profilePercentage}>
+          <div
+            className="profile-percentage"
+            style={styles.profilePercentage}
+          >
             <span>OVERALL</span>
             <strong>{percentage}%</strong>
             <small>
@@ -835,6 +812,7 @@ export default function StudentAttendancePage() {
             <strong>
               Attendance Error
             </strong>
+
             <div style={styles.errorText}>
               {error}
             </div>
@@ -843,7 +821,10 @@ export default function StudentAttendancePage() {
 
         {/* TOP SUMMARY */}
 
-        <section className="stats-grid" style={styles.statsGrid}>
+        <section
+          className="stats-grid"
+          style={styles.statsGrid}
+        >
           <StatCard
             label="Total Classes"
             value={totalClasses}
@@ -880,26 +861,39 @@ export default function StudentAttendancePage() {
           />
         </section>
 
-        {/* FIVE ATTENDANCE SECTIONS */}
+        {/* ATTENDANCE MENU */}
 
-        <section style={styles.navigationCard}>
-          <div style={styles.navigationHeading}>
+        <section
+          style={styles.navigationCard}
+        >
+          <div
+            style={styles.navigationHeading}
+          >
             <div>
-              <div style={styles.sectionEyebrow}>
+              <div
+                style={styles.sectionEyebrow}
+              >
                 ATTENDANCE MENU
               </div>
 
-              <h2 style={styles.navigationTitle}>
+              <h2
+                style={styles.navigationTitle}
+              >
                 Attendance Sections
               </h2>
 
-              <p style={styles.sectionSubtitle}>
+              <p
+                style={styles.sectionSubtitle}
+              >
                 Select a section to view your attendance.
               </p>
             </div>
           </div>
 
-          <div className="attendance-tabs" style={styles.tabsGrid}>
+          <div
+            className="attendance-tabs"
+            style={styles.tabsGrid}
+          >
             {tabs.map((tab) => {
               const active =
                 activeTab === tab.id;
@@ -929,10 +923,19 @@ export default function StudentAttendancePage() {
                         : {}),
                     }}
                   >
-                    {tab.icon}
+                    {tab.number}
                   </span>
 
-                  <span style={styles.tabText}>
+                  <span
+                    style={styles.tabText}
+                  >
+                    <span
+                      className="tab-symbol"
+                      style={styles.tabSymbol}
+                    >
+                      {tab.symbol}
+                    </span>
+
                     <strong>
                       {tab.title}
                     </strong>
@@ -953,9 +956,7 @@ export default function StudentAttendancePage() {
           </div>
         </section>
 
-        {/* =====================================================
-            TODAY'S ATTENDANCE
-        ====================================================== */}
+        {/* TODAY */}
 
         {activeTab === "today" && (
           <section style={styles.contentCard}>
@@ -979,9 +980,14 @@ export default function StudentAttendancePage() {
               }
             />
 
-            <div className="date-control" style={styles.dateControl}>
+            <div
+              className="date-control"
+              style={styles.dateControl}
+            >
               <div>
-                <label style={styles.inputLabel}>
+                <label
+                  style={styles.inputLabel}
+                >
                   Select Date
                 </label>
 
@@ -997,15 +1003,18 @@ export default function StudentAttendancePage() {
                 />
               </div>
 
-              <div style={styles.todaySummary}>
-                <div>
+              <div
+                className="today-summary"
+                style={styles.todaySummary}
+              >
+                <div style={styles.summaryBox}>
                   <span>RECORDS</span>
                   <strong>
                     {todayRecords.length}
                   </strong>
                 </div>
 
-                <div>
+                <div style={styles.summaryBox}>
                   <span>PRESENT</span>
                   <strong
                     style={{
@@ -1016,7 +1025,7 @@ export default function StudentAttendancePage() {
                   </strong>
                 </div>
 
-                <div>
+                <div style={styles.summaryBox}>
                   <span>ABSENT</span>
                   <strong
                     style={{
@@ -1043,9 +1052,7 @@ export default function StudentAttendancePage() {
           </section>
         )}
 
-        {/* =====================================================
-            DATE WISE / PERIOD WISE
-        ====================================================== */}
+        {/* DATE WISE */}
 
         {activeTab === "date-wise" && (
           <section style={styles.contentCard}>
@@ -1071,7 +1078,9 @@ export default function StudentAttendancePage() {
 
             <div style={styles.filterBar}>
               <div>
-                <label style={styles.inputLabel}>
+                <label
+                  style={styles.inputLabel}
+                >
                   Attendance Date
                 </label>
 
@@ -1087,7 +1096,9 @@ export default function StudentAttendancePage() {
                 />
               </div>
 
-              <div style={styles.selectedDateInfo}>
+              <div
+                style={styles.selectedDateInfo}
+              >
                 <span>
                   SELECTED DATE
                 </span>
@@ -1120,16 +1131,13 @@ export default function StudentAttendancePage() {
               </strong>
 
               <span>
-                This portal currently stores attendance by date. No period or subject
-                information is invented when it is not available in the database.
+                This portal currently stores attendance by date. No period or subject information is invented when it is not available in the database.
               </span>
             </div>
           </section>
         )}
 
-        {/* =====================================================
-            EXTRA CLASS
-        ====================================================== */}
+        {/* EXTRA CLASS */}
 
         {activeTab === "extra-class" && (
           <section style={styles.contentCard}>
@@ -1302,9 +1310,7 @@ export default function StudentAttendancePage() {
           </section>
         )}
 
-        {/* =====================================================
-            REPORTING
-        ====================================================== */}
+        {/* REPORTING */}
 
         {activeTab === "reporting" && (
           <section style={styles.contentCard}>
@@ -1314,8 +1320,12 @@ export default function StudentAttendancePage() {
               subtitle="Monthly reporting starts from your admission date."
             />
 
-            <div style={styles.admissionBanner}>
-              <div style={styles.admissionIcon}>
+            <div
+              style={styles.admissionBanner}
+            >
+              <div
+                style={styles.admissionIcon}
+              >
                 AD
               </div>
 
@@ -1348,16 +1358,22 @@ export default function StudentAttendancePage() {
               <>
                 <div
                   className="report-summary-grid"
-                  style={styles.reportSummaryGrid}
+                  style={
+                    styles.reportSummaryGrid
+                  }
                 >
                   <MiniMetric
                     label="Months"
-                    value={monthlyReports.length}
+                    value={
+                      monthlyReports.length
+                    }
                   />
 
                   <MiniMetric
                     label="Total Classes"
-                    value={reportingRecords.length}
+                    value={
+                      reportingRecords.length
+                    }
                   />
 
                   <MiniMetric
@@ -1403,7 +1419,11 @@ export default function StudentAttendancePage() {
                             styles.reportMonthHeader
                           }
                         >
-                          <div>
+                          <div
+                            style={
+                              styles.reportMonthLeft
+                            }
+                          >
                             <span
                               style={
                                 styles.monthNumber
@@ -1524,9 +1544,7 @@ export default function StudentAttendancePage() {
           </section>
         )}
 
-        {/* =====================================================
-            MONTH WISE
-        ====================================================== */}
+        {/* MONTH WISE */}
 
         {activeTab === "month-wise" && (
           <section style={styles.contentCard}>
@@ -1552,7 +1570,9 @@ export default function StudentAttendancePage() {
 
             <div style={styles.filterBar}>
               <div>
-                <label style={styles.inputLabel}>
+                <label
+                  style={styles.inputLabel}
+                >
                   Select Month
                 </label>
 
@@ -1577,7 +1597,9 @@ export default function StudentAttendancePage() {
                 />
               </div>
 
-              <div style={styles.selectedDateInfo}>
+              <div
+                style={styles.selectedDateInfo}
+              >
                 <span>
                   SELECTED MONTH
                 </span>
@@ -1692,43 +1714,71 @@ export default function StudentAttendancePage() {
             background 0.18s ease;
         }
 
+        .attendance-tab strong {
+          color: #0f172a !important;
+          font-size: 12px;
+          font-weight: 900;
+          line-height: 1.25;
+          display: block;
+        }
+
+        .attendance-tab small {
+          color: #475569 !important;
+          font-size: 9px;
+          font-weight: 700;
+          line-height: 1.3;
+          display: block;
+        }
+
+        .attendance-tab.active strong {
+          color: #172554 !important;
+        }
+
+        .attendance-tab.active small {
+          color: #334155 !important;
+        }
+
+        .attendance-tab:hover strong,
+        .attendance-tab:hover small {
+          color: #0f172a !important;
+        }
+
         .attendance-tab:hover {
-          transform: translateY(-2px);
+          transform: translateY(-3px);
           box-shadow:
-            0 8px 20px rgba(15, 23, 42, 0.08);
+            0 12px 28px rgba(15, 23, 42, 0.12);
         }
 
         .attendance-tab.active {
-          transform: translateY(-1px);
+          transform: translateY(-2px);
+        }
+
+        @media (max-width: 1050px) {
+          .attendance-tabs {
+            grid-template-columns:
+              repeat(3, minmax(0, 1fr)) !important;
+          }
         }
 
         @media (max-width: 900px) {
           .stats-grid {
-            grid-template-columns: repeat(
-              2,
-              minmax(0, 1fr)
-            ) !important;
+            grid-template-columns:
+              repeat(2, minmax(0, 1fr)) !important;
           }
 
           .attendance-tabs {
-            grid-template-columns: repeat(
-              2,
-              minmax(0, 1fr)
-            ) !important;
+            grid-template-columns:
+              repeat(2, minmax(0, 1fr)) !important;
           }
 
           .extra-detail-grid {
-            grid-template-columns: repeat(
-              2,
-              minmax(0, 1fr)
-            ) !important;
+            grid-template-columns:
+              repeat(2, minmax(0, 1fr)) !important;
           }
 
           .report-stats {
-            grid-template-columns: repeat(
-              3,
-              minmax(0, 1fr)
-            ) !important;
+            grid-template-columns:
+              repeat(3, minmax(0, 1fr)) !important;
           }
         }
 
@@ -1763,11 +1813,26 @@ export default function StudentAttendancePage() {
           }
 
           .stats-grid {
-            grid-template-columns: 1fr 1fr !important;
+            grid-template-columns:
+              1fr 1fr !important;
           }
 
           .attendance-tabs {
-            grid-template-columns: 1fr !important;
+            grid-template-columns:
+              1fr !important;
+          }
+
+          .attendance-tab {
+            min-height: 82px !important;
+            padding: 13px !important;
+          }
+
+          .attendance-tab strong {
+            font-size: 12px !important;
+          }
+
+          .attendance-tab small {
+            font-size: 9px !important;
           }
 
           .date-control {
@@ -1791,7 +1856,8 @@ export default function StudentAttendancePage() {
           .extra-summary-grid,
           .report-summary-grid,
           .month-summary-grid {
-            grid-template-columns: 1fr 1fr !important;
+            grid-template-columns:
+              1fr 1fr !important;
           }
 
           .report-month-header {
@@ -1799,10 +1865,8 @@ export default function StudentAttendancePage() {
           }
 
           .report-stats {
-            grid-template-columns: repeat(
-              2,
-              minmax(0, 1fr)
-            ) !important;
+            grid-template-columns:
+              repeat(2, minmax(0, 1fr)) !important;
           }
 
           .extra-card-header {
@@ -1816,21 +1880,25 @@ export default function StudentAttendancePage() {
           }
 
           .stats-grid {
-            grid-template-columns: 1fr !important;
+            grid-template-columns:
+              1fr !important;
           }
 
           .extra-summary-grid,
           .report-summary-grid,
           .month-summary-grid {
-            grid-template-columns: 1fr 1fr !important;
+            grid-template-columns:
+              1fr 1fr !important;
           }
 
           .extra-detail-grid {
-            grid-template-columns: 1fr 1fr !important;
+            grid-template-columns:
+              1fr 1fr !important;
           }
 
           .report-stats {
-            grid-template-columns: 1fr 1fr !important;
+            grid-template-columns:
+              1fr 1fr !important;
           }
 
           .attendance-header {
@@ -1843,6 +1911,12 @@ export default function StudentAttendancePage() {
 
           .content-card-mobile {
             padding: 16px !important;
+          }
+
+          .tab-number {
+            width: 40px !important;
+            min-width: 40px !important;
+            height: 40px !important;
           }
         }
       `}</style>
@@ -1968,6 +2042,7 @@ function MiniMetric({
   return (
     <div style={styles.miniMetric}>
       <span>{label}</span>
+
       <strong style={{ color }}>
         {value}
       </strong>
@@ -1987,6 +2062,7 @@ function ReportMetric({
   return (
     <div style={styles.reportMetric}>
       <span>{label}</span>
+
       <strong style={{ color }}>
         {value}
       </strong>
@@ -2004,6 +2080,7 @@ function InfoItem({
   return (
     <div style={styles.infoItem}>
       <span>{label}</span>
+
       <strong>{value}</strong>
     </div>
   );
@@ -2132,9 +2209,11 @@ function AttendanceRecordList({
                   {isPresent(
                     record.status
                   ) && "✓ "}
+
                   {isAbsent(
                     record.status
                   ) && "✕ "}
+
                   {record.status}
                 </span>
               </div>
@@ -2224,9 +2303,11 @@ function getLocalDateString() {
   const now = new Date();
 
   const year = now.getFullYear();
+
   const month = String(
     now.getMonth() + 1
   ).padStart(2, "0");
+
   const day = String(
     now.getDate()
   ).padStart(2, "0");
@@ -2328,8 +2409,8 @@ const styles: Record<
 
   header: {
     background:
-      "rgba(255,255,255,0.94)",
-    border: "1px solid #e2e8f0",
+      "rgba(255,255,255,0.97)",
+    border: "1px solid #dbe3ef",
     borderRadius: "22px",
     padding: "22px 24px",
     display: "flex",
@@ -2364,7 +2445,7 @@ const styles: Record<
 
   subtitle: {
     margin: "6px 0 0",
-    color: "#64748b",
+    color: "#475569",
     fontSize: "13px",
   },
 
@@ -2378,7 +2459,7 @@ const styles: Record<
   backButton: {
     textDecoration: "none",
     background: "#1e3a8a",
-    color: "white",
+    color: "#ffffff",
     padding: "11px 17px",
     borderRadius: "11px",
     fontWeight: "800",
@@ -2391,7 +2472,7 @@ const styles: Record<
   logoutButton: {
     border: "none",
     background: "#dc2626",
-    color: "white",
+    color: "#ffffff",
     padding: "11px 17px",
     borderRadius: "11px",
     fontWeight: "800",
@@ -2402,7 +2483,7 @@ const styles: Record<
   studentCard: {
     background:
       "linear-gradient(135deg,#172554 0%,#1d4ed8 55%,#4f46e5 100%)",
-    color: "white",
+    color: "#ffffff",
     borderRadius: "22px",
     padding: "25px",
     display: "flex",
@@ -2466,8 +2547,7 @@ const styles: Record<
   profilePercentage: {
     minWidth: "110px",
     marginLeft: "auto",
-    padding:
-      "13px 15px",
+    padding: "13px 15px",
     borderRadius: "15px",
     background:
       "rgba(255,255,255,0.11)",
@@ -2483,9 +2563,9 @@ const styles: Record<
   },
 
   statCard: {
-    background: "white",
+    background: "#ffffff",
     border:
-      "1px solid #e2e8f0",
+      "1px solid #dbe3ef",
     borderRadius: "18px",
     padding: "17px",
     display: "flex",
@@ -2510,7 +2590,7 @@ const styles: Record<
 
   statLabel: {
     margin: 0,
-    color: "#64748b",
+    color: "#475569",
     fontSize: "11px",
     fontWeight: "800",
   },
@@ -2524,30 +2604,30 @@ const styles: Record<
   statSmall: {
     display: "block",
     marginTop: "3px",
-    color: "#94a3b8",
+    color: "#64748b",
     fontSize: "8px",
     lineHeight: 1.4,
   },
 
   navigationCard: {
-    background: "white",
+    background: "#ffffff",
     border:
-      "1px solid #e2e8f0",
+      "1px solid #dbe3ef",
     borderRadius: "22px",
     padding: "22px",
     marginBottom: "18px",
     boxShadow:
-      "0 8px 25px rgba(15,23,42,0.06)",
+      "0 8px 25px rgba(15,23,42,0.07)",
   },
 
   navigationHeading: {
-    marginBottom: "15px",
+    marginBottom: "16px",
   },
 
   navigationTitle: {
-    margin: "2px 0 0",
-    color: "#172554",
-    fontSize: "21px",
+    margin: "3px 0 0",
+    color: "#0f172a",
+    fontSize: "22px",
     fontWeight: "900",
   },
 
@@ -2562,69 +2642,88 @@ const styles: Record<
     display: "grid",
     gridTemplateColumns:
       "repeat(5,minmax(0,1fr))",
-    gap: "10px",
+    gap: "12px",
   },
 
   tabButton: {
     border:
-      "1px solid #e2e8f0",
-    background: "#f8fafc",
-    borderRadius: "15px",
-    padding: "12px",
+      "1px solid #cbd5e1",
+    background:
+      "linear-gradient(145deg,#ffffff 0%,#f8fafc 100%)",
+    borderRadius: "17px",
+    padding: "15px 13px",
+    minHeight: "92px",
     display: "flex",
     alignItems: "center",
-    gap: "9px",
+    gap: "10px",
     textAlign: "left",
     cursor: "pointer",
     minWidth: 0,
+    color: "#0f172a",
+    boxShadow:
+      "0 5px 15px rgba(15,23,42,0.07)",
   },
 
   activeTabButton: {
     border:
-      "1px solid #2563eb",
+      "2px solid #2563eb",
     background:
-      "linear-gradient(135deg,#eff6ff,#eef2ff)",
+      "linear-gradient(145deg,#eff6ff 0%,#dbeafe 100%)",
     boxShadow:
-      "0 7px 18px rgba(37,99,235,0.12)",
+      "0 10px 25px rgba(37,99,235,0.18)",
   },
 
   tabNumber: {
-    width: "34px",
-    height: "34px",
-    minWidth: "34px",
-    borderRadius: "10px",
-    background: "#e2e8f0",
-    color: "#475569",
+    width: "42px",
+    height: "42px",
+    minWidth: "42px",
+    borderRadius: "13px",
+    background:
+      "linear-gradient(135deg,#172554,#2563eb)",
+    color: "#ffffff",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "9px",
+    fontSize: "11px",
     fontWeight: "900",
+    letterSpacing: "0.5px",
+    boxShadow:
+      "0 5px 12px rgba(37,99,235,0.20)",
   },
 
   activeTabNumber: {
-    background: "#2563eb",
-    color: "white",
+    background:
+      "linear-gradient(135deg,#1d4ed8,#4f46e5)",
+    color: "#ffffff",
   },
 
   tabText: {
     display: "flex",
     flexDirection: "column",
-    gap: "2px",
+    gap: "3px",
     minWidth: 0,
     flex: 1,
+    color: "#0f172a",
+  },
+
+  tabSymbol: {
+    color: "#2563eb",
+    fontSize: "7px",
+    fontWeight: "900",
+    letterSpacing: "1px",
   },
 
   tabArrow: {
-    color: "#94a3b8",
-    fontSize: "16px",
+    color: "#1d4ed8",
+    fontSize: "20px",
     fontWeight: "900",
+    lineHeight: 1,
   },
 
   contentCard: {
-    background: "white",
+    background: "#ffffff",
     border:
-      "1px solid #e2e8f0",
+      "1px solid #dbe3ef",
     borderRadius: "22px",
     padding: "24px",
     marginBottom: "18px",
@@ -2643,14 +2742,14 @@ const styles: Record<
 
   sectionTitle: {
     margin: "3px 0 0",
-    color: "#172554",
+    color: "#0f172a",
     fontSize: "22px",
     fontWeight: "900",
   },
 
   sectionSubtitle: {
     margin: "5px 0 0",
-    color: "#64748b",
+    color: "#475569",
     fontSize: "12px",
     lineHeight: 1.5,
   },
@@ -2658,7 +2757,7 @@ const styles: Record<
   refreshButton: {
     border: "none",
     background: "#2563eb",
-    color: "white",
+    color: "#ffffff",
     padding: "10px 15px",
     borderRadius: "10px",
     fontWeight: "800",
@@ -2669,7 +2768,7 @@ const styles: Record<
   dateControl: {
     background: "#f8fafc",
     border:
-      "1px solid #e2e8f0",
+      "1px solid #dbe3ef",
     borderRadius: "15px",
     padding: "14px",
     display: "flex",
@@ -2682,7 +2781,7 @@ const styles: Record<
   filterBar: {
     background: "#f8fafc",
     border:
-      "1px solid #e2e8f0",
+      "1px solid #dbe3ef",
     borderRadius: "15px",
     padding: "14px",
     display: "flex",
@@ -2694,7 +2793,7 @@ const styles: Record<
 
   inputLabel: {
     display: "block",
-    color: "#475569",
+    color: "#334155",
     fontSize: "10px",
     fontWeight: "900",
     marginBottom: "6px",
@@ -2705,8 +2804,8 @@ const styles: Record<
     border:
       "1px solid #cbd5e1",
     borderRadius: "10px",
-    background: "white",
-    color: "#172554",
+    background: "#ffffff",
+    color: "#0f172a",
     padding: "0 12px",
     outline: "none",
     fontWeight: "700",
@@ -2718,13 +2817,21 @@ const styles: Record<
     flexWrap: "wrap",
   },
 
-  todaySummaryItem: {},
+  summaryBox: {
+    minWidth: "75px",
+    background: "#ffffff",
+    border:
+      "1px solid #dbe3ef",
+    borderRadius: "10px",
+    padding: "8px 11px",
+    textAlign: "center",
+  },
 
   selectedDateInfo: {
     minWidth: "190px",
-    background: "white",
+    background: "#ffffff",
     border:
-      "1px solid #e2e8f0",
+      "1px solid #dbe3ef",
     borderRadius: "11px",
     padding: "9px 12px",
   },
@@ -2755,7 +2862,7 @@ const styles: Record<
     gap: "12px",
     padding: "14px",
     border:
-      "1px solid #e2e8f0",
+      "1px solid #dbe3ef",
     borderRadius: "14px",
     background: "#ffffff",
   },
@@ -2795,7 +2902,7 @@ const styles: Record<
 
   recordDate: {
     display: "block",
-    color: "#172554",
+    color: "#0f172a",
     fontSize: "14px",
   },
 
@@ -2812,7 +2919,7 @@ const styles: Record<
     alignItems: "center",
     flexWrap: "wrap",
     gap: "6px",
-    color: "#64748b",
+    color: "#475569",
     fontSize: "10px",
   },
 
@@ -2862,7 +2969,7 @@ const styles: Record<
   miniMetric: {
     background: "#f8fafc",
     border:
-      "1px solid #e2e8f0",
+      "1px solid #dbe3ef",
     borderRadius: "13px",
     padding: "13px",
     textAlign: "center",
@@ -2960,7 +3067,7 @@ const styles: Record<
     minWidth: "45px",
     borderRadius: "13px",
     background: "#2563eb",
-    color: "white",
+    color: "#ffffff",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -2976,7 +3083,7 @@ const styles: Record<
 
   reportMonthCard: {
     border:
-      "1px solid #e2e8f0",
+      "1px solid #dbe3ef",
     borderRadius: "16px",
     padding: "16px",
     background: "#ffffff",
@@ -2987,6 +3094,13 @@ const styles: Record<
     justifyContent: "space-between",
     alignItems: "center",
     gap: "15px",
+  },
+
+  reportMonthLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    minWidth: 0,
   },
 
   monthNumber: {
@@ -3005,7 +3119,7 @@ const styles: Record<
 
   reportMonthTitle: {
     margin: 0,
-    color: "#172554",
+    color: "#0f172a",
     fontSize: "16px",
     fontWeight: "900",
   },
@@ -3013,7 +3127,7 @@ const styles: Record<
   reportMonthSub: {
     display: "block",
     marginTop: "3px",
-    color: "#94a3b8",
+    color: "#64748b",
     fontSize: "9px",
   },
 
@@ -3085,8 +3199,8 @@ const styles: Record<
     height: "50px",
     margin: "0 auto",
     borderRadius: "15px",
-    background: "#f1f5f9",
-    color: "#64748b",
+    background: "#eff6ff",
+    color: "#2563eb",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -3096,20 +3210,20 @@ const styles: Record<
 
   emptyTitle: {
     margin: "10px 0 5px",
-    color: "#172554",
+    color: "#0f172a",
     fontSize: "18px",
   },
 
   emptyText: {
     maxWidth: "550px",
     margin: "0 auto",
-    color: "#64748b",
+    color: "#475569",
     fontSize: "12px",
     lineHeight: 1.5,
   },
 
   loading: {
-    background: "white",
+    background: "#ffffff",
     maxWidth: "380px",
     margin: "100px auto",
     padding: "38px",
@@ -3121,6 +3235,7 @@ const styles: Record<
     gap: "9px",
     boxShadow:
       "0 12px 35px rgba(15,23,42,0.08)",
+    color: "#0f172a",
   },
 
   loadingIcon: {
@@ -3128,7 +3243,7 @@ const styles: Record<
     height: "58px",
     borderRadius: "17px",
     background: "#1d4ed8",
-    color: "white",
+    color: "#ffffff",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -3144,17 +3259,7 @@ const styles: Record<
     justifyContent: "center",
     gap: "7px",
     flexWrap: "wrap",
-    color: "#64748b",
+    color: "#475569",
     fontSize: "10px",
   },
-
-  todaySummaryBox: {},
-
-  infoLabel: {},
-
-  miniMetricLabel: {},
-
-  reportMetricLabel: {},
-
-  profilePercentageLabel: {},
 };
