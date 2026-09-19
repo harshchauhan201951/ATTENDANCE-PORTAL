@@ -1,3 +1,4 @@
+```tsx
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
@@ -175,95 +176,32 @@ function timeText(value: string | null) {
 }
 
 /*
- * Unicode PDF font loader.
+ * PDF font loader.
  *
- * NotoSansDevanagari supports:
- * - Hindi / Devanagari
- * - English / Latin
- * - Numbers
- * - Common punctuation
+ * IMPORTANT:
+ * Do not register any external TTF font here.
  *
- * If the font cannot be loaded or registered, the PDF
- * automatically falls back to Helvetica so that the
- * PDF download itself does not fail.
+ * The previous NotoSansDevanagari addFont() registration
+ * was causing jsPDF to throw:
+ *
+ * Cannot read properties of undefined (reading 'Unicode')
+ *
+ * We now use jsPDF's built-in Helvetica font so that
+ * PDF generation/download remains stable.
  */
 async function loadPdfUnicodeFont(doc: jsPDF) {
-  try {
-    const response = await fetch(
-      "/fonts/NotoSansDevanagari-Regular.ttf",
-      {
-        cache: "force-cache",
-      }
-    );
-
-    if (!response.ok) {
-      console.warn(
-        "Unicode PDF font could not be loaded. Using standard PDF font."
-      );
-
-      doc.setFont("helvetica", "normal");
-
-      return false;
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-
-    let binary = "";
-    const chunkSize = 0x8000;
-
-    for (
-      let index = 0;
-      index < bytes.length;
-      index += chunkSize
-    ) {
-      const chunk = bytes.subarray(
-        index,
-        Math.min(index + chunkSize, bytes.length)
-      );
-
-      binary += String.fromCharCode(...chunk);
-    }
-
-    const base64 = btoa(binary);
-
-    doc.addFileToVFS(
-      "NotoSansDevanagari-Regular.ttf",
-      base64
-    );
-
-    doc.addFont(
-      "NotoSansDevanagari-Regular.ttf",
-      "NotoSansDevanagari",
-      "normal"
-    );
-
-    doc.setFont(
-      "NotoSansDevanagari",
-      "normal"
-    );
-
-    return true;
-  } catch (fontError) {
-    console.warn(
-      "Unicode PDF font failed to initialize. Using standard PDF font.",
-      fontError
-    );
-
-    doc.setFont(
-      "helvetica",
-      "normal"
-    );
-
-    return false;
-  }
+  doc.setFont("helvetica", "normal");
+  return false;
 }
 
 /*
- * Keep Unicode exactly as Unicode.
+ * Keep text safe for PDF generation.
  *
  * IMPORTANT:
- * Do NOT convert Hindi characters to ?.
+ * The PDF now uses jsPDF's built-in Helvetica font.
+ * Therefore Devanagari/Hindi characters may not render
+ * correctly in the generated PDF, but PDF generation
+ * itself will not fail because of custom font metadata.
  */
 function cleanPdfText(value: unknown) {
   const text = String(value ?? "-")
@@ -318,8 +256,11 @@ async function buildResultPdf(
     compress: true,
   });
 
-  const unicodeFontLoaded =
-    await loadPdfUnicodeFont(doc);
+  /*
+   * Keep the existing loader call, but it now only
+   * selects jsPDF's built-in Helvetica font.
+   */
+  await loadPdfUnicodeFont(doc);
 
   const pageWidth =
     doc.internal.pageSize.getWidth();
@@ -336,10 +277,13 @@ async function buildResultPdf(
   function setPdfFont(
     size = 10
   ) {
+    /*
+     * IMPORTANT:
+     * Never use NotoSansDevanagari here.
+     * Never call addFont/addFileToVFS.
+     */
     doc.setFont(
-      unicodeFontLoaded
-        ? "NotoSansDevanagari"
-        : "helvetica",
+      "helvetica",
       "normal"
     );
 
@@ -1044,9 +988,7 @@ async function buildResultPdf(
   );
 
   doc.setFont(
-    unicodeFontLoaded
-      ? "NotoSansDevanagari"
-      : "helvetica",
+    "helvetica",
     "normal"
   );
 
@@ -1222,9 +1164,7 @@ function ResultsContent() {
   const [
     questionReviews,
     setQuestionReviews,
-  ] = useState<QuestionReview[]>(
-    []
-  );
+  ] = useState<QuestionReview[]>([]);
 
   const [
     teacherName,
@@ -1792,7 +1732,7 @@ function ResultsContent() {
   ) {
     if (
       quiz.id ===
-      selectedQuiz?.id &&
+        selectedQuiz?.id &&
       teacherName
     ) {
       return teacherName;
@@ -2711,3 +2651,4 @@ export default function StudentQuizResultsPage() {
     </Suspense>
   );
 }
+```
