@@ -27,12 +27,10 @@ export default function StudentDashboardPage() {
   const [studentName, setStudentName] = useState("Student");
   const [username, setUsername] = useState("");
   const [studentId, setStudentId] = useState<number | null>(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [time, setTime] = useState("");
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [announcementLoading, setAnnouncementLoading] =
-    useState(true);
+  const [announcementLoading, setAnnouncementLoading] = useState(true);
   const [likingId, setLikingId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -57,11 +55,6 @@ export default function StudentDashboardPage() {
   }, [announcements.length]);
 
   async function initializeStudent() {
-    const loggedIn =
-      localStorage.getItem("studentLoggedIn") === "true";
-
-    setIsLoggedIn(loggedIn);
-
     const name =
       localStorage.getItem("studentName") ||
       localStorage.getItem("student_name") ||
@@ -72,79 +65,43 @@ export default function StudentDashboardPage() {
       localStorage.getItem("studentUsername") ||
       "";
 
-    const savedStudentId =
-      localStorage.getItem("studentId");
+    const savedStudentId = localStorage.getItem("studentId");
 
     setStudentName(name);
     setUsername(savedUsername);
 
-    if (!loggedIn) {
-      setStudentId(null);
-      setProfileImage(null);
-      setStudentName("Student");
-      setUsername("");
-
-      await loadAnnouncements(null);
-      return;
-    }
-
     if (savedUsername) {
-      const resolvedId =
-        await resolveStudentId(savedUsername);
+      const resolvedId = await resolveStudentId(savedUsername);
 
       if (resolvedId !== null) {
         setStudentId(resolvedId);
 
-        localStorage.setItem(
-          "studentId",
-          String(resolvedId)
-        );
+        localStorage.setItem("studentId", String(resolvedId));
 
-        await loadStudentProfile(
-          resolvedId,
-          savedUsername
-        );
-
+        await loadStudentProfile(resolvedId, savedUsername);
         await loadAnnouncements(resolvedId);
-
-        await registerPushNotifications(
-          resolvedId
-        );
+        await registerPushNotifications(resolvedId);
 
         return;
       }
     }
 
     if (savedStudentId) {
-      const parsedId =
-        Number(savedStudentId);
+      const parsedId = Number(savedStudentId);
 
-      if (
-        !Number.isNaN(parsedId) &&
-        parsedId > 0
-      ) {
+      if (!Number.isNaN(parsedId) && parsedId > 0) {
         setStudentId(parsedId);
 
-        await loadStudentProfile(
-          parsedId,
-          savedUsername
-        );
-
+        await loadStudentProfile(parsedId, savedUsername);
         await loadAnnouncements(parsedId);
-
-        await registerPushNotifications(
-          parsedId
-        );
+        await registerPushNotifications(parsedId);
 
         return;
       }
     }
 
-    setIsLoggedIn(false);
     setStudentId(null);
     setProfileImage(null);
-    setStudentName("Student");
-    setUsername("");
 
     await loadAnnouncements(null);
   }
@@ -156,18 +113,11 @@ export default function StudentDashboardPage() {
       const { data, error } = await supabase
         .from("students")
         .select("id")
-        .eq(
-          "student_username",
-          studentUsername
-        )
+        .eq("student_username", studentUsername)
         .maybeSingle();
 
       if (error) {
-        console.error(
-          "Student ID lookup error:",
-          error
-        );
-
+        console.error("Student ID lookup error:", error);
         return null;
       }
 
@@ -176,7 +126,6 @@ export default function StudentDashboardPage() {
           "Student ID not found for username:",
           studentUsername
         );
-
         return null;
       }
 
@@ -201,10 +150,7 @@ export default function StudentDashboardPage() {
         .select("profile_image_url");
 
       if (currentStudentId) {
-        query = query.eq(
-          "id",
-          currentStudentId
-        );
+        query = query.eq("id", currentStudentId);
       } else if (currentUsername) {
         query = query.eq(
           "student_username",
@@ -215,8 +161,7 @@ export default function StudentDashboardPage() {
         return;
       }
 
-      const { data, error } =
-        await query.maybeSingle();
+      const { data, error } = await query.maybeSingle();
 
       if (error) {
         console.error(
@@ -234,8 +179,7 @@ export default function StudentDashboardPage() {
       }
 
       const imageUrl =
-        typeof data.profile_image_url ===
-          "string" &&
+        typeof data.profile_image_url === "string" &&
         data.profile_image_url.trim() !== ""
           ? data.profile_image_url.trim()
           : null;
@@ -263,7 +207,6 @@ export default function StudentDashboardPage() {
         console.warn(
           "Service Worker is not supported by this browser."
         );
-
         return;
       }
 
@@ -271,7 +214,6 @@ export default function StudentDashboardPage() {
         console.warn(
           "Push notifications are not supported by this browser."
         );
-
         return;
       }
 
@@ -279,16 +221,12 @@ export default function StudentDashboardPage() {
         console.warn(
           "Notifications are not supported by this browser."
         );
-
         return;
       }
 
-      await navigator.serviceWorker.register(
-        "/sw.js",
-        {
-          scope: "/",
-        }
-      );
+      await navigator.serviceWorker.register("/sw.js", {
+        scope: "/",
+      });
 
       const registration =
         await navigator.serviceWorker.ready;
@@ -297,7 +235,6 @@ export default function StudentDashboardPage() {
         console.warn(
           "Service Worker is still not active."
         );
-
         return;
       }
 
@@ -313,7 +250,6 @@ export default function StudentDashboardPage() {
         console.warn(
           "Notification permission was not granted."
         );
-
         return;
       }
 
@@ -322,14 +258,12 @@ export default function StudentDashboardPage() {
 
       if (!subscription) {
         const vapidPublicKey =
-          process.env
-            .NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+          process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
         if (!vapidPublicKey) {
           console.error(
             "NEXT_PUBLIC_VAPID_PUBLIC_KEY is missing."
           );
-
           return;
         }
 
@@ -348,12 +282,10 @@ export default function StudentDashboardPage() {
         ).set(decodedKey);
 
         subscription =
-          await registration.pushManager.subscribe(
-            {
-              userVisibleOnly: true,
-              applicationServerKey,
-            }
-          );
+          await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey,
+          });
       }
 
       const response = await fetch(
@@ -361,12 +293,10 @@ export default function StudentDashboardPage() {
         {
           method: "POST",
           headers: {
-            "Content-Type":
-              "application/json",
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            studentId:
-              currentStudentId,
+            studentId: currentStudentId,
             subscription:
               subscription.toJSON(),
           }),
@@ -396,7 +326,6 @@ export default function StudentDashboardPage() {
         console.warn(
           "Push subscription was aborted because the Service Worker was not ready."
         );
-
         return;
       }
 
@@ -412,15 +341,11 @@ export default function StudentDashboardPage() {
   ): Uint8Array {
     const padding =
       "=".repeat(
-        (4 -
-          (base64String.length % 4)) %
-          4
+        (4 - (base64String.length % 4)) % 4
       );
 
     const base64 =
-      (
-        base64String + padding
-      )
+      (base64String + padding)
         .replace(/-/g, "+")
         .replace(/_/g, "/");
 
@@ -428,9 +353,7 @@ export default function StudentDashboardPage() {
       window.atob(base64);
 
     const outputArray =
-      new Uint8Array(
-        rawData.length
-      );
+      new Uint8Array(rawData.length);
 
     for (
       let i = 0;
@@ -519,8 +442,7 @@ export default function StudentDashboardPage() {
         );
       }
 
-      const likes =
-        likesData || [];
+      const likes = likesData || [];
 
       const formattedAnnouncements =
         announcementRows.map(
@@ -586,8 +508,7 @@ export default function StudentDashboardPage() {
 
     if (
       !currentStudentId &&
-      username &&
-      isLoggedIn
+      username
     ) {
       const resolvedId =
         await resolveStudentId(
@@ -609,9 +530,9 @@ export default function StudentDashboardPage() {
       }
     }
 
-    if (!currentStudentId || !isLoggedIn) {
+    if (!currentStudentId) {
       alert(
-        "Please login to like an announcement."
+        "Student information could not be found. Please login again."
       );
 
       return;
@@ -681,8 +602,7 @@ export default function StudentDashboardPage() {
                       likeCount:
                         Math.max(
                           0,
-                          item.likeCount -
-                            1
+                          item.likeCount - 1
                         ),
                     }
                   : item
@@ -754,12 +674,6 @@ export default function StudentDashboardPage() {
   }
 
   function logout() {
-    setIsLoggedIn(false);
-    setStudentId(null);
-    setStudentName("Student");
-    setUsername("");
-    setProfileImage(null);
-
     localStorage.removeItem(
       "studentLoggedIn"
     );
@@ -857,6 +771,12 @@ export default function StudentDashboardPage() {
       .charAt(0)
       .toUpperCase();
 
+  /*
+   * STUDENT DASHBOARD CARDS
+   *
+   * Existing 7 options are preserved.
+   * QUIZ TESTS is added as option number 8.
+   */
   const cards: DashboardCard[] =
     [
       {
@@ -922,14 +842,6 @@ export default function StudentDashboardPage() {
           "Attempt scheduled quizzes, view your scores and quiz history.",
         path: "/student/quiz-tests",
         className: "quiz",
-      },
-      {
-        icon: "🗓️",
-        title: "Timetable",
-        description:
-          "View your class-wise daily timetable and teacher schedule.",
-        path: "/student/timetable",
-        className: "timetable",
       },
     ];
 
@@ -1462,16 +1374,14 @@ export default function StudentDashboardPage() {
                 🕒 {time}
               </div>
 
-              {isLoggedIn && (
-                <button
-                  type="button"
-                  onClick={logout}
-                  className="student-logout"
-                  style={styles.logoutButton}
-                >
-                  Logout
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={logout}
+                className="student-logout"
+                style={styles.logoutButton}
+              >
+                Logout
+              </button>
             </div>
           </nav>
 
@@ -1504,9 +1414,7 @@ export default function StudentDashboardPage() {
                 )}
               </div>
 
-              <div
-                style={styles.welcomeArea}
-              >
+              <div style={styles.welcomeArea}>
                 <div
                   className="student-small-greeting"
                   style={styles.smallGreeting}
@@ -1518,9 +1426,7 @@ export default function StudentDashboardPage() {
                   className="student-welcome-title"
                   style={styles.welcomeTitle}
                 >
-                  {isLoggedIn
-                    ? `Welcome, ${studentName}`
-                    : "Welcome, Student"}
+                  Welcome, {studentName}
                 </h1>
 
                 <p
@@ -1534,17 +1440,14 @@ export default function StudentDashboardPage() {
                   one place.
                 </p>
 
-                {isLoggedIn &&
-                  username && (
-                    <div
-                      className="student-username"
-                      style={
-                        styles.usernameBadge
-                      }
-                    >
-                      Username: {username}
-                    </div>
-                  )}
+                {username && (
+                  <div
+                    className="student-username"
+                    style={styles.usernameBadge}
+                  >
+                    Username: {username}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1562,18 +1465,14 @@ export default function StudentDashboardPage() {
                   className="student-online-text"
                   style={styles.onlineText}
                 >
-                  {isLoggedIn
-                    ? "ACCOUNT ACTIVE"
-                    : "STUDENT PORTAL"}
+                  ACCOUNT ACTIVE
                 </div>
 
                 <div
                   className="student-online-sub"
                   style={styles.onlineSub}
                 >
-                  {isLoggedIn
-                    ? "Student Portal"
-                    : "Announcements Available"}
+                  Student Portal
                 </div>
               </div>
             </div>
@@ -1734,52 +1633,50 @@ export default function StudentDashboardPage() {
                       👥 For all students
                     </div>
 
-                    {isLoggedIn && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          toggleLike(
-                            latestAnnouncement.id
-                          )
-                        }
-                        disabled={
+                    <button
+                      type="button"
+                      onClick={() =>
+                        toggleLike(
+                          latestAnnouncement.id
+                        )
+                      }
+                      disabled={
+                        likingId ===
+                        latestAnnouncement.id
+                      }
+                      className="student-like-button"
+                      style={{
+                        ...styles.likeButton,
+                        ...(latestAnnouncement.likedByMe
+                          ? styles.likeButtonActive
+                          : {}),
+                        opacity:
                           likingId ===
                           latestAnnouncement.id
-                        }
-                        className="student-like-button"
-                        style={{
-                          ...styles.likeButton,
-                          ...(latestAnnouncement.likedByMe
-                            ? styles.likeButtonActive
-                            : {}),
-                          opacity:
-                            likingId ===
-                            latestAnnouncement.id
-                              ? 0.65
-                              : 1,
-                          cursor:
-                            likingId ===
-                            latestAnnouncement.id
-                              ? "not-allowed"
-                              : "pointer",
-                        }}
-                      >
-                        {latestAnnouncement.likedByMe
-                          ? "❤️ Liked"
-                          : "🤍 Like"}
+                            ? 0.65
+                            : 1,
+                        cursor:
+                          likingId ===
+                          latestAnnouncement.id
+                            ? "not-allowed"
+                            : "pointer",
+                      }}
+                    >
+                      {latestAnnouncement.likedByMe
+                        ? "❤️ Liked"
+                        : "🤍 Like"}
 
-                        <span
-                          className="student-like-count"
-                          style={
-                            styles.likeCount
-                          }
-                        >
-                          {
-                            latestAnnouncement.likeCount
-                          }
-                        </span>
-                      </button>
-                    )}
+                      <span
+                        className="student-like-count"
+                        style={
+                          styles.likeCount
+                        }
+                      >
+                        {
+                          latestAnnouncement.likeCount
+                        }
+                      </span>
+                    </button>
                   </div>
                 </article>
               </section>
@@ -2714,14 +2611,12 @@ const styles: {
       "linear-gradient(135deg,#cffafe,#a5f3fc)",
   },
 
+  /*
+   * QUIZ TESTS CARD DESIGN
+   */
   cardQuiz: {
     background:
       "linear-gradient(135deg,#fef9c3,#fde68a)",
-  },
-
-  cardTimetable: {
-    background:
-      "linear-gradient(135deg,#dbeafe,#bfdbfe)",
   },
 
   cardIcon: {

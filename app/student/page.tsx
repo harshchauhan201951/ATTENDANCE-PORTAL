@@ -4,6 +4,14 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 
+type DashboardCard = {
+  icon: string;
+  title: string;
+  description: string;
+  path: string;
+  className: string;
+};
+
 type Announcement = {
   id: number;
   title: string;
@@ -11,21 +19,6 @@ type Announcement = {
   created_at: string;
   likeCount: number;
   likedByMe: boolean;
-};
-
-type Service = {
-  icon: string;
-  title: string;
-  description: string;
-  path: string;
-  section: string;
-};
-
-type QuickStat = {
-  label: string;
-  value: string;
-  description: string;
-  path: string;
 };
 
 export default function StudentDashboardPage() {
@@ -38,11 +31,13 @@ export default function StudentDashboardPage() {
 
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [announcementLoading, setAnnouncementLoading] = useState(true);
-  const [announcementOpen, setAnnouncementOpen] = useState(false);
   const [likingId, setLikingId] = useState<number | null>(null);
+
+  const [announcementOpen, setAnnouncementOpen] = useState(false);
 
   useEffect(() => {
     initializeStudent();
+
     updateTime();
 
     const interval = setInterval(updateTime, 1000);
@@ -61,15 +56,13 @@ export default function StudentDashboardPage() {
       localStorage.getItem("studentUsername") ||
       "";
 
-    const savedStudentId =
-      localStorage.getItem("studentId");
+    const savedStudentId = localStorage.getItem("studentId");
 
     setStudentName(name);
     setUsername(savedUsername);
 
     if (savedUsername) {
-      const resolvedId =
-        await resolveStudentId(savedUsername);
+      const resolvedId = await resolveStudentId(savedUsername);
 
       if (resolvedId !== null) {
         setStudentId(resolvedId);
@@ -81,6 +74,7 @@ export default function StudentDashboardPage() {
 
         await loadAnnouncements(resolvedId);
         await registerPushNotifications(resolvedId);
+
         return;
       }
     }
@@ -93,9 +87,12 @@ export default function StudentDashboardPage() {
 
         await loadAnnouncements(parsedId);
         await registerPushNotifications(parsedId);
+
         return;
       }
     }
+
+    setStudentId(null);
 
     await loadAnnouncements(null);
   }
@@ -115,28 +112,77 @@ export default function StudentDashboardPage() {
           "Student ID lookup error:",
           error
         );
+
         return null;
       }
 
-      return data?.id ? Number(data.id) : null;
+      if (!data?.id) {
+        console.error(
+          "Student ID not found for username:",
+          studentUsername
+        );
+
+        return null;
+      }
+
+      return Number(data.id);
     } catch (error) {
-      console.error(error);
+      console.error(
+        "Unexpected student ID lookup error:",
+        error
+      );
+
       return null;
     }
   }
+
+  /*
+   * =====================================================
+   * PUSH NOTIFICATION REGISTRATION
+   * =====================================================
+   */
 
   async function registerPushNotifications(
     currentStudentId: number
   ) {
     try {
-      if (typeof window === "undefined") return;
+      if (typeof window === "undefined") {
+        return;
+      }
 
-      if (!("serviceWorker" in navigator)) return;
-      if (!("PushManager" in window)) return;
-      if (!("Notification" in window)) return;
+      if (!("serviceWorker" in navigator)) {
+        console.warn(
+          "Service Worker is not supported by this browser."
+        );
+
+        return;
+      }
+
+      if (!("PushManager" in window)) {
+        console.warn(
+          "Push notifications are not supported by this browser."
+        );
+
+        return;
+      }
+
+      if (!("Notification" in window)) {
+        console.warn(
+          "Notifications are not supported by this browser."
+        );
+
+        return;
+      }
 
       const registration =
-        await navigator.serviceWorker.register("/sw.js");
+        await navigator.serviceWorker.register(
+          "/sw.js"
+        );
+
+      console.log(
+        "Push service worker registered:",
+        registration.scope
+      );
 
       let permission = Notification.permission;
 
@@ -145,40 +191,76 @@ export default function StudentDashboardPage() {
           await Notification.requestPermission();
       }
 
-      if (permission !== "granted") return;
+      if (permission !== "granted") {
+        console.warn(
+          "Notification permission was not granted."
+        );
+
+        return;
+      }
 
       let subscription =
         await registration.pushManager.getSubscription();
 
       if (!subscription) {
         const vapidPublicKey =
-          process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+          process.env
+            .NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
-        if (!vapidPublicKey) return;
+        if (!vapidPublicKey) {
+          console.error(
+            "NEXT_PUBLIC_VAPID_PUBLIC_KEY is missing."
+          );
+
+          return;
+        }
+
+        const applicationServerKey =
+          urlBase64ToArrayBuffer(
+            vapidPublicKey
+          );
 
         subscription =
           await registration.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey:
-              urlBase64ToArrayBuffer(
-                vapidPublicKey
-              ),
+            applicationServerKey,
           });
       }
 
-      await fetch("/api/push/subscribe", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          studentId: currentStudentId,
-          subscription: subscription.toJSON(),
-        }),
-      });
+      const response = await fetch(
+        "/api/push/subscribe",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            studentId: currentStudentId,
+            subscription:
+              subscription.toJSON(),
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText =
+          await response.text();
+
+        console.error(
+          "Push subscription API error:",
+          errorText
+        );
+
+        return;
+      }
+
+      console.log(
+        "Student push notification registration completed."
+      );
     } catch (error) {
       console.error(
-        "Push registration error:",
+        "Push notification registration error:",
         error
       );
     }
@@ -189,7 +271,9 @@ export default function StudentDashboardPage() {
   ): ArrayBuffer {
     const padding =
       "=".repeat(
-        (4 - (base64String.length % 4)) % 4
+        (4 -
+          (base64String.length % 4)) %
+          4
       );
 
     const base64 = (
@@ -198,12 +282,19 @@ export default function StudentDashboardPage() {
       .replace(/-/g, "+")
       .replace(/_/g, "/");
 
-    const rawData = window.atob(base64);
+    const rawData =
+      window.atob(base64);
 
     const outputArray =
-      new Uint8Array(rawData.length);
+      new Uint8Array(
+        rawData.length
+      );
 
-    for (let i = 0; i < rawData.length; i++) {
+    for (
+      let i = 0;
+      i < rawData.length;
+      i++
+    ) {
       outputArray[i] =
         rawData.charCodeAt(i);
     }
@@ -224,6 +315,12 @@ export default function StudentDashboardPage() {
     );
   }
 
+  /*
+   * =====================================================
+   * LOAD ANNOUNCEMENTS
+   * =====================================================
+   */
+
   async function loadAnnouncements(
     currentStudentId: number | null
   ) {
@@ -243,87 +340,144 @@ export default function StudentDashboardPage() {
         });
 
       if (announcementError) {
-        console.error(announcementError);
+        console.error(
+          "Announcements loading error:",
+          announcementError
+        );
+
         setAnnouncements([]);
+
         return;
       }
 
-      const rows = announcementData || [];
+      const announcementRows =
+        announcementData || [];
 
-      if (rows.length === 0) {
+      if (announcementRows.length === 0) {
         setAnnouncements([]);
+
         return;
       }
 
-      const ids = rows.map(
-        (item) => item.id
-      );
+      const announcementIds =
+        announcementRows.map(
+          (announcement) =>
+            announcement.id
+        );
 
-      const { data: likesData } =
-        await supabase
-          .from("announcement_likes")
-          .select(
-            "announcement_id, student_id"
-          )
-          .in(
-            "announcement_id",
-            ids
-          );
+      const {
+        data: likesData,
+        error: likesError,
+      } = await supabase
+        .from("announcement_likes")
+        .select(
+          "announcement_id, student_id"
+        )
+        .in(
+          "announcement_id",
+          announcementIds
+        );
 
-      const likes = likesData || [];
+      if (likesError) {
+        console.error(
+          "Announcement likes loading error:",
+          likesError
+        );
+      }
 
-      setAnnouncements(
-        rows.map((announcement) => {
-          const announcementLikes =
-            likes.filter(
-              (like) =>
-                Number(
-                  like.announcement_id
-                ) ===
-                Number(announcement.id)
-            );
+      const likes =
+        likesData || [];
 
-          return {
-            id: Number(announcement.id),
-            title: announcement.title,
-            message: announcement.message,
-            created_at:
-              announcement.created_at,
-            likeCount:
-              announcementLikes.length,
-            likedByMe:
+      const formattedAnnouncements =
+        announcementRows.map(
+          (announcement) => {
+            const announcementLikes =
+              likes.filter(
+                (like) =>
+                  Number(
+                    like.announcement_id
+                  ) ===
+                  Number(
+                    announcement.id
+                  )
+              );
+
+            const likedByMe =
               currentStudentId !== null &&
               announcementLikes.some(
                 (like) =>
-                  Number(like.student_id) ===
-                  Number(currentStudentId)
+                  Number(
+                    like.student_id
+                  ) ===
+                  Number(
+                    currentStudentId
+                  )
+              );
+
+            return {
+              id: Number(
+                announcement.id
               ),
-          };
-        })
+              title:
+                announcement.title,
+              message:
+                announcement.message,
+              created_at:
+                announcement.created_at,
+              likeCount:
+                announcementLikes.length,
+              likedByMe,
+            };
+          }
+        );
+
+      setAnnouncements(
+        formattedAnnouncements
       );
     } catch (error) {
-      console.error(error);
+      console.error(
+        "Unexpected announcements error:",
+        error
+      );
+
       setAnnouncements([]);
     } finally {
       setAnnouncementLoading(false);
     }
   }
 
+  /*
+   * =====================================================
+   * LIKE / UNLIKE
+   * =====================================================
+   */
+
   async function toggleLike(
     announcementId: number
   ) {
-    let currentStudentId = studentId;
+    let currentStudentId =
+      studentId;
 
-    if (!currentStudentId && username) {
-      currentStudentId =
-        await resolveStudentId(username);
+    if (
+      !currentStudentId &&
+      username
+    ) {
+      const resolvedId =
+        await resolveStudentId(
+          username
+        );
 
-      if (currentStudentId) {
-        setStudentId(currentStudentId);
+      if (resolvedId !== null) {
+        currentStudentId =
+          resolvedId;
+
+        setStudentId(
+          resolvedId
+        );
 
         localStorage.setItem(
           "studentId",
-          String(currentStudentId)
+          String(resolvedId)
         );
       }
     }
@@ -332,26 +486,38 @@ export default function StudentDashboardPage() {
       alert(
         "Student information could not be found. Please login again."
       );
+
       return;
     }
 
-    if (likingId !== null) return;
+    if (likingId !== null) {
+      return;
+    }
 
-    const selected =
+    const selectedAnnouncement =
       announcements.find(
         (item) =>
-          item.id === announcementId
+          item.id ===
+          announcementId
       );
 
-    if (!selected) return;
+    if (!selectedAnnouncement) {
+      return;
+    }
 
-    setLikingId(announcementId);
+    setLikingId(
+      announcementId
+    );
 
     try {
-      if (selected.likedByMe) {
+      if (
+        selectedAnnouncement.likedByMe
+      ) {
         const { error } =
           await supabase
-            .from("announcement_likes")
+            .from(
+              "announcement_likes"
+            )
             .delete()
             .eq(
               "announcement_id",
@@ -363,24 +529,37 @@ export default function StudentDashboardPage() {
             );
 
         if (error) {
-          alert(error.message);
+          console.error(
+            "Unlike error:",
+            error
+          );
+
+          alert(
+            `Could not remove like: ${error.message}`
+          );
+
           return;
         }
 
-        setAnnouncements((previous) =>
-          previous.map((item) =>
-            item.id === announcementId
-              ? {
-                  ...item,
-                  likedByMe: false,
-                  likeCount:
-                    Math.max(
-                      0,
-                      item.likeCount - 1
-                    ),
-                }
-              : item
-          )
+        setAnnouncements(
+          (previous) =>
+            previous.map(
+              (item) =>
+                item.id ===
+                announcementId
+                  ? {
+                      ...item,
+                      likedByMe:
+                        false,
+                      likeCount:
+                        Math.max(
+                          0,
+                          item.likeCount -
+                            1
+                        ),
+                    }
+                  : item
+            )
         );
 
         return;
@@ -388,7 +567,9 @@ export default function StudentDashboardPage() {
 
       const { error } =
         await supabase
-          .from("announcement_likes")
+          .from(
+            "announcement_likes"
+          )
           .insert({
             announcement_id:
               announcementId,
@@ -397,28 +578,48 @@ export default function StudentDashboardPage() {
           });
 
       if (error) {
-        if (error.code === "23505") {
+        console.error(
+          "Like error:",
+          error
+        );
+
+        if (
+          error.code ===
+          "23505"
+        ) {
           await loadAnnouncements(
             currentStudentId
           );
         } else {
-          alert(error.message);
+          alert(
+            `Could not like announcement: ${error.message}`
+          );
         }
 
         return;
       }
 
-      setAnnouncements((previous) =>
-        previous.map((item) =>
-          item.id === announcementId
-            ? {
-                ...item,
-                likedByMe: true,
-                likeCount:
-                  item.likeCount + 1,
-              }
-            : item
-        )
+      setAnnouncements(
+        (previous) =>
+          previous.map(
+            (item) =>
+              item.id ===
+              announcementId
+                ? {
+                    ...item,
+                    likedByMe:
+                      true,
+                    likeCount:
+                      item.likeCount +
+                      1,
+                  }
+                : item
+          )
+      );
+    } catch (error) {
+      console.error(
+        "Unexpected like error:",
+        error
       );
     } finally {
       setLikingId(null);
@@ -455,8 +656,16 @@ export default function StudentDashboardPage() {
     router.push("/");
   }
 
-  function formatDate(date: string) {
-    return new Date(date).toLocaleString(
+  function formatAnnouncementDate(
+    date: string
+  ) {
+    if (!date) {
+      return "";
+    }
+
+    return new Date(
+      date
+    ).toLocaleString(
       "en-IN",
       {
         day: "2-digit",
@@ -468,1739 +677,475 @@ export default function StudentDashboardPage() {
     );
   }
 
-  function go(path: string) {
-    router.push(path);
-  }
-
   const latestAnnouncement =
-    announcements[0] || null;
+    announcements.length > 0
+      ? announcements[0]
+      : null;
 
   const firstLetter =
-    studentName.charAt(0).toUpperCase();
+    studentName
+      .charAt(0)
+      .toUpperCase();
 
-  const services: Service[] = [
+  const cards: DashboardCard[] = [
     {
-      icon: "HOME",
-      title: "Home",
+      icon: "📊",
+      title: "My Attendance",
       description:
-        "Your dashboard and latest academy updates.",
-      path: "/student",
-      section: "MAIN",
-    },
-    {
-      icon: "TIME",
-      title: "Time Table",
-      description:
-        "Today's, tomorrow's and weekly class timetable.",
-      path: "/student/timetable",
-      section: "ACADEMIC",
-    },
-    {
-      icon: "ATT",
-      title: "Attendance",
-      description:
-        "Check daily, semester and detailed attendance.",
+        "View your current attendance and attendance percentage.",
       path: "/student/attendance",
-      section: "ACADEMIC",
+      className: "blue",
     },
     {
-      icon: "HIST",
+      icon: "📜",
       title: "Attendance History",
       description:
-        "View previous attendance records.",
+        "Check your previous attendance records and details.",
       path: "/student/attendance-history",
-      section: "ACADEMIC",
+      className: "purple",
     },
     {
-      icon: "CAL",
+      icon: "📅",
       title: "Academic Calendar",
       description:
-        "View important academic dates and holidays.",
+        "View important academic dates and calendar information.",
       path: "/student/calendar",
-      section: "ACADEMIC",
+      className: "green",
     },
     {
-      icon: "WORK",
-      title: "Homework",
-      description:
-        "View homework assigned by your teacher.",
-      path: "/student/homework",
-      section: "ACADEMIC",
-    },
-    {
-      icon: "QUIZ",
-      title: "Quiz Tests",
-      description:
-        "Attempt quizzes and check your results.",
-      path: "/student/quiz-tests",
-      section: "ACADEMIC",
-    },
-    {
-      icon: "NEWS",
-      title: "Announcements",
-      description:
-        "Read academy announcements.",
-      path: "/student/announcements",
-      section: "COMMUNICATION",
-    },
-    {
-      icon: "QUERY",
-      title: "Ask Query",
-      description:
-        "Send your academic query to the academy.",
-      path: "/student/ask-query",
-      section: "COMMUNICATION",
-    },
-    {
-      icon: "NOTE",
-      title: "Notifications",
-      description:
-        "View important academy notifications.",
-      path: "/student/announcements",
-      section: "COMMUNICATION",
-    },
-    {
-      icon: "FEES",
-      title: "Fees",
-      description:
-        "Check fees and payment information.",
-      path: "/student/fees",
-      section: "ACCOUNT",
-    },
-    {
-      icon: "REPORT",
+      icon: "📈",
       title: "Reports",
       description:
-        "View attendance and performance reports.",
+        "View your attendance reports and performance details.",
       path: "/student/reports",
-      section: "ACCOUNT",
+      className: "orange",
     },
     {
-      icon: "PROFILE",
-      title: "Profile",
+      icon: "💰",
+      title: "Fees",
       description:
-        "View personal and academic information.",
-      path: "/student/profile",
-      section: "ACCOUNT",
+        "Check your student fee information and payment details.",
+      path: "/student/fees",
+      className: "pink",
     },
     {
-      icon: "SET",
+      icon: "📚",
+      title: "Homework",
+      description:
+        "View homework assigned to your class by your teacher.",
+      path: "/student/homework",
+      className: "indigo",
+    },
+    {
+      icon: "⚙️",
       title: "Settings",
       description:
-        "Manage your student account settings.",
+        "Manage your account, name and password.",
       path: "/student/settings",
-      section: "ACCOUNT",
+      className: "cyan",
     },
-  ];
 
-  const quickStats: QuickStat[] = [
+    // NEW QUIZ TESTS OPTION
     {
-      label: "ATTENDANCE",
-      value: "VIEW",
+      icon: "🧠",
+      title: "QUIZ TESTS",
       description:
-        "Check your current attendance",
-      path: "/student/attendance",
-    },
-    {
-      label: "QUIZ TESTS",
-      value: "OPEN",
-      description:
-        "Available and previous quizzes",
+        "Attempt scheduled quizzes, view your scores and quiz history.",
       path: "/student/quiz-tests",
+      className: "quiz",
     },
-    {
-      label: "HOMEWORK",
-      value: "VIEW",
-      description:
-        "Check assigned homework",
-      path: "/student/homework",
-    },
-    {
-      label: "FEES",
-      value: "CHECK",
-      description:
-        "View your fee information",
-      path: "/student/fees",
-    },
-  ];
-
-  const groupedServices = [
-    "MAIN",
-    "ACADEMIC",
-    "COMMUNICATION",
-    "ACCOUNT",
   ];
 
   return (
-    <>
-      <style>{`
-        * {
-          box-sizing: border-box;
-        }
-
-        html,
-        body {
-          margin: 0;
-          padding: 0;
-        }
-
-        button {
-          font-family: Arial, Helvetica, sans-serif;
-        }
-
-        .racer-student-page {
-          min-height: 100vh;
-          background:
-            radial-gradient(
-              circle at 8% 0%,
-              rgba(59,130,246,.12),
-              transparent 27%
-            ),
-            radial-gradient(
-              circle at 92% 8%,
-              rgba(124,58,237,.10),
-              transparent 24%
-            ),
-            linear-gradient(
-              145deg,
-              #f8fafc 0%,
-              #eef2ff 50%,
-              #f8fafc 100%
-            );
-          color: #0f172a;
-          padding: 16px;
-          padding-bottom: 30px;
-        }
-
-        .racer-student-container {
-          width: 100%;
-          max-width: 1280px;
-          margin: 0 auto;
-        }
-
-        .student-header {
-          min-height: 68px;
-          background: rgba(255,255,255,.95);
-          border: 1px solid #e2e8f0;
-          border-radius: 20px;
-          padding: 11px 14px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 14px;
-          box-shadow:
-            0 10px 35px rgba(15,23,42,.07);
-          margin-bottom: 15px;
-        }
-
-        .student-brand {
-          display: flex;
-          align-items: center;
-          gap: 11px;
-          min-width: 0;
-        }
-
-        .student-logo {
-          width: 46px;
-          height: 46px;
-          flex: 0 0 46px;
-          border-radius: 14px;
-          background:
-            linear-gradient(
-              135deg,
-              #1d4ed8,
-              #4f46e5
-            );
-          color: white;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 15px;
-          font-weight: 1000;
-          box-shadow:
-            0 8px 20px rgba(37,99,235,.25);
-        }
-
-        .student-brand-name {
-          color: #172554;
-          font-size: 14px;
-          font-weight: 1000;
-          letter-spacing: 1px;
-        }
-
-        .student-brand-sub {
-          margin-top: 3px;
-          color: #94a3b8;
-          font-size: 8px;
-          font-weight: 1000;
-          letter-spacing: 1.7px;
-        }
-
-        .student-header-actions {
-          display: flex;
-          align-items: center;
-          gap: 7px;
-        }
-
-        .student-clock {
-          border: 1px solid #e2e8f0;
-          background: #f8fafc;
-          border-radius: 10px;
-          padding: 9px 11px;
-          color: #475569;
-          font-size: 10px;
-          font-weight: 900;
-          white-space: nowrap;
-        }
-
-        .student-header-button {
-          border: 1px solid #e2e8f0;
-          background: white;
-          color: #334155;
-          min-width: 42px;
-          height: 39px;
-          padding: 0 10px;
-          border-radius: 10px;
-          cursor: pointer;
-          font-size: 9px;
-          font-weight: 1000;
-        }
-
-        .student-header-profile {
-          border: none;
-          width: 40px;
-          height: 40px;
-          border-radius: 50%;
-          background:
-            linear-gradient(
-              135deg,
-              #2563eb,
-              #7c3aed
-            );
-          color: white;
-          cursor: pointer;
-          font-weight: 1000;
-          font-size: 15px;
-        }
-
-        .student-logout {
-          border: none;
-          background: #0f172a;
-          color: white;
-          padding: 10px 14px;
-          border-radius: 10px;
-          cursor: pointer;
-          font-size: 11px;
-          font-weight: 1000;
-        }
-
-        .student-hero {
-          position: relative;
-          overflow: hidden;
-          min-height: 225px;
-          border-radius: 25px;
-          padding: 28px;
-          background:
-            radial-gradient(
-              circle at 85% 20%,
-              rgba(255,255,255,.16),
-              transparent 22%
-            ),
-            linear-gradient(
-              135deg,
-              #172554 0%,
-              #1d4ed8 48%,
-              #4f46e5 100%
-            );
-          color: white;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 25px;
-          box-shadow:
-            0 20px 50px rgba(37,99,235,.22);
-          margin-bottom: 15px;
-        }
-
-        .student-hero-left {
-          position: relative;
-          z-index: 1;
-          display: flex;
-          align-items: center;
-          gap: 18px;
-          min-width: 0;
-        }
-
-        .student-avatar {
-          width: 86px;
-          height: 86px;
-          flex: 0 0 86px;
-          border-radius: 25px;
-          background: white;
-          color: #2563eb;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 35px;
-          font-weight: 1000;
-          box-shadow:
-            0 12px 35px rgba(0,0,0,.18);
-        }
-
-        .student-hero-text {
-          min-width: 0;
-        }
-
-        .student-eyebrow {
-          color: #bfdbfe;
-          font-size: 10px;
-          font-weight: 1000;
-          letter-spacing: 2px;
-        }
-
-        .student-hero-title {
-          margin: 6px 0 0;
-          font-size: 30px;
-          line-height: 1.15;
-          font-weight: 1000;
-        }
-
-        .student-hero-description {
-          margin: 9px 0 0;
-          max-width: 690px;
-          color: #dbeafe;
-          font-size: 12px;
-          line-height: 1.65;
-          font-weight: 600;
-        }
-
-        .student-id-pill {
-          display: inline-flex;
-          margin-top: 12px;
-          padding: 7px 10px;
-          border: 1px solid rgba(255,255,255,.2);
-          background: rgba(255,255,255,.11);
-          border-radius: 8px;
-          color: white;
-          font-size: 10px;
-          font-weight: 900;
-        }
-
-        .student-status {
-          position: relative;
-          z-index: 2;
-          min-width: 185px;
-          border: 1px solid rgba(255,255,255,.18);
-          background: rgba(255,255,255,.10);
-          border-radius: 15px;
-          padding: 15px;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .student-status-dot {
-          width: 11px;
-          height: 11px;
-          flex: 0 0 11px;
-          border-radius: 50%;
-          background: #4ade80;
-          box-shadow:
-            0 0 0 5px rgba(74,222,128,.14);
-        }
-
-        .student-status-title {
-          font-size: 10px;
-          font-weight: 1000;
-          letter-spacing: 1px;
-        }
-
-        .student-status-sub {
-          margin-top: 4px;
-          color: #bfdbfe;
-          font-size: 9px;
-          font-weight: 700;
-        }
-
-        .student-panel {
-          background: rgba(255,255,255,.96);
-          border: 1px solid #e2e8f0;
-          border-radius: 21px;
-          padding: 20px;
-          margin-bottom: 15px;
-          box-shadow:
-            0 8px 28px rgba(15,23,42,.055);
-        }
-
-        .student-section-header {
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          gap: 12px;
-          margin-bottom: 16px;
-          flex-wrap: wrap;
-        }
-
-        .student-section-eyebrow {
-          color: #2563eb;
-          font-size: 9px;
-          font-weight: 1000;
-          letter-spacing: 2px;
-        }
-
-        .student-section-title {
-          margin: 4px 0 0;
-          color: #172554;
-          font-size: 23px;
-          font-weight: 1000;
-        }
-
-        .student-count {
-          padding: 8px 11px;
-          border-radius: 9px;
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
-          color: #64748b;
-          font-size: 9px;
-          font-weight: 1000;
-        }
-
-        .quick-grid {
-          display: grid;
-          grid-template-columns:
-            repeat(4, minmax(0, 1fr));
-          gap: 10px;
-        }
-
-        .quick-card {
-          border: 1px solid #e2e8f0;
-          background: white;
-          border-radius: 15px;
-          padding: 15px;
-          text-align: left;
-          cursor: pointer;
-          transition:
-            transform .18s ease,
-            box-shadow .18s ease,
-            border-color .18s ease;
-        }
-
-        .quick-card:hover {
-          transform: translateY(-2px);
-          border-color: #bfdbfe;
-          box-shadow:
-            0 10px 25px rgba(37,99,235,.10);
-        }
-
-        .quick-label {
-          color: #94a3b8;
-          font-size: 8px;
-          font-weight: 1000;
-          letter-spacing: 1.4px;
-        }
-
-        .quick-value {
-          margin-top: 8px;
-          color: #2563eb;
-          font-size: 19px;
-          font-weight: 1000;
-        }
-
-        .quick-description {
-          margin-top: 4px;
-          color: #64748b;
-          font-size: 9px;
-          line-height: 1.45;
-          font-weight: 600;
-        }
-
-        .student-service-section {
-          margin-top: 18px;
-        }
-
-        .student-section-label {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin-bottom: 9px;
-          color: #94a3b8;
-          font-size: 9px;
-          font-weight: 1000;
-          letter-spacing: 1.6px;
-        }
-
-        .student-section-label::after {
-          content: "";
-          height: 1px;
-          flex: 1;
-          background: #e2e8f0;
-        }
-
-        .student-service-grid {
-          display: grid;
-          grid-template-columns:
-            repeat(3, minmax(0, 1fr));
-          gap: 10px;
-        }
-
-        .student-service-card {
-          min-width: 0;
-          border: 1px solid #e2e8f0;
-          background: white;
-          border-radius: 16px;
-          padding: 14px;
-          text-align: left;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 11px;
-          box-shadow:
-            0 4px 15px rgba(15,23,42,.035);
-          transition:
-            transform .18s ease,
-            border-color .18s ease,
-            box-shadow .18s ease;
-        }
-
-        .student-service-card:hover {
-          transform: translateY(-2px);
-          border-color: #bfdbfe;
-          box-shadow:
-            0 10px 25px rgba(37,99,235,.10);
-        }
-
-        .student-service-icon {
-          width: 47px;
-          height: 47px;
-          flex: 0 0 47px;
-          border-radius: 14px;
-          background:
-            linear-gradient(
-              135deg,
-              #eff6ff,
-              #eef2ff
-            );
-          border: 1px solid #dbeafe;
-          color: #2563eb;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 8px;
-          font-weight: 1000;
-          letter-spacing: .5px;
-        }
-
-        .student-service-content {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .student-service-title {
-          margin: 0;
-          color: #172554;
-          font-size: 14px;
-          font-weight: 1000;
-        }
-
-        .student-service-description {
-          margin: 4px 0 0;
-          color: #64748b;
-          font-size: 10px;
-          line-height: 1.5;
-          font-weight: 600;
-        }
-
-        .student-service-arrow {
-          color: #2563eb;
-          font-size: 17px;
-          font-weight: 1000;
-        }
-
-        .student-view-all {
-          border: 1px solid #dbeafe;
-          background: #eff6ff;
-          color: #2563eb;
-          padding: 8px 11px;
-          border-radius: 9px;
-          cursor: pointer;
-          font-size: 10px;
-          font-weight: 1000;
-        }
-
-        .student-empty {
-          background: #f8fafc;
-          border: 1px dashed #cbd5e1;
-          border-radius: 15px;
-          padding: 19px;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-
-        .student-empty-icon {
-          width: 47px;
-          height: 47px;
-          flex: 0 0 47px;
-          border-radius: 13px;
-          background: #eff6ff;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #2563eb;
-          font-size: 9px;
-          font-weight: 1000;
-        }
-
-        .student-empty strong {
-          color: #334155;
-          font-size: 13px;
-        }
-
-        .student-empty p {
-          margin: 4px 0 0;
-          color: #94a3b8;
-          font-size: 10px;
-        }
-
-        .student-announcement-card {
-          border: 1px solid #bfdbfe;
-          border-radius: 16px;
-          padding: 16px;
-          background:
-            linear-gradient(
-              135deg,
-              #f8fbff,
-              #fff
-            );
-        }
-
-        .student-announcement-top {
-          display: flex;
-          align-items: flex-start;
-          gap: 12px;
-        }
-
-        .student-announcement-icon {
-          width: 47px;
-          height: 47px;
-          flex: 0 0 47px;
-          border-radius: 13px;
-          background: #eff6ff;
-          color: #2563eb;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 10px;
-          font-weight: 1000;
-        }
-
-        .student-announcement-content {
-          min-width: 0;
-          flex: 1;
-        }
-
-        .student-meta {
-          display: flex;
-          align-items: center;
-          gap: 7px;
-          flex-wrap: wrap;
-        }
-
-        .student-teacher-badge,
-        .student-latest-badge {
-          padding: 4px 6px;
-          border-radius: 5px;
-          font-size: 8px;
-          font-weight: 1000;
-        }
-
-        .student-teacher-badge {
-          color: #1d4ed8;
-          background: #dbeafe;
-        }
-
-        .student-latest-badge {
-          color: #15803d;
-          background: #dcfce7;
-        }
-
-        .student-date {
-          color: #94a3b8;
-          font-size: 9px;
-        }
-
-        .student-announcement-title {
-          margin: 7px 0 0;
-          color: #172554;
-          font-size: 17px;
-          font-weight: 1000;
-        }
-
-        .student-announcement-message {
-          margin: 6px 0 0;
-          color: #475569;
-          font-size: 11px;
-          line-height: 1.65;
-          font-weight: 600;
-        }
-
-        .student-announcement-bottom {
-          margin-top: 13px;
-          padding-top: 11px;
-          border-top: 1px solid #e2e8f0;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
-
-        .student-for-all {
-          color: #64748b;
-          font-size: 10px;
-          font-weight: 800;
-        }
-
-        .student-open {
-          border: none;
-          background:
-            linear-gradient(
-              135deg,
-              #2563eb,
-              #4f46e5
-            );
-          color: white;
-          padding: 9px 12px;
-          border-radius: 9px;
-          cursor: pointer;
-          font-size: 10px;
-          font-weight: 1000;
-        }
-
-        .student-profile-panel {
-          background:
-            linear-gradient(
-              135deg,
-              #ffffff,
-              #f8fafc
-            );
-          border: 1px solid #e2e8f0;
-          border-radius: 18px;
-          padding: 16px;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          flex-wrap: wrap;
-        }
-
-        .student-profile-icon {
-          width: 49px;
-          height: 49px;
-          flex: 0 0 49px;
-          border-radius: 14px;
-          background: #eef2ff;
-          color: #4f46e5;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 9px;
-          font-weight: 1000;
-        }
-
-        .student-profile-text {
-          flex: 1;
-          min-width: 180px;
-        }
-
-        .student-profile-text h3 {
-          margin: 0;
-          color: #172554;
-          font-size: 14px;
-          font-weight: 1000;
-        }
-
-        .student-profile-text p {
-          margin: 4px 0 0;
-          color: #64748b;
-          font-size: 10px;
-          line-height: 1.5;
-        }
-
-        .student-profile-button {
-          border: none;
-          background: #2563eb;
-          color: white;
-          padding: 10px 14px;
-          border-radius: 9px;
-          cursor: pointer;
-          font-size: 10px;
-          font-weight: 1000;
-        }
-
-        .student-footer {
-          margin-top: 20px;
-          padding: 17px 5px 5px;
-          border-top: 1px solid #e2e8f0;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 10px;
-          flex-wrap: wrap;
-          color: #94a3b8;
-          font-size: 10px;
-        }
-
-        .student-footer strong {
-          color: #64748b;
-        }
-
-        .student-mobile-nav {
-          display: none;
-        }
-
-        .student-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 9999;
-          background: rgba(15,23,42,.68);
-          backdrop-filter: blur(6px);
-          padding: 16px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .student-modal {
-          width: 100%;
-          max-width: 700px;
-          max-height: 88vh;
-          overflow-y: auto;
-          background: white;
-          border-radius: 21px;
-          padding: 20px;
-          box-shadow:
-            0 25px 70px rgba(0,0,0,.25);
-        }
-
-        .student-modal-header {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 12px;
-        }
-
-        .student-modal-eyebrow {
-          color: #2563eb;
-          font-size: 9px;
-          font-weight: 1000;
-          letter-spacing: 1.5px;
-        }
-
-        .student-modal-title {
-          margin: 5px 0 0;
-          color: #172554;
-          font-size: 22px;
-          line-height: 1.25;
-          font-weight: 1000;
-        }
-
-        .student-close {
-          width: 35px;
-          height: 35px;
-          border: 1px solid #e2e8f0;
-          background: #f8fafc;
-          color: #475569;
-          border-radius: 50%;
-          cursor: pointer;
-          font-size: 20px;
-        }
-
-        .student-modal-date {
-          margin-top: 12px;
-          color: #94a3b8;
-          font-size: 10px;
-        }
-
-        .student-modal-message {
-          margin-top: 15px;
-          padding: 16px;
-          border-radius: 14px;
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
-          color: #334155;
-          font-size: 13px;
-          line-height: 1.8;
-          white-space: pre-wrap;
-        }
-
-        .student-modal-footer {
-          margin-top: 15px;
-          padding-top: 13px;
-          border-top: 1px solid #e2e8f0;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
-
-        .student-like {
-          border: 1px solid #cbd5e1;
-          background: white;
-          color: #475569;
-          padding: 8px 11px;
-          border-radius: 9px;
-          cursor: pointer;
-          font-size: 10px;
-          font-weight: 1000;
-        }
-
-        .student-like-active {
-          background: #fff1f2;
-          border-color: #fecdd3;
-          color: #be123c;
-        }
-
-        @media (max-width: 1050px) {
-          .student-service-grid {
-            grid-template-columns:
-              repeat(2, minmax(0, 1fr));
-          }
-
-          .quick-grid {
-            grid-template-columns:
-              repeat(2, minmax(0, 1fr));
-          }
-
-          .student-hero-title {
-            font-size: 27px;
-          }
-        }
-
-        @media (max-width: 720px) {
-          .racer-student-page {
-            padding: 9px;
-            padding-bottom: 88px;
-          }
-
-          .student-header {
-            padding: 9px;
-            border-radius: 16px;
-            margin-bottom: 9px;
-          }
-
-          .student-brand-name {
-            font-size: 11px;
-          }
-
-          .student-brand-sub {
-            font-size: 7px;
-          }
-
-          .student-logo {
-            width: 39px;
-            height: 39px;
-            flex-basis: 39px;
-            border-radius: 12px;
-          }
-
-          .student-clock {
-            display: none;
-          }
-
-          .student-header-actions {
-            gap: 4px;
-          }
-
-          .student-header-button {
-            min-width: 35px;
-            width: 35px;
-            padding: 0;
-            height: 35px;
-            border-radius: 9px;
-            font-size: 7px;
-          }
-
-          .student-header-profile {
-            width: 35px;
-            height: 35px;
-          }
-
-          .student-logout {
-            padding: 8px 9px;
-            font-size: 8px;
-          }
-
-          .student-hero {
-            min-height: 0;
-            padding: 19px 16px;
-            border-radius: 20px;
-            display: block;
-            margin-bottom: 9px;
-          }
-
-          .student-hero-left {
-            gap: 11px;
-            align-items: flex-start;
-          }
-
-          .student-avatar {
-            width: 57px;
-            height: 57px;
-            flex-basis: 57px;
-            border-radius: 17px;
-            font-size: 23px;
-          }
-
-          .student-eyebrow {
-            font-size: 8px;
-            letter-spacing: 1.3px;
-          }
-
-          .student-hero-title {
-            font-size: 20px;
-          }
-
-          .student-hero-description {
-            font-size: 9px;
-            line-height: 1.55;
-            margin-top: 6px;
-          }
-
-          .student-id-pill {
-            margin-top: 8px;
-            font-size: 8px;
-          }
-
-          .student-status {
-            width: 100%;
-            margin-top: 14px;
-            min-width: 0;
-            padding: 10px 12px;
-          }
-
-          .student-panel {
-            padding: 13px;
-            border-radius: 17px;
-            margin-bottom: 9px;
-          }
-
-          .student-section-title {
-            font-size: 19px;
-          }
-
-          .student-section-eyebrow {
-            font-size: 8px;
-          }
-
-          .student-count {
-            font-size: 8px;
-            padding: 7px 8px;
-          }
-
-          .quick-grid {
-            grid-template-columns:
-              repeat(2, minmax(0, 1fr));
-            gap: 7px;
-          }
-
-          .quick-card {
-            padding: 11px;
-            border-radius: 12px;
-          }
-
-          .quick-label {
-            font-size: 7px;
-          }
-
-          .quick-value {
-            font-size: 16px;
-          }
-
-          .quick-description {
-            font-size: 8px;
-          }
-
-          .student-service-section {
-            margin-top: 14px;
-          }
-
-          .student-service-grid {
-            grid-template-columns: 1fr;
-            gap: 7px;
-          }
-
-          .student-service-card {
-            padding: 10px;
-            border-radius: 13px;
-          }
-
-          .student-service-icon {
-            width: 39px;
-            height: 39px;
-            flex-basis: 39px;
-            border-radius: 11px;
-            font-size: 7px;
-          }
-
-          .student-service-title {
-            font-size: 12px;
-          }
-
-          .student-service-description {
-            font-size: 9px;
-          }
-
-          .student-announcement-card {
-            padding: 12px;
-            border-radius: 13px;
-          }
-
-          .student-announcement-title {
-            font-size: 15px;
-          }
-
-          .student-announcement-message {
-            font-size: 10px;
-          }
-
-          .student-open {
-            width: 100%;
-          }
-
-          .student-profile-button {
-            width: 100%;
-          }
-
-          .student-footer {
-            justify-content: center;
-            text-align: center;
-          }
-
-          .student-mobile-nav {
-            position: fixed;
-            left: 8px;
-            right: 8px;
-            bottom: 8px;
-            z-index: 5000;
-            display: grid;
-            grid-template-columns:
-              repeat(4, 1fr);
-            gap: 3px;
-            padding: 6px;
-            background: rgba(255,255,255,.97);
-            backdrop-filter: blur(14px);
-            border: 1px solid #dbeafe;
-            border-radius: 17px;
-            box-shadow:
-              0 12px 35px rgba(15,23,42,.17);
-          }
-
-          .student-mobile-item {
-            border: none;
-            background: transparent;
-            color: #475569;
-            min-width: 0;
-            padding: 7px 2px;
-            border-radius: 11px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 3px;
-            cursor: pointer;
-          }
-
-          .student-mobile-item:first-child {
-            background: #eff6ff;
-            color: #2563eb;
-          }
-
-          .student-mobile-icon {
-            font-size: 14px;
-            line-height: 1;
-            font-weight: 1000;
-          }
-
-          .student-mobile-label {
-            font-size: 7px;
-            font-weight: 1000;
-          }
-
-          .student-modal {
-            max-height: 90vh;
-            padding: 16px;
-            border-radius: 17px;
-          }
-
-          .student-modal-title {
-            font-size: 18px;
-          }
-
-          .student-modal-message {
-            font-size: 12px;
-            padding: 13px;
-          }
-        }
-
-        @media (max-width: 390px) {
-          .student-brand-sub {
-            display: none;
-          }
-
-          .student-brand-name {
-            font-size: 10px;
-          }
-
-          .student-logout {
-            padding: 8px;
-            font-size: 8px;
-          }
-
-          .student-hero-title {
-            font-size: 18px;
-          }
-
-          .student-section-title {
-            font-size: 17px;
-          }
-
-          .quick-description {
-            display: none;
-          }
-        }
-      `}</style>
-
-      <main className="racer-student-page">
-        <div className="racer-student-container">
-
-          {/* HEADER */}
-
-          <header className="student-header">
-            <div className="student-brand">
-              <div className="student-logo">
-                RA
-              </div>
-
-              <div>
-                <div className="student-brand-name">
-                  RACER ACADEMY
-                </div>
-
-                <div className="student-brand-sub">
-                  STUDENT PORTAL
-                </div>
-              </div>
+    <main style={styles.page}>
+      <div style={styles.container}>
+
+        {/* TOP NAVIGATION */}
+
+        <nav style={styles.navbar}>
+          <div style={styles.brandArea}>
+            <div style={styles.brandIcon}>
+              🎓
             </div>
 
-            <div className="student-header-actions">
-              <div className="student-clock">
-                {time}
+            <div>
+              <div style={styles.brandName}>
+                ATTENDANCE PORTAL
               </div>
 
-              <button
-                type="button"
-                onClick={() =>
-                  go("/student/announcements")
-                }
-                className="student-header-button"
-                aria-label="Notifications"
-              >
-                BELL
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  go("/student/profile")
-                }
-                className="student-header-profile"
-                aria-label="Profile"
-              >
-                {firstLetter}
-              </button>
-
-              <button
-                type="button"
-                onClick={logout}
-                className="student-logout"
-              >
-                Logout
-              </button>
-            </div>
-          </header>
-
-          {/* HERO */}
-
-          <section className="student-hero">
-            <div className="student-hero-left">
-              <div className="student-avatar">
-                {firstLetter}
-              </div>
-
-              <div className="student-hero-text">
-                <div className="student-eyebrow">
-                  HELLO,{" "}
-                  {studentName.toUpperCase()}
-                </div>
-
-                <h1 className="student-hero-title">
-                  Welcome to your Student Portal
-                </h1>
-
-                <p className="student-hero-description">
-                  Manage your classes,
-                  attendance, homework,
-                  quizzes, fees, reports
-                  and academy communication
-                  from one place.
-                </p>
-
-                {username && (
-                  <div className="student-id-pill">
-                    STUDENT ID: {username}
-                  </div>
-                )}
+              <div style={styles.brandSub}>
+                STUDENT CENTER
               </div>
             </div>
+          </div>
 
-            <div className="student-status">
-              <span className="student-status-dot" />
-
-              <div>
-                <div className="student-status-title">
-                  ACCOUNT ACTIVE
-                </div>
-
-                <div className="student-status-sub">
-                  RACER ACADEMY STUDENT
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* QUICK ACCESS */}
-
-          <section className="student-panel">
-            <div className="student-section-header">
-              <div>
-                <div className="student-section-eyebrow">
-                  QUICK ACCESS
-                </div>
-
-                <h2 className="student-section-title">
-                  My Services
-                </h2>
-              </div>
-
-              <div className="student-count">
-                STUDENT PORTAL
-              </div>
-            </div>
-
-            <div className="quick-grid">
-              {quickStats.map((item) => (
-                <button
-                  key={item.label}
-                  type="button"
-                  className="quick-card"
-                  onClick={() =>
-                    go(item.path)
-                  }
-                >
-                  <div className="quick-label">
-                    {item.label}
-                  </div>
-
-                  <div className="quick-value">
-                    {item.value}
-                  </div>
-
-                  <div className="quick-description">
-                    {item.description}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </section>
-
-          {/* ALL SERVICES */}
-
-          <section className="student-panel">
-            <div className="student-section-header">
-              <div>
-                <div className="student-section-eyebrow">
-                  STUDENT COMMAND CENTER
-                </div>
-
-                <h2 className="student-section-title">
-                  Student Services
-                </h2>
-              </div>
-
-              <div className="student-count">
-                {services.length} SERVICES
-              </div>
-            </div>
-
-            {groupedServices.map(
-              (section) => {
-                const sectionServices =
-                  services.filter(
-                    (item) =>
-                      item.section ===
-                      section
-                  );
-
-                if (
-                  sectionServices.length ===
-                  0
-                ) {
-                  return null;
-                }
-
-                return (
-                  <div
-                    key={section}
-                    className="student-service-section"
-                  >
-                    <div className="student-section-label">
-                      {section}
-                    </div>
-
-                    <div className="student-service-grid">
-                      {sectionServices.map(
-                        (service) => (
-                          <button
-                            key={
-                              service.title
-                            }
-                            type="button"
-                            onClick={() =>
-                              go(
-                                service.path
-                              )
-                            }
-                            className="student-service-card"
-                          >
-                            <div className="student-service-icon">
-                              {service.icon}
-                            </div>
-
-                            <div className="student-service-content">
-                              <h3 className="student-service-title">
-                                {service.title}
-                              </h3>
-
-                              <p className="student-service-description">
-                                {
-                                  service.description
-                                }
-                              </p>
-                            </div>
-
-                            <div className="student-service-arrow">
-                              →
-                            </div>
-                          </button>
-                        )
-                      )}
-                    </div>
-                  </div>
-                );
-              }
-            )}
-          </section>
-
-          {/* LATEST ANNOUNCEMENT */}
-
-          <section className="student-panel">
-            <div className="student-section-header">
-              <div>
-                <div className="student-section-eyebrow">
-                  ACADEMY COMMUNICATION
-                </div>
-
-                <h2 className="student-section-title">
-                  Latest Announcement
-                </h2>
-              </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  go(
-                    "/student/announcements"
-                  )
-                }
-                className="student-view-all"
-              >
-                View All →
-              </button>
-            </div>
-
-            {announcementLoading ? (
-              <div className="student-empty">
-                <div className="student-empty-icon">
-                  LOAD
-                </div>
-
-                <div>
-                  <strong>
-                    Loading announcements...
-                  </strong>
-
-                  <p>
-                    Checking for the latest
-                    academy updates.
-                  </p>
-                </div>
-              </div>
-            ) : !latestAnnouncement ? (
-              <div className="student-empty">
-                <div className="student-empty-icon">
-                  NEWS
-                </div>
-
-                <div>
-                  <strong>
-                    No announcements yet
-                  </strong>
-
-                  <p>
-                    Your teacher has not
-                    published an announcement.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="student-announcement-card">
-                <div className="student-announcement-top">
-                  <div className="student-announcement-icon">
-                    NEWS
-                  </div>
-
-                  <div className="student-announcement-content">
-                    <div className="student-meta">
-                      <span className="student-teacher-badge">
-                        TEACHER
-                      </span>
-
-                      <span className="student-latest-badge">
-                        LATEST
-                      </span>
-
-                      <span className="student-date">
-                        {formatDate(
-                          latestAnnouncement.created_at
-                        )}
-                      </span>
-                    </div>
-
-                    <h3 className="student-announcement-title">
-                      {
-                        latestAnnouncement.title
-                      }
-                    </h3>
-
-                    <p className="student-announcement-message">
-                      {getAnnouncementPreview(
-                        latestAnnouncement.message
-                      )}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="student-announcement-bottom">
-                  <span className="student-for-all">
-                    FOR ALL STUDENTS
-                  </span>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setAnnouncementOpen(
-                        true
-                      )
-                    }
-                    className="student-open"
-                  >
-                    Open Announcement →
-                  </button>
-                </div>
-              </div>
-            )}
-          </section>
-
-          {/* PROFILE */}
-
-          <section className="student-profile-panel">
-            <div className="student-profile-icon">
-              PROFILE
-            </div>
-
-            <div className="student-profile-text">
-              <h3>
-                Student Profile
-              </h3>
-
-              <p>
-                View your personal and
-                academic information.
-              </p>
+          <div style={styles.navRight}>
+            <div style={styles.clock}>
+              🕒 {time}
             </div>
 
             <button
               type="button"
-              onClick={() =>
-                go("/student/profile")
-              }
-              className="student-profile-button"
+              onClick={logout}
+              style={styles.logoutButton}
             >
-              View Profile →
+              Logout
             </button>
-          </section>
+          </div>
+        </nav>
 
-          {/* FOOTER */}
+        {/* HERO */}
 
-          <footer className="student-footer">
-            <strong>
-              RACER ACADEMY
-            </strong>
+        <section style={styles.hero}>
+          <div style={styles.heroGlowOne} />
+          <div style={styles.heroGlowTwo} />
 
-            <span>
-              Student Portal • 2026
-            </span>
-          </footer>
-        </div>
+          <div style={styles.heroContent}>
+            <div style={styles.avatar}>
+              {firstLetter}
+            </div>
+
+            <div style={styles.welcomeArea}>
+              <div style={styles.smallGreeting}>
+                STUDENT DASHBOARD
+              </div>
+
+              <h1 style={styles.welcomeTitle}>
+                Welcome, {studentName}
+              </h1>
+
+              <p style={styles.welcomeText}>
+                Manage your attendance,
+                academic information,
+                homework, reports, fees
+                and account settings from
+                one place.
+              </p>
+
+              {username && (
+                <div
+                  style={
+                    styles.usernameBadge
+                  }
+                >
+                  Username: {username}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div style={styles.heroSide}>
+            <div style={styles.statusDot} />
+
+            <div>
+              <div style={styles.onlineText}>
+                ACCOUNT ACTIVE
+              </div>
+
+              <div style={styles.onlineSub}>
+                Student Portal
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* LATEST ANNOUNCEMENT TAB */}
+
+        <section
+          style={
+            styles.announcementSection
+          }
+        >
+          <div
+            style={
+              styles.latestAnnouncementHeader
+            }
+          >
+            <div
+              style={
+                styles.latestAnnouncementLeft
+              }
+            >
+              <div
+                style={
+                  styles.latestAnnouncementIcon
+                }
+              >
+                📢
+              </div>
+
+              <div>
+                <div
+                  style={
+                    styles.announcementEyebrow
+                  }
+                >
+                  📢 IMPORTANT
+                </div>
+
+                <h2
+                  style={
+                    styles.announcementTitle
+                  }
+                >
+                  Latest Announcement
+                </h2>
+
+                <p
+                  style={
+                    styles.announcementSubtitle
+                  }
+                >
+                  Your latest update from
+                  the teacher.
+                </p>
+              </div>
+            </div>
+
+            {latestAnnouncement && (
+              <div
+                style={
+                  styles.latestBadge
+                }
+              >
+                NEW
+              </div>
+            )}
+          </div>
+
+          {announcementLoading ? (
+            <div
+              style={
+                styles.announcementLoading
+              }
+            >
+              <div
+                style={
+                  styles.loadingIcon
+                }
+              >
+                ⏳
+              </div>
+
+              <div>
+                <div
+                  style={
+                    styles.loadingTitle
+                  }
+                >
+                  Checking Latest Announcement...
+                </div>
+
+                <div
+                  style={
+                    styles.loadingText
+                  }
+                >
+                  Please wait.
+                </div>
+              </div>
+            </div>
+          ) : !latestAnnouncement ? (
+            <div
+              style={
+                styles.noAnnouncements
+              }
+            >
+              <div
+                style={
+                  styles.noAnnouncementIcon
+                }
+              >
+                📭
+              </div>
+
+              <div>
+                <h3
+                  style={
+                    styles.noAnnouncementTitle
+                  }
+                >
+                  No Announcements Yet
+                </h3>
+
+                <p
+                  style={
+                    styles.noAnnouncementText
+                  }
+                >
+                  Your teacher has not
+                  published any announcement
+                  yet.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div
+              style={
+                styles.latestAnnouncementCard
+              }
+            >
+              <div
+                style={
+                  styles.latestAnnouncementCardTop
+                }
+              >
+                <div
+                  style={
+                    styles.announcementIcon
+                  }
+                >
+                  📢
+                </div>
+
+                <div
+                  style={
+                    styles.announcementCardContent
+                  }
+                >
+                  <div
+                    style={
+                      styles.announcementMeta
+                    }
+                  >
+                    <span
+                      style={
+                        styles.teacherBadge
+                      }
+                    >
+                      TEACHER
+                    </span>
+
+                    <span
+                      style={
+                        styles.latestText
+                      }
+                    >
+                      LATEST ANNOUNCEMENT
+                    </span>
+
+                    <span
+                      style={
+                        styles.announcementDate
+                      }
+                    >
+                      {formatAnnouncementDate(
+                        latestAnnouncement.created_at
+                      )}
+                    </span>
+                  </div>
+
+                  <h3
+                    style={
+                      styles.announcementCardTitle
+                    }
+                  >
+                    {
+                      latestAnnouncement.title
+                    }
+                  </h3>
+
+                  <p
+                    style={
+                      styles.latestPreview
+                    }
+                  >
+                    {getAnnouncementPreview(
+                      latestAnnouncement.message
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <div
+                style={
+                  styles.latestAnnouncementBottom
+                }
+              >
+                <div
+                  style={
+                    styles.everyoneText
+                  }
+                >
+                  👥 For all students
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setAnnouncementOpen(
+                      true
+                    )
+                  }
+                  style={
+                    styles.openAnnouncementButton
+                  }
+                >
+                  Open Announcement
+                  <span>→</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
 
         {/* ANNOUNCEMENT MODAL */}
 
         {announcementOpen &&
           latestAnnouncement && (
             <div
-              className="student-overlay"
+              style={
+                styles.modalOverlay
+              }
               onClick={() =>
-                setAnnouncementOpen(false)
+                setAnnouncementOpen(
+                  false
+                )
               }
             >
               <div
-                className="student-modal"
+                style={
+                  styles.modal
+                }
                 onClick={(event) =>
                   event.stopPropagation()
                 }
               >
-                <div className="student-modal-header">
-                  <div>
-                    <div className="student-modal-eyebrow">
-                      LATEST ANNOUNCEMENT
+                <div
+                  style={
+                    styles.modalHeader
+                  }
+                >
+                  <div
+                    style={
+                      styles.modalHeaderLeft
+                    }
+                  >
+                    <div
+                      style={
+                        styles.modalIcon
+                      }
+                    >
+                      📢
                     </div>
 
-                    <h2 className="student-modal-title">
-                      {
-                        latestAnnouncement.title
-                      }
-                    </h2>
+                    <div>
+                      <div
+                        style={
+                          styles.modalEyebrow
+                        }
+                      >
+                        LATEST ANNOUNCEMENT
+                      </div>
+
+                      <div
+                        style={
+                          styles.modalTeacher
+                        }
+                      >
+                        TEACHER
+                      </div>
+                    </div>
                   </div>
 
                   <button
@@ -2210,28 +1155,57 @@ export default function StudentDashboardPage() {
                         false
                       )
                     }
-                    className="student-close"
+                    style={
+                      styles.closeButton
+                    }
+                    aria-label="Close announcement"
                   >
                     ×
                   </button>
                 </div>
 
-                <div className="student-modal-date">
-                  {formatDate(
+                <div
+                  style={
+                    styles.modalDate
+                  }
+                >
+                  {formatAnnouncementDate(
                     latestAnnouncement.created_at
                   )}
                 </div>
 
-                <div className="student-modal-message">
+                <h2
+                  style={
+                    styles.modalTitle
+                  }
+                >
+                  {
+                    latestAnnouncement.title
+                  }
+                </h2>
+
+                <div
+                  style={
+                    styles.modalMessage
+                  }
+                >
                   {
                     latestAnnouncement.message
                   }
                 </div>
 
-                <div className="student-modal-footer">
-                  <span className="student-for-all">
-                    FOR ALL STUDENTS
-                  </span>
+                <div
+                  style={
+                    styles.modalBottom
+                  }
+                >
+                  <div
+                    style={
+                      styles.everyoneText
+                    }
+                  >
+                    👥 For all students
+                  </div>
 
                   <button
                     type="button"
@@ -2244,105 +1218,1184 @@ export default function StudentDashboardPage() {
                       likingId ===
                       latestAnnouncement.id
                     }
-                    className={`student-like ${
-                      latestAnnouncement.likedByMe
-                        ? "student-like-active"
-                        : ""
-                    }`}
+                    style={{
+                      ...styles.likeButton,
+                      ...(latestAnnouncement.likedByMe
+                        ? styles.likeButtonActive
+                        : {}),
+                      opacity:
+                        likingId ===
+                        latestAnnouncement.id
+                          ? 0.65
+                          : 1,
+                      cursor:
+                        likingId ===
+                        latestAnnouncement.id
+                          ? "not-allowed"
+                          : "pointer",
+                    }}
                   >
                     {latestAnnouncement.likedByMe
-                      ? "LIKED"
-                      : "LIKE"}{" "}
-                    {latestAnnouncement.likeCount}
+                      ? "❤️ Liked"
+                      : "🤍 Like"}
+
+                    <span
+                      style={
+                        styles.likeCount
+                      }
+                    >
+                      {
+                        latestAnnouncement.likeCount
+                      }
+                    </span>
                   </button>
                 </div>
               </div>
             </div>
           )}
 
-        {/* MOBILE BOTTOM NAVIGATION */}
+        {/* NOTICE */}
 
-        <nav className="student-mobile-nav">
+        <section style={styles.notice}>
+          <div style={styles.noticeIcon}>
+            ℹ️
+          </div>
+
+          <div>
+            <div style={styles.noticeTitle}>
+              Student Information Center
+            </div>
+
+            <p style={styles.noticeText}>
+              Use the options below to check
+              your attendance, academic
+              calendar, homework, reports,
+              fees, quiz tests and account
+              settings.
+            </p>
+          </div>
+        </section>
+
+        {/* SERVICES */}
+
+        <section>
+          <div style={styles.sectionHeading}>
+            <div>
+              <div
+                style={
+                  styles.sectionEyebrow
+                }
+              >
+                STUDENT SERVICES
+              </div>
+
+              <h2 style={styles.sectionTitle}>
+                Your Dashboard
+              </h2>
+            </div>
+
+            <div style={styles.serviceCount}>
+              {cards.length} OPTIONS
+            </div>
+          </div>
+
+          <div style={styles.cardGrid}>
+            {cards.map((card) => {
+              const styleKey =
+                `card${card.className
+                  .charAt(0)
+                  .toUpperCase()}${card.className.slice(
+                  1
+                )}`;
+
+              return (
+                <button
+                  key={card.path}
+                  type="button"
+                  onClick={() =>
+                    router.push(
+                      card.path
+                    )
+                  }
+                  style={
+                    styles.serviceCard
+                  }
+                >
+                  <div
+                    style={{
+                      ...styles.cardTop,
+                      ...(styles[
+                        styleKey
+                      ] || {}),
+                    }}
+                  >
+                    <div
+                      style={
+                        styles.cardIcon
+                      }
+                    >
+                      {card.icon}
+                    </div>
+
+                    <div
+                      style={
+                        styles.arrow
+                      }
+                    >
+                      →
+                    </div>
+                  </div>
+
+                  <div
+                    style={
+                      styles.cardBody
+                    }
+                  >
+                    <h3
+                      style={
+                        styles.cardTitle
+                      }
+                    >
+                      {card.title}
+                    </h3>
+
+                    <p
+                      style={
+                        styles.cardDescription
+                      }
+                    >
+                      {
+                        card.description
+                      }
+                    </p>
+
+                    <div
+                      style={
+                        styles.openLink
+                      }
+                    >
+                      <span>
+                        Open
+                      </span>
+
+                      <span>
+                        →
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* PROFILE PANEL */}
+
+        <section
+          style={
+            styles.bottomPanel
+          }
+        >
+          <div style={styles.bottomIcon}>
+            👤
+          </div>
+
+          <div style={styles.bottomText}>
+            <h3
+              style={
+                styles.bottomTitle
+              }
+            >
+              Keep your profile updated
+            </h3>
+
+            <p
+              style={
+                styles.bottomDescription
+              }
+            >
+              Your personal information is
+              managed through your student
+              profile.
+            </p>
+          </div>
+
           <button
             type="button"
             onClick={() =>
-              go("/student")
+              router.push(
+                "/student/profile"
+              )
             }
-            className="student-mobile-item"
-          >
-            <span className="student-mobile-icon">
-              H
-            </span>
-
-            <span className="student-mobile-label">
-              Home
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() =>
-              go("/student/timetable")
+            style={
+              styles.profileButton
             }
-            className="student-mobile-item"
           >
-            <span className="student-mobile-icon">
-              T
-            </span>
-
-            <span className="student-mobile-label">
-              Time Table
-            </span>
+            View Profile →
           </button>
+        </section>
 
-          <button
-            type="button"
-            onClick={() =>
-              go("/student/ask-query")
-            }
-            className="student-mobile-item"
-          >
-            <span className="student-mobile-icon">
-              Q
-            </span>
+        {/* FOOTER */}
 
-            <span className="student-mobile-label">
-              Ask Query
-            </span>
-          </button>
+        <footer style={styles.footer}>
+          <div style={styles.footerBrand}>
+            🎓 Attendance Portal
+          </div>
 
-          <button
-            type="button"
-            onClick={() =>
-              go("/student/profile")
-            }
-            className="student-mobile-item"
-          >
-            <span className="student-mobile-icon">
-              P
-            </span>
-
-            <span className="student-mobile-label">
-              Profile
-            </span>
-          </button>
-        </nav>
-      </main>
-    </>
+          <div>
+            Student Portal • 2026
+          </div>
+        </footer>
+      </div>
+    </main>
   );
 }
 
+/*
+ * =====================================================
+ * ANNOUNCEMENT PREVIEW
+ * =====================================================
+ */
+
 function getAnnouncementPreview(
   message: string
-) {
+): string {
   if (!message) {
     return "You have a new announcement from your teacher.";
   }
 
-  const clean =
+  const cleanMessage =
     message.replace(/\s+/g, " ").trim();
 
-  return clean.length <= 190
-    ? clean
-    : `${clean.substring(0, 190)}...`;
+  if (cleanMessage.length <= 170) {
+    return cleanMessage;
+  }
+
+  return (
+    cleanMessage.substring(0, 170) +
+    "..."
+  );
 }
+
+/*
+ * =====================================================
+ * STYLES
+ * =====================================================
+ */
+
+const styles: {
+  [key: string]: React.CSSProperties;
+} = {
+  page: {
+    minHeight: "100vh",
+    background:
+      "linear-gradient(135deg,#f8fafc 0%,#eef2ff 50%,#f0f9ff 100%)",
+    padding: "18px",
+    boxSizing: "border-box",
+    fontFamily:
+      "Arial, Helvetica, sans-serif",
+    color: "#0f172a",
+  },
+
+  container: {
+    width: "100%",
+    maxWidth: "1250px",
+    margin: "0 auto",
+  },
+
+  navbar: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "18px",
+    padding: "14px 18px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "15px",
+    marginBottom: "18px",
+    boxShadow:
+      "0 8px 25px rgba(15,23,42,0.06)",
+    flexWrap: "wrap",
+  },
+
+  brandArea: {
+    display: "flex",
+    alignItems: "center",
+    gap: "11px",
+  },
+
+  brandIcon: {
+    width: "45px",
+    height: "45px",
+    borderRadius: "13px",
+    background:
+      "linear-gradient(135deg,#2563eb,#7c3aed)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "22px",
+  },
+
+  brandName: {
+    fontSize: "13px",
+    fontWeight: "1000",
+    letterSpacing: "1px",
+    color: "#172554",
+  },
+
+  brandSub: {
+    marginTop: "3px",
+    fontSize: "9px",
+    fontWeight: "900",
+    letterSpacing: "2px",
+    color: "#64748b",
+  },
+
+  navRight: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    flexWrap: "wrap",
+  },
+
+  clock: {
+    background: "#f8fafc",
+    border: "1px solid #e2e8f0",
+    padding: "9px 12px",
+    borderRadius: "9px",
+    color: "#475569",
+    fontSize: "11px",
+    fontWeight: "800",
+  },
+
+  logoutButton: {
+    border: "none",
+    background: "#0f172a",
+    color: "#ffffff",
+    padding: "10px 15px",
+    borderRadius: "9px",
+    fontWeight: "900",
+    cursor: "pointer",
+  },
+
+  hero: {
+    position: "relative",
+    overflow: "hidden",
+    background:
+      "linear-gradient(135deg,#172554,#2563eb,#4f46e5)",
+    borderRadius: "25px",
+    padding: "34px",
+    minHeight: "220px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "25px",
+    marginBottom: "18px",
+    boxShadow:
+      "0 18px 45px rgba(37,99,235,0.22)",
+    boxSizing: "border-box",
+  },
+
+  heroGlowOne: {
+    position: "absolute",
+    width: "230px",
+    height: "230px",
+    borderRadius: "50%",
+    background:
+      "rgba(255,255,255,0.08)",
+    right: "120px",
+    top: "-100px",
+  },
+
+  heroGlowTwo: {
+    position: "absolute",
+    width: "180px",
+    height: "180px",
+    borderRadius: "50%",
+    background:
+      "rgba(255,255,255,0.06)",
+    right: "-40px",
+    bottom: "-90px",
+  },
+
+  heroContent: {
+    position: "relative",
+    zIndex: 2,
+    display: "flex",
+    alignItems: "center",
+    gap: "20px",
+    minWidth: 0,
+  },
+
+  avatar: {
+    width: "88px",
+    height: "88px",
+    minWidth: "88px",
+    borderRadius: "24px",
+    background: "#ffffff",
+    color: "#2563eb",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "38px",
+    fontWeight: "1000",
+    boxShadow:
+      "0 12px 30px rgba(0,0,0,0.18)",
+  },
+
+  welcomeArea: {
+    minWidth: 0,
+  },
+
+  smallGreeting: {
+    color: "#bfdbfe",
+    fontSize: "10px",
+    fontWeight: "1000",
+    letterSpacing: "2px",
+    marginBottom: "8px",
+  },
+
+  welcomeTitle: {
+    margin: 0,
+    color: "#ffffff",
+    fontSize: "30px",
+    lineHeight: 1.2,
+    fontWeight: "1000",
+    wordBreak: "break-word",
+  },
+
+  welcomeText: {
+    margin: "9px 0 0",
+    color: "#dbeafe",
+    fontSize: "13px",
+    fontWeight: "600",
+    lineHeight: 1.6,
+    maxWidth: "600px",
+  },
+
+  usernameBadge: {
+    display: "inline-block",
+    marginTop: "13px",
+    padding: "7px 11px",
+    borderRadius: "8px",
+    background:
+      "rgba(255,255,255,0.13)",
+    border:
+      "1px solid rgba(255,255,255,0.22)",
+    color: "#ffffff",
+    fontSize: "11px",
+    fontWeight: "900",
+  },
+
+  heroSide: {
+    position: "relative",
+    zIndex: 2,
+    background:
+      "rgba(255,255,255,0.12)",
+    border:
+      "1px solid rgba(255,255,255,0.2)",
+    borderRadius: "14px",
+    padding: "13px 15px",
+    display: "flex",
+    alignItems: "center",
+    gap: "9px",
+    minWidth: "155px",
+  },
+
+  statusDot: {
+    width: "10px",
+    height: "10px",
+    borderRadius: "50%",
+    background: "#4ade80",
+    boxShadow:
+      "0 0 0 5px rgba(74,222,128,0.15)",
+  },
+
+  onlineText: {
+    color: "#ffffff",
+    fontSize: "10px",
+    fontWeight: "1000",
+    letterSpacing: "1px",
+  },
+
+  onlineSub: {
+    marginTop: "3px",
+    color: "#bfdbfe",
+    fontSize: "10px",
+    fontWeight: "700",
+  },
+
+  announcementSection: {
+    background: "#ffffff",
+    border: "1px solid #dbeafe",
+    borderRadius: "20px",
+    padding: "20px",
+    marginBottom: "25px",
+    boxShadow:
+      "0 8px 26px rgba(15,23,42,0.06)",
+  },
+
+  latestAnnouncementHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "15px",
+    marginBottom: "16px",
+    flexWrap: "wrap",
+  },
+
+  latestAnnouncementLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    minWidth: 0,
+  },
+
+  latestAnnouncementIcon: {
+    width: "48px",
+    height: "48px",
+    minWidth: "48px",
+    borderRadius: "14px",
+    background:
+      "linear-gradient(135deg,#dbeafe,#ede9fe)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "23px",
+  },
+
+  latestBadge: {
+    background: "#dcfce7",
+    color: "#15803d",
+    border: "1px solid #bbf7d0",
+    padding: "8px 12px",
+    borderRadius: "9px",
+    fontSize: "9px",
+    fontWeight: "1000",
+    letterSpacing: "1px",
+  },
+
+  announcementEyebrow: {
+    color: "#2563eb",
+    fontSize: "9px",
+    fontWeight: "1000",
+    letterSpacing: "2px",
+    marginBottom: "4px",
+  },
+
+  announcementTitle: {
+    margin: 0,
+    color: "#172554",
+    fontSize: "24px",
+    fontWeight: "1000",
+  },
+
+  announcementSubtitle: {
+    margin: "5px 0 0",
+    color: "#64748b",
+    fontSize: "11px",
+    fontWeight: "600",
+  },
+
+  latestAnnouncementCard: {
+    background:
+      "linear-gradient(135deg,#f8fbff,#ffffff)",
+    border: "1px solid #bfdbfe",
+    borderRadius: "16px",
+    padding: "16px",
+  },
+
+  latestAnnouncementCardTop: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "13px",
+  },
+
+  announcementIcon: {
+    width: "45px",
+    height: "45px",
+    minWidth: "45px",
+    borderRadius: "12px",
+    background:
+      "linear-gradient(135deg,#dbeafe,#ede9fe)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "21px",
+  },
+
+  announcementCardContent: {
+    minWidth: 0,
+    flex: 1,
+  },
+
+  announcementMeta: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    flexWrap: "wrap",
+  },
+
+  teacherBadge: {
+    background: "#dbeafe",
+    color: "#1d4ed8",
+    padding: "4px 7px",
+    borderRadius: "6px",
+    fontSize: "8px",
+    fontWeight: "1000",
+    letterSpacing: "0.7px",
+  },
+
+  latestText: {
+    background: "#dcfce7",
+    color: "#15803d",
+    padding: "4px 7px",
+    borderRadius: "6px",
+    fontSize: "8px",
+    fontWeight: "1000",
+    letterSpacing: "0.7px",
+  },
+
+  announcementDate: {
+    color: "#94a3b8",
+    fontSize: "9px",
+    fontWeight: "700",
+  },
+
+  announcementCardTitle: {
+    margin: "7px 0 0",
+    color: "#172554",
+    fontSize: "18px",
+    fontWeight: "1000",
+    wordBreak: "break-word",
+  },
+
+  latestPreview: {
+    margin: "7px 0 0",
+    color: "#475569",
+    fontSize: "12px",
+    lineHeight: 1.65,
+    fontWeight: "600",
+    wordBreak: "break-word",
+  },
+
+  latestAnnouncementBottom: {
+    marginTop: "14px",
+    paddingTop: "12px",
+    borderTop: "1px solid #e2e8f0",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "10px",
+    flexWrap: "wrap",
+  },
+
+  openAnnouncementButton: {
+    border: "none",
+    background:
+      "linear-gradient(135deg,#2563eb,#4f46e5)",
+    color: "#ffffff",
+    padding: "10px 14px",
+    borderRadius: "10px",
+    fontSize: "11px",
+    fontWeight: "1000",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    gap: "9px",
+    boxShadow:
+      "0 7px 18px rgba(37,99,235,0.18)",
+  },
+
+  announcementLoading: {
+    display: "flex",
+    alignItems: "center",
+    gap: "13px",
+    padding: "18px",
+    background: "#f8fafc",
+    borderRadius: "14px",
+    border: "1px dashed #cbd5e1",
+  },
+
+  loadingIcon: {
+    fontSize: "27px",
+  },
+
+  loadingTitle: {
+    color: "#334155",
+    fontSize: "13px",
+    fontWeight: "900",
+  },
+
+  loadingText: {
+    marginTop: "3px",
+    color: "#64748b",
+    fontSize: "10px",
+    fontWeight: "600",
+  },
+
+  noAnnouncements: {
+    display: "flex",
+    alignItems: "center",
+    gap: "14px",
+    padding: "20px",
+    background: "#f8fafc",
+    borderRadius: "14px",
+    border: "1px dashed #cbd5e1",
+  },
+
+  noAnnouncementIcon: {
+    width: "48px",
+    height: "48px",
+    borderRadius: "13px",
+    background: "#eff6ff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "23px",
+    flexShrink: 0,
+  },
+
+  noAnnouncementTitle: {
+    margin: 0,
+    color: "#334155",
+    fontSize: "14px",
+    fontWeight: "1000",
+  },
+
+  noAnnouncementText: {
+    margin: "4px 0 0",
+    color: "#64748b",
+    fontSize: "11px",
+    fontWeight: "600",
+  },
+
+  everyoneText: {
+    color: "#64748b",
+    fontSize: "10px",
+    fontWeight: "800",
+  },
+
+  modalOverlay: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 9999,
+    background:
+      "rgba(15,23,42,0.62)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "18px",
+    boxSizing: "border-box",
+    backdropFilter: "blur(5px)",
+  },
+
+  modal: {
+    width: "100%",
+    maxWidth: "720px",
+    maxHeight: "88vh",
+    overflowY: "auto",
+    background: "#ffffff",
+    borderRadius: "22px",
+    padding: "22px",
+    boxSizing: "border-box",
+    boxShadow:
+      "0 25px 70px rgba(0,0,0,0.28)",
+  },
+
+  modalHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "12px",
+  },
+
+  modalHeaderLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: "11px",
+  },
+
+  modalIcon: {
+    width: "45px",
+    height: "45px",
+    borderRadius: "12px",
+    background:
+      "linear-gradient(135deg,#dbeafe,#ede9fe)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "21px",
+  },
+
+  modalEyebrow: {
+    color: "#2563eb",
+    fontSize: "9px",
+    fontWeight: "1000",
+    letterSpacing: "1.5px",
+  },
+
+  modalTeacher: {
+    marginTop: "3px",
+    color: "#64748b",
+    fontSize: "9px",
+    fontWeight: "900",
+  },
+
+  closeButton: {
+    width: "36px",
+    height: "36px",
+    borderRadius: "50%",
+    border: "1px solid #e2e8f0",
+    background: "#f8fafc",
+    color: "#475569",
+    fontSize: "25px",
+    lineHeight: 1,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  modalDate: {
+    marginTop: "14px",
+    color: "#94a3b8",
+    fontSize: "10px",
+    fontWeight: "700",
+  },
+
+  modalTitle: {
+    margin: "9px 0 0",
+    color: "#172554",
+    fontSize: "23px",
+    lineHeight: 1.3,
+    fontWeight: "1000",
+    wordBreak: "break-word",
+  },
+
+  modalMessage: {
+    marginTop: "16px",
+    color: "#334155",
+    fontSize: "13px",
+    lineHeight: 1.8,
+    fontWeight: "600",
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    background: "#f8fafc",
+    border: "1px solid #e2e8f0",
+    borderRadius: "14px",
+    padding: "16px",
+  },
+
+  modalBottom: {
+    marginTop: "17px",
+    paddingTop: "14px",
+    borderTop: "1px solid #e2e8f0",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "10px",
+    flexWrap: "wrap",
+  },
+
+  likeButton: {
+    border: "1px solid #cbd5e1",
+    background: "#ffffff",
+    color: "#475569",
+    padding: "8px 11px",
+    borderRadius: "9px",
+    fontSize: "11px",
+    fontWeight: "1000",
+    display: "flex",
+    alignItems: "center",
+    gap: "7px",
+  },
+
+  likeButtonActive: {
+    background: "#fff1f2",
+    border:
+      "1px solid #fecdd3",
+    color: "#be123c",
+  },
+
+  likeCount: {
+    background: "#f1f5f9",
+    color: "#475569",
+    minWidth: "19px",
+    height: "19px",
+    padding: "0 4px",
+    borderRadius: "999px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "9px",
+    fontWeight: "1000",
+  },
+
+  notice: {
+    background: "#ffffff",
+    border: "1px solid #dbeafe",
+    borderRadius: "17px",
+    padding: "15px 18px",
+    display: "flex",
+    alignItems: "center",
+    gap: "13px",
+    marginBottom: "25px",
+    boxShadow:
+      "0 7px 22px rgba(15,23,42,0.05)",
+  },
+
+  noticeIcon: {
+    width: "40px",
+    height: "40px",
+    minWidth: "40px",
+    borderRadius: "11px",
+    background: "#eff6ff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "19px",
+  },
+
+  noticeTitle: {
+    color: "#172554",
+    fontSize: "13px",
+    fontWeight: "900",
+  },
+
+  noticeText: {
+    margin: "3px 0 0",
+    color: "#64748b",
+    fontSize: "11px",
+    lineHeight: 1.5,
+    fontWeight: "600",
+  },
+
+  sectionHeading: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    gap: "15px",
+    marginBottom: "15px",
+  },
+
+  sectionEyebrow: {
+    color: "#2563eb",
+    fontSize: "9px",
+    fontWeight: "1000",
+    letterSpacing: "2px",
+    marginBottom: "3px",
+  },
+
+  sectionTitle: {
+    margin: 0,
+    fontSize: "24px",
+    fontWeight: "1000",
+    color: "#172554",
+  },
+
+  serviceCount: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    color: "#64748b",
+    padding: "8px 11px",
+    borderRadius: "9px",
+    fontSize: "10px",
+    fontWeight: "900",
+  },
+
+  cardGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(3,minmax(0,1fr))",
+    gap: "15px",
+  },
+
+  serviceCard: {
+    border: "1px solid #e2e8f0",
+    background: "#ffffff",
+    borderRadius: "19px",
+    overflow: "hidden",
+    padding: 0,
+    textAlign: "left",
+    cursor: "pointer",
+    boxShadow:
+      "0 7px 22px rgba(15,23,42,0.05)",
+  },
+
+  cardTop: {
+    padding: "15px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+
+  cardBlue: {
+    background:
+      "linear-gradient(135deg,#dbeafe,#bfdbfe)",
+  },
+
+  cardPurple: {
+    background:
+      "linear-gradient(135deg,#ede9fe,#ddd6fe)",
+  },
+
+  cardGreen: {
+    background:
+      "linear-gradient(135deg,#dcfce7,#bbf7d0)",
+  },
+
+  cardOrange: {
+    background:
+      "linear-gradient(135deg,#ffedd5,#fed7aa)",
+  },
+
+  cardPink: {
+    background:
+      "linear-gradient(135deg,#fce7f3,#fbcfe8)",
+  },
+
+  cardIndigo: {
+    background:
+      "linear-gradient(135deg,#e0e7ff,#c7d2fe)",
+  },
+
+  cardCyan: {
+    background:
+      "linear-gradient(135deg,#cffafe,#a5f3fc)",
+  },
+
+  // NEW QUIZ CARD STYLE
+  cardQuiz: {
+    background:
+      "linear-gradient(135deg,#fef9c3,#fde68a)",
+  },
+
+  cardIcon: {
+    width: "47px",
+    height: "47px",
+    borderRadius: "14px",
+    background:
+      "rgba(255,255,255,0.72)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "23px",
+  },
+
+  arrow: {
+    width: "30px",
+    height: "30px",
+    borderRadius: "50%",
+    background:
+      "rgba(255,255,255,0.65)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#172554",
+    fontWeight: "1000",
+  },
+
+  cardBody: {
+    padding: "17px",
+  },
+
+  cardTitle: {
+    margin: 0,
+    color: "#172554",
+    fontSize: "17px",
+    fontWeight: "1000",
+  },
+
+  cardDescription: {
+    margin: "7px 0 0",
+    color: "#64748b",
+    fontSize: "11px",
+    lineHeight: 1.6,
+    minHeight: "36px",
+    fontWeight: "600",
+  },
+
+  openLink: {
+    marginTop: "13px",
+    color: "#2563eb",
+    fontSize: "11px",
+    fontWeight: "1000",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+
+  bottomPanel: {
+    marginTop: "20px",
+    background:
+      "linear-gradient(135deg,#ffffff,#f8fafc)",
+    border: "1px solid #e2e8f0",
+    borderRadius: "18px",
+    padding: "17px",
+    display: "flex",
+    alignItems: "center",
+    gap: "13px",
+    boxShadow:
+      "0 7px 22px rgba(15,23,42,0.05)",
+    flexWrap: "wrap",
+  },
+
+  bottomIcon: {
+    width: "48px",
+    height: "48px",
+    borderRadius: "13px",
+    background: "#eef2ff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "23px",
+  },
+
+  bottomText: {
+    flex: 1,
+    minWidth: "200px",
+  },
+
+  bottomTitle: {
+    margin: 0,
+    color: "#172554",
+    fontSize: "14px",
+    fontWeight: "1000",
+  },
+
+  bottomDescription: {
+    margin: "4px 0 0",
+    color: "#64748b",
+    fontSize: "11px",
+    fontWeight: "600",
+  },
+
+  profileButton: {
+    border: "none",
+    background: "#2563eb",
+    color: "#ffffff",
+    padding: "10px 15px",
+    borderRadius: "9px",
+    fontWeight: "900",
+    cursor: "pointer",
+  },
+
+  footer: {
+    marginTop: "25px",
+    padding: "18px 5px",
+    borderTop: "1px solid #e2e8f0",
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "10px",
+    color: "#94a3b8",
+    fontSize: "10px",
+    fontWeight: "700",
+    flexWrap: "wrap",
+  },
+
+  footerBrand: {
+    color: "#475569",
+    fontWeight: "900",
+  },
+};

@@ -54,6 +54,19 @@ function safeNumber(
     : fallback;
 }
 
+/*
+ * Student START WINDOW
+ *
+ * The student can start the quiz only on the
+ * scheduled date between:
+ *
+ * 05:00 AM IST
+ * and
+ * 09:00 PM IST
+ *
+ * The teacher's scheduled_time is NOT used
+ * as the mandatory student start time anymore.
+ */
 function getStudentAttemptWindow(
   scheduledDate: unknown
 ) {
@@ -95,12 +108,6 @@ export async function POST(
   request: Request
 ) {
   try {
-    /*
-     * ---------------------------------------------------------
-     * READ REQUEST
-     * ---------------------------------------------------------
-     */
-
     const body = await request.json();
 
     const quizId = safeNumber(
@@ -111,26 +118,12 @@ export async function POST(
       body?.studentId
     );
 
-    const studentUsername =
-      typeof body?.studentUsername === "string"
-        ? body.studentUsername.trim()
-        : "";
-
-    console.log(
-      "START QUIZ REQUEST:",
-      {
-        quizId,
-        studentId,
-        studentUsername,
-      }
-    );
-
-    if (!quizId || (!studentId && !studentUsername)) {
+    if (!quizId || !studentId) {
       return NextResponse.json(
         {
           success: false,
           error:
-            "Quiz ID and student information are required.",
+            "Quiz ID and Student ID are required.",
         },
         { status: 400 }
       );
@@ -142,49 +135,19 @@ export async function POST(
      * ---------------------------------------------------------
      */
 
-    let student: any = null;
-    let studentError: any = null;
-
-    if (studentUsername) {
-      const result = await supabaseAdmin
-        .from("students")
-        .select(
-          "id, student_name, student_username, class_name"
-        )
-        .eq(
-          "student_username",
-          studentUsername
-        )
-        .limit(1)
-        .maybeSingle();
-
-      student = result.data;
-      studentError = result.error;
-    }
-
-    if (!student && !studentError && studentId) {
-      const result = await supabaseAdmin
-        .from("students")
-        .select(
-          "id, student_name, student_username, class_name"
-        )
-        .eq("id", studentId)
-        .limit(1)
-        .maybeSingle();
-
-      student = result.data;
-      studentError = result.error;
-    }
+    const {
+      data: student,
+      error: studentError,
+    } = await supabaseAdmin
+      .from("students")
+      .select("*")
+      .eq("id", studentId)
+      .maybeSingle();
 
     if (studentError) {
       console.error(
         "START STUDENT ERROR:",
-        {
-          message: studentError.message,
-          details: studentError.details,
-          hint: studentError.hint,
-          code: studentError.code,
-        }
+        studentError
       );
 
       return NextResponse.json(
@@ -194,67 +157,20 @@ export async function POST(
             "Unable to load student.",
           details:
             studentError.message,
-          code:
-            studentError.code,
         },
         { status: 500 }
       );
     }
 
     if (!student) {
-      console.error(
-        "START STUDENT NOT FOUND:",
-        {
-          studentId,
-          studentUsername,
-        }
-      );
-
       return NextResponse.json(
         {
           success: false,
-          error: studentUsername
-            ? `Student not found for username: ${studentUsername}`
-            : "Student not found.",
-          details: studentUsername
-            ? `No student was found with username ${studentUsername}.`
-            : `No student was found with ID ${studentId}.`,
+          error: "Student not found.",
         },
         { status: 404 }
       );
     }
-
-    const canonicalStudentId =
-      Number(student.id);
-
-    if (
-      !Number.isInteger(
-        canonicalStudentId
-      ) ||
-      canonicalStudentId <= 0
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Invalid student record.",
-        },
-        { status: 500 }
-      );
-    }
-
-    console.log(
-      "START STUDENT FOUND:",
-      {
-        id: canonicalStudentId,
-        student_name:
-          student.student_name,
-        student_username:
-          student.student_username,
-        class_name:
-          student.class_name,
-      }
-    );
 
     /*
      * ---------------------------------------------------------
@@ -274,12 +190,7 @@ export async function POST(
     if (quizError) {
       console.error(
         "START QUIZ ERROR:",
-        {
-          message: quizError.message,
-          details: quizError.details,
-          hint: quizError.hint,
-          code: quizError.code,
-        }
+        quizError
       );
 
       return NextResponse.json(
@@ -289,8 +200,6 @@ export async function POST(
             "Unable to load quiz.",
           details:
             quizError.message,
-          code:
-            quizError.code,
         },
         { status: 500 }
       );
@@ -300,19 +209,15 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Quiz not found.",
+          error: "Quiz not found.",
         },
         { status: 404 }
       );
     }
 
     /*
-     * ---------------------------------------------------------
-     * PUBLISHED CHECK
-     * ---------------------------------------------------------
+     * Only published quizzes can be started.
      */
-
     if (!quiz.is_published) {
       return NextResponse.json(
         {
@@ -331,27 +236,45 @@ export async function POST(
      * ORIGINAL TEACHER SCHEDULE
      * ---------------------------------------------------------
      *
-     * scheduled_time is preserved and returned.
+     * We preserve this information.
+     * It is still returned to the frontend.
      *
-     * It is NOT used as the mandatory student start time.
+     * But scheduled_time is NO LONGER the mandatory
+     * student start time.
      */
 
-    const scheduledStart =
-      parseIST(
-        quiz.scheduled_date,
-        quiz.scheduled_time
+    const scheduledStart = parseIST(
+      quiz.scheduled_date,
+      quiz.scheduled_time
+    );
+
+    if (!scheduledStart) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Quiz schedule is invalid.",
+        },
+        { status: 400 }
       );
+    }
+
+    const durationMinutes = Math.max(
+      1,
+      safeNumber(
+        quiz.duration_minutes,
+        30
+      )
+    );
 
     /*
      * ---------------------------------------------------------
-     * STUDENT ATTEMPT WINDOW
+     * NEW STUDENT START WINDOW
      * ---------------------------------------------------------
      *
-     * Any Time quiz:
+     * Same scheduled date only.
      *
-     * 05:00 AM IST
-     * through
-     * before 09:00 PM IST
+     * 05:00 AM <= start < 09:00 PM
      */
 
     const attemptWindow =
@@ -365,28 +288,21 @@ export async function POST(
           success: false,
           error:
             "Quiz schedule date is invalid.",
-          details:
-            `Invalid scheduled date: ${String(
-              quiz.scheduled_date ?? ""
-            )}`,
         },
         { status: 400 }
       );
     }
 
-    const durationMinutes =
-      Math.max(
-        1,
-        safeNumber(
-          quiz.duration_minutes,
-          30
-        )
-      );
-
     /*
      * ---------------------------------------------------------
      * CHECK EXISTING ATTEMPT
      * ---------------------------------------------------------
+     *
+     * Existing unfinished attempt:
+     *     resume it.
+     *
+     * Existing submitted attempt:
+     *     permanently blocked.
      */
 
     const {
@@ -396,32 +312,13 @@ export async function POST(
       .from("quiz_results")
       .select("*")
       .eq("quiz_id", quizId)
-      .eq(
-        "student_id",
-        canonicalStudentId
-      )
-      .order(
-        "id",
-        {
-          ascending: false,
-        }
-      )
-      .limit(1)
+      .eq("student_id", studentId)
       .maybeSingle();
 
     if (existingError) {
       console.error(
         "START EXISTING RESULT ERROR:",
-        {
-          message:
-            existingError.message,
-          details:
-            existingError.details,
-          hint:
-            existingError.hint,
-          code:
-            existingError.code,
-        }
+        existingError
       );
 
       return NextResponse.json(
@@ -431,17 +328,14 @@ export async function POST(
             "Unable to check previous attempt.",
           details:
             existingError.message,
-          code:
-            existingError.code,
         },
         { status: 500 }
       );
     }
 
     /*
-     * ---------------------------------------------------------
-     * ALREADY SUBMITTED
-     * ---------------------------------------------------------
+     * Student already submitted this quiz.
+     * No second attempt.
      */
 
     if (existingResult?.submitted_at) {
@@ -490,13 +384,20 @@ export async function POST(
        * NEW ATTEMPT
        * -------------------------------------------------------
        *
-       * Student can start on the scheduled date:
+       * IMPORTANT:
        *
-       * 05:00 AM IST
+       * Teacher may schedule a quiz at 2 PM,
+       * but student can still start at:
        *
-       * until before:
+       * 05:00 AM
+       * 06:00 AM
+       * 10:00 AM
+       * 01:30 PM
+       * 02:00 PM
+       * 05:00 PM
+       * 08:59 PM
        *
-       * 09:00 PM IST
+       * on that same scheduled date.
        */
 
       if (now < attemptWindow.start) {
@@ -515,8 +416,8 @@ export async function POST(
       }
 
       /*
-       * At exactly 09:00 PM or later,
-       * new attempts are blocked.
+       * At exactly 09:00 PM and after,
+       * NEW attempts are blocked.
        */
 
       if (now >= attemptWindow.end) {
@@ -537,13 +438,10 @@ export async function POST(
       /*
        * Actual student start time.
        */
-
       startedAt = now;
 
       /*
-       * -------------------------------------------------------
-       * CREATE QUIZ RESULT
-       * -------------------------------------------------------
+       * Create the student's single attempt.
        */
 
       const {
@@ -553,8 +451,7 @@ export async function POST(
         .from("quiz_results")
         .insert({
           quiz_id: quizId,
-          student_id:
-            canonicalStudentId,
+          student_id: studentId,
           total_questions: 0,
           correct_answers: 0,
           wrong_answers: 0,
@@ -574,16 +471,7 @@ export async function POST(
       if (insertError) {
         console.error(
           "START RESULT INSERT ERROR:",
-          {
-            message:
-              insertError.message,
-            details:
-              insertError.details,
-            hint:
-              insertError.hint,
-            code:
-              insertError.code,
-          }
+          insertError
         );
 
         return NextResponse.json(
@@ -593,8 +481,6 @@ export async function POST(
               "Unable to create quiz attempt.",
             details:
               insertError.message,
-            code:
-              insertError.code,
           },
           { status: 500 }
         );
@@ -610,24 +496,30 @@ export async function POST(
      * ACTUAL ATTEMPT TIMER
      * ---------------------------------------------------------
      *
-     * Timer starts when the student actually starts.
+     * IMPORTANT CHANGE:
+     *
+     * Timer starts from student's ACTUAL start time.
      *
      * Example:
      *
-     * Student starts at 08:40 PM
-     * Duration = 30 minutes
-     * End = 09:10 PM
+     * duration = 30 minutes
      *
-     * 09:00 PM is only the NEW ATTEMPT START cutoff.
+     * student starts at 08:40 PM
+     *
+     * timer = 30 minutes
+     *
+     * student gets until 09:10 PM.
+     *
+     * 09:00 PM is ONLY the cutoff for STARTING
+     * a new attempt.
      */
 
-    const attemptEnd =
-      new Date(
-        startedAt.getTime() +
-          durationMinutes *
-            60 *
-            1000
-      );
+    const attemptEnd = new Date(
+      startedAt.getTime() +
+        durationMinutes *
+          60 *
+          1000
+    );
 
     const remainingMilliseconds =
       Math.max(
@@ -637,9 +529,11 @@ export async function POST(
       );
 
     /*
-     * ---------------------------------------------------------
-     * TIMER EXPIRED
-     * ---------------------------------------------------------
+     * Existing unfinished attempt has already
+     * reached its timer.
+     *
+     * Existing submit endpoint will finalize it
+     * as time_expired.
      */
 
     if (
@@ -649,36 +543,24 @@ export async function POST(
         success: true,
         resultId,
         quizId,
-        studentId:
-          canonicalStudentId,
-
+        studentId,
         startedAt:
           startedAt.toISOString(),
-
         scheduledStart:
-          scheduledStart
-            ? scheduledStart.toISOString()
-            : null,
-
+          scheduledStart.toISOString(),
         attemptWindowStart:
           attemptWindow.start.toISOString(),
-
         attemptWindowEnd:
           attemptWindow.end.toISOString(),
-
         endAt:
           attemptEnd.toISOString(),
-
         remainingMilliseconds: 0,
-
         timeExpired: true,
-
         quiz: {
           ...quiz,
           duration_minutes:
             durationMinutes,
         },
-
         questions: [],
       });
     }
@@ -706,16 +588,7 @@ export async function POST(
     if (questionsError) {
       console.error(
         "START QUESTIONS ERROR:",
-        {
-          message:
-            questionsError.message,
-          details:
-            questionsError.details,
-          hint:
-            questionsError.hint,
-          code:
-            questionsError.code,
-        }
+        questionsError
       );
 
       return NextResponse.json(
@@ -725,8 +598,6 @@ export async function POST(
             "Unable to load quiz questions.",
           details:
             questionsError.message,
-          code:
-            questionsError.code,
         },
         { status: 500 }
       );
@@ -767,16 +638,7 @@ export async function POST(
       if (optionsError) {
         console.error(
           "START OPTIONS ERROR:",
-          {
-            message:
-              optionsError.message,
-            details:
-              optionsError.details,
-            hint:
-              optionsError.hint,
-            code:
-              optionsError.code,
-          }
+          optionsError
         );
 
         return NextResponse.json(
@@ -786,8 +648,6 @@ export async function POST(
               "Unable to load quiz options.",
             details:
               optionsError.message,
-            code:
-              optionsError.code,
           },
           { status: 500 }
         );
@@ -799,17 +659,14 @@ export async function POST(
 
     /*
      * ---------------------------------------------------------
-     * REMOVE CORRECT ANSWER
+     * REMOVE CORRECT ANSWER FROM STUDENT RESPONSE
      * ---------------------------------------------------------
-     *
-     * Student must never receive is_correct.
      */
 
     const questionsWithOptions =
       (questions || []).map(
         (question) => ({
           ...question,
-
           options: options
             .filter(
               (option) =>
@@ -837,33 +694,22 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-
       resultId,
-
       quizId,
-
-      studentId:
-        canonicalStudentId,
+      studentId,
 
       startedAt:
         startedAt.toISOString(),
 
       /*
-       * Original teacher schedule.
-       *
-       * Can be null for an Any Time quiz if
-       * scheduled_time is not available.
+       * Original teacher schedule
        */
-
       scheduledStart:
-        scheduledStart
-          ? scheduledStart.toISOString()
-          : null,
+        scheduledStart.toISOString(),
 
       /*
-       * Student start window.
+       * Student start window
        */
-
       attemptWindowStart:
         attemptWindow.start.toISOString(),
 
@@ -871,9 +717,8 @@ export async function POST(
         attemptWindow.end.toISOString(),
 
       /*
-       * Actual timer end.
+       * Actual timer end
        */
-
       endAt:
         attemptEnd.toISOString(),
 
@@ -883,26 +728,6 @@ export async function POST(
 
       alreadyStarted:
         Boolean(existingResult),
-
-      /*
-       * Student information.
-       */
-
-      student: {
-        id: student.id,
-
-        student_name:
-          student.student_name ??
-          null,
-
-        student_username:
-          student.student_username ??
-          null,
-
-        class_name:
-          student.class_name ??
-          null,
-      },
 
       quiz: {
         ...quiz,

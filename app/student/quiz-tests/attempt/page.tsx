@@ -12,6 +12,7 @@ import {
   useRouter,
   useSearchParams,
 } from "next/navigation";
+import { supabase } from "../../../../lib/supabase";
 
 type QuizTest = {
   id: number;
@@ -53,35 +54,21 @@ type StartResponse = {
   success: boolean;
   resultId?: number;
   resumed?: boolean;
-  alreadyStarted?: boolean;
   message?: string;
-  error?: string;
-  details?: string;
-
-  student?: StudentData;
-
   quiz?: QuizTest & {
-    startTime?: string;
-    scheduledEnd?: string;
-    attemptEnd?: string;
+    startTime: string;
+    scheduledEnd: string;
+    attemptEnd: string;
   };
-
   startedAt?: string;
-  scheduledStart?: string;
-  attemptWindowStart?: string;
-  attemptWindowEnd?: string;
-  endAt?: string;
   remainingMilliseconds?: number;
   questions?: QuizQuestion[];
   alreadySubmitted?: boolean;
-  timeExpired?: boolean;
 };
 
 type SubmitResponse = {
   success: boolean;
   message?: string;
-  error?: string;
-  details?: string;
   alreadySubmitted?: boolean;
   resultId?: number;
   result?: {
@@ -137,254 +124,73 @@ function formatTime(totalSeconds: number) {
   )}`;
 }
 
-/*
- * Read logged-in student information.
- *
- * Username and ID are both retained whenever available.
- * The API will use username first and ID as fallback.
- */
 function readStudent(): StudentData | null {
   if (typeof window === "undefined") {
     return null;
   }
 
-  const storages: Storage[] = [
-    window.localStorage,
-    window.sessionStorage,
-  ];
-
-  const objectKeys = [
+  const possibleKeys = [
     "student",
     "studentData",
     "loggedInStudent",
-    "studentLoggedIn",
   ];
 
-  const usernameKeys = [
-    "student_username",
-    "studentUsername",
-    "attendance_username",
-    "username",
-  ];
+  for (const key of possibleKeys) {
+    try {
+      const raw =
+        window.localStorage.getItem(key);
 
-  const idKeys = [
+      if (!raw) continue;
+
+      const parsed = JSON.parse(raw);
+
+      const id = Number(parsed?.id);
+
+      if (
+        Number.isInteger(id) &&
+        id > 0
+      ) {
+        return {
+          id,
+          student_name:
+            parsed?.student_name || null,
+          student_username:
+            parsed?.student_username || null,
+          class_name:
+            parsed?.class_name || null,
+        };
+      }
+    } catch {
+      // Continue with the next key.
+    }
+  }
+
+  const storedIdKeys = [
     "attendance_student_id",
     "studentId",
     "student_id",
   ];
 
-  const parseStudentObject = (
-    raw: string
-  ): StudentData | null => {
-    try {
-      const parsed: unknown =
-        JSON.parse(raw);
+  for (const key of storedIdKeys) {
+    const raw =
+      window.localStorage.getItem(key);
 
-      if (
-        !parsed ||
-        typeof parsed !== "object"
-      ) {
-        return null;
-      }
+    const id = Number(raw);
 
-      const objectValue =
-        parsed as Record<
-          string,
-          unknown
-        >;
-
-      const nestedStudent =
-        objectValue.student &&
-        typeof objectValue.student ===
-          "object"
-          ? (objectValue.student as Record<
-              string,
-              unknown
-            >)
-          : null;
-
-      const source =
-        nestedStudent || objectValue;
-
-      const possibleIds: unknown[] = [
-        source.id,
-        source.studentId,
-        source.student_id,
-        source.attendance_student_id,
-        objectValue.id,
-        objectValue.studentId,
-        objectValue.student_id,
-        objectValue.attendance_student_id,
-      ];
-
-      let id = 0;
-
-      for (const value of possibleIds) {
-        const numericId =
-          Number(value);
-
-        if (
-          Number.isInteger(
-            numericId
-          ) &&
-          numericId > 0
-        ) {
-          id = numericId;
-          break;
-        }
-      }
-
-      const studentName =
-        source.student_name ??
-        source.studentName ??
-        objectValue.student_name ??
-        objectValue.studentName ??
-        null;
-
-      const studentUsername =
-        source.student_username ??
-        source.studentUsername ??
-        source.username ??
-        objectValue.student_username ??
-        objectValue.studentUsername ??
-        objectValue.username ??
-        null;
-
-      const className =
-        source.class_name ??
-        source.className ??
-        objectValue.class_name ??
-        objectValue.className ??
-        null;
-
-      if (
-        id <= 0 &&
-        !studentUsername
-      ) {
-        return null;
-      }
-
+    if (
+      Number.isInteger(id) &&
+      id > 0
+    ) {
       return {
         id,
-        student_name:
-          studentName !== null
-            ? String(studentName)
-            : null,
+        student_name: null,
         student_username:
-          studentUsername !== null
-            ? String(studentUsername).trim()
-            : null,
-        class_name:
-          className !== null
-            ? String(className)
-            : null,
+          window.localStorage.getItem(
+            "student_username"
+          ),
+        class_name: null,
       };
-    } catch {
-      return null;
     }
-  };
-
-  /*
-   * 1. Check stored student objects.
-   */
-  for (const storage of storages) {
-    for (const key of objectKeys) {
-      try {
-        const raw =
-          storage.getItem(key);
-
-        if (!raw) {
-          continue;
-        }
-
-        const student =
-          parseStudentObject(raw);
-
-        if (student) {
-          return student;
-        }
-      } catch {
-        // Continue searching.
-      }
-    }
-  }
-
-  /*
-   * 2. Find username.
-   */
-  let username: string | null =
-    null;
-
-  for (const storage of storages) {
-    for (const key of usernameKeys) {
-      try {
-        const value =
-          storage.getItem(key);
-
-        if (
-          value &&
-          value.trim()
-        ) {
-          username =
-            value.trim();
-          break;
-        }
-      } catch {
-        // Continue searching.
-      }
-    }
-
-    if (username) {
-      break;
-    }
-  }
-
-  /*
-   * 3. Find numeric ID.
-   */
-  let numericId = 0;
-
-  for (const storage of storages) {
-    for (const key of idKeys) {
-      try {
-        const raw =
-          storage.getItem(key);
-
-        if (!raw) {
-          continue;
-        }
-
-        const id =
-          Number(raw);
-
-        if (
-          Number.isInteger(id) &&
-          id > 0
-        ) {
-          numericId = id;
-          break;
-        }
-      } catch {
-        // Continue searching.
-      }
-    }
-
-    if (numericId > 0) {
-      break;
-    }
-  }
-
-  if (
-    username ||
-    numericId > 0
-  ) {
-    return {
-      id: numericId,
-      student_name: null,
-      student_username:
-        username,
-      class_name: null,
-    };
   }
 
   return null;
@@ -414,6 +220,18 @@ function saveStudentSession(
     id
   );
 
+  if (student.student_username) {
+    window.localStorage.setItem(
+      "student_username",
+      student.student_username
+    );
+
+    window.sessionStorage.setItem(
+      "student_username",
+      student.student_username
+    );
+  }
+
   window.sessionStorage.setItem(
     "attendance_student_id",
     id
@@ -429,80 +247,12 @@ function saveStudentSession(
     id
   );
 
-  if (student.student_username) {
-    window.localStorage.setItem(
-      "student_username",
-      student.student_username
-    );
-
-    window.sessionStorage.setItem(
-      "student_username",
-      student.student_username
-    );
-
-    window.localStorage.setItem(
-      "studentUsername",
-      student.student_username
-    );
-
-    window.sessionStorage.setItem(
-      "studentUsername",
-      student.student_username
-    );
-  }
-
   if (student.student_name) {
     window.sessionStorage.setItem(
       "attendance_student_name",
       student.student_name
     );
   }
-
-  try {
-    window.localStorage.setItem(
-      "student",
-      JSON.stringify(student)
-    );
-
-    window.sessionStorage.setItem(
-      "student",
-      JSON.stringify(student)
-    );
-  } catch {
-    // Ignore storage errors.
-  }
-}
-
-function getApiError(
-  data: StartResponse
-) {
-  if (data.error) {
-    if (
-      data.details &&
-      data.details !== data.error
-    ) {
-      return `${data.error}\n${data.details}`;
-    }
-
-    return data.error;
-  }
-
-  return (
-    data.message ||
-    data.details ||
-    "Unable to start quiz."
-  );
-}
-
-function getSubmitApiError(
-  data: SubmitResponse
-) {
-  return (
-    data.error ||
-    data.message ||
-    data.details ||
-    "Unable to submit quiz."
-  );
 }
 
 function StudentQuizAttemptContent() {
@@ -528,9 +278,9 @@ function StudentQuizAttemptContent() {
   const [quiz, setQuiz] =
     useState<
       (QuizTest & {
-        startTime?: string;
-        scheduledEnd?: string;
-        attemptEnd?: string;
+        startTime: string;
+        scheduledEnd: string;
+        attemptEnd: string;
       }) | null
     >(null);
 
@@ -663,6 +413,23 @@ function StudentQuizAttemptContent() {
             currentAnswers
           );
 
+          /*
+           * IMPORTANT:
+           * The submit API expects answers in this format:
+           *
+           * {
+           *   "questionId": selectedOptionId
+           * }
+           *
+           * Example:
+           * {
+           *   "101": 501,
+           *   "102": 506
+           * }
+           *
+           * Previously this was sent as an array of objects,
+           * which the submit API could not read correctly.
+           */
           const answerPayload: Record<
             string,
             number | null
@@ -714,7 +481,8 @@ function StudentQuizAttemptContent() {
             }
 
             throw new Error(
-              getSubmitApiError(data)
+              data.message ||
+                "Unable to submit quiz."
             );
           }
 
@@ -803,30 +571,122 @@ function StudentQuizAttemptContent() {
       }
 
       try {
-        const currentStudent =
+        let currentStudent =
           readStudent();
 
-        if (!currentStudent) {
-          throw new Error(
-            "Student login information not found. Please login again."
-          );
-        }
-
+        /*
+         * If only an ID/username is available,
+         * resolve the complete student record.
+         */
         if (
-          !currentStudent.student_username &&
-          currentStudent.id <= 0
+          currentStudent &&
+          (!currentStudent.student_name ||
+            !currentStudent.class_name)
         ) {
-          throw new Error(
-            "Valid student login information could not be found. Please login again."
-          );
+          const query =
+            currentStudent.student_username
+              ? supabase
+                  .from("students")
+                  .select(
+                    "id,student_name,student_username,class_name"
+                  )
+                  .eq(
+                    "student_username",
+                    currentStudent.student_username
+                  )
+                  .maybeSingle()
+              : supabase
+                  .from("students")
+                  .select(
+                    "id,student_name,student_username,class_name"
+                  )
+                  .eq(
+                    "id",
+                    currentStudent.id
+                  )
+                  .maybeSingle();
+
+          const {
+            data,
+            error:
+              studentLookupError,
+          } = await query;
+
+          if (
+            studentLookupError
+          ) {
+            throw new Error(
+              studentLookupError.message
+            );
+          }
+
+          if (data) {
+            currentStudent =
+              data as StudentData;
+          }
         }
 
         /*
-         * Send BOTH identifiers.
-         *
-         * Username is preferred by the server because
-         * it comes directly from the student login session.
-         * Numeric ID remains available as fallback.
+         * Final fallback using username.
+         */
+        if (!currentStudent) {
+          const username =
+            typeof window !==
+            "undefined"
+              ? window.localStorage.getItem(
+                  "student_username"
+                )
+              : null;
+
+          if (username) {
+            const {
+              data,
+              error:
+                usernameError,
+            } = await supabase
+              .from("students")
+              .select(
+                "id,student_name,student_username,class_name"
+              )
+              .eq(
+                "student_username",
+                username
+              )
+              .maybeSingle();
+
+            if (usernameError) {
+              throw new Error(
+                usernameError.message
+              );
+            }
+
+            if (data) {
+              currentStudent =
+                data as StudentData;
+            }
+          }
+        }
+
+        if (!currentStudent) {
+          throw new Error(
+            "Student login information not found."
+          );
+        }
+
+        setStudent(
+          currentStudent
+        );
+
+        saveStudentSession(
+          currentStudent
+        );
+
+        /*
+         * API is the authority for:
+         * - one attempt
+         * - schedule
+         * - timer
+         * - question loading
          */
         const response =
           await fetch(
@@ -839,38 +699,14 @@ function StudentQuizAttemptContent() {
               },
               body: JSON.stringify({
                 quizId,
-
                 studentId:
-                  currentStudent.id > 0
-                    ? currentStudent.id
-                    : undefined,
-
-                studentUsername:
-                  currentStudent.student_username ||
-                  undefined,
+                  currentStudent.id,
               }),
             }
           );
 
-        let data: StartResponse;
-
-        try {
-          data =
-            (await response.json()) as StartResponse;
-        } catch {
-          throw new Error(
-            `Unable to start quiz. Server returned status ${response.status}.`
-          );
-        }
-
-        console.log(
-          "START QUIZ RESPONSE:",
-          {
-            status:
-              response.status,
-            data,
-          }
-        );
+        const data =
+          (await response.json()) as StartResponse;
 
         if (
           !response.ok ||
@@ -886,46 +722,8 @@ function StudentQuizAttemptContent() {
           }
 
           throw new Error(
-            getApiError(data)
-          );
-        }
-
-        /*
-         * Server returns the canonical student record.
-         * Always use that ID from this point onward.
-         */
-        if (data.student) {
-          const canonicalStudent: StudentData = {
-            id: Number(
-              data.student.id
-            ),
-            student_name:
-              data.student
-                .student_name ??
-              currentStudent.student_name ??
-              null,
-            student_username:
-              data.student
-                .student_username ??
-              currentStudent.student_username ??
-              null,
-            class_name:
-              data.student
-                .class_name ??
-              currentStudent.class_name ??
-              null,
-          };
-
-          setStudent(
-            canonicalStudent
-          );
-
-          saveStudentSession(
-            canonicalStudent
-          );
-        } else {
-          setStudent(
-            currentStudent
+            data.message ||
+              "Unable to start quiz."
           );
         }
 
@@ -1026,20 +824,12 @@ function StudentQuizAttemptContent() {
           )
         );
 
-        const canonicalId =
-          data.student?.id
-            ? Number(
-                data.student.id
-              )
-            : currentStudent.id;
-
         if (
           typeof window !==
-          "undefined" &&
-          canonicalId > 0
+          "undefined"
         ) {
           window.localStorage.setItem(
-            `quiz-attempt-started-${quizId}-${canonicalId}`,
+            `quiz-attempt-started-${quizId}-${currentStudent.id}`,
             "true"
           );
         }
@@ -1307,7 +1097,7 @@ function StudentQuizAttemptContent() {
             Quiz Not Available
           </h1>
 
-          <p className="mt-3 whitespace-pre-wrap text-sm text-red-200">
+          <p className="mt-3 text-sm text-red-200">
             {error}
           </p>
 

@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { useRouter } from "next/navigation";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,21 +19,9 @@ type AttendanceRecord = {
   student_id: number;
   attendance_date: string;
   status: string;
-  marked_by_teacher_id?: number | null;
 };
 
-type AttendanceTab =
-  | "today"
-  | "date-wise"
-  | "extra-class"
-  | "reporting"
-  | "month-wise";
-
-const MAIN_TEACHER_ID = 1;
-
 export default function TeacherAttendancePage() {
-  const router = useRouter();
-
   const [students, setStudents] = useState<Student[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
 
@@ -45,200 +32,42 @@ export default function TeacherAttendancePage() {
   const [search, setSearch] = useState("");
   const [month, setMonth] = useState("");
 
-  const [activeTab, setActiveTab] =
-    useState<AttendanceTab>("today");
-
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
-  const [teacherId, setTeacherId] = useState<number | null>(null);
-  const [isMainTeacher, setIsMainTeacher] = useState(false);
-
   useEffect(() => {
-    const savedTeacherId =
-      localStorage.getItem("attendance_teacher_id");
-
-    if (!savedTeacherId) {
-      setMessage(
-        "Teacher session not found. Please login again."
-      );
-      setLoading(false);
-      return;
-    }
-
-    const parsedTeacherId = Number(savedTeacherId);
-
-    if (
-      !Number.isInteger(parsedTeacherId) ||
-      parsedTeacherId <= 0
-    ) {
-      setMessage(
-        "Invalid teacher session. Please login again."
-      );
-      setLoading(false);
-      return;
-    }
-
-    setTeacherId(parsedTeacherId);
-    setIsMainTeacher(
-      parsedTeacherId === MAIN_TEACHER_ID
-    );
-
-    loadData(parsedTeacherId);
+    loadData();
   }, []);
 
-  async function loadData(currentTeacherId?: number) {
+  async function loadData() {
     setLoading(true);
     setMessage("");
 
     try {
-      const activeTeacherId =
-        currentTeacherId ??
-        teacherId ??
-        Number(
-          localStorage.getItem(
-            "attendance_teacher_id"
-          )
-        );
-
-      if (
-        !activeTeacherId ||
-        !Number.isInteger(activeTeacherId)
-      ) {
-        throw new Error(
-          "Teacher session not found. Please login again."
-        );
-      }
-
-      const mainTeacher =
-        activeTeacherId === MAIN_TEACHER_ID;
-
-      setTeacherId(activeTeacherId);
-      setIsMainTeacher(mainTeacher);
-
-      let allowedStudentIds: number[] | null =
-        null;
-
-      /*
-       * MAIN TEACHER
-       * Can access all students.
-       */
-      if (!mainTeacher) {
-        /*
-         * ASSIGNED TEACHER
-         * Only assigned student IDs are loaded.
-         */
-        const {
-          data: assignmentData,
-          error: assignmentError,
-        } = await supabase
-          .from("teacher_student_assignments")
-          .select("student_id")
-          .eq("teacher_id", activeTeacherId);
-
-        if (assignmentError) {
-          throw new Error(
-            assignmentError.message
-          );
-        }
-
-        allowedStudentIds = (
-          assignmentData || []
-        )
-          .map((item) => Number(item.student_id))
-          .filter(
-            (id) =>
-              Number.isInteger(id) && id > 0
-          );
-      }
-
-      /*
-       * LOAD ONLY ALLOWED STUDENTS
-       */
-      let studentQuery = supabase
-        .from("students")
-        .select(
-          "id, student_name, student_username"
-        )
-        .order("id", { ascending: true });
-
-      if (!mainTeacher) {
-        if (
-          !allowedStudentIds ||
-          allowedStudentIds.length === 0
-        ) {
-          setStudents([]);
-          setAttendance([]);
-          setLoading(false);
-          return;
-        }
-
-        studentQuery = studentQuery.in(
-          "id",
-          allowedStudentIds
-        );
-      }
-
-      const {
-        data: studentData,
-        error: studentError,
-      } = await studentQuery;
+      const { data: studentData, error: studentError } =
+        await supabase
+          .from("students")
+          .select("id, student_name, student_username")
+          .order("id", { ascending: true });
 
       if (studentError) {
         throw new Error(studentError.message);
       }
 
-      const loadedStudents =
-        studentData || [];
-
-      setStudents(loadedStudents);
-
-      /*
-       * LOAD ATTENDANCE ONLY FOR LOADED STUDENTS.
-       *
-       * This prevents assigned teachers from
-       * receiving attendance records of
-       * unassigned students.
-       */
-      let attendanceQuery = supabase
-        .from("attendance")
-        .select(
-          "id, student_id, attendance_date, status, marked_by_teacher_id"
-        )
-        .order("attendance_date", {
-          ascending: false,
-        });
-
-      if (!mainTeacher) {
-        const loadedStudentIds =
-          loadedStudents.map(
-            (student) => student.id
-          );
-
-        if (loadedStudentIds.length === 0) {
-          setAttendance([]);
-          setLoading(false);
-          return;
-        }
-
-        attendanceQuery = attendanceQuery.in(
-          "student_id",
-          loadedStudentIds
-        );
-      }
-
-      const {
-        data: attendanceData,
-        error: attendanceError,
-      } = await attendanceQuery;
+      const { data: attendanceData, error: attendanceError } =
+        await supabase
+          .from("attendance")
+          .select("id, student_id, attendance_date, status")
+          .order("attendance_date", {
+            ascending: false,
+          });
 
       if (attendanceError) {
-        throw new Error(
-          attendanceError.message
-        );
+        throw new Error(attendanceError.message);
       }
 
+      setStudents(studentData || []);
       setAttendance(attendanceData || []);
     } catch (error) {
       setMessage(
@@ -251,16 +80,6 @@ export default function TeacherAttendancePage() {
     }
   }
 
-  function isStudentAllowed(studentId: number) {
-    if (isMainTeacher) {
-      return true;
-    }
-
-    return students.some(
-      (student) => student.id === studentId
-    );
-  }
-
   const filteredStudents = useMemo(() => {
     const text = search.trim().toLowerCase();
 
@@ -269,11 +88,8 @@ export default function TeacherAttendancePage() {
     }
 
     return students.filter((student) => {
-      const name =
-        student.student_name?.toLowerCase() || "";
-
-      const username =
-        student.student_username.toLowerCase();
+      const name = student.student_name?.toLowerCase() || "";
+      const username = student.student_username.toLowerCase();
 
       return (
         name.includes(text) ||
@@ -301,20 +117,6 @@ export default function TeacherAttendancePage() {
     studentId: number,
     status: "Present" | "Absent"
   ) {
-    if (!isStudentAllowed(studentId)) {
-      setMessage(
-        "You are not allowed to modify this student's attendance."
-      );
-      return;
-    }
-
-    if (!teacherId) {
-      setMessage(
-        "Teacher session not found. Please login again."
-      );
-      return;
-    }
-
     setSaving(true);
     setMessage("");
 
@@ -330,10 +132,8 @@ export default function TeacherAttendancePage() {
           .from("attendance")
           .update({
             status,
-            marked_by_teacher_id: teacherId,
           })
           .eq("id", existing.id)
-          .eq("student_id", studentId)
           .select()
           .single();
 
@@ -353,7 +153,6 @@ export default function TeacherAttendancePage() {
             student_id: studentId,
             attendance_date: selectedDate,
             status,
-            marked_by_teacher_id: teacherId,
           })
           .select()
           .single();
@@ -382,33 +181,14 @@ export default function TeacherAttendancePage() {
     }
   }
 
-  async function markAll(
-    status: "Present" | "Absent"
-  ) {
-    if (!teacherId) {
-      setMessage(
-        "Teacher session not found. Please login again."
-      );
-      return;
-    }
-
+  async function markAll(status: "Present" | "Absent") {
     if (students.length === 0) {
-      setMessage(
-        isMainTeacher
-          ? "No students found."
-          : "No students have been assigned to you."
-      );
+      setMessage("No students found.");
       return;
     }
 
     const confirmed = window.confirm(
-      `Are you sure you want to mark ALL ${
-        students.length
-      } ${
-        isMainTeacher
-          ? "students"
-          : "assigned students"
-      } as ${status} for ${formatDate(
+      `Are you sure you want to mark ALL ${students.length} students as ${status} for ${formatDate(
         selectedDate
       )}?`
     );
@@ -423,11 +203,7 @@ export default function TeacherAttendancePage() {
     try {
       const existingRecords = attendance.filter(
         (record) =>
-          record.attendance_date === selectedDate &&
-          students.some(
-            (student) =>
-              student.id === record.student_id
-          )
+          record.attendance_date === selectedDate
       );
 
       const existingByStudent = new Map(
@@ -447,15 +223,13 @@ export default function TeacherAttendancePage() {
           !existingByStudent.has(student.id)
       );
 
-      const updatedRecords: AttendanceRecord[] =
-        [];
-
-      const insertedRecords: AttendanceRecord[] =
-        [];
+      const updatedRecords: AttendanceRecord[] = [];
+      const insertedRecords: AttendanceRecord[] = [];
 
       for (const student of studentsToUpdate) {
-        const existing =
-          existingByStudent.get(student.id);
+        const existing = existingByStudent.get(
+          student.id
+        );
 
         if (!existing) continue;
 
@@ -463,10 +237,8 @@ export default function TeacherAttendancePage() {
           .from("attendance")
           .update({
             status,
-            marked_by_teacher_id: teacherId,
           })
           .eq("id", existing.id)
-          .eq("student_id", student.id)
           .select()
           .single();
 
@@ -488,7 +260,6 @@ export default function TeacherAttendancePage() {
             student_id: student.id,
             attendance_date: selectedDate,
             status,
-            marked_by_teacher_id: teacherId,
           })
         );
 
@@ -513,27 +284,18 @@ export default function TeacherAttendancePage() {
 
       setAttendance((current) => {
         const ids = new Set(
-          newRecords.map(
-            (record) => record.id
-          )
+          newRecords.map((record) => record.id)
         );
 
         const withoutOld = current.filter(
           (record) => !ids.has(record.id)
         );
 
-        return [
-          ...newRecords,
-          ...withoutOld,
-        ];
+        return [...newRecords, ...withoutOld];
       });
 
       setMessage(
-        `All ${students.length} ${
-          isMainTeacher
-            ? "students"
-            : "assigned students"
-        } marked ${status} successfully.`
+        `✅ All ${students.length} students marked ${status} successfully.`
       );
     } catch (error) {
       setMessage(
@@ -547,15 +309,9 @@ export default function TeacherAttendancePage() {
   }
 
   async function deleteAttendance() {
-    const allowedStudentIds =
-      students.map((student) => student.id);
-
     const dateRecords = attendance.filter(
       (record) =>
-        record.attendance_date === selectedDate &&
-        allowedStudentIds.includes(
-          record.student_id
-        )
+        record.attendance_date === selectedDate
     );
 
     if (dateRecords.length === 0) {
@@ -570,13 +326,7 @@ export default function TeacherAttendancePage() {
     const confirmed = window.confirm(
       `DELETE ALL attendance for ${formatDate(
         selectedDate
-      )}?\n\n${
-        dateRecords.length
-      } ${
-        isMainTeacher
-          ? ""
-          : "assigned-student "
-      }attendance records will be permanently deleted.`
+      )}?\n\n${dateRecords.length} attendance records will be permanently deleted.`
     );
 
     if (!confirmed) {
@@ -587,27 +337,10 @@ export default function TeacherAttendancePage() {
     setMessage("");
 
     try {
-      if (allowedStudentIds.length === 0) {
-        throw new Error(
-          "No assigned students found."
-        );
-      }
-
-      let deleteQuery = supabase
+      const { error } = await supabase
         .from("attendance")
         .delete()
-        .eq(
-          "attendance_date",
-          selectedDate
-        );
-
-      deleteQuery = deleteQuery.in(
-        "student_id",
-        allowedStudentIds
-      );
-
-      const { error } =
-        await deleteQuery;
+        .eq("attendance_date", selectedDate);
 
       if (error) {
         throw new Error(error.message);
@@ -616,22 +349,12 @@ export default function TeacherAttendancePage() {
       setAttendance((current) =>
         current.filter(
           (record) =>
-            !(
-              record.attendance_date ===
-                selectedDate &&
-              allowedStudentIds.includes(
-                record.student_id
-              )
-            )
+            record.attendance_date !== selectedDate
         )
       );
 
       setMessage(
-        `${
-          isMainTeacher
-            ? "All"
-            : "Assigned-student"
-        } attendance for ${formatDate(
+        `🗑️ All attendance for ${formatDate(
           selectedDate
         )} deleted successfully.`
       );
@@ -702,28 +425,6 @@ export default function TeacherAttendancePage() {
       absentToday
   );
 
-  const overallPresent = attendance.filter(
-    (record) =>
-      record.status?.toLowerCase() ===
-      "present"
-  ).length;
-
-  const overallAbsent = attendance.filter(
-    (record) =>
-      record.status?.toLowerCase() ===
-      "absent"
-  ).length;
-
-  const overallTotal =
-    overallPresent + overallAbsent;
-
-  const overallPercentage =
-    overallTotal > 0
-      ? Math.round(
-          (overallPresent / overallTotal) * 100
-        )
-      : 0;
-
   const history = useMemo(() => {
     const filtered = month
       ? attendance.filter((record) =>
@@ -740,137 +441,22 @@ export default function TeacherAttendancePage() {
     );
   }, [attendance, month]);
 
-  const monthSummary = useMemo(() => {
-    if (!month) {
-      return {
-        present: 0,
-        absent: 0,
-        total: 0,
-        percentage: 0,
-        days: 0,
-      };
-    }
-
-    const monthRecords = attendance.filter(
-      (record) =>
-        record.attendance_date.startsWith(
-          month
-        )
-    );
-
-    const present = monthRecords.filter(
-      (record) =>
-        record.status?.toLowerCase() ===
-        "present"
-    ).length;
-
-    const absent = monthRecords.filter(
-      (record) =>
-        record.status?.toLowerCase() ===
-        "absent"
-    ).length;
-
-    const total = present + absent;
-
-    const uniqueDays = new Set(
-      monthRecords.map(
-        (record) => record.attendance_date
-      )
-    ).size;
-
-    return {
-      present,
-      absent,
-      total,
-      percentage:
-        total > 0
-          ? Math.round((present / total) * 100)
-          : 0,
-      days: uniqueDays,
-    };
-  }, [attendance, month]);
-
-  const studentMonthlyStats = useMemo(() => {
-    if (!month) {
-      return [];
-    }
-
-    return students.map((student) => {
-      const records = attendance.filter(
-        (record) =>
-          record.student_id === student.id &&
-          record.attendance_date.startsWith(
-            month
-          )
-      );
-
-      const present = records.filter(
-        (record) =>
-          record.status?.toLowerCase() ===
-          "present"
-      ).length;
-
-      const absent = records.filter(
-        (record) =>
-          record.status?.toLowerCase() ===
-          "absent"
-      ).length;
-
-      const total = present + absent;
-
-      return {
-        student,
-        present,
-        absent,
-        total,
-        percentage:
-          total > 0
-            ? Math.round(
-                (present / total) * 100
-              )
-            : 0,
-      };
-    });
-  }, [students, attendance, month]);
-
-  function openTab(tab: AttendanceTab) {
-    setActiveTab(tab);
-
-    if (tab === "extra-class") {
-      router.push("/teacher/extra-class");
-    }
-  }
-
-  function goBack() {
-    if (window.history.length > 1) {
-      router.back();
-    } else {
-      router.push("/teacher/dashboard");
-    }
-  }
-
   if (loading) {
     return (
       <main style={styles.page}>
         <div style={styles.loadingCard}>
-          <div style={styles.loadingLogo}>
-            RA
+          <div style={styles.loadingIcon}>
+            ⏳
           </div>
 
           <h2 style={styles.loadingTitle}>
-            Loading Attendance
+            Loading Attendance...
           </h2>
 
           <p style={styles.loadingText}>
-            Please wait while student attendance
-            records are loaded.
+            Please wait while student records
+            are loaded.
           </p>
-
-          <div style={styles.loadingBar}>
-            <div
-              style={styles.loadingBarInner}
-            />
-          </div>
         </div>
       </main>
     );
@@ -879,1832 +465,535 @@ export default function TeacherAttendancePage() {
   return (
     <main style={styles.page}>
       <div style={styles.container}>
-        {/* HEADER */}
-
         <header style={styles.header}>
-          <div style={styles.brandArea}>
-            <div style={styles.logo}>
-              RA
-            </div>
-
-            <div>
-              <div style={styles.brandName}>
-                RACER ACADEMY
-              </div>
-
-              <div style={styles.brandSub}>
-                TEACHER CONTROL CENTER
-              </div>
-            </div>
-          </div>
-
-          <div style={styles.headerActions}>
-            <button
-              type="button"
-              onClick={goBack}
-              disabled={saving}
-              style={styles.backButton}
-            >
-              Back
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                router.push(
-                  "/teacher/dashboard"
-                )
-              }
-              disabled={saving}
-              style={styles.dashboardButton}
-            >
-              Dashboard
-            </button>
-
-            <button
-              type="button"
-              onClick={() => loadData()}
-              disabled={saving}
-              style={{
-                ...styles.refreshButton,
-                opacity: saving ? 0.6 : 1,
-              }}
-            >
-              Refresh
-            </button>
-          </div>
-        </header>
-
-        {/* PAGE TITLE */}
-
-        <section style={styles.hero}>
-          <div style={styles.heroText}>
-            <div style={styles.heroBadge}>
-              ATTENDANCE CENTER
+          <div style={styles.headerLeft}>
+            <div style={styles.badge}>
+              TEACHER CONTROL CENTER
             </div>
 
             <h1 style={styles.title}>
-              Attendance Management
+              📋 Attendance Management
             </h1>
 
             <p style={styles.subtitle}>
-              Manage daily attendance, review
-              records, reporting and monthly
-              attendance from one place.
+              Manage all students and mark their
+              daily attendance.
             </p>
-
-            <div style={styles.accessBadge}>
-              {isMainTeacher
-                ? "MAIN TEACHER • ALL STUDENTS"
-                : `ASSIGNED TEACHER • ${students.length} ASSIGNED STUDENT${
-                    students.length === 1
-                      ? ""
-                      : "S"
-                  }`}
-            </div>
           </div>
 
-          <div style={styles.heroDate}>
-            <div style={styles.heroDateLabel}>
-              SELECTED DATE
-            </div>
-
-            <div style={styles.heroDateValue}>
-              {formatDate(selectedDate)}
-            </div>
-          </div>
-        </section>
-
-        {/* ATTENDANCE NAVIGATION */}
-
-        <section style={styles.navigationCard}>
-          <div style={styles.navigationTitle}>
-            Attendance Sections
-          </div>
-
-          <div style={styles.tabs}>
-            <AttendanceTabButton
-              active={activeTab === "today"}
-              number="1"
-              title="Today's Attendance"
-              subtitle="Mark attendance"
-              onClick={() =>
-                openTab("today")
-              }
-            />
-
-            <AttendanceTabButton
-              active={
-                activeTab === "date-wise"
-              }
-              number="2"
-              title="Date Wise / Period Wise"
-              subtitle="View records"
-              onClick={() =>
-                openTab("date-wise")
-              }
-            />
-
-            <AttendanceTabButton
-              active={
-                activeTab === "extra-class"
-              }
-              number="3"
-              title="Extra Class"
-              subtitle="Extra class attendance"
-              onClick={() =>
-                openTab("extra-class")
-              }
-            />
-
-            <AttendanceTabButton
-              active={
-                activeTab === "reporting"
-              }
-              number="4"
-              title="Reporting"
-              subtitle="Attendance reports"
-              onClick={() =>
-                openTab("reporting")
-              }
-            />
-
-            <AttendanceTabButton
-              active={
-                activeTab === "month-wise"
-              }
-              number="5"
-              title="Month Wise Attendance"
-              subtitle="Monthly summary"
-              onClick={() =>
-                openTab("month-wise")
-              }
-            />
-          </div>
-        </section>
-
-        {/* MESSAGE */}
+          <button
+            onClick={loadData}
+            disabled={saving}
+            style={styles.refreshButton}
+          >
+            🔄 Refresh
+          </button>
+        </header>
 
         {message && (
           <div
             style={
-              message.includes(
-                "successfully"
-              )
+              message.includes("successfully")
                 ? styles.success
                 : styles.error
             }
           >
             <strong>
-              {message.includes(
-                "successfully"
-              )
-                ? "SUCCESS  "
-                : "ERROR  "}
+              {message.includes("successfully")
+                ? "✅ "
+                : "❌ "}
             </strong>
-
             {message}
           </div>
         )}
 
-        {/* TODAY'S ATTENDANCE */}
+        <section style={styles.statsGrid}>
+          <Stat
+            icon="👨‍🎓"
+            title="Total Students"
+            value={String(totalStudents)}
+            background="linear-gradient(135deg,#2563eb,#1e40af)"
+          />
 
-        {activeTab === "today" && (
-          <>
-            <section style={styles.statsGrid}>
-              <Stat
-                icon="ST"
-                title={
-                  isMainTeacher
-                    ? "Total Students"
-                    : "Assigned Students"
-                }
-                value={String(
-                  totalStudents
-                )}
-                background="linear-gradient(135deg,#1d4ed8,#1e3a8a)"
-              />
+          <Stat
+            icon="✅"
+            title="Present Today"
+            value={String(presentToday)}
+            background="linear-gradient(135deg,#16a34a,#166534)"
+          />
 
-              <Stat
-                icon="P"
-                title="Present"
-                value={String(
-                  presentToday
-                )}
-                background="linear-gradient(135deg,#16a34a,#166534)"
-              />
+          <Stat
+            icon="❌"
+            title="Absent Today"
+            value={String(absentToday)}
+            background="linear-gradient(135deg,#dc2626,#991b1b)"
+          />
 
-              <Stat
-                icon="A"
-                title="Absent"
-                value={String(
-                  absentToday
-                )}
-                background="linear-gradient(135deg,#dc2626,#991b1b)"
-              />
+          <Stat
+            icon="⏳"
+            title="Pending"
+            value={String(pendingToday)}
+            background="linear-gradient(135deg,#f59e0b,#b45309)"
+          />
+        </section>
 
-              <Stat
-                icon="..."
-                title="Pending"
-                value={String(
-                  pendingToday
-                )}
-                background="linear-gradient(135deg,#f59e0b,#b45309)"
-              />
-            </section>
+        <section style={styles.controlCard}>
+          <div style={styles.controlBox}>
+            <label style={styles.label}>
+              📅 Attendance Date
+            </label>
 
-            <section
-              style={styles.controlCard}
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) =>
+                setSelectedDate(e.target.value)
+              }
+              style={styles.input}
+            />
+          </div>
+
+          <div style={styles.controlBox}>
+            <label style={styles.label}>
+              🔎 Search Student
+            </label>
+
+            <input
+              type="text"
+              value={search}
+              onChange={(e) =>
+                setSearch(e.target.value)
+              }
+              placeholder="Search name or username..."
+              style={styles.input}
+            />
+          </div>
+        </section>
+
+        {/* BULK ACTIONS */}
+
+        <section style={styles.actionCard}>
+          <div>
+            <h2 style={styles.actionTitle}>
+              ⚡ Quick Attendance Actions
+            </h2>
+
+            <p style={styles.actionSubtitle}>
+              These actions apply to the selected
+              date:
+              <strong>
+                {" "}
+                {formatDate(selectedDate)}
+              </strong>
+            </p>
+          </div>
+
+          <div style={styles.actionButtons}>
+            <button
+              disabled={saving || students.length === 0}
+              onClick={() =>
+                markAll("Present")
+              }
+              style={{
+                ...styles.bulkPresentButton,
+                opacity:
+                  saving || students.length === 0
+                    ? 0.6
+                    : 1,
+              }}
             >
-              <div style={styles.controlBox}>
-                <label style={styles.label}>
-                  Attendance Date
-                </label>
+              ✓ Mark All Present
+            </button>
 
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) =>
-                    setSelectedDate(
-                      e.target.value
-                    )
-                  }
-                  style={styles.input}
-                />
-              </div>
-
-              <div style={styles.controlBox}>
-                <label style={styles.label}>
-                  Search Student
-                </label>
-
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) =>
-                    setSearch(
-                      e.target.value
-                    )
-                  }
-                  placeholder="Search name or username..."
-                  style={styles.input}
-                />
-              </div>
-            </section>
-
-            <section
-              style={styles.actionCard}
+            <button
+              disabled={saving || students.length === 0}
+              onClick={() =>
+                markAll("Absent")
+              }
+              style={{
+                ...styles.bulkAbsentButton,
+                opacity:
+                  saving || students.length === 0
+                    ? 0.6
+                    : 1,
+              }}
             >
-              <div>
-                <h2
-                  style={styles.actionTitle}
-                >
-                  Quick Attendance Actions
-                </h2>
+              ✕ Mark All Absent
+            </button>
 
-                <p
-                  style={
-                    styles.actionSubtitle
-                  }
-                >
-                  Apply an attendance status
-                  to all{" "}
-                  {isMainTeacher
-                    ? "students"
-                    : "assigned students"}{" "}
-                  for{" "}
-                  <strong>
-                    {formatDate(
-                      selectedDate
-                    )}
-                  </strong>
-                  .
-                </p>
-              </div>
-
-              <div
-                style={styles.actionButtons}
-              >
-                <button
-                  disabled={
-                    saving ||
-                    students.length ===
-                      0
-                  }
-                  onClick={() =>
-                    markAll("Present")
-                  }
-                  style={{
-                    ...styles.bulkPresentButton,
-                    opacity:
-                      saving ||
-                      students.length ===
-                        0
-                        ? 0.6
-                        : 1,
-                  }}
-                >
-                  Mark All Present
-                </button>
-
-                <button
-                  disabled={
-                    saving ||
-                    students.length ===
-                      0
-                  }
-                  onClick={() =>
-                    markAll("Absent")
-                  }
-                  style={{
-                    ...styles.bulkAbsentButton,
-                    opacity:
-                      saving ||
-                      students.length ===
-                        0
-                        ? 0.6
-                        : 1,
-                  }}
-                >
-                  Mark All Absent
-                </button>
-
-                <button
-                  disabled={
-                    saving ||
-                    selectedDateRecords.length ===
-                      0
-                  }
-                  onClick={
-                    deleteAttendance
-                  }
-                  style={{
-                    ...styles.deleteButton,
-                    opacity:
-                      saving ||
-                      selectedDateRecords.length ===
-                        0
-                        ? 0.6
-                        : 1,
-                  }}
-                >
-                  Delete Attendance
-                </button>
-              </div>
-            </section>
-
-            <section style={styles.card}>
-              <div
-                style={
-                  styles.sectionHeader
-                }
-              >
-                <div>
-                  <div
-                    style={styles.smallLabel}
-                  >
-                    DAILY ATTENDANCE
-                  </div>
-
-                  <h2
-                    style={
-                      styles.sectionTitle
-                    }
-                  >
-                    Students Attendance
-                  </h2>
-
-                  <p
-                    style={
-                      styles.sectionSubtitle
-                    }
-                  >
-                    Mark attendance for{" "}
-                    <strong
-                      style={
-                        styles.darkText
-                      }
-                    >
-                      {formatDate(
-                        selectedDate
-                      )}
-                    </strong>
-                  </p>
-                </div>
-
-                <div
-                  style={
-                    styles.countBadge
-                  }
-                >
-                  {filteredStudents.length}{" "}
-                  Students
-                </div>
-              </div>
-
-              {filteredStudents.length ===
-              0 ? (
-                <EmptyState
-                  title={
-                    students.length === 0
-                      ? "No Assigned Students"
-                      : "No Students Found"
-                  }
-                  text={
-                    students.length === 0
-                      ? isMainTeacher
-                        ? "No students are available."
-                        : "No students have been assigned to you."
-                      : "No student matches your search."
-                  }
-                />
-              ) : (
-                <div
-                  style={
-                    styles.studentList
-                  }
-                >
-                  {filteredStudents.map(
-                    (
-                      student,
-                      index
-                    ) => {
-                      const status =
-                        getStatus(
-                          student.id
-                        );
-
-                      const stats =
-                        getStudentStats(
-                          student.id
-                        );
-
-                      return (
-                        <div
-                          key={
-                            student.id
-                          }
-                          style={{
-                            ...styles.studentRow,
-                            border:
-                              status ===
-                              "present"
-                                ? "2px solid #22c55e"
-                                : status ===
-                                  "absent"
-                                ? "2px solid #ef4444"
-                                : "2px solid #cbd5e1",
-                            background:
-                              status ===
-                              "present"
-                                ? "#f0fdf4"
-                                : status ===
-                                  "absent"
-                                ? "#fef2f2"
-                                : "#ffffff",
-                          }}
-                        >
-                          <div
-                            style={
-                              styles.number
-                            }
-                          >
-                            {index +
-                              1}
-                          </div>
-
-                          <div
-                            style={
-                              styles.avatar
-                            }
-                          >
-                            {(
-                              student.student_name ||
-                              student.student_username
-                            )
-                              .charAt(
-                                0
-                              )
-                              .toUpperCase()}
-                          </div>
-
-                          <div
-                            style={
-                              styles.studentInfo
-                            }
-                          >
-                            <h3
-                              style={
-                                styles.studentName
-                              }
-                            >
-                              {student.student_name ||
-                                "Student"}
-                            </h3>
-
-                            <p
-                              style={
-                                styles.username
-                              }
-                            >
-                              Username:{" "}
-                              <strong>
-                                {
-                                  student.student_username
-                                }
-                              </strong>
-                            </p>
-
-                            <div
-                              style={
-                                styles.miniStats
-                              }
-                            >
-                              <span
-                                style={
-                                  styles.statText
-                                }
-                              >
-                                Classes:{" "}
-                                {
-                                  stats.total
-                                }
-                              </span>
-
-                              <span
-                                style={
-                                  styles.presentText
-                                }
-                              >
-                                Present:{" "}
-                                {
-                                  stats.present
-                                }
-                              </span>
-
-                              <span
-                                style={
-                                  styles.absentText
-                                }
-                              >
-                                Absent:{" "}
-                                {
-                                  stats.absent
-                                }
-                              </span>
-
-                              <span
-                                style={
-                                  styles.percentText
-                                }
-                              >
-                                Attendance:{" "}
-                                {
-                                  stats.percentage
-                                }
-                                %
-                              </span>
-                            </div>
-                          </div>
-
-                          <div
-                            style={
-                              styles.attendanceActions
-                            }
-                          >
-                            {status && (
-                              <div
-                                style={
-                                  status ===
-                                  "present"
-                                    ? styles.presentBadge
-                                    : styles.absentBadge
-                                }
-                              >
-                                {status ===
-                                "present"
-                                  ? "PRESENT"
-                                  : "ABSENT"}
-                              </div>
-                            )}
-
-                            <div
-                              style={
-                                styles.buttons
-                              }
-                            >
-                              <button
-                                disabled={
-                                  saving
-                                }
-                                onClick={() =>
-                                  markAttendance(
-                                    student.id,
-                                    "Present"
-                                  )
-                                }
-                                style={{
-                                  ...styles.presentButton,
-                                  background:
-                                    status ===
-                                    "present"
-                                      ? "#15803d"
-                                      : "#ffffff",
-                                  color:
-                                    status ===
-                                    "present"
-                                      ? "#ffffff"
-                                      : "#15803d",
-                                }}
-                              >
-                                Present
-                              </button>
-
-                              <button
-                                disabled={
-                                  saving
-                                }
-                                onClick={() =>
-                                  markAttendance(
-                                    student.id,
-                                    "Absent"
-                                  )
-                                }
-                                style={{
-                                  ...styles.absentButton,
-                                  background:
-                                    status ===
-                                    "absent"
-                                      ? "#b91c1c"
-                                      : "#ffffff",
-                                  color:
-                                    status ===
-                                    "absent"
-                                      ? "#ffffff"
-                                      : "#b91c1c",
-                                }}
-                              >
-                                Absent
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }
-                  )}
-                </div>
-              )}
-            </section>
-          </>
-        )}
-
-        {/* DATE WISE / PERIOD WISE */}
-
-        {activeTab === "date-wise" && (
-          <>
-            <section
-              style={styles.featureHero}
+            <button
+              disabled={
+                saving ||
+                selectedDateRecords.length === 0
+              }
+              onClick={deleteAttendance}
+              style={{
+                ...styles.deleteButton,
+                opacity:
+                  saving ||
+                  selectedDateRecords.length === 0
+                    ? 0.6
+                    : 1,
+              }}
             >
-              <div>
-                <div
-                  style={
-                    styles.smallLabel
-                  }
-                >
-                  ATTENDANCE RECORDS
-                </div>
+              🗑️ Delete Attendance
+            </button>
+          </div>
+        </section>
 
-                <h2
-                  style={
-                    styles.featureTitle
-                  }
-                >
-                  Date Wise / Period Wise
-                </h2>
-
-                <p
-                  style={
-                    styles.featureText
-                  }
-                >
-                  Review attendance records by
-                  selecting a date or month.
-                </p>
-              </div>
-
-              <div
-                style={styles.featureIcon}
-              >
-                DW
-              </div>
-            </section>
-
-            <section
-              style={styles.controlCard}
-            >
-              <div style={styles.controlBox}>
-                <label style={styles.label}>
-                  Select Date
-                </label>
-
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) =>
-                    setSelectedDate(
-                      e.target.value
-                    )
-                  }
-                  style={styles.input}
-                />
-              </div>
-
-              <div style={styles.controlBox}>
-                <label style={styles.label}>
-                  Search Student
-                </label>
-
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) =>
-                    setSearch(
-                      e.target.value
-                    )
-                  }
-                  placeholder="Search student..."
-                  style={styles.input}
-                />
-              </div>
-            </section>
-
-            <section style={styles.card}>
-              <div
-                style={
-                  styles.sectionHeader
-                }
-              >
-                <div>
-                  <div
-                    style={styles.smallLabel}
-                  >
-                    SELECTED DATE
-                  </div>
-
-                  <h2
-                    style={
-                      styles.sectionTitle
-                    }
-                  >
-                    {formatDate(
-                      selectedDate
-                    )}
-                  </h2>
-                </div>
-
-                <div
-                  style={
-                    styles.countBadge
-                  }
-                >
-                  {
-                    selectedDateRecords.length
-                  } Records
-                </div>
-              </div>
-
-              {selectedDateRecords.length ===
-              0 ? (
-                <EmptyState
-                  title="No Attendance Records"
-                  text="No attendance has been marked for the selected date."
-                />
-              ) : (
-                <div
-                  style={
-                    styles.tableWrapper
-                  }
-                >
-                  <table
-                    style={styles.table}
-                  >
-                    <thead>
-                      <tr>
-                        <th
-                          style={styles.th}
-                        >
-                          #
-                        </th>
-
-                        <th
-                          style={styles.th}
-                        >
-                          Student
-                        </th>
-
-                        <th
-                          style={styles.th}
-                        >
-                          Username
-                        </th>
-
-                        <th
-                          style={styles.th}
-                        >
-                          Date
-                        </th>
-
-                        <th
-                          style={styles.th}
-                        >
-                          Status
-                        </th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {selectedDateRecords
-                        .filter(
-                          (record) => {
-                            const student =
-                              students.find(
-                                (
-                                  item
-                                ) =>
-                                  item.id ===
-                                  record.student_id
-                              );
-
-                            const text =
-                              search
-                                .trim()
-                                .toLowerCase();
-
-                            if (
-                              !text
-                            ) {
-                              return true;
-                            }
-
-                            return (
-                              student?.student_name
-                                ?.toLowerCase()
-                                .includes(
-                                  text
-                                ) ||
-                              student?.student_username
-                                .toLowerCase()
-                                .includes(
-                                  text
-                                )
-                            );
-                          }
-                        )
-                        .map(
-                          (
-                            record,
-                            index
-                          ) => {
-                            const student =
-                              students.find(
-                                (
-                                  item
-                                ) =>
-                                  item.id ===
-                                  record.student_id
-                              );
-
-                            const isPresent =
-                              record.status
-                                ?.toLowerCase() ===
-                              "present";
-
-                            return (
-                              <tr
-                                key={
-                                  record.id
-                                }
-                              >
-                                <td
-                                  style={
-                                    styles.td
-                                  }
-                                >
-                                  {index +
-                                    1}
-                                </td>
-
-                                <td
-                                  style={
-                                    styles.td
-                                  }
-                                >
-                                  <strong
-                                    style={
-                                      styles.historyName
-                                    }
-                                  >
-                                    {student?.student_name ||
-                                      "Unknown Student"}
-                                  </strong>
-                                </td>
-
-                                <td
-                                  style={
-                                    styles.td
-                                  }
-                                >
-                                  {
-                                    student?.student_username ||
-                                    "-"
-                                  }
-                                </td>
-
-                                <td
-                                  style={
-                                    styles.td
-                                  }
-                                >
-                                  {formatDate(
-                                    record.attendance_date
-                                  )}
-                                </td>
-
-                                <td
-                                  style={
-                                    styles.td
-                                  }
-                                >
-                                  <span
-                                    style={
-                                      isPresent
-                                        ? styles.presentBadge
-                                        : styles.absentBadge
-                                    }
-                                  >
-                                    {isPresent
-                                      ? "PRESENT"
-                                      : "ABSENT"}
-                                  </span>
-                                </td>
-                              </tr>
-                            );
-                          }
-                        )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-          </>
-        )}
-
-        {/* EXTRA CLASS */}
-
-        {activeTab === "extra-class" && (
-          <section
-            style={styles.featureHero}
-          >
+        <section style={styles.card}>
+          <div style={styles.sectionHeader}>
             <div>
-              <div
-                style={styles.smallLabel}
-              >
-                EXTRA CLASSES
-              </div>
-
-              <h2
-                style={styles.featureTitle}
-              >
-                Extra Class Attendance
+              <h2 style={styles.sectionTitle}>
+                👨‍🎓 Students Attendance
               </h2>
 
-              <p
-                style={styles.featureText}
-              >
-                Use the existing Extra Class
-                module to create and manage
-                extra class attendance.
+              <p style={styles.sectionSubtitle}>
+                Mark attendance for{" "}
+                <strong style={styles.darkText}>
+                  {formatDate(selectedDate)}
+                </strong>
               </p>
-
-              <button
-                onClick={() =>
-                  router.push(
-                    "/teacher/extra-class"
-                  )
-                }
-                style={
-                  styles.primaryFeatureButton
-                }
-              >
-                Open Extra Class
-              </button>
             </div>
 
-            <div
-              style={styles.featureIcon}
-            >
-              EC
+            <div style={styles.countBadge}>
+              {filteredStudents.length} Students
             </div>
-          </section>
-        )}
+          </div>
 
-        {/* REPORTING */}
-
-        {activeTab === "reporting" && (
-          <>
-            <section
-              style={styles.featureHero}
-            >
-              <div>
-                <div
-                  style={styles.smallLabel}
-                >
-                  ATTENDANCE REPORTING
-                </div>
-
-                <h2
-                  style={
-                    styles.featureTitle
-                  }
-                >
-                  Attendance Reporting
-                </h2>
-
-                <p
-                  style={
-                    styles.featureText
-                  }
-                >
-                  View the current attendance
-                  position across the academy.
-                </p>
+          {filteredStudents.length === 0 ? (
+            <div style={styles.empty}>
+              <div style={styles.emptyIcon}>
+                🔍
               </div>
 
-              <div
-                style={styles.featureIcon}
-              >
-                RP
-              </div>
-            </section>
+              <h3 style={styles.emptyTitle}>
+                No Students Found
+              </h3>
 
-            <section style={styles.statsGrid}>
-              <Stat
-                icon="P"
-                title="Overall Present"
-                value={String(
-                  overallPresent
-                )}
-                background="linear-gradient(135deg,#16a34a,#166534)"
-              />
+              <p style={styles.emptyText}>
+                No student matches your search.
+              </p>
+            </div>
+          ) : (
+            <div style={styles.studentList}>
+              {filteredStudents.map(
+                (student, index) => {
+                  const status =
+                    getStatus(student.id);
 
-              <Stat
-                icon="A"
-                title="Overall Absent"
-                value={String(
-                  overallAbsent
-                )}
-                background="linear-gradient(135deg,#dc2626,#991b1b)"
-              />
+                  const stats =
+                    getStudentStats(
+                      student.id
+                    );
 
-              <Stat
-                icon="CL"
-                title="Total Classes"
-                value={String(
-                  overallTotal
-                )}
-                background="linear-gradient(135deg,#2563eb,#1e40af)"
-              />
+                  return (
+                    <div
+                      key={student.id}
+                      style={{
+                        ...styles.studentRow,
+                        border:
+                          status === "present"
+                            ? "2px solid #22c55e"
+                            : status === "absent"
+                            ? "2px solid #ef4444"
+                            : "2px solid #cbd5e1",
+                        background:
+                          status === "present"
+                            ? "#f0fdf4"
+                            : status === "absent"
+                            ? "#fef2f2"
+                            : "#ffffff",
+                      }}
+                    >
+                      <div style={styles.number}>
+                        {index + 1}
+                      </div>
 
-              <Stat
-                icon="%"
-                title="Overall Attendance"
-                value={`${overallPercentage}%`}
-                background="linear-gradient(135deg,#7c3aed,#4c1d95)"
-              />
-            </section>
+                      <div style={styles.avatar}>
+                        {(
+                          student.student_name ||
+                          student.student_username
+                        )
+                          .charAt(0)
+                          .toUpperCase()}
+                      </div>
 
-            <section style={styles.card}>
-              <div
-                style={
-                  styles.sectionHeader
-                }
-              >
-                <div>
-                  <div
-                    style={styles.smallLabel}
-                  >
-                    STUDENT REPORT
-                  </div>
-
-                  <h2
-                    style={
-                      styles.sectionTitle
-                    }
-                  >
-                    Student Attendance Report
-                  </h2>
-
-                  <p
-                    style={
-                      styles.sectionSubtitle
-                    }
-                  >
-                    Attendance calculated from
-                    the existing attendance records.
-                  </p>
-                </div>
-              </div>
-
-              {students.length ===
-              0 ? (
-                <EmptyState
-                  title={
-                    isMainTeacher
-                      ? "No Students Found"
-                      : "No Assigned Students"
-                  }
-                  text={
-                    isMainTeacher
-                      ? "Student attendance reports will appear when students are available."
-                      : "Student attendance reports will appear after students are assigned to you."
-                  }
-                />
-              ) : (
-                <div
-                  style={
-                    styles.reportGrid
-                  }
-                >
-                  {students.map(
-                    (student) => {
-                      const stats =
-                        getStudentStats(
-                          student.id
-                        );
-
-                      return (
-                        <div
-                          key={
-                            student.id
-                          }
+                      <div style={styles.studentInfo}>
+                        <h3
                           style={
-                            styles.reportCard
+                            styles.studentName
                           }
                         >
-                          <div
-                            style={
-                              styles.reportAvatar
-                            }
-                          >
-                            {(
-                              student.student_name ||
-                              student.student_username
-                            )
-                              .charAt(
-                                0
-                              )
-                              .toUpperCase()}
-                          </div>
+                          {student.student_name ||
+                            "Student"}
+                        </h3>
 
-                          <div
-                            style={
-                              styles.reportInfo
-                            }
-                          >
-                            <h3
-                              style={
-                                styles.reportName
-                              }
-                            >
-                              {student.student_name ||
-                                "Student"}
-                            </h3>
-
-                            <p
-                              style={
-                                styles.reportUsername
-                              }
-                            >
-                              {
-                                student.student_username
-                              }
-                            </p>
-                          </div>
-
-                          <div
-                            style={
-                              styles.reportPercentage
-                            }
-                          >
+                        <p
+                          style={
+                            styles.username
+                          }
+                        >
+                          Username:{" "}
+                          <strong>
                             {
-                              stats.percentage
+                              student.student_username
                             }
-                            %
-                          </div>
+                          </strong>
+                        </p>
 
-                          <div
+                        <div
+                          style={
+                            styles.miniStats
+                          }
+                        >
+                          <span
                             style={
-                              styles.reportStats
+                              styles.statText
                             }
                           >
-                            <span>
-                              Total:{" "}
-                              {
-                                stats.total
-                              }
-                            </span>
+                            📚 {stats.total} Classes
+                          </span>
 
-                            <span
-                              style={
-                                styles.presentText
-                              }
-                            >
-                              Present:{" "}
-                              {
-                                stats.present
-                              }
-                            </span>
+                          <span
+                            style={
+                              styles.presentText
+                            }
+                          >
+                            ✅ {stats.present} Present
+                          </span>
 
-                            <span
-                              style={
-                                styles.absentText
-                              }
-                            >
-                              Absent:{" "}
-                              {
-                                stats.absent
-                              }
-                            </span>
-                          </div>
+                          <span
+                            style={
+                              styles.absentText
+                            }
+                          >
+                            ❌ {stats.absent} Absent
+                          </span>
+
+                          <span
+                            style={
+                              styles.percentText
+                            }
+                          >
+                            📊 {stats.percentage}%
+                          </span>
                         </div>
+                      </div>
+
+                      <div
+                        style={
+                          styles.attendanceActions
+                        }
+                      >
+                        {status && (
+                          <div
+                            style={
+                              status ===
+                              "present"
+                                ? styles.presentBadge
+                                : styles.absentBadge
+                            }
+                          >
+                            {status ===
+                            "present"
+                              ? "✓ PRESENT"
+                              : "✕ ABSENT"}
+                          </div>
+                        )}
+
+                        <div
+                          style={styles.buttons}
+                        >
+                          <button
+                            disabled={saving}
+                            onClick={() =>
+                              markAttendance(
+                                student.id,
+                                "Present"
+                              )
+                            }
+                            style={{
+                              ...styles.presentButton,
+                              background:
+                                status ===
+                                "present"
+                                  ? "#15803d"
+                                  : "#ffffff",
+                              color:
+                                status ===
+                                "present"
+                                  ? "#ffffff"
+                                  : "#15803d",
+                              border:
+                                "2px solid #15803d",
+                            }}
+                          >
+                            ✓ Present
+                          </button>
+
+                          <button
+                            disabled={saving}
+                            onClick={() =>
+                              markAttendance(
+                                student.id,
+                                "Absent"
+                              )
+                            }
+                            style={{
+                              ...styles.absentButton,
+                              background:
+                                status ===
+                                "absent"
+                                  ? "#b91c1c"
+                                  : "#ffffff",
+                              color:
+                                status ===
+                                "absent"
+                                  ? "#ffffff"
+                                  : "#b91c1c",
+                              border:
+                                "2px solid #b91c1c",
+                            }}
+                          >
+                            ✕ Absent
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+              )}
+            </div>
+          )}
+        </section>
+
+        <section style={styles.card}>
+          <div style={styles.sectionHeader}>
+            <div>
+              <h2 style={styles.sectionTitle}>
+                📜 Attendance History
+              </h2>
+
+              <p style={styles.sectionSubtitle}>
+                Complete attendance records.
+              </p>
+            </div>
+
+            <input
+              type="month"
+              value={month}
+              onChange={(e) =>
+                setMonth(e.target.value)
+              }
+              style={styles.monthInput}
+            />
+          </div>
+
+          {history.length === 0 ? (
+            <div style={styles.empty}>
+              <div style={styles.emptyIcon}>
+                📅
+              </div>
+
+              <h3 style={styles.emptyTitle}>
+                No Attendance History
+              </h3>
+
+              <p style={styles.emptyText}>
+                Attendance records will appear
+                here after marking attendance.
+              </p>
+            </div>
+          ) : (
+            <div style={styles.tableWrapper}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>#</th>
+                    <th style={styles.th}>Date</th>
+                    <th style={styles.th}>Student</th>
+                    <th style={styles.th}>Username</th>
+                    <th style={styles.th}>Status</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {history.map(
+                    (record, index) => {
+                      const student =
+                        students.find(
+                          (item) =>
+                            item.id ===
+                            record.student_id
+                        );
+
+                      const isPresent =
+                        record.status
+                          ?.toLowerCase() ===
+                        "present";
+
+                      return (
+                        <tr key={record.id}>
+                          <td style={styles.td}>
+                            {index + 1}
+                          </td>
+
+                          <td style={styles.td}>
+                            <strong>
+                              {formatDate(
+                                record.attendance_date
+                              )}
+                            </strong>
+                          </td>
+
+                          <td style={styles.td}>
+                            <strong
+                              style={
+                                styles.historyName
+                              }
+                            >
+                              {student?.student_name ||
+                                "Unknown Student"}
+                            </strong>
+                          </td>
+
+                          <td style={styles.td}>
+                            <strong>
+                              {student?.student_username ||
+                                "-"}
+                            </strong>
+                          </td>
+
+                          <td style={styles.td}>
+                            <span
+                              style={
+                                isPresent
+                                  ? styles.presentBadge
+                                  : styles.absentBadge
+                              }
+                            >
+                              {isPresent
+                                ? "✓ PRESENT"
+                                : "✕ ABSENT"}
+                            </span>
+                          </td>
+                        </tr>
                       );
                     }
                   )}
-                </div>
-              )}
-            </section>
-          </>
-        )}
-
-        {/* MONTH WISE */}
-
-        {activeTab === "month-wise" && (
-          <>
-            <section
-              style={styles.featureHero}
-            >
-              <div>
-                <div
-                  style={styles.smallLabel}
-                >
-                  MONTHLY ATTENDANCE
-                </div>
-
-                <h2
-                  style={
-                    styles.featureTitle
-                  }
-                >
-                  Month Wise Attendance
-                </h2>
-
-                <p
-                  style={
-                    styles.featureText
-                  }
-                >
-                  Select a month to view
-                  attendance totals and student-wise
-                  monthly performance.
-                </p>
-              </div>
-
-              <div
-                style={styles.featureIcon}
-              >
-                MO
-              </div>
-            </section>
-
-            <section
-              style={styles.controlCard}
-            >
-              <div style={styles.controlBox}>
-                <label style={styles.label}>
-                  Select Month
-                </label>
-
-                <input
-                  type="month"
-                  value={month}
-                  onChange={(e) =>
-                    setMonth(
-                      e.target.value
-                    )
-                  }
-                  style={styles.input}
-                />
-              </div>
-
-              <div style={styles.monthInfo}>
-                <span
-                  style={
-                    styles.monthInfoLabel
-                  }
-                >
-                  MONTH
-                </span>
-
-                <strong
-                  style={
-                    styles.monthInfoValue
-                  }
-                >
-                  {month
-                    ? formatMonth(month)
-                    : "Select a month"}
-                </strong>
-              </div>
-            </section>
-
-            {!month ? (
-              <EmptyState
-                title="Select a Month"
-                text="Choose a month above to view monthly attendance."
-              />
-            ) : (
-              <>
-                <section
-                  style={styles.statsGrid}
-                >
-                  <Stat
-                    icon="P"
-                    title="Present Classes"
-                    value={String(
-                      monthSummary.present
-                    )}
-                    background="linear-gradient(135deg,#16a34a,#166534)"
-                  />
-
-                  <Stat
-                    icon="A"
-                    title="Absent Classes"
-                    value={String(
-                      monthSummary.absent
-                    )}
-                    background="linear-gradient(135deg,#dc2626,#991b1b)"
-                  />
-
-                  <Stat
-                    icon="CL"
-                    title="Total Records"
-                    value={String(
-                      monthSummary.total
-                    )}
-                    background="linear-gradient(135deg,#2563eb,#1e40af)"
-                  />
-
-                  <Stat
-                    icon="%"
-                    title="Attendance"
-                    value={`${monthSummary.percentage}%`}
-                    background="linear-gradient(135deg,#7c3aed,#4c1d95)"
-                  />
-                </section>
-
-                <section style={styles.card}>
-                  <div
-                    style={
-                      styles.sectionHeader
-                    }
-                  >
-                    <div>
-                      <div
-                        style={
-                          styles.smallLabel
-                        }
-                      >
-                        MONTHLY STUDENT SUMMARY
-                      </div>
-
-                      <h2
-                        style={
-                          styles.sectionTitle
-                        }
-                      >
-                        {formatMonth(month)}
-                      </h2>
-                    </div>
-                  </div>
-
-                  <div
-                    style={
-                      styles.reportGrid
-                    }
-                  >
-                    {studentMonthlyStats.map(
-                      (item) => (
-                        <div
-                          key={
-                            item.student.id
-                          }
-                          style={
-                            styles.reportCard
-                          }
-                        >
-                          <div
-                            style={
-                              styles.reportAvatar
-                            }
-                          >
-                            {(
-                              item.student
-                                .student_name ||
-                              item.student
-                                .student_username
-                            )
-                              .charAt(
-                                0
-                              )
-                              .toUpperCase()}
-                          </div>
-
-                          <div
-                            style={
-                              styles.reportInfo
-                            }
-                          >
-                            <h3
-                              style={
-                                styles.reportName
-                              }
-                            >
-                              {item.student
-                                .student_name ||
-                                "Student"}
-                            </h3>
-
-                            <p
-                              style={
-                                styles.reportUsername
-                              }
-                            >
-                              {
-                                item
-                                  .student
-                                  .student_username
-                              }
-                            </p>
-                          </div>
-
-                          <div
-                            style={
-                              styles.reportPercentage
-                            }
-                          >
-                            {
-                              item.percentage
-                            }
-                            %
-                          </div>
-
-                          <div
-                            style={
-                              styles.reportStats
-                            }
-                          >
-                            <span>
-                              Total:{" "}
-                              {
-                                item.total
-                              }
-                            </span>
-
-                            <span
-                              style={
-                                styles.presentText
-                              }
-                            >
-                              Present:{" "}
-                              {
-                                item.present
-                              }
-                            </span>
-
-                            <span
-                              style={
-                                styles.absentText
-                              }
-                            >
-                              Absent:{" "}
-                              {
-                                item.absent
-                              }
-                            </span>
-                          </div>
-                        </div>
-                      )
-                    )}
-                  </div>
-                </section>
-
-                <section style={styles.card}>
-                  <div
-                    style={
-                      styles.sectionHeader
-                    }
-                  >
-                    <div>
-                      <div
-                        style={
-                          styles.smallLabel
-                        }
-                      >
-                        MONTHLY RECORDS
-                      </div>
-
-                      <h2
-                        style={
-                          styles.sectionTitle
-                        }
-                      >
-                        Attendance History
-                      </h2>
-                    </div>
-
-                    <div
-                      style={
-                        styles.countBadge
-                      }
-                    >
-                      {
-                        history.length
-                      } Records
-                    </div>
-                  </div>
-
-                  {history.length ===
-                  0 ? (
-                    <EmptyState
-                      title="No Records This Month"
-                      text="No attendance records were found for the selected month."
-                    />
-                  ) : (
-                    <div
-                      style={
-                        styles.tableWrapper
-                      }
-                    >
-                      <table
-                        style={
-                          styles.table
-                        }
-                      >
-                        <thead>
-                          <tr>
-                            <th
-                              style={
-                                styles.th
-                              }
-                            >
-                              #
-                            </th>
-
-                            <th
-                              style={
-                                styles.th
-                              }
-                            >
-                              Date
-                            </th>
-
-                            <th
-                              style={
-                                styles.th
-                              }
-                            >
-                              Student
-                            </th>
-
-                            <th
-                              style={
-                                styles.th
-                              }
-                            >
-                              Username
-                            </th>
-
-                            <th
-                              style={
-                                styles.th
-                              }
-                            >
-                              Status
-                            </th>
-                          </tr>
-                        </thead>
-
-                        <tbody>
-                          {history.map(
-                            (
-                              record,
-                              index
-                            ) => {
-                              const student =
-                                students.find(
-                                  (
-                                    item
-                                  ) =>
-                                    item.id ===
-                                    record.student_id
-                                );
-
-                              const isPresent =
-                                record.status
-                                  ?.toLowerCase() ===
-                                "present";
-
-                              return (
-                                <tr
-                                  key={
-                                    record.id
-                                  }
-                                >
-                                  <td
-                                    style={
-                                      styles.td
-                                    }
-                                  >
-                                    {index +
-                                      1}
-                                  </td>
-
-                                  <td
-                                    style={
-                                      styles.td
-                                    }
-                                  >
-                                    <strong>
-                                      {formatDate(
-                                        record.attendance_date
-                                      )}
-                                    </strong>
-                                  </td>
-
-                                  <td
-                                    style={
-                                      styles.td
-                                    }
-                                  >
-                                    <strong
-                                      style={
-                                        styles.historyName
-                                      }
-                                    >
-                                      {student?.student_name ||
-                                        "Unknown Student"}
-                                    </strong>
-                                  </td>
-
-                                  <td
-                                    style={
-                                      styles.td
-                                    }
-                                  >
-                                    {
-                                      student?.student_username ||
-                                      "-"
-                                    }
-                                  </td>
-
-                                  <td
-                                    style={
-                                      styles.td
-                                    }
-                                  >
-                                    <span
-                                      style={
-                                        isPresent
-                                          ? styles.presentBadge
-                                          : styles.absentBadge
-                                      }
-                                    >
-                                      {isPresent
-                                        ? "PRESENT"
-                                        : "ABSENT"}
-                                    </span>
-                                  </td>
-                                </tr>
-                              );
-                            }
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </section>
-              </>
-            )}
-          </>
-        )}
-
-        {/* FOOTER */}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
 
         <footer style={styles.footer}>
-          <div
-            style={styles.footerBrand}
-          >
-            RACER ACADEMY
-          </div>
-
-          <div>
-            Teacher Attendance Center •
-            2026
-          </div>
+          <strong>Attendance Portal</strong> •
+          Teacher Management Center • 2026
         </footer>
       </div>
     </main>
-  );
-}
-
-function AttendanceTabButton({
-  active,
-  number,
-  title,
-  subtitle,
-  onClick,
-}: {
-  active: boolean;
-  number: string;
-  title: string;
-  subtitle: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        ...styles.tabButton,
-        ...(active
-          ? styles.tabButtonActive
-          : {}),
-      }}
-    >
-      <div
-        style={{
-          ...styles.tabNumber,
-          ...(active
-            ? styles.tabNumberActive
-            : {}),
-        }}
-      >
-        {number}
-      </div>
-
-      <div style={styles.tabContent}>
-        <div
-          style={{
-            ...styles.tabTitle,
-            ...(active
-              ? styles.tabTitleActive
-              : {}),
-          }}
-        >
-          {title}
-        </div>
-
-        <div
-          style={styles.tabSubtitle}
-        >
-          {subtitle}
-        </div>
-      </div>
-    </button>
-  );
-}
-
-function EmptyState({
-  title,
-  text,
-}: {
-  title: string;
-  text: string;
-}) {
-  return (
-    <div style={styles.empty}>
-      <div style={styles.emptyIcon}>
-        —
-      </div>
-
-      <h3 style={styles.emptyTitle}>
-        {title}
-      </h3>
-
-      <p style={styles.emptyText}>
-        {text}
-      </p>
-    </div>
   );
 }
 
@@ -2752,41 +1041,11 @@ function formatDate(value: string) {
     return value;
   }
 
-  return date.toLocaleDateString(
-    "en-IN",
-    {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }
-  );
-}
-
-function formatMonth(value: string) {
-  if (!value) {
-    return "-";
-  }
-
-  const [year, month] =
-    value.split("-");
-
-  if (!year || !month) {
-    return value;
-  }
-
-  const date = new Date(
-    Number(year),
-    Number(month) - 1,
-    1
-  );
-
-  return date.toLocaleDateString(
-    "en-IN",
-    {
-      month: "long",
-      year: "numeric",
-    }
-  );
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 const styles: {
@@ -2795,390 +1054,164 @@ const styles: {
   page: {
     minHeight: "100vh",
     background:
-      "linear-gradient(135deg,#eff6ff 0%,#f8fafc 48%,#f5f3ff 100%)",
-    padding: "18px 14px 35px",
+      "linear-gradient(135deg,#e0f2fe 0%,#f8fafc 45%,#ede9fe 100%)",
+    padding: "24px 16px",
     boxSizing: "border-box",
-    fontFamily:
-      "Arial, Helvetica, sans-serif",
+    fontFamily: "Arial, Helvetica, sans-serif",
     color: "#0f172a",
   },
 
   container: {
     width: "100%",
-    maxWidth: "1280px",
+    maxWidth: "1250px",
     margin: "0 auto",
   },
 
   header: {
     background: "#ffffff",
-    border: "1px solid #dbeafe",
-    borderRadius: "20px",
-    padding: "18px 22px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "15px",
-    boxShadow:
-      "0 8px 25px rgba(15,23,42,0.08)",
-    marginBottom: "18px",
-  },
-
-  brandArea: {
-    display: "flex",
-    alignItems: "center",
-    gap: "13px",
-    minWidth: 0,
-  },
-
-  logo: {
-    width: "50px",
-    height: "50px",
-    minWidth: "50px",
-    borderRadius: "15px",
-    background:
-      "linear-gradient(135deg,#1d4ed8,#4f46e5)",
-    color: "#ffffff",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontWeight: "900",
-    fontSize: "17px",
-    letterSpacing: "0.5px",
-    boxShadow:
-      "0 7px 18px rgba(37,99,235,0.25)",
-  },
-
-  brandName: {
-    fontSize: "18px",
-    fontWeight: "900",
-    color: "#0f172a",
-    letterSpacing: "0.5px",
-  },
-
-  brandSub: {
-    marginTop: "3px",
-    fontSize: "10px",
-    color: "#64748b",
-    fontWeight: "900",
-    letterSpacing: "0.8px",
-  },
-
-  headerActions: {
-    display: "flex",
-    gap: "8px",
-    flexWrap: "wrap",
-    justifyContent: "flex-end",
-  },
-
-  backButton: {
-    border: "1px solid #cbd5e1",
-    background: "#ffffff",
-    color: "#334155",
-    padding: "11px 15px",
-    borderRadius: "10px",
-    fontWeight: "900",
-    fontSize: "13px",
-    cursor: "pointer",
-  },
-
-  dashboardButton: {
-    border: "none",
-    background: "#4f46e5",
-    color: "#ffffff",
-    padding: "11px 15px",
-    borderRadius: "10px",
-    fontWeight: "900",
-    fontSize: "13px",
-    cursor: "pointer",
-  },
-
-  refreshButton: {
-    border: "none",
-    background: "#1d4ed8",
-    color: "#ffffff",
-    padding: "11px 17px",
-    borderRadius: "10px",
-    fontWeight: "900",
-    fontSize: "13px",
-    cursor: "pointer",
-  },
-
-  hero: {
-    background:
-      "linear-gradient(135deg,#172554 0%,#1d4ed8 55%,#4f46e5 100%)",
-    color: "#ffffff",
+    border: "2px solid #dbeafe",
     borderRadius: "22px",
     padding: "28px",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     gap: "20px",
-    marginBottom: "18px",
     boxShadow:
-      "0 15px 35px rgba(30,64,175,0.22)",
+      "0 10px 30px rgba(15,23,42,0.10)",
+    marginBottom: "20px",
   },
 
-  heroText: {
+  headerLeft: {
     minWidth: 0,
   },
 
-  heroBadge: {
+  badge: {
     display: "inline-block",
-    padding: "6px 10px",
+    background: "#1d4ed8",
+    color: "#ffffff",
+    padding: "7px 12px",
     borderRadius: "999px",
-    background:
-      "rgba(255,255,255,0.15)",
-    border:
-      "1px solid rgba(255,255,255,0.3)",
-    fontSize: "10px",
+    fontSize: "11px",
     fontWeight: "900",
-    letterSpacing: "1px",
+    letterSpacing: "0.6px",
     marginBottom: "10px",
-  },
-
-  accessBadge: {
-    display: "inline-block",
-    marginTop: "13px",
-    padding: "7px 11px",
-    borderRadius: "999px",
-    background:
-      "rgba(255,255,255,0.13)",
-    border:
-      "1px solid rgba(255,255,255,0.25)",
-    color: "#dbeafe",
-    fontSize: "10px",
-    fontWeight: "900",
-    letterSpacing: "0.5px",
   },
 
   title: {
     margin: 0,
+    color: "#0f172a",
     fontSize: "32px",
-    lineHeight: 1.15,
     fontWeight: "900",
+    lineHeight: 1.2,
   },
 
   subtitle: {
     margin: "9px 0 0",
-    color: "#dbeafe",
-    fontSize: "14px",
-    lineHeight: 1.55,
-    fontWeight: "600",
-    maxWidth: "720px",
-  },
-
-  heroDate: {
-    minWidth: "190px",
-    background:
-      "rgba(255,255,255,0.12)",
-    border:
-      "1px solid rgba(255,255,255,0.2)",
-    borderRadius: "16px",
-    padding: "17px",
-    textAlign: "right",
-  },
-
-  heroDateLabel: {
-    fontSize: "9px",
-    fontWeight: "900",
-    letterSpacing: "1px",
-    color: "#bfdbfe",
-  },
-
-  heroDateValue: {
-    marginTop: "6px",
-    fontSize: "18px",
-    fontWeight: "900",
-  },
-
-  navigationCard: {
-    background: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: "20px",
-    padding: "18px",
-    marginBottom: "18px",
-    boxShadow:
-      "0 7px 22px rgba(15,23,42,0.06)",
-  },
-
-  navigationTitle: {
-    fontSize: "13px",
-    fontWeight: "900",
-    color: "#475569",
-    marginBottom: "12px",
-    textTransform: "uppercase",
-    letterSpacing: "0.7px",
-  },
-
-  tabs: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(auto-fit,minmax(190px,1fr))",
-    gap: "10px",
-  },
-
-  tabButton: {
-    border: "1px solid #e2e8f0",
-    background: "#f8fafc",
-    borderRadius: "14px",
-    padding: "12px",
-    display: "flex",
-    alignItems: "center",
-    gap: "11px",
-    textAlign: "left",
-    cursor: "pointer",
-    minHeight: "70px",
-  },
-
-  tabButtonActive: {
-    background: "#eff6ff",
-    border: "2px solid #2563eb",
-    boxShadow:
-      "0 6px 15px rgba(37,99,235,0.12)",
-  },
-
-  tabNumber: {
-    width: "34px",
-    height: "34px",
-    minWidth: "34px",
-    borderRadius: "10px",
-    background: "#e2e8f0",
     color: "#334155",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontWeight: "900",
-    fontSize: "13px",
+    fontSize: "15px",
+    fontWeight: "600",
   },
 
-  tabNumberActive: {
-    background: "#2563eb",
+  refreshButton: {
+    border: "none",
+    background: "#1d4ed8",
     color: "#ffffff",
-  },
-
-  tabContent: {
-    minWidth: 0,
-  },
-
-  tabTitle: {
-    color: "#0f172a",
-    fontSize: "12px",
-    fontWeight: "900",
-    lineHeight: 1.25,
-  },
-
-  tabTitleActive: {
-    color: "#1d4ed8",
-  },
-
-  tabSubtitle: {
-    color: "#64748b",
-    fontSize: "10px",
-    fontWeight: "700",
-    marginTop: "4px",
+    padding: "13px 20px",
+    borderRadius: "12px",
+    fontWeight: "800",
+    fontSize: "14px",
+    cursor: "pointer",
   },
 
   success: {
     background: "#dcfce7",
     color: "#14532d",
-    border: "1px solid #4ade80",
-    padding: "14px 17px",
+    border: "2px solid #4ade80",
+    padding: "15px 18px",
     borderRadius: "12px",
-    marginBottom: "18px",
+    marginBottom: "20px",
     fontWeight: "800",
-    fontSize: "13px",
+    fontSize: "14px",
   },
 
   error: {
     background: "#fee2e2",
     color: "#7f1d1d",
-    border: "1px solid #f87171",
-    padding: "14px 17px",
+    border: "2px solid #f87171",
+    padding: "15px 18px",
     borderRadius: "12px",
-    marginBottom: "18px",
+    marginBottom: "20px",
     fontWeight: "800",
-    fontSize: "13px",
+    fontSize: "14px",
   },
 
   statsGrid: {
     display: "grid",
     gridTemplateColumns:
-      "repeat(auto-fit,minmax(200px,1fr))",
-    gap: "14px",
-    marginBottom: "18px",
+      "repeat(auto-fit,minmax(210px,1fr))",
+    gap: "18px",
+    marginBottom: "20px",
   },
 
   stat: {
     color: "#ffffff",
-    padding: "19px",
-    borderRadius: "18px",
-    minHeight: "135px",
+    padding: "24px",
+    borderRadius: "20px",
+    minHeight: "150px",
     boxSizing: "border-box",
     boxShadow:
-      "0 10px 25px rgba(15,23,42,0.13)",
+      "0 10px 25px rgba(15,23,42,0.15)",
   },
 
   statIcon: {
-    width: "34px",
-    height: "34px",
-    borderRadius: "10px",
-    background:
-      "rgba(255,255,255,0.17)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "11px",
-    fontWeight: "900",
-    letterSpacing: "0.5px",
+    fontSize: "30px",
   },
 
   statTitle: {
-    marginTop: "11px",
-    fontSize: "12px",
+    marginTop: "12px",
+    fontSize: "14px",
     fontWeight: "800",
   },
 
   statValue: {
-    marginTop: "4px",
-    fontSize: "30px",
+    marginTop: "5px",
+    fontSize: "36px",
     fontWeight: "900",
   },
 
   controlCard: {
     background: "#ffffff",
-    padding: "18px",
+    padding: "22px",
     borderRadius: "18px",
     display: "grid",
     gridTemplateColumns:
-      "repeat(auto-fit,minmax(260px,1fr))",
-    gap: "15px",
-    border: "1px solid #e2e8f0",
+      "repeat(auto-fit,minmax(280px,1fr))",
+    gap: "18px",
+    border: "2px solid #e2e8f0",
     boxShadow:
-      "0 7px 22px rgba(15,23,42,0.06)",
-    marginBottom: "18px",
+      "0 8px 25px rgba(15,23,42,0.08)",
+    marginBottom: "20px",
   },
 
   controlBox: {
     display: "flex",
     flexDirection: "column",
-    gap: "8px",
+    gap: "9px",
   },
 
   label: {
     color: "#0f172a",
     fontWeight: "900",
-    fontSize: "12px",
-    textTransform: "uppercase",
-    letterSpacing: "0.4px",
+    fontSize: "14px",
   },
 
   input: {
     width: "100%",
     boxSizing: "border-box",
-    padding: "12px",
-    border: "1px solid #cbd5e1",
+    padding: "13px",
+    border: "2px solid #94a3b8",
     borderRadius: "10px",
-    fontSize: "14px",
+    fontSize: "15px",
     color: "#0f172a",
     background: "#ffffff",
     outline: "none",
@@ -3187,110 +1220,102 @@ const styles: {
 
   actionCard: {
     background: "#ffffff",
-    padding: "19px",
+    padding: "22px",
     borderRadius: "18px",
-    border: "1px solid #bfdbfe",
+    border: "2px solid #bfdbfe",
     boxShadow:
-      "0 7px 22px rgba(15,23,42,0.06)",
-    marginBottom: "18px",
+      "0 8px 25px rgba(15,23,42,0.08)",
+    marginBottom: "20px",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: "18px",
+    gap: "20px",
     flexWrap: "wrap",
   },
 
   actionTitle: {
     margin: 0,
     color: "#0f172a",
-    fontSize: "18px",
+    fontSize: "20px",
     fontWeight: "900",
   },
 
   actionSubtitle: {
-    margin: "6px 0 0",
-    color: "#64748b",
-    fontSize: "12px",
+    margin: "7px 0 0",
+    color: "#475569",
+    fontSize: "13px",
     fontWeight: "600",
   },
 
   actionButtons: {
     display: "flex",
-    gap: "8px",
+    gap: "10px",
     flexWrap: "wrap",
   },
 
   bulkPresentButton: {
-    padding: "11px 14px",
-    borderRadius: "9px",
-    border: "none",
+    padding: "12px 16px",
+    borderRadius: "10px",
+    border: "2px solid #15803d",
     background: "#15803d",
     color: "#ffffff",
     fontWeight: "900",
-    fontSize: "12px",
+    fontSize: "13px",
     cursor: "pointer",
   },
 
   bulkAbsentButton: {
-    padding: "11px 14px",
-    borderRadius: "9px",
-    border: "none",
+    padding: "12px 16px",
+    borderRadius: "10px",
+    border: "2px solid #b91c1c",
     background: "#b91c1c",
     color: "#ffffff",
     fontWeight: "900",
-    fontSize: "12px",
+    fontSize: "13px",
     cursor: "pointer",
   },
 
   deleteButton: {
-    padding: "11px 14px",
-    borderRadius: "9px",
-    border: "1px solid #991b1b",
+    padding: "12px 16px",
+    borderRadius: "10px",
+    border: "2px solid #7f1d1d",
     background: "#ffffff",
     color: "#991b1b",
     fontWeight: "900",
-    fontSize: "12px",
+    fontSize: "13px",
     cursor: "pointer",
   },
 
   card: {
     background: "#ffffff",
-    borderRadius: "19px",
-    padding: "21px",
-    border: "1px solid #e2e8f0",
+    borderRadius: "20px",
+    padding: "24px",
+    border: "2px solid #e2e8f0",
     boxShadow:
-      "0 7px 22px rgba(15,23,42,0.06)",
-    marginBottom: "18px",
+      "0 8px 25px rgba(15,23,42,0.08)",
+    marginBottom: "20px",
   },
 
   sectionHeader: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: "14px",
-    marginBottom: "18px",
+    gap: "15px",
+    marginBottom: "20px",
     flexWrap: "wrap",
-  },
-
-  smallLabel: {
-    color: "#2563eb",
-    fontSize: "9px",
-    fontWeight: "900",
-    letterSpacing: "1px",
-    marginBottom: "5px",
   },
 
   sectionTitle: {
     margin: 0,
     color: "#0f172a",
-    fontSize: "21px",
+    fontSize: "23px",
     fontWeight: "900",
   },
 
   sectionSubtitle: {
-    margin: "6px 0 0",
-    color: "#64748b",
-    fontSize: "12px",
+    margin: "7px 0 0",
+    color: "#475569",
+    fontSize: "14px",
     fontWeight: "600",
   },
 
@@ -3300,103 +1325,104 @@ const styles: {
   },
 
   countBadge: {
-    background: "#eff6ff",
-    color: "#1e40af",
-    border: "1px solid #bfdbfe",
-    padding: "8px 12px",
+    background: "#dbeafe",
+    color: "#1e3a8a",
+    border: "2px solid #93c5fd",
+    padding: "9px 14px",
     borderRadius: "999px",
     fontWeight: "900",
-    fontSize: "11px",
+    fontSize: "13px",
   },
 
   studentList: {
     display: "flex",
     flexDirection: "column",
-    gap: "11px",
+    gap: "13px",
   },
 
   studentRow: {
-    borderRadius: "15px",
-    padding: "14px",
+    borderRadius: "16px",
+    padding: "17px",
     display: "flex",
     alignItems: "center",
-    gap: "13px",
+    gap: "15px",
     boxSizing: "border-box",
     boxShadow:
-      "0 3px 10px rgba(15,23,42,0.04)",
+      "0 4px 12px rgba(15,23,42,0.06)",
   },
 
   number: {
-    width: "28px",
-    minWidth: "28px",
+    width: "32px",
+    minWidth: "32px",
     textAlign: "center",
-    color: "#475569",
+    color: "#0f172a",
     fontWeight: "900",
-    fontSize: "13px",
+    fontSize: "16px",
   },
 
   avatar: {
-    width: "48px",
-    height: "48px",
-    minWidth: "48px",
-    borderRadius: "14px",
+    width: "54px",
+    height: "54px",
+    minWidth: "54px",
+    borderRadius: "50%",
     background:
       "linear-gradient(135deg,#1d4ed8,#4f46e5)",
     color: "#ffffff",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "18px",
+    fontSize: "21px",
     fontWeight: "900",
+    border: "3px solid #bfdbfe",
   },
 
   studentInfo: {
     flex: 1,
-    minWidth: "190px",
+    minWidth: "220px",
   },
 
   studentName: {
     margin: 0,
     color: "#020617",
-    fontSize: "16px",
+    fontSize: "19px",
     fontWeight: "900",
   },
 
   username: {
-    margin: "4px 0 0",
-    color: "#64748b",
-    fontSize: "11px",
+    margin: "5px 0 0",
+    color: "#334155",
+    fontSize: "13px",
     fontWeight: "600",
   },
 
   miniStats: {
     display: "flex",
-    gap: "10px",
+    gap: "12px",
     flexWrap: "wrap",
-    marginTop: "8px",
+    marginTop: "9px",
   },
 
   statText: {
-    color: "#475569",
-    fontSize: "10px",
+    color: "#334155",
+    fontSize: "12px",
     fontWeight: "800",
   },
 
   presentText: {
     color: "#15803d",
-    fontSize: "10px",
+    fontSize: "12px",
     fontWeight: "900",
   },
 
   absentText: {
     color: "#b91c1c",
-    fontSize: "10px",
+    fontSize: "12px",
     fontWeight: "900",
   },
 
   percentText: {
     color: "#1d4ed8",
-    fontSize: "10px",
+    fontSize: "12px",
     fontWeight: "900",
   },
 
@@ -3404,30 +1430,28 @@ const styles: {
     display: "flex",
     flexDirection: "column",
     alignItems: "flex-end",
-    gap: "7px",
-    minWidth: "195px",
+    gap: "9px",
+    minWidth: "205px",
   },
 
   buttons: {
     display: "flex",
-    gap: "7px",
+    gap: "8px",
   },
 
   presentButton: {
-    padding: "9px 12px",
-    borderRadius: "8px",
-    border: "2px solid #15803d",
+    padding: "10px 14px",
+    borderRadius: "9px",
     fontWeight: "900",
-    fontSize: "11px",
+    fontSize: "13px",
     cursor: "pointer",
   },
 
   absentButton: {
-    padding: "9px 12px",
-    borderRadius: "8px",
-    border: "2px solid #b91c1c",
+    padding: "10px 14px",
+    borderRadius: "9px",
     fontWeight: "900",
-    fontSize: "11px",
+    fontSize: "13px",
     cursor: "pointer",
   },
 
@@ -3435,114 +1459,60 @@ const styles: {
     display: "inline-block",
     background: "#16a34a",
     color: "#ffffff",
-    padding: "6px 10px",
+    padding: "7px 12px",
     borderRadius: "999px",
     fontWeight: "900",
-    fontSize: "9px",
-    border: "1px solid #166534",
+    fontSize: "12px",
+    border: "2px solid #166534",
   },
 
   absentBadge: {
     display: "inline-block",
     background: "#dc2626",
     color: "#ffffff",
-    padding: "6px 10px",
+    padding: "7px 12px",
     borderRadius: "999px",
     fontWeight: "900",
-    fontSize: "9px",
-    border: "1px solid #991b1b",
-  },
-
-  featureHero: {
-    background: "#ffffff",
-    border: "1px solid #dbeafe",
-    borderRadius: "20px",
-    padding: "24px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "20px",
-    marginBottom: "18px",
-    boxShadow:
-      "0 7px 22px rgba(15,23,42,0.06)",
-  },
-
-  featureTitle: {
-    margin: 0,
-    color: "#0f172a",
-    fontSize: "25px",
-    fontWeight: "900",
-  },
-
-  featureText: {
-    margin: "7px 0 0",
-    color: "#64748b",
-    fontSize: "13px",
-    lineHeight: 1.5,
-    fontWeight: "600",
-    maxWidth: "680px",
-  },
-
-  featureIcon: {
-    width: "70px",
-    height: "70px",
-    minWidth: "70px",
-    borderRadius: "20px",
-    background:
-      "linear-gradient(135deg,#1d4ed8,#4f46e5)",
-    color: "#ffffff",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontWeight: "900",
-    fontSize: "16px",
-    boxShadow:
-      "0 10px 25px rgba(37,99,235,0.2)",
-  },
-
-  primaryFeatureButton: {
-    marginTop: "15px",
-    border: "none",
-    background: "#1d4ed8",
-    color: "#ffffff",
-    padding: "11px 17px",
-    borderRadius: "10px",
-    fontWeight: "900",
     fontSize: "12px",
-    cursor: "pointer",
+    border: "2px solid #991b1b",
+  },
+
+  monthInput: {
+    padding: "11px",
+    border: "2px solid #94a3b8",
+    borderRadius: "10px",
+    color: "#0f172a",
+    background: "#ffffff",
+    fontWeight: "700",
   },
 
   tableWrapper: {
     width: "100%",
     overflowX: "auto",
-    WebkitOverflowScrolling:
-      "touch",
   },
 
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    minWidth: "680px",
+    minWidth: "720px",
     background: "#ffffff",
   },
 
   th: {
-    padding: "12px",
+    padding: "14px",
     textAlign: "left",
-    background: "#eff6ff",
+    background: "#dbeafe",
     color: "#172554",
-    borderBottom:
-      "1px solid #bfdbfe",
-    fontSize: "11px",
+    borderBottom: "2px solid #93c5fd",
+    fontSize: "13px",
     fontWeight: "900",
   },
 
   td: {
-    padding: "12px",
-    borderBottom:
-      "1px solid #e2e8f0",
+    padding: "14px",
+    borderBottom: "1px solid #cbd5e1",
     color: "#0f172a",
-    fontSize: "11px",
+    fontSize: "13px",
     fontWeight: "600",
   },
 
@@ -3551,206 +1521,59 @@ const styles: {
     fontWeight: "900",
   },
 
-  reportGrid: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(auto-fit,minmax(260px,1fr))",
-    gap: "11px",
-  },
-
-  reportCard: {
-    border: "1px solid #e2e8f0",
-    borderRadius: "14px",
-    padding: "14px",
-    display: "grid",
-    gridTemplateColumns:
-      "42px 1fr auto",
-    gap: "9px",
-    alignItems: "center",
-    background: "#ffffff",
-  },
-
-  reportAvatar: {
-    width: "42px",
-    height: "42px",
-    borderRadius: "12px",
-    background:
-      "linear-gradient(135deg,#dbeafe,#e0e7ff)",
-    color: "#1e40af",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontWeight: "900",
-    fontSize: "15px",
-  },
-
-  reportInfo: {
-    minWidth: 0,
-  },
-
-  reportName: {
-    margin: 0,
-    color: "#0f172a",
-    fontSize: "13px",
-    fontWeight: "900",
-  },
-
-  reportUsername: {
-    margin: "3px 0 0",
-    color: "#64748b",
-    fontSize: "10px",
-    fontWeight: "700",
-  },
-
-  reportPercentage: {
-    color: "#1d4ed8",
-    fontSize: "19px",
-    fontWeight: "900",
-  },
-
-  reportStats: {
-    gridColumn: "1 / -1",
-    display: "flex",
-    gap: "10px",
-    flexWrap: "wrap",
-    paddingTop: "7px",
-    borderTop:
-      "1px solid #f1f5f9",
-    color: "#475569",
-    fontSize: "10px",
-    fontWeight: "800",
-  },
-
-  monthInfo: {
-    background: "#f8fafc",
-    border: "1px solid #e2e8f0",
-    borderRadius: "12px",
-    padding: "13px",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-  },
-
-  monthInfoLabel: {
-    color: "#64748b",
-    fontSize: "9px",
-    fontWeight: "900",
-    letterSpacing: "0.8px",
-  },
-
-  monthInfoValue: {
-    color: "#0f172a",
-    fontSize: "16px",
-    fontWeight: "900",
-    marginTop: "4px",
-  },
-
   empty: {
     textAlign: "center",
-    padding: "48px 18px",
-    color: "#475569",
-    background: "#f8fafc",
-    borderRadius: "14px",
-    border:
-      "1px dashed #cbd5e1",
+    padding: "50px 20px",
+    color: "#334155",
   },
 
   emptyIcon: {
-    width: "44px",
-    height: "44px",
-    margin: "0 auto 10px",
-    borderRadius: "13px",
-    background: "#e2e8f0",
-    color: "#64748b",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontWeight: "900",
-    fontSize: "18px",
+    fontSize: "48px",
+    marginBottom: "10px",
   },
 
   emptyTitle: {
-    margin: 0,
     color: "#0f172a",
     fontWeight: "900",
-    fontSize: "17px",
+    fontSize: "20px",
   },
 
   emptyText: {
-    color: "#64748b",
+    color: "#475569",
     fontWeight: "600",
-    fontSize: "12px",
-    margin: "7px 0 0",
   },
 
   loadingCard: {
-    maxWidth: "420px",
+    maxWidth: "450px",
     margin: "100px auto",
     background: "#ffffff",
-    padding: "38px",
+    padding: "40px",
     borderRadius: "20px",
     textAlign: "center",
-    border: "1px solid #dbeafe",
+    border: "2px solid #dbeafe",
     boxShadow:
-      "0 15px 35px rgba(15,23,42,0.1)",
+      "0 10px 30px rgba(15,23,42,0.12)",
   },
 
-  loadingLogo: {
-    width: "58px",
-    height: "58px",
-    margin: "0 auto 15px",
-    borderRadius: "17px",
-    background:
-      "linear-gradient(135deg,#1d4ed8,#4f46e5)",
-    color: "#ffffff",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontWeight: "900",
-    fontSize: "17px",
+  loadingIcon: {
+    fontSize: "42px",
   },
 
   loadingTitle: {
     color: "#0f172a",
     fontWeight: "900",
-    margin: 0,
-    fontSize: "20px",
   },
 
   loadingText: {
-    color: "#64748b",
+    color: "#475569",
     fontWeight: "600",
-    fontSize: "12px",
-    lineHeight: 1.5,
-  },
-
-  loadingBar: {
-    height: "5px",
-    background: "#e2e8f0",
-    borderRadius: "999px",
-    overflow: "hidden",
-    marginTop: "18px",
-  },
-
-  loadingBarInner: {
-    width: "55%",
-    height: "100%",
-    background: "#2563eb",
-    borderRadius: "999px",
   },
 
   footer: {
     textAlign: "center",
-    color: "#64748b",
-    padding: "20px 10px 5px",
-    fontSize: "11px",
+    color: "#334155",
+    padding: "25px",
+    fontSize: "13px",
     fontWeight: "600",
-    lineHeight: 1.7,
-  },
-
-  footerBrand: {
-    color: "#1d4ed8",
-    fontWeight: "900",
-    letterSpacing: "0.7px",
   },
 };
