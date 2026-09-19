@@ -8,7 +8,11 @@ type MenuItem = {
   description: string;
   icon: string;
   path: string;
-  section: "Attendance & Academics" | "Students & Communication" | "Finance & Account" | "Administration";
+  section:
+    | "Attendance & Academics"
+    | "Students & Communication"
+    | "Finance & Account"
+    | "Administration";
 };
 
 export default function TeacherDashboard() {
@@ -29,9 +33,6 @@ export default function TeacherDashboard() {
     setTeacherName(savedTeacherName);
   }, []);
 
-  /*
-   * PERMANENT LOGOUT
-   */
   async function handleLogout() {
     if (loggingOut) {
       return;
@@ -67,21 +68,12 @@ export default function TeacherDashboard() {
       sessionStorage.removeItem(key);
     });
 
-    await new Promise((resolve) =>
-      setTimeout(resolve, 100)
-    );
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     router.replace("/");
     router.refresh();
   }
 
-  /*
-   * EXISTING TEACHER DASHBOARD OPTIONS
-   *
-   * Existing 12 options are preserved.
-   * Extra Classes remains after option 12.
-   * Additional modules remain after that.
-   */
   const menuItems: MenuItem[] = [
     {
       title: "Mark Attendance",
@@ -202,6 +194,15 @@ export default function TeacherDashboard() {
       icon: "👨‍🏫",
       path: "/teacher/teachers",
       section: "Administration",
+    },
+
+    // OPTION 17
+    {
+      title: "Timetable",
+      description: "Create and manage class-wise timetables",
+      icon: "🗓️",
+      path: "/teacher/timetable",
+      section: "Attendance & Academics",
     },
   ];
 
@@ -809,8 +810,6 @@ export default function TeacherDashboard() {
           Teacher Control Center • 2026
         </footer>
       </div>
-
-      {/* MOBILE RESPONSIVE ADJUSTMENTS */}
 
       <style jsx>{`
         @media (max-width: 640px) {

@@ -78,10 +78,6 @@ export default function StudentDashboardPage() {
     setStudentName(name);
     setUsername(savedUsername);
 
-    /*
-     * If the student is not logged in,
-     * do not load any student-specific information.
-     */
     if (!loggedIn) {
       setStudentId(null);
       setProfileImage(null);
@@ -144,10 +140,6 @@ export default function StudentDashboardPage() {
       }
     }
 
-    /*
-     * Login information is incomplete or invalid.
-     * Treat the student as logged out.
-     */
     setIsLoggedIn(false);
     setStudentId(null);
     setProfileImage(null);
@@ -930,6 +922,14 @@ export default function StudentDashboardPage() {
           "Attempt scheduled quizzes, view your scores and quiz history.",
         path: "/student/quiz-tests",
         className: "quiz",
+      },
+      {
+        icon: "🗓️",
+        title: "Timetable",
+        description:
+          "View your class-wise daily timetable and teacher schedule.",
+        path: "/student/timetable",
+        className: "timetable",
       },
     ];
 
@@ -2717,6 +2717,11 @@ const styles: {
   cardQuiz: {
     background:
       "linear-gradient(135deg,#fef9c3,#fde68a)",
+  },
+
+  cardTimetable: {
+    background:
+      "linear-gradient(135deg,#dbeafe,#bfdbfe)",
   },
 
   cardIcon: {
