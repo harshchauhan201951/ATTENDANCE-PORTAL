@@ -17,9 +17,10 @@ type Timetable = {
   teacher_name: string;
   class_names: string[];
   day_of_week: string;
-  subject: string;
-  start_time: string;
-  end_time: string;
+  subject: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  is_holiday: boolean;
 };
 
 const DAYS = [
@@ -29,6 +30,17 @@ const DAYS = [
   "Thursday",
   "Friday",
   "Saturday",
+  "Sunday",
+];
+
+const SUBJECTS = [
+  "English",
+  "Hindi",
+  "Mathematics",
+  "Science",
+  "Social Science",
+  "General Knowledge",
+  "Others",
 ];
 
 function TimetableCreateContent() {
@@ -44,6 +56,7 @@ function TimetableCreateContent() {
   const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
 
   const [dayOfWeek, setDayOfWeek] = useState("Monday");
+  const [isHoliday, setIsHoliday] = useState(false);
   const [subject, setSubject] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
@@ -111,7 +124,7 @@ function TimetableCreateContent() {
           await supabase
             .from("timetables")
             .select(
-              "id, teacher_id, teacher_name, class_names, day_of_week, subject, start_time, end_time"
+              "id, teacher_id, teacher_name, class_names, day_of_week, subject, start_time, end_time, is_holiday"
             )
             .eq("id", Number(editId))
             .single();
@@ -123,7 +136,8 @@ function TimetableCreateContent() {
         const timetable = data as Timetable;
 
         setDayOfWeek(timetable.day_of_week);
-        setSubject(timetable.subject);
+        setIsHoliday(Boolean(timetable.is_holiday));
+        setSubject(timetable.subject || "");
         setStartTime(timetable.start_time?.slice(0, 5) || "");
         setEndTime(timetable.end_time?.slice(0, 5) || "");
         setSelectedClasses(timetable.class_names || []);
@@ -152,6 +166,16 @@ function TimetableCreateContent() {
     setSelectedClasses([]);
   };
 
+  const handleHolidayChange = (checked: boolean) => {
+    setIsHoliday(checked);
+
+    if (checked) {
+      setSubject("");
+      setStartTime("");
+      setEndTime("");
+    }
+  };
+
   const handleSave = async () => {
     setError("");
 
@@ -165,17 +189,17 @@ function TimetableCreateContent() {
       return;
     }
 
-    if (!subject.trim()) {
-      setError("Please enter a subject.");
+    if (!isHoliday && !subject) {
+      setError("Please select a subject.");
       return;
     }
 
-    if (!startTime || !endTime) {
+    if (!isHoliday && (!startTime || !endTime)) {
       setError("Please select both start and end time.");
       return;
     }
 
-    if (endTime <= startTime) {
+    if (!isHoliday && endTime <= startTime) {
       setError("End time must be after start time.");
       return;
     }
@@ -188,9 +212,10 @@ function TimetableCreateContent() {
         teacher_name: teacherName,
         class_names: selectedClasses,
         day_of_week: dayOfWeek,
-        subject: subject.trim(),
-        start_time: startTime,
-        end_time: endTime,
+        is_holiday: isHoliday,
+        subject: isHoliday ? null : subject,
+        start_time: isHoliday ? null : startTime,
+        end_time: isHoliday ? null : endTime,
       };
 
       if (isEditMode) {
@@ -449,35 +474,77 @@ function TimetableCreateContent() {
             </label>
 
             <label style={labelStyle}>
-              Subject
-              <input
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="e.g. Mathematics"
+              Day Status
+              <select
+                value={isHoliday ? "Holiday" : "Class"}
+                onChange={(e) =>
+                  handleHolidayChange(e.target.value === "Holiday")
+                }
                 style={inputStyle}
-              />
+              >
+                <option value="Class">Class</option>
+                <option value="Holiday">Holiday</option>
+              </select>
             </label>
 
-            <label style={labelStyle}>
-              Start Time
-              <input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                style={inputStyle}
-              />
-            </label>
+            {!isHoliday && (
+              <>
+                <label style={labelStyle}>
+                  Subject
+                  <select
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    style={inputStyle}
+                  >
+                    <option value="">Select Subject</option>
 
-            <label style={labelStyle}>
-              End Time
-              <input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                style={inputStyle}
-              />
-            </label>
+                    {SUBJECTS.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label style={labelStyle}>
+                  Start Time
+                  <input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    style={inputStyle}
+                  />
+                </label>
+
+                <label style={labelStyle}>
+                  End Time
+                  <input
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    style={inputStyle}
+                  />
+                </label>
+              </>
+            )}
           </div>
+
+          {isHoliday && (
+            <div
+              style={{
+                marginTop: 18,
+                padding: "14px 16px",
+                borderRadius: 14,
+                background: "#fff7ed",
+                border: "1px solid #fed7aa",
+                color: "#9a3412",
+                fontWeight: 800,
+              }}
+            >
+              Holiday selected. Subject and class timings are not
+              required.
+            </div>
+          )}
         </div>
 
         <div

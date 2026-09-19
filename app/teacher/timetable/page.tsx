@@ -10,9 +10,10 @@ type Timetable = {
   teacher_name: string;
   class_names: string[];
   day_of_week: string;
-  subject: string;
-  start_time: string;
-  end_time: string;
+  subject: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  is_holiday: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -24,10 +25,27 @@ const DAYS = [
   "Thursday",
   "Friday",
   "Saturday",
+  "Sunday",
 ];
 
-function formatTime(time: string) {
+const DAY_ORDER: Record<string, number> = {
+  Monday: 1,
+  Tuesday: 2,
+  Wednesday: 3,
+  Thursday: 4,
+  Friday: 5,
+  Saturday: 6,
+  Sunday: 7,
+};
+
+function formatTime(time: string | null) {
+  if (!time) return "-";
+
   const [hours, minutes] = time.split(":").map(Number);
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return time;
+  }
 
   const date = new Date();
   date.setHours(hours, minutes, 0, 0);
@@ -63,9 +81,7 @@ export default function TeacherTimetablePage() {
       const { data, error } = await supabase
         .from("timetables")
         .select("*")
-        .eq("teacher_id", teacherId)
-        .order("day_of_week", { ascending: true })
-        .order("start_time", { ascending: true });
+        .eq("teacher_id", teacherId);
 
       if (error) {
         console.error("Timetable load error:", error);
@@ -73,7 +89,26 @@ export default function TeacherTimetablePage() {
         return;
       }
 
-      setEntries(data || []);
+      const sortedEntries = ((data || []) as Timetable[]).sort(
+        (a, b) => {
+          const dayDifference =
+            (DAY_ORDER[a.day_of_week] || 99) -
+            (DAY_ORDER[b.day_of_week] || 99);
+
+          if (dayDifference !== 0) {
+            return dayDifference;
+          }
+
+          if (a.is_holiday && !b.is_holiday) return -1;
+          if (!a.is_holiday && b.is_holiday) return 1;
+
+          return (a.start_time || "").localeCompare(
+            b.start_time || ""
+          );
+        }
+      );
+
+      setEntries(sortedEntries);
     } catch (error) {
       console.error(error);
       alert("Something went wrong while loading timetable.");
@@ -107,7 +142,9 @@ export default function TeacherTimetablePage() {
         return;
       }
 
-      setEntries((current) => current.filter((item) => item.id !== id));
+      setEntries((current) =>
+        current.filter((item) => item.id !== id)
+      );
     } finally {
       setDeletingId(null);
     }
@@ -116,12 +153,13 @@ export default function TeacherTimetablePage() {
   const visibleEntries =
     selectedDay === "All"
       ? entries
-      : entries.filter((item) => item.day_of_week === selectedDay);
+      : entries.filter(
+          (item) => item.day_of_week === selectedDay
+        );
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <div className="mx-auto w-full max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
-        {/* COMMON ACTION BAR */}
         <div className="mb-6 flex flex-wrap items-center gap-2">
           <button
             onClick={loadTimetable}
@@ -155,7 +193,6 @@ export default function TeacherTimetablePage() {
           </button>
         </div>
 
-        {/* HEADER */}
         <section className="mb-7 overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br from-indigo-950 via-slate-900 to-cyan-950 p-6 shadow-2xl">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -174,7 +211,9 @@ export default function TeacherTimetablePage() {
             </div>
 
             <button
-              onClick={() => router.push("/teacher/timetable/create")}
+              onClick={() =>
+                router.push("/teacher/timetable/create")
+              }
               className="rounded-2xl bg-white px-5 py-3 font-bold text-slate-900 shadow-lg transition hover:-translate-y-0.5 hover:bg-cyan-50"
             >
               + Create Timetable
@@ -182,7 +221,6 @@ export default function TeacherTimetablePage() {
           </div>
         </section>
 
-        {/* DAY FILTER */}
         <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
           {["All", ...DAYS].map((day) => (
             <button
@@ -199,7 +237,6 @@ export default function TeacherTimetablePage() {
           ))}
         </div>
 
-        {/* CONTENT */}
         {loading ? (
           <div className="rounded-3xl border border-slate-800 bg-slate-900 p-10 text-center text-slate-400">
             Loading timetable...
@@ -220,7 +257,9 @@ export default function TeacherTimetablePage() {
             </p>
 
             <button
-              onClick={() => router.push("/teacher/timetable/create")}
+              onClick={() =>
+                router.push("/teacher/timetable/create")
+              }
               className="mt-6 rounded-xl bg-cyan-400 px-5 py-3 font-bold text-slate-950 hover:bg-cyan-300"
             >
               Create First Timetable
@@ -240,14 +279,22 @@ export default function TeacherTimetablePage() {
                         {entry.day_of_week}
                       </span>
 
-                      <span className="rounded-full bg-cyan-500/15 px-3 py-1 text-xs font-bold text-cyan-300">
-                        {formatTime(entry.start_time)} -{" "}
-                        {formatTime(entry.end_time)}
-                      </span>
+                      {entry.is_holiday ? (
+                        <span className="rounded-full bg-orange-500/15 px-3 py-1 text-xs font-bold text-orange-300">
+                          Holiday
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-cyan-500/15 px-3 py-1 text-xs font-bold text-cyan-300">
+                          {formatTime(entry.start_time)} -{" "}
+                          {formatTime(entry.end_time)}
+                        </span>
+                      )}
                     </div>
 
                     <h2 className="text-xl font-bold text-white">
-                      {entry.subject}
+                      {entry.is_holiday
+                        ? "Holiday"
+                        : entry.subject || "Subject"}
                     </h2>
 
                     <p className="mt-2 text-sm text-slate-400">
@@ -282,11 +329,15 @@ export default function TeacherTimetablePage() {
                     </button>
 
                     <button
-                      onClick={() => deleteTimetable(entry.id)}
+                      onClick={() =>
+                        deleteTimetable(entry.id)
+                      }
                       disabled={deletingId === entry.id}
                       className="rounded-xl border border-red-900/70 bg-red-950/30 px-4 py-2.5 text-sm font-bold text-red-300 hover:bg-red-950/60 disabled:opacity-50"
                     >
-                      {deletingId === entry.id ? "Deleting..." : "Delete"}
+                      {deletingId === entry.id
+                        ? "Deleting..."
+                        : "Delete"}
                     </button>
                   </div>
                 </div>

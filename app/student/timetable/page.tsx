@@ -10,9 +10,10 @@ type TimetableRow = {
   teacher_name: string;
   class_names: string[] | null;
   day_of_week: string;
-  subject: string;
-  start_time: string;
-  end_time: string;
+  subject: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  is_holiday: boolean;
 };
 
 type StudentInfo = {
@@ -29,6 +30,7 @@ const DAYS = [
   "Thursday",
   "Friday",
   "Saturday",
+  "Sunday",
 ];
 
 const DAY_ORDER: Record<string, number> = {
@@ -38,9 +40,10 @@ const DAY_ORDER: Record<string, number> = {
   Thursday: 4,
   Friday: 5,
   Saturday: 6,
+  Sunday: 7,
 };
 
-function formatTime(time: string) {
+function formatTime(time: string | null) {
   if (!time) return "-";
 
   const parts = time.split(":");
@@ -84,7 +87,8 @@ export default function StudentTimetablePage() {
         localStorage.getItem("studentUsername") ||
         "";
 
-      const savedStudentId = localStorage.getItem("studentId") || "";
+      const savedStudentId =
+        localStorage.getItem("studentId") || "";
 
       if (!username && !savedStudentId) {
         router.replace("/");
@@ -99,7 +103,9 @@ export default function StudentTimetablePage() {
         if (!Number.isNaN(numericId)) {
           const { data } = await supabase
             .from("students")
-            .select("id, student_username, class_name, student_name")
+            .select(
+              "id, student_username, class_name, student_name"
+            )
             .eq("id", numericId)
             .maybeSingle();
 
@@ -112,7 +118,9 @@ export default function StudentTimetablePage() {
       if (!studentData && username) {
         const { data } = await supabase
           .from("students")
-          .select("id, student_username, class_name, student_name")
+          .select(
+            "id, student_username, class_name, student_name"
+          )
           .eq("student_username", username)
           .maybeSingle();
 
@@ -140,7 +148,7 @@ export default function StudentTimetablePage() {
       const { data, error: timetableError } = await supabase
         .from("timetables")
         .select(
-          "id, teacher_id, teacher_name, class_names, day_of_week, subject, start_time, end_time"
+          "id, teacher_id, teacher_name, class_names, day_of_week, subject, start_time, end_time, is_holiday"
         )
         .contains("class_names", [studentClass]);
 
@@ -148,17 +156,24 @@ export default function StudentTimetablePage() {
         throw timetableError;
       }
 
-      const rows = ((data || []) as TimetableRow[]).sort((a, b) => {
-        const dayDifference =
-          (DAY_ORDER[a.day_of_week] || 99) -
-          (DAY_ORDER[b.day_of_week] || 99);
+      const rows = ((data || []) as TimetableRow[]).sort(
+        (a, b) => {
+          const dayDifference =
+            (DAY_ORDER[a.day_of_week] || 99) -
+            (DAY_ORDER[b.day_of_week] || 99);
 
-        if (dayDifference !== 0) {
-          return dayDifference;
+          if (dayDifference !== 0) {
+            return dayDifference;
+          }
+
+          if (a.is_holiday && !b.is_holiday) return -1;
+          if (!a.is_holiday && b.is_holiday) return 1;
+
+          return (a.start_time || "").localeCompare(
+            b.start_time || ""
+          );
         }
-
-        return (a.start_time || "").localeCompare(b.start_time || "");
-      });
+      );
 
       setTimetables(rows);
     } catch (err: any) {
@@ -206,7 +221,9 @@ export default function StudentTimetablePage() {
       "studentId",
     ];
 
-    keysToRemove.forEach((key) => localStorage.removeItem(key));
+    keysToRemove.forEach((key) =>
+      localStorage.removeItem(key)
+    );
 
     sessionStorage.clear();
 
@@ -218,7 +235,11 @@ export default function StudentTimetablePage() {
       <main style={styles.page}>
         <div style={styles.loadingCard}>
           <div style={styles.loadingIcon}>🗓️</div>
-          <h2 style={styles.loadingTitle}>Loading Timetable...</h2>
+
+          <h2 style={styles.loadingTitle}>
+            Loading Timetable...
+          </h2>
+
           <p style={styles.loadingText}>
             Please wait while we load your class timetable.
           </p>
@@ -291,7 +312,9 @@ export default function StudentTimetablePage() {
 
             <div style={styles.classText}>
               Class:{" "}
-              <strong>{student?.class_name || "Class not assigned"}</strong>
+              <strong>
+                {student?.class_name || "Class not assigned"}
+              </strong>
             </div>
           </div>
         </section>
@@ -299,6 +322,7 @@ export default function StudentTimetablePage() {
         {error && (
           <div style={styles.errorBox}>
             <strong>Unable to load timetable</strong>
+
             <div style={styles.errorText}>{error}</div>
           </div>
         )}
@@ -307,9 +331,12 @@ export default function StudentTimetablePage() {
           <section style={styles.scheduleSection}>
             <div style={styles.sectionHeader}>
               <div>
-                <h2 style={styles.sectionTitle}>Weekly Schedule</h2>
+                <h2 style={styles.sectionTitle}>
+                  Weekly Schedule
+                </h2>
+
                 <p style={styles.sectionSubtitle}>
-                  Monday to Saturday timetable
+                  Monday to Sunday timetable
                 </p>
               </div>
 
@@ -321,40 +348,75 @@ export default function StudentTimetablePage() {
             <div style={styles.daysGrid}>
               {DAYS.map((day) => {
                 const classes = timetableByDay[day] || [];
+                const holidayEntry = classes.find(
+                  (item) => item.is_holiday
+                );
+                const normalClasses = classes.filter(
+                  (item) => !item.is_holiday
+                );
 
                 return (
                   <div key={day} style={styles.dayCard}>
                     <div style={styles.dayHeader}>
                       <h3 style={styles.dayTitle}>{day}</h3>
 
-                      <span style={styles.classCount}>
-                        {classes.length}{" "}
-                        {classes.length === 1 ? "Class" : "Classes"}
-                      </span>
+                      {holidayEntry ? (
+                        <span style={styles.holidayBadge}>
+                          Holiday
+                        </span>
+                      ) : (
+                        <span style={styles.classCount}>
+                          {normalClasses.length}{" "}
+                          {normalClasses.length === 1
+                            ? "Class"
+                            : "Classes"}
+                        </span>
+                      )}
                     </div>
 
                     <div style={styles.dayContent}>
-                      {classes.length === 0 ? (
+                      {holidayEntry ? (
+                        <div style={styles.holidayBox}>
+                          <div style={styles.holidayIcon}>🏖️</div>
+
+                          <div style={styles.holidayTitle}>
+                            Holiday
+                          </div>
+
+                          <div style={styles.holidayText}>
+                            No classes scheduled for this day.
+                          </div>
+                        </div>
+                      ) : normalClasses.length === 0 ? (
                         <div style={styles.emptyDay}>
                           <div style={styles.emptyIcon}>📭</div>
+
                           <div style={styles.emptyTitle}>
                             No classes scheduled
                           </div>
+
                           <div style={styles.emptyText}>
                             No timetable entry for this day.
                           </div>
                         </div>
                       ) : (
-                        classes.map((item) => (
-                          <div key={item.id} style={styles.classItem}>
+                        normalClasses.map((item) => (
+                          <div
+                            key={item.id}
+                            style={styles.classItem}
+                          >
                             <div style={styles.timeBox}>
-                              <div style={styles.timeLabel}>TIME</div>
+                              <div style={styles.timeLabel}>
+                                TIME
+                              </div>
 
                               <div style={styles.timeText}>
                                 {formatTime(item.start_time)}
                               </div>
 
-                              <div style={styles.toText}>to</div>
+                              <div style={styles.toText}>
+                                to
+                              </div>
 
                               <div style={styles.timeText}>
                                 {formatTime(item.end_time)}
@@ -362,14 +424,18 @@ export default function StudentTimetablePage() {
                             </div>
 
                             <div style={styles.classDetails}>
-                              <div style={styles.subjectLabel}>SUBJECT</div>
+                              <div style={styles.subjectLabel}>
+                                SUBJECT
+                              </div>
 
                               <div style={styles.subject}>
-                                {item.subject}
+                                {item.subject || "Subject"}
                               </div>
 
                               <div style={styles.teacherRow}>
-                                <span style={styles.teacherIcon}>👨‍🏫</span>
+                                <span style={styles.teacherIcon}>
+                                  👨‍🏫
+                                </span>
 
                                 <div>
                                   <div style={styles.teacherLabel}>
@@ -409,8 +475,9 @@ export default function StudentTimetablePage() {
 
         <footer style={styles.footer}>
           <div>RACER ACADEMY</div>
+
           <div style={styles.footerText}>
-            Student Timetable • Monday to Saturday
+            Student Timetable • Monday to Sunday
           </div>
         </footer>
       </div>
@@ -424,8 +491,7 @@ const styles: Record<string, React.CSSProperties> = {
     background:
       "linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #eff6ff 100%)",
     padding: "24px",
-    fontFamily:
-      "Arial, Helvetica, sans-serif",
+    fontFamily: "Arial, Helvetica, sans-serif",
     color: "#0f172a",
   },
 
@@ -654,6 +720,17 @@ const styles: Record<string, React.CSSProperties> = {
     whiteSpace: "nowrap",
   },
 
+  holidayBadge: {
+    background: "#ffedd5",
+    color: "#c2410c",
+    border: "1px solid #fed7aa",
+    borderRadius: "999px",
+    padding: "5px 9px",
+    fontSize: "11px",
+    fontWeight: 800,
+    whiteSpace: "nowrap",
+  },
+
   dayContent: {
     padding: "12px",
   },
@@ -738,6 +815,31 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     marginTop: "2px",
     wordBreak: "break-word",
+  },
+
+  holidayBox: {
+    textAlign: "center",
+    padding: "28px 12px",
+    background: "#fff7ed",
+    border: "1px solid #fed7aa",
+    borderRadius: "12px",
+  },
+
+  holidayIcon: {
+    fontSize: "32px",
+    marginBottom: "7px",
+  },
+
+  holidayTitle: {
+    fontSize: "17px",
+    fontWeight: 800,
+    color: "#c2410c",
+  },
+
+  holidayText: {
+    marginTop: "5px",
+    color: "#9a3412",
+    fontSize: "12px",
   },
 
   emptyDay: {
