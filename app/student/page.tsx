@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { CSSProperties } from "react";
 import { supabase } from "../../lib/supabase";
 
 type Announcement = {
@@ -20,6 +19,13 @@ type Service = {
   description: string;
   path: string;
   section: string;
+};
+
+type QuickStat = {
+  label: string;
+  value: string;
+  description: string;
+  path: string;
 };
 
 export default function StudentDashboardPage() {
@@ -55,13 +61,15 @@ export default function StudentDashboardPage() {
       localStorage.getItem("studentUsername") ||
       "";
 
-    const savedStudentId = localStorage.getItem("studentId");
+    const savedStudentId =
+      localStorage.getItem("studentId");
 
     setStudentName(name);
     setUsername(savedUsername);
 
     if (savedUsername) {
-      const resolvedId = await resolveStudentId(savedUsername);
+      const resolvedId =
+        await resolveStudentId(savedUsername);
 
       if (resolvedId !== null) {
         setStudentId(resolvedId);
@@ -271,7 +279,8 @@ export default function StudentDashboardPage() {
               (like) =>
                 Number(
                   like.announcement_id
-                ) === Number(announcement.id)
+                ) ===
+                Number(announcement.id)
             );
 
           return {
@@ -459,6 +468,10 @@ export default function StudentDashboardPage() {
     );
   }
 
+  function go(path: string) {
+    router.push(path);
+  }
+
   const latestAnnouncement =
     announcements[0] || null;
 
@@ -486,7 +499,7 @@ export default function StudentDashboardPage() {
       icon: "ATT",
       title: "Attendance",
       description:
-        "Check your daily and detailed attendance.",
+        "Check daily, semester and detailed attendance.",
       path: "/student/attendance",
       section: "ACADEMIC",
     },
@@ -494,7 +507,7 @@ export default function StudentDashboardPage() {
       icon: "HIST",
       title: "Attendance History",
       description:
-        "View your previous attendance records.",
+        "View previous attendance records.",
       path: "/student/attendance-history",
       section: "ACADEMIC",
     },
@@ -526,7 +539,7 @@ export default function StudentDashboardPage() {
       icon: "NEWS",
       title: "Announcements",
       description:
-        "Read all academy announcements.",
+        "Read academy announcements.",
       path: "/student/announcements",
       section: "COMMUNICATION",
     },
@@ -542,7 +555,7 @@ export default function StudentDashboardPage() {
       icon: "NOTE",
       title: "Notifications",
       description:
-        "View important student notifications.",
+        "View important academy notifications.",
       path: "/student/announcements",
       section: "COMMUNICATION",
     },
@@ -566,7 +579,7 @@ export default function StudentDashboardPage() {
       icon: "PROFILE",
       title: "Profile",
       description:
-        "View your personal and academic information.",
+        "View personal and academic information.",
       path: "/student/profile",
       section: "ACCOUNT",
     },
@@ -577,6 +590,37 @@ export default function StudentDashboardPage() {
         "Manage your student account settings.",
       path: "/student/settings",
       section: "ACCOUNT",
+    },
+  ];
+
+  const quickStats: QuickStat[] = [
+    {
+      label: "ATTENDANCE",
+      value: "VIEW",
+      description:
+        "Check your current attendance",
+      path: "/student/attendance",
+    },
+    {
+      label: "QUIZ TESTS",
+      value: "OPEN",
+      description:
+        "Available and previous quizzes",
+      path: "/student/quiz-tests",
+    },
+    {
+      label: "HOMEWORK",
+      value: "VIEW",
+      description:
+        "Check assigned homework",
+      path: "/student/homework",
+    },
+    {
+      label: "FEES",
+      value: "CHECK",
+      description:
+        "View your fee information",
+      path: "/student/fees",
     },
   ];
 
@@ -600,20 +644,32 @@ export default function StudentDashboardPage() {
           padding: 0;
         }
 
-        button,
-        input {
+        button {
           font-family: Arial, Helvetica, sans-serif;
         }
 
         .racer-student-page {
           min-height: 100vh;
           background:
-            radial-gradient(circle at 10% 0%, rgba(59,130,246,.12), transparent 28%),
-            radial-gradient(circle at 90% 10%, rgba(124,58,237,.10), transparent 25%),
-            linear-gradient(145deg, #f8fafc 0%, #eef2ff 48%, #f8fafc 100%);
+            radial-gradient(
+              circle at 8% 0%,
+              rgba(59,130,246,.12),
+              transparent 27%
+            ),
+            radial-gradient(
+              circle at 92% 8%,
+              rgba(124,58,237,.10),
+              transparent 24%
+            ),
+            linear-gradient(
+              145deg,
+              #f8fafc 0%,
+              #eef2ff 50%,
+              #f8fafc 100%
+            );
           color: #0f172a;
-          padding: 18px;
-          padding-bottom: 32px;
+          padding: 16px;
+          padding-bottom: 30px;
         }
 
         .racer-student-container {
@@ -624,7 +680,7 @@ export default function StudentDashboardPage() {
 
         .student-header {
           min-height: 68px;
-          background: rgba(255,255,255,.94);
+          background: rgba(255,255,255,.95);
           border: 1px solid #e2e8f0;
           border-radius: 20px;
           padding: 11px 14px;
@@ -632,8 +688,9 @@ export default function StudentDashboardPage() {
           align-items: center;
           justify-content: space-between;
           gap: 14px;
-          box-shadow: 0 10px 35px rgba(15,23,42,.07);
-          margin-bottom: 16px;
+          box-shadow:
+            0 10px 35px rgba(15,23,42,.07);
+          margin-bottom: 15px;
         }
 
         .student-brand {
@@ -648,14 +705,20 @@ export default function StudentDashboardPage() {
           height: 46px;
           flex: 0 0 46px;
           border-radius: 14px;
-          background: linear-gradient(135deg,#1d4ed8,#4f46e5);
+          background:
+            linear-gradient(
+              135deg,
+              #1d4ed8,
+              #4f46e5
+            );
           color: white;
           display: flex;
           align-items: center;
           justify-content: center;
           font-size: 15px;
           font-weight: 1000;
-          box-shadow: 0 8px 20px rgba(37,99,235,.25);
+          box-shadow:
+            0 8px 20px rgba(37,99,235,.25);
         }
 
         .student-brand-name {
@@ -676,8 +739,7 @@ export default function StudentDashboardPage() {
         .student-header-actions {
           display: flex;
           align-items: center;
-          justify-content: flex-end;
-          gap: 8px;
+          gap: 7px;
         }
 
         .student-clock {
@@ -695,11 +757,12 @@ export default function StudentDashboardPage() {
           border: 1px solid #e2e8f0;
           background: white;
           color: #334155;
-          width: 39px;
+          min-width: 42px;
           height: 39px;
+          padding: 0 10px;
           border-radius: 10px;
           cursor: pointer;
-          font-size: 10px;
+          font-size: 9px;
           font-weight: 1000;
         }
 
@@ -708,7 +771,12 @@ export default function StudentDashboardPage() {
           width: 40px;
           height: 40px;
           border-radius: 50%;
-          background: linear-gradient(135deg,#2563eb,#7c3aed);
+          background:
+            linear-gradient(
+              135deg,
+              #2563eb,
+              #7c3aed
+            );
           color: white;
           cursor: pointer;
           font-weight: 1000;
@@ -729,34 +797,29 @@ export default function StudentDashboardPage() {
         .student-hero {
           position: relative;
           overflow: hidden;
-          min-height: 230px;
+          min-height: 225px;
           border-radius: 25px;
           padding: 28px;
           background:
-            radial-gradient(circle at 85% 20%, rgba(255,255,255,.16), transparent 22%),
-            radial-gradient(circle at 100% 100%, rgba(255,255,255,.12), transparent 32%),
-            linear-gradient(135deg,#172554 0%,#1d4ed8 48%,#4f46e5 100%);
+            radial-gradient(
+              circle at 85% 20%,
+              rgba(255,255,255,.16),
+              transparent 22%
+            ),
+            linear-gradient(
+              135deg,
+              #172554 0%,
+              #1d4ed8 48%,
+              #4f46e5 100%
+            );
           color: white;
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 25px;
-          box-shadow: 0 20px 50px rgba(37,99,235,.22);
-          margin-bottom: 16px;
-        }
-
-        .student-hero::after {
-          content: "";
-          position: absolute;
-          width: 220px;
-          height: 220px;
-          right: -80px;
-          bottom: -100px;
-          border: 1px solid rgba(255,255,255,.16);
-          border-radius: 50%;
           box-shadow:
-            0 0 0 35px rgba(255,255,255,.03),
-            0 0 0 70px rgba(255,255,255,.025);
+            0 20px 50px rgba(37,99,235,.22);
+          margin-bottom: 15px;
         }
 
         .student-hero-left {
@@ -780,7 +843,8 @@ export default function StudentDashboardPage() {
           justify-content: center;
           font-size: 35px;
           font-weight: 1000;
-          box-shadow: 0 12px 35px rgba(0,0,0,.18);
+          box-shadow:
+            0 12px 35px rgba(0,0,0,.18);
         }
 
         .student-hero-text {
@@ -799,7 +863,6 @@ export default function StudentDashboardPage() {
           font-size: 30px;
           line-height: 1.15;
           font-weight: 1000;
-          letter-spacing: -.5px;
         }
 
         .student-hero-description {
@@ -842,7 +905,8 @@ export default function StudentDashboardPage() {
           flex: 0 0 11px;
           border-radius: 50%;
           background: #4ade80;
-          box-shadow: 0 0 0 5px rgba(74,222,128,.14);
+          box-shadow:
+            0 0 0 5px rgba(74,222,128,.14);
         }
 
         .student-status-title {
@@ -862,9 +926,10 @@ export default function StudentDashboardPage() {
           background: rgba(255,255,255,.96);
           border: 1px solid #e2e8f0;
           border-radius: 21px;
-          padding: 21px;
-          margin-bottom: 16px;
-          box-shadow: 0 8px 28px rgba(15,23,42,.055);
+          padding: 20px;
+          margin-bottom: 15px;
+          box-shadow:
+            0 8px 28px rgba(15,23,42,.055);
         }
 
         .student-section-header {
@@ -872,7 +937,7 @@ export default function StudentDashboardPage() {
           align-items: flex-end;
           justify-content: space-between;
           gap: 12px;
-          margin-bottom: 17px;
+          margin-bottom: 16px;
           flex-wrap: wrap;
         }
 
@@ -888,7 +953,6 @@ export default function StudentDashboardPage() {
           color: #172554;
           font-size: 23px;
           font-weight: 1000;
-          letter-spacing: -.3px;
         }
 
         .student-count {
@@ -899,6 +963,55 @@ export default function StudentDashboardPage() {
           color: #64748b;
           font-size: 9px;
           font-weight: 1000;
+        }
+
+        .quick-grid {
+          display: grid;
+          grid-template-columns:
+            repeat(4, minmax(0, 1fr));
+          gap: 10px;
+        }
+
+        .quick-card {
+          border: 1px solid #e2e8f0;
+          background: white;
+          border-radius: 15px;
+          padding: 15px;
+          text-align: left;
+          cursor: pointer;
+          transition:
+            transform .18s ease,
+            box-shadow .18s ease,
+            border-color .18s ease;
+        }
+
+        .quick-card:hover {
+          transform: translateY(-2px);
+          border-color: #bfdbfe;
+          box-shadow:
+            0 10px 25px rgba(37,99,235,.10);
+        }
+
+        .quick-label {
+          color: #94a3b8;
+          font-size: 8px;
+          font-weight: 1000;
+          letter-spacing: 1.4px;
+        }
+
+        .quick-value {
+          margin-top: 8px;
+          color: #2563eb;
+          font-size: 19px;
+          font-weight: 1000;
+        }
+
+        .quick-description {
+          margin-top: 4px;
+          color: #64748b;
+          font-size: 9px;
+          line-height: 1.45;
+          font-weight: 600;
         }
 
         .student-service-section {
@@ -925,13 +1038,12 @@ export default function StudentDashboardPage() {
 
         .student-service-grid {
           display: grid;
-          grid-template-columns: repeat(3,minmax(0,1fr));
-          gap: 11px;
+          grid-template-columns:
+            repeat(3, minmax(0, 1fr));
+          gap: 10px;
         }
 
         .student-service-card {
-          position: relative;
-          overflow: hidden;
           min-width: 0;
           border: 1px solid #e2e8f0;
           background: white;
@@ -942,7 +1054,8 @@ export default function StudentDashboardPage() {
           display: flex;
           align-items: center;
           gap: 11px;
-          box-shadow: 0 4px 15px rgba(15,23,42,.035);
+          box-shadow:
+            0 4px 15px rgba(15,23,42,.035);
           transition:
             transform .18s ease,
             border-color .18s ease,
@@ -952,7 +1065,8 @@ export default function StudentDashboardPage() {
         .student-service-card:hover {
           transform: translateY(-2px);
           border-color: #bfdbfe;
-          box-shadow: 0 10px 25px rgba(37,99,235,.10);
+          box-shadow:
+            0 10px 25px rgba(37,99,235,.10);
         }
 
         .student-service-icon {
@@ -960,7 +1074,12 @@ export default function StudentDashboardPage() {
           height: 47px;
           flex: 0 0 47px;
           border-radius: 14px;
-          background: linear-gradient(135deg,#eff6ff,#eef2ff);
+          background:
+            linear-gradient(
+              135deg,
+              #eff6ff,
+              #eef2ff
+            );
           border: 1px solid #dbeafe;
           color: #2563eb;
           display: flex;
@@ -1047,7 +1166,12 @@ export default function StudentDashboardPage() {
           border: 1px solid #bfdbfe;
           border-radius: 16px;
           padding: 16px;
-          background: linear-gradient(135deg,#f8fbff,#fff);
+          background:
+            linear-gradient(
+              135deg,
+              #f8fbff,
+              #fff
+            );
         }
 
         .student-announcement-top {
@@ -1139,7 +1263,12 @@ export default function StudentDashboardPage() {
 
         .student-open {
           border: none;
-          background: linear-gradient(135deg,#2563eb,#4f46e5);
+          background:
+            linear-gradient(
+              135deg,
+              #2563eb,
+              #4f46e5
+            );
           color: white;
           padding: 9px 12px;
           border-radius: 9px;
@@ -1150,7 +1279,11 @@ export default function StudentDashboardPage() {
 
         .student-profile-panel {
           background:
-            linear-gradient(135deg,#ffffff,#f8fafc);
+            linear-gradient(
+              135deg,
+              #ffffff,
+              #f8fafc
+            );
           border: 1px solid #e2e8f0;
           border-radius: 18px;
           padding: 16px;
@@ -1170,7 +1303,7 @@ export default function StudentDashboardPage() {
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 10px;
+          font-size: 9px;
           font-weight: 1000;
         }
 
@@ -1245,7 +1378,8 @@ export default function StudentDashboardPage() {
           background: white;
           border-radius: 21px;
           padding: 20px;
-          box-shadow: 0 25px 70px rgba(0,0,0,.25);
+          box-shadow:
+            0 25px 70px rgba(0,0,0,.25);
         }
 
         .student-modal-header {
@@ -1273,7 +1407,6 @@ export default function StudentDashboardPage() {
         .student-close {
           width: 35px;
           height: 35px;
-          flex: 0 0 35px;
           border: 1px solid #e2e8f0;
           background: #f8fafc;
           color: #475569;
@@ -1328,34 +1461,36 @@ export default function StudentDashboardPage() {
           color: #be123c;
         }
 
-        @media (max-width: 1000px) {
+        @media (max-width: 1050px) {
           .student-service-grid {
-            grid-template-columns: repeat(2,minmax(0,1fr));
+            grid-template-columns:
+              repeat(2, minmax(0, 1fr));
+          }
+
+          .quick-grid {
+            grid-template-columns:
+              repeat(2, minmax(0, 1fr));
           }
 
           .student-hero-title {
             font-size: 27px;
           }
-
-          .student-status {
-            min-width: 160px;
-          }
         }
 
         @media (max-width: 720px) {
           .racer-student-page {
-            padding: 10px;
+            padding: 9px;
             padding-bottom: 88px;
           }
 
           .student-header {
-            padding: 10px;
+            padding: 9px;
             border-radius: 16px;
-            margin-bottom: 10px;
+            margin-bottom: 9px;
           }
 
           .student-brand-name {
-            font-size: 12px;
+            font-size: 11px;
           }
 
           .student-brand-sub {
@@ -1363,24 +1498,27 @@ export default function StudentDashboardPage() {
           }
 
           .student-logo {
-            width: 40px;
-            height: 40px;
-            flex-basis: 40px;
+            width: 39px;
+            height: 39px;
+            flex-basis: 39px;
             border-radius: 12px;
-          }
-
-          .student-header-actions {
-            gap: 5px;
           }
 
           .student-clock {
             display: none;
           }
 
+          .student-header-actions {
+            gap: 4px;
+          }
+
           .student-header-button {
+            min-width: 35px;
             width: 35px;
+            padding: 0;
             height: 35px;
             border-radius: 9px;
+            font-size: 7px;
           }
 
           .student-header-profile {
@@ -1389,78 +1527,62 @@ export default function StudentDashboardPage() {
           }
 
           .student-logout {
-            padding: 8px 10px;
-            font-size: 9px;
+            padding: 8px 9px;
+            font-size: 8px;
           }
 
           .student-hero {
             min-height: 0;
-            padding: 20px 17px;
+            padding: 19px 16px;
             border-radius: 20px;
             display: block;
-            margin-bottom: 10px;
+            margin-bottom: 9px;
           }
 
           .student-hero-left {
-            gap: 12px;
+            gap: 11px;
             align-items: flex-start;
           }
 
           .student-avatar {
-            width: 58px;
-            height: 58px;
-            flex-basis: 58px;
+            width: 57px;
+            height: 57px;
+            flex-basis: 57px;
             border-radius: 17px;
-            font-size: 24px;
+            font-size: 23px;
           }
 
           .student-eyebrow {
             font-size: 8px;
-            letter-spacing: 1.4px;
+            letter-spacing: 1.3px;
           }
 
           .student-hero-title {
-            font-size: 21px;
-            line-height: 1.2;
-            margin-top: 5px;
+            font-size: 20px;
           }
 
           .student-hero-description {
-            font-size: 10px;
-            line-height: 1.5;
-            margin-top: 7px;
+            font-size: 9px;
+            line-height: 1.55;
+            margin-top: 6px;
           }
 
           .student-id-pill {
-            margin-top: 9px;
+            margin-top: 8px;
             font-size: 8px;
-            padding: 6px 8px;
           }
 
           .student-status {
-            min-width: 0;
             width: 100%;
-            margin-top: 15px;
+            margin-top: 14px;
+            min-width: 0;
             padding: 10px 12px;
-            border-radius: 12px;
-          }
-
-          .student-status-title {
-            font-size: 8px;
-          }
-
-          .student-status-sub {
-            font-size: 8px;
           }
 
           .student-panel {
-            padding: 14px;
+            padding: 13px;
             border-radius: 17px;
-            margin-bottom: 10px;
-          }
-
-          .student-section-header {
-            margin-bottom: 13px;
+            margin-bottom: 9px;
           }
 
           .student-section-title {
@@ -1476,29 +1598,47 @@ export default function StudentDashboardPage() {
             padding: 7px 8px;
           }
 
-          .student-service-section {
-            margin-top: 15px;
+          .quick-grid {
+            grid-template-columns:
+              repeat(2, minmax(0, 1fr));
+            gap: 7px;
           }
 
-          .student-section-label {
+          .quick-card {
+            padding: 11px;
+            border-radius: 12px;
+          }
+
+          .quick-label {
+            font-size: 7px;
+          }
+
+          .quick-value {
+            font-size: 16px;
+          }
+
+          .quick-description {
             font-size: 8px;
-            margin-bottom: 7px;
+          }
+
+          .student-service-section {
+            margin-top: 14px;
           }
 
           .student-service-grid {
             grid-template-columns: 1fr;
-            gap: 8px;
+            gap: 7px;
           }
 
           .student-service-card {
-            padding: 11px;
+            padding: 10px;
             border-radius: 13px;
           }
 
           .student-service-icon {
-            width: 40px;
-            height: 40px;
-            flex-basis: 40px;
+            width: 39px;
+            height: 39px;
+            flex-basis: 39px;
             border-radius: 11px;
             font-size: 7px;
           }
@@ -1509,24 +1649,11 @@ export default function StudentDashboardPage() {
 
           .student-service-description {
             font-size: 9px;
-            margin-top: 3px;
-          }
-
-          .student-service-arrow {
-            font-size: 15px;
           }
 
           .student-announcement-card {
             padding: 12px;
             border-radius: 13px;
-          }
-
-          .student-announcement-icon {
-            width: 39px;
-            height: 39px;
-            flex-basis: 39px;
-            border-radius: 11px;
-            font-size: 8px;
           }
 
           .student-announcement-title {
@@ -1537,18 +1664,8 @@ export default function StudentDashboardPage() {
             font-size: 10px;
           }
 
-          .student-date {
-            font-size: 8px;
-          }
-
           .student-open {
             width: 100%;
-            padding: 9px;
-          }
-
-          .student-profile-panel {
-            padding: 13px;
-            border-radius: 15px;
           }
 
           .student-profile-button {
@@ -1556,26 +1673,27 @@ export default function StudentDashboardPage() {
           }
 
           .student-footer {
-            padding-bottom: 8px;
             justify-content: center;
             text-align: center;
           }
 
           .student-mobile-nav {
             position: fixed;
-            left: 9px;
-            right: 9px;
-            bottom: 9px;
+            left: 8px;
+            right: 8px;
+            bottom: 8px;
             z-index: 5000;
             display: grid;
-            grid-template-columns: repeat(4,1fr);
+            grid-template-columns:
+              repeat(4, 1fr);
             gap: 3px;
             padding: 6px;
-            background: rgba(255,255,255,.96);
+            background: rgba(255,255,255,.97);
             backdrop-filter: blur(14px);
             border: 1px solid #dbeafe;
             border-radius: 17px;
-            box-shadow: 0 12px 35px rgba(15,23,42,.17);
+            box-shadow:
+              0 12px 35px rgba(15,23,42,.17);
           }
 
           .student-mobile-item {
@@ -1583,7 +1701,7 @@ export default function StudentDashboardPage() {
             background: transparent;
             color: #475569;
             min-width: 0;
-            padding: 6px 2px;
+            padding: 7px 2px;
             border-radius: 11px;
             display: flex;
             flex-direction: column;
@@ -1599,8 +1717,9 @@ export default function StudentDashboardPage() {
           }
 
           .student-mobile-icon {
-            font-size: 15px;
+            font-size: 14px;
             line-height: 1;
+            font-weight: 1000;
           }
 
           .student-mobile-label {
@@ -1642,15 +1761,11 @@ export default function StudentDashboardPage() {
             font-size: 18px;
           }
 
-          .student-hero-description {
-            font-size: 9px;
-          }
-
           .student-section-title {
             font-size: 17px;
           }
 
-          .student-service-description {
+          .quick-description {
             display: none;
           }
         }
@@ -1686,9 +1801,7 @@ export default function StudentDashboardPage() {
               <button
                 type="button"
                 onClick={() =>
-                  router.push(
-                    "/student/announcements"
-                  )
+                  go("/student/announcements")
                 }
                 className="student-header-button"
                 aria-label="Notifications"
@@ -1699,9 +1812,7 @@ export default function StudentDashboardPage() {
               <button
                 type="button"
                 onClick={() =>
-                  router.push(
-                    "/student/profile"
-                  )
+                  go("/student/profile")
                 }
                 className="student-header-profile"
                 aria-label="Profile"
@@ -1729,7 +1840,8 @@ export default function StudentDashboardPage() {
 
               <div className="student-hero-text">
                 <div className="student-eyebrow">
-                  HELLO, {studentName.toUpperCase()}
+                  HELLO,{" "}
+                  {studentName.toUpperCase()}
                 </div>
 
                 <h1 className="student-hero-title">
@@ -1737,10 +1849,11 @@ export default function StudentDashboardPage() {
                 </h1>
 
                 <p className="student-hero-description">
-                  Your classes, attendance,
-                  homework, quizzes, fees,
-                  reports and academy
-                  communication — all in one place.
+                  Manage your classes,
+                  attendance, homework,
+                  quizzes, fees, reports
+                  and academy communication
+                  from one place.
                 </p>
 
                 {username && (
@@ -1766,7 +1879,52 @@ export default function StudentDashboardPage() {
             </div>
           </section>
 
-          {/* SERVICES */}
+          {/* QUICK ACCESS */}
+
+          <section className="student-panel">
+            <div className="student-section-header">
+              <div>
+                <div className="student-section-eyebrow">
+                  QUICK ACCESS
+                </div>
+
+                <h2 className="student-section-title">
+                  My Services
+                </h2>
+              </div>
+
+              <div className="student-count">
+                STUDENT PORTAL
+              </div>
+            </div>
+
+            <div className="quick-grid">
+              {quickStats.map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  className="quick-card"
+                  onClick={() =>
+                    go(item.path)
+                  }
+                >
+                  <div className="quick-label">
+                    {item.label}
+                  </div>
+
+                  <div className="quick-value">
+                    {item.value}
+                  </div>
+
+                  <div className="quick-description">
+                    {item.description}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* ALL SERVICES */}
 
           <section className="student-panel">
             <div className="student-section-header">
@@ -1790,11 +1948,13 @@ export default function StudentDashboardPage() {
                 const sectionServices =
                   services.filter(
                     (item) =>
-                      item.section === section
+                      item.section ===
+                      section
                   );
 
                 if (
-                  sectionServices.length === 0
+                  sectionServices.length ===
+                  0
                 ) {
                   return null;
                 }
@@ -1812,10 +1972,12 @@ export default function StudentDashboardPage() {
                       {sectionServices.map(
                         (service) => (
                           <button
-                            key={service.path}
+                            key={
+                              service.title
+                            }
                             type="button"
                             onClick={() =>
-                              router.push(
+                              go(
                                 service.path
                               )
                             }
@@ -1831,7 +1993,9 @@ export default function StudentDashboardPage() {
                               </h3>
 
                               <p className="student-service-description">
-                                {service.description}
+                                {
+                                  service.description
+                                }
                               </p>
                             </div>
 
@@ -1848,7 +2012,7 @@ export default function StudentDashboardPage() {
             )}
           </section>
 
-          {/* ANNOUNCEMENT */}
+          {/* LATEST ANNOUNCEMENT */}
 
           <section className="student-panel">
             <div className="student-section-header">
@@ -1865,7 +2029,7 @@ export default function StudentDashboardPage() {
               <button
                 type="button"
                 onClick={() =>
-                  router.push(
+                  go(
                     "/student/announcements"
                   )
                 }
@@ -1934,7 +2098,9 @@ export default function StudentDashboardPage() {
                     </div>
 
                     <h3 className="student-announcement-title">
-                      {latestAnnouncement.title}
+                      {
+                        latestAnnouncement.title
+                      }
                     </h3>
 
                     <p className="student-announcement-message">
@@ -1953,7 +2119,9 @@ export default function StudentDashboardPage() {
                   <button
                     type="button"
                     onClick={() =>
-                      setAnnouncementOpen(true)
+                      setAnnouncementOpen(
+                        true
+                      )
                     }
                     className="student-open"
                   >
@@ -1973,21 +2141,19 @@ export default function StudentDashboardPage() {
 
             <div className="student-profile-text">
               <h3>
-                Keep your student profile updated
+                Student Profile
               </h3>
 
               <p>
-                View your personal and academic
-                information in your student profile.
+                View your personal and
+                academic information.
               </p>
             </div>
 
             <button
               type="button"
               onClick={() =>
-                router.push(
-                  "/student/profile"
-                )
+                go("/student/profile")
               }
               className="student-profile-button"
             >
@@ -2031,14 +2197,18 @@ export default function StudentDashboardPage() {
                     </div>
 
                     <h2 className="student-modal-title">
-                      {latestAnnouncement.title}
+                      {
+                        latestAnnouncement.title
+                      }
                     </h2>
                   </div>
 
                   <button
                     type="button"
                     onClick={() =>
-                      setAnnouncementOpen(false)
+                      setAnnouncementOpen(
+                        false
+                      )
                     }
                     className="student-close"
                   >
@@ -2053,7 +2223,9 @@ export default function StudentDashboardPage() {
                 </div>
 
                 <div className="student-modal-message">
-                  {latestAnnouncement.message}
+                  {
+                    latestAnnouncement.message
+                  }
                 </div>
 
                 <div className="student-modal-footer">
@@ -2088,13 +2260,13 @@ export default function StudentDashboardPage() {
             </div>
           )}
 
-        {/* MOBILE NAV */}
+        {/* MOBILE BOTTOM NAVIGATION */}
 
         <nav className="student-mobile-nav">
           <button
             type="button"
             onClick={() =>
-              router.push("/student")
+              go("/student")
             }
             className="student-mobile-item"
           >
@@ -2110,9 +2282,7 @@ export default function StudentDashboardPage() {
           <button
             type="button"
             onClick={() =>
-              router.push(
-                "/student/timetable"
-              )
+              go("/student/timetable")
             }
             className="student-mobile-item"
           >
@@ -2128,9 +2298,7 @@ export default function StudentDashboardPage() {
           <button
             type="button"
             onClick={() =>
-              router.push(
-                "/student/ask-query"
-              )
+              go("/student/ask-query")
             }
             className="student-mobile-item"
           >
@@ -2146,9 +2314,7 @@ export default function StudentDashboardPage() {
           <button
             type="button"
             onClick={() =>
-              router.push(
-                "/student/profile"
-              )
+              go("/student/profile")
             }
             className="student-mobile-item"
           >
