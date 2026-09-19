@@ -1,4 +1,3 @@
-```tsx
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
@@ -96,20 +95,33 @@ function normalizeClass(value: unknown) {
   return value.trim().toUpperCase();
 }
 
-function matchesClass(quiz: Quiz, studentClass: string) {
-  const studentClassNormalized = normalizeClass(studentClass);
+function matchesClass(
+  quiz: Quiz,
+  studentClass: string
+) {
+  const studentClassNormalized =
+    normalizeClass(studentClass);
 
   if (!studentClassNormalized) return false;
 
-  const targets = Array.isArray(quiz.target_classes)
-    ? quiz.target_classes.map(normalizeClass).filter(Boolean)
+  const targets = Array.isArray(
+    quiz.target_classes
+  )
+    ? quiz.target_classes
+        .map(normalizeClass)
+        .filter(Boolean)
     : [];
 
   if (targets.length > 0) {
-    return targets.includes(studentClassNormalized);
+    return targets.includes(
+      studentClassNormalized
+    );
   }
 
-  return normalizeClass(quiz.class_name) === studentClassNormalized;
+  return (
+    normalizeClass(quiz.class_name) ===
+    studentClassNormalized
+  );
 }
 
 function numberText(value: unknown) {
@@ -124,7 +136,9 @@ function numberText(value: unknown) {
     : number.toFixed(2);
 }
 
-function dateTimeText(value: string | null) {
+function dateTimeText(
+  value: string | null
+) {
   if (!value) return "-";
 
   const date = new Date(value);
@@ -143,10 +157,19 @@ function dateTimeText(value: string | null) {
   });
 }
 
-function dateText(value: string | null) {
+function dateText(
+  value: string | null
+) {
   if (!value) return "-";
 
-  const date = new Date(`${value}T00:00:00`);
+  /*
+   * Intentionally avoid a template literal here.
+   * This also prevents the previous Turbopack parser
+   * error around this line.
+   */
+  const date = new Date(
+    String(value) + "T00:00:00"
+  );
 
   if (Number.isNaN(date.getTime())) {
     return value;
@@ -159,52 +182,68 @@ function dateText(value: string | null) {
   });
 }
 
-function timeText(value: string | null) {
+function timeText(
+  value: string | null
+) {
   if (!value) return "-";
 
-  const [hourText, minute] = value.split(":");
+  const parts = value.split(":");
+  const hourText = parts[0];
+  const minute = parts[1];
+
   let hour = Number(hourText);
 
   if (!Number.isFinite(hour)) {
     return value;
   }
 
-  const period = hour >= 12 ? "PM" : "AM";
+  const period =
+    hour >= 12 ? "PM" : "AM";
+
   hour = hour % 12 || 12;
 
-  return `${hour}:${minute || "00"} ${period}`;
+  return (
+    String(hour) +
+    ":" +
+    (minute || "00") +
+    " " +
+    period
+  );
 }
 
 /*
- * PDF font loader.
+ * PDF font handling
  *
  * IMPORTANT:
- * Do not register any external TTF font here.
+ * We intentionally do NOT use addFileToVFS()
+ * or addFont() here.
  *
- * The previous NotoSansDevanagari addFont() registration
- * was causing jsPDF to throw:
+ * The previous custom TTF registration was
+ * causing jsPDF to throw:
  *
- * Cannot read properties of undefined (reading 'Unicode')
+ * Cannot read properties of undefined
+ * (reading 'Unicode')
  *
- * We now use jsPDF's built-in Helvetica font so that
- * PDF generation/download remains stable.
+ * Built-in Helvetica is stable for PDF
+ * generation and downloading.
  */
-async function loadPdfUnicodeFont(doc: jsPDF) {
-  doc.setFont("helvetica", "normal");
+async function loadPdfUnicodeFont(
+  doc: jsPDF
+) {
+  doc.setFont(
+    "helvetica",
+    "normal"
+  );
+
   return false;
 }
 
-/*
- * Keep text safe for PDF generation.
- *
- * IMPORTANT:
- * The PDF now uses jsPDF's built-in Helvetica font.
- * Therefore Devanagari/Hindi characters may not render
- * correctly in the generated PDF, but PDF generation
- * itself will not fail because of custom font metadata.
- */
-function cleanPdfText(value: unknown) {
-  const text = String(value ?? "-")
+function cleanPdfText(
+  value: unknown
+) {
+  const text = String(
+    value ?? "-"
+  )
     .replace(/\r/g, " ")
     .replace(/\n/g, " ")
     .replace(/\s+/g, " ")
@@ -220,23 +259,35 @@ function splitPdfText(
 ) {
   const text = cleanPdfText(value);
 
-  const lines = doc.splitTextToSize(
-    text,
-    width
-  );
+  const lines =
+    doc.splitTextToSize(
+      text,
+      width
+    );
 
   return Array.isArray(lines)
     ? lines
     : [String(lines)];
 }
 
-function buildSafeFilePart(value: string) {
+function buildSafeFilePart(
+  value: string
+) {
   return (
     value
       .normalize("NFKD")
-      .replace(/[^\x00-\x7F]/g, "")
-      .replace(/[^a-z0-9]+/gi, "-")
-      .replace(/^-+|-+$/g, "") ||
+      .replace(
+        /[^\x00-\x7F]/g,
+        ""
+      )
+      .replace(
+        /[^a-z0-9]+/gi,
+        "-"
+      )
+      .replace(
+        /^-+|-+$/g,
+        ""
+      ) ||
     "Student"
   );
 }
@@ -256,10 +307,6 @@ async function buildResultPdf(
     compress: true,
   });
 
-  /*
-   * Keep the existing loader call, but it now only
-   * selects jsPDF's built-in Helvetica font.
-   */
   await loadPdfUnicodeFont(doc);
 
   const pageWidth =
@@ -269,19 +316,16 @@ async function buildResultPdf(
     doc.internal.pageSize.getHeight();
 
   const margin = 14;
+
   const contentWidth =
-    pageWidth - margin * 2;
+    pageWidth -
+    margin * 2;
 
   let y = 18;
 
   function setPdfFont(
     size = 10
   ) {
-    /*
-     * IMPORTANT:
-     * Never use NotoSansDevanagari here.
-     * Never call addFont/addFileToVFS.
-     */
     doc.setFont(
       "helvetica",
       "normal"
@@ -289,7 +333,11 @@ async function buildResultPdf(
 
     doc.setFontSize(size);
 
-    doc.setTextColor(20, 24, 35);
+    doc.setTextColor(
+      20,
+      24,
+      35
+    );
   }
 
   function ensureSpace(
@@ -300,7 +348,9 @@ async function buildResultPdf(
       pageHeight - 20
     ) {
       doc.addPage();
+
       y = 18;
+
       setPdfFont(10);
     }
   }
@@ -312,22 +362,29 @@ async function buildResultPdf(
   ) {
     setPdfFont(size);
 
-    const lines = splitPdfText(
-      doc,
-      value,
-      contentWidth
-    );
+    const lines =
+      splitPdfText(
+        doc,
+        value,
+        contentWidth
+      );
 
     const lineHeight =
-      size <= 9 ? 4.8 : 5.6;
+      size <= 9
+        ? 4.8
+        : 5.6;
 
-    for (const line of lines) {
+    for (
+      const line of lines
+    ) {
       if (
         y + lineHeight >
         pageHeight - 20
       ) {
         doc.addPage();
+
         y = 18;
+
         setPdfFont(size);
       }
 
@@ -358,7 +415,9 @@ async function buildResultPdf(
 
     y += 5;
 
-    doc.setLineWidth(0.35);
+    doc.setLineWidth(
+      0.35
+    );
 
     doc.setDrawColor(
       80,
@@ -396,7 +455,9 @@ async function buildResultPdf(
       230
     );
 
-    doc.setLineWidth(0.25);
+    doc.setLineWidth(
+      0.25
+    );
 
     doc.roundedRect(
       boxX,
@@ -417,7 +478,9 @@ async function buildResultPdf(
     );
 
     doc.text(
-      cleanPdfText(label).toUpperCase(),
+      cleanPdfText(
+        label
+      ).toUpperCase(),
       boxX + 4,
       boxY + 5
     );
@@ -486,7 +549,9 @@ async function buildResultPdf(
 
   y += 12;
 
-  doc.setLineWidth(0.6);
+  doc.setLineWidth(
+    0.6
+  );
 
   doc.setDrawColor(
     35,
@@ -514,8 +579,11 @@ async function buildResultPdf(
   );
 
   const boxGap = 4;
+
   const boxWidth =
-    (contentWidth - boxGap) / 2;
+    (contentWidth - boxGap) /
+    2;
+
   const boxHeight = 22;
 
   addInfoBox(
@@ -530,13 +598,17 @@ async function buildResultPdf(
   addInfoBox(
     "Class",
     studentClass || "-",
-    margin + boxWidth + boxGap,
+    margin +
+      boxWidth +
+      boxGap,
     y,
     boxWidth,
     boxHeight
   );
 
-  y += boxHeight + boxGap;
+  y +=
+    boxHeight +
+    boxGap;
 
   addInfoBox(
     "Quiz",
@@ -550,17 +622,22 @@ async function buildResultPdf(
   addInfoBox(
     "Subject",
     quiz.subject || "-",
-    margin + boxWidth + boxGap,
+    margin +
+      boxWidth +
+      boxGap,
     y,
     boxWidth,
     boxHeight
   );
 
-  y += boxHeight + boxGap;
+  y +=
+    boxHeight +
+    boxGap;
 
   addInfoBox(
     "Conducted By",
-    teacherName || "RACER ACADEMY",
+    teacherName ||
+      "RACER ACADEMY",
     margin,
     y,
     boxWidth,
@@ -569,18 +646,26 @@ async function buildResultPdf(
 
   addInfoBox(
     "Quiz Date",
-    dateText(quiz.scheduled_date),
-    margin + boxWidth + boxGap,
+    dateText(
+      quiz.scheduled_date
+    ),
+    margin +
+      boxWidth +
+      boxGap,
     y,
     boxWidth,
     boxHeight
   );
 
-  y += boxHeight + boxGap;
+  y +=
+    boxHeight +
+    boxGap;
 
   addInfoBox(
     "Total Marks",
-    numberText(result.total_marks),
+    numberText(
+      result.total_marks
+    ),
     margin,
     y,
     boxWidth,
@@ -589,18 +674,23 @@ async function buildResultPdf(
 
   addInfoBox(
     "Marks Obtained",
-    `${numberText(
+    numberText(
       result.obtained_marks
-    )} / ${numberText(
-      result.total_marks
-    )}`,
-    margin + boxWidth + boxGap,
+    ) +
+      " / " +
+      numberText(
+        result.total_marks
+      ),
+    margin +
+      boxWidth +
+      boxGap,
     y,
     boxWidth,
     boxHeight
   );
 
-  y += boxHeight + 9;
+  y +=
+    boxHeight + 9;
 
   /*
    * ================================
@@ -613,97 +703,111 @@ async function buildResultPdf(
   );
 
   addWrappedText(
-    `Result Status: ${
-      result.result_status || "-"
-    }`,
+    "Result Status: " +
+      (result.result_status ||
+        "-"),
     11,
     3
   );
 
   addWrappedText(
-    `Percentage: ${numberText(
-      result.percentage
-    )}%`,
+    "Percentage: " +
+      numberText(
+        result.percentage
+      ) +
+      "%",
     10,
     3
   );
 
   addWrappedText(
-    `Total Questions: ${numberText(
-      result.total_questions
-    )}`,
+    "Total Questions: " +
+      numberText(
+        result.total_questions
+      ),
     10,
     3
   );
 
   addWrappedText(
-    `Correct Answers: ${numberText(
-      result.correct_answers
-    )}`,
+    "Correct Answers: " +
+      numberText(
+        result.correct_answers
+      ),
     10,
     3
   );
 
   addWrappedText(
-    `Wrong Answers: ${numberText(
-      result.wrong_answers
-    )}`,
+    "Wrong Answers: " +
+      numberText(
+        result.wrong_answers
+      ),
     10,
     3
   );
 
   addWrappedText(
-    `Not Answered: ${numberText(
-      result.unanswered
-    )}`,
+    "Not Answered: " +
+      numberText(
+        result.unanswered
+      ),
     10,
     3
   );
 
   addWrappedText(
-    `Pass Percentage: ${numberText(
-      quiz.pass_percentage
-    )}%`,
+    "Pass Percentage: " +
+      numberText(
+        quiz.pass_percentage
+      ) +
+      "%",
     10,
     3
   );
 
   addWrappedText(
-    `Duration: ${numberText(
-      quiz.duration_minutes || 30
-    )} minutes`,
+    "Duration: " +
+      numberText(
+        quiz.duration_minutes ||
+          30
+      ) +
+      " minutes",
     10,
     3
   );
 
   addWrappedText(
-    `Scheduled Time: ${timeText(
-      quiz.scheduled_time
-    )}`,
+    "Scheduled Time: " +
+      timeText(
+        quiz.scheduled_time
+      ),
     10,
     3
   );
 
   addWrappedText(
-    `Started At: ${dateTimeText(
-      result.started_at
-    )}`,
+    "Started At: " +
+      dateTimeText(
+        result.started_at
+      ),
     10,
     3
   );
 
   addWrappedText(
-    `Submitted At: ${dateTimeText(
-      result.submitted_at
-    )}`,
+    "Submitted At: " +
+      dateTimeText(
+        result.submitted_at
+      ),
     10,
     3
   );
 
   addWrappedText(
-    `Submission Type: ${
-      result.submission_type || "-"
-    }`,
+    "Submission Type: " +
+      (result.submission_type ||
+        "-"),
     10,
     8
   );
@@ -718,7 +822,9 @@ async function buildResultPdf(
     "QUESTION-WISE ANSWER REVIEW"
   );
 
-  if (reviews.length === 0) {
+  if (
+    reviews.length === 0
+  ) {
     addWrappedText(
       "Question review is not available.",
       10,
@@ -726,15 +832,18 @@ async function buildResultPdf(
     );
   } else {
     reviews.forEach(
-      (review, index) => {
+      (
+        review,
+        index
+      ) => {
         ensureSpace(28);
 
-        setPdfFont(10);
-
         const questionText =
-          `Q${index + 1}. ${
-            review.question.question_text
-          }`;
+          "Q" +
+          (index + 1) +
+          ". " +
+          review.question
+            .question_text;
 
         addWrappedText(
           questionText,
@@ -743,46 +852,56 @@ async function buildResultPdf(
         );
 
         const selectedText =
-          review.selectedOption
+          review
+            .selectedOption
             ?.option_text ||
           "Not Answered";
 
         const correctText =
-          review.correctOption
+          review
+            .correctOption
             ?.option_text ||
           "Not Available";
 
         const status =
           !review.answer ||
-          review.answer.selected_option_id ===
+          review.answer
+            .selected_option_id ===
             null
             ? "NOT ANSWERED"
-            : review.answer.is_correct
+            : review.answer
+                .is_correct
             ? "CORRECT"
             : "WRONG";
 
         addWrappedText(
-          `Student Answer: ${selectedText}`,
+          "Student Answer: " +
+            selectedText,
           9,
           3
         );
 
         addWrappedText(
-          `Correct Answer: ${correctText}`,
+          "Correct Answer: " +
+            correctText,
           9,
           3
         );
 
         addWrappedText(
-          `Status: ${status}`,
+          "Status: " +
+            status,
           9,
           3
         );
 
         addWrappedText(
-          `Marks Awarded: ${numberText(
-            review.answer?.marks_awarded ?? 0
-          )}`,
+          "Marks Awarded: " +
+            numberText(
+              review.answer
+                ?.marks_awarded ??
+                0
+            ),
           9,
           6
         );
@@ -799,7 +918,9 @@ async function buildResultPdf(
             225
           );
 
-          doc.setLineWidth(0.2);
+          doc.setLineWidth(
+            0.2
+          );
 
           doc.line(
             margin,
@@ -830,7 +951,9 @@ async function buildResultPdf(
     55
   );
 
-  doc.setLineWidth(0.25);
+  doc.setLineWidth(
+    0.25
+  );
 
   doc.line(
     margin,
@@ -842,15 +965,10 @@ async function buildResultPdf(
   y += 15;
 
   const signatureX =
-    pageWidth - margin - 60;
+    pageWidth -
+    margin -
+    60;
 
-  /*
-   * Pen-style signature.
-   *
-   * This is a fictional RACER ACADEMY
-   * academy signature mark, not a real
-   * person's signature.
-   */
   doc.setFont(
     "times",
     "italic"
@@ -870,10 +988,9 @@ async function buildResultPdf(
     y
   );
 
-  /*
-   * Handwritten-style underline/flourish.
-   */
-  doc.setLineWidth(0.55);
+  doc.setLineWidth(
+    0.55
+  );
 
   doc.setDrawColor(
     25,
@@ -886,26 +1003,11 @@ async function buildResultPdf(
 
   doc.lines(
     [
-      [
-        8,
-        1.2,
-      ],
-      [
-        10,
-        -1.4,
-      ],
-      [
-        12,
-        0.8,
-      ],
-      [
-        9,
-        1.1,
-      ],
-      [
-        7,
-        -0.7,
-      ],
+      [8, 1.2],
+      [10, -1.4],
+      [12, 0.8],
+      [9, 1.1],
+      [7, -0.7],
     ],
     signatureX - 1,
     flourishY,
@@ -969,7 +1071,10 @@ async function buildResultPdf(
     );
 
     doc.text(
-      `Page ${page} of ${totalPages}`,
+      "Page " +
+        page +
+        " of " +
+        totalPages,
       pageWidth - margin,
       pageHeight - 8,
       {
@@ -978,9 +1083,6 @@ async function buildResultPdf(
     );
   }
 
-  /*
-   * Reset font before returning.
-   */
   doc.setTextColor(
     20,
     24,
@@ -1081,7 +1183,9 @@ async function fetchQuestionReviews(
             Number(
               item.question_id
             ) ===
-            Number(question.id)
+            Number(
+              question.id
+            )
         ) || null;
 
       const questionOptions =
@@ -1090,7 +1194,9 @@ async function fetchQuestionReviews(
             Number(
               option.question_id
             ) ===
-            Number(question.id)
+            Number(
+              question.id
+            )
         );
 
       const selectedOption =
@@ -1098,7 +1204,9 @@ async function fetchQuestionReviews(
         null
           ? questionOptions.find(
               (option) =>
-                Number(option.id) ===
+                Number(
+                  option.id
+                ) ===
                 Number(
                   answer.selected_option_id
                 )
@@ -1113,7 +1221,8 @@ async function fetchQuestionReviews(
 
       return {
         question,
-        options: questionOptions,
+        options:
+          questionOptions,
         answer,
         selectedOption,
         correctOption,
@@ -1123,13 +1232,16 @@ async function fetchQuestionReviews(
 }
 
 function ResultsContent() {
-  const router = useRouter();
+  const router =
+    useRouter();
 
   const searchParams =
     useSearchParams();
 
   const quizIdParam =
-    searchParams.get("quizId");
+    searchParams.get(
+      "quizId"
+    );
 
   const isDetail =
     Boolean(quizIdParam);
@@ -1147,12 +1259,16 @@ function ResultsContent() {
   const [
     results,
     setResults,
-  ] = useState<ResultItem[]>([]);
+  ] = useState<ResultItem[]>(
+    []
+  );
 
   const [
     selectedQuiz,
     setSelectedQuiz,
-  ] = useState<Quiz | null>(null);
+  ] = useState<Quiz | null>(
+    null
+  );
 
   const [
     selectedResult,
@@ -1164,7 +1280,9 @@ function ResultsContent() {
   const [
     questionReviews,
     setQuestionReviews,
-  ] = useState<QuestionReview[]>([]);
+  ] = useState<
+    QuestionReview[]
+  >([]);
 
   const [
     teacherName,
@@ -1403,7 +1521,9 @@ function ResultsContent() {
           "RACER ACADEMY"
         );
       }
-    } catch (teacherError) {
+    } catch (
+      teacherError
+    ) {
       console.error(
         "Teacher lookup failed:",
         teacherError
@@ -1432,6 +1552,7 @@ function ResultsContent() {
         setError(
           "Student login could not be verified. Please login again."
         );
+
         return;
       }
 
@@ -1451,7 +1572,9 @@ function ResultsContent() {
           )
         );
       }
-    } catch (loadError) {
+    } catch (
+      loadError
+    ) {
       console.error(
         "Result loading error:",
         loadError
@@ -1555,24 +1678,29 @@ function ResultsContent() {
 
     const filteredResults =
       rawResults
-        .map((result) => ({
-          ...result,
-          quiz:
-            quizMap.get(
-              Number(
-                result.quiz_id
-              )
-            ) || null,
-        }))
-        .filter((item) => {
-          if (!item.quiz)
-            return false;
+        .map(
+          (result) => ({
+            ...result,
+            quiz:
+              quizMap.get(
+                Number(
+                  result.quiz_id
+                )
+              ) || null,
+          })
+        )
+        .filter(
+          (item) => {
+            if (!item.quiz) {
+              return false;
+            }
 
-          return matchesClass(
-            item.quiz,
-            currentClass
-          );
-        });
+            return matchesClass(
+              item.quiz,
+              currentClass
+            );
+          }
+        );
 
     setResults(
       filteredResults as ResultItem[]
@@ -1675,8 +1803,13 @@ function ResultsContent() {
     const result =
       resultData as QuizResult;
 
-    setSelectedQuiz(quiz);
-    setSelectedResult(result);
+    setSelectedQuiz(
+      quiz
+    );
+
+    setSelectedResult(
+      result
+    );
 
     const loadedTeacherName =
       await fetchTeacherName(
@@ -1709,7 +1842,9 @@ function ResultsContent() {
       setQuestionReviews(
         reviews
       );
-    } catch (reviewError) {
+    } catch (
+      reviewError
+    ) {
       console.error(
         "Question review error:",
         reviewError
@@ -1754,6 +1889,8 @@ function ResultsContent() {
     setPdfLoadingId(
       loadingId
     );
+
+    setError("");
 
     try {
       let result:
@@ -1821,12 +1958,26 @@ function ResultsContent() {
         );
 
       const fileName =
-        `RACER-ACADEMY-${safeStudentName}-${safeQuizTitle}-Result.pdf`;
+        "RACER-ACADEMY-" +
+        safeStudentName +
+        "-" +
+        safeQuizTitle +
+        "-Result.pdf";
 
+      /*
+       * Direct browser download.
+       *
+       * This is intentionally kept after
+       * all async work so the PDF is generated
+       * only after the required result data
+       * has been loaded.
+       */
       doc.save(
         fileName
       );
-    } catch (pdfError) {
+    } catch (
+      pdfError
+    ) {
       console.error(
         "PDF generation error:",
         pdfError
@@ -1878,14 +2029,17 @@ function ResultsContent() {
                 <p className="text-xs text-slate-400">
                   RACER ACADEMY
                   {studentClass
-                    ? ` • CLASS ${studentClass}`
+                    ? " • CLASS " +
+                      studentClass
                     : ""}
                 </p>
               </div>
 
               <div className="flex flex-wrap gap-2">
                 <button
-                  onClick={handleBack}
+                  onClick={
+                    handleBack
+                  }
                   className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold transition hover:bg-white/10"
                 >
                   ← Back
@@ -1970,7 +2124,9 @@ function ResultsContent() {
                 </button>
 
                 <button
-                  onClick={handleBack}
+                  onClick={
+                    handleBack
+                  }
                   className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-black hover:bg-white/10"
                 >
                   ← BACK
@@ -2112,7 +2268,8 @@ function ResultsContent() {
                           <button
                             onClick={() =>
                               router.push(
-                                `/student/quiz-tests/results?quizId=${item.quiz_id}`
+                                "/student/quiz-tests/results?quizId=" +
+                                  item.quiz_id
                               )
                             }
                             className="w-full rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm font-black text-emerald-400 hover:bg-emerald-500/20"
@@ -2651,4 +2808,3 @@ export default function StudentQuizResultsPage() {
     </Suspense>
   );
 }
-```
