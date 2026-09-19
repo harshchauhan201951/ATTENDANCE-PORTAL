@@ -87,29 +87,20 @@ function normalizeClass(value: unknown) {
   return value.trim().toUpperCase();
 }
 
-function matchesClass(
-  quiz: Quiz,
-  studentClass: string
-) {
-  const studentClassNormalized =
-    normalizeClass(studentClass);
+function matchesClass(quiz: Quiz, studentClass: string) {
+  const studentClassNormalized = normalizeClass(studentClass);
 
   if (!studentClassNormalized) return false;
 
   const targets = Array.isArray(quiz.target_classes)
-    ? quiz.target_classes
-        .map(normalizeClass)
-        .filter(Boolean)
+    ? quiz.target_classes.map(normalizeClass).filter(Boolean)
     : [];
 
   if (targets.length > 0) {
     return targets.includes(studentClassNormalized);
   }
 
-  return (
-    normalizeClass(quiz.class_name) ===
-    studentClassNormalized
-  );
+  return normalizeClass(quiz.class_name) === studentClassNormalized;
 }
 
 function numberText(value: unknown) {
@@ -176,14 +167,20 @@ function timeText(value: string | null) {
 }
 
 /*
- * Simple PDF generator.
+ * Reliable PDF generator.
  *
- * It intentionally uses absolute PDF text positioning
- * instead of table cells so the generated PDF does not
- * become blank.
+ * Important:
+ * The previous generator used JavaScript string length
+ * for PDF byte offsets. That can produce an invalid PDF
+ * because PDF xref offsets are BYTE offsets, not character
+ * offsets.
+ *
+ * This version builds the complete PDF as UTF-8 bytes and
+ * calculates all xref offsets from the actual byte array.
  */
+
 function escapePdfText(value: string) {
-  return String(value)
+  return String(value ?? "")
     .replace(/\\/g, "\\\\")
     .replace(/\(/g, "\\(")
     .replace(/\)/g, "\\)")
@@ -191,10 +188,7 @@ function escapePdfText(value: string) {
     .replace(/\n/g, " ");
 }
 
-function wrapPdfText(
-  value: string,
-  maxCharacters = 90
-) {
+function wrapPdfText(value: string, maxCharacters = 88) {
   const text = String(value || "-")
     .replace(/\s+/g, " ")
     .trim();
@@ -211,10 +205,7 @@ function wrapPdfText(
       continue;
     }
 
-    if (
-      `${current} ${word}`.length <=
-      maxCharacters
-    ) {
+    if (`${current} ${word}`.length <= maxCharacters) {
       current += ` ${word}`;
     } else {
       lines.push(current);
@@ -229,100 +220,204 @@ function wrapPdfText(
   return lines;
 }
 
-function createPdfBlob(
-  pages: string[][]
-) {
+function createPdfBlob(pages: string[][]) {
+  /*
+   * PDF object numbering:
+   *
+   * 1 = Font
+   * 2 = Pages
+   * 3,5,7... = Page objects
+   * 4,6,8... = Content objects
+   * 1 = Catalog
+   */
+
   const objects: string[] = [];
 
-  objects.push(
-    "<< /Type /Catalog /Pages 2 0 R >>"
-  );
+  // Object 1: Helvetica font
+  objects[1] =
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
 
-  objects.push(
-    "<< /Type /Pages /Kids [" +
-      pages
-        .map(
-          (_, index) =>
-            `${3 + index * 2} 0 R`
-        )
-        .join(" ") +
-      "] /Count " +
-      pages.length +
-      " >>"
-  );
+  // Object 2: Pages
+  const pageObjectNumbers: number[] = [];
 
+  pages.forEach((_, index) => {
+    pageObjectNumbers.push(3 + index * 2);
+  });
+
+  objects[2] =
+    `<< /Type /Pages /Kids [${pageObjectNumbers
+      .map((number) => `${number} 0 R`)
+      .join(" ")}] /Count ${pages.length} >>`;
+
+  // Page and content objects
   pages.forEach((commands, index) => {
-    const pageObjectNumber =
-      3 + index * 2;
+    const pageObjectNumber = 3 + index * 2;
+    const contentObjectNumber = 4 + index * 2;
 
-    const contentObjectNumber =
-      4 + index * 2;
+    const content = commands.join("\n");
 
-    objects[pageObjectNumber - 1] =
-      "<< /Type /Page /Parent 2 0 R " +
-      "/MediaBox [0 0 595 842] " +
-      "/Resources << /Font << /F1 " +
-      "1 0 R >> >> " +
+    objects[pageObjectNumber] =
+      `<< /Type /Page /Parent 2 0 R ` +
+      `/MediaBox [0 0 595 842] ` +
+      `/Resources << /Font << /F1 1 0 R >> >> ` +
       `/Contents ${contentObjectNumber} 0 R >>`;
 
-    const content =
-      commands.join("\n");
+    /*
+     * Content is ASCII because all text is sanitized.
+     * Length is therefore safely represented in bytes.
+     */
+    const contentBytes = new TextEncoder().encode(content);
 
-    objects[contentObjectNumber - 1] =
-      `<< /Length ${content.length} >>\nstream\n` +
+    objects[contentObjectNumber] =
+      `<< /Length ${contentBytes.length} >>\n` +
+      `stream\n` +
       content +
-      "\nendstream";
+      `\nendstream`;
   });
 
   /*
-   * Font object must be first.
-   * Page objects start from object 3.
+   * Object 0 is reserved by PDF.
+   * Catalog is object 3? No — page numbering above starts
+   * from object 3, so we need Catalog at object 1 and move
+   * everything accordingly.
+   *
+   * Rebuild using explicit object map to avoid numbering errors.
    */
-  objects[0] =
-    "<< /Type /Font /Subtype /Type1 " +
-    "/BaseFont /Helvetica >>";
 
-  let pdf =
-    "%PDF-1.4\n%\xFF\xFF\xFF\xFF\n";
+  const finalObjects: Array<string | null> = [];
 
-  const offsets: number[] = [0];
+  finalObjects[0] = null;
 
-  for (let i = 0; i < objects.length; i++) {
-    offsets[i + 1] = pdf.length;
+  // 1 = Catalog
+  finalObjects[1] =
+    "<< /Type /Catalog /Pages 2 0 R >>";
 
-    pdf +=
-      `${i + 1} 0 obj\n` +
-      objects[i] +
-      "\nendobj\n";
+  // 2 = Pages
+  finalObjects[2] =
+    `<< /Type /Pages /Kids [${pageObjectNumbers
+      .map((number) => `${number} 0 R`)
+      .join(" ")}] /Count ${pages.length} >>`;
+
+  // 3 = Font
+  finalObjects[3] =
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
+
+  /*
+   * Reassign page/content objects starting from 4.
+   */
+
+  const actualPageObjects: number[] = [];
+
+  pages.forEach((commands, index) => {
+    const pageObjectNumber = 4 + index * 2;
+    const contentObjectNumber = 5 + index * 2;
+
+    actualPageObjects.push(pageObjectNumber);
+
+    const content = commands.join("\n");
+    const contentBytes = new TextEncoder().encode(content);
+
+    finalObjects[pageObjectNumber] =
+      `<< /Type /Page /Parent 2 0 R ` +
+      `/MediaBox [0 0 595 842] ` +
+      `/Resources << /Font << /F1 3 0 R >> >> ` +
+      `/Contents ${contentObjectNumber} 0 R >>`;
+
+    finalObjects[contentObjectNumber] =
+      `<< /Length ${contentBytes.length} >>\n` +
+      `stream\n` +
+      content +
+      `\nendstream`;
+  });
+
+  // Correct the Pages Kids list.
+  finalObjects[2] =
+    `<< /Type /Pages /Kids [${actualPageObjects
+      .map((number) => `${number} 0 R`)
+      .join(" ")}] /Count ${pages.length} >>`;
+
+  /*
+   * Build the PDF as bytes.
+   *
+   * The critical fix is that xref offsets are calculated
+   * using UTF-8 byte length rather than JS string length.
+   */
+
+  const encoder = new TextEncoder();
+
+  const chunks: Uint8Array[] = [];
+  let totalLength = 0;
+
+  function addText(text: string) {
+    const bytes = encoder.encode(text);
+    chunks.push(bytes);
+    totalLength += bytes.length;
   }
 
-  const xrefOffset = pdf.length;
+  addText("%PDF-1.4\n");
+  addText("%\xFF\xFF\xFF\xFF\n");
 
-  pdf +=
-    `xref\n0 ${objects.length + 1}\n`;
+  const offsets: number[] = new Array(
+    finalObjects.length
+  ).fill(0);
 
-  pdf +=
-    "0000000000 65535 f \n";
+  let currentOffset = totalLength;
 
-  for (let i = 1; i <= objects.length; i++) {
-    pdf +=
+  for (let i = 1; i < finalObjects.length; i++) {
+    const object = finalObjects[i];
+
+    if (object == null) {
+      continue;
+    }
+
+    offsets[i] = currentOffset;
+
+    const objectText =
+      `${i} 0 obj\n${object}\nendobj\n`;
+
+    addText(objectText);
+
+    currentOffset = totalLength;
+  }
+
+  const xrefOffset = totalLength;
+
+  addText(
+    `xref\n0 ${finalObjects.length}\n`
+  );
+
+  addText(
+    "0000000000 65535 f \n"
+  );
+
+  for (let i = 1; i < finalObjects.length; i++) {
+    addText(
       `${String(offsets[i]).padStart(
         10,
         "0"
-      )} 00000 n \n`;
+      )} 00000 n \n`
+    );
   }
 
-  pdf +=
+  addText(
     "trailer\n" +
-    `<< /Size ${objects.length + 1} /Root 1 0 R >>\n` +
-    "startxref\n" +
-    `${xrefOffset}\n` +
-    "%%EOF";
-
-  return new Blob(
-    [pdf],
-    { type: "application/pdf" }
+      `<< /Size ${finalObjects.length} /Root 1 0 R >>\n` +
+      "startxref\n" +
+      `${xrefOffset}\n` +
+      "%%EOF\n"
   );
+
+  const output = new Uint8Array(totalLength);
+  let position = 0;
+
+  for (const chunk of chunks) {
+    output.set(chunk, position);
+    position += chunk.length;
+  }
+
+  return new Blob([output], {
+    type: "application/pdf",
+  });
 }
 
 function buildPdfPages(
@@ -345,9 +440,7 @@ function buildPdfPages(
     y = 810;
   }
 
-  function ensureSpace(
-    required = 30
-  ) {
+  function ensureSpace(required = 30) {
     if (y < required) {
       newPage();
     }
@@ -378,17 +471,8 @@ function buildPdfPages(
     y -= size;
   }
 
-  text(
-    "RACER ACADEMY",
-    20,
-    true
-  );
-
-  text(
-    "STUDENT QUIZ RESULT",
-    14,
-    true
-  );
+  text("RACER ACADEMY", 20, true);
+  text("STUDENT QUIZ RESULT", 14, true);
 
   lineGap(5);
 
@@ -423,7 +507,9 @@ function buildPdfPages(
   );
 
   text(
-    `Percentage: ${numberText(result.percentage)}%`,
+    `Percentage: ${numberText(
+      result.percentage
+    )}%`,
     10,
     true
   );
@@ -522,64 +608,68 @@ function buildPdfPages(
 
   lineGap(4);
 
-  reviews.forEach(
-    (review, index) => {
-      ensureSpace(150);
+  reviews.forEach((review, index) => {
+    ensureSpace(150);
 
-      const questionNumber =
-        index + 1;
+    const questionNumber = index + 1;
 
+    wrapPdfText(
+      `Q${questionNumber}. ${
+        review.question.question_text
+      }`
+    ).forEach((line, lineIndex) => {
       text(
-        `Q${questionNumber}. ${review.question.question_text}`,
+        line,
         10,
         true
       );
 
-      const selectedText =
-        review.selectedOption?.option_text ||
-        "Not Answered";
+      void lineIndex;
+    });
 
-      const correctText =
-        review.correctOption?.option_text ||
-        "Not Available";
+    const selectedText =
+      review.selectedOption?.option_text ||
+      "Not Answered";
 
-      const status =
-        !review.answer ||
-        review.answer.selected_option_id ===
-          null
-          ? "NOT ANSWERED"
-          : review.answer.is_correct
-          ? "CORRECT"
-          : "WRONG";
+    const correctText =
+      review.correctOption?.option_text ||
+      "Not Available";
 
-      wrapPdfText(
-        `Student Answer: ${selectedText}`
-      ).forEach((line) => {
-        text(line, 9);
-      });
+    const status =
+      !review.answer ||
+      review.answer.selected_option_id === null
+        ? "NOT ANSWERED"
+        : review.answer.is_correct
+        ? "CORRECT"
+        : "WRONG";
 
-      wrapPdfText(
-        `Correct Answer: ${correctText}`
-      ).forEach((line) => {
-        text(line, 9);
-      });
+    wrapPdfText(
+      `Student Answer: ${selectedText}`
+    ).forEach((line) => {
+      text(line, 9);
+    });
 
-      text(
-        `Status: ${status}`,
-        9,
-        true
-      );
+    wrapPdfText(
+      `Correct Answer: ${correctText}`
+    ).forEach((line) => {
+      text(line, 9);
+    });
 
-      text(
-        `Marks Awarded: ${numberText(
-          review.answer?.marks_awarded ?? 0
-        )}`,
-        9
-      );
+    text(
+      `Status: ${status}`,
+      9,
+      true
+    );
 
-      lineGap(8);
-    }
-  );
+    text(
+      `Marks Awarded: ${numberText(
+        review.answer?.marks_awarded ?? 0
+      )}`,
+      9
+    );
+
+    lineGap(8);
+  });
 
   if (commands.length > 0) {
     pages.push(commands);
@@ -1197,14 +1287,23 @@ function ResultsContent() {
           studentClass
         );
 
+      if (!pages.length) {
+        throw new Error(
+          "Unable to create PDF pages."
+        );
+      }
+
       const blob =
         createPdfBlob(pages);
 
+      if (blob.size < 100) {
+        throw new Error(
+          "Generated PDF is empty."
+        );
+      }
+
       const url =
         URL.createObjectURL(blob);
-
-      const anchor =
-        document.createElement("a");
 
       const safeQuizTitle =
         (quiz.title || "Quiz")
@@ -1214,25 +1313,37 @@ function ResultsContent() {
           )
           .replace(
             /^-+|-+$/g,
-            ""
-          );
+            "") || "Quiz";
 
-      anchor.href = url;
-
-      anchor.download =
+      const fileName =
         `RACER-ACADEMY-${safeQuizTitle}-Result.pdf`;
 
-      document.body.appendChild(
-        anchor
-      );
+      /*
+       * Use a normal browser anchor download.
+       * This works on Chrome/Edge and avoids opening
+       * an incomplete blob URL before it is ready.
+       */
+
+      const anchor =
+        document.createElement("a");
+
+      anchor.style.display = "none";
+      anchor.href = url;
+      anchor.download = fileName;
+
+      document.body.appendChild(anchor);
 
       anchor.click();
 
       anchor.remove();
 
+      /*
+       * Give the browser enough time to start the
+       * download before releasing the object URL.
+       */
       setTimeout(() => {
         URL.revokeObjectURL(url);
-      }, 1000);
+      }, 5000);
     } catch (pdfError) {
       console.error(
         "PDF generation error:",
@@ -1499,7 +1610,7 @@ function ResultsContent() {
                   }
                   disabled={
                     pdfLoadingId ===
-                    selectedResult.id ||
+                      selectedResult.id ||
                     reviewLoading
                   }
                   className="rounded-xl bg-indigo-600 px-5 py-3 text-sm font-black shadow-lg shadow-indigo-900/30 hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
@@ -1947,6 +2058,7 @@ export default function StudentQuizResultsPage() {
           <div className="flex min-h-screen items-center justify-center">
             <div className="text-center">
               <div className="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-2 border-white/20 border-t-indigo-400" />
+
               <p className="text-sm text-slate-400">
                 Loading results...
               </p>
