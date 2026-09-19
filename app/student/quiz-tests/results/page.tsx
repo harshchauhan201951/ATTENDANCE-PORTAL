@@ -182,54 +182,81 @@ function timeText(value: string | null) {
  * - English / Latin
  * - Numbers
  * - Common punctuation
+ *
+ * If the font cannot be loaded or registered, the PDF
+ * automatically falls back to Helvetica so that the
+ * PDF download itself does not fail.
  */
 async function loadPdfUnicodeFont(doc: jsPDF) {
-  const response = await fetch(
-    "/fonts/NotoSansDevanagari-Regular.ttf"
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      "PDF Unicode font could not be loaded. Please check public/fonts/NotoSansDevanagari-Regular.ttf."
-    );
-  }
-
-  const arrayBuffer = await response.arrayBuffer();
-  const bytes = new Uint8Array(arrayBuffer);
-
-  let binary = "";
-  const chunkSize = 0x8000;
-
-  for (
-    let index = 0;
-    index < bytes.length;
-    index += chunkSize
-  ) {
-    const chunk = bytes.subarray(
-      index,
-      Math.min(index + chunkSize, bytes.length)
+  try {
+    const response = await fetch(
+      "/fonts/NotoSansDevanagari-Regular.ttf",
+      {
+        cache: "force-cache",
+      }
     );
 
-    binary += String.fromCharCode(...chunk);
+    if (!response.ok) {
+      console.warn(
+        "Unicode PDF font could not be loaded. Using standard PDF font."
+      );
+
+      doc.setFont("helvetica", "normal");
+
+      return false;
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+
+    let binary = "";
+    const chunkSize = 0x8000;
+
+    for (
+      let index = 0;
+      index < bytes.length;
+      index += chunkSize
+    ) {
+      const chunk = bytes.subarray(
+        index,
+        Math.min(index + chunkSize, bytes.length)
+      );
+
+      binary += String.fromCharCode(...chunk);
+    }
+
+    const base64 = btoa(binary);
+
+    doc.addFileToVFS(
+      "NotoSansDevanagari-Regular.ttf",
+      base64
+    );
+
+    doc.addFont(
+      "NotoSansDevanagari-Regular.ttf",
+      "NotoSansDevanagari",
+      "normal"
+    );
+
+    doc.setFont(
+      "NotoSansDevanagari",
+      "normal"
+    );
+
+    return true;
+  } catch (fontError) {
+    console.warn(
+      "Unicode PDF font failed to initialize. Using standard PDF font.",
+      fontError
+    );
+
+    doc.setFont(
+      "helvetica",
+      "normal"
+    );
+
+    return false;
   }
-
-  const base64 = btoa(binary);
-
-  doc.addFileToVFS(
-    "NotoSansDevanagari-Regular.ttf",
-    base64
-  );
-
-  doc.addFont(
-    "NotoSansDevanagari-Regular.ttf",
-    "NotoSansDevanagari",
-    "normal"
-  );
-
-  doc.setFont(
-    "NotoSansDevanagari",
-    "normal"
-  );
 }
 
 /*
@@ -291,7 +318,8 @@ async function buildResultPdf(
     compress: true,
   });
 
-  await loadPdfUnicodeFont(doc);
+  const unicodeFontLoaded =
+    await loadPdfUnicodeFont(doc);
 
   const pageWidth =
     doc.internal.pageSize.getWidth();
@@ -309,7 +337,9 @@ async function buildResultPdf(
     size = 10
   ) {
     doc.setFont(
-      "NotoSansDevanagari",
+      unicodeFontLoaded
+        ? "NotoSansDevanagari"
+        : "helvetica",
       "normal"
     );
 
@@ -1014,7 +1044,9 @@ async function buildResultPdf(
   );
 
   doc.setFont(
-    "NotoSansDevanagari",
+    unicodeFontLoaded
+      ? "NotoSansDevanagari"
+      : "helvetica",
     "normal"
   );
 
