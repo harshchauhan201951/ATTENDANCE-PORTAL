@@ -1,14 +1,7 @@
 "use client";
 
-import {
-  Suspense,
-  useEffect,
-  useState,
-} from "react";
-import {
-  useRouter,
-  useSearchParams,
-} from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
 
 type Timetable = {
@@ -43,68 +36,60 @@ const SUBJECTS = [
   "Others",
 ];
 
-function TimetableCreateContent() {
+function CreateTimetableContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const editId = searchParams.get("id");
 
   const [teacherId, setTeacherId] = useState("");
-  const [teacherName, setTeacherName] = useState("Teacher");
+  const [teacherName, setTeacherName] = useState("");
 
   const [classes, setClasses] = useState<string[]>([]);
   const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
 
   const [dayOfWeek, setDayOfWeek] = useState("Monday");
   const [isHoliday, setIsHoliday] = useState(false);
+
   const [subject, setSubject] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  const isEditMode = Boolean(editId);
 
   useEffect(() => {
-    const id =
+    const storedTeacherId =
       localStorage.getItem("attendance_teacher_id") ||
       localStorage.getItem("teacher_username") ||
       localStorage.getItem("teacherUsername") ||
       "";
 
-    const name =
+    const storedTeacherName =
       localStorage.getItem("teacher_name") ||
       localStorage.getItem("teacherName") ||
       localStorage.getItem("attendance_teacher_name") ||
       localStorage.getItem("teacher_username") ||
       localStorage.getItem("teacherUsername") ||
-      "Teacher";
+      "";
 
-    if (!id) {
-      router.replace("/");
-      return;
-    }
+    setTeacherId(storedTeacherId);
+    setTeacherName(storedTeacherName);
 
-    setTeacherId(id);
-    setTeacherName(name);
+    loadData(storedTeacherId);
+  }, [editId]);
 
-    loadData(id);
-  }, [router, editId]);
-
-  const loadData = async (id: string) => {
-    setLoading(true);
-    setError("");
-
+  const loadData = async (currentTeacherId: string) => {
     try {
-      const { data: studentData, error: studentError } =
-        await supabase
-          .from("students")
-          .select("class_name");
+      setLoading(true);
+
+      const { data: studentData, error: studentError } = await supabase
+        .from("students")
+        .select("class_name")
+        .not("class_name", "is", null);
 
       if (studentError) {
-        throw studentError;
+        console.error("Error loading classes:", studentError);
       }
 
       const uniqueClasses = Array.from(
@@ -113,48 +98,77 @@ function TimetableCreateContent() {
             .map((student: { class_name: string | null }) =>
               student.class_name?.trim()
             )
-            .filter(Boolean)
+            .filter(Boolean) as string[]
         )
-      ).sort((a, b) => a!.localeCompare(b!)) as string[];
+      ).sort((a, b) => a.localeCompare(b));
 
       setClasses(uniqueClasses);
 
       if (editId) {
-        const { data, error: timetableError } =
-          await supabase
-            .from("timetables")
-            .select(
-              "id, teacher_id, teacher_name, class_names, day_of_week, subject, start_time, end_time, is_holiday"
-            )
-            .eq("id", Number(editId))
-            .single();
+        const { data, error } = await supabase
+          .from("timetables")
+          .select(
+            "id, teacher_id, teacher_name, class_names, day_of_week, subject, start_time, end_time, is_holiday"
+          )
+          .eq("id", editId)
+          .single();
 
-        if (timetableError) {
-          throw timetableError;
+        if (error) {
+          console.error("Error loading timetable:", error);
+          alert(`Unable to load timetable.\n\n${error.message}`);
+          return;
         }
 
         const timetable = data as Timetable;
 
-        setDayOfWeek(timetable.day_of_week);
-        setIsHoliday(Boolean(timetable.is_holiday));
-        setSubject(timetable.subject || "");
-        setStartTime(timetable.start_time?.slice(0, 5) || "");
-        setEndTime(timetable.end_time?.slice(0, 5) || "");
+        if (
+          currentTeacherId &&
+          timetable.teacher_id &&
+          timetable.teacher_id !== currentTeacherId
+        ) {
+          alert("You are not allowed to edit this timetable.");
+          router.push("/teacher/timetable");
+          return;
+        }
+
+        const holiday = Boolean(timetable.is_holiday);
+
+        setDayOfWeek(timetable.day_of_week || "Monday");
+        setIsHoliday(holiday);
         setSelectedClasses(timetable.class_names || []);
+
+        setSubject(
+          holiday ? "" : timetable.subject ? timetable.subject : ""
+        );
+
+        setStartTime(
+          holiday
+            ? ""
+            : timetable.start_time
+              ? timetable.start_time.slice(0, 5)
+              : ""
+        );
+
+        setEndTime(
+          holiday
+            ? ""
+            : timetable.end_time
+              ? timetable.end_time.slice(0, 5)
+              : ""
+        );
       }
-    } catch (err) {
-      console.error(err);
-      setError("Unable to load timetable data.");
+    } catch (error) {
+      console.error("Unexpected loading error:", error);
     } finally {
       setLoading(false);
     }
   };
 
   const toggleClass = (className: string) => {
-    setSelectedClasses((current) =>
-      current.includes(className)
-        ? current.filter((item) => item !== className)
-        : [...current, className]
+    setSelectedClasses((previous) =>
+      previous.includes(className)
+        ? previous.filter((item) => item !== className)
+        : [...previous, className]
     );
   };
 
@@ -162,14 +176,16 @@ function TimetableCreateContent() {
     setSelectedClasses(classes);
   };
 
-  const clearClasses = () => {
+  const clearAllClasses = () => {
     setSelectedClasses([]);
   };
 
-  const handleHolidayChange = (checked: boolean) => {
-    setIsHoliday(checked);
+  const handleHolidayChange = (value: string) => {
+    const holiday = value === "holiday";
 
-    if (checked) {
+    setIsHoliday(holiday);
+
+    if (holiday) {
       setSubject("");
       setStartTime("");
       setEndTime("");
@@ -177,31 +193,33 @@ function TimetableCreateContent() {
   };
 
   const handleSave = async () => {
-    setError("");
-
     if (!teacherId) {
-      setError("Teacher session not found. Please login again.");
+      alert("Teacher ID not found. Please login again.");
       return;
     }
 
     if (selectedClasses.length === 0) {
-      setError("Please select at least one class.");
+      alert("Please select at least one class.");
       return;
     }
 
-    if (!isHoliday && !subject) {
-      setError("Please select a subject.");
-      return;
-    }
+    // Subject and timings are required ONLY for normal class days.
+    // Holiday does not require subject or timings.
+    if (!isHoliday) {
+      if (!subject.trim()) {
+        alert("Please select a subject.");
+        return;
+      }
 
-    if (!isHoliday && (!startTime || !endTime)) {
-      setError("Please select both start and end time.");
-      return;
-    }
+      if (!startTime || !endTime) {
+        alert("Please enter both start and end time.");
+        return;
+      }
 
-    if (!isHoliday && endTime <= startTime) {
-      setError("End time must be after start time.");
-      return;
+      if (endTime <= startTime) {
+        alert("End time must be later than start time.");
+        return;
+      }
     }
 
     setSaving(true);
@@ -213,257 +231,131 @@ function TimetableCreateContent() {
         class_names: selectedClasses,
         day_of_week: dayOfWeek,
         is_holiday: isHoliday,
-        subject: isHoliday ? null : subject,
+
+        // Holiday = NULL
+        // Normal class = actual values
+        subject: isHoliday ? null : subject.trim(),
         start_time: isHoliday ? null : startTime,
         end_time: isHoliday ? null : endTime,
       };
 
-      if (isEditMode) {
-        const { error: updateError } = await supabase
+      let error = null;
+
+      if (editId) {
+        const result = await supabase
           .from("timetables")
           .update(payload)
-          .eq("id", Number(editId));
+          .eq("id", editId);
 
-        if (updateError) {
-          throw updateError;
-        }
+        error = result.error;
       } else {
-        const { error: insertError } = await supabase
+        const result = await supabase
           .from("timetables")
           .insert(payload);
 
-        if (insertError) {
-          throw insertError;
-        }
+        error = result.error;
       }
 
-      router.push("/teacher/timetable");
-    } catch (err) {
-      console.error(err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to save timetable."
+      if (error) {
+        console.error("Timetable save error:", error);
+
+        alert(`Unable to save timetable.\n\n${error.message}`);
+        return;
+      }
+
+      alert(
+        isHoliday
+          ? "Holiday timetable saved successfully."
+          : "Timetable saved successfully."
       );
+
+      router.push("/teacher/timetable");
+      router.refresh();
+    } catch (error) {
+      console.error("Unexpected save error:", error);
+      alert("Unable to save timetable.");
     } finally {
       setSaving(false);
     }
   };
 
-  const logout = () => {
-    const keys = [
-      "attendance_role",
-      "attendance_username",
-      "attendance_teacher_id",
-      "teacherLoggedIn",
-      "teacher",
-      "teacherUsername",
-      "teacher_username",
-      "teacherName",
-      "teacher_name",
-    ];
-
-    keys.forEach((key) => localStorage.removeItem(key));
-
-    sessionStorage.clear();
-
-    router.replace("/");
+  const handleLogout = () => {
+    localStorage.clear();
+    router.push("/");
   };
 
   if (loading) {
     return (
-      <main
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background:
-            "linear-gradient(135deg, #eef2ff 0%, #f8fafc 55%, #ecfeff 100%)",
-          fontFamily: "Arial, sans-serif",
-        }}
-      >
-        <div
-          style={{
-            background: "#ffffff",
-            padding: "30px 36px",
-            borderRadius: 18,
-            boxShadow: "0 12px 40px rgba(15,23,42,0.10)",
-            color: "#1e293b",
-            fontWeight: 700,
-          }}
-        >
-          Loading Timetable...
+      <main className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center">
+          <div className="text-lg font-semibold text-slate-800">
+            Loading timetable...
+          </div>
         </div>
       </main>
     );
   }
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background:
-          "linear-gradient(135deg, #eef2ff 0%, #f8fafc 55%, #ecfeff 100%)",
-        fontFamily: "Arial, sans-serif",
-        color: "#0f172a",
-      }}
-    >
-      <header
-        style={{
-          background:
-            "linear-gradient(135deg, #312e81 0%, #4f46e5 55%, #0891b2 100%)",
-          color: "#ffffff",
-          padding: "18px 20px",
-          boxShadow: "0 8px 25px rgba(15,23,42,0.15)",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 1150,
-            margin: "0 auto",
-            display: "flex",
-            gap: 10,
-            flexWrap: "wrap",
-            alignItems: "center",
-          }}
-        >
-          <button
-            onClick={() => window.location.reload()}
-            style={topButton}
-          >
-            Refresh
-          </button>
-
-          <button
-            onClick={() => router.back()}
-            style={topButton}
-          >
-            Back
-          </button>
-
-          <button
-            onClick={() => router.push("/teacher/dashboard")}
-            style={topButton}
-          >
-            Dashboard
-          </button>
-
-          <button
-            onClick={logout}
-            style={{
-              ...topButton,
-              background: "#fee2e2",
-              color: "#991b1b",
-            }}
-          >
-            Logout
-          </button>
-        </div>
-      </header>
-
-      <section
-        style={{
-          maxWidth: 1150,
-          margin: "0 auto",
-          padding: "28px 20px 50px",
-        }}
-      >
-        <div
-          style={{
-            background:
-              "linear-gradient(135deg, #312e81, #4338ca)",
-            color: "#ffffff",
-            borderRadius: 24,
-            padding: "28px",
-            marginBottom: 22,
-            boxShadow: "0 15px 35px rgba(49,46,129,0.20)",
-          }}
-        >
-          <div
-            style={{
-              fontSize: 13,
-              fontWeight: 800,
-              letterSpacing: 1,
-              opacity: 0.85,
-              marginBottom: 8,
-            }}
-          >
-            TEACHER • TIMETABLE
+    <main className="min-h-screen bg-slate-50">
+      <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
+              {editId ? "Edit Timetable" : "Create Timetable"}
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Create the weekly timetable for your selected classes.
+            </p>
           </div>
 
-          <h1
-            style={{
-              margin: 0,
-              fontSize: "clamp(26px, 5vw, 38px)",
-            }}
-          >
-            {isEditMode
-              ? "Edit Timetable"
-              : "Create Timetable"}
-          </h1>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 font-medium hover:bg-slate-50"
+            >
+              Refresh
+            </button>
 
-          <p
-            style={{
-              margin: "10px 0 0",
-              opacity: 0.92,
-              lineHeight: 1.6,
-            }}
-          >
-            Select one or multiple classes and create their
-            class timetable.
-          </p>
+            <button
+              type="button"
+              onClick={() => router.push("/teacher/timetable")}
+              className="px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 font-medium hover:bg-slate-50"
+            >
+              Back
+            </button>
+
+            <button
+              type="button"
+              onClick={() => router.push("/teacher")}
+              className="px-4 py-2 rounded-lg bg-slate-900 text-white font-medium hover:bg-slate-800"
+            >
+              Dashboard
+            </button>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700"
+            >
+              Logout
+            </button>
+          </div>
         </div>
 
-        {error && (
-          <div
-            style={{
-              background: "#fef2f2",
-              border: "1px solid #fecaca",
-              color: "#991b1b",
-              padding: "14px 16px",
-              borderRadius: 14,
-              marginBottom: 20,
-              fontWeight: 700,
-            }}
-          >
-            {error}
-          </div>
-        )}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-7">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Day */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">
+                Day
+              </label>
 
-        <div
-          style={{
-            background: "#ffffff",
-            borderRadius: 22,
-            padding: "22px",
-            boxShadow: "0 10px 35px rgba(15,23,42,0.08)",
-            marginBottom: 20,
-          }}
-        >
-          <h2
-            style={{
-              margin: "0 0 18px",
-              color: "#1e1b4b",
-              fontSize: 21,
-            }}
-          >
-            Class & Schedule
-          </h2>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns:
-                "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: 16,
-            }}
-          >
-            <label style={labelStyle}>
-              Day
               <select
                 value={dayOfWeek}
                 onChange={(e) => setDayOfWeek(e.target.value)}
-                style={inputStyle}
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {DAYS.map((day) => (
                   <option key={day} value={day}>
@@ -471,318 +363,202 @@ function TimetableCreateContent() {
                   </option>
                 ))}
               </select>
-            </label>
-
-            <label style={labelStyle}>
-              Day Status
-              <select
-                value={isHoliday ? "Holiday" : "Class"}
-                onChange={(e) =>
-                  handleHolidayChange(e.target.value === "Holiday")
-                }
-                style={inputStyle}
-              >
-                <option value="Class">Class</option>
-                <option value="Holiday">Holiday</option>
-              </select>
-            </label>
-
-            {!isHoliday && (
-              <>
-                <label style={labelStyle}>
-                  Subject
-                  <select
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    style={inputStyle}
-                  >
-                    <option value="">Select Subject</option>
-
-                    {SUBJECTS.map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label style={labelStyle}>
-                  Start Time
-                  <input
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    style={inputStyle}
-                  />
-                </label>
-
-                <label style={labelStyle}>
-                  End Time
-                  <input
-                    type="time"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    style={inputStyle}
-                  />
-                </label>
-              </>
-            )}
-          </div>
-
-          {isHoliday && (
-            <div
-              style={{
-                marginTop: 18,
-                padding: "14px 16px",
-                borderRadius: 14,
-                background: "#fff7ed",
-                border: "1px solid #fed7aa",
-                color: "#9a3412",
-                fontWeight: 800,
-              }}
-            >
-              Holiday selected. Subject and class timings are not
-              required.
             </div>
-          )}
-        </div>
 
-        <div
-          style={{
-            background: "#ffffff",
-            borderRadius: 22,
-            padding: "22px",
-            boxShadow: "0 10px 35px rgba(15,23,42,0.08)",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 12,
-              flexWrap: "wrap",
-              marginBottom: 18,
-            }}
-          >
+            {/* Day Type */}
             <div>
-              <h2
-                style={{
-                  margin: 0,
-                  color: "#1e1b4b",
-                  fontSize: 21,
-                }}
-              >
-                Select Classes
-              </h2>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">
+                Day Type
+              </label>
 
-              <p
-                style={{
-                  margin: "6px 0 0",
-                  color: "#64748b",
-                }}
+              <select
+                value={isHoliday ? "holiday" : "class"}
+                onChange={(e) => handleHolidayChange(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-blue-500"
               >
-                {selectedClasses.length} class
-                {selectedClasses.length === 1 ? "" : "es"} selected
-              </p>
-            </div>
-
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                onClick={selectAllClasses}
-                style={smallButton}
-              >
-                Select All
-              </button>
-
-              <button
-                onClick={clearClasses}
-                style={{
-                  ...smallButton,
-                  background: "#f1f5f9",
-                  color: "#334155",
-                }}
-              >
-                Clear
-              </button>
+                <option value="class">Class Day</option>
+                <option value="holiday">Holiday</option>
+              </select>
             </div>
           </div>
 
-          {classes.length === 0 ? (
-            <div
-              style={{
-                padding: 20,
-                borderRadius: 14,
-                background: "#f8fafc",
-                color: "#64748b",
-                textAlign: "center",
-              }}
-            >
-              No classes found in the student records.
-            </div>
-          ) : (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns:
-                  "repeat(auto-fit, minmax(140px, 1fr))",
-                gap: 10,
-              }}
-            >
-              {classes.map((className) => {
-                const selected =
-                  selectedClasses.includes(className);
-
-                return (
-                  <button
-                    key={className}
-                    onClick={() => toggleClass(className)}
-                    style={{
-                      padding: "14px 12px",
-                      borderRadius: 14,
-                      border: selected
-                        ? "2px solid #4338ca"
-                        : "1px solid #cbd5e1",
-                      background: selected
-                        ? "#eef2ff"
-                        : "#ffffff",
-                      color: selected
-                        ? "#312e81"
-                        : "#334155",
-                      fontWeight: 800,
-                      cursor: "pointer",
-                      textAlign: "center",
-                    }}
-                  >
-                    {selected ? "✓ " : ""}
-                    {className}
-                  </button>
-                );
-              })}
+          {/* Holiday Notice */}
+          {isHoliday && (
+            <div className="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-4">
+              <div className="font-semibold text-amber-900">
+                Holiday selected
+              </div>
+              <div className="text-sm text-amber-800 mt-1">
+                Subject and class timings are not required.
+              </div>
             </div>
           )}
-        </div>
 
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 10,
-            flexWrap: "wrap",
-            marginTop: 22,
-          }}
-        >
-          <button
-            onClick={() => router.push("/teacher/timetable")}
-            style={{
-              padding: "14px 22px",
-              borderRadius: 14,
-              border: "1px solid #cbd5e1",
-              background: "#ffffff",
-              color: "#334155",
-              fontWeight: 800,
-              cursor: "pointer",
-            }}
-          >
-            Cancel
-          </button>
+          {/* Subject + Time */}
+          {!isHoliday && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-5">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Subject
+                </label>
 
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            style={{
-              padding: "14px 24px",
-              borderRadius: 14,
-              border: "none",
-              background: saving
-                ? "#94a3b8"
-                : "linear-gradient(135deg, #4338ca, #0891b2)",
-              color: "#ffffff",
-              fontWeight: 900,
-              cursor: saving ? "not-allowed" : "pointer",
-              boxShadow: "0 8px 20px rgba(67,56,202,0.22)",
-            }}
-          >
-            {saving
-              ? "Saving..."
-              : isEditMode
-                ? "Update Timetable"
-                : "Save Timetable"}
-          </button>
+                <select
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select Subject</option>
+
+                  {SUBJECTS.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Start Time
+                </label>
+
+                <input
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  End Time
+                </label>
+
+                <input
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Classes */}
+          <div className="mt-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700">
+                  Select Classes
+                </label>
+
+                <p className="text-xs text-slate-500 mt-1">
+                  Select the classes for this timetable entry.
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={selectAllClasses}
+                  className="px-3 py-2 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 text-sm font-medium hover:bg-blue-100"
+                >
+                  Select All
+                </button>
+
+                <button
+                  type="button"
+                  onClick={clearAllClasses}
+                  className="px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+
+            {classes.length === 0 ? (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                No student classes found.
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {classes.map((className) => {
+                  const selected = selectedClasses.includes(className);
+
+                  return (
+                    <button
+                      key={className}
+                      type="button"
+                      onClick={() => toggleClass(className)}
+                      className={`rounded-xl border px-4 py-3 text-sm font-semibold transition ${
+                        selected
+                          ? "border-blue-600 bg-blue-600 text-white"
+                          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      {className}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="mt-3 text-sm text-slate-500">
+              Selected classes:{" "}
+              <span className="font-semibold text-slate-800">
+                {selectedClasses.length}
+              </span>
+            </div>
+          </div>
+
+          {/* Save */}
+          <div className="mt-7 pt-5 border-t border-slate-200 flex flex-col sm:flex-row gap-3">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className={`flex-1 sm:flex-none px-6 py-3 rounded-xl text-white font-semibold ${
+                saving
+                  ? "bg-slate-400 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700"
+              }`}
+            >
+              {saving
+                ? "Saving..."
+                : editId
+                  ? "Update Timetable"
+                  : "Save Timetable"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => router.push("/teacher/timetable")}
+              className="flex-1 sm:flex-none px-6 py-3 rounded-xl border border-slate-300 bg-white text-slate-700 font-semibold hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
-      </section>
+      </div>
     </main>
   );
 }
 
-export default function TimetableCreatePage() {
+export default function CreateTimetablePage() {
   return (
     <Suspense
       fallback={
-        <main
-          style={{
-            minHeight: "100vh",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "#f8fafc",
-            fontFamily: "Arial, sans-serif",
-          }}
-        >
-          <div
-            style={{
-              padding: 30,
-              fontWeight: 800,
-              color: "#1e293b",
-            }}
-          >
-            Loading Timetable...
+        <main className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center">
+            <div className="text-lg font-semibold text-slate-800">
+              Loading...
+            </div>
           </div>
         </main>
       }
     >
-      <TimetableCreateContent />
+      <CreateTimetableContent />
     </Suspense>
   );
 }
-
-const topButton: React.CSSProperties = {
-  border: "none",
-  borderRadius: 10,
-  padding: "9px 14px",
-  background: "rgba(255,255,255,0.16)",
-  color: "#ffffff",
-  fontWeight: 800,
-  cursor: "pointer",
-};
-
-const labelStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 8,
-  color: "#334155",
-  fontWeight: 800,
-  fontSize: 14,
-};
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "13px 14px",
-  borderRadius: 12,
-  border: "1px solid #cbd5e1",
-  background: "#ffffff",
-  color: "#0f172a",
-  fontSize: 15,
-  outline: "none",
-};
-
-const smallButton: React.CSSProperties = {
-  border: "none",
-  borderRadius: 10,
-  padding: "9px 13px",
-  background: "#e0e7ff",
-  color: "#3730a3",
-  fontWeight: 800,
-  cursor: "pointer",
-};
