@@ -313,6 +313,21 @@ export default function StudentAvailableQuizzesPage() {
     Set<number>
   >(new Set());
 
+  /*
+   * Quiz IDs for which the teacher has
+   * currently authorized a re-attempt.
+   *
+   * The permission is NOT consumed here.
+   * It is consumed only when the student
+   * actually starts the re-attempt.
+   */
+  const [
+    reattemptQuizIds,
+    setReattemptQuizIds,
+  ] = useState<
+    Set<number>
+  >(new Set());
+
   const [
     studentClass,
     setStudentClass,
@@ -594,6 +609,94 @@ export default function StudentAvailableQuizzesPage() {
               )
             )
           );
+
+          /*
+           * ---------------------------------------------------
+           * LOAD TEACHER-AUTHORIZED RE-ATTEMPTS
+           * ---------------------------------------------------
+           *
+           * This only READS the permission.
+           *
+           * It does NOT start the quiz,
+           * create a result,
+           * or consume the permission.
+           *
+           * The start API consumes the permission
+           * only when the student actually clicks
+           * the Re-attempt button.
+           */
+
+          try {
+            const response =
+              await fetch(
+                `/api/quiz-tests/reattempt?studentId=${studentId}`,
+                {
+                  method:
+                    "GET",
+                  cache:
+                    "no-store",
+                }
+              );
+
+            if (
+              response.ok
+            ) {
+              const data =
+                await response.json();
+
+              const ids =
+                Array.isArray(
+                  data?.quizIds
+                )
+                  ? data.quizIds
+                      .map(
+                        (
+                          id: unknown
+                        ) =>
+                          Number(
+                            id
+                          )
+                      )
+                      .filter(
+                        (
+                          id: number
+                        ) =>
+                          Number.isInteger(
+                            id
+                          ) &&
+                          id > 0
+                      )
+                  : [];
+
+              setReattemptQuizIds(
+                new Set(ids)
+              );
+            } else {
+              /*
+               * A re-attempt permission loading
+               * problem must not break the normal
+               * quiz page.
+               */
+              console.error(
+                "Unable to load re-attempt permissions."
+              );
+
+              setReattemptQuizIds(
+                new Set()
+              );
+            }
+          } catch (
+            permissionError
+          ) {
+            console.error(
+              "Unable to load re-attempt permissions:",
+              permissionError
+            );
+
+            setReattemptQuizIds(
+              new Set()
+            );
+          }
         }
       } catch (
         loadError
@@ -741,6 +844,11 @@ export default function StudentAvailableQuizzesPage() {
                       quiz.id
                     );
 
+                  const hasReattemptPermission =
+                    reattemptQuizIds.has(
+                      quiz.id
+                    );
+
                   const status =
                     getQuizStatus(
                       quiz
@@ -843,21 +951,33 @@ export default function StudentAvailableQuizzesPage() {
 
                       <div className="mt-5">
                         {attempted ? (
-                          /*
-                           * Already attempted:
-                           * no second attempt.
-                           */
-                          <button
-                            type="button"
-                            onClick={() =>
-                              router.push(
-                                `/student/quiz-tests/results?quizId=${quiz.id}`
-                              )
-                            }
-                            className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black"
-                          >
-                            View Result
-                          </button>
+                          <div className="space-y-3">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                router.push(
+                                  `/student/quiz-tests/results?quizId=${quiz.id}`
+                                )
+                              }
+                              className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black"
+                            >
+                              View Result
+                            </button>
+
+                            {hasReattemptPermission && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  router.push(
+                                    `/student/quiz-tests/attempt?quizId=${quiz.id}&reattempt=true`
+                                  )
+                                }
+                                className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-black"
+                              >
+                                Re-attempt
+                              </button>
+                            )}
+                          </div>
                         ) : status ===
                           "LIVE" ? (
                           /*

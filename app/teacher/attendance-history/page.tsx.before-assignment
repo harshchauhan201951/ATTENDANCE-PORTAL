@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -46,71 +46,70 @@ export default function AttendanceHistoryPage() {
     setLoading(true);
     setErrorMessage("");
 
-    try {
-      const savedTeacherId = Number(localStorage.getItem("attendance_teacher_id") || "0");
-      if (!savedTeacherId) { throw new Error("Teacher session not found."); }
+    const [studentsResult, attendanceResult] =
+      await Promise.all([
+        supabase
+          .from("students")
+          .select("id, student_name, student_username")
+          .order("id", {
+            ascending: true,
+          }),
 
-      let assignedStudentIds: number[] = [];
-      if (savedTeacherId !== 1) {
-        const { data: assignedData, error: assignedError } = await supabase.rpc("get_teacher_assigned_student_ids", { p_teacher_id: savedTeacherId });
-        if (assignedError) throw new Error(assignedError.message);
-        assignedStudentIds = (assignedData || []).map((item: { student_id: number }) => Number(item.student_id));
-      }
+        supabase
+          .from("attendance")
+          .select(
+            "student_id, attendance_date, status"
+          )
+          .order("attendance_date", {
+            ascending: false,
+          }),
+      ]);
 
-      let studentQuery = supabase.from("students").select("id, student_name, student_username").order("id", { ascending: true });
-      if (savedTeacherId !== 1) {
-        if (assignedStudentIds.length === 0) { setStudents([]); setRecords([]); setLoading(false); return; }
-        studentQuery = studentQuery.in("id", assignedStudentIds);
-      }
+    if (studentsResult.error) {
+      console.error(
+        "Students error:",
+        studentsResult.error
+      );
 
-      let attendanceQuery = supabase.from("attendance").select("student_id, attendance_date, status").order("attendance_date", { ascending: false });
-      if (savedTeacherId !== 1 && assignedStudentIds.length > 0) { attendanceQuery = attendanceQuery.in("student_id", assignedStudentIds); }
+      setErrorMessage(
+        "Students load nahi ho rahe: " +
+          studentsResult.error.message
+      );
 
-      const [studentsResult, attendanceResult] = await Promise.all([studentQuery, attendanceQuery]);
-      if (studentsResult.error) throw new Error(studentsResult.error.message);
-      if (attendanceResult.error) throw new Error(attendanceResult.error.message);
-      setStudents(studentsResult.data || []);
-      setRecords(attendanceResult.data || []);
-    } catch (error) {
-      console.error("Load attendance history error:", error);
-      setErrorMessage(error instanceof Error ? error.message : "Failed to load attendance history.");
-    } finally {
       setLoading(false);
+      return;
     }
+
+    if (attendanceResult.error) {
+      console.error(
+        "Attendance error:",
+        attendanceResult.error
+      );
+
+      setErrorMessage(
+        "Attendance history load nahi ho rahi: " +
+          attendanceResult.error.message
+      );
+
+      setLoading(false);
+      return;
+    }
+
+    setStudents(
+      (studentsResult.data || []) as Student[]
+    );
+
+    setRecords(
+      (attendanceResult.data || []) as AttendanceRecord[]
+    );
+
+    setLoading(false);
   }
 
   async function deleteAttendance(
     studentId: number,
     attendanceDate: string
   ) {
-    const savedTeacherId = Number(localStorage.getItem("attendance_teacher_id") || "0");
-
-    if (!savedTeacherId) {
-      setErrorMessage("Teacher session not found.");
-      return;
-    }
-
-    if (savedTeacherId !== 1) {
-      const { data: assignedData, error: assignedError } =
-        await supabase.rpc("get_teacher_assigned_student_ids", {
-          p_teacher_id: savedTeacherId,
-        });
-
-      if (assignedError) {
-        setErrorMessage(assignedError.message);
-        return;
-      }
-
-      const assignedStudentIds = (assignedData || []).map(
-        (item: { student_id: number }) => Number(item.student_id)
-      );
-
-      if (!assignedStudentIds.includes(studentId)) {
-        setErrorMessage("You can only manage attendance for assigned students.");
-        return;
-      }
-    }
-
     const deleteKey =
       `${studentId}-${attendanceDate}`;
 
@@ -304,7 +303,7 @@ export default function AttendanceHistoryPage() {
             </div>
 
             <h1 style={styles.title}>
-              ðŸ“… Attendance History
+              📅 Attendance History
             </h1>
 
             <p style={styles.subtitle}>
@@ -319,7 +318,7 @@ export default function AttendanceHistoryPage() {
             }
             style={styles.backButton}
           >
-            â† Back
+            ← Back
           </button>
         </header>
 
@@ -327,7 +326,7 @@ export default function AttendanceHistoryPage() {
 
         {successMessage && (
           <div style={styles.successBox}>
-            âœ… {successMessage}
+            ✅ {successMessage}
           </div>
         )}
 
@@ -335,7 +334,7 @@ export default function AttendanceHistoryPage() {
 
         <section style={styles.filterCard}>
           <div style={styles.filterTitle}>
-            ðŸ”Ž Search Attendance
+            🔎 Search Attendance
           </div>
 
           <div style={styles.filterGrid}>
@@ -396,7 +395,7 @@ export default function AttendanceHistoryPage() {
                 onClick={clearFilters}
                 style={styles.clearButton}
               >
-                âœ• Clear Filters
+                ✕ Clear Filters
               </button>
             </div>
 
@@ -414,7 +413,7 @@ export default function AttendanceHistoryPage() {
                 background: "#dbeafe",
               }}
             >
-              ðŸ‘¨â€ðŸŽ“
+              👨‍🎓
             </div>
 
             <div>
@@ -439,7 +438,7 @@ export default function AttendanceHistoryPage() {
                 background: "#dcfce7",
               }}
             >
-              âœ“
+              ✓
             </div>
 
             <div>
@@ -469,7 +468,7 @@ export default function AttendanceHistoryPage() {
                 background: "#fee2e2",
               }}
             >
-              âœ•
+              ✕
             </div>
 
             <div>
@@ -498,7 +497,7 @@ export default function AttendanceHistoryPage() {
 
         {errorMessage && (
           <div style={styles.errorBox}>
-            âš ï¸ {errorMessage}
+            ⚠️ {errorMessage}
           </div>
         )}
 
@@ -509,7 +508,7 @@ export default function AttendanceHistoryPage() {
           <div style={styles.historyHeader}>
             <div>
               <h2 style={styles.historyTitle}>
-                ðŸ“‹ Attendance Records
+                📋 Attendance Records
               </h2>
 
               <p style={styles.historySubtitle}>
@@ -525,14 +524,14 @@ export default function AttendanceHistoryPage() {
               onClick={loadData}
               style={styles.refreshButton}
             >
-              ðŸ”„ Refresh
+              🔄 Refresh
             </button>
           </div>
 
           {loading ? (
             <div style={styles.loadingBox}>
               <div style={styles.loadingIcon}>
-                â³
+                ⏳
               </div>
 
               <h3 style={styles.loadingTitle}>
@@ -547,7 +546,7 @@ export default function AttendanceHistoryPage() {
           ) : historyRows.length === 0 ? (
             <div style={styles.emptyBox}>
               <div style={styles.emptyIcon}>
-                ðŸ“­
+                📭
               </div>
 
               <h3 style={styles.emptyTitle}>
@@ -676,7 +675,7 @@ export default function AttendanceHistoryPage() {
                                   styles.presentBadge
                                 }
                               >
-                                âœ“ Present
+                                ✓ Present
                               </span>
                             ) : (
                               <span
@@ -684,7 +683,7 @@ export default function AttendanceHistoryPage() {
                                   styles.absentBadge
                                 }
                               >
-                                âœ• Absent
+                                ✕ Absent
                               </span>
                             )}
                           </td>
@@ -716,8 +715,8 @@ export default function AttendanceHistoryPage() {
                               }}
                             >
                               {isDeleting
-                                ? "â³ Deleting..."
-                                : "ðŸ—‘ï¸ Delete"}
+                                ? "⏳ Deleting..."
+                                : "🗑️ Delete"}
                             </button>
                           </td>
                         </tr>
@@ -734,7 +733,7 @@ export default function AttendanceHistoryPage() {
 
         <section style={styles.deleteInfoCard}>
           <div style={styles.deleteInfoIcon}>
-            ðŸ—‘ï¸
+            🗑️
           </div>
 
           <div>
@@ -752,7 +751,7 @@ export default function AttendanceHistoryPage() {
             </p>
 
             <p style={styles.deleteWarning}>
-              âš ï¸ Delete karne ke baad attendance
+              ⚠️ Delete karne ke baad attendance
               record permanently remove ho jayega.
             </p>
           </div>
@@ -761,8 +760,8 @@ export default function AttendanceHistoryPage() {
         {/* FOOTER */}
 
         <footer style={styles.footer}>
-          Attendance Portal â€¢ Teacher Attendance
-          History â€¢ 2026
+          Attendance Portal • Teacher Attendance
+          History • 2026
         </footer>
 
       </div>
@@ -1215,4 +1214,3 @@ const styles: {
     fontWeight: "700",
   },
 };
-

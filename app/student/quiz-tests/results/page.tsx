@@ -30,6 +30,7 @@ type QuizResult = {
   id: number;
   quiz_id: number;
   student_id: number;
+  attempt_number: number | null;
   total_questions: number;
   correct_answers: number;
   wrong_answers: number;
@@ -185,8 +186,14 @@ function ResultsContent() {
   const quizIdParam =
     searchParams.get("quizId");
 
+  const resultIdParam =
+    searchParams.get("resultId");
+
   const parsedQuizId =
     Number(quizIdParam);
+
+  const parsedResultId =
+    Number(resultIdParam);
 
   const isDetail =
     Number.isFinite(parsedQuizId) &&
@@ -215,7 +222,10 @@ function ResultsContent() {
 
   useEffect(() => {
     loadPage();
-  }, [quizIdParam]);
+  }, [
+    quizIdParam,
+    resultIdParam,
+  ]);
 
   async function getStudent() {
     const storedId =
@@ -371,7 +381,11 @@ function ResultsContent() {
       if (isDetail) {
         await loadSingleResult(
           student.id,
-          parsedQuizId
+          parsedQuizId,
+          Number.isFinite(parsedResultId) &&
+            parsedResultId > 0
+            ? parsedResultId
+            : null
         );
       } else {
         await loadAllResults(
@@ -511,7 +525,8 @@ function ResultsContent() {
 
   async function loadSingleResult(
     studentId: number,
-    quizId: number
+    quizId: number,
+    resultId: number | null
   ) {
     const {
       data: quizData,
@@ -544,10 +559,7 @@ function ResultsContent() {
 
     setSelectedQuiz(quiz);
 
-    const {
-      data: resultData,
-      error: resultError,
-    } = await supabase
+    let resultQuery = supabase
       .from("quiz_results")
       .select("*")
       .eq(
@@ -557,15 +569,30 @@ function ResultsContent() {
       .eq(
         "student_id",
         studentId
-      )
-      .order(
-        "submitted_at",
-        {
-          ascending: false,
-        }
-      )
-      .limit(1)
-      .maybeSingle();
+      );
+
+    if (resultId) {
+      resultQuery =
+        resultQuery.eq(
+          "id",
+          resultId
+        );
+    } else {
+      resultQuery =
+        resultQuery
+          .order(
+            "submitted_at",
+            {
+              ascending: false,
+            }
+          )
+          .limit(1);
+    }
+
+    const {
+      data: resultData,
+      error: resultError,
+    } = await resultQuery.maybeSingle();
 
     if (resultError) {
       throw new Error(
@@ -579,9 +606,14 @@ function ResultsContent() {
 
     if (!result) {
       try {
+        const storageKey =
+          resultId
+            ? `quiz-result-${quizId}-${resultId}`
+            : `quiz-result-${quizId}`;
+
         const stored =
           sessionStorage.getItem(
-            `quiz-result-${quizId}`
+            storageKey
           );
 
         if (stored) {
@@ -596,7 +628,11 @@ function ResultsContent() {
             ) === quizId &&
             Number(
               parsed.student_id
-            ) === studentId
+            ) === studentId &&
+            (!resultId ||
+              Number(
+                parsed.id
+              ) === resultId)
           ) {
             result = parsed;
           }
@@ -781,6 +817,12 @@ function ResultsContent() {
                       ).toUpperCase() ===
                       "PASS";
 
+                    const attemptNumber =
+                      Number(
+                        item.attempt_number ??
+                          1
+                      );
+
                     return (
                       <div
                         key={
@@ -815,6 +857,10 @@ function ResultsContent() {
                                   {item.quiz.subject}
                                 </p>
                               )}
+
+                              <p className="mt-2 text-xs font-black text-indigo-300">
+                                ATTEMPT #{attemptNumber}
+                              </p>
                             </div>
 
                             <span
@@ -918,7 +964,7 @@ function ResultsContent() {
                           <button
                             onClick={() =>
                               router.push(
-                                `/student/quiz-tests/results?quizId=${item.quiz_id}`
+                                `/student/quiz-tests/results?quizId=${item.quiz_id}&resultId=${item.id}`
                               )
                             }
                             className="mt-4 w-full rounded-xl bg-indigo-600 px-4 py-3 font-black hover:bg-indigo-500"
@@ -971,6 +1017,11 @@ function ResultsContent() {
     ).toUpperCase() ===
     "PASS";
 
+  const attemptNumber =
+    Number(
+      result.attempt_number ?? 1
+    );
+
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
@@ -985,6 +1036,8 @@ function ResultsContent() {
 
               <p className="text-xs text-slate-400">
                 FULL QUIZ RESULT
+                {" • "}
+                ATTEMPT #{attemptNumber}
               </p>
             </div>
 
@@ -1054,6 +1107,12 @@ function ResultsContent() {
                 {passed
                   ? "PASSED"
                   : "FAILED"}
+              </span>
+            </div>
+
+            <div className="mt-4">
+              <span className="inline-block rounded-full border border-indigo-400/20 bg-indigo-500/10 px-5 py-2 text-xs font-black text-indigo-300">
+                ATTEMPT #{attemptNumber}
               </span>
             </div>
 

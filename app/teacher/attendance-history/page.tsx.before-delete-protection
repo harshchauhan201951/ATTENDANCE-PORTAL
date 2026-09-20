@@ -83,34 +83,6 @@ export default function AttendanceHistoryPage() {
     studentId: number,
     attendanceDate: string
   ) {
-    const savedTeacherId = Number(localStorage.getItem("attendance_teacher_id") || "0");
-
-    if (!savedTeacherId) {
-      setErrorMessage("Teacher session not found.");
-      return;
-    }
-
-    if (savedTeacherId !== 1) {
-      const { data: assignedData, error: assignedError } =
-        await supabase.rpc("get_teacher_assigned_student_ids", {
-          p_teacher_id: savedTeacherId,
-        });
-
-      if (assignedError) {
-        setErrorMessage(assignedError.message);
-        return;
-      }
-
-      const assignedStudentIds = (assignedData || []).map(
-        (item: { student_id: number }) => Number(item.student_id)
-      );
-
-      if (!assignedStudentIds.includes(studentId)) {
-        setErrorMessage("You can only manage attendance for assigned students.");
-        return;
-      }
-    }
-
     const deleteKey =
       `${studentId}-${attendanceDate}`;
 

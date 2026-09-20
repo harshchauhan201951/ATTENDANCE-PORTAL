@@ -54,6 +54,10 @@ type StartResponse = {
   success: boolean;
   resultId?: number;
   resumed?: boolean;
+  alreadyStarted?: boolean;
+  isReattempt?: boolean;
+  attemptNumber?: number;
+  reattemptPermissionId?: number | null;
   message?: string;
   quiz?: QuizTest & {
     startTime: string;
@@ -270,6 +274,10 @@ function StudentQuizAttemptContent() {
     quizIdParam
   );
 
+  const isReattempt =
+    searchParams.get("reattempt") ===
+    "true";
+
   const [student, setStudent] =
     useState<StudentData | null>(
       null
@@ -354,9 +362,43 @@ function StudentQuizAttemptContent() {
     [answers, questions]
   );
 
+  /*
+   * IMPORTANT:
+   * Each result/attempt gets its own answer storage.
+   *
+   * Re-attempt:
+   * quiz-answers-{quizId}-{resultId}
+   *
+   * Normal attempt:
+   * quiz-answers-{quizId}-{resultId}
+   *
+   * Old normal-attempt storage is also supported
+   * as a fallback for existing unfinished quizzes.
+   */
+  const getAnswerStorageKey =
+    useCallback(
+      (attemptResultId?: number | null) => {
+        if (
+          attemptResultId &&
+          Number.isInteger(
+            attemptResultId
+          ) &&
+          attemptResultId > 0
+        ) {
+          return `quiz-answers-${quizId}-${attemptResultId}`;
+        }
+
+        return `quiz-answers-${quizId}`;
+      },
+      [quizId]
+    );
+
   const saveLocalAnswers =
     useCallback(
-      (nextAnswers: AnswerMap) => {
+      (
+        nextAnswers: AnswerMap,
+        attemptResultId?: number | null
+      ) => {
         if (
           typeof window ===
             "undefined" ||
@@ -366,12 +408,20 @@ function StudentQuizAttemptContent() {
           return;
         }
 
+        const storageKey =
+          getAnswerStorageKey(
+            attemptResultId
+          );
+
         window.localStorage.setItem(
-          `quiz-answers-${quizId}`,
+          storageKey,
           JSON.stringify(nextAnswers)
         );
       },
-      [quizId]
+      [
+        getAnswerStorageKey,
+        quizId,
+      ]
     );
 
   const submitQuiz =
@@ -410,7 +460,8 @@ function StudentQuizAttemptContent() {
             latestAnswersRef.current;
 
           saveLocalAnswers(
-            currentAnswers
+            currentAnswers,
+            resultId
           );
 
           /*
@@ -420,15 +471,6 @@ function StudentQuizAttemptContent() {
            * {
            *   "questionId": selectedOptionId
            * }
-           *
-           * Example:
-           * {
-           *   "101": 501,
-           *   "102": 506
-           * }
-           *
-           * Previously this was sent as an array of objects,
-           * which the submit API could not read correctly.
            */
           const answerPayload: Record<
             string,
@@ -475,7 +517,7 @@ function StudentQuizAttemptContent() {
               data.alreadySubmitted
             ) {
               router.replace(
-                `/student/quiz-tests/results?quizId=${quizId}`
+                `/student/quiz-tests/results?quizId=${quizId}&resultId=${resultId}`
               );
               return;
             }
@@ -490,15 +532,45 @@ function StudentQuizAttemptContent() {
             typeof window !==
             "undefined"
           ) {
+            /*
+             * Remove only this attempt's
+             * started/answer storage.
+             */
             window.localStorage.removeItem(
-              `quiz-attempt-started-${quizId}-${student.id}`
+              `quiz-attempt-started-${quizId}-${student.id}-${resultId}`
             );
 
             window.localStorage.removeItem(
-              `quiz-answers-${quizId}`
+              `quiz-answers-${quizId}-${resultId}`
             );
+
+            /*
+             * Preserve cleanup of the old
+             * normal-attempt storage.
+             */
+            if (!isReattempt) {
+              window.localStorage.removeItem(
+                `quiz-attempt-started-${quizId}-${student.id}`
+              );
+
+              window.localStorage.removeItem(
+                `quiz-answers-${quizId}`
+              );
+            }
 
             if (data.result) {
+              window.localStorage.setItem(
+                `quiz-result-${quizId}-${resultId}`,
+                JSON.stringify(
+                  data.result
+                )
+              );
+
+              /*
+               * Keep the old key for
+               * compatibility with existing
+               * normal-result functionality.
+               */
               window.localStorage.setItem(
                 `quiz-result-${quizId}`,
                 JSON.stringify(
@@ -508,13 +580,22 @@ function StudentQuizAttemptContent() {
             }
 
             window.localStorage.setItem(
+              `quiz-submission-${quizId}-${resultId}`,
+              submissionType
+            );
+
+            window.localStorage.setItem(
               `quiz-submission-${quizId}`,
               submissionType
             );
           }
 
+          /*
+           * Send the exact resultId so the
+           * result page can display this attempt.
+           */
           router.replace(
-            `/student/quiz-tests/results?quizId=${quizId}`
+            `/student/quiz-tests/results?quizId=${quizId}&resultId=${resultId}`
           );
         } catch (submitError) {
           console.error(
@@ -536,6 +617,7 @@ function StudentQuizAttemptContent() {
         }
       },
       [
+        isReattempt,
         quizId,
         questions,
         resultId,
@@ -683,10 +765,14 @@ function StudentQuizAttemptContent() {
 
         /*
          * API is the authority for:
-         * - one attempt
+         * - normal one-attempt rule
+         * - re-attempt permission
          * - schedule
          * - timer
          * - question loading
+         *
+         * Re-attempt does NOT use the
+         * normal 9 PM restriction.
          */
         const response =
           await fetch(
@@ -701,6 +787,8 @@ function StudentQuizAttemptContent() {
                 quizId,
                 studentId:
                   currentStudent.id,
+                reattempt:
+                  isReattempt,
               }),
             }
           );
@@ -713,7 +801,8 @@ function StudentQuizAttemptContent() {
           !data.success
         ) {
           if (
-            data.alreadySubmitted
+            data.alreadySubmitted &&
+            !isReattempt
           ) {
             router.replace(
               `/student/quiz-tests/results?quizId=${quizId}`
@@ -737,6 +826,9 @@ function StudentQuizAttemptContent() {
           );
         }
 
+        const actualResultId =
+          Number(data.resultId);
+
         setQuiz(data.quiz);
 
         setQuestions(
@@ -744,20 +836,40 @@ function StudentQuizAttemptContent() {
         );
 
         setResultId(
-          Number(data.resultId)
+          actualResultId
         );
 
         /*
-         * Restore locally saved answers
-         * if the attempt was resumed.
+         * Restore answers for this exact
+         * attempt.
          */
-        const savedAnswers =
+        let savedAnswers: string | null =
+          null;
+
+        if (
           typeof window !==
-            "undefined"
-            ? window.localStorage.getItem(
+          "undefined"
+        ) {
+          savedAnswers =
+            window.localStorage.getItem(
+              `quiz-answers-${quizId}-${actualResultId}`
+            );
+
+          /*
+           * Backward compatibility:
+           * Existing unfinished normal attempts
+           * may still have the old storage key.
+           */
+          if (
+            !savedAnswers &&
+            !isReattempt
+          ) {
+            savedAnswers =
+              window.localStorage.getItem(
                 `quiz-answers-${quizId}`
-              )
-            : null;
+              );
+          }
+        }
 
         let initialAnswers: AnswerMap =
           {};
@@ -809,6 +921,15 @@ function StudentQuizAttemptContent() {
         latestAnswersRef.current =
           initialAnswers;
 
+        /*
+         * Save immediately into the
+         * exact attempt's storage.
+         */
+        saveLocalAnswers(
+          initialAnswers,
+          actualResultId
+        );
+
         const remainingSeconds =
           Math.ceil(
             Number(
@@ -829,9 +950,20 @@ function StudentQuizAttemptContent() {
           "undefined"
         ) {
           window.localStorage.setItem(
-            `quiz-attempt-started-${quizId}-${currentStudent.id}`,
+            `quiz-attempt-started-${quizId}-${currentStudent.id}-${actualResultId}`,
             "true"
           );
+
+          /*
+           * Keep old key for normal-attempt
+           * backward compatibility only.
+           */
+          if (!isReattempt) {
+            window.localStorage.setItem(
+              `quiz-attempt-started-${quizId}-${currentStudent.id}`,
+              "true"
+            );
+          }
         }
 
         /*
@@ -864,8 +996,10 @@ function StudentQuizAttemptContent() {
 
     initialize();
   }, [
+    isReattempt,
     quizId,
     router,
+    saveLocalAnswers,
   ]);
 
   /*
@@ -962,14 +1096,18 @@ function StudentQuizAttemptContent() {
               next;
 
             saveLocalAnswers(
-              next
+              next,
+              resultId
             );
 
             return next;
           }
         );
       },
-      [saveLocalAnswers]
+      [
+        resultId,
+        saveLocalAnswers,
+      ]
     );
 
   /*
@@ -986,6 +1124,7 @@ function StudentQuizAttemptContent() {
     const guardState = {
       quizGuard: true,
       quizId,
+      resultId,
     };
 
     window.history.pushState(
@@ -1022,6 +1161,7 @@ function StudentQuizAttemptContent() {
     loading,
     submitting,
     quizId,
+    resultId,
   ]);
 
   /*
@@ -1145,6 +1285,9 @@ function StudentQuizAttemptContent() {
 
                 <p className="text-[10px] text-slate-400 sm:text-xs">
                   RACER ACADEMY
+                  {isReattempt
+                    ? " • RE-ATTEMPT"
+                    : ""}
                 </p>
               </div>
 
