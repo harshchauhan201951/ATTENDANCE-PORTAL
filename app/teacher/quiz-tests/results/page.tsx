@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -56,11 +57,6 @@ type QuizResult = {
   submission_type: string | null;
 
   created_at: string | null;
-};
-
-type StudentResultGroup = {
-  student: Student;
-  results: QuizResult[];
 };
 
 function safeNumber(
@@ -277,7 +273,7 @@ function getAttemptLabel(
     : `Re-attempt #${attempt}`;
 }
 
-export default function TeacherQuizResultsPage() {
+function TeacherQuizResultsContent() {
   const searchParams =
     useSearchParams();
 
@@ -474,12 +470,6 @@ export default function TeacherQuizResultsPage() {
         setError("");
 
         try {
-          /*
-           * ---------------------------------------------------
-           * LOAD QUIZ
-           * ---------------------------------------------------
-           */
-
           const {
             data: quizData,
             error: quizError,
@@ -506,21 +496,6 @@ export default function TeacherQuizResultsPage() {
               "Quiz not found."
             );
           }
-
-          /*
-           * ---------------------------------------------------
-           * LOAD RESULTS
-           * ---------------------------------------------------
-           *
-           * IMPORTANT:
-           * Do NOT use maybeSingle().
-           *
-           * One student can now have:
-           * Attempt #1
-           * Re-attempt #2
-           * Re-attempt #3
-           * etc.
-           */
 
           const {
             data: resultRows,
@@ -579,18 +554,6 @@ export default function TeacherQuizResultsPage() {
                   ),
               })
             );
-
-          /*
-           * ---------------------------------------------------
-           * LOAD STUDENTS
-           * ---------------------------------------------------
-           *
-           * We load all students who are relevant to this quiz,
-           * including students who have no result.
-           *
-           * This allows the teacher to see ALL children datewise
-           * and classwise, not only students who submitted.
-           */
 
           const {
             data: studentRows,
@@ -654,10 +617,6 @@ export default function TeacherQuizResultsPage() {
             cleanStudents
           );
 
-          /*
-           * Default expansion:
-           * quiz date + all classes.
-           */
           const quizDate =
             quizData
               .scheduled_date ||
@@ -681,9 +640,6 @@ export default function TeacherQuizResultsPage() {
             )
           );
 
-          /*
-           * Student cards remain collapsed by default.
-           */
           setExpandedStudents(
             new Set()
           );
@@ -720,22 +676,6 @@ export default function TeacherQuizResultsPage() {
     loadData();
   }, [loadData]);
 
-  /*
-   * -----------------------------------------------------------
-   * DATE GROUPS
-   * -----------------------------------------------------------
-   *
-   * For this page the quiz itself is one scheduled date.
-   *
-   * The structure intentionally supports date grouping so that
-   * the teacher sees:
-   *
-   * DATE
-   *   CLASS
-   *     STUDENT
-   *       RESULT
-   */
-
   const dateGroups =
     useMemo(() => {
       if (!quiz) {
@@ -760,12 +700,6 @@ export default function TeacherQuizResultsPage() {
       quiz,
       students,
     ]);
-
-  /*
-   * -----------------------------------------------------------
-   * CLASS STUDENTS
-   * -----------------------------------------------------------
-   */
 
   const getStudentsForClass =
     useCallback(
@@ -799,12 +733,6 @@ export default function TeacherQuizResultsPage() {
       },
       [students]
     );
-
-  /*
-   * -----------------------------------------------------------
-   * RESULTS FOR STUDENT
-   * -----------------------------------------------------------
-   */
 
   const getStudentResults =
     useCallback(
@@ -861,12 +789,6 @@ export default function TeacherQuizResultsPage() {
       [results]
     );
 
-  /*
-   * -----------------------------------------------------------
-   * STATISTICS
-   * -----------------------------------------------------------
-   */
-
   const totalResultRows =
     results.length;
 
@@ -915,12 +837,6 @@ export default function TeacherQuizResultsPage() {
         );
       }
     ).length;
-
-  /*
-   * -----------------------------------------------------------
-   * TOGGLE FUNCTIONS
-   * -----------------------------------------------------------
-   */
 
   function toggleDate(
     date: string
@@ -994,12 +910,6 @@ export default function TeacherQuizResultsPage() {
       }
     );
   }
-
-  /*
-   * -----------------------------------------------------------
-   * ALLOW RE-ATTEMPT
-   * -----------------------------------------------------------
-   */
 
   async function allowReattempt(
     studentId: number
@@ -1100,12 +1010,6 @@ export default function TeacherQuizResultsPage() {
     }
   }
 
-  /*
-   * -----------------------------------------------------------
-   * LOADING
-   * -----------------------------------------------------------
-   */
-
   if (loading) {
     return (
       <main
@@ -1123,6 +1027,7 @@ export default function TeacherQuizResultsPage() {
               styles.spinner
             }
           />
+
           <h2
             style={
               styles.loadingTitle
@@ -1130,6 +1035,7 @@ export default function TeacherQuizResultsPage() {
           >
             Loading Quiz Results
           </h2>
+
           <p
             style={
               styles.loadingText
@@ -1143,12 +1049,6 @@ export default function TeacherQuizResultsPage() {
       </main>
     );
   }
-
-  /*
-   * -----------------------------------------------------------
-   * ERROR
-   * -----------------------------------------------------------
-   */
 
   if (error) {
     return (
@@ -1218,12 +1118,6 @@ export default function TeacherQuizResultsPage() {
     );
   }
 
-  /*
-   * -----------------------------------------------------------
-   * MAIN UI
-   * -----------------------------------------------------------
-   */
-
   return (
     <main
       style={
@@ -1235,8 +1129,6 @@ export default function TeacherQuizResultsPage() {
           styles.container
         }
       >
-        {/* HEADER */}
-
         <div
           style={
             styles.headerCard
@@ -1303,6 +1195,7 @@ export default function TeacherQuizResultsPage() {
               >
                 Subject
               </span>
+
               <strong
                 style={
                   styles.infoValue
@@ -1325,6 +1218,7 @@ export default function TeacherQuizResultsPage() {
               >
                 Date
               </span>
+
               <strong
                 style={
                   styles.infoValue
@@ -1348,6 +1242,7 @@ export default function TeacherQuizResultsPage() {
               >
                 Time
               </span>
+
               <strong
                 style={
                   styles.infoValue
@@ -1371,6 +1266,7 @@ export default function TeacherQuizResultsPage() {
               >
                 Duration
               </span>
+
               <strong
                 style={
                   styles.infoValue
@@ -1385,8 +1281,6 @@ export default function TeacherQuizResultsPage() {
             </div>
           </div>
         </div>
-
-        {/* STATISTICS */}
 
         <div
           style={
@@ -1485,8 +1379,6 @@ export default function TeacherQuizResultsPage() {
           </div>
         </div>
 
-        {/* RE-ATTEMPT MESSAGE */}
-
         {reattemptMessage && (
           <div
             style={
@@ -1496,8 +1388,6 @@ export default function TeacherQuizResultsPage() {
             {reattemptMessage}
           </div>
         )}
-
-        {/* DATE → CLASS → STUDENT → RESULTS */}
 
         <div
           style={
@@ -1555,8 +1445,6 @@ export default function TeacherQuizResultsPage() {
                       styles.dateGroup
                     }
                   >
-                    {/* DATE */}
-
                     <button
                       type="button"
                       onClick={() =>
@@ -1644,8 +1532,6 @@ export default function TeacherQuizResultsPage() {
                                     styles.classGroup
                                   }
                                 >
-                                  {/* CLASS */}
-
                                   <button
                                     type="button"
                                     onClick={() =>
@@ -1751,8 +1637,6 @@ export default function TeacherQuizResultsPage() {
                                                   styles.studentCard
                                                 }
                                               >
-                                                {/* STUDENT */}
-
                                                 <button
                                                   type="button"
                                                   onClick={() =>
@@ -1825,13 +1709,9 @@ export default function TeacherQuizResultsPage() {
                                                     {latestResult ? (
                                                       <>
                                                         <span
-                                                          style={{
-                                                            ...styles.percentageBadge,
-                                                            ...(latestResult.percentage !==
-                                                            null
-                                                              ? {}
-                                                              : {}),
-                                                          }}
+                                                          style={
+                                                            styles.percentageBadge
+                                                          }
                                                         >
                                                           {safeNumber(
                                                             latestResult.percentage,
@@ -1885,8 +1765,6 @@ export default function TeacherQuizResultsPage() {
                                                       styles.studentContent
                                                     }
                                                   >
-                                                    {/* NO RESULT */}
-
                                                     {studentResults.length ===
                                                     0 ? (
                                                       <div
@@ -1924,8 +1802,6 @@ export default function TeacherQuizResultsPage() {
                                                       </div>
                                                     ) : (
                                                       <>
-                                                        {/* RESULT ATTEMPTS */}
-
                                                         <div
                                                           style={
                                                             styles.resultList
@@ -2276,8 +2152,6 @@ export default function TeacherQuizResultsPage() {
                                                           )}
                                                         </div>
 
-                                                        {/* REATTEMPT */}
-
                                                         <div
                                                           style={
                                                             styles.reattemptPanel
@@ -2390,13 +2264,86 @@ export default function TeacherQuizResultsPage() {
           background: #e2e8f0 !important;
         }
 
+        @media (max-width: 900px) {
+          .result-grid {
+            grid-template-columns: repeat(
+              2,
+              minmax(0, 1fr)
+            );
+          }
+        }
+
         @media (max-width: 700px) {
           .result-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(
+              2,
+              minmax(0, 1fr)
+            );
+          }
+        }
+
+        @media (max-width: 600px) {
+          .time-grid {
+            grid-template-columns: 1fr !important;
           }
         }
       `}</style>
     </main>
+  );
+}
+
+export default function TeacherQuizResultsPage() {
+  return (
+    <Suspense
+      fallback={
+        <main
+          style={{
+            minHeight:
+              "100vh",
+            display:
+              "flex",
+            alignItems:
+              "center",
+            justifyContent:
+              "center",
+            padding:
+              "20px",
+            background:
+              "linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #f8fafc 100%)",
+          }}
+        >
+          <div
+            style={{
+              background:
+                "#ffffff",
+              borderRadius:
+                "22px",
+              padding:
+                "35px",
+              textAlign:
+                "center",
+              boxShadow:
+                "0 20px 50px rgba(15,23,42,0.10)",
+            }}
+          >
+            <strong
+              style={{
+                fontSize:
+                  "20px",
+                fontWeight:
+                  900,
+                color:
+                  "#0f172a",
+              }}
+            >
+              Loading Quiz Results...
+            </strong>
+          </div>
+        </main>
+      }
+    >
+      <TeacherQuizResultsContent />
+    </Suspense>
   );
 }
 
