@@ -7,7 +7,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
 import jsPDF from "jspdf";
 
@@ -39,2492 +39,1594 @@ type QuizResult = {
   id: number;
   quiz_id: number;
   student_id: number;
+
   attempt_number: number | null;
+
   total_questions: number | null;
   correct_answers: number | null;
   wrong_answers: number | null;
   unanswered: number | null;
+
   total_marks: number | null;
   obtained_marks: number | null;
   percentage: number | null;
+
   result_status: string | null;
+
   started_at: string | null;
   submitted_at: string | null;
   submission_type: string | null;
+
   created_at: string | null;
 };
 
-type StudentResultRow = {
-  student: Student;
+type QuizStudentRow = {
   quiz: QuizTest;
-  result: QuizResult | null;
+  student: Student;
+  results: QuizResult[];
 };
 
-function safeNumber(
-  value: unknown,
-  fallback = 0
-): number {
-  const number = Number(value);
+const SUBJECTS = [
+  "Hindi",
+  "English",
+  "Mathematics",
+  "Science",
+  "Social Science",
+  "General Knowledge",
+  "Others",
+];
 
-  return Number.isFinite(number)
-    ? number
-    : fallback;
+function safeNumber(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
 }
 
-function cleanText(
-  value: unknown,
-  fallback = "—"
-): string {
-  if (
-    value === null ||
-    value === undefined
-  ) {
-    return fallback;
-  }
+function formatDate(date: string | null): string {
+  if (!date) return "Not available";
 
-  const text = String(value).trim();
+  try {
+    const d = new Date(`${date}T00:00:00+05:30`);
 
-  return text || fallback;
-}
-
-function formatDate(
-  value: string | null
-): string {
-  if (!value) {
-    return "Date not available";
-  }
-
-  const date = new Date(
-    `${value}T00:00:00+05:30`
-  );
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleDateString(
-    "en-IN",
-    {
+    return d.toLocaleDateString("en-IN", {
       day: "2-digit",
       month: "short",
       year: "numeric",
       timeZone: "Asia/Kolkata",
-    }
-  );
+    });
+  } catch {
+    return date;
+  }
 }
 
-function formatTime(
-  value: string | null
-): string {
-  if (!value) {
-    return "—";
-  }
+function formatDateLong(date: string | null): string {
+  if (!date) return "Not available";
 
-  const parts = value.split(":");
+  try {
+    const d = new Date(`${date}T00:00:00+05:30`);
 
-  if (parts.length < 2) {
-    return value;
+    return d.toLocaleDateString("en-IN", {
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      timeZone: "Asia/Kolkata",
+    });
+  } catch {
+    return date;
   }
+}
+
+function formatDateTime(date: string | null): string {
+  if (!date) return "Not available";
+
+  try {
+    return new Date(date).toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: "Asia/Kolkata",
+    });
+  } catch {
+    return date;
+  }
+}
+
+function formatTime(time: string | null): string {
+  if (!time) return "Not available";
+
+  const parts = time.split(":");
+  if (parts.length < 2) return time;
 
   const hour = Number(parts[0]);
   const minute = Number(parts[1]);
 
-  if (
-    !Number.isFinite(hour) ||
-    !Number.isFinite(minute)
-  ) {
-    return value;
+  if (!Number.isFinite(hour)) return time;
+
+  const suffix = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 || 12;
+
+  return `${displayHour}:${String(minute).padStart(2, "0")} ${suffix}`;
+}
+
+function normalizeClassName(value: string | null): string {
+  return String(value || "").trim() || "Unknown Class";
+}
+
+function normalizeSubject(value: string | null): string {
+  return String(value || "").trim() || "Other";
+}
+
+function resultStatus(result: QuizResult): string {
+  const status = String(result.result_status || "").trim();
+
+  if (status) return status.toUpperCase();
+
+  const percentage = safeNumber(result.percentage);
+
+  return percentage >= 40 ? "PASS" : "FAIL";
+}
+
+function statusClass(result: QuizResult): string {
+  const status = resultStatus(result);
+
+  if (status.includes("PASS")) return "pass";
+  if (status.includes("FAIL")) return "fail";
+
+  return "neutral";
+}
+
+function getAttemptLabel(result: QuizResult, index: number): string {
+  const attempt = safeNumber(result.attempt_number);
+
+  return `Attempt #${attempt > 0 ? attempt : index + 1}`;
+}
+
+function sortClasses(classes: string[]): string[] {
+  return [...classes].sort((a, b) => {
+    const na = Number(a.replace(/[^0-9]/g, ""));
+    const nb = Number(b.replace(/[^0-9]/g, ""));
+
+    if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) {
+      return na - nb;
+    }
+
+    return a.localeCompare(b, undefined, {
+      numeric: true,
+      sensitivity: "base",
+    });
+  });
+}
+
+function getQuizClasses(quiz: QuizTest): string[] {
+  const classes = new Set<string>();
+
+  if (quiz.class_name) {
+    classes.add(normalizeClassName(quiz.class_name));
   }
 
-  const date = new Date();
-
-  date.setHours(
-    hour,
-    minute,
-    0,
-    0
-  );
-
-  return date.toLocaleTimeString(
-    "en-IN",
-    {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    }
-  );
-}
-
-function formatDateTime(
-  value: string | null
-): string {
-  if (!value) {
-    return "—";
+  if (Array.isArray(quiz.target_classes)) {
+    quiz.target_classes.forEach((value) => {
+      if (value) classes.add(normalizeClassName(value));
+    });
   }
 
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleString(
-    "en-IN",
-    {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-      timeZone: "Asia/Kolkata",
-    }
-  );
-}
-
-function statusText(
-  result: QuizResult | null
-): string {
-  if (!result) {
-    return "NOT ATTEMPTED";
-  }
-
-  const status =
-    cleanText(
-      result.result_status,
-      ""
-    );
-
-  return status
-    ? status.toUpperCase()
-    : "SUBMITTED";
-}
-
-function isPass(
-  result: QuizResult | null
-): boolean {
-  if (!result) {
-    return false;
-  }
-
-  const status =
-    statusText(result);
-
-  if (
-    status === "PASS" ||
-    status === "PASSED"
-  ) {
-    return true;
-  }
-
-  if (
-    status === "FAIL" ||
-    status === "FAILED"
-  ) {
-    return false;
-  }
-
-  return (
-    safeNumber(
-      result.percentage
-    ) >= 0
-  );
-}
-
-function getLatestResult(
-  results: QuizResult[],
-  studentId: number,
-  quizId: number
-): QuizResult | null {
-  const rows = results
-    .filter(
-      (result) =>
-        Number(
-          result.student_id
-        ) ===
-          Number(studentId) &&
-        Number(
-          result.quiz_id
-        ) ===
-          Number(quizId)
-    )
-    .sort(
-      (a, b) => {
-        const attemptA =
-          safeNumber(
-            a.attempt_number,
-            1
-          );
-
-        const attemptB =
-          safeNumber(
-            b.attempt_number,
-            1
-          );
-
-        if (
-          attemptA !==
-          attemptB
-        ) {
-          return (
-            attemptA -
-            attemptB
-          );
-        }
-
-        return (
-          new Date(
-            a.created_at || 0
-          ).getTime() -
-          new Date(
-            b.created_at || 0
-          ).getTime()
-        );
-      }
-    );
-
-  return rows.length
-    ? rows[
-        rows.length - 1
-      ]
-    : null;
-}
-
-function getAllQuizClasses(
-  quizzes: QuizTest[],
-  students: Student[]
-): string[] {
-  const set =
-    new Set<string>();
-
-  quizzes.forEach(
-    (quiz) => {
-      if (
-        quiz.class_name?.trim()
-      ) {
-        set.add(
-          quiz.class_name.trim()
-        );
-      }
-
-      if (
-        Array.isArray(
-          quiz.target_classes
-        )
-      ) {
-        quiz.target_classes.forEach(
-          (className) => {
-            if (
-              typeof className ===
-                "string" &&
-              className.trim()
-            ) {
-              set.add(
-                className.trim()
-              );
-            }
-          }
-        );
-      }
-    }
-  );
-
-  students.forEach(
-    (student) => {
-      if (
-        student.class_name?.trim()
-      ) {
-        set.add(
-          student.class_name.trim()
-        );
-      }
-    }
-  );
-
-  return Array.from(
-    set
-  ).sort(
-    (a, b) =>
-      a.localeCompare(
-        b,
-        undefined,
-        {
-          numeric: true,
-          sensitivity:
-            "base",
-        }
-      )
-  );
-}
-
-function getQuizTargetClasses(
-  quiz: QuizTest
-): string[] {
-  const set =
-    new Set<string>();
-
-  if (
-    quiz.class_name?.trim()
-  ) {
-    set.add(
-      quiz.class_name.trim()
-    );
-  }
-
-  if (
-    Array.isArray(
-      quiz.target_classes
-    )
-  ) {
-    quiz.target_classes.forEach(
-      (className) => {
-        if (
-          typeof className ===
-            "string" &&
-          className.trim()
-        ) {
-          set.add(
-            className.trim()
-          );
-        }
-      }
-    );
-  }
-
-  return Array.from(
-    set
-  );
-}
-
-function studentBelongsToQuiz(
-  student: Student,
-  quiz: QuizTest
-): boolean {
-  const targets =
-    getQuizTargetClasses(
-      quiz
-    );
-
-  if (
-    targets.length === 0
-  ) {
-    return true;
-  }
-
-  return targets.includes(
-    cleanText(
-      student.class_name,
-      ""
-    )
-  );
-}
-
-function drawSignature(
-  doc: jsPDF,
-  x: number,
-  y: number
-) {
-  doc.setFont(
-    "times",
-    "italic"
-  );
-
-  doc.setFontSize(17);
-
-  doc.text(
-    "RACER Academy",
-    x,
-    y
-  );
-
-  doc.setFontSize(8);
-
-  doc.setFont(
-    "helvetica",
-    "normal"
-  );
-
-  doc.text(
-    "Authorized Signature",
-    x + 7,
-    y + 6
-  );
-
-  doc.setLineWidth(
-    0.5
-  );
-
-  doc.line(
-    x,
-    y + 2,
-    x + 45,
-    y + 2
-  );
-}
-
-function drawStamp(
-  doc: jsPDF,
-  x: number,
-  y: number
-) {
-  doc.setDrawColor(
-    80,
-    80,
-    80
-  );
-
-  doc.setLineWidth(
-    0.8
-  );
-
-  doc.circle(
-    x,
-    y,
-    17
-  );
-
-  doc.setLineWidth(
-    0.35
-  );
-
-  doc.circle(
-    x,
-    y,
-    13
-  );
-
-  doc.setFont(
-    "helvetica",
-    "bold"
-  );
-
-  doc.setFontSize(7);
-
-  doc.text(
-    "RACER ACADEMY",
-    x,
-    y - 7,
-    {
-      align:
-        "center",
-    }
-  );
-
-  doc.setFontSize(6);
-
-  doc.text(
-    "OFFICIAL RESULT",
-    x,
-    y + 1,
-    {
-      align:
-        "center",
-    }
-  );
-
-  doc.setFontSize(5);
-
-  doc.text(
-    "VERIFIED",
-    x,
-    y + 7,
-    {
-      align:
-        "center",
-    }
-  );
-}
-
-function createPdfHeader(
-  doc: jsPDF,
-  title: string,
-  dateText: string
-) {
-  const pageWidth =
-    doc.internal.pageSize
-      .getWidth();
-
-  doc.setFont(
-    "helvetica",
-    "bold"
-  );
-
-  doc.setFontSize(20);
-
-  doc.text(
-    "RACER ACADEMY",
-    pageWidth / 2,
-    20,
-    {
-      align:
-        "center",
-    }
-  );
-
-  doc.setFont(
-    "helvetica",
-    "normal"
-  );
-
-  doc.setFontSize(10);
-
-  doc.text(
-    "Student & Teacher Quiz Results",
-    pageWidth / 2,
-    27,
-    {
-      align:
-        "center",
-    }
-  );
-
-  doc.setFont(
-    "helvetica",
-    "bold"
-  );
-
-  doc.setFontSize(14);
-
-  doc.text(
-    title,
-    pageWidth / 2,
-    39,
-    {
-      align:
-        "center",
-    }
-  );
-
-  doc.setFont(
-    "helvetica",
-    "normal"
-  );
-
-  doc.setFontSize(9);
-
-  doc.text(
-    `Result Date: ${dateText}`,
-    pageWidth / 2,
-    46,
-    {
-      align:
-        "center",
-    }
-  );
-
-  doc.setLineWidth(
-    0.6
-  );
-
-  doc.line(
-    15,
-    51,
-    pageWidth - 15,
-    51
-  );
-}
-
-function addPdfFooter(
-  doc: jsPDF,
-  dateText: string
-) {
-  const pageWidth =
-    doc.internal.pageSize
-      .getWidth();
-
-  const pageHeight =
-    doc.internal.pageSize
-      .getHeight();
-
-  doc.setFont(
-    "helvetica",
-    "normal"
-  );
-
-  doc.setFontSize(7);
-
-  doc.text(
-    `RACER ACADEMY • Result Date: ${dateText}`,
-    15,
-    pageHeight - 10
-  );
-
-  doc.text(
-    `Page ${doc.getNumberOfPages()}`,
-    pageWidth - 15,
-    pageHeight - 10,
-    {
-      align:
-        "right",
-    }
-  );
-}
-
-function addStudentPdf(
-  doc: jsPDF,
-  row: StudentResultRow,
-  dateText: string
-) {
-  const pageWidth =
-    doc.internal.pageSize
-      .getWidth();
-
-  const result =
-    row.result;
-
-  const student =
-    row.student;
-
-  const quiz =
-    row.quiz;
-
-  createPdfHeader(
-    doc,
-    "INDIVIDUAL QUIZ RESULT",
-    dateText
-  );
-
-  let y = 62;
-
-  doc.setFont(
-    "helvetica",
-    "bold"
-  );
-
-  doc.setFontSize(11);
-
-  doc.text(
-    "STUDENT DETAILS",
-    15,
-    y
-  );
-
-  y += 8;
-
-  doc.setFont(
-    "helvetica",
-    "normal"
-  );
-
-  doc.setFontSize(9);
-
-  const details = [
-    [
-      "Student Name",
-      cleanText(
-        student.student_name
-      ),
-    ],
-    [
-      "Username",
-      cleanText(
-        student.student_username
-      ),
-    ],
-    [
-      "Class",
-      cleanText(
-        student.class_name
-      ),
-    ],
-    [
-      "Student ID",
-      String(
-        student.id
-      ),
-    ],
-  ];
-
-  details.forEach(
-    ([label, value]) => {
-      doc.setFont(
-        "helvetica",
-        "bold"
-      );
-
-      doc.text(
-        `${label}:`,
-        18,
-        y
-      );
-
-      doc.setFont(
-        "helvetica",
-        "normal"
-      );
-
-      doc.text(
-        value,
-        60,
-        y
-      );
-
-      y += 7;
-    }
-  );
-
-  y += 5;
-
-  doc.setFont(
-    "helvetica",
-    "bold"
-  );
-
-  doc.setFontSize(11);
-
-  doc.text(
-    "QUIZ DETAILS",
-    15,
-    y
-  );
-
-  y += 8;
-
-  doc.setFontSize(9);
-
-  const quizDetails = [
-    [
-      "Quiz",
-      cleanText(
-        quiz.title
-      ),
-    ],
-    [
-      "Subject",
-      cleanText(
-        quiz.subject
-      ),
-    ],
-    [
-      "Date",
-      formatDate(
-        quiz.scheduled_date
-      ),
-    ],
-    [
-      "Time",
-      formatTime(
-        quiz.scheduled_time
-      ),
-    ],
-    [
-      "Duration",
-      `${safeNumber(
-        quiz.duration_minutes,
-        30
-      )} minutes`,
-    ],
-  ];
-
-  quizDetails.forEach(
-    ([label, value]) => {
-      doc.setFont(
-        "helvetica",
-        "bold"
-      );
-
-      doc.text(
-        `${label}:`,
-        18,
-        y
-      );
-
-      doc.setFont(
-        "helvetica",
-        "normal"
-      );
-
-      doc.text(
-        value,
-        60,
-        y
-      );
-
-      y += 7;
-    }
-  );
-
-  y += 5;
-
-  doc.setFont(
-    "helvetica",
-    "bold"
-  );
-
-  doc.setFontSize(11);
-
-  doc.text(
-    "RESULT DETAILS",
-    15,
-    y
-  );
-
-  y += 9;
-
-  const resultRows = [
-    [
-      "Total Questions",
-      result
-        ? String(
-            safeNumber(
-              result.total_questions
-            )
-          )
-        : "0",
-    ],
-    [
-      "Correct Answers",
-      result
-        ? String(
-            safeNumber(
-              result.correct_answers
-            )
-          )
-        : "0",
-    ],
-    [
-      "Wrong Answers",
-      result
-        ? String(
-            safeNumber(
-              result.wrong_answers
-            )
-          )
-        : "0",
-    ],
-    [
-      "Unanswered",
-      result
-        ? String(
-            safeNumber(
-              result.unanswered
-            )
-          )
-        : "0",
-    ],
-    [
-      "Total Marks",
-      result
-        ? safeNumber(
-            result.total_marks
-          ).toFixed(2)
-        : "0.00",
-    ],
-    [
-      "Obtained Marks",
-      result
-        ? safeNumber(
-            result.obtained_marks
-          ).toFixed(2)
-        : "0.00",
-    ],
-    [
-      "Percentage",
-      result
-        ? `${safeNumber(
-            result.percentage
-          ).toFixed(2)}%`
-        : "0.00%",
-    ],
-    [
-      "Status",
-      statusText(
-        result
-      ),
-    ],
-    [
-      "Submission",
-      result
-        ? cleanText(
-            result.submission_type
-          )
-        : "—",
-    ],
-    [
-      "Attempt",
-      result
-        ? String(
-            Math.max(
-              1,
-              safeNumber(
-                result.attempt_number,
-                1
-              )
-            )
-          )
-        : "0",
-    ],
-  ];
-
-  const tableX = 15;
-  const tableWidth =
-    pageWidth - 30;
-  const rowHeight = 8;
-  const col1 =
-    75;
-
-  resultRows.forEach(
-    ([label, value]) => {
-      doc.setDrawColor(
-        210,
-        210,
-        210
-      );
-
-      doc.rect(
-        tableX,
-        y,
-        tableWidth,
-        rowHeight
-      );
-
-      doc.line(
-        tableX + col1,
-        y,
-        tableX + col1,
-        y + rowHeight
-      );
-
-      doc.setFont(
-        "helvetica",
-        "bold"
-      );
-
-      doc.text(
-        label,
-        tableX + 3,
-        y + 5.5
-      );
-
-      doc.setFont(
-        "helvetica",
-        "normal"
-      );
-
-      doc.text(
-        value,
-        tableX + col1 + 3,
-        y + 5.5
-      );
-
-      y += rowHeight;
-    }
-  );
-
-  y += 8;
-
-  if (result) {
-    doc.setFont(
-      "helvetica",
-      "normal"
-    );
-
-    doc.setFontSize(8);
-
-    doc.text(
-      `Started: ${formatDateTime(
-        result.started_at
-      )}`,
-      15,
-      y
-    );
-
-    y += 6;
-
-    doc.text(
-      `Submitted: ${formatDateTime(
-        result.submitted_at
-      )}`,
-      15,
-      y
-    );
-  }
-
-  const bottomY =
-    doc.internal.pageSize
-      .getHeight() - 35;
-
-  drawSignature(
-    doc,
-    pageWidth - 65,
-    bottomY
-  );
-
-  drawStamp(
-    doc,
-    pageWidth - 25,
-    bottomY - 3
-  );
-
-  addPdfFooter(
-    doc,
-    dateText
-  );
-}
-
-function addOverallPdfPage(
-  doc: jsPDF,
-  rows: StudentResultRow[],
-  dateText: string,
-  subjectText: string,
-  classText: string
-) {
-  const pageWidth =
-    doc.internal.pageSize
-      .getWidth();
-
-  createPdfHeader(
-    doc,
-    "OVERALL QUIZ RESULT REPORT",
-    dateText
-  );
-
-  let y = 59;
-
-  doc.setFont(
-    "helvetica",
-    "bold"
-  );
-
-  doc.setFontSize(9);
-
-  doc.text(
-    `Subject: ${subjectText}`,
-    15,
-    y
-  );
-
-  doc.text(
-    `Class: ${classText}`,
-    pageWidth - 15,
-    y,
-    {
-      align:
-        "right",
-    }
-  );
-
-  y += 8;
-
-  doc.setFont(
-    "helvetica",
-    "normal"
-  );
-
-  doc.setFontSize(8);
-
-  const headers = [
-    "Student",
-    "Class",
-    "Quiz",
-    "Subject",
-    "Marks",
-    "%",
-    "Status",
-  ];
-
-  const widths = [
-    34,
-    20,
-    42,
-    25,
-    20,
-    17,
-    27,
-  ];
-
-  const startX = 10;
-  const rowHeight = 8;
-
-  let x = startX;
-
-  doc.setFont(
-    "helvetica",
-    "bold"
-  );
-
-  headers.forEach(
-    (
-      header,
-      index
-    ) => {
-      doc.rect(
-        x,
-        y,
-        widths[index],
-        rowHeight
-      );
-
-      doc.text(
-        header,
-        x + 2,
-        y + 5.5
-      );
-
-      x += widths[index];
-    }
-  );
-
-  y += rowHeight;
-
-  doc.setFont(
-    "helvetica",
-    "normal"
-  );
-
-  rows.forEach(
-    (row) => {
-      if (
-        y >
-        doc.internal.pageSize
-          .getHeight() -
-          25
-      ) {
-        addPdfFooter(
-          doc,
-          dateText
-        );
-
-        doc.addPage();
-
-        createPdfHeader(
-          doc,
-          "OVERALL QUIZ RESULT REPORT",
-          dateText
-        );
-
-        y = 59;
-
-        x = startX;
-
-        doc.setFont(
-          "helvetica",
-          "bold"
-        );
-
-        headers.forEach(
-          (
-            header,
-            index
-          ) => {
-            doc.rect(
-              x,
-              y,
-              widths[index],
-              rowHeight
-            );
-
-            doc.text(
-              header,
-              x + 2,
-              y + 5.5
-            );
-
-            x += widths[index];
-          }
-        );
-
-        y += rowHeight;
-
-        doc.setFont(
-          "helvetica",
-          "normal"
-        );
-      }
-
-      const result =
-        row.result;
-
-      const values = [
-        cleanText(
-          row.student.student_name
-        ),
-        cleanText(
-          row.student.class_name
-        ),
-        cleanText(
-          row.quiz.title
-        ),
-        cleanText(
-          row.quiz.subject
-        ),
-        result
-          ? `${safeNumber(
-              result.obtained_marks
-            ).toFixed(1)}/${safeNumber(
-              result.total_marks
-            ).toFixed(1)}`
-          : "0/0",
-        result
-          ? `${safeNumber(
-              result.percentage
-            ).toFixed(1)}%`
-          : "0%",
-        statusText(
-          result
-        ),
-      ];
-
-      x = startX;
-
-      values.forEach(
-        (
-          value,
-          index
-        ) => {
-          doc.rect(
-            x,
-            y,
-            widths[index],
-            rowHeight
-          );
-
-          let displayValue =
-            value;
-
-          if (
-            displayValue.length >
-            22
-          ) {
-            displayValue =
-              displayValue.substring(
-                0,
-                20
-              ) + "…";
-          }
-
-          doc.text(
-            displayValue,
-            x + 2,
-            y + 5.5
-          );
-
-          x +=
-            widths[index];
-        }
-      );
-
-      y += rowHeight;
-    }
-  );
-
-  y += 8;
-
-  if (
-    y >
-    doc.internal.pageSize
-      .getHeight() -
-      45
-  ) {
-    addPdfFooter(
-      doc,
-      dateText
-    );
-
-    doc.addPage();
-
-    createPdfHeader(
-      doc,
-      "OVERALL QUIZ RESULT REPORT",
-      dateText
-    );
-
-    y = 62;
-  }
-
-  doc.setFont(
-    "helvetica",
-    "bold"
-  );
-
-  doc.setFontSize(9);
-
-  doc.text(
-    `Total Records: ${rows.length}`,
-    15,
-    y
-  );
-
-  y += 6;
-
-  const submitted =
-    rows.filter(
-      (row) =>
-        Boolean(
-          row.result
-        )
-    ).length;
-
-  const pass =
-    rows.filter(
-      (row) =>
-        row.result &&
-        isPass(
-          row.result
-        )
-    ).length;
-
-  const fail =
-    rows.filter(
-      (row) =>
-        row.result &&
-        !isPass(
-          row.result
-        )
-    ).length;
-
-  const notAttempted =
-    rows.filter(
-      (row) =>
-        !row.result
-    ).length;
-
-  doc.setFont(
-    "helvetica",
-    "normal"
-  );
-
-  doc.text(
-    `Submitted: ${submitted}    Not Attempted: ${notAttempted}    Pass: ${pass}    Fail: ${fail}`,
-    15,
-    y
-  );
-
-  const signatureY =
-    doc.internal.pageSize
-      .getHeight() - 33;
-
-  drawSignature(
-    doc,
-    pageWidth - 65,
-    signatureY
-  );
-
-  drawStamp(
-    doc,
-    pageWidth - 25,
-    signatureY - 3
-  );
-
-  addPdfFooter(
-    doc,
-    dateText
-  );
+  return sortClasses([...classes]);
 }
 
 function TeacherQuizResultsContent() {
-  const searchParams =
-    useSearchParams();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const initialQuizId =
-    Number(
-      searchParams.get(
-        "quizId"
-      )
-    );
+  const quizIdParam = searchParams.get("quizId");
+  const quizId = Number(quizIdParam);
 
-  const [
-    quizzes,
-    setQuizzes,
-  ] =
-    useState<QuizTest[]>([]);
+  const [currentQuiz, setCurrentQuiz] = useState<QuizTest | null>(null);
+  const [currentStudents, setCurrentStudents] = useState<Student[]>([]);
+  const [currentResults, setCurrentResults] = useState<QuizResult[]>([]);
 
-  const [
-    students,
-    setStudents,
-  ] =
-    useState<Student[]>([]);
+  const [allQuizzes, setAllQuizzes] = useState<QuizTest[]>([]);
+  const [allResults, setAllResults] = useState<QuizResult[]>([]);
+  const [allStudents, setAllStudents] = useState<Student[]>([]);
 
-  const [
-    results,
-    setResults,
-  ] =
-    useState<QuizResult[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filterLoading, setFilterLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const [
-    loading,
-    setLoading,
-  ] =
-    useState(true);
+  const [selectedDate, setSelectedDate] = useState("ALL");
+  const [selectedSubject, setSelectedSubject] = useState("ALL");
+  const [selectedClass, setSelectedClass] = useState("ALL");
+  const [selectedStatus, setSelectedStatus] = useState("ALL");
 
-  const [
-    error,
-    setError,
-  ] =
-    useState("");
+  const [expandedDates, setExpandedDates] = useState<Set<string>>(
+    new Set()
+  );
+  const [expandedClasses, setExpandedClasses] = useState<Set<string>>(
+    new Set()
+  );
+  const [expandedStudents, setExpandedStudents] = useState<Set<string>>(
+    new Set()
+  );
 
-  const [
-    selectedDate,
-    setSelectedDate,
-  ] =
-    useState("ALL");
+  const [reattemptQuizIds, setReattemptQuizIds] = useState<Set<string>>(
+    new Set()
+  );
 
-  const [
-    selectedSubject,
-    setSelectedSubject,
-  ] =
-    useState("ALL");
+  const [reattemptLoading, setReattemptLoading] = useState<string | null>(
+    null
+  );
 
-  const [
-    selectedClass,
-    setSelectedClass,
-  ] =
-    useState("ALL");
+  const [reattemptMessage, setReattemptMessage] = useState("");
 
-  const [
-    expandedDates,
-    setExpandedDates,
-  ] =
-    useState<Set<string>>(
-      new Set()
-    );
+  const goBack = () => {
+    router.back();
+  };
 
-  const [
-    expandedClasses,
-    setExpandedClasses,
-  ] =
-    useState<Set<string>>(
-      new Set()
-    );
+  const goDashboard = () => {
+    router.push("/teacher");
+  };
 
-  const [
-    expandedStudents,
-    setExpandedStudents,
-  ] =
-    useState<Set<string>>(
-      new Set()
-    );
+  const logout = () => {
+    try {
+      localStorage.removeItem("teacher_username");
+      localStorage.removeItem("teacherUsername");
+      localStorage.removeItem("teacherLoggedIn");
+      localStorage.removeItem("attendance_role");
+      localStorage.removeItem("attendance_username");
+      localStorage.removeItem("attendance_teacher_id");
+      localStorage.removeItem("teacher_id");
+    } catch {
+      // ignore
+    }
 
-  const [
-    reattemptQuizIds,
-    setReattemptQuizIds,
-  ] =
-    useState<Set<string>>(
-      new Set()
-    );
+    router.replace("/");
+  };
 
-  const [
-    reattemptLoadingKey,
-    setReattemptLoadingKey,
-  ] =
-    useState("");
+  const loadReattemptPermissions = useCallback(
+    async (quizRows: QuizTest[], studentRows: Student[]) => {
+      try {
+        const allowed = new Set<string>();
 
-  const [
-    message,
-    setMessage,
-  ] =
-    useState("");
-
-  const loadData =
-    useCallback(
-      async () => {
-        setLoading(true);
-        setError("");
-
-        try {
-          const {
-            data: quizRows,
-            error:
-              quizError,
-          } =
-            await supabase
-              .from(
-                "quiz_tests"
-              )
-              .select("*")
-              .order(
-                "scheduled_date",
-                {
-                  ascending:
-                    false,
-                }
-              )
-              .order(
-                "created_at",
-                {
-                  ascending:
-                    false,
-                }
-              );
-
-          if (quizError) {
-            throw new Error(
-              quizError.message
-            );
-          }
-
-          const {
-            data: studentRows,
-            error:
-              studentError,
-          } =
-            await supabase
-              .from(
-                "students"
-              )
-              .select(
-                "id,student_name,student_username,class_name"
-              )
-              .order(
-                "class_name",
-                {
-                  ascending:
-                    true,
-                }
-              )
-              .order(
-                "student_name",
-                {
-                  ascending:
-                    true,
-                }
-              );
-
-          if (studentError) {
-            throw new Error(
-              studentError.message
-            );
-          }
-
-          const quizIds =
-            (
-              quizRows || []
-            ).map(
-              (quiz) =>
-                Number(
-                  quiz.id
-                )
+        for (const quiz of quizRows) {
+          for (const student of studentRows) {
+            const response = await fetch(
+              `/api/quiz-tests/reattempt?studentId=${encodeURIComponent(
+                String(student.id)
+              )}&quizId=${encodeURIComponent(String(quiz.id))}`,
+              {
+                method: "GET",
+                cache: "no-store",
+              }
             );
 
-          let resultRows:
-            QuizResult[] = [];
+            if (!response.ok) continue;
 
-          if (
-            quizIds.length >
-            0
-          ) {
-            const {
-              data:
-                resultData,
-              error:
-                resultError,
-            } =
-              await supabase
-                .from(
-                  "quiz_results"
-                )
-                .select("*")
-                .in(
-                  "quiz_id",
-                  quizIds
-                )
-                .order(
-                  "created_at",
-                  {
-                    ascending:
-                      true,
-                  }
-                );
-
-            if (resultError) {
-              throw new Error(
-                resultError.message
-              );
-            }
-
-            resultRows =
-              (
-                resultData ||
-                []
-              ).map(
-                (result) => ({
-                  ...result,
-                  id: Number(
-                    result.id
-                  ),
-                  quiz_id:
-                    Number(
-                      result.quiz_id
-                    ),
-                  student_id:
-                    Number(
-                      result.student_id
-                    ),
-                  attempt_number:
-                    Math.max(
-                      1,
-                      safeNumber(
-                        result.attempt_number,
-                        1
-                      )
-                    ),
-                })
-              );
-          }
-
-          const cleanQuizzes =
-            (
-              quizRows || []
-            ).map(
-              (quiz) => ({
-                ...quiz,
-                id: Number(
-                  quiz.id
-                ),
-              })
-            );
-
-          const cleanStudents =
-            (
-              studentRows || []
-            ).map(
-              (student) => ({
-                id: Number(
-                  student.id
-                ),
-                student_name:
-                  student.student_name,
-                student_username:
-                  student.student_username,
-                class_name:
-                  student.class_name,
-              })
-            );
-
-          setQuizzes(
-            cleanQuizzes
-          );
-
-          setStudents(
-            cleanStudents
-          );
-
-          setResults(
-            resultRows
-          );
-
-          if (
-            initialQuizId &&
-            cleanQuizzes.some(
-              (quiz) =>
-                quiz.id ===
-                initialQuizId
-            )
-          ) {
-            const initialQuiz =
-              cleanQuizzes.find(
-                (quiz) =>
-                  quiz.id ===
-                  initialQuizId
-              );
+            const data = await response.json();
 
             if (
-              initialQuiz?.scheduled_date
+              data?.allowed === true ||
+              (Array.isArray(data?.quizIds) &&
+                data.quizIds.some(
+                  (id: unknown) => Number(id) === Number(quiz.id)
+                ))
             ) {
-              setSelectedDate(
-                initialQuiz.scheduled_date
-              );
+              allowed.add(`${quiz.id}__${student.id}`);
             }
           }
-
-          setExpandedDates(
-            new Set()
-          );
-
-          setExpandedClasses(
-            new Set()
-          );
-
-          setExpandedStudents(
-            new Set()
-          );
-        } catch (
-          loadError
-        ) {
-          console.error(
-            "TEACHER RESULTS LOAD ERROR:",
-            loadError
-          );
-
-          setError(
-            loadError instanceof
-              Error
-              ? loadError.message
-              : "Unable to load quiz results."
-          );
-        } finally {
-          setLoading(false);
         }
-      },
-      [initialQuizId]
-    );
+
+        setReattemptQuizIds(allowed);
+      } catch {
+        setReattemptQuizIds(new Set());
+      }
+    },
+    []
+  );
+
+  const loadData = useCallback(async () => {
+    if (!Number.isFinite(quizId) || quizId <= 0) {
+      setError("Quiz ID is missing or invalid.");
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const [
+        currentQuizResponse,
+        currentResultsResponse,
+        studentsResponse,
+        quizzesResponse,
+        resultsResponse,
+      ] = await Promise.all([
+        supabase
+          .from("quiz_tests")
+          .select(
+            `
+              id,
+              title,
+              description,
+              class_name,
+              target_classes,
+              subject,
+              scheduled_date,
+              scheduled_time,
+              duration_minutes,
+              marks_per_question,
+              negative_marks,
+              pass_percentage,
+              is_published,
+              created_at
+            `
+          )
+          .eq("id", quizId)
+          .single(),
+
+        supabase
+          .from("quiz_results")
+          .select(
+            `
+              id,
+              quiz_id,
+              student_id,
+              attempt_number,
+              total_questions,
+              correct_answers,
+              wrong_answers,
+              unanswered,
+              total_marks,
+              obtained_marks,
+              percentage,
+              result_status,
+              started_at,
+              submitted_at,
+              submission_type,
+              created_at
+            `
+          )
+          .eq("quiz_id", quizId)
+          .order("created_at", { ascending: true }),
+
+        supabase
+          .from("students")
+          .select(
+            `
+              id,
+              student_name,
+              student_username,
+              class_name
+            `
+          )
+          .order("class_name", { ascending: true })
+          .order("student_name", { ascending: true }),
+
+        supabase
+          .from("quiz_tests")
+          .select(
+            `
+              id,
+              title,
+              description,
+              class_name,
+              target_classes,
+              subject,
+              scheduled_date,
+              scheduled_time,
+              duration_minutes,
+              marks_per_question,
+              negative_marks,
+              pass_percentage,
+              is_published,
+              created_at
+            `
+          )
+          .order("scheduled_date", {
+            ascending: false,
+            nullsFirst: false,
+          }),
+
+        supabase
+          .from("quiz_results")
+          .select(
+            `
+              id,
+              quiz_id,
+              student_id,
+              attempt_number,
+              total_questions,
+              correct_answers,
+              wrong_answers,
+              unanswered,
+              total_marks,
+              obtained_marks,
+              percentage,
+              result_status,
+              started_at,
+              submitted_at,
+              submission_type,
+              created_at
+            `
+          )
+          .order("created_at", { ascending: true }),
+      ]);
+
+      if (currentQuizResponse.error) {
+        throw currentQuizResponse.error;
+      }
+
+      if (currentResultsResponse.error) {
+        throw currentResultsResponse.error;
+      }
+
+      if (studentsResponse.error) {
+        throw studentsResponse.error;
+      }
+
+      if (quizzesResponse.error) {
+        throw quizzesResponse.error;
+      }
+
+      if (resultsResponse.error) {
+        throw resultsResponse.error;
+      }
+
+      const quiz = currentQuizResponse.data as QuizTest;
+
+      const normalizedCurrentResults = (
+        (currentResultsResponse.data || []) as QuizResult[]
+      ).map((row) => ({
+        ...row,
+        id: Number(row.id),
+        quiz_id: Number(row.quiz_id),
+        student_id: Number(row.student_id),
+        attempt_number: Math.max(1, safeNumber(row.attempt_number)),
+      }));
+
+      const normalizedAllResults = (
+        (resultsResponse.data || []) as QuizResult[]
+      ).map((row) => ({
+        ...row,
+        id: Number(row.id),
+        quiz_id: Number(row.quiz_id),
+        student_id: Number(row.student_id),
+        attempt_number: Math.max(1, safeNumber(row.attempt_number)),
+      }));
+
+      const normalizedStudents = ((studentsResponse.data || []) as Student[]).map(
+        (student) => ({
+          ...student,
+          id: Number(student.id),
+        })
+      );
+
+      const normalizedQuizzes = (quizzesResponse.data || []) as QuizTest[];
+
+      setCurrentQuiz(quiz);
+      setCurrentResults(normalizedCurrentResults);
+      setCurrentStudents(normalizedStudents);
+
+      setAllQuizzes(normalizedQuizzes);
+      setAllResults(normalizedAllResults);
+      setAllStudents(normalizedStudents);
+
+      setSelectedDate("ALL");
+      setSelectedSubject("ALL");
+      setSelectedClass("ALL");
+      setSelectedStatus("ALL");
+
+      setExpandedDates(
+        new Set(
+          normalizedQuizzes
+            .filter((q) => q.scheduled_date)
+            .map((q) => q.scheduled_date as string)
+        )
+      );
+
+      setExpandedClasses(new Set());
+      setExpandedStudents(new Set());
+
+      await loadReattemptPermissions(normalizedQuizzes, normalizedStudents);
+    } catch (err: any) {
+      setError(err?.message || "Unable to load quiz results.");
+    } finally {
+      setLoading(false);
+    }
+  }, [quizId, loadReattemptPermissions]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  const availableDates =
-    useMemo(() => {
-      return Array.from(
-        new Set(
-          quizzes
-            .map(
-              (quiz) =>
-                quiz.scheduled_date
-            )
-            .filter(
-              (
-                date
-              ): date is string =>
-                Boolean(date)
-            )
-        )
-      ).sort(
-        (a, b) =>
-          new Date(
-            b
-          ).getTime() -
-          new Date(
-            a
-          ).getTime()
-      );
-    }, [quizzes]);
+  const availableDates = useMemo(() => {
+    const dates = new Set<string>();
 
-  const availableSubjects =
-    useMemo(() => {
-      return Array.from(
-        new Set(
-          quizzes
-            .map(
-              (quiz) =>
-                quiz.subject?.trim()
-            )
-            .filter(
-              (
-                subject
-              ): subject is string =>
-                Boolean(subject)
-            )
-        )
-      ).sort(
-        (a, b) =>
-          a.localeCompare(
-            b,
-            undefined,
-            {
-              sensitivity:
-                "base",
-            }
-          )
-      );
-    }, [quizzes]);
+    allQuizzes.forEach((quiz) => {
+      if (quiz.scheduled_date) {
+        dates.add(quiz.scheduled_date);
+      }
+    });
 
-  const availableClasses =
-    useMemo(
-      () =>
-        getAllQuizClasses(
-          quizzes,
-          students
-        ),
-      [
-        quizzes,
-        students,
-      ]
+    return [...dates].sort((a, b) => b.localeCompare(a));
+  }, [allQuizzes]);
+
+  const availableSubjects = useMemo(() => {
+    const subjects = new Set<string>();
+
+    allQuizzes.forEach((quiz) => {
+      subjects.add(normalizeSubject(quiz.subject));
+    });
+
+    SUBJECTS.forEach((subject) => subjects.add(subject));
+
+    return [...subjects].sort((a, b) =>
+      a.localeCompare(b, undefined, {
+        sensitivity: "base",
+      })
+    );
+  }, [allQuizzes]);
+
+  const availableClasses = useMemo(() => {
+    const classes = new Set<string>();
+
+    allStudents.forEach((student) => {
+      if (student.class_name) {
+        classes.add(normalizeClassName(student.class_name));
+      }
+    });
+
+    allQuizzes.forEach((quiz) => {
+      getQuizClasses(quiz).forEach((className) => classes.add(className));
+    });
+
+    return sortClasses([...classes]);
+  }, [allStudents, allQuizzes]);
+
+  const filteredQuizzes = useMemo(() => {
+    return allQuizzes.filter((quiz) => {
+      const dateMatch =
+        selectedDate === "ALL" ||
+        String(quiz.scheduled_date || "") === selectedDate;
+
+      const subjectMatch =
+        selectedSubject === "ALL" ||
+        normalizeSubject(quiz.subject) === selectedSubject;
+
+      const classMatch =
+        selectedClass === "ALL" ||
+        getQuizClasses(quiz).includes(selectedClass);
+
+      return dateMatch && subjectMatch && classMatch;
+    });
+  }, [
+    allQuizzes,
+    selectedDate,
+    selectedSubject,
+    selectedClass,
+  ]);
+
+  const filteredQuizIds = useMemo(
+    () => new Set(filteredQuizzes.map((quiz) => Number(quiz.id))),
+    [filteredQuizzes]
+  );
+
+  const filteredResultRows = useMemo(() => {
+    return allResults.filter((result) =>
+      filteredQuizIds.has(Number(result.quiz_id))
+    );
+  }, [allResults, filteredQuizIds]);
+
+  const resultByQuizStudent = useMemo(() => {
+    const map = new Map<string, QuizResult[]>();
+
+    filteredResultRows.forEach((result) => {
+      const key = `${result.quiz_id}__${result.student_id}`;
+
+      const existing = map.get(key) || [];
+      existing.push(result);
+      map.set(key, existing);
+    });
+
+    map.forEach((rows) => {
+      rows.sort((a, b) => {
+        const attemptDiff =
+          safeNumber(a.attempt_number) - safeNumber(b.attempt_number);
+
+        if (attemptDiff !== 0) return attemptDiff;
+
+        return String(a.created_at || "").localeCompare(
+          String(b.created_at || "")
+        );
+      });
+    });
+
+    return map;
+  }, [filteredResultRows]);
+
+  const filteredStudentRows = useMemo(() => {
+    return allStudents.filter((student) => {
+      if (
+        selectedClass !== "ALL" &&
+        normalizeClassName(student.class_name) !== selectedClass
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [allStudents, selectedClass]);
+
+  const allStudentQuizRows = useMemo<QuizStudentRow[]>(() => {
+    const rows: QuizStudentRow[] = [];
+
+    filteredQuizzes.forEach((quiz) => {
+      const quizClasses = getQuizClasses(quiz);
+
+      const studentsForQuiz = filteredStudentRows.filter((student) => {
+        const studentClass = normalizeClassName(student.class_name);
+
+        return quizClasses.length === 0 || quizClasses.includes(studentClass);
+      });
+
+      studentsForQuiz.forEach((student) => {
+        const results =
+          resultByQuizStudent.get(`${quiz.id}__${student.id}`) || [];
+
+        rows.push({
+          quiz,
+          student,
+          results,
+        });
+      });
+    });
+
+    return rows;
+  }, [
+    filteredQuizzes,
+    filteredStudentRows,
+    resultByQuizStudent,
+  ]);
+
+  const studentLatestRows = useMemo(() => {
+    const map = new Map<number, QuizStudentRow[]>();
+
+    allStudentQuizRows.forEach((row) => {
+      const existing = map.get(row.student.id) || [];
+      existing.push(row);
+      map.set(row.student.id, existing);
+    });
+
+    return map;
+  }, [allStudentQuizRows]);
+
+  const filteredStatusRows = useMemo(() => {
+    if (selectedStatus === "ALL") {
+      return allStudentQuizRows;
+    }
+
+    return allStudentQuizRows.filter((row) => {
+      if (row.results.length === 0) {
+        return selectedStatus === "NOT_SUBMITTED";
+      }
+
+      const latest =
+        row.results[row.results.length - 1];
+
+      const status = resultStatus(latest);
+
+      if (selectedStatus === "SUBMITTED") return true;
+      if (selectedStatus === "PASS") {
+        return status.includes("PASS");
+      }
+
+      if (selectedStatus === "FAIL") {
+        return status.includes("FAIL");
+      }
+
+      if (selectedStatus === "NOT_SUBMITTED") {
+        return false;
+      }
+
+      return true;
+    });
+  }, [allStudentQuizRows, selectedStatus]);
+
+  const stats = useMemo(() => {
+    const quizCount = filteredQuizzes.length;
+
+    const totalAssigned = allStudentQuizRows.length;
+
+    const submitted = allStudentQuizRows.filter(
+      (row) => row.results.length > 0
+    ).length;
+
+    const notSubmitted = Math.max(0, totalAssigned - submitted);
+
+    const latestRows = allStudentQuizRows
+      .filter((row) => row.results.length > 0)
+      .map((row) => row.results[row.results.length - 1]);
+
+    const pass = latestRows.filter((result) =>
+      resultStatus(result).includes("PASS")
+    ).length;
+
+    const fail = latestRows.filter((result) =>
+      resultStatus(result).includes("FAIL")
+    ).length;
+
+    const attempts = filteredResultRows.length;
+
+    const totalMarks = latestRows.reduce(
+      (sum, result) => sum + safeNumber(result.total_marks),
+      0
     );
 
-  const filteredQuizzes =
-    useMemo(() => {
-      return quizzes.filter(
-        (quiz) => {
-          if (
-            selectedDate !==
-              "ALL" &&
-            quiz.scheduled_date !==
-              selectedDate
-          ) {
-            return false;
-          }
+    const obtainedMarks = latestRows.reduce(
+      (sum, result) => sum + safeNumber(result.obtained_marks),
+      0
+    );
 
-          if (
-            selectedSubject !==
-              "ALL" &&
-            cleanText(
-              quiz.subject,
-              ""
-            ) !==
-              selectedSubject
-          ) {
-            return false;
-          }
+    const averagePercentage =
+      latestRows.length > 0
+        ? latestRows.reduce(
+            (sum, result) => sum + safeNumber(result.percentage),
+            0
+          ) / latestRows.length
+        : 0;
 
-          if (
-            selectedClass !==
-              "ALL"
-          ) {
-            const targets =
-              getQuizTargetClasses(
-                quiz
-              );
+    return {
+      quizCount,
+      totalAssigned,
+      submitted,
+      notSubmitted,
+      pass,
+      fail,
+      attempts,
+      totalMarks,
+      obtainedMarks,
+      averagePercentage,
+    };
+  }, [filteredQuizzes, allStudentQuizRows, filteredResultRows]);
 
-            if (
-              targets.length >
-                0 &&
-              !targets.includes(
-                selectedClass
-              )
-            ) {
-              return false;
-            }
-          }
+  const groupedRows = useMemo(() => {
+    const dateMap = new Map<
+      string,
+      Map<string, QuizStudentRow[]>
+    >();
 
-          return true;
-        }
-      );
-    }, [
-      quizzes,
-      selectedDate,
-      selectedSubject,
-      selectedClass,
-    ]);
+    filteredStatusRows.forEach((row) => {
+      const date = row.quiz.scheduled_date || "unknown";
+      const className = normalizeClassName(row.student.class_name);
 
-  const resultRows =
-    useMemo(() => {
-      const rows: StudentResultRow[] =
-        [];
+      if (!dateMap.has(date)) {
+        dateMap.set(date, new Map());
+      }
 
-      filteredQuizzes.forEach(
-        (quiz) => {
-          students.forEach(
-            (student) => {
-              if (
-                !studentBelongsToQuiz(
-                  student,
-                  quiz
-                )
-              ) {
-                return;
-              }
+      const classMap = dateMap.get(date)!;
 
-              if (
-                selectedClass !==
-                  "ALL" &&
-                cleanText(
-                  student.class_name,
-                  ""
-                ) !==
-                  selectedClass
-              ) {
-                return;
-              }
+      if (!classMap.has(className)) {
+        classMap.set(className, []);
+      }
 
-              rows.push({
-                student,
-                quiz,
-                result:
-                  getLatestResult(
-                    results,
-                    student.id,
-                    quiz.id
-                  ),
-              });
-            }
-          );
-        }
-      );
+      classMap.get(className)!.push(row);
+    });
 
-      return rows.sort(
-        (a, b) => {
-          const dateA =
-            a.quiz
-              .scheduled_date ||
-            "";
+    const dates = [...dateMap.keys()].sort((a, b) => {
+      if (a === "unknown") return 1;
+      if (b === "unknown") return -1;
+      return b.localeCompare(a);
+    });
 
-          const dateB =
-            b.quiz
-              .scheduled_date ||
-            "";
+    return dates.map((date) => {
+      const classMap = dateMap.get(date)!;
 
-          if (
-            dateA !==
-            dateB
-          ) {
-            return dateB.localeCompare(
-              dateA
-            );
-          }
-
-          const classCompare =
-            cleanText(
-              a.student
-                .class_name,
-              ""
-            ).localeCompare(
-              cleanText(
-                b.student
-                  .class_name,
-                ""
-              ),
+      const classes = [...classMap.keys()]
+        .sort((a, b) =>
+          a.localeCompare(b, undefined, {
+            numeric: true,
+            sensitivity: "base",
+          })
+        )
+        .map((className) => ({
+          className,
+          rows: classMap.get(className)!.sort((a, b) =>
+            String(a.student.student_name || "").localeCompare(
+              String(b.student.student_name || ""),
               undefined,
               {
-                numeric:
-                  true,
+                sensitivity: "base",
               }
-            );
-
-          if (
-            classCompare !==
-            0
-          ) {
-            return classCompare;
-          }
-
-          return cleanText(
-            a.student
-              .student_name,
-            ""
-          ).localeCompare(
-            cleanText(
-              b.student
-                .student_name,
-                ""
-              ),
-              undefined,
-              {
-                sensitivity:
-                  "base",
-              }
-            );
-        }
-      );
-    }, [
-      filteredQuizzes,
-      students,
-      results,
-      selectedClass,
-    ]);
-
-  const groupedData =
-    useMemo(() => {
-      const map =
-        new Map<
-          string,
-          Map<
-            string,
-            StudentResultRow[]
-          >
-        >();
-
-      resultRows.forEach(
-        (row) => {
-          const date =
-            row.quiz
-              .scheduled_date ||
-            "unknown";
-
-          const className =
-            cleanText(
-              row.student
-                .class_name,
-              "Unknown Class"
-            );
-
-          if (
-            !map.has(date)
-          ) {
-            map.set(
-              date,
-              new Map()
-            );
-          }
-
-          const classMap =
-            map.get(date)!;
-
-          if (
-            !classMap.has(
-              className
             )
-          ) {
-            classMap.set(
-              className,
-              []
-            );
+          ),
+        }));
+
+      return {
+        date,
+        classes,
+      };
+    });
+  }, [filteredStatusRows]);
+
+  const currentQuizClasses = useMemo(() => {
+    if (!currentQuiz) return [];
+    return getQuizClasses(currentQuiz);
+  }, [currentQuiz]);
+
+  const currentQuizStudents = useMemo(() => {
+    if (!currentQuiz) return [];
+
+    return currentStudents
+      .filter((student) => {
+        const classes = currentQuizClasses;
+
+        if (classes.length === 0) return true;
+
+        return classes.includes(
+          normalizeClassName(student.class_name)
+        );
+      })
+      .sort((a, b) =>
+        String(a.student_name || "").localeCompare(
+          String(b.student_name || ""),
+          undefined,
+          {
+            sensitivity: "base",
           }
-
-          classMap
-            .get(
-              className
-            )!
-            .push(row);
-        }
+        )
       );
+  }, [currentQuiz, currentStudents, currentQuizClasses]);
 
-      return Array.from(
-        map.entries()
-      ).sort(
-        ([dateA], [dateB]) =>
-          dateB.localeCompare(
-            dateA
-          )
-      );
-    }, [resultRows]);
+  const currentQuizResultsByStudent = useMemo(() => {
+    const map = new Map<number, QuizResult[]>();
 
-  const totalRecords =
-    resultRows.length;
+    currentResults.forEach((result) => {
+      const rows = map.get(result.student_id) || [];
+      rows.push(result);
+      map.set(result.student_id, rows);
+    });
 
-  const submitted =
-    resultRows.filter(
-      (row) =>
-        Boolean(
-          row.result
-        )
-    ).length;
+    map.forEach((rows) => {
+      rows.sort((a, b) => {
+        const attemptDiff =
+          safeNumber(a.attempt_number) - safeNumber(b.attempt_number);
 
-  const notAttempted =
-    totalRecords -
-    submitted;
+        if (attemptDiff !== 0) return attemptDiff;
 
-  const passCount =
-    resultRows.filter(
-      (row) =>
-        row.result &&
-        isPass(
-          row.result
-        )
-    ).length;
+        return String(a.created_at || "").localeCompare(
+          String(b.created_at || "")
+        );
+      });
+    });
 
-  const failCount =
-    resultRows.filter(
-      (row) =>
-        row.result &&
-        !isPass(
-          row.result
-        )
-    ).length;
+    return map;
+  }, [currentResults]);
 
-  const attemptCount =
-    results.filter(
-      (result) =>
-        filteredQuizzes.some(
-          (quiz) =>
-            quiz.id ===
-            result.quiz_id
-        ) &&
-        (
-          selectedClass ===
-            "ALL" ||
-          students.some(
-            (student) =>
-              student.id ===
-                result.student_id &&
-              cleanText(
-                student.class_name,
-                ""
-              ) ===
-                selectedClass
-          )
-        )
-    ).length;
+  const currentQuizStats = useMemo(() => {
+    const total = currentQuizStudents.length;
 
-  const averagePercentage =
-    submitted > 0
-      ? resultRows
-          .filter(
-            (row) =>
-              row.result
-          )
-          .reduce(
-            (
-              total,
-              row
-            ) =>
-              total +
-              safeNumber(
-                row.result
-                  ?.percentage
-              ),
-            0
-          ) /
-        submitted
-      : 0;
+    let submitted = 0;
+    let pass = 0;
+    let fail = 0;
+    let attempts = 0;
 
-  function toggleDate(
-    date: string
-  ) {
-    setExpandedDates(
-      (previous) => {
-        const next =
-          new Set(
-            previous
-          );
+    currentQuizStudents.forEach((student) => {
+      const results =
+        currentQuizResultsByStudent.get(student.id) || [];
 
-        if (
-          next.has(date)
-        ) {
-          next.delete(date);
-        } else {
-          next.add(date);
+      attempts += results.length;
+
+      if (results.length > 0) {
+        submitted += 1;
+
+        const latest = results[results.length - 1];
+
+        if (resultStatus(latest).includes("PASS")) {
+          pass += 1;
         }
 
-        return next;
-      }
-    );
-  }
-
-  function toggleClass(
-    key: string
-  ) {
-    setExpandedClasses(
-      (previous) => {
-        const next =
-          new Set(
-            previous
-          );
-
-        if (
-          next.has(key)
-        ) {
-          next.delete(key);
-        } else {
-          next.add(key);
+        if (resultStatus(latest).includes("FAIL")) {
+          fail += 1;
         }
-
-        return next;
       }
-    );
-  }
+    });
 
-  function toggleStudent(
-    key: string
-  ) {
-    setExpandedStudents(
-      (previous) => {
-        const next =
-          new Set(
-            previous
-          );
+    return {
+      total,
+      submitted,
+      notSubmitted: Math.max(0, total - submitted),
+      pass,
+      fail,
+      attempts,
+    };
+  }, [currentQuizStudents, currentQuizResultsByStudent]);
 
-        if (
-          next.has(key)
-        ) {
-          next.delete(key);
-        } else {
-          next.add(key);
-        }
+  const toggleDate = (date: string) => {
+    setExpandedDates((previous) => {
+      const next = new Set(previous);
 
-        return next;
+      if (next.has(date)) {
+        next.delete(date);
+      } else {
+        next.add(date);
       }
-    );
-  }
 
-  async function allowReattempt(
-    row: StudentResultRow
-  ) {
-    const key =
-      `${row.quiz.id}_${row.student.id}`;
+      return next;
+    });
+  };
 
-    setReattemptLoadingKey(
-      key
-    );
+  const toggleClass = (key: string) => {
+    setExpandedClasses((previous) => {
+      const next = new Set(previous);
 
-    setMessage("");
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+
+      return next;
+    });
+  };
+
+  const toggleStudent = (key: string) => {
+    setExpandedStudents((previous) => {
+      const next = new Set(previous);
+
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+
+      return next;
+    });
+  };
+
+  const allowReattempt = async (
+    targetQuizId: number,
+    studentId: number
+  ) => {
+    setReattemptLoading(`${targetQuizId}__${studentId}`);
+    setReattemptMessage("");
 
     try {
-      const teacherId =
-        Number(
-          localStorage.getItem(
-            "attendance_teacher_id"
-          ) ||
-            localStorage.getItem(
-              "teacher_id"
-            )
-        );
+      let teacherId: number | null = null;
 
-      if (
-        !teacherId ||
-        !Number.isFinite(
-          teacherId
-        )
-      ) {
+      try {
+        const storedTeacherId =
+          localStorage.getItem("attendance_teacher_id") ||
+          localStorage.getItem("teacher_id");
+
+        if (storedTeacherId) {
+          teacherId = Number(storedTeacherId);
+        }
+      } catch {
+        teacherId = null;
+      }
+
+      const response = await fetch("/api/quiz-tests/reattempt", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "allow",
+          quizId: targetQuizId,
+          studentId,
+          teacherId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || data?.success === false) {
         throw new Error(
-          "Teacher ID not found. Please login again."
+          data?.error || "Unable to allow re-attempt."
         );
       }
 
-      const response =
-        await fetch(
-          "/api/quiz-tests/reattempt",
+      setReattemptQuizIds((previous) => {
+        const next = new Set(previous);
+        next.add(`${targetQuizId}__${studentId}`);
+        return next;
+      });
+
+      setReattemptMessage(
+        "Re-attempt access allowed successfully."
+      );
+    } catch (err: any) {
+      setReattemptMessage(
+        err?.message || "Unable to allow re-attempt."
+      );
+    } finally {
+      setReattemptLoading(null);
+    }
+  };
+
+  const drawAcademyHeader = (
+    pdf: jsPDF,
+    title: string,
+    subtitle?: string
+  ) => {
+    const pageWidth = pdf.internal.pageSize.getWidth();
+
+    pdf.setFillColor(15, 23, 42);
+    pdf.rect(0, 0, pageWidth, 34, "F");
+
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(20);
+    pdf.text("RACER ACADEMY", pageWidth / 2, 13, {
+      align: "center",
+    });
+
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(
+      "Student Quiz Performance & Academic Record",
+      pageWidth / 2,
+      20,
+      {
+        align: "center",
+      }
+    );
+
+    pdf.setTextColor(15, 23, 42);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(15);
+    pdf.text(title, 14, 46);
+
+    if (subtitle) {
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(9);
+      pdf.text(subtitle, 14, 53);
+    }
+  };
+
+  const drawSignatureAndStamp = (
+    pdf: jsPDF,
+    submissionDate: string | null
+  ) => {
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+
+    pdf.setTextColor(20, 20, 20);
+
+    pdf.setFont("times", "italic");
+    pdf.setFontSize(17);
+    pdf.text("Racer Academy", pageWidth - 62, pageHeight - 27, {
+      align: "center",
+      angle: -7,
+    });
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7);
+    pdf.text("Authorized Academic Record", pageWidth - 62, pageHeight - 21, {
+      align: "center",
+    });
+
+    const stampX = pageWidth - 29;
+    const stampY = pageHeight - 31;
+
+    pdf.setDrawColor(90, 90, 90);
+    pdf.setLineWidth(0.8);
+    pdf.circle(stampX, stampY, 12);
+    pdf.setLineWidth(0.4);
+    pdf.circle(stampX, stampY, 9);
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(5.5);
+    pdf.text("RACER ACADEMY", stampX, stampY - 4, {
+      align: "center",
+    });
+
+    pdf.setFontSize(5);
+    pdf.text("OFFICIAL", stampX, stampY + 1, {
+      align: "center",
+    });
+
+    pdf.setFont("helvetica", "normal");
+    pdf.text(
+      submissionDate ? formatDate(submissionDate) : "QUIZ DATE",
+      stampX,
+      stampY + 5,
+      {
+        align: "center",
+      }
+    );
+
+    pdf.setFontSize(7);
+    pdf.text(
+      `Generated: ${new Date().toLocaleDateString("en-IN")}`,
+      14,
+      pageHeight - 10
+    );
+  };
+
+  const addTableHeader = (
+    pdf: jsPDF,
+    headers: string[],
+    widths: number[],
+    startX: number,
+    startY: number
+  ) => {
+    let x = startX;
+
+    pdf.setFillColor(226, 232, 240);
+    pdf.setDrawColor(148, 163, 184);
+
+    headers.forEach((header, index) => {
+      pdf.rect(x, startY, widths[index], 9, "FD");
+
+      pdf.setTextColor(15, 23, 42);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(7);
+
+      pdf.text(header, x + widths[index] / 2, startY + 6, {
+        align: "center",
+      });
+
+      x += widths[index];
+    });
+  };
+
+  const addTableRow = (
+    pdf: jsPDF,
+    values: string[],
+    widths: number[],
+    startX: number,
+    startY: number,
+    height = 9
+  ) => {
+    let x = startX;
+
+    pdf.setDrawColor(203, 213, 225);
+
+    values.forEach((value, index) => {
+      pdf.rect(x, startY, widths[index], height);
+
+      pdf.setTextColor(30, 41, 59);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(7);
+
+      const maxChars = Math.max(8, Math.floor(widths[index] / 2));
+
+      let display = String(value ?? "");
+
+      if (display.length > maxChars) {
+        display = `${display.slice(0, maxChars - 3)}...`;
+      }
+
+      pdf.text(display, x + widths[index] / 2, startY + 6, {
+        align: "center",
+      });
+
+      x += widths[index];
+    });
+  };
+
+  const createStudentPdf = async (
+    quiz: QuizTest,
+    student: Student,
+    results: QuizResult[]
+  ) => {
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+    });
+
+    drawAcademyHeader(
+      pdf,
+      "INDIVIDUAL QUIZ RESULT",
+      `${quiz.title} • ${formatDateLong(quiz.scheduled_date)}`
+    );
+
+    let y = 64;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    pdf.text("STUDENT DETAILS", 14, y);
+
+    y += 7;
+
+    const details = [
+      ["Name", student.student_name || "Not available"],
+      ["Username", student.student_username || "Not available"],
+      ["Class", normalizeClassName(student.class_name)],
+      ["Subject", normalizeSubject(quiz.subject)],
+      ["Quiz Date", formatDate(quiz.scheduled_date)],
+      ["Quiz Time", formatTime(quiz.scheduled_time)],
+    ];
+
+    details.forEach(([label, value]) => {
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(8);
+      pdf.text(`${label}:`, 16, y);
+
+      pdf.setFont("helvetica", "normal");
+      pdf.text(String(value), 53, y);
+
+      y += 6;
+    });
+
+    y += 4;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    pdf.text("ATTEMPT DETAILS", 14, y);
+
+    y += 6;
+
+    const widths = [20, 25, 24, 22, 22, 25, 34];
+
+    addTableHeader(
+      pdf,
+      [
+        "Attempt",
+        "Questions",
+        "Correct",
+        "Wrong",
+        "Unanswered",
+        "Marks",
+        "Status",
+      ],
+      widths,
+      14,
+      y
+    );
+
+    y += 9;
+
+    results.forEach((result, index) => {
+      if (y > 255) {
+        drawSignatureAndStamp(
+          pdf,
+          result.submitted_at
+            ? result.submitted_at.slice(0, 10)
+            : quiz.scheduled_date
+        );
+
+        pdf.addPage();
+
+        drawAcademyHeader(
+          pdf,
+          "INDIVIDUAL QUIZ RESULT",
+          `${quiz.title} • Continued`
+        );
+
+        y = 64;
+
+        addTableHeader(
+          pdf,
+          [
+            "Attempt",
+            "Questions",
+            "Correct",
+            "Wrong",
+            "Unanswered",
+            "Marks",
+            "Status",
+          ],
+          widths,
+          14,
+          y
+        );
+
+        y += 9;
+      }
+
+      const status = resultStatus(result);
+
+      addTableRow(
+        pdf,
+        [
+          getAttemptLabel(result, index),
+          String(safeNumber(result.total_questions)),
+          String(safeNumber(result.correct_answers)),
+          String(safeNumber(result.wrong_answers)),
+          String(safeNumber(result.unanswered)),
+          `${safeNumber(result.obtained_marks)}/${safeNumber(
+            result.total_marks
+          )}`,
+          status,
+        ],
+        widths,
+        14,
+        y
+      );
+
+      y += 9;
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(7);
+      pdf.setTextColor(71, 85, 105);
+
+      pdf.text(
+        `Percentage: ${safeNumber(result.percentage).toFixed(
+          2
+        )}%   |   Submission: ${
+          result.submission_type || "Normal"
+        }   |   Submitted: ${formatDateTime(result.submitted_at)}`,
+        16,
+        y + 4
+      );
+
+      y += 10;
+    });
+
+    if (results.length === 0) {
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(10);
+      pdf.text("NO ATTEMPT SUBMITTED", 16, y + 5);
+      y += 15;
+    }
+
+    const latest =
+      results.length > 0 ? results[results.length - 1] : null;
+
+    y += 4;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    pdf.text("FINAL SUMMARY", 14, y);
+
+    y += 8;
+
+    if (latest) {
+      const summary = [
+        `Final Percentage: ${safeNumber(
+          latest.percentage
+        ).toFixed(2)}%`,
+        `Final Status: ${resultStatus(latest)}`,
+        `Obtained Marks: ${safeNumber(
+          latest.obtained_marks
+        )}/${safeNumber(latest.total_marks)}`,
+        `Attempts: ${results.length}`,
+        `Submitted On: ${formatDateTime(latest.submitted_at)}`,
+      ];
+
+      summary.forEach((line) => {
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(9);
+        pdf.text(line, 18, y);
+        y += 6;
+      });
+    } else {
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(9);
+      pdf.text("No submitted result is available.", 18, y);
+    }
+
+    drawSignatureAndStamp(
+      pdf,
+      latest?.submitted_at
+        ? latest.submitted_at.slice(0, 10)
+        : quiz.scheduled_date
+    );
+
+    const safeStudentName =
+      (student.student_name || "student")
+        .replace(/[^a-z0-9]+/gi, "_")
+        .replace(/^_+|_+$/g, "");
+
+    const safeQuizTitle =
+      (quiz.title || "quiz")
+        .replace(/[^a-z0-9]+/gi, "_")
+        .replace(/^_+|_+$/g, "");
+
+    pdf.save(
+      `RACER_ACADEMY_${safeStudentName}_${safeQuizTitle}_RESULT.pdf`
+    );
+  };
+
+  const downloadOverallPdf = async () => {
+    setFilterLoading(true);
+
+    try {
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+
+      drawAcademyHeader(
+        pdf,
+        "OVERALL QUIZ RESULT REPORT",
+        `Filters: ${
+          selectedDate === "ALL"
+            ? "All Dates"
+            : formatDate(selectedDate)
+        } • ${
+          selectedSubject === "ALL"
+            ? "All Subjects"
+            : selectedSubject
+        } • ${
+          selectedClass === "ALL"
+            ? "All Classes"
+            : selectedClass
+        }`
+      );
+
+      let y = 64;
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(9);
+      pdf.text(
+        `Quizzes: ${stats.quizCount}   |   Students: ${stats.totalAssigned}   |   Submitted: ${stats.submitted}   |   Not Submitted: ${stats.notSubmitted}   |   Pass: ${stats.pass}   |   Fail: ${stats.fail}   |   Attempts: ${stats.attempts}`,
+        14,
+        y
+      );
+
+      y += 8;
+
+      const widths = [32, 24, 35, 26, 29, 23, 23, 25, 25, 28];
+
+      addTableHeader(
+        pdf,
+        [
+          "Student",
+          "Class",
+          "Quiz",
+          "Date",
+          "Subject",
+          "Attempt",
+          "Obtained",
+          "Total",
+          "%",
+          "Status",
+        ],
+        widths,
+        14,
+        y
+      );
+
+      y += 9;
+
+      const rows = [...filteredStatusRows].sort((a, b) => {
+        const dateDiff = String(
+          b.quiz.scheduled_date || ""
+        ).localeCompare(String(a.quiz.scheduled_date || ""));
+
+        if (dateDiff !== 0) return dateDiff;
+
+        const classDiff = normalizeClassName(
+          a.student.class_name
+        ).localeCompare(
+          normalizeClassName(b.student.class_name),
+          undefined,
           {
-            method:
-              "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify(
-              {
-                action:
-                  "allow",
-                quizId:
-                  row.quiz.id,
-                studentId:
-                  row.student.id,
-                teacherId,
-              }
-            ),
+            numeric: true,
           }
         );
 
-      const data =
-        await response.json();
+        if (classDiff !== 0) return classDiff;
 
-      if (
-        !response.ok ||
-        !data?.success
-      ) {
-        throw new Error(
-          data?.error ||
-            "Unable to allow re-attempt."
+        return String(a.student.student_name || "").localeCompare(
+          String(b.student.student_name || "")
+        );
+      });
+
+      rows.forEach((row) => {
+        if (y > 175) {
+          drawSignatureAndStamp(
+            pdf,
+            row.quiz.scheduled_date
+          );
+
+          pdf.addPage();
+
+          drawAcademyHeader(
+            pdf,
+            "OVERALL QUIZ RESULT REPORT",
+            "Continued"
+          );
+
+          y = 64;
+
+          addTableHeader(
+            pdf,
+            [
+              "Student",
+              "Class",
+              "Quiz",
+              "Date",
+              "Subject",
+              "Attempt",
+              "Obtained",
+              "Total",
+              "%",
+              "Status",
+            ],
+            widths,
+            14,
+            y
+          );
+
+          y += 9;
+        }
+
+        const latest =
+          row.results.length > 0
+            ? row.results[row.results.length - 1]
+            : null;
+
+        addTableRow(
+          pdf,
+          [
+            row.student.student_name || "Unnamed",
+            normalizeClassName(row.student.class_name),
+            row.quiz.title,
+            formatDate(row.quiz.scheduled_date),
+            normalizeSubject(row.quiz.subject),
+            latest
+              ? String(
+                  safeNumber(latest.attempt_number) || 1
+                )
+              : "-",
+            latest
+              ? String(safeNumber(latest.obtained_marks))
+              : "0",
+            latest
+              ? String(safeNumber(latest.total_marks))
+              : "0",
+            latest
+              ? `${safeNumber(latest.percentage).toFixed(2)}%`
+              : "0%",
+            latest ? resultStatus(latest) : "NOT SUBMITTED",
+          ],
+          widths,
+          14,
+          y
+        );
+
+        y += 9;
+      });
+
+      if (rows.length === 0) {
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(11);
+        pdf.text(
+          "No students/results match the selected filters.",
+          pageWidth / 2,
+          y + 10,
+          {
+            align: "center",
+          }
         );
       }
 
-      setReattemptQuizIds(
-        (previous) => {
-          const next =
-            new Set(
-              previous
-            );
-
-          next.add(key);
-
-          return next;
-        }
+      drawSignatureAndStamp(
+        pdf,
+        selectedDate !== "ALL"
+          ? selectedDate
+          : currentQuiz?.scheduled_date || null
       );
 
-      setMessage(
-        `Re-attempt allowed for ${cleanText(
-          row.student.student_name,
-          "student"
-        )}.`
-      );
-    } catch (
-      allowError
-    ) {
-      console.error(
-        "ALLOW REATTEMPT ERROR:",
-        allowError
-      );
-
-      setMessage(
-        allowError instanceof
-          Error
-          ? allowError.message
-          : "Unable to allow re-attempt."
+      pdf.save(
+        "RACER_ACADEMY_OVERALL_QUIZ_RESULTS.pdf"
       );
     } finally {
-      setReattemptLoadingKey(
-        ""
-      );
+      setFilterLoading(false);
     }
-  }
-
-  function downloadOverallPdf() {
-    if (
-      resultRows.length ===
-      0
-    ) {
-      setMessage(
-        "There are no results to download for the selected filters."
-      );
-      return;
-    }
-
-    const doc =
-      new jsPDF({
-        orientation:
-          "landscape",
-        unit:
-          "mm",
-        format:
-          "a4",
-      });
-
-    const dateText =
-      selectedDate ===
-      "ALL"
-        ? "All Quiz Dates"
-        : formatDate(
-            selectedDate
-          );
-
-    const subjectText =
-      selectedSubject ===
-      "ALL"
-        ? "All Subjects"
-        : selectedSubject;
-
-    const classText =
-      selectedClass ===
-      "ALL"
-        ? "All Classes"
-        : selectedClass;
-
-    addOverallPdfPage(
-      doc,
-      resultRows,
-      dateText,
-      subjectText,
-      classText
-    );
-
-    doc.save(
-      `RACER-Academy-Overall-Results-${new Date()
-        .toISOString()
-        .slice(
-          0,
-          10
-        )}.pdf`
-    );
-  }
-
-  function downloadStudentPdf(
-    row: StudentResultRow
-  ) {
-    const doc =
-      new jsPDF({
-        orientation:
-          "portrait",
-        unit:
-          "mm",
-        format:
-          "a4",
-      });
-
-    const dateText =
-      row.quiz
-        .scheduled_date
-        ? formatDate(
-            row.quiz
-              .scheduled_date
-          )
-        : "Result Date";
-
-    addStudentPdf(
-      doc,
-      row,
-      dateText
-    );
-
-    const studentName =
-      cleanText(
-        row.student
-          .student_name,
-        "Student"
-      )
-        .replace(
-          /[^a-zA-Z0-9]+/g,
-          "-"
-        )
-        .replace(
-          /^-+|-+$/g,
-          ""
-        );
-
-    doc.save(
-      `RACER-Academy-${studentName}-Result-${row.quiz.id}.pdf`
-    );
-  }
-
-  function resetFilters() {
-    setSelectedDate(
-      "ALL"
-    );
-
-    setSelectedSubject(
-      "ALL"
-    );
-
-    setSelectedClass(
-      "ALL"
-    );
-
-    setExpandedDates(
-      new Set()
-    );
-
-    setExpandedClasses(
-      new Set()
-    );
-
-    setExpandedStudents(
-      new Set()
-    );
-  }
-
-  function goBack() {
-    window.history.back();
-  }
-
-  function goDashboard() {
-    window.location.href =
-      "/teacher";
-  }
-
-  function logout() {
-    const keys = [
-      "teacher_username",
-      "teacherUsername",
-      "teacherLoggedIn",
-      "attendance_role",
-      "attendance_username",
-      "attendance_teacher_id",
-      "teacher_id",
-    ];
-
-    keys.forEach(
-      (key) =>
-        localStorage.removeItem(
-          key
-        )
-    );
-
-    window.location.href =
-      "/";
-  }
+  };
 
   if (loading) {
     return (
-      <main
-        style={
-          styles.page
-        }
-      >
-        <div
-          style={
-            styles.loadingCard
-          }
-        >
-          <div
-            style={
-              styles.spinner
-            }
-          />
-
-          <h2
-            style={
-              styles.loadingTitle
-            }
-          >
-            Loading All Quiz Results...
+      <main style={styles.page}>
+        <div style={styles.loadingCard}>
+          <div style={styles.loaderCircle}>RA</div>
+          <h2 style={styles.loadingTitle}>
+            Loading Quiz Results...
           </h2>
-
-          <p
-            style={
-              styles.loadingText
-            }
-          >
-            Loading quizzes, students
-            and result records.
+          <p style={styles.loadingText}>
+            Please wait while RACER ACADEMY loads all student
+            results.
           </p>
         </div>
       </main>
@@ -2533,844 +1635,592 @@ function TeacherQuizResultsContent() {
 
   if (error) {
     return (
-      <main
-        style={
-          styles.page
-        }
-      >
-        <div
-          style={
-            styles.errorCard
-          }
-        >
-          <h2
-            style={
-              styles.errorTitle
-            }
-          >
+      <main style={styles.page}>
+        <div style={styles.errorCard}>
+          <div style={styles.errorIcon}>!</div>
+
+          <h2 style={styles.errorTitle}>
             Unable to Load Results
           </h2>
 
-          <p
-            style={
-              styles.errorText
-            }
-          >
-            {error}
-          </p>
+          <p style={styles.errorText}>{error}</p>
 
-          <button
-            type="button"
-            onClick={
-              loadData
-            }
-            style={
-              styles.primaryButton
-            }
-          >
-            Retry
-          </button>
+          <div style={styles.actionRow}>
+            <button style={styles.secondaryButton} onClick={goBack}>
+              ← Back
+            </button>
+
+            <button
+              style={styles.primaryButton}
+              onClick={loadData}
+            >
+              Refresh
+            </button>
+          </div>
         </div>
       </main>
     );
   }
 
   return (
-    <main
-      style={
-        styles.page
-      }
-    >
-      <div
-        style={
-          styles.container
-        }
-      >
-        <header
-          style={
-            styles.header
-          }
-        >
-          <div>
-            <div
-              style={
-                styles.brand
-              }
-            >
-              RACER ACADEMY
+    <main style={styles.page}>
+      <div style={styles.container}>
+        <header style={styles.topHeader}>
+          <div style={styles.brandBlock}>
+            <div style={styles.brandBadge}>RA</div>
+
+            <div>
+              <div style={styles.brandName}>
+                RACER ACADEMY
+              </div>
+
+              <div style={styles.brandSub}>
+                Teacher Quiz Results
+              </div>
             </div>
-
-            <h1
-              style={
-                styles.heading
-              }
-            >
-              Teacher Quiz Results
-            </h1>
-
-            <p
-              style={
-                styles.subtitle
-              }
-            >
-              Complete quiz-result management
-              • Datewise • Classwise •
-              Studentwise
-            </p>
           </div>
 
-          <div
-            style={
-              styles.headerActions
-            }
-          >
+          <div style={styles.topActions}>
             <button
-              type="button"
-              onClick={
-                goBack
-              }
-              style={
-                styles.actionButton
-              }
+              style={styles.headerButton}
+              onClick={goBack}
             >
               ← Back
             </button>
 
             <button
-              type="button"
-              onClick={
-                goDashboard
-              }
-              style={
-                styles.actionButton
-              }
+              style={styles.headerButton}
+              onClick={goDashboard}
             >
               Dashboard
             </button>
 
             <button
-              type="button"
-              onClick={
-                loadData
-              }
-              style={
-                styles.actionButton
-              }
-            >
-              Refresh
-            </button>
-
-            <button
-              type="button"
-              onClick={
-                logout
-              }
-              style={
-                styles.logoutButton
-              }
+              style={styles.logoutButton}
+              onClick={logout}
             >
               Logout
             </button>
           </div>
         </header>
 
-        <section
-          style={
-            styles.filtersCard
-          }
-        >
-          <div
-            style={
-              styles.filterHeading
-            }
-          >
+        <section style={styles.heroCard}>
+          <div style={styles.heroLeft}>
+            <span style={styles.heroEyebrow}>
+              QUIZ PERFORMANCE CENTER
+            </span>
+
+            <h1 style={styles.heroTitle}>
+              All Student Results
+            </h1>
+
+            <p style={styles.heroText}>
+              View quiz performance date-wise, class-wise and
+              student-wise with complete attempt details.
+            </p>
+          </div>
+
+          <div style={styles.heroQuizBox}>
+            <div style={styles.heroQuizLabel}>
+              CURRENT QUIZ
+            </div>
+
+            <div style={styles.heroQuizTitle}>
+              {currentQuiz?.title || "Quiz Results"}
+            </div>
+
+            <div style={styles.heroQuizMeta}>
+              {normalizeSubject(currentQuiz?.subject || null)}
+              {" • "}
+              {formatDate(currentQuiz?.scheduled_date || null)}
+            </div>
+          </div>
+        </section>
+
+        <section style={styles.filtersCard}>
+          <div style={styles.filterHeadingRow}>
             <div>
-              <h2
-                style={
-                  styles.filterTitle
-                }
-              >
+              <h2 style={styles.sectionTitle}>
                 Result Filters
               </h2>
 
-              <p
-                style={
-                  styles.filterSubtitle
-                }
-              >
-                Select any date, subject or
-                class to view the required
-                results.
+              <p style={styles.sectionSub}>
+                Select date, subject, class and result status.
               </p>
             </div>
 
             <button
-              type="button"
-              onClick={
-                resetFilters
-              }
-              style={
-                styles.resetButton
-              }
+              style={styles.refreshButton}
+              onClick={loadData}
+              disabled={filterLoading}
             >
-              Reset Filters
+              {filterLoading ? "Working..." : "↻ Refresh"}
             </button>
           </div>
 
-          <div
-            style={
-              styles.filterGrid
-            }
-          >
-            <label
-              style={
-                styles.filterLabel
-              }
-            >
-              <span>
-                Quiz Date
-              </span>
+          <div style={styles.filtersGrid}>
+            <label style={styles.filterLabel}>
+              <span>Date</span>
 
               <select
-                value={
-                  selectedDate
-                }
+                value={selectedDate}
                 onChange={(event) =>
-                  setSelectedDate(
-                    event.target
-                      .value
-                  )
+                  setSelectedDate(event.target.value)
                 }
-                style={
-                  styles.select
-                }
+                style={styles.select}
               >
                 <option value="ALL">
-                  All Dates
+                  All Quiz Dates
                 </option>
 
-                {availableDates.map(
-                  (date) => (
-                    <option
-                      key={
-                        date
-                      }
-                      value={
-                        date
-                      }
-                    >
-                      {formatDate(
-                        date
-                      )}
-                    </option>
-                  )
-                )}
+                {availableDates.map((date) => (
+                  <option key={date} value={date}>
+                    {formatDate(date)}
+                  </option>
+                ))}
               </select>
             </label>
 
-            <label
-              style={
-                styles.filterLabel
-              }
-            >
-              <span>
-                Subject
-              </span>
+            <label style={styles.filterLabel}>
+              <span>Subject</span>
 
               <select
-                value={
-                  selectedSubject
-                }
+                value={selectedSubject}
                 onChange={(event) =>
-                  setSelectedSubject(
-                    event.target
-                      .value
-                  )
+                  setSelectedSubject(event.target.value)
                 }
-                style={
-                  styles.select
-                }
+                style={styles.select}
               >
                 <option value="ALL">
                   All Subjects
                 </option>
 
-                {availableSubjects.map(
-                  (subject) => (
-                    <option
-                      key={
-                        subject
-                      }
-                      value={
-                        subject
-                      }
-                    >
-                      {subject}
-                    </option>
-                  )
-                )}
+                {availableSubjects.map((subject) => (
+                  <option key={subject} value={subject}>
+                    {subject}
+                  </option>
+                ))}
               </select>
             </label>
 
-            <label
-              style={
-                styles.filterLabel
-              }
-            >
-              <span>
-                Class
-              </span>
+            <label style={styles.filterLabel}>
+              <span>Class</span>
 
               <select
-                value={
-                  selectedClass
-                }
+                value={selectedClass}
                 onChange={(event) =>
-                  setSelectedClass(
-                    event.target
-                      .value
-                  )
+                  setSelectedClass(event.target.value)
                 }
-                style={
-                  styles.select
-                }
+                style={styles.select}
               >
                 <option value="ALL">
                   All Classes
                 </option>
 
-                {availableClasses.map(
-                  (className) => (
-                    <option
-                      key={
-                        className
-                      }
-                      value={
-                        className
-                      }
-                    >
-                      {className}
-                    </option>
-                  )
-                )}
+                {availableClasses.map((className) => (
+                  <option key={className} value={className}>
+                    {className}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label style={styles.filterLabel}>
+              <span>Status</span>
+
+              <select
+                value={selectedStatus}
+                onChange={(event) =>
+                  setSelectedStatus(event.target.value)
+                }
+                style={styles.select}
+              >
+                <option value="ALL">
+                  All Students
+                </option>
+
+                <option value="SUBMITTED">
+                  Submitted
+                </option>
+
+                <option value="NOT_SUBMITTED">
+                  Not Submitted
+                </option>
+
+                <option value="PASS">
+                  Pass
+                </option>
+
+                <option value="FAIL">
+                  Fail
+                </option>
               </select>
             </label>
           </div>
 
-          <div
-            style={
-              styles.filterInfo
-            }
-          >
-            Showing{" "}
-            <strong>
-              {
-                filteredQuizzes.length
-              }
-            </strong>{" "}
-            quiz
-            {filteredQuizzes.length ===
-            1
-              ? ""
-              : "zes"}{" "}
-            and{" "}
-            <strong>
-              {
-                resultRows.length
-              }
-            </strong>{" "}
-            student result records.
+          <div style={styles.filterSummary}>
+            <span>
+              Showing <strong>{filteredQuizzes.length}</strong>{" "}
+              quiz
+              {filteredQuizzes.length !== 1 ? "zes" : ""}
+            </span>
+
+            <span>
+              <strong>{filteredStatusRows.length}</strong>{" "}
+              student entries
+            </span>
+
+            <span>
+              <strong>{filteredResultRows.length}</strong>{" "}
+              submitted attempts
+            </span>
           </div>
         </section>
 
-        <section
-          style={
-            styles.statsGrid
-          }
-        >
-          <div
-            style={
-              styles.statCard
-            }
-          >
-            <span
-              style={
-                styles.statLabel
-              }
-            >
-              Total Records
-            </span>
-
-            <strong
-              style={
-                styles.statValue
-              }
-            >
-              {totalRecords}
-            </strong>
+        <section style={styles.statsGrid}>
+          <div style={styles.statCard}>
+            <div style={styles.statIcon}>Q</div>
+            <div>
+              <div style={styles.statNumber}>
+                {stats.quizCount}
+              </div>
+              <div style={styles.statLabel}>
+                Quizzes
+              </div>
+            </div>
           </div>
 
-          <div
-            style={
-              styles.statCard
-            }
-          >
-            <span
-              style={
-                styles.statLabel
-              }
-            >
-              Submitted
-            </span>
-
-            <strong
-              style={
-                styles.statValue
-              }
-            >
-              {submitted}
-            </strong>
+          <div style={styles.statCard}>
+            <div style={styles.statIcon}>S</div>
+            <div>
+              <div style={styles.statNumber}>
+                {stats.totalAssigned}
+              </div>
+              <div style={styles.statLabel}>
+                Student Entries
+              </div>
+            </div>
           </div>
 
-          <div
-            style={
-              styles.statCard
-            }
-          >
-            <span
-              style={
-                styles.statLabel
-              }
-            >
-              Not Attempted
-            </span>
-
-            <strong
-              style={
-                styles.statValue
-              }
-            >
-              {notAttempted}
-            </strong>
+          <div style={styles.statCard}>
+            <div style={styles.statIcon}>✓</div>
+            <div>
+              <div style={styles.statNumber}>
+                {stats.submitted}
+              </div>
+              <div style={styles.statLabel}>
+                Submitted
+              </div>
+            </div>
           </div>
 
-          <div
-            style={
-              styles.statCard
-            }
-          >
-            <span
-              style={
-                styles.statLabel
-              }
-            >
-              Pass
-            </span>
-
-            <strong
-              style={
-                styles.statValue
-              }
-            >
-              {passCount}
-            </strong>
+          <div style={styles.statCard}>
+            <div style={styles.statIcon}>!</div>
+            <div>
+              <div style={styles.statNumber}>
+                {stats.notSubmitted}
+              </div>
+              <div style={styles.statLabel}>
+                Not Submitted
+              </div>
+            </div>
           </div>
 
-          <div
-            style={
-              styles.statCard
-            }
-          >
-            <span
-              style={
-                styles.statLabel
-              }
-            >
-              Fail
-            </span>
-
-            <strong
-              style={
-                styles.statValue
-              }
-            >
-              {failCount}
-            </strong>
+          <div style={styles.statCard}>
+            <div style={styles.statIcon}>P</div>
+            <div>
+              <div style={styles.statNumber}>
+                {stats.pass}
+              </div>
+              <div style={styles.statLabel}>
+                Pass
+              </div>
+            </div>
           </div>
 
-          <div
-            style={
-              styles.statCard
-            }
-          >
-            <span
-              style={
-                styles.statLabel
-              }
-            >
-              Total Attempts
-            </span>
-
-            <strong
-              style={
-                styles.statValue
-              }
-            >
-              {attemptCount}
-            </strong>
+          <div style={styles.statCard}>
+            <div style={styles.statIcon}>F</div>
+            <div>
+              <div style={styles.statNumber}>
+                {stats.fail}
+              </div>
+              <div style={styles.statLabel}>
+                Fail
+              </div>
+            </div>
           </div>
 
-          <div
-            style={
-              styles.statCard
-            }
-          >
-            <span
-              style={
-                styles.statLabel
-              }
-            >
-              Average %
-            </span>
-
-            <strong
-              style={
-                styles.statValue
-              }
-            >
-              {averagePercentage.toFixed(
-                2
-              )}
-              %
-            </strong>
+          <div style={styles.statCard}>
+            <div style={styles.statIcon}>#</div>
+            <div>
+              <div style={styles.statNumber}>
+                {stats.attempts}
+              </div>
+              <div style={styles.statLabel}>
+                Attempts
+              </div>
+            </div>
           </div>
 
-          <div
-            style={
-              styles.statCard
-            }
-          >
-            <span
-              style={
-                styles.statLabel
-              }
-            >
-              Quizzes
-            </span>
-
-            <strong
-              style={
-                styles.statValue
-              }
-            >
-              {
-                filteredQuizzes.length
-              }
-            </strong>
+          <div style={styles.statCard}>
+            <div style={styles.statIcon}>%</div>
+            <div>
+              <div style={styles.statNumber}>
+                {stats.averagePercentage.toFixed(1)}%
+              </div>
+              <div style={styles.statLabel}>
+                Average
+              </div>
+            </div>
           </div>
         </section>
 
-        <section
-          style={
-            styles.downloadCard
-          }
-        >
+        <section style={styles.downloadBar}>
           <div>
-            <div
-              style={
-                styles.downloadTitle
-              }
-            >
+            <div style={styles.downloadTitle}>
               Result Reports
             </div>
 
-            <div
-              style={
-                styles.downloadText
-              }
-            >
-              Download the complete filtered
-              report or an individual student's
-              detailed result PDF.
+            <div style={styles.downloadSub}>
+              Download complete filtered results or an individual
+              student's detailed PDF.
             </div>
           </div>
 
           <button
-            type="button"
-            onClick={
-              downloadOverallPdf
-            }
-            disabled={
-              resultRows.length ===
-              0
-            }
-            style={
-              resultRows.length ===
-              0
-                ? styles.disabledDownload
-                : styles.downloadButton
-            }
+            style={styles.pdfButton}
+            onClick={downloadOverallPdf}
+            disabled={filterLoading}
           >
-            Download Overall PDF
+            {filterLoading
+              ? "Preparing PDF..."
+              : "Download Overall PDF"}
           </button>
         </section>
 
-        {message && (
-          <div
-            style={
-              styles.message
-            }
-          >
-            {message}
+        {reattemptMessage ? (
+          <div style={styles.messageBox}>
+            {reattemptMessage}
           </div>
-        )}
+        ) : null}
 
-        <section
-          style={
-            styles.resultsCard
-          }
-        >
-          <div
-            style={
-              styles.resultsHeader
-            }
-          >
+        <section style={styles.resultsSection}>
+          <div style={styles.resultsHeader}>
             <div>
-              <h2
-                style={
-                  styles.resultsTitle
-                }
-              >
-                All Quiz Results
+              <h2 style={styles.sectionTitle}>
+                Datewise → Classwise → Studentwise
               </h2>
 
-              <p
-                style={
-                  styles.resultsSubtitle
-                }
-              >
-                Date → Class → Student →
-                Quiz Details
+              <p style={styles.sectionSub}>
+                All selected quiz results are organized below.
               </p>
             </div>
           </div>
 
-          {groupedData.length ===
-          0 ? (
-            <div
-              style={
-                styles.emptyCard
-              }
-            >
-              <strong>
-                No results found
-              </strong>
+          {groupedRows.length === 0 ? (
+            <div style={styles.emptyCard}>
+              <div style={styles.emptyIcon}>R</div>
 
-              <p>
-                Try changing the selected
-                date, subject or class.
+              <h3 style={styles.emptyTitle}>
+                No Results Found
+              </h3>
+
+              <p style={styles.emptyText}>
+                No quiz/student entries match the selected
+                filters.
               </p>
             </div>
           ) : (
-            groupedData.map(
-              (
-                [
-                  date,
-                  classMap,
-                ]
-              ) => {
-                const dateOpen =
-                  expandedDates.has(
-                    date
-                  );
+            <div style={styles.dateList}>
+              {groupedRows.map((dateGroup) => {
+                const dateOpen = expandedDates.has(
+                  dateGroup.date
+                );
+
+                const dateRows = dateGroup.classes.flatMap(
+                  (group) => group.rows
+                );
+
+                const dateSubmitted = dateRows.filter(
+                  (row) => row.results.length > 0
+                ).length;
 
                 return (
                   <div
-                    key={
-                      date
-                    }
-                    style={
-                      styles.dateGroup
-                    }
+                    key={dateGroup.date}
+                    style={styles.dateCard}
                   >
                     <button
-                      type="button"
+                      style={styles.dateButton}
                       onClick={() =>
-                        toggleDate(
-                          date
-                        )
-                      }
-                      style={
-                        styles.dateButton
+                        toggleDate(dateGroup.date)
                       }
                     >
-                      <div>
-                        <span
-                          style={
-                            styles.smallLabel
-                          }
-                        >
-                          QUIZ DATE
-                        </span>
+                      <div style={styles.dateButtonLeft}>
+                        <div style={styles.dateIcon}>
+                          {dateGroup.date === "unknown"
+                            ? "?"
+                            : "D"}
+                        </div>
 
-                        <strong
-                          style={
-                            styles.dateTitle
-                          }
-                        >
-                          {formatDate(
-                            date
-                          )}
-                        </strong>
+                        <div>
+                          <div style={styles.dateLabel}>
+                            QUIZ DATE
+                          </div>
+
+                          <div style={styles.dateTitle}>
+                            {dateGroup.date === "unknown"
+                              ? "Date Not Available"
+                              : formatDateLong(
+                                  dateGroup.date
+                                )}
+                          </div>
+
+                          <div style={styles.dateMeta}>
+                            {dateRows.length} student entries
+                            {" • "}
+                            {dateSubmitted} submitted
+                          </div>
+                        </div>
                       </div>
 
-                      <div
-                        style={
-                          styles.dateRight
-                        }
-                      >
-                        <span
-                          style={
-                            styles.countBadge
-                          }
-                        >
-                          {Array.from(
-                            classMap.values()
-                          ).reduce(
-                            (
-                              total,
-                              rows
-                            ) =>
-                              total +
-                              rows.length,
-                            0
-                          )}{" "}
-                          records
-                        </span>
-
-                        <span
-                          style={
-                            styles.arrow
-                          }
-                        >
-                          {dateOpen
-                            ? "−"
-                            : "+"}
-                        </span>
+                      <div style={styles.chevron}>
+                        {dateOpen ? "−" : "+"}
                       </div>
                     </button>
 
-                    {dateOpen && (
-                      <div
-                        style={
-                          styles.dateContent
-                        }
-                      >
-                        {Array.from(
-                          classMap.entries()
-                        ).map(
-                          (
-                            [
-                              className,
-                              rows,
-                            ]
-                          ) => {
-                            const classKey =
-                              `${date}_${className}`;
-
+                    {dateOpen ? (
+                      <div style={styles.classList}>
+                        {dateGroup.classes.map(
+                          (classGroup) => {
+                            const classKey = `${dateGroup.date}__${classGroup.className}`;
                             const classOpen =
-                              expandedClasses.has(
-                                classKey
-                              );
+                              expandedClasses.has(classKey);
+
+                            const submittedCount =
+                              classGroup.rows.filter(
+                                (row) =>
+                                  row.results.length > 0
+                              ).length;
+
+                            const passCount =
+                              classGroup.rows.filter(
+                                (row) =>
+                                  row.results.length > 0 &&
+                                  resultStatus(
+                                    row.results[
+                                      row.results.length - 1
+                                    ]
+                                  ).includes("PASS")
+                              ).length;
+
+                            const failCount =
+                              classGroup.rows.filter(
+                                (row) =>
+                                  row.results.length > 0 &&
+                                  resultStatus(
+                                    row.results[
+                                      row.results.length - 1
+                                    ]
+                                  ).includes("FAIL")
+                              ).length;
 
                             return (
                               <div
-                                key={
-                                  classKey
-                                }
-                                style={
-                                  styles.classGroup
-                                }
+                                key={classKey}
+                                style={styles.classCard}
                               >
                                 <button
-                                  type="button"
-                                  onClick={() =>
-                                    toggleClass(
-                                      classKey
-                                    )
-                                  }
                                   style={
                                     styles.classButton
                                   }
+                                  onClick={() =>
+                                    toggleClass(classKey)
+                                  }
                                 >
-                                  <div>
-                                    <span
+                                  <div
+                                    style={
+                                      styles.classButtonLeft
+                                    }
+                                  >
+                                    <div
                                       style={
                                         styles.classBadge
                                       }
                                     >
-                                      CLASS
-                                    </span>
+                                      {classGroup.className}
+                                    </div>
 
-                                    <strong
-                                      style={
-                                        styles.className
-                                      }
-                                    >
-                                      {
-                                        className
-                                      }
-                                    </strong>
+                                    <div>
+                                      <div
+                                        style={
+                                          styles.classTitle
+                                        }
+                                      >
+                                        Class{" "}
+                                        {
+                                          classGroup.className
+                                        }
+                                      </div>
+
+                                      <div
+                                        style={
+                                          styles.classMeta
+                                        }
+                                      >
+                                        {
+                                          classGroup.rows
+                                            .length
+                                        }{" "}
+                                        students
+                                        {" • "}
+                                        {submittedCount}{" "}
+                                        submitted
+                                        {" • "}
+                                        {passCount} pass
+                                        {" • "}
+                                        {failCount} fail
+                                      </div>
+                                    </div>
                                   </div>
 
                                   <div
-                                    style={
-                                      styles.dateRight
-                                    }
+                                    style={styles.chevron}
                                   >
-                                    <span
-                                      style={
-                                        styles.countBadge
-                                      }
-                                    >
-                                      {
-                                        rows.length
-                                      }{" "}
-                                      students
-                                    </span>
-
-                                    <span
-                                      style={
-                                        styles.arrow
-                                      }
-                                    >
-                                      {classOpen
-                                        ? "−"
-                                        : "+"}
-                                    </span>
+                                    {classOpen ? "−" : "+"}
                                   </div>
                                 </button>
 
-                                {classOpen && (
+                                {classOpen ? (
                                   <div
                                     style={
-                                      styles.classContent
+                                      styles.studentList
                                     }
                                   >
-                                    {rows.map(
-                                      (
-                                        row
-                                      ) => {
-                                        const studentKey =
-                                          `${row.quiz.id}_${row.student.id}`;
+                                    {classGroup.rows.map(
+                                      (row) => {
+                                        const studentKey = `${row.quiz.id}__${row.student.id}`;
 
                                         const studentOpen =
                                           expandedStudents.has(
                                             studentKey
                                           );
 
-                                        const result =
-                                          row.result;
+                                        const latest =
+                                          row.results.length >
+                                          0
+                                            ? row.results[
+                                                row.results
+                                                  .length - 1
+                                              ]
+                                            : null;
+
+                                        const allowedKey = `${row.quiz.id}__${row.student.id}`;
+
+                                        const reattemptAllowed =
+                                          reattemptQuizIds.has(
+                                            allowedKey
+                                          );
 
                                         return (
                                           <div
@@ -3381,20 +2231,19 @@ function TeacherQuizResultsContent() {
                                               styles.studentCard
                                             }
                                           >
-                                            <button
-                                              type="button"
-                                              onClick={() =>
-                                                toggleStudent(
-                                                  studentKey
-                                                )
-                                              }
+                                            <div
                                               style={
-                                                styles.studentButton
+                                                styles.studentTop
                                               }
                                             >
-                                              <div
+                                              <button
                                                 style={
-                                                  styles.studentLeft
+                                                  styles.studentMainButton
+                                                }
+                                                onClick={() =>
+                                                  toggleStudent(
+                                                    studentKey
+                                                  )
                                                 }
                                               >
                                                 <div
@@ -3402,101 +2251,142 @@ function TeacherQuizResultsContent() {
                                                     styles.avatar
                                                   }
                                                 >
-                                                  {cleanText(
+                                                  {String(
                                                     row.student
-                                                      .student_name,
-                                                    "S"
+                                                      .student_name ||
+                                                      "S"
                                                   )
+                                                    .trim()
                                                     .charAt(
                                                       0
                                                     )
                                                     .toUpperCase()}
                                                 </div>
 
-                                                <div>
-                                                  <strong
+                                                <div
+                                                  style={
+                                                    styles.studentIdentity
+                                                  }
+                                                >
+                                                  <div
                                                     style={
                                                       styles.studentName
                                                     }
                                                   >
-                                                    {cleanText(
-                                                      row.student
-                                                        .student_name,
-                                                      "Unnamed Student"
-                                                    )}
-                                                  </strong>
+                                                    {row.student
+                                                      .student_name ||
+                                                      "Unnamed Student"}
+                                                  </div>
 
                                                   <div
                                                     style={
-                                                      styles.studentMeta
+                                                      styles.studentUsername
                                                     }
                                                   >
-                                                    {cleanText(
-                                                      row.student
-                                                        .student_username
-                                                    )}{" "}
-                                                    •{" "}
-                                                    {cleanText(
-                                                      row.quiz.subject
-                                                    )}{" "}
-                                                    •{" "}
-                                                    {cleanText(
-                                                      row.quiz.title
+                                                    {row.student
+                                                      .student_username ||
+                                                      "Username not available"}
+                                                    {" • "}
+                                                    {normalizeSubject(
+                                                      row.quiz
+                                                        .subject
                                                     )}
                                                   </div>
                                                 </div>
-                                              </div>
+                                              </button>
 
                                               <div
                                                 style={
-                                                  styles.studentRight
+                                                  styles.studentActions
                                                 }
                                               >
                                                 <div
                                                   style={
-                                                    styles.resultMini
+                                                    styles.studentSummary
                                                   }
                                                 >
-                                                  <strong>
-                                                    {result
-                                                      ? `${safeNumber(
-                                                          result.percentage
+                                                  {latest ? (
+                                                    <>
+                                                      <strong
+                                                        style={{
+                                                          color:
+                                                            statusClass(
+                                                              latest
+                                                            ) ===
+                                                            "pass"
+                                                              ? "#15803d"
+                                                              : statusClass(
+                                                                    latest
+                                                                  ) ===
+                                                                "fail"
+                                                              ? "#dc2626"
+                                                              : "#334155",
+                                                        }}
+                                                      >
+                                                        {safeNumber(
+                                                          latest.percentage
                                                         ).toFixed(
-                                                          2
-                                                        )}%`
-                                                      : "0.00%"}
-                                                  </strong>
+                                                          1
+                                                        )}
+                                                        %
+                                                      </strong>
 
-                                                  <span
-                                                    style={
-                                                      result
-                                                        ? isPass(
-                                                            result
+                                                      <span
+                                                        style={
+                                                          styles.summaryStatus
+                                                        }
+                                                      >
+                                                        {
+                                                          resultStatus(
+                                                            latest
                                                           )
-                                                          ? styles.passBadge
-                                                          : styles.failBadge
-                                                        : styles.pendingBadge
-                                                    }
-                                                  >
-                                                    {statusText(
-                                                      result
-                                                    )}
-                                                  </span>
+                                                        }
+                                                      </span>
+                                                    </>
+                                                  ) : (
+                                                    <span
+                                                      style={
+                                                        styles.noAttempt
+                                                      }
+                                                    >
+                                                      NO ATTEMPT
+                                                    </span>
+                                                  )}
                                                 </div>
 
-                                                <span
+                                                <button
                                                   style={
-                                                    styles.arrow
+                                                    styles.pdfSmallButton
+                                                  }
+                                                  onClick={() =>
+                                                    createStudentPdf(
+                                                      row.quiz,
+                                                      row.student,
+                                                      row.results
+                                                    )
+                                                  }
+                                                >
+                                                  PDF
+                                                </button>
+
+                                                <button
+                                                  style={
+                                                    styles.expandButton
+                                                  }
+                                                  onClick={() =>
+                                                    toggleStudent(
+                                                      studentKey
+                                                    )
                                                   }
                                                 >
                                                   {studentOpen
                                                     ? "−"
                                                     : "+"}
-                                                </span>
+                                                </button>
                                               </div>
-                                            </button>
+                                            </div>
 
-                                            {studentOpen && (
+                                            {studentOpen ? (
                                               <div
                                                 style={
                                                   styles.studentDetails
@@ -3504,447 +2394,499 @@ function TeacherQuizResultsContent() {
                                               >
                                                 <div
                                                   style={
-                                                    styles.quizDetailHeader
+                                                    styles.detailGrid
                                                   }
                                                 >
-                                                  <div>
-                                                    <strong
-                                                      style={
-                                                        styles.quizDetailTitle
-                                                      }
-                                                    >
+                                                  <div
+                                                    style={
+                                                      styles.detailBox
+                                                    }
+                                                  >
+                                                    <span>
+                                                      Quiz
+                                                    </span>
+
+                                                    <strong>
                                                       {
-                                                        row.quiz.title
+                                                        row.quiz
+                                                          .title
                                                       }
                                                     </strong>
+                                                  </div>
 
-                                                    <div
-                                                      style={
-                                                        styles.quizDetailMeta
-                                                      }
-                                                    >
-                                                      Subject:{" "}
-                                                      {cleanText(
-                                                        row.quiz.subject
-                                                      )}{" "}
-                                                      • Date:{" "}
+                                                  <div
+                                                    style={
+                                                      styles.detailBox
+                                                    }
+                                                  >
+                                                    <span>
+                                                      Date
+                                                    </span>
+
+                                                    <strong>
                                                       {formatDate(
                                                         row.quiz
                                                           .scheduled_date
-                                                      )}{" "}
-                                                      • Time:{" "}
-                                                      {formatTime(
-                                                        row.quiz
-                                                          .scheduled_time
                                                       )}
+                                                    </strong>
+                                                  </div>
+
+                                                  <div
+                                                    style={
+                                                      styles.detailBox
+                                                    }
+                                                  >
+                                                    <span>
+                                                      Subject
+                                                    </span>
+
+                                                    <strong>
+                                                      {normalizeSubject(
+                                                        row.quiz
+                                                          .subject
+                                                      )}
+                                                    </strong>
+                                                  </div>
+
+                                                  <div
+                                                    style={
+                                                      styles.detailBox
+                                                    }
+                                                  >
+                                                    <span>
+                                                      Attempts
+                                                    </span>
+
+                                                    <strong>
+                                                      {
+                                                        row.results
+                                                          .length
+                                                      }
+                                                    </strong>
+                                                  </div>
+                                                </div>
+
+                                                {row.results.length ===
+                                                0 ? (
+                                                  <div
+                                                    style={
+                                                      styles.noResultBox
+                                                    }
+                                                  >
+                                                    <div>
+                                                      <strong>
+                                                        No quiz
+                                                        result
+                                                        submitted
+                                                      </strong>
+
+                                                      <span>
+                                                        This
+                                                        student
+                                                        has no
+                                                        submitted
+                                                        attempt
+                                                        for this
+                                                        quiz.
+                                                      </span>
                                                     </div>
-                                                  </div>
 
-                                                  <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                      downloadStudentPdf(
-                                                        row
-                                                      )
-                                                    }
-                                                    style={
-                                                      styles.studentPdfButton
-                                                    }
-                                                  >
-                                                    Download PDF
-                                                  </button>
-                                                </div>
-
-                                                <div
-                                                  style={
-                                                    styles.detailsGrid
-                                                  }
-                                                >
-                                                  <div
-                                                    style={
-                                                      styles.detailBox
-                                                    }
-                                                  >
-                                                    <span
-                                                      style={
-                                                        styles.detailLabel
-                                                      }
-                                                    >
-                                                      Total Questions
-                                                    </span>
-
-                                                    <strong>
-                                                      {result
-                                                        ? safeNumber(
-                                                            result.total_questions
-                                                          )
-                                                        : 0}
-                                                    </strong>
-                                                  </div>
-
-                                                  <div
-                                                    style={
-                                                      styles.detailBox
-                                                    }
-                                                  >
-                                                    <span
-                                                      style={
-                                                        styles.detailLabel
-                                                      }
-                                                    >
-                                                      Correct
-                                                    </span>
-
-                                                    <strong>
-                                                      {result
-                                                        ? safeNumber(
-                                                            result.correct_answers
-                                                          )
-                                                        : 0}
-                                                    </strong>
-                                                  </div>
-
-                                                  <div
-                                                    style={
-                                                      styles.detailBox
-                                                    }
-                                                  >
-                                                    <span
-                                                      style={
-                                                        styles.detailLabel
-                                                      }
-                                                    >
-                                                      Wrong
-                                                    </span>
-
-                                                    <strong>
-                                                      {result
-                                                        ? safeNumber(
-                                                            result.wrong_answers
-                                                          )
-                                                        : 0}
-                                                    </strong>
-                                                  </div>
-
-                                                  <div
-                                                    style={
-                                                      styles.detailBox
-                                                    }
-                                                  >
-                                                    <span
-                                                      style={
-                                                        styles.detailLabel
-                                                      }
-                                                    >
-                                                      Unanswered
-                                                    </span>
-
-                                                    <strong>
-                                                      {result
-                                                        ? safeNumber(
-                                                            result.unanswered
-                                                          )
-                                                        : 0}
-                                                    </strong>
-                                                  </div>
-
-                                                  <div
-                                                    style={
-                                                      styles.detailBox
-                                                    }
-                                                  >
-                                                    <span
-                                                      style={
-                                                        styles.detailLabel
-                                                      }
-                                                    >
-                                                      Total Marks
-                                                    </span>
-
-                                                    <strong>
-                                                      {result
-                                                        ? safeNumber(
-                                                            result.total_marks
-                                                          ).toFixed(
-                                                            2
-                                                          )
-                                                        : "0.00"}
-                                                    </strong>
-                                                  </div>
-
-                                                  <div
-                                                    style={
-                                                      styles.detailBox
-                                                    }
-                                                  >
-                                                    <span
-                                                      style={
-                                                        styles.detailLabel
-                                                      }
-                                                    >
-                                                      Obtained
-                                                    </span>
-
-                                                    <strong>
-                                                      {result
-                                                        ? safeNumber(
-                                                            result.obtained_marks
-                                                          ).toFixed(
-                                                            2
-                                                          )
-                                                        : "0.00"}
-                                                    </strong>
-                                                  </div>
-
-                                                  <div
-                                                    style={
-                                                      styles.detailBox
-                                                    }
-                                                  >
-                                                    <span
-                                                      style={
-                                                        styles.detailLabel
-                                                      }
-                                                    >
-                                                      Percentage
-                                                    </span>
-
-                                                    <strong>
-                                                      {result
-                                                        ? `${safeNumber(
-                                                            result.percentage
-                                                          ).toFixed(
-                                                            2
-                                                          )}%`
-                                                        : "0.00%"}
-                                                    </strong>
-                                                  </div>
-
-                                                  <div
-                                                    style={
-                                                      styles.detailBox
-                                                    }
-                                                  >
-                                                    <span
-                                                      style={
-                                                        styles.detailLabel
-                                                      }
-                                                    >
-                                                      Attempt
-                                                    </span>
-
-                                                    <strong>
-                                                      {result
-                                                        ? Math.max(
-                                                            1,
-                                                            safeNumber(
-                                                              result.attempt_number,
-                                                              1
-                                                            )
-                                                          )
-                                                        : 0}
-                                                    </strong>
-                                                  </div>
-                                                </div>
-
-                                                <div
-                                                  style={
-                                                    styles.bottomDetails
-                                                  }
-                                                >
-                                                  <div>
-                                                    <span
-                                                      style={
-                                                        styles.detailLabel
-                                                      }
-                                                    >
-                                                      Submission
-                                                    </span>
-
-                                                    <strong>
-                                                      {result
-                                                        ? cleanText(
-                                                            result.submission_type
-                                                          )
-                                                        : "No submission"}
-                                                    </strong>
-                                                  </div>
-
-                                                  <div>
-                                                    <span
-                                                      style={
-                                                        styles.detailLabel
-                                                      }
-                                                    >
-                                                      Started
-                                                    </span>
-
-                                                    <strong>
-                                                      {result
-                                                        ? formatDateTime(
-                                                            result.started_at
-                                                          )
-                                                        : "—"}
-                                                    </strong>
-                                                  </div>
-
-                                                  <div>
-                                                    <span
-                                                      style={
-                                                        styles.detailLabel
-                                                      }
-                                                    >
-                                                      Submitted
-                                                    </span>
-
-                                                    <strong>
-                                                      {result
-                                                        ? formatDateTime(
-                                                            result.submitted_at
-                                                          )
-                                                        : "—"}
-                                                    </strong>
-                                                  </div>
-                                                </div>
-
-                                                <div
-                                                  style={
-                                                    styles.reattemptPanel
-                                                  }
-                                                >
-                                                  <div>
-                                                    <strong>
-                                                      Re-attempt Access
-                                                    </strong>
-
-                                                    <p>
-                                                      Allow this student
-                                                      to attempt this
-                                                      quiz again.
-                                                    </p>
-                                                  </div>
-
-                                                  {reattemptQuizIds.has(
-                                                    studentKey
-                                                  ) ? (
-                                                    <span
-                                                      style={
-                                                        styles.allowedBadge
-                                                      }
-                                                    >
-                                                      RE-ATTEMPT ALLOWED
-                                                    </span>
-                                                  ) : (
                                                     <button
-                                                      type="button"
-                                                      onClick={() =>
-                                                        allowReattempt(
-                                                          row
-                                                        )
+                                                      style={
+                                                        reattemptAllowed
+                                                          ? styles.allowedButton
+                                                          : styles.reattemptButton
                                                       }
                                                       disabled={
-                                                        reattemptLoadingKey ===
-                                                        studentKey
+                                                        reattemptAllowed ||
+                                                        reattemptLoading ===
+                                                          allowedKey
                                                       }
-                                                      style={
-                                                        styles.allowButton
+                                                      onClick={() =>
+                                                        allowReattempt(
+                                                          row.quiz
+                                                            .id,
+                                                          row
+                                                            .student
+                                                            .id
+                                                        )
                                                       }
                                                     >
-                                                      {reattemptLoadingKey ===
-                                                      studentKey
-                                                        ? "PLEASE WAIT..."
+                                                      {reattemptLoading ===
+                                                      allowedKey
+                                                        ? "Allowing..."
+                                                        : reattemptAllowed
+                                                        ? "RE-ATTEMPT ALLOWED"
                                                         : "ALLOW RE-ATTEMPT"}
                                                     </button>
-                                                  )}
-                                                </div>
+                                                  </div>
+                                                ) : (
+                                                  <>
+                                                    <div
+                                                      style={
+                                                        styles.attemptList
+                                                      }
+                                                    >
+                                                      {row.results.map(
+                                                        (
+                                                          result,
+                                                          index
+                                                        ) => (
+                                                          <div
+                                                            key={
+                                                              result.id
+                                                            }
+                                                            style={
+                                                              styles.attemptCard
+                                                            }
+                                                          >
+                                                            <div
+                                                              style={
+                                                                styles.attemptHeader
+                                                              }
+                                                            >
+                                                              <div>
+                                                                <div
+                                                                  style={
+                                                                    styles.attemptNumber
+                                                                  }
+                                                                >
+                                                                  {getAttemptLabel(
+                                                                    result,
+                                                                    index
+                                                                  )}
+                                                                </div>
+
+                                                                <div
+                                                                  style={
+                                                                    styles.attemptTime
+                                                                  }
+                                                                >
+                                                                  Submitted:{" "}
+                                                                  {formatDateTime(
+                                                                    result.submitted_at
+                                                                  )}
+                                                                </div>
+                                                              </div>
+
+                                                              <div
+                                                                style={{
+                                                                  ...styles.statusPill,
+                                                                  ...(statusClass(
+                                                                    result
+                                                                  ) ===
+                                                                  "pass"
+                                                                    ? styles.passPill
+                                                                    : statusClass(
+                                                                          result
+                                                                        ) ===
+                                                                      "fail"
+                                                                    ? styles.failPill
+                                                                    : styles.neutralPill),
+                                                                }}
+                                                              >
+                                                                {resultStatus(
+                                                                  result
+                                                                )}
+                                                              </div>
+                                                            </div>
+
+                                                            <div
+                                                              style={
+                                                                styles.metricsGrid
+                                                              }
+                                                            >
+                                                              <div
+                                                                style={
+                                                                  styles.metric
+                                                                }
+                                                              >
+                                                                <span>
+                                                                  Questions
+                                                                </span>
+                                                                <strong>
+                                                                  {safeNumber(
+                                                                    result.total_questions
+                                                                  )}
+                                                                </strong>
+                                                              </div>
+
+                                                              <div
+                                                                style={
+                                                                  styles.metric
+                                                                }
+                                                              >
+                                                                <span>
+                                                                  Correct
+                                                                </span>
+                                                                <strong>
+                                                                  {safeNumber(
+                                                                    result.correct_answers
+                                                                  )}
+                                                                </strong>
+                                                              </div>
+
+                                                              <div
+                                                                style={
+                                                                  styles.metric
+                                                                }
+                                                              >
+                                                                <span>
+                                                                  Wrong
+                                                                </span>
+                                                                <strong>
+                                                                  {safeNumber(
+                                                                    result.wrong_answers
+                                                                  )}
+                                                                </strong>
+                                                              </div>
+
+                                                              <div
+                                                                style={
+                                                                  styles.metric
+                                                                }
+                                                              >
+                                                                <span>
+                                                                  Unanswered
+                                                                </span>
+                                                                <strong>
+                                                                  {safeNumber(
+                                                                    result.unanswered
+                                                                  )}
+                                                                </strong>
+                                                              </div>
+
+                                                              <div
+                                                                style={
+                                                                  styles.metric
+                                                                }
+                                                              >
+                                                                <span>
+                                                                  Marks
+                                                                </span>
+                                                                <strong>
+                                                                  {safeNumber(
+                                                                    result.obtained_marks
+                                                                  )}
+                                                                  /
+                                                                  {safeNumber(
+                                                                    result.total_marks
+                                                                  )}
+                                                                </strong>
+                                                              </div>
+
+                                                              <div
+                                                                style={
+                                                                  styles.metric
+                                                                }
+                                                              >
+                                                                <span>
+                                                                  Percentage
+                                                                </span>
+                                                                <strong>
+                                                                  {safeNumber(
+                                                                    result.percentage
+                                                                  ).toFixed(
+                                                                    2
+                                                                  )}
+                                                                  %
+                                                                </strong>
+                                                              </div>
+                                                            </div>
+
+                                                            <div
+                                                              style={
+                                                                styles.submissionInfo
+                                                              }
+                                                            >
+                                                              Submission:{" "}
+                                                              <strong>
+                                                                {result.submission_type ||
+                                                                  "Normal"}
+                                                              </strong>
+                                                              {" • "}
+                                                              Started:{" "}
+                                                              {formatDateTime(
+                                                                result.started_at
+                                                              )}
+                                                              {" • "}
+                                                              Created:{" "}
+                                                              {formatDateTime(
+                                                                result.created_at
+                                                              )}
+                                                            </div>
+                                                          </div>
+                                                        )
+                                                      )}
+                                                    </div>
+
+                                                    <div
+                                                      style={
+                                                        styles.reattemptPanel
+                                                      }
+                                                    >
+                                                      <div>
+                                                        <strong>
+                                                          Need another
+                                                          attempt?
+                                                        </strong>
+
+                                                        <span>
+                                                          Teacher can
+                                                          allow a
+                                                          re-attempt
+                                                          without
+                                                          removing the
+                                                          previous
+                                                          result.
+                                                        </span>
+                                                      </div>
+
+                                                      <button
+                                                        style={
+                                                          reattemptAllowed
+                                                            ? styles.allowedButton
+                                                            : styles.reattemptButton
+                                                        }
+                                                        disabled={
+                                                          reattemptAllowed ||
+                                                          reattemptLoading ===
+                                                            allowedKey
+                                                        }
+                                                        onClick={() =>
+                                                          allowReattempt(
+                                                            row.quiz
+                                                              .id,
+                                                            row
+                                                              .student
+                                                              .id
+                                                          )
+                                                        }
+                                                      >
+                                                        {reattemptLoading ===
+                                                        allowedKey
+                                                          ? "Allowing..."
+                                                          : reattemptAllowed
+                                                          ? "RE-ATTEMPT ALLOWED"
+                                                          : "ALLOW RE-ATTEMPT"}
+                                                      </button>
+                                                    </div>
+                                                  </>
+                                                )}
                                               </div>
-                                            )}
+                                            ) : null}
                                           </div>
                                         );
                                       }
                                     )}
                                   </div>
-                                )}
+                                ) : null}
                               </div>
                             );
                           }
                         )}
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 );
-              }
-            )
+              })}
+            </div>
           )}
         </section>
+
+        <section style={styles.currentQuizSection}>
+          <div style={styles.currentQuizHeader}>
+            <div>
+              <h2 style={styles.sectionTitle}>
+                Current Quiz Snapshot
+              </h2>
+
+              <p style={styles.sectionSub}>
+                Quick view of the quiz opened from the quiz
+                results page.
+              </p>
+            </div>
+
+            <button
+              style={styles.pdfButton}
+              onClick={() =>
+                currentQuiz &&
+                downloadOverallPdf()
+              }
+            >
+              Download Report
+            </button>
+          </div>
+
+          {currentQuiz ? (
+            <div style={styles.currentQuizGrid}>
+              <div style={styles.currentQuizInfo}>
+                <span>Quiz</span>
+                <strong>{currentQuiz.title}</strong>
+              </div>
+
+              <div style={styles.currentQuizInfo}>
+                <span>Subject</span>
+                <strong>
+                  {normalizeSubject(currentQuiz.subject)}
+                </strong>
+              </div>
+
+              <div style={styles.currentQuizInfo}>
+                <span>Date</span>
+                <strong>
+                  {formatDate(currentQuiz.scheduled_date)}
+                </strong>
+              </div>
+
+              <div style={styles.currentQuizInfo}>
+                <span>Classes</span>
+                <strong>
+                  {currentQuizClasses.join(", ") || "All"}
+                </strong>
+              </div>
+
+              <div style={styles.currentQuizInfo}>
+                <span>Submitted</span>
+                <strong>
+                  {currentQuizStats.submitted}
+                </strong>
+              </div>
+
+              <div style={styles.currentQuizInfo}>
+                <span>Not Submitted</span>
+                <strong>
+                  {currentQuizStats.notSubmitted}
+                </strong>
+              </div>
+
+              <div style={styles.currentQuizInfo}>
+                <span>Pass</span>
+                <strong>{currentQuizStats.pass}</strong>
+              </div>
+
+              <div style={styles.currentQuizInfo}>
+                <span>Fail</span>
+                <strong>{currentQuizStats.fail}</strong>
+              </div>
+            </div>
+          ) : null}
+        </section>
+
+        <footer style={styles.footer}>
+          <div style={styles.footerBrand}>
+            RACER ACADEMY
+          </div>
+
+          <div style={styles.footerText}>
+            Official Student Quiz Performance Record
+          </div>
+
+          <div style={styles.footerSignature}>
+            Racer Academy
+          </div>
+        </footer>
       </div>
-
-      <style jsx>{`
-        @keyframes spin {
-          to {
-            transform: rotate(360deg);
-          }
-        }
-
-        @media (max-width: 850px) {
-          .header-actions {
-            flex-wrap: wrap;
-          }
-        }
-
-        @media (max-width: 700px) {
-          .student-button {
-            align-items: flex-start !important;
-          }
-
-          .student-right {
-            flex-direction: column !important;
-            align-items: flex-end !important;
-          }
-        }
-
-        @media (max-width: 600px) {
-          .filter-grid {
-            grid-template-columns: 1fr !important;
-          }
-
-          .stats-grid {
-            grid-template-columns: repeat(
-              2,
-              minmax(0, 1fr)
-            ) !important;
-          }
-
-          .header-actions {
-            width: 100%;
-          }
-
-          .header-actions button {
-            flex: 1;
-          }
-
-          .student-button {
-            flex-direction: column !important;
-          }
-
-          .student-right {
-            width: 100%;
-            flex-direction: row !important;
-            justify-content: space-between !important;
-            align-items: center !important;
-          }
-
-          .quiz-detail-header {
-            flex-direction: column !important;
-            align-items: flex-start !important;
-          }
-
-          .reattempt-panel {
-            flex-direction: column !important;
-            align-items: flex-start !important;
-          }
-        }
-      `}</style>
     </main>
   );
 }
@@ -3953,48 +2895,17 @@ export default function TeacherQuizResultsPage() {
   return (
     <Suspense
       fallback={
-        <main
-          style={{
-            minHeight:
-              "100vh",
-            display:
-              "flex",
-            alignItems:
-              "center",
-            justifyContent:
-              "center",
-            padding:
-              "20px",
-            background:
-              "linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #f8fafc 100%)",
-          }}
-        >
-          <div
-            style={{
-              background:
-                "#ffffff",
-              borderRadius:
-                "22px",
-              padding:
-                "35px",
-              textAlign:
-                "center",
-              boxShadow:
-                "0 20px 50px rgba(15,23,42,0.10)",
-            }}
-          >
-            <strong
-              style={{
-                fontSize:
-                  "20px",
-                fontWeight:
-                  900,
-                color:
-                  "#0f172a",
-              }}
-            >
+        <main style={styles.page}>
+          <div style={styles.loadingCard}>
+            <div style={styles.loaderCircle}>RA</div>
+
+            <h2 style={styles.loadingTitle}>
               Loading Quiz Results...
-            </strong>
+            </h2>
+
+            <p style={styles.loadingText}>
+              RACER ACADEMY
+            </p>
           </div>
         </main>
       }
@@ -4004,1055 +2915,952 @@ export default function TeacherQuizResultsPage() {
   );
 }
 
-const styles: Record<
-  string,
-  React.CSSProperties
-> = {
+const styles: Record<string, React.CSSProperties> = {
   page: {
-    minHeight:
-      "100vh",
-    padding:
-      "18px",
+    minHeight: "100vh",
     background:
-      "linear-gradient(135deg,#f8fafc 0%,#eef2ff 50%,#f8fafc 100%)",
-    color:
-      "#0f172a",
+      "linear-gradient(135deg, #f8fafc 0%, #eef2ff 48%, #f8fafc 100%)",
+    padding: "20px",
+    color: "#0f172a",
   },
 
   container: {
-    width:
-      "100%",
-    maxWidth:
-      "1250px",
-    margin:
-      "0 auto",
+    width: "100%",
+    maxWidth: "1500px",
+    margin: "0 auto",
   },
 
-  header: {
+  topHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "18px",
+    marginBottom: "18px",
+    flexWrap: "wrap",
+  },
+
+  brandBlock: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+  },
+
+  brandBadge: {
+    width: "48px",
+    height: "48px",
+    borderRadius: "15px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
     background:
-      "#ffffff",
-    border:
-      "1px solid #e2e8f0",
-    borderRadius:
-      "24px",
-    padding:
-      "22px",
-    boxShadow:
-      "0 15px 40px rgba(15,23,42,0.08)",
-    display:
-      "flex",
-    alignItems:
-      "flex-start",
-    justifyContent:
-      "space-between",
-    gap:
-      "18px",
-    marginBottom:
-      "15px",
+      "linear-gradient(135deg, #0f172a, #334155)",
+    color: "#ffffff",
+    fontWeight: 900,
+    fontSize: "16px",
+    boxShadow: "0 10px 24px rgba(15,23,42,0.18)",
   },
 
-  brand: {
-    color:
-      "#4f46e5",
-    fontSize:
-      "12px",
-    fontWeight:
-      900,
-    letterSpacing:
-      "0.12em",
-    marginBottom:
-      "6px",
+  brandName: {
+    fontSize: "17px",
+    fontWeight: 950,
+    letterSpacing: "0.7px",
   },
 
-  heading: {
-    margin:
-      0,
-    fontSize:
-      "30px",
-    fontWeight:
-      900,
-    lineHeight:
-      1.15,
+  brandSub: {
+    marginTop: "3px",
+    fontSize: "12px",
+    color: "#64748b",
+    fontWeight: 700,
   },
 
-  subtitle: {
-    margin:
-      "7px 0 0",
-    color:
-      "#64748b",
-    fontSize:
-      "13px",
-    lineHeight:
-      1.5,
+  topActions: {
+    display: "flex",
+    gap: "8px",
+    flexWrap: "wrap",
   },
 
-  headerActions: {
-    display:
-      "flex",
-    alignItems:
-      "center",
-    justifyContent:
-      "flex-end",
-    gap:
-      "8px",
-  },
-
-  actionButton: {
-    border:
-      "1px solid #cbd5e1",
-    background:
-      "#ffffff",
-    color:
-      "#0f172a",
-    borderRadius:
-      "11px",
-    padding:
-      "10px 13px",
-    fontSize:
-      "12px",
-    fontWeight:
-      800,
-    cursor:
-      "pointer",
-    whiteSpace:
-      "nowrap",
+  headerButton: {
+    border: "1px solid #cbd5e1",
+    background: "#ffffff",
+    color: "#0f172a",
+    padding: "10px 15px",
+    borderRadius: "11px",
+    fontWeight: 800,
+    cursor: "pointer",
+    boxShadow: "0 5px 14px rgba(15,23,42,0.06)",
   },
 
   logoutButton: {
-    border:
-      "none",
+    border: "1px solid #fecaca",
+    background: "#fff1f2",
+    color: "#be123c",
+    padding: "10px 15px",
+    borderRadius: "11px",
+    fontWeight: 900,
+    cursor: "pointer",
+  },
+
+  heroCard: {
     background:
-      "#dc2626",
-    color:
-      "#ffffff",
-    borderRadius:
-      "11px",
-    padding:
-      "10px 13px",
-    fontSize:
-      "12px",
-    fontWeight:
-      900,
-    cursor:
-      "pointer",
+      "linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #312e81 100%)",
+    borderRadius: "25px",
+    padding: "28px",
+    color: "#ffffff",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "stretch",
+    gap: "24px",
+    marginBottom: "18px",
+    boxShadow: "0 22px 55px rgba(15,23,42,0.18)",
+    flexWrap: "wrap",
+  },
+
+  heroLeft: {
+    flex: "1 1 450px",
+    minWidth: 0,
+  },
+
+  heroEyebrow: {
+    fontSize: "11px",
+    fontWeight: 900,
+    letterSpacing: "1.5px",
+    opacity: 0.72,
+  },
+
+  heroTitle: {
+    margin: "8px 0 8px",
+    fontSize: "34px",
+    lineHeight: 1.08,
+    fontWeight: 950,
+  },
+
+  heroText: {
+    margin: 0,
+    maxWidth: "680px",
+    color: "#cbd5e1",
+    fontSize: "14px",
+    lineHeight: 1.65,
+  },
+
+  heroQuizBox: {
+    minWidth: "290px",
+    maxWidth: "420px",
+    flex: "0 1 420px",
+    border: "1px solid rgba(255,255,255,0.16)",
+    background: "rgba(255,255,255,0.08)",
+    borderRadius: "20px",
+    padding: "20px",
+    alignSelf: "stretch",
+  },
+
+  heroQuizLabel: {
+    fontSize: "10px",
+    fontWeight: 900,
+    letterSpacing: "1.2px",
+    color: "#cbd5e1",
+  },
+
+  heroQuizTitle: {
+    marginTop: "9px",
+    fontSize: "21px",
+    lineHeight: 1.25,
+    fontWeight: 900,
+  },
+
+  heroQuizMeta: {
+    marginTop: "9px",
+    fontSize: "12px",
+    color: "#cbd5e1",
   },
 
   filtersCard: {
-    background:
-      "#ffffff",
-    border:
-      "1px solid #e2e8f0",
-    borderRadius:
-      "22px",
-    padding:
-      "18px",
-    boxShadow:
-      "0 10px 30px rgba(15,23,42,0.06)",
-    marginBottom:
-      "15px",
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "22px",
+    padding: "22px",
+    marginBottom: "18px",
+    boxShadow: "0 10px 30px rgba(15,23,42,0.06)",
   },
 
-  filterHeading: {
-    display:
-      "flex",
-    alignItems:
-      "center",
-    justifyContent:
-      "space-between",
-    gap:
-      "15px",
-    marginBottom:
-      "15px",
+  filterHeadingRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "15px",
+    marginBottom: "18px",
+    flexWrap: "wrap",
   },
 
-  filterTitle: {
-    margin:
-      0,
-    fontSize:
-      "18px",
-    fontWeight:
-      900,
+  sectionTitle: {
+    margin: 0,
+    fontSize: "21px",
+    fontWeight: 950,
+    color: "#0f172a",
   },
 
-  filterSubtitle: {
-    margin:
-      "4px 0 0",
-    color:
-      "#64748b",
-    fontSize:
-      "12px",
+  sectionSub: {
+    margin: "5px 0 0",
+    color: "#64748b",
+    fontSize: "12px",
+    lineHeight: 1.5,
   },
 
-  resetButton: {
-    border:
-      "1px solid #cbd5e1",
-    background:
-      "#f8fafc",
-    color:
-      "#334155",
-    borderRadius:
-      "10px",
-    padding:
-      "9px 13px",
-    fontWeight:
-      800,
-    cursor:
-      "pointer",
+  refreshButton: {
+    border: "1px solid #c7d2fe",
+    background: "#eef2ff",
+    color: "#3730a3",
+    padding: "10px 15px",
+    borderRadius: "11px",
+    fontWeight: 900,
+    cursor: "pointer",
   },
 
-  filterGrid: {
-    display:
-      "grid",
+  filtersGrid: {
+    display: "grid",
     gridTemplateColumns:
-      "repeat(3,minmax(0,1fr))",
-    gap:
-      "12px",
+      "repeat(auto-fit, minmax(210px, 1fr))",
+    gap: "13px",
   },
 
   filterLabel: {
-    display:
-      "flex",
-    flexDirection:
-      "column",
-    gap:
-      "6px",
-    fontSize:
-      "11px",
-    fontWeight:
-      900,
-    color:
-      "#475569",
+    display: "flex",
+    flexDirection: "column",
+    gap: "7px",
+    fontSize: "11px",
+    color: "#475569",
+    fontWeight: 900,
   },
 
   select: {
-    width:
-      "100%",
-    border:
-      "1px solid #cbd5e1",
-    borderRadius:
-      "11px",
-    background:
-      "#ffffff",
-    padding:
-      "11px 12px",
-    fontSize:
-      "13px",
-    color:
-      "#0f172a",
-    outline:
-      "none",
+    width: "100%",
+    height: "44px",
+    border: "1px solid #cbd5e1",
+    borderRadius: "11px",
+    padding: "0 12px",
+    background: "#ffffff",
+    color: "#0f172a",
+    fontWeight: 700,
+    outline: "none",
   },
 
-  filterInfo: {
-    marginTop:
-      "12px",
-    padding:
-      "10px 12px",
-    background:
-      "#f8fafc",
-    borderRadius:
-      "10px",
-    color:
-      "#475569",
-    fontSize:
-      "12px",
+  filterSummary: {
+    marginTop: "16px",
+    paddingTop: "14px",
+    borderTop: "1px solid #e2e8f0",
+    display: "flex",
+    gap: "20px",
+    flexWrap: "wrap",
+    color: "#64748b",
+    fontSize: "12px",
   },
 
   statsGrid: {
-    display:
-      "grid",
+    display: "grid",
     gridTemplateColumns:
-      "repeat(4,minmax(0,1fr))",
-    gap:
-      "10px",
-    marginBottom:
-      "15px",
+      "repeat(auto-fit, minmax(150px, 1fr))",
+    gap: "11px",
+    marginBottom: "18px",
   },
 
   statCard: {
-    background:
-      "#ffffff",
-    border:
-      "1px solid #e2e8f0",
-    borderRadius:
-      "17px",
-    padding:
-      "15px",
-    boxShadow:
-      "0 8px 22px rgba(15,23,42,0.05)",
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "17px",
+    padding: "15px",
+    display: "flex",
+    alignItems: "center",
+    gap: "11px",
+    boxShadow: "0 8px 22px rgba(15,23,42,0.045)",
+  },
+
+  statIcon: {
+    width: "39px",
+    height: "39px",
+    borderRadius: "12px",
+    background: "#f1f5f9",
+    color: "#334155",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 950,
+    fontSize: "14px",
+  },
+
+  statNumber: {
+    fontSize: "22px",
+    fontWeight: 950,
+    lineHeight: 1,
   },
 
   statLabel: {
-    display:
-      "block",
-    fontSize:
-      "10px",
-    fontWeight:
-      900,
-    color:
-      "#64748b",
-    textTransform:
-      "uppercase",
-    letterSpacing:
-      "0.05em",
-    marginBottom:
-      "6px",
+    marginTop: "4px",
+    color: "#64748b",
+    fontSize: "10px",
+    fontWeight: 800,
   },
 
-  statValue: {
-    display:
-      "block",
-    fontSize:
-      "24px",
-    fontWeight:
-      900,
-  },
-
-  downloadCard: {
+  downloadBar: {
     background:
-      "linear-gradient(135deg,#eef2ff,#faf5ff)",
-    border:
-      "1px solid #ddd6fe",
-    borderRadius:
-      "20px",
-    padding:
-      "16px 18px",
-    display:
-      "flex",
-    alignItems:
-      "center",
-    justifyContent:
-      "space-between",
-    gap:
-      "15px",
-    marginBottom:
-      "15px",
+      "linear-gradient(135deg, #ffffff, #f8fafc)",
+    border: "1px solid #cbd5e1",
+    borderRadius: "19px",
+    padding: "17px 19px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "15px",
+    marginBottom: "18px",
+    flexWrap: "wrap",
   },
 
   downloadTitle: {
-    fontSize:
-      "17px",
-    fontWeight:
-      900,
-    color:
-      "#312e81",
+    fontSize: "16px",
+    fontWeight: 950,
   },
 
-  downloadText: {
-    marginTop:
-      "4px",
-    fontSize:
-      "12px",
-    color:
-      "#64748b",
+  downloadSub: {
+    marginTop: "4px",
+    color: "#64748b",
+    fontSize: "11px",
   },
 
-  downloadButton: {
-    border:
-      "none",
+  pdfButton: {
+    border: "none",
     background:
-      "#4f46e5",
-    color:
-      "#ffffff",
-    borderRadius:
-      "12px",
-    padding:
-      "12px 16px",
-    fontWeight:
-      900,
-    cursor:
-      "pointer",
-    whiteSpace:
-      "nowrap",
+      "linear-gradient(135deg, #0f172a, #312e81)",
+    color: "#ffffff",
+    padding: "12px 17px",
+    borderRadius: "11px",
+    fontWeight: 900,
+    cursor: "pointer",
+    boxShadow: "0 9px 22px rgba(49,46,129,0.18)",
   },
 
-  disabledDownload: {
-    border:
-      "none",
-    background:
-      "#cbd5e1",
-    color:
-      "#64748b",
-    borderRadius:
-      "12px",
-    padding:
-      "12px 16px",
-    fontWeight:
-      900,
-    cursor:
-      "not-allowed",
-    whiteSpace:
-      "nowrap",
+  messageBox: {
+    marginBottom: "18px",
+    background: "#ecfdf5",
+    border: "1px solid #a7f3d0",
+    color: "#047857",
+    padding: "12px 15px",
+    borderRadius: "12px",
+    fontSize: "12px",
+    fontWeight: 800,
   },
 
-  message: {
-    background:
-      "#eff6ff",
-    border:
-      "1px solid #bfdbfe",
-    color:
-      "#1e40af",
-    padding:
-      "11px 14px",
-    borderRadius:
-      "12px",
-    marginBottom:
-      "15px",
-    fontSize:
-      "12px",
-    fontWeight:
-      800,
-  },
-
-  resultsCard: {
-    background:
-      "#ffffff",
-    border:
-      "1px solid #e2e8f0",
-    borderRadius:
-      "22px",
-    padding:
-      "15px",
-    boxShadow:
-      "0 12px 35px rgba(15,23,42,0.06)",
+  resultsSection: {
+    marginBottom: "18px",
   },
 
   resultsHeader: {
-    padding:
-      "4px 4px 14px",
+    marginBottom: "12px",
   },
 
-  resultsTitle: {
-    margin:
-      0,
-    fontSize:
-      "21px",
-    fontWeight:
-      900,
+  dateList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
   },
 
-  resultsSubtitle: {
-    margin:
-      "5px 0 0",
-    color:
-      "#64748b",
-    fontSize:
-      "12px",
-  },
-
-  dateGroup: {
-    border:
-      "1px solid #c7d2fe",
-    borderRadius:
-      "17px",
-    overflow:
-      "hidden",
-    marginBottom:
-      "11px",
+  dateCard: {
+    background: "#ffffff",
+    border: "1px solid #dbe3ef",
+    borderRadius: "19px",
+    overflow: "hidden",
+    boxShadow: "0 9px 25px rgba(15,23,42,0.05)",
   },
 
   dateButton: {
-    width:
-      "100%",
-    border:
-      "none",
-    background:
-      "#eef2ff",
-    padding:
-      "15px",
-    display:
-      "flex",
-    alignItems:
-      "center",
-    justifyContent:
-      "space-between",
-    gap:
-      "10px",
-    textAlign:
-      "left",
-    cursor:
-      "pointer",
+    width: "100%",
+    border: "none",
+    background: "#ffffff",
+    padding: "17px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "15px",
+    cursor: "pointer",
+    textAlign: "left",
   },
 
-  smallLabel: {
-    display:
-      "block",
-    fontSize:
-      "9px",
-    fontWeight:
-      900,
-    color:
-      "#4f46e5",
-    letterSpacing:
-      "0.08em",
-    marginBottom:
-      "3px",
+  dateButtonLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: "13px",
+    minWidth: 0,
+  },
+
+  dateIcon: {
+    width: "47px",
+    height: "47px",
+    borderRadius: "14px",
+    background:
+      "linear-gradient(135deg, #0f172a, #4338ca)",
+    color: "#ffffff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 950,
+    flexShrink: 0,
+  },
+
+  dateLabel: {
+    fontSize: "9px",
+    color: "#64748b",
+    fontWeight: 950,
+    letterSpacing: "1px",
   },
 
   dateTitle: {
-    fontSize:
-      "18px",
-    fontWeight:
-      900,
-    color:
-      "#1e1b4b",
+    marginTop: "3px",
+    fontSize: "17px",
+    fontWeight: 950,
+    color: "#0f172a",
   },
 
-  dateRight: {
-    display:
-      "flex",
-    alignItems:
-      "center",
-    gap:
-      "8px",
+  dateMeta: {
+    marginTop: "4px",
+    fontSize: "11px",
+    color: "#64748b",
+    fontWeight: 700,
   },
 
-  countBadge: {
-    background:
-      "#ffffff",
-    border:
-      "1px solid #cbd5e1",
-    color:
-      "#475569",
-    borderRadius:
-      "8px",
-    padding:
-      "5px 8px",
-    fontSize:
-      "10px",
-    fontWeight:
-      800,
+  chevron: {
+    width: "33px",
+    height: "33px",
+    borderRadius: "10px",
+    background: "#f1f5f9",
+    color: "#334155",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "21px",
+    fontWeight: 900,
+    flexShrink: 0,
   },
 
-  arrow: {
-    fontSize:
-      "23px",
-    lineHeight:
-      1,
-    color:
-      "#475569",
-    fontWeight:
-      700,
+  classList: {
+    padding: "0 12px 12px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "9px",
   },
 
-  dateContent: {
-    background:
-      "#f8fafc",
-    padding:
-      "10px",
-  },
-
-  classGroup: {
-    background:
-      "#ffffff",
-    border:
-      "1px solid #e2e8f0",
-    borderRadius:
-      "14px",
-    overflow:
-      "hidden",
-    marginBottom:
-      "9px",
+  classCard: {
+    border: "1px solid #e2e8f0",
+    borderRadius: "15px",
+    overflow: "hidden",
+    background: "#f8fafc",
   },
 
   classButton: {
-    width:
-      "100%",
-    border:
-      "none",
-    background:
-      "#ffffff",
-    padding:
-      "13px",
-    display:
-      "flex",
-    alignItems:
-      "center",
-    justifyContent:
-      "space-between",
-    gap:
-      "10px",
-    cursor:
-      "pointer",
-    textAlign:
-      "left",
+    width: "100%",
+    border: "none",
+    background: "#f8fafc",
+    padding: "13px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "12px",
+    cursor: "pointer",
+    textAlign: "left",
+  },
+
+  classButtonLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: "11px",
+    minWidth: 0,
   },
 
   classBadge: {
-    display:
-      "inline-block",
-    background:
-      "#e0e7ff",
-    color:
-      "#3730a3",
-    borderRadius:
-      "6px",
-    padding:
-      "4px 6px",
-    fontSize:
-      "9px",
-    fontWeight:
-      900,
-    marginRight:
-      "7px",
+    minWidth: "50px",
+    height: "36px",
+    padding: "0 10px",
+    borderRadius: "10px",
+    background: "#e0e7ff",
+    color: "#3730a3",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 950,
+    fontSize: "12px",
   },
 
-  className: {
-    fontSize:
-      "16px",
-    fontWeight:
-      900,
+  classTitle: {
+    fontWeight: 900,
+    fontSize: "14px",
+    color: "#0f172a",
   },
 
-  classContent: {
-    padding:
-      "9px",
-    background:
-      "#f8fafc",
-    borderTop:
-      "1px solid #e2e8f0",
+  classMeta: {
+    marginTop: "3px",
+    fontSize: "10px",
+    color: "#64748b",
+    fontWeight: 700,
+  },
+
+  studentList: {
+    padding: "0 10px 10px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "7px",
   },
 
   studentCard: {
-    background:
-      "#ffffff",
-    border:
-      "1px solid #e2e8f0",
-    borderRadius:
-      "13px",
-    overflow:
-      "hidden",
-    marginBottom:
-      "8px",
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "13px",
+    overflow: "hidden",
   },
 
-  studentButton: {
-    width:
-      "100%",
-    border:
-      "none",
-    background:
-      "#ffffff",
-    padding:
-      "12px",
-    display:
-      "flex",
-    alignItems:
-      "center",
-    justifyContent:
-      "space-between",
-    gap:
-      "12px",
-    cursor:
-      "pointer",
-    textAlign:
-      "left",
+  studentTop: {
+    padding: "11px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "12px",
   },
 
-  studentLeft: {
-    display:
-      "flex",
-    alignItems:
-      "center",
-    gap:
-      "10px",
-    minWidth:
-      0,
+  studentMainButton: {
+    flex: "1 1 auto",
+    minWidth: 0,
+    border: "none",
+    background: "transparent",
+    padding: 0,
+    display: "flex",
+    alignItems: "center",
+    gap: "11px",
+    cursor: "pointer",
+    textAlign: "left",
   },
 
   avatar: {
-    width:
-      "40px",
-    height:
-      "40px",
-    minWidth:
-      "40px",
-    borderRadius:
-      "11px",
-    background:
-      "#e0e7ff",
-    color:
-      "#3730a3",
-    display:
-      "flex",
-    alignItems:
-      "center",
-    justifyContent:
-      "center",
-    fontSize:
-      "16px",
-    fontWeight:
-      900,
+    width: "40px",
+    height: "40px",
+    borderRadius: "12px",
+    background: "#f1f5f9",
+    color: "#334155",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 950,
+    flexShrink: 0,
+  },
+
+  studentIdentity: {
+    minWidth: 0,
   },
 
   studentName: {
-    display:
-      "block",
-    fontSize:
-      "14px",
-    fontWeight:
-      900,
+    fontSize: "14px",
+    fontWeight: 900,
+    color: "#0f172a",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
 
-  studentMeta: {
-    marginTop:
-      "4px",
-    fontSize:
-      "10px",
-    color:
-      "#64748b",
+  studentUsername: {
+    marginTop: "3px",
+    fontSize: "10px",
+    color: "#64748b",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
 
-  studentRight: {
-    display:
-      "flex",
-    alignItems:
-      "center",
-    gap:
-      "9px",
-    flexShrink:
-      0,
+  studentActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: "7px",
+    flexShrink: 0,
   },
 
-  resultMini: {
-    display:
-      "flex",
-    alignItems:
-      "center",
-    gap:
-      "6px",
+  studentSummary: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-end",
+    minWidth: "65px",
   },
 
-  passBadge: {
-    background:
-      "#dcfce7",
-    color:
-      "#166534",
-    borderRadius:
-      "7px",
-    padding:
-      "5px 7px",
-    fontSize:
-      "9px",
-    fontWeight:
-      900,
+  summaryStatus: {
+    fontSize: "8px",
+    color: "#64748b",
+    fontWeight: 900,
+    marginTop: "2px",
   },
 
-  failBadge: {
-    background:
-      "#fee2e2",
-    color:
-      "#991b1b",
-    borderRadius:
-      "7px",
-    padding:
-      "5px 7px",
-    fontSize:
-      "9px",
-    fontWeight:
-      900,
+  noAttempt: {
+    fontSize: "8px",
+    color: "#dc2626",
+    fontWeight: 950,
   },
 
-  pendingBadge: {
-    background:
-      "#fef3c7",
-    color:
-      "#92400e",
-    borderRadius:
-      "7px",
-    padding:
-      "5px 7px",
-    fontSize:
-      "9px",
-    fontWeight:
-      900,
+  pdfSmallButton: {
+    border: "1px solid #c7d2fe",
+    background: "#eef2ff",
+    color: "#3730a3",
+    padding: "8px 9px",
+    borderRadius: "9px",
+    fontSize: "9px",
+    fontWeight: 950,
+    cursor: "pointer",
+  },
+
+  expandButton: {
+    width: "31px",
+    height: "31px",
+    border: "none",
+    borderRadius: "9px",
+    background: "#f1f5f9",
+    color: "#334155",
+    fontSize: "18px",
+    fontWeight: 900,
+    cursor: "pointer",
   },
 
   studentDetails: {
-    background:
-      "#f8fafc",
-    borderTop:
-      "1px solid #e2e8f0",
-    padding:
-      "13px",
+    borderTop: "1px solid #e2e8f0",
+    padding: "13px",
+    background: "#f8fafc",
   },
 
-  quizDetailHeader: {
-    display:
-      "flex",
-    alignItems:
-      "center",
-    justifyContent:
-      "space-between",
-    gap:
-      "12px",
-    marginBottom:
-      "12px",
-  },
-
-  quizDetailTitle: {
-    fontSize:
-      "15px",
-    fontWeight:
-      900,
-  },
-
-  quizDetailMeta: {
-    marginTop:
-      "4px",
-    fontSize:
-      "10px",
-    color:
-      "#64748b",
-  },
-
-  studentPdfButton: {
-    border:
-      "none",
-    background:
-      "#0f172a",
-    color:
-      "#ffffff",
-    borderRadius:
-      "9px",
-    padding:
-      "9px 11px",
-    fontSize:
-      "10px",
-    fontWeight:
-      900,
-    cursor:
-      "pointer",
-    whiteSpace:
-      "nowrap",
-  },
-
-  detailsGrid: {
-    display:
-      "grid",
+  detailGrid: {
+    display: "grid",
     gridTemplateColumns:
-      "repeat(4,minmax(0,1fr))",
-    gap:
-      "8px",
+      "repeat(auto-fit, minmax(160px, 1fr))",
+    gap: "8px",
+    marginBottom: "11px",
   },
 
   detailBox: {
-    background:
-      "#ffffff",
-    border:
-      "1px solid #e2e8f0",
-    borderRadius:
-      "10px",
-    padding:
-      "10px",
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "10px",
+    padding: "9px",
   },
 
-  detailLabel: {
-    display:
-      "block",
-    fontSize:
-      "9px",
-    fontWeight:
-      900,
-    color:
-      "#64748b",
-    textTransform:
-      "uppercase",
-    marginBottom:
-      "4px",
+  detailBoxSpan: {
+    fontSize: "9px",
+    color: "#64748b",
   },
 
-  bottomDetails: {
-    display:
-      "grid",
+  attemptList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "9px",
+  },
+
+  attemptCard: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "13px",
+    padding: "12px",
+  },
+
+  attemptHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: "12px",
+  },
+
+  attemptNumber: {
+    fontSize: "13px",
+    fontWeight: 950,
+    color: "#0f172a",
+  },
+
+  attemptTime: {
+    marginTop: "3px",
+    fontSize: "9px",
+    color: "#64748b",
+  },
+
+  statusPill: {
+    padding: "5px 9px",
+    borderRadius: "999px",
+    fontSize: "8px",
+    fontWeight: 950,
+  },
+
+  passPill: {
+    background: "#dcfce7",
+    color: "#15803d",
+  },
+
+  failPill: {
+    background: "#fee2e2",
+    color: "#b91c1c",
+  },
+
+  neutralPill: {
+    background: "#e2e8f0",
+    color: "#475569",
+  },
+
+  metricsGrid: {
+    marginTop: "11px",
+    display: "grid",
     gridTemplateColumns:
-      "repeat(3,minmax(0,1fr))",
-    gap:
-      "10px",
-    marginTop:
-      "10px",
-    paddingTop:
-      "10px",
-    borderTop:
-      "1px solid #e2e8f0",
-    fontSize:
-      "11px",
+      "repeat(auto-fit, minmax(90px, 1fr))",
+    gap: "7px",
+  },
+
+  metric: {
+    background: "#f8fafc",
+    border: "1px solid #e2e8f0",
+    borderRadius: "9px",
+    padding: "8px",
+  },
+
+  submissionInfo: {
+    marginTop: "9px",
+    fontSize: "9px",
+    color: "#64748b",
+    lineHeight: 1.55,
+  },
+
+  noResultBox: {
+    background: "#fff7ed",
+    border: "1px solid #fed7aa",
+    borderRadius: "12px",
+    padding: "13px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "12px",
+    flexWrap: "wrap",
   },
 
   reattemptPanel: {
-    marginTop:
-      "12px",
-    padding:
-      "12px",
-    background:
-      "#faf5ff",
-    border:
-      "1px dashed #c4b5fd",
-    borderRadius:
-      "11px",
-    display:
-      "flex",
-    alignItems:
-      "center",
-    justifyContent:
-      "space-between",
-    gap:
-      "10px",
+    marginTop: "10px",
+    background: "#eef2ff",
+    border: "1px solid #c7d2fe",
+    borderRadius: "12px",
+    padding: "12px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "12px",
+    flexWrap: "wrap",
   },
 
-  reattemptPanelText: {
-    color:
-      "#581c87",
+  reattemptButton: {
+    border: "none",
+    background: "#4338ca",
+    color: "#ffffff",
+    padding: "9px 12px",
+    borderRadius: "9px",
+    fontSize: "9px",
+    fontWeight: 950,
+    cursor: "pointer",
   },
 
-  allowButton: {
-    border:
-      "none",
-    background:
-      "#7c3aed",
-    color:
-      "#ffffff",
-    borderRadius:
-      "9px",
-    padding:
-      "9px 11px",
-    fontSize:
-      "10px",
-    fontWeight:
-      900,
-    cursor:
-      "pointer",
-    whiteSpace:
-      "nowrap",
+  allowedButton: {
+    border: "1px solid #86efac",
+    background: "#dcfce7",
+    color: "#15803d",
+    padding: "9px 12px",
+    borderRadius: "9px",
+    fontSize: "9px",
+    fontWeight: 950,
   },
 
-  allowedBadge: {
-    background:
-      "#dcfce7",
-    color:
-      "#166534",
-    borderRadius:
-      "8px",
-    padding:
-      "8px 10px",
-    fontSize:
-      "9px",
-    fontWeight:
-      900,
-    whiteSpace:
-      "nowrap",
+  currentQuizSection: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "20px",
+    padding: "20px",
+    marginBottom: "20px",
   },
 
-  emptyCard: {
-    textAlign:
-      "center",
-    padding:
-      "40px 20px",
-    color:
-      "#64748b",
+  currentQuizHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "15px",
+    marginBottom: "15px",
+    flexWrap: "wrap",
+  },
+
+  currentQuizGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(150px, 1fr))",
+    gap: "9px",
+  },
+
+  currentQuizInfo: {
+    border: "1px solid #e2e8f0",
+    background: "#f8fafc",
+    borderRadius: "11px",
+    padding: "11px",
+  },
+
+  footer: {
+    background: "#0f172a",
+    color: "#ffffff",
+    borderRadius: "18px",
+    padding: "18px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "15px",
+    flexWrap: "wrap",
+  },
+
+  footerBrand: {
+    fontWeight: 950,
+    letterSpacing: "1px",
+    fontSize: "13px",
+  },
+
+  footerText: {
+    fontSize: "10px",
+    color: "#cbd5e1",
+  },
+
+  footerSignature: {
+    fontFamily: "cursive",
+    fontStyle: "italic",
+    fontSize: "17px",
+    transform: "rotate(-5deg)",
   },
 
   loadingCard: {
-    width:
-      "min(500px, calc(100% - 30px))",
-    margin:
-      "80px auto",
-    padding:
-      "40px",
-    background:
-      "#ffffff",
-    borderRadius:
-      "22px",
-    textAlign:
-      "center",
-    boxShadow:
-      "0 20px 50px rgba(15,23,42,0.10)",
+    maxWidth: "500px",
+    margin: "12vh auto",
+    background: "#ffffff",
+    borderRadius: "24px",
+    padding: "38px",
+    textAlign: "center",
+    boxShadow: "0 25px 60px rgba(15,23,42,0.12)",
+    border: "1px solid #e2e8f0",
   },
 
-  spinner: {
-    width:
-      "42px",
-    height:
-      "42px",
-    border:
-      "4px solid #e2e8f0",
-    borderTop:
-      "4px solid #4f46e5",
-    borderRadius:
-      "50%",
-    margin:
-      "0 auto 18px",
-    animation:
-      "spin 0.8s linear infinite",
+  loaderCircle: {
+    width: "65px",
+    height: "65px",
+    borderRadius: "20px",
+    margin: "0 auto 18px",
+    background:
+      "linear-gradient(135deg, #0f172a, #4338ca)",
+    color: "#ffffff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 950,
+    fontSize: "20px",
   },
 
   loadingTitle: {
-    margin:
-      "0 0 7px",
-    fontSize:
-      "21px",
-    fontWeight:
-      900,
+    margin: 0,
+    fontSize: "21px",
+    fontWeight: 950,
   },
 
   loadingText: {
-    margin:
-      0,
-    color:
-      "#64748b",
-    fontSize:
-      "13px",
+    color: "#64748b",
+    fontSize: "12px",
+    marginTop: "8px",
   },
 
   errorCard: {
-    width:
-      "min(600px, calc(100% - 30px))",
-    margin:
-      "70px auto",
-    padding:
-      "35px",
-    background:
-      "#ffffff",
-    borderRadius:
-      "22px",
-    textAlign:
-      "center",
-    boxShadow:
-      "0 20px 50px rgba(15,23,42,0.10)",
+    maxWidth: "600px",
+    margin: "12vh auto",
+    background: "#ffffff",
+    borderRadius: "24px",
+    padding: "35px",
+    textAlign: "center",
+    boxShadow: "0 25px 60px rgba(15,23,42,0.12)",
+    border: "1px solid #fecaca",
+  },
+
+  errorIcon: {
+    width: "55px",
+    height: "55px",
+    margin: "0 auto 15px",
+    borderRadius: "50%",
+    background: "#fee2e2",
+    color: "#dc2626",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "25px",
+    fontWeight: 950,
   },
 
   errorTitle: {
-    margin:
-      "0 0 8px",
-    color:
-      "#991b1b",
-    fontSize:
-      "22px",
-    fontWeight:
-      900,
+    margin: 0,
+    fontSize: "21px",
+    fontWeight: 950,
   },
 
   errorText: {
-    margin:
-      "0 0 18px",
-    color:
-      "#64748b",
+    color: "#64748b",
+    fontSize: "12px",
+    lineHeight: 1.6,
+    margin: "10px 0 20px",
+  },
+
+  actionRow: {
+    display: "flex",
+    justifyContent: "center",
+    gap: "9px",
+    flexWrap: "wrap",
   },
 
   primaryButton: {
-    border:
-      "none",
-    background:
-      "#4f46e5",
-    color:
-      "#ffffff",
-    borderRadius:
-      "10px",
-    padding:
-      "11px 16px",
-    fontWeight:
-      900,
-    cursor:
-      "pointer",
+    border: "none",
+    background: "#0f172a",
+    color: "#ffffff",
+    padding: "11px 16px",
+    borderRadius: "10px",
+    fontWeight: 900,
+    cursor: "pointer",
+  },
+
+  secondaryButton: {
+    border: "1px solid #cbd5e1",
+    background: "#ffffff",
+    color: "#0f172a",
+    padding: "11px 16px",
+    borderRadius: "10px",
+    fontWeight: 900,
+    cursor: "pointer",
+  },
+
+  emptyCard: {
+    background: "#ffffff",
+    border: "1px dashed #cbd5e1",
+    borderRadius: "20px",
+    padding: "45px 20px",
+    textAlign: "center",
+  },
+
+  emptyIcon: {
+    width: "52px",
+    height: "52px",
+    borderRadius: "16px",
+    background: "#f1f5f9",
+    color: "#475569",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    margin: "0 auto 13px",
+    fontWeight: 950,
+  },
+
+  emptyTitle: {
+    margin: 0,
+    fontSize: "18px",
+    fontWeight: 950,
+  },
+
+  emptyText: {
+    margin: "6px 0 0",
+    color: "#64748b",
+    fontSize: "12px",
   },
 };
