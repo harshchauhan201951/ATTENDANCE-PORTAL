@@ -151,6 +151,237 @@ function TeacherResultsContent() {
   const [search, setSearch] =
     useState("");
 
+  const [
+    reattemptQuizIds,
+    setReattemptQuizIds,
+  ] = useState<Set<number>>(
+    new Set()
+  );
+
+  const [
+    reattemptLoading,
+    setReattemptLoading,
+  ] = useState<number | null>(null);
+
+  const [
+    reattemptMessage,
+    setReattemptMessage,
+  ] = useState("");
+
+  async function loadReattemptPermissions(
+    quizId: number
+  ) {
+    try {
+      const studentIds =
+        results
+          .map((row) =>
+            Number(row.student_id)
+          )
+          .filter(
+            (id) =>
+              Number.isFinite(id) &&
+              id > 0
+          );
+
+      if (
+        studentIds.length === 0
+      ) {
+        setReattemptQuizIds(
+          new Set()
+        );
+        return;
+      }
+
+      const permissionSet =
+        new Set<number>();
+
+      for (
+        const studentId of studentIds
+      ) {
+        const response =
+          await fetch(
+            `/api/quiz-tests/reattempt?studentId=${studentId}`,
+            {
+              method: "GET",
+              cache: "no-store",
+            }
+          );
+
+        if (!response.ok) {
+          continue;
+        }
+
+        const data =
+          await response.json();
+
+        const quizIds =
+          Array.isArray(
+            data?.quizIds
+          )
+            ? data.quizIds
+            : [];
+
+        if (
+          quizIds.some(
+            (id: unknown) =>
+              Number(id) ===
+              quizId
+          )
+        ) {
+          permissionSet.add(
+            studentId
+          );
+        }
+      }
+
+      setReattemptQuizIds(
+        permissionSet
+      );
+    } catch (permissionError) {
+      console.error(
+        "Re-attempt permission loading error:",
+        permissionError
+      );
+
+      setReattemptQuizIds(
+        new Set()
+      );
+    }
+  }
+
+  async function allowReattempt(
+    studentId: number
+  ) {
+    const quizId =
+      Number(quizIdParam);
+
+    if (
+      !Number.isFinite(quizId) ||
+      quizId <= 0 ||
+      !Number.isFinite(studentId) ||
+      studentId <= 0
+    ) {
+      return;
+    }
+
+    setReattemptLoading(
+      studentId
+    );
+    setReattemptMessage("");
+
+    try {
+      let teacherId: number | null =
+        null;
+
+      const storedTeacherId =
+        localStorage.getItem(
+          "attendance_teacher_id"
+        );
+
+      if (
+        storedTeacherId
+      ) {
+        const parsed =
+          Number(
+            storedTeacherId
+          );
+
+        if (
+          Number.isFinite(parsed) &&
+          parsed > 0
+        ) {
+          teacherId = parsed;
+        }
+      }
+
+      if (!teacherId) {
+        const storedTeacher =
+          localStorage.getItem(
+            "teacher_id"
+          );
+
+        if (storedTeacher) {
+          const parsed =
+            Number(
+              storedTeacher
+            );
+
+          if (
+            Number.isFinite(parsed) &&
+            parsed > 0
+          ) {
+            teacherId = parsed;
+          }
+        }
+      }
+
+      if (!teacherId) {
+        setReattemptMessage(
+          "Teacher session not found. Please login again."
+        );
+        return;
+      }
+
+      const response =
+        await fetch(
+          "/api/quiz-tests/reattempt",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              action: "allow",
+              quizId,
+              studentId,
+              teacherId,
+            }),
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "Unable to allow re-attempt."
+        );
+      }
+
+      setReattemptQuizIds(
+        (previous) => {
+          const next =
+            new Set(previous);
+
+          next.add(studentId);
+
+          return next;
+        }
+      );
+
+      setReattemptMessage(
+        "Re-attempt permission granted successfully."
+      );
+    } catch (permissionError) {
+      console.error(
+        "Allow re-attempt error:",
+        permissionError
+      );
+
+      setReattemptMessage(
+        permissionError instanceof Error
+          ? permissionError.message
+          : "Unable to allow re-attempt."
+      );
+    } finally {
+      setReattemptLoading(
+        null
+      );
+    }
+  }
+
   useEffect(() => {
     async function loadResults() {
       const quizId =
@@ -215,6 +446,9 @@ function TeacherResultsContent() {
 
         if (rawResults.length === 0) {
           setResults([]);
+          setReattemptQuizIds(
+            new Set()
+          );
           return;
         }
 
@@ -314,6 +548,23 @@ function TeacherResultsContent() {
 
     loadResults();
   }, [quizIdParam]);
+
+  useEffect(() => {
+    const quizId =
+      Number(quizIdParam);
+
+    if (
+      !Number.isFinite(quizId) ||
+      quizId <= 0 ||
+      results.length === 0
+    ) {
+      return;
+    }
+
+    loadReattemptPermissions(
+      quizId
+    );
+  }, [quizIdParam, results]);
 
   const filteredResults =
     results.filter((row) => {
@@ -561,6 +812,12 @@ function TeacherResultsContent() {
               />
             </div>
 
+            {reattemptMessage && (
+              <div className="mb-4 rounded-2xl border border-indigo-400/20 bg-indigo-500/10 px-4 py-3 text-sm font-bold text-indigo-200">
+                {reattemptMessage}
+              </div>
+            )}
+
             {filteredResults.length ===
             0 ? (
               <div className="rounded-3xl border border-dashed border-white/10 bg-white/5 p-10 text-center">
@@ -590,6 +847,20 @@ function TeacherResultsContent() {
                         row.student
                           ?.class_name
                       );
+
+                    const studentId =
+                      Number(
+                        row.student_id
+                      );
+
+                    const hasReattemptPermission =
+                      reattemptQuizIds.has(
+                        studentId
+                      );
+
+                    const isAllowing =
+                      reattemptLoading ===
+                      studentId;
 
                     return (
                       <div
@@ -691,46 +962,85 @@ function TeacherResultsContent() {
                           </div>
                         </div>
 
-                        <div className="mt-4 flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="flex flex-wrap gap-3 text-xs text-slate-400">
-                            <span>
-                              Marks:{" "}
-                              <strong className="text-white">
-                                {
-                                  row.obtained_marks
-                                }
-                              </strong>
+                        <div className="mt-4 flex flex-col gap-4 border-t border-white/10 pt-4">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex flex-wrap gap-3 text-xs text-slate-400">
+                              <span>
+                                Marks:{" "}
+                                <strong className="text-white">
+                                  {
+                                    row.obtained_marks
+                                  }
+                                </strong>
                                 {" / "}
-                              {
-                                row.total_marks
-                              }
-                            </span>
+                                {
+                                  row.total_marks
+                                }
+                              </span>
 
-                            <span>
-                              Unanswered:{" "}
-                              {
-                                row.unanswered
-                              }
-                            </span>
+                              <span>
+                                Unanswered:{" "}
+                                {
+                                  row.unanswered
+                                }
+                              </span>
 
-                            <span>
-                              Submission:{" "}
-                              {row.submission_type ||
-                                "manual"}
+                              <span>
+                                Submission:{" "}
+                                {row.submission_type ||
+                                  "manual"}
+                              </span>
+                            </div>
+
+                            <span
+                              className={`rounded-full px-5 py-2 text-xs font-black ${
+                                isPass
+                                  ? "bg-emerald-500/15 text-emerald-300"
+                                  : "bg-red-500/15 text-red-300"
+                              }`}
+                            >
+                              {isPass
+                                ? "PASS"
+                                : "FAIL"}
                             </span>
                           </div>
 
-                          <span
-                            className={`rounded-full px-5 py-2 text-xs font-black ${
-                              isPass
-                                ? "bg-emerald-500/15 text-emerald-300"
-                                : "bg-red-500/15 text-red-300"
-                            }`}
-                          >
-                            {isPass
-                              ? "PASS"
-                              : "FAIL"}
-                          </span>
+                          <div className="flex flex-col gap-3 rounded-2xl border border-indigo-400/10 bg-indigo-500/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <p className="text-sm font-black text-white">
+                                Re-attempt Access
+                              </p>
+
+                              <p className="mt-1 text-xs text-slate-400">
+                                Allow this exact student to attempt this quiz again.
+                              </p>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                              {hasReattemptPermission ? (
+                                <span className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-2 text-xs font-black text-emerald-300">
+                                  RE-ATTEMPT ALLOWED
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={
+                                    isAllowing
+                                  }
+                                  onClick={() =>
+                                    allowReattempt(
+                                      studentId
+                                    )
+                                  }
+                                  className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-black text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  {isAllowing
+                                    ? "ALLOWING..."
+                                    : "ALLOW RE-ATTEMPT"}
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     );
@@ -755,7 +1065,7 @@ export default function TeacherQuizResultsPage() {
       fallback={
         <main className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
           <div className="text-center">
-            <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-indigo-500" />
+            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-indigo-500" />
 
             <p className="font-bold">
               Loading Results...
