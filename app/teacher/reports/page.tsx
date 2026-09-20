@@ -37,10 +37,7 @@ type AssessmentRow = {
   remarks: string | null;
   created_at: string;
   subject: "English" | "Mathematics";
-  attendance_status:
-    | "PRESENT"
-    | "ABSENT"
-    | "NO_TEST";
+  attendance_status: "PRESENT" | "ABSENT" | "NO_TEST";
   test_images: unknown;
 };
 
@@ -49,10 +46,7 @@ type StudentMark = {
   subject: "English" | "Mathematics";
   obtainedMarks: string;
   remarks: string;
-  attendanceStatus:
-    | "PRESENT"
-    | "ABSENT"
-    | "NO_TEST";
+  attendanceStatus: "PRESENT" | "ABSENT" | "NO_TEST";
   testImages: string[];
 };
 
@@ -73,19 +67,16 @@ const months = [
 
 function isPresent(status: string) {
   const value = String(status || "").toLowerCase();
-
   return value === "present" || value === "p";
 }
 
 function isAbsent(status: string) {
   const value = String(status || "").toLowerCase();
-
   return value === "absent" || value === "a";
 }
 
 function getPercentage(obtained: number, total: number) {
   if (!total || total <= 0) return 0;
-
   return (obtained / total) * 100;
 }
 
@@ -96,7 +87,6 @@ function getGrade(percentage: number) {
   if (percentage >= 60) return "B";
   if (percentage >= 50) return "C";
   if (percentage >= 40) return "D";
-
   return "F";
 }
 
@@ -104,16 +94,6 @@ function isPass(percentage: number) {
   return percentage >= 40;
 }
 
-/*
- * Converts test_images into a clean string[].
- *
- * Supports:
- * - ["url1", "url2"]
- * - [{ url: "..." }]
- * - [{ path: "..." }]
- * - JSON string containing arrays
- * - single URL string
- */
 function getImageUrls(value: unknown): string[] {
   if (!value) return [];
 
@@ -130,15 +110,11 @@ function getImageUrls(value: unknown): string[] {
     };
 
     if (typeof item.url === "string") {
-      return item.url.trim()
-        ? [item.url.trim()]
-        : [];
+      return item.url.trim() ? [item.url.trim()] : [];
     }
 
     if (typeof item.path === "string") {
-      return item.path.trim()
-        ? [item.path.trim()]
-        : [];
+      return item.path.trim() ? [item.path.trim()] : [];
     }
 
     return [];
@@ -174,13 +150,9 @@ function escapeHtml(value: unknown) {
     .replace(/'/g, "&#039;");
 }
 
-function waitForImagesToLoad(
-  printWindow: Window
-): Promise<void> {
+function waitForImagesToLoad(printWindow: Window): Promise<void> {
   return new Promise((resolve) => {
-    const images = Array.from(
-      printWindow.document.images
-    );
+    const images = Array.from(printWindow.document.images);
 
     if (images.length === 0) {
       resolve();
@@ -188,11 +160,13 @@ function waitForImagesToLoad(
     }
 
     let completed = 0;
+    let resolved = false;
 
     const finish = () => {
       completed += 1;
 
-      if (completed >= images.length) {
+      if (completed >= images.length && !resolved) {
+        resolved = true;
         resolve();
       }
     };
@@ -201,38 +175,26 @@ function waitForImagesToLoad(
       if (image.complete) {
         finish();
       } else {
-        image.addEventListener(
-          "load",
-          finish,
-          { once: true }
-        );
-
-        image.addEventListener(
-          "error",
-          finish,
-          { once: true }
-        );
+        image.addEventListener("load", finish, { once: true });
+        image.addEventListener("error", finish, { once: true });
       }
     });
 
-    setTimeout(resolve, 5000);
+    setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        resolve();
+      }
+    }, 7000);
   });
 }
 
 export default function TeacherReportsPage() {
   const currentDate = new Date();
 
-  const [students, setStudents] = useState<Student[]>(
-    []
-  );
-
-  const [attendance, setAttendance] = useState<
-    Attendance[]
-  >([]);
-
-  const [assessments, setAssessments] = useState<
-    AssessmentRow[]
-  >([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [attendance, setAttendance] = useState<Attendance[]>([]);
+  const [assessments, setAssessments] = useState<AssessmentRow[]>([]);
 
   const [month, setMonth] = useState(
     String(currentDate.getMonth() + 1)
@@ -243,17 +205,11 @@ export default function TeacherReportsPage() {
   );
 
   const [loading, setLoading] = useState(true);
-
-  const [assessmentLoading, setAssessmentLoading] =
-    useState(false);
+  const [assessmentLoading, setAssessmentLoading] = useState(false);
 
   const [error, setError] = useState("");
-
-  const [assessmentMessage, setAssessmentMessage] =
-    useState("");
-
-  const [assessmentError, setAssessmentError] =
-    useState("");
+  const [assessmentMessage, setAssessmentMessage] = useState("");
+  const [assessmentError, setAssessmentError] = useState("");
 
   const [testName, setTestName] = useState("");
 
@@ -263,15 +219,11 @@ export default function TeacherReportsPage() {
 
   const [totalMarks, setTotalMarks] = useState("");
 
-  const [studentMarks, setStudentMarks] = useState<
-    StudentMark[]
-  >([]);
+  const [studentMarks, setStudentMarks] = useState<StudentMark[]>([]);
 
-  const [selectedAssessment, setSelectedAssessment] =
-    useState("");
+  const [selectedAssessment, setSelectedAssessment] = useState("");
 
-  const [showAssessmentForm, setShowAssessmentForm] =
-    useState(true);
+  const [showAssessmentForm, setShowAssessmentForm] = useState(true);
 
   useEffect(() => {
     void loadReport();
@@ -282,10 +234,7 @@ export default function TeacherReportsPage() {
     setLoading(true);
     setError("");
 
-    const startDate = `${year}-${String(month).padStart(
-      2,
-      "0"
-    )}-01`;
+    const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
 
     const lastDay = new Date(
       Number(year),
@@ -334,10 +283,10 @@ export default function TeacherReportsPage() {
       return;
     }
 
-    const loadedStudents = (studentsData ||
-      []) as Student[];
+    const loadedStudents = (studentsData || []) as Student[];
 
     setStudents(loadedStudents);
+
     setAttendance(
       (attendanceData || []) as Attendance[]
     );
@@ -387,16 +336,12 @@ export default function TeacherReportsPage() {
     date: string
   ) {
     if (!student.admission_date) return true;
-
     return student.admission_date <= date;
   }
 
   const eligibleStudents = useMemo(() => {
     return students.filter((student) =>
-      isStudentEligibleForTest(
-        student,
-        testDate
-      )
+      isStudentEligibleForTest(student, testDate)
     );
   }, [students, testDate]);
 
@@ -434,10 +379,7 @@ export default function TeacherReportsPage() {
 
   function updateStudentAttendance(
     studentId: number,
-    value:
-      | "PRESENT"
-      | "ABSENT"
-      | "NO_TEST"
+    value: "PRESENT" | "ABSENT" | "NO_TEST"
   ) {
     setStudentMarks((current) =>
       current.map((item) =>
@@ -591,17 +533,13 @@ export default function TeacherReportsPage() {
   }
 
   function resetAssessmentForm() {
-    setTestName("");
-
-    setTestDate(
-      new Date().toISOString().split("T")[0]
-    );
-
-    setTotalMarks("");
-
     const today = new Date()
       .toISOString()
       .split("T")[0];
+
+    setTestName("");
+    setTestDate(today);
+    setTotalMarks("");
 
     setStudentMarks(
       students
@@ -860,10 +798,6 @@ export default function TeacherReportsPage() {
               row?.attendance_status ||
               "PRESENT",
 
-            /*
-             * Existing uploaded images are loaded
-             * back when editing the assessment.
-             */
             testImages: getImageUrls(
               row?.test_images
             ),
@@ -1206,20 +1140,6 @@ export default function TeacherReportsPage() {
     URL.revokeObjectURL(url);
   }
 
-  /*
-   * Teacher Result PDF
-   *
-   * IMPORTANT:
-   * Every uploaded image gets its own NEW PDF page.
-   *
-   * Result table
-   *      ↓
-   * Image 1 = new page
-   *      ↓
-   * Image 2 = new page
-   *      ↓
-   * Image 3 = new page
-   */
   function downloadStudentResult(
     studentId: number,
     testNameValue: string,
@@ -1272,104 +1192,64 @@ export default function TeacherReportsPage() {
               )
             : 0;
 
-        const attendanceText =
-          isAbsentStudent
-            ? "ABSENT"
-            : isNoTestStudent
-            ? "NO TEST"
-            : "PRESENT";
-
         return `
           <tr>
-            <td>${escapeHtml(
-              item.subject
-            )}</td>
-
-            <td>${attendanceText}</td>
-
-            <td>
-              ${
-                isAbsentStudent ||
-                isNoTestStudent
-                  ? "—"
-                  : escapeHtml(
-                      item.total_marks
-                    )
-              }
-            </td>
-
-            <td>
-              ${
-                isAbsentStudent ||
-                isNoTestStudent
-                  ? "—"
-                  : escapeHtml(
-                      item.obtained_marks
-                    )
-              }
-            </td>
-
-            <td>
-              ${
-                isAbsentStudent ||
-                isNoTestStudent
-                  ? "—"
-                  : `${percentage.toFixed(
-                      1
-                    )}%`
-              }
-            </td>
-
-            <td>
-              ${
-                isAbsentStudent ||
-                isNoTestStudent
-                  ? "—"
-                  : getGrade(percentage)
-              }
-            </td>
-
-            <td>
-              ${
-                isAbsentStudent
-                  ? "ABSENT"
-                  : isNoTestStudent
-                  ? "NO TEST"
-                  : isPass(percentage)
-                  ? "PASS"
-                  : "FAIL"
-              }
-            </td>
-
-            <td>
-              ${escapeHtml(
-                item.remarks || ""
-              )}
-            </td>
+            <td>${escapeHtml(item.subject)}</td>
+            <td>${
+              isAbsentStudent
+                ? "ABSENT"
+                : isNoTestStudent
+                ? "NO TEST"
+                : "PRESENT"
+            }</td>
+            <td>${
+              isAbsentStudent || isNoTestStudent
+                ? "—"
+                : escapeHtml(item.total_marks)
+            }</td>
+            <td>${
+              isAbsentStudent || isNoTestStudent
+                ? "—"
+                : escapeHtml(item.obtained_marks)
+            }</td>
+            <td>${
+              isAbsentStudent || isNoTestStudent
+                ? "—"
+                : `${percentage.toFixed(1)}%`
+            }</td>
+            <td>${
+              isAbsentStudent || isNoTestStudent
+                ? "—"
+                : getGrade(percentage)
+            }</td>
+            <td>${
+              isAbsentStudent
+                ? "ABSENT"
+                : isNoTestStudent
+                ? "NO TEST"
+                : isPass(percentage)
+                ? "PASS"
+                : "FAIL"
+            }</td>
+            <td>${escapeHtml(item.remarks || "")}</td>
           </tr>
         `;
       })
       .join("");
 
-    /*
-     * Collect ALL images from the student's
-     * rows and make each image a separate page.
-     */
-    const imagePages = rows
-      .flatMap((row) => {
-        return getImageUrls(
-          row.test_images
-        ).map((imageUrl) => ({
+    const imageItems = rows.flatMap((row) =>
+      getImageUrls(row.test_images).map(
+        (imageUrl) => ({
           imageUrl,
           subject: row.subject,
           remarks: row.remarks || "",
-        }));
-      })
+        })
+      )
+    );
+
+    const imagePages = imageItems
       .map(
-        (
-          image,
-          index
-        ) => `
+        (image, index) => `
           <section class="pdf-image-page">
             <div class="image-page-header">
               <div class="brand">
@@ -1391,23 +1271,17 @@ export default function TeacherReportsPage() {
 
               <div class="image-meta">
                 <strong>Test:</strong>
-                ${escapeHtml(
-                  testNameValue
-                )}
+                ${escapeHtml(testNameValue)}
               </div>
 
               <div class="image-meta">
                 <strong>Date:</strong>
-                ${escapeHtml(
-                  testDateValue
-                )}
+                ${escapeHtml(testDateValue)}
               </div>
 
               <div class="image-meta">
                 <strong>Subject:</strong>
-                ${escapeHtml(
-                  image.subject
-                )}
+                ${escapeHtml(image.subject)}
               </div>
 
               <div class="image-number">
@@ -1417,9 +1291,7 @@ export default function TeacherReportsPage() {
 
             <div class="image-container">
               <img
-                src="${escapeHtml(
-                  image.imageUrl
-                )}"
+                src="${escapeHtml(image.imageUrl)}"
                 alt="Checked test paper"
               />
             </div>
@@ -1429,9 +1301,7 @@ export default function TeacherReportsPage() {
                 ? `
                   <div class="image-remarks">
                     <strong>Remarks:</strong>
-                    ${escapeHtml(
-                      image.remarks
-                    )}
+                    ${escapeHtml(image.remarks)}
                   </div>
                 `
                 : ""
@@ -1441,14 +1311,14 @@ export default function TeacherReportsPage() {
       )
       .join("");
 
-    /*
-     * If there are NO images:
-     * imagePages = ""
-     * therefore NO extra blank image page.
-     */
+    const totalImageCount = imageItems.length;
+
     printWindow.document.write(`
+      <!DOCTYPE html>
       <html>
         <head>
+          <meta charset="UTF-8" />
+
           <title>
             RACER ACADEMY Result -
             ${escapeHtml(
@@ -1468,28 +1338,24 @@ export default function TeacherReportsPage() {
               box-sizing: border-box;
             }
 
+            html,
+            body {
+              margin: 0;
+              padding: 0;
+              background: white;
+            }
+
             body {
               font-family:
                 Arial,
                 Helvetica,
                 sans-serif;
-              padding: 25px;
               color: #111827;
-              margin: 0;
-              background: white;
             }
 
-            h1 {
-              color: #1e3a8a;
-              margin-bottom: 5px;
-            }
-
-            h2 {
-              margin-top: 25px;
-            }
-
-            h3 {
-              color: #1e3a8a;
+            .result-section {
+              width: 100%;
+              page-break-after: auto;
             }
 
             .brand {
@@ -1500,23 +1366,29 @@ export default function TeacherReportsPage() {
               margin-bottom: 6px;
             }
 
+            h1 {
+              color: #1e3a8a;
+              margin: 0 0 12px;
+              font-size: 27px;
+            }
+
             .meta {
-              margin: 8px 0;
+              margin: 6px 0;
               color: #475569;
-              font-size: 14px;
+              font-size: 13px;
             }
 
             table {
               width: 100%;
               border-collapse: collapse;
               margin-top: 20px;
-              font-size: 12px;
+              font-size: 11px;
             }
 
             th,
             td {
               border: 1px solid #cbd5e1;
-              padding: 9px;
+              padding: 8px;
               text-align: left;
               vertical-align: top;
             }
@@ -1528,7 +1400,7 @@ export default function TeacherReportsPage() {
             }
 
             .summary {
-              margin-top: 20px;
+              margin-top: 18px;
               display: grid;
               grid-template-columns:
                 repeat(3, 1fr);
@@ -1538,31 +1410,34 @@ export default function TeacherReportsPage() {
             .summary-box {
               border: 1px solid #dbeafe;
               background: #f8fafc;
-              border-radius: 10px;
-              padding: 12px;
+              border-radius: 9px;
+              padding: 10px;
             }
 
             .summary-label {
-              font-size: 10px;
+              font-size: 9px;
               color: #64748b;
               text-transform: uppercase;
             }
 
             .summary-value {
               margin-top: 4px;
-              font-size: 18px;
+              font-size: 15px;
               font-weight: 800;
               color: #172554;
             }
 
-            .result-section {
-              margin-bottom: 20px;
+            .print-button {
+              margin-top: 22px;
+              border: none;
+              background: #1e3a8a;
+              color: white;
+              padding: 11px 17px;
+              border-radius: 8px;
+              font-weight: 800;
+              cursor: pointer;
             }
 
-            /*
-             * Each image starts on a completely
-             * separate PDF page.
-             */
             .pdf-image-page {
               break-before: page;
               page-break-before: always;
@@ -1572,36 +1447,38 @@ export default function TeacherReportsPage() {
 
               display: flex;
               flex-direction: column;
-              padding: 10px 0;
+
+              padding: 5px 0;
             }
 
             .image-page-header {
               border-bottom:
                 1px solid #cbd5e1;
-              padding-bottom: 12px;
-              margin-bottom: 15px;
+
+              padding-bottom: 10px;
+              margin-bottom: 12px;
             }
 
             .image-page-header h2 {
               color: #172554;
-              margin: 4px 0 12px;
-              font-size: 21px;
+              margin: 3px 0 10px;
+              font-size: 20px;
             }
 
             .image-meta {
               color: #475569;
-              font-size: 12px;
-              margin-top: 4px;
+              font-size: 11px;
+              margin-top: 3px;
             }
 
             .image-number {
               display: inline-block;
-              margin-top: 10px;
-              padding: 6px 10px;
+              margin-top: 8px;
+              padding: 5px 9px;
               border-radius: 999px;
               background: #dbeafe;
               color: #1e3a8a;
-              font-size: 11px;
+              font-size: 10px;
               font-weight: 800;
             }
 
@@ -1615,14 +1492,15 @@ export default function TeacherReportsPage() {
 
               width: 100%;
               overflow: hidden;
-              padding: 10px;
+
+              padding: 8px;
             }
 
             .image-container img {
               display: block;
 
               max-width: 100%;
-              max-height: 215mm;
+              max-height: 225mm;
 
               width: auto;
               height: auto;
@@ -1633,24 +1511,15 @@ export default function TeacherReportsPage() {
             }
 
             .image-remarks {
-              margin-top: 12px;
-              padding: 10px;
+              margin-top: 10px;
+              padding: 9px;
+
               border-radius: 8px;
               background: #f8fafc;
               border: 1px solid #e2e8f0;
-              color: #475569;
-              font-size: 12px;
-            }
 
-            .print-button {
-              margin-top: 25px;
-              border: none;
-              background: #1e3a8a;
-              color: white;
-              padding: 12px 18px;
-              border-radius: 8px;
-              font-weight: 800;
-              cursor: pointer;
+              color: #475569;
+              font-size: 11px;
             }
 
             @media print {
@@ -1671,9 +1540,7 @@ export default function TeacherReportsPage() {
         </head>
 
         <body>
-
           <div class="result-section">
-
             <div class="brand">
               RACER ACADEMY
             </div>
@@ -1694,23 +1561,18 @@ export default function TeacherReportsPage() {
             <div class="meta">
               <strong>Username:</strong>
               ${escapeHtml(
-                student?.student_username ||
-                  ""
+                student?.student_username || ""
               )}
             </div>
 
             <div class="meta">
               <strong>Test:</strong>
-              ${escapeHtml(
-                testNameValue
-              )}
+              ${escapeHtml(testNameValue)}
             </div>
 
             <div class="meta">
               <strong>Date:</strong>
-              ${escapeHtml(
-                testDateValue
-              )}
+              ${escapeHtml(testDateValue)}
             </div>
 
             <table>
@@ -1733,7 +1595,6 @@ export default function TeacherReportsPage() {
             </table>
 
             <div class="summary">
-
               <div class="summary-box">
                 <div class="summary-label">
                   Total Subjects
@@ -1750,17 +1611,7 @@ export default function TeacherReportsPage() {
                 </div>
 
                 <div class="summary-value">
-                  ${rows.reduce(
-                    (
-                      count,
-                      row
-                    ) =>
-                      count +
-                      getImageUrls(
-                        row.test_images
-                      ).length,
-                    0
-                  )}
+                  ${totalImageCount}
                 </div>
               </div>
 
@@ -1773,7 +1624,6 @@ export default function TeacherReportsPage() {
                   RACER ACADEMY
                 </div>
               </div>
-
             </div>
 
             <button
@@ -1782,28 +1632,29 @@ export default function TeacherReportsPage() {
             >
               Print / Save as PDF
             </button>
-
           </div>
 
           ${imagePages}
-
         </body>
       </html>
     `);
 
     printWindow.document.close();
 
-    /*
-     * Wait until every test image has loaded.
-     * This prevents blank images in the PDF.
-     */
     void waitForImagesToLoad(
       printWindow
     ).then(() => {
       setTimeout(() => {
-        printWindow.focus();
-        printWindow.print();
-      }, 300);
+        try {
+          printWindow.focus();
+          printWindow.print();
+        } catch (printError) {
+          console.error(
+            "Print error:",
+            printError
+          );
+        }
+      }, 500);
     });
   }
 
@@ -1811,7 +1662,7 @@ export default function TeacherReportsPage() {
     return (
       <main style={styles.page}>
         <div style={styles.loading}>
-          📊 Loading Reports...
+          Loading Reports...
         </div>
       </main>
     );
@@ -1820,7 +1671,6 @@ export default function TeacherReportsPage() {
   return (
     <main style={styles.page}>
       <div style={styles.container}>
-
         <header style={styles.header}>
           <div>
             <div style={styles.brand}>
@@ -1828,7 +1678,7 @@ export default function TeacherReportsPage() {
             </div>
 
             <h1 style={styles.title}>
-              📊 Teacher Reports
+              Teacher Reports
             </h1>
 
             <p style={styles.subtitle}>
@@ -1848,7 +1698,7 @@ export default function TeacherReportsPage() {
         <section style={styles.filterCard}>
           <div>
             <h2 style={styles.sectionTitle}>
-              📅 Attendance Report
+              Attendance Report
             </h2>
 
             <p style={styles.sectionSubtitle}>
@@ -1910,23 +1760,23 @@ export default function TeacherReportsPage() {
             </div>
 
             <button
-              onClick={loadReport}
+              onClick={() => void loadReport()}
               style={styles.generateButton}
             >
-              🔄 Generate Report
+              Generate Report
             </button>
 
             <button
               onClick={exportCSV}
               style={styles.exportButton}
             >
-              📥 Export CSV
+              Export CSV
             </button>
           </div>
 
           {error && (
             <div style={styles.error}>
-              ❌ {error}
+              {error}
             </div>
           )}
         </section>
@@ -1940,7 +1790,7 @@ export default function TeacherReportsPage() {
             }}
           >
             <div style={styles.summaryIcon}>
-              👨‍🎓
+              Students
             </div>
 
             <div style={styles.summaryLabel}>
@@ -1960,7 +1810,7 @@ export default function TeacherReportsPage() {
             }}
           >
             <div style={styles.summaryIcon}>
-              ✅
+              Present
             </div>
 
             <div style={styles.summaryLabel}>
@@ -1980,7 +1830,7 @@ export default function TeacherReportsPage() {
             }}
           >
             <div style={styles.summaryIcon}>
-              ❌
+              Absent
             </div>
 
             <div style={styles.summaryLabel}>
@@ -2000,7 +1850,7 @@ export default function TeacherReportsPage() {
             }}
           >
             <div style={styles.summaryIcon}>
-              📈
+              Attendance
             </div>
 
             <div style={styles.summaryLabel}>
@@ -2017,13 +1867,11 @@ export default function TeacherReportsPage() {
           <div style={styles.tableHeader}>
             <div>
               <h2 style={styles.sectionTitle}>
-                👨‍🎓 Student-wise Attendance
+                Student-wise Attendance
               </h2>
 
               <p style={styles.sectionSubtitle}>
-                {months[
-                  Number(month) - 1
-                ]}{" "}
+                {months[Number(month) - 1]}{" "}
                 {year}
               </p>
             </div>
@@ -2043,27 +1891,21 @@ export default function TeacherReportsPage() {
                 <thead>
                   <tr>
                     <th style={styles.th}>#</th>
-
                     <th style={styles.th}>
                       Student
                     </th>
-
                     <th style={styles.th}>
                       Username
                     </th>
-
                     <th style={styles.th}>
                       Total Classes
                     </th>
-
                     <th style={styles.th}>
                       Present
                     </th>
-
                     <th style={styles.th}>
                       Absent
                     </th>
-
                     <th style={styles.th}>
                       Attendance %
                     </th>
@@ -2164,7 +2006,7 @@ export default function TeacherReportsPage() {
               </div>
 
               <h2 style={styles.assessmentTitle}>
-                🏆 Academy Assessments
+                Academy Assessments
               </h2>
 
               <p style={styles.assessmentSubtitle}>
@@ -2175,36 +2017,37 @@ export default function TeacherReportsPage() {
 
             <button
               onClick={() => {
-                resetAssessmentForm();
-
-                setShowAssessmentForm(
-                  !showAssessmentForm
-                );
+                if (showAssessmentForm) {
+                  setShowAssessmentForm(false);
+                } else {
+                  resetAssessmentForm();
+                  setShowAssessmentForm(true);
+                }
               }}
               style={styles.assessmentToggle}
             >
               {showAssessmentForm
                 ? "Hide Form"
-                : "➕ Add Assessment"}
+                : "Add Assessment"}
             </button>
           </div>
 
           {assessmentError && (
             <div style={styles.error}>
-              ❌ {assessmentError}
+              {assessmentError}
             </div>
           )}
 
           {assessmentMessage && (
             <div style={styles.success}>
-              ✅ {assessmentMessage}
+              {assessmentMessage}
             </div>
           )}
 
           {showAssessmentForm && (
             <div style={styles.formBox}>
               <h3 style={styles.formTitle}>
-                📝 Create / Update Assessment
+                Create / Update Assessment
               </h3>
 
               <div style={styles.assessmentFormGrid}>
@@ -2264,7 +2107,7 @@ export default function TeacherReportsPage() {
               </div>
 
               <div style={styles.infoBox}>
-                💡 <strong>Automatic:</strong>{" "}
+                <strong>Automatic:</strong>{" "}
                 Admission date ke according students
                 automatically show honge. Test date se
                 baad admission wale students nahi dikhenge.
@@ -2285,47 +2128,36 @@ export default function TeacherReportsPage() {
                         <th style={styles.th}>
                           #
                         </th>
-
                         <th style={styles.th}>
                           Student
                         </th>
-
                         <th style={styles.th}>
                           Subject
                         </th>
-
                         <th style={styles.th}>
                           Admission Date
                         </th>
-
                         <th style={styles.th}>
                           Attendance
                         </th>
-
                         <th style={styles.th}>
                           Total
                         </th>
-
                         <th style={styles.th}>
                           Obtained
                         </th>
-
                         <th style={styles.th}>
                           Percentage
                         </th>
-
                         <th style={styles.th}>
                           Grade
                         </th>
-
                         <th style={styles.th}>
                           Result
                         </th>
-
                         <th style={styles.th}>
                           Remarks
                         </th>
-
                         <th style={styles.th}>
                           Upload Test Images / Photos
                         </th>
@@ -2651,9 +2483,7 @@ export default function TeacherReportsPage() {
                                       styles.uploadButton
                                     }
                                   >
-                                    📷 Upload Test
-                                    Images / Photos
-
+                                    Upload Test Images
                                     <input
                                       type="file"
                                       accept="image/*"
@@ -2745,7 +2575,9 @@ export default function TeacherReportsPage() {
 
               <div style={styles.formActions}>
                 <button
-                  onClick={saveAssessment}
+                  onClick={() =>
+                    void saveAssessment()
+                  }
                   disabled={
                     assessmentLoading
                   }
@@ -2756,8 +2588,8 @@ export default function TeacherReportsPage() {
                   {assessmentLoading
                     ? "Saving..."
                     : selectedAssessment
-                    ? "💾 Update Assessment"
-                    : "💾 Save Assessment"}
+                    ? "Update Assessment"
+                    : "Save Assessment"}
                 </button>
 
                 <button
@@ -2766,7 +2598,7 @@ export default function TeacherReportsPage() {
                   }
                   style={styles.cancelButton}
                 >
-                  ↻ Clear
+                  Clear
                 </button>
               </div>
             </div>
@@ -2778,7 +2610,7 @@ export default function TeacherReportsPage() {
                 <h3
                   style={styles.savedTitle}
                 >
-                  📚 Saved Assessments
+                  Saved Assessments
                 </h3>
 
                 <p
@@ -2799,14 +2631,14 @@ export default function TeacherReportsPage() {
                   }
                   style={styles.exportAssessment}
                 >
-                  📥 Export Assessments
+                  Export Assessments
                 </button>
               )}
             </div>
 
             {assessmentGroups.length === 0 ? (
               <div style={styles.empty}>
-                📭 No assessments added yet.
+                No assessments added yet.
               </div>
             ) : (
               <div style={styles.savedList}>
@@ -2885,7 +2717,7 @@ export default function TeacherReportsPage() {
                               styles.savedTestName
                             }
                           >
-                            📝 {first.test_name}
+                            {first.test_name}
                           </h4>
 
                           <div
@@ -2893,16 +2725,15 @@ export default function TeacherReportsPage() {
                               styles.savedMeta
                             }
                           >
-                            📅{" "}
                             {first.test_date}
-                            {"  •  "}
-                            🎯 Total Marks:{" "}
+                            {" • "}
+                            Total Marks:{" "}
                             {total}
-                            {"  •  "}
-                            👨‍🎓 Students:{" "}
+                            {" • "}
+                            Students:{" "}
                             {group.length}
-                            {"  •  "}
-                            📈 Average:{" "}
+                            {" • "}
+                            Average:{" "}
                             {average.toFixed(
                               1
                             )}
@@ -2943,7 +2774,6 @@ export default function TeacherReportsPage() {
                                   styles.absentCountBadge
                                 }
                               >
-                                ❌{" "}
                                 {absentCount}{" "}
                                 Absent
                               </span>
@@ -2956,7 +2786,6 @@ export default function TeacherReportsPage() {
                                   styles.noTestCountBadge
                                 }
                               >
-                                ⚠️{" "}
                                 {noTestCount}{" "}
                                 No Test
                               </span>
@@ -2967,7 +2796,6 @@ export default function TeacherReportsPage() {
                                 styles.imageCountBadge
                               }
                             >
-                              📷{" "}
                               {imageCount} Images
                             </span>
                           </div>
@@ -2989,7 +2817,7 @@ export default function TeacherReportsPage() {
                               styles.editButton
                             }
                           >
-                            ✏️ Edit
+                            Edit
                           </button>
 
                           <button
@@ -3004,12 +2832,12 @@ export default function TeacherReportsPage() {
                               styles.pdfButton
                             }
                           >
-                            📄 Result PDF
+                            Result PDF
                           </button>
 
                           <button
                             onClick={() =>
-                              deleteAssessment(
+                              void deleteAssessment(
                                 first.test_name,
                                 first.test_date
                               )
@@ -3018,7 +2846,7 @@ export default function TeacherReportsPage() {
                               styles.deleteButton
                             }
                           >
-                            🗑️ Delete
+                            Delete
                           </button>
                         </div>
                       </div>
@@ -3031,7 +2859,7 @@ export default function TeacherReportsPage() {
 
           <div style={styles.gradeInfo}>
             <h3 style={styles.gradeInfoTitle}>
-              🎓 Grade System
+              Grade System
             </h3>
 
             <div style={styles.gradeGrid}>
@@ -3075,7 +2903,7 @@ export default function TeacherReportsPage() {
 
         <section style={styles.card}>
           <h2 style={styles.sectionTitle}>
-            📚 Attendance Records
+            Attendance Records
           </h2>
 
           <p style={styles.sectionSubtitle}>
@@ -3111,7 +2939,6 @@ export default function TeacherReportsPage() {
                         styles.recordDate
                       }
                     >
-                      📅{" "}
                       {record.attendance_date}
                     </p>
                   </div>
@@ -3136,8 +2963,8 @@ export default function TeacherReportsPage() {
                     {isPresent(
                       record.status
                     )
-                      ? "✓ PRESENT"
-                      : "✕ ABSENT"}
+                      ? "PRESENT"
+                      : "ABSENT"}
                   </span>
                 </div>
               ))}
@@ -3325,7 +3152,8 @@ const styles: Record<
   },
 
   summaryIcon: {
-    fontSize: "28px",
+    fontSize: "16px",
+    fontWeight: "800",
   },
 
   summaryLabel: {
@@ -3371,6 +3199,7 @@ const styles: Record<
     width: "100%",
     overflowX: "auto",
     marginTop: "20px",
+    WebkitOverflowScrolling: "touch",
   },
 
   table: {
