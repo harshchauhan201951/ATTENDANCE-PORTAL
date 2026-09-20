@@ -116,14 +116,8 @@ export async function POST(
     );
 
     /*
-     * The frontend sends reattempt=true only when
-     * the student has clicked the RE-ATTEMPT button.
-     *
-     * Normal Start Quiz:
-     *     reattempt = false
-     *
-     * Authorized Re-attempt:
-     *     reattempt = true
+     * Frontend sends reattempt=true only when
+     * the student clicks the RE-ATTEMPT button.
      */
     const isReattempt =
       body?.reattempt === true;
@@ -302,9 +296,8 @@ export async function POST(
      * LOAD ALL PREVIOUS ATTEMPTS
      * ---------------------------------------------------------
      *
-     * IMPORTANT:
-     * We cannot use maybeSingle() anymore because a student
-     * can now have multiple attempts for the same quiz.
+     * Multiple attempts are now allowed because the database
+     * uses quiz_id + student_id + attempt_number.
      */
 
     const {
@@ -345,27 +338,15 @@ export async function POST(
      * FIND UNFINISHED ATTEMPT
      * ---------------------------------------------------------
      *
-     * If the student refreshes the page or comes back to an
-     * unfinished attempt, resume that exact result.
+     * If there is an unfinished attempt, resume it.
      *
-     * This is important for re-attempts too.
+     * This prevents refresh from creating another attempt.
      */
     const unfinishedResult =
       results.find(
         (result) =>
           !result.submitted_at
       );
-
-    /*
-     * ---------------------------------------------------------
-     * RESUME EXISTING ATTEMPT
-     * ---------------------------------------------------------
-     *
-     * This happens before checking re-attempt permission.
-     *
-     * Therefore refreshing the re-attempt page will NOT consume
-     * another teacher permission or create another result.
-     */
 
     let resultId: number;
     let startedAt: Date;
@@ -374,7 +355,19 @@ export async function POST(
     let reattemptPermissionId:
       number | null = null;
 
+    /*
+     * ---------------------------------------------------------
+     * RESUME OR CREATE ATTEMPT
+     * ---------------------------------------------------------
+     */
+
     if (unfinishedResult) {
+      /*
+       * -------------------------------------------------------
+       * RESUME EXISTING ATTEMPT
+       * -------------------------------------------------------
+       */
+
       resultId = Number(
         unfinishedResult.id
       );
@@ -402,6 +395,44 @@ export async function POST(
             1
           )
         );
+
+      /*
+       * If the unfinished result itself is an authorized
+       * re-attempt, try to identify its permission.
+       *
+       * This is informational only and does not consume another
+       * permission.
+       */
+      if (attemptNumber > 1) {
+        const {
+          data: existingPermission,
+        } = await supabaseAdmin
+          .from(
+            "quiz_reattempt_permissions"
+          )
+          .select("id")
+          .eq(
+            "quiz_id",
+            quizId
+          )
+          .eq(
+            "student_id",
+            studentId
+          )
+          .eq(
+            "used_at",
+            startedAt.toISOString()
+          )
+          .limit(1)
+          .maybeSingle();
+
+        if (existingPermission) {
+          reattemptPermissionId =
+            Number(
+              existingPermission.id
+            );
+        }
+      }
     } else {
       /*
        * -------------------------------------------------------
@@ -421,14 +452,11 @@ export async function POST(
        * =======================================================
        * AUTHORIZED RE-ATTEMPT
        * =======================================================
-       *
-       * This branch runs ONLY after the student clicks the
-       * RE-ATTEMPT button.
        */
+
       if (isReattempt) {
         /*
-         * A re-attempt is only valid after an existing attempt
-         * has been submitted.
+         * A re-attempt requires at least one completed attempt.
          */
         if (
           submittedResults.length === 0
@@ -445,6 +473,10 @@ export async function POST(
 
         /*
          * Find an unused teacher permission.
+         *
+         * The permission is NOT consumed here.
+         * It is consumed only after the new result has been
+         * created successfully.
          */
         const {
           data: permission,
@@ -454,13 +486,28 @@ export async function POST(
             "quiz_reattempt_permissions"
           )
           .select("*")
-          .eq("quiz_id", quizId)
-          .eq("student_id", studentId)
-          .eq("allowed", true)
-          .is("used_at", null)
-          .order("created_at", {
-            ascending: true,
-          })
+          .eq(
+            "quiz_id",
+            quizId
+          )
+          .eq(
+            "student_id",
+            studentId
+          )
+          .eq(
+            "allowed",
+            true
+          )
+          .is(
+            "used_at",
+            null
+          )
+          .order(
+            "created_at",
+            {
+              ascending: true,
+            }
+          )
           .limit(1)
           .maybeSingle();
 
@@ -526,9 +573,10 @@ export async function POST(
          * CREATE NEW RE-ATTEMPT
          * -----------------------------------------------------
          *
-         * Timer starts RIGHT NOW.
+         * Timer starts NOW.
          *
-         * There is NO 9 PM check here.
+         * There is NO 9 PM restriction for authorized
+         * re-attempts.
          */
         startedAt = now;
 
@@ -587,14 +635,13 @@ export async function POST(
 
         /*
          * -----------------------------------------------------
-         * CONSUME THE TEACHER PERMISSION
+         * CONSUME TEACHER PERMISSION
          * -----------------------------------------------------
          *
-         * Only this permission is consumed.
+         * Only the exact unused permission is consumed.
          *
-         * If another request already consumed it, remove the
-         * newly-created result so the permission cannot be
-         * double-used.
+         * If another request already consumed it, delete the
+         * newly-created result and return an error.
          */
         const {
           data: consumedPermission,
@@ -640,7 +687,7 @@ export async function POST(
           );
 
           /*
-           * Remove the result created by this request.
+           * Roll back the newly-created result.
            */
           await supabaseAdmin
             .from("quiz_results")
@@ -672,9 +719,6 @@ export async function POST(
          * =====================================================
          * NORMAL ATTEMPT
          * =====================================================
-         *
-         * If there is already a submitted result and the
-         * request is NOT a re-attempt, block it.
          */
 
         if (
@@ -716,10 +760,9 @@ export async function POST(
         }
 
         /*
-         * At exactly 09:00 PM and after, a NORMAL new attempt
-         * cannot be started.
+         * Normal new attempts cannot start at or after 9 PM.
          *
-         * This does NOT affect authorized re-attempts.
+         * Existing attempts may continue beyond 9 PM.
          */
         if (
           now >=
@@ -809,16 +852,16 @@ export async function POST(
      * ACTUAL ATTEMPT TIMER
      * ---------------------------------------------------------
      *
-     * Timer begins from the student's actual start time.
+     * Timer always starts from the actual started_at value.
      *
      * Normal attempt:
      *     30 minutes from actual start.
      *
      * Re-attempt:
-     *     30 minutes from the moment Re-attempt was clicked.
+     *     30 minutes from the moment RE-ATTEMPT was clicked.
      *
-     * A normal attempt may continue beyond 9 PM if it started
-     * before 9 PM.
+     * An attempt already started before 9 PM can continue after
+     * 9 PM.
      */
     const attemptEnd = new Date(
       startedAt.getTime() +
@@ -835,53 +878,22 @@ export async function POST(
       );
 
     /*
-     * If an old unfinished attempt has already expired,
-     * return timeExpired so the existing frontend can submit
-     * it as time_expired.
-     *
-     * Newly-created attempts should never normally reach here.
-     */
-    if (
-      remainingMilliseconds <= 0
-    ) {
-      return NextResponse.json({
-        success: true,
-        resultId,
-        quizId,
-        studentId,
-        attemptNumber,
-        startedAt:
-          startedAt.toISOString(),
-        scheduledStart:
-          scheduledStart.toISOString(),
-        attemptWindowStart:
-          attemptWindow.start.toISOString(),
-        attemptWindowEnd:
-          attemptWindow.end.toISOString(),
-        endAt:
-          attemptEnd.toISOString(),
-        remainingMilliseconds: 0,
-        timeExpired: true,
-        alreadyStarted:
-          !createdNewAttempt,
-        isReattempt:
-          attemptNumber > 1,
-        reattemptPermissionId,
-        quiz: {
-          ...quiz,
-          duration_minutes:
-            durationMinutes,
-        },
-        questions: [],
-      });
-    }
-
-    /*
      * ---------------------------------------------------------
      * LOAD QUESTIONS
      * ---------------------------------------------------------
+     *
+     * IMPORTANT:
+     * Questions MUST be loaded before checking whether the
+     * attempt timer has expired.
+     *
+     * Otherwise an expired attempt would return:
+     *
+     *     questions: []
+     *
+     * and the student page would show:
+     *
+     *     "Quiz data unavailable."
      */
-
     const {
       data: questions,
       error: questionsError,
@@ -970,10 +982,11 @@ export async function POST(
 
     /*
      * ---------------------------------------------------------
-     * REMOVE CORRECT ANSWER FROM STUDENT RESPONSE
+     * REMOVE CORRECT ANSWERS
      * ---------------------------------------------------------
+     *
+     * Students must never receive is_correct.
      */
-
     const questionsWithOptions =
       (questions || []).map(
         (question) => ({
@@ -997,6 +1010,71 @@ export async function POST(
             }),
         })
       );
+
+    /*
+     * ---------------------------------------------------------
+     * EXPIRED ATTEMPT RESPONSE
+     * ---------------------------------------------------------
+     *
+     * IMPORTANT FIX:
+     *
+     * Questions are now included in the expired response.
+     *
+     * The student frontend can therefore see the quiz/question
+     * data and its existing auto-submit logic can submit the
+     * attempt as time_expired.
+     */
+    if (
+      remainingMilliseconds <= 0
+    ) {
+      return NextResponse.json({
+        success: true,
+
+        resultId,
+
+        quizId,
+
+        studentId,
+
+        attemptNumber,
+
+        isReattempt:
+          attemptNumber > 1,
+
+        reattemptPermissionId,
+
+        startedAt:
+          startedAt.toISOString(),
+
+        scheduledStart:
+          scheduledStart.toISOString(),
+
+        attemptWindowStart:
+          attemptWindow.start.toISOString(),
+
+        attemptWindowEnd:
+          attemptWindow.end.toISOString(),
+
+        endAt:
+          attemptEnd.toISOString(),
+
+        remainingMilliseconds: 0,
+
+        timeExpired: true,
+
+        alreadyStarted:
+          !createdNewAttempt,
+
+        quiz: {
+          ...quiz,
+          duration_minutes:
+            durationMinutes,
+        },
+
+        questions:
+          questionsWithOptions,
+      });
+    }
 
     /*
      * ---------------------------------------------------------
@@ -1033,7 +1111,7 @@ export async function POST(
        * Normal student start window.
        *
        * This is informational for re-attempts.
-       * Re-attempt itself is NOT restricted by it.
+       * Re-attempt itself is NOT restricted by this window.
        */
       attemptWindowStart:
         attemptWindow.start.toISOString(),
