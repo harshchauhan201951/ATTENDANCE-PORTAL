@@ -287,34 +287,57 @@ function TeacherQuizResultsContent() {
   const loadReattemptPermissions = useCallback(
     async (quizRows: QuizTest[], studentRows: Student[]) => {
       try {
-        const allowed = new Set<string>();
+        const pairs: Array<{ quiz: QuizTest; student: Student }> = [];
 
         for (const quiz of quizRows) {
           for (const student of studentRows) {
-            const response = await fetch(
-              `/api/quiz-tests/reattempt?studentId=${encodeURIComponent(
-                String(student.id)
-              )}&quizId=${encodeURIComponent(String(quiz.id))}`,
-              {
-                method: "GET",
-                cache: "no-store",
-              }
-            );
-
-            if (!response.ok) continue;
-
-            const data = await response.json();
-
-            if (
-              data?.allowed === true ||
-              (Array.isArray(data?.quizIds) &&
-                data.quizIds.some(
-                  (id: unknown) => Number(id) === Number(quiz.id)
-                ))
-            ) {
-              allowed.add(`${quiz.id}__${student.id}`);
-            }
+            pairs.push({ quiz, student });
           }
+        }
+
+        const allowed = new Set<string>();
+        const batchSize = 12;
+
+        for (let index = 0; index < pairs.length; index += batchSize) {
+          const batch = pairs.slice(index, index + batchSize);
+
+          const responses = await Promise.all(
+            batch.map(async ({ quiz, student }) => {
+              try {
+                const response = await fetch(
+                  `/api/quiz-tests/reattempt?studentId=${encodeURIComponent(
+                    String(student.id)
+                  )}&quizId=${encodeURIComponent(String(quiz.id))}`,
+                  {
+                    method: "GET",
+                    cache: "no-store",
+                  }
+                );
+
+                if (!response.ok) return null;
+
+                const data = await response.json();
+
+                if (
+                  data?.allowed === true ||
+                  (Array.isArray(data?.quizIds) &&
+                    data.quizIds.some(
+                      (id: unknown) => Number(id) === Number(quiz.id)
+                    ))
+                ) {
+                  return `${quiz.id}__${student.id}`;
+                }
+              } catch {
+                return null;
+              }
+
+              return null;
+            })
+          );
+
+          responses.forEach((key) => {
+            if (key) allowed.add(key);
+          });
         }
 
         setReattemptQuizIds(allowed);
@@ -336,12 +359,15 @@ function TeacherQuizResultsContent() {
     setError("");
 
     try {
+      /*
+       * FAST FIRST PAINT:
+       * Load only the quiz opened by the teacher, its attempts and students
+       * first. The page is allowed to render immediately after this.
+       */
       const [
         currentQuizResponse,
         currentResultsResponse,
         studentsResponse,
-        quizzesResponse,
-        resultsResponse,
       ] = await Promise.all([
         supabase
           .from("quiz_tests")
@@ -403,55 +429,6 @@ function TeacherQuizResultsContent() {
           )
           .order("class_name", { ascending: true })
           .order("student_name", { ascending: true }),
-
-        supabase
-          .from("quiz_tests")
-          .select(
-            `
-              id,
-              title,
-              description,
-              class_name,
-              target_classes,
-              subject,
-              scheduled_date,
-              scheduled_time,
-              duration_minutes,
-              marks_per_question,
-              negative_marks,
-              pass_percentage,
-              is_published,
-              created_at
-            `
-          )
-          .order("scheduled_date", {
-            ascending: false,
-            nullsFirst: false,
-          }),
-
-        supabase
-          .from("quiz_results")
-          .select(
-            `
-              id,
-              quiz_id,
-              student_id,
-              attempt_number,
-              total_questions,
-              correct_answers,
-              wrong_answers,
-              unanswered,
-              total_marks,
-              obtained_marks,
-              percentage,
-              result_status,
-              started_at,
-              submitted_at,
-              submission_type,
-              created_at
-            `
-          )
-          .order("created_at", { ascending: true }),
       ]);
 
       if (currentQuizResponse.error) {
@@ -466,14 +443,6 @@ function TeacherQuizResultsContent() {
         throw studentsResponse.error;
       }
 
-      if (quizzesResponse.error) {
-        throw quizzesResponse.error;
-      }
-
-      if (resultsResponse.error) {
-        throw resultsResponse.error;
-      }
-
       const quiz = currentQuizResponse.data as QuizTest;
 
       const normalizedCurrentResults = (
@@ -486,31 +455,25 @@ function TeacherQuizResultsContent() {
         attempt_number: Math.max(1, safeNumber(row.attempt_number)),
       }));
 
-      const normalizedAllResults = (
-        (resultsResponse.data || []) as QuizResult[]
-      ).map((row) => ({
-        ...row,
-        id: Number(row.id),
-        quiz_id: Number(row.quiz_id),
-        student_id: Number(row.student_id),
-        attempt_number: Math.max(1, safeNumber(row.attempt_number)),
+      const normalizedStudents = (
+        (studentsResponse.data || []) as Student[]
+      ).map((student) => ({
+        ...student,
+        id: Number(student.id),
       }));
 
-      const normalizedStudents = ((studentsResponse.data || []) as Student[]).map(
-        (student) => ({
-          ...student,
-          id: Number(student.id),
-        })
-      );
-
-      const normalizedQuizzes = (quizzesResponse.data || []) as QuizTest[];
-
+      /*
+       * Seed the complete UI with the current quiz immediately.
+       * This means the teacher does not see a 1–2 minute blocking loader.
+       * All attempts remain in currentResults, including old + reattempted
+       * records.
+       */
       setCurrentQuiz(quiz);
       setCurrentResults(normalizedCurrentResults);
       setCurrentStudents(normalizedStudents);
 
-      setAllQuizzes(normalizedQuizzes);
-      setAllResults(normalizedAllResults);
+      setAllQuizzes([quiz]);
+      setAllResults(normalizedCurrentResults);
       setAllStudents(normalizedStudents);
 
       setSelectedDate("ALL");
@@ -520,19 +483,124 @@ function TeacherQuizResultsContent() {
 
       setExpandedDates(
         new Set(
-          normalizedQuizzes
-            .filter((q) => q.scheduled_date)
-            .map((q) => q.scheduled_date as string)
+          quiz.scheduled_date
+            ? [quiz.scheduled_date]
+            : []
         )
       );
 
       setExpandedClasses(new Set());
       setExpandedStudents(new Set());
 
-      await loadReattemptPermissions(normalizedQuizzes, normalizedStudents);
+      /*
+       * FIRST PAINT IS READY.
+       * Do not wait for the heavy historical-data/reattempt work.
+       */
+      setLoading(false);
+
+      /*
+       * BACKGROUND LOAD:
+       * Historical quizzes/results and reattempt permissions are loaded after
+       * the current quiz is already visible.
+       */
+      void (async () => {
+        try {
+          const [quizzesResponse, resultsResponse] = await Promise.all([
+            supabase
+              .from("quiz_tests")
+              .select(
+                `
+                  id,
+                  title,
+                  description,
+                  class_name,
+                  target_classes,
+                  subject,
+                  scheduled_date,
+                  scheduled_time,
+                  duration_minutes,
+                  marks_per_question,
+                  negative_marks,
+                  pass_percentage,
+                  is_published,
+                  created_at
+                `
+              )
+              .order("scheduled_date", {
+                ascending: false,
+                nullsFirst: false,
+              }),
+
+            supabase
+              .from("quiz_results")
+              .select(
+                `
+                  id,
+                  quiz_id,
+                  student_id,
+                  attempt_number,
+                  total_questions,
+                  correct_answers,
+                  wrong_answers,
+                  unanswered,
+                  total_marks,
+                  obtained_marks,
+                  percentage,
+                  result_status,
+                  started_at,
+                  submitted_at,
+                  submission_type,
+                  created_at
+                `
+              )
+              .order("created_at", { ascending: true }),
+          ]);
+
+          if (!quizzesResponse.error && !resultsResponse.error) {
+            const normalizedQuizzes = (quizzesResponse.data || []) as QuizTest[];
+
+            const normalizedAllResults = (
+              (resultsResponse.data || []) as QuizResult[]
+            ).map((row) => ({
+              ...row,
+              id: Number(row.id),
+              quiz_id: Number(row.quiz_id),
+              student_id: Number(row.student_id),
+              attempt_number: Math.max(1, safeNumber(row.attempt_number)),
+            }));
+
+            setAllQuizzes(normalizedQuizzes);
+            setAllResults(normalizedAllResults);
+
+            setExpandedDates(
+              new Set(
+                normalizedQuizzes
+                  .filter((q) => q.scheduled_date)
+                  .map((q) => q.scheduled_date as string)
+              )
+            );
+
+            void loadReattemptPermissions(
+              normalizedQuizzes,
+              normalizedStudents
+            );
+          } else {
+            /*
+             * If historical loading fails, keep the already-visible current
+             * quiz instead of replacing it with a full-page error.
+             */
+            void loadReattemptPermissions([quiz], normalizedStudents);
+          }
+        } catch {
+          /*
+           * Current quiz/results are already rendered, so background failure
+           * must never bring the teacher back to the blocking error screen.
+           */
+          void loadReattemptPermissions([quiz], normalizedStudents);
+        }
+      })();
     } catch (err: any) {
       setError(err?.message || "Unable to load quiz results.");
-    } finally {
       setLoading(false);
     }
   }, [quizId, loadReattemptPermissions]);
