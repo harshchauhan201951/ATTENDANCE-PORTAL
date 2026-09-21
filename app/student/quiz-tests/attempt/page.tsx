@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   Suspense,
@@ -519,9 +519,7 @@ const [isReattempt, setIsReattempt] =
             if (
               data.alreadySubmitted
             ) {
-              router.replace(
-                `/student/quiz-tests/results?quizId=${quizId}&resultId=${resultId}`
-              );
+              router.replace(`/student/quiz-tests/results?quizId=${quizId}`);
               return;
             }
 
@@ -597,9 +595,7 @@ const [isReattempt, setIsReattempt] =
            * Send the exact resultId so the
            * result page can display this attempt.
            */
-          router.replace(
-            `/student/quiz-tests/results?quizId=${quizId}&resultId=${resultId}`
-          );
+          router.replace(`/student/quiz-tests/results?quizId=${quizId}`);
         } catch (submitError) {
           console.error(
             "Quiz submission error:",
@@ -1294,7 +1290,7 @@ const [isReattempt, setIsReattempt] =
                 <p className="text-[10px] text-slate-400 sm:text-xs">
                   RACER ACADEMY
                   {isReattempt
-                    ? " • RE-ATTEMPT"
+                    ? " â€¢ RE-ATTEMPT"
                     : ""}
                 </p>
               </div>

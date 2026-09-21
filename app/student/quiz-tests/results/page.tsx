@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   Suspense,
@@ -112,7 +112,7 @@ function dateTimeText(
   value: string | null
 ): string {
   if (!value) {
-    return "—";
+    return "â€”";
   }
 
   const date = new Date(value);
@@ -134,7 +134,7 @@ function dateText(
   value: string | null
 ): string {
   if (!value) {
-    return "—";
+    return "â€”";
   }
 
   const date = new Date(
@@ -156,7 +156,7 @@ function timeText(
   value: string | null
 ): string {
   if (!value) {
-    return "—";
+    return "â€”";
   }
 
   const parts = value.split(":");
@@ -195,9 +195,7 @@ function ResultsContent() {
   const parsedResultId =
     Number(resultIdParam);
 
-  const isDetail =
-    Number.isFinite(parsedQuizId) &&
-    parsedQuizId > 0;
+  const isDetail = Number.isFinite(parsedQuizId) && parsedQuizId > 0 && Number.isFinite(parsedResultId) && parsedResultId > 0;
 
   const [studentName, setStudentName] =
     useState("");
@@ -708,7 +706,7 @@ function ResultsContent() {
               }
               className="rounded-xl border border-white/10 bg-white/5 px-6 py-3 font-black hover:bg-white/10"
             >
-              ← QUIZ TESTS
+              â† QUIZ TESTS
             </button>
 
           </div>
@@ -734,7 +732,7 @@ function ResultsContent() {
                 <p className="text-xs text-slate-400">
                   QUIZ RESULTS
                   {studentClass
-                    ? ` • CLASS ${studentClass}`
+                    ? ` â€¢ CLASS ${studentClass}`
                     : ""}
                 </p>
               </div>
@@ -747,7 +745,7 @@ function ResultsContent() {
                 }
                 className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold hover:bg-white/10"
               >
-                ← Quiz Tests
+                â† Quiz Tests
               </button>
 
             </div>
@@ -969,7 +967,7 @@ function ResultsContent() {
                             }
                             className="mt-4 w-full rounded-xl bg-indigo-600 px-4 py-3 font-black hover:bg-indigo-500"
                           >
-                            VIEW FULL RESULT →
+                            VIEW FULL RESULT â†’
                           </button>
 
                         </div>
@@ -991,7 +989,7 @@ function ResultsContent() {
                 }
                 className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 font-black hover:bg-white/10"
               >
-                VIEW QUIZ HISTORY →
+                VIEW QUIZ HISTORY â†’
               </button>
             </div>
 
@@ -1036,7 +1034,7 @@ function ResultsContent() {
 
               <p className="text-xs text-slate-400">
                 FULL QUIZ RESULT
-                {" • "}
+                {" â€¢ "}
                 ATTEMPT #{attemptNumber}
               </p>
             </div>
@@ -1049,7 +1047,7 @@ function ResultsContent() {
               }
               className="rounded-xl bg-white/5 px-4 py-2 text-sm font-bold hover:bg-white/10"
             >
-              ← All Results
+              â† All Results
             </button>
 
           </div>
@@ -1324,7 +1322,7 @@ function ResultsContent() {
                       )}`
                     : studentClass
                       ? `Class ${studentClass}`
-                      : "—"}
+                      : "â€”"}
                 </p>
               </div>
 
@@ -1334,7 +1332,7 @@ function ResultsContent() {
                 </p>
 
                 <p className="mt-1 font-black">
-                  {quiz.subject || "—"}
+                  {quiz.subject || "â€”"}
                 </p>
               </div>
 
@@ -1448,7 +1446,7 @@ function ResultsContent() {
               }
               className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4 font-black hover:bg-white/10"
             >
-              ← ALL RESULTS
+              â† ALL RESULTS
             </button>
 
             <button
@@ -1459,13 +1457,13 @@ function ResultsContent() {
               }
               className="rounded-2xl bg-indigo-600 px-5 py-4 font-black hover:bg-indigo-500"
             >
-              QUIZ HISTORY →
+              QUIZ HISTORY â†’
             </button>
 
           </div>
 
           <div className="py-8 text-center text-xs text-slate-500">
-            RACER ACADEMY • Quiz Result
+            RACER ACADEMY â€¢ Quiz Result
           </div>
 
         </div>
