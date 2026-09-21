@@ -91,6 +91,25 @@ function getStudentAttemptWindow(
   };
 }
 
+function calculateTotalMarks(
+  questions: any[],
+  quiz: any
+): number {
+  const total = questions.reduce(
+    (sum, question) => {
+      const marks =
+        Number(question?.marks) > 0
+          ? Number(question.marks)
+          : Number(quiz?.marks_per_question) || 0;
+
+      return sum + marks;
+    },
+    0
+  );
+
+  return Number(total.toFixed(2));
+}
+
 export async function POST(
   request: Request
 ) {
@@ -224,10 +243,11 @@ export async function POST(
      * ---------------------------------------------------------
      */
 
-    const scheduledStart = parseIST(
-      quiz.scheduled_date,
-      quiz.scheduled_time
-    );
+    const scheduledStart =
+      parseIST(
+        quiz.scheduled_date,
+        quiz.scheduled_time
+      );
 
     if (!scheduledStart) {
       return NextResponse.json(
@@ -240,13 +260,14 @@ export async function POST(
       );
     }
 
-    const durationMinutes = Math.max(
-      1,
-      safeNumber(
-        quiz.duration_minutes,
-        30
-      )
-    );
+    const durationMinutes =
+      Math.max(
+        1,
+        safeNumber(
+          quiz.duration_minutes,
+          30
+        )
+      );
 
     const attemptWindow =
       getStudentAttemptWindow(
@@ -263,6 +284,151 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    /*
+     * ---------------------------------------------------------
+     * LOAD QUESTIONS FIRST
+     * ---------------------------------------------------------
+     *
+     * IMPORTANT:
+     * Never create a quiz_results row with 0 questions.
+     */
+
+    const {
+      data: questions,
+      error: questionsError,
+    } = await supabaseAdmin
+      .from("quiz_questions")
+      .select("*")
+      .eq("quiz_id", quizId)
+      .order(
+        "question_order",
+        {
+          ascending: true,
+        }
+      );
+
+    if (questionsError) {
+      console.error(
+        "START QUESTIONS ERROR:",
+        questionsError
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Unable to load quiz questions.",
+          details:
+            questionsError.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    const questionList =
+      questions || [];
+
+    if (questionList.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "This quiz has no questions. Please add the quiz questions before starting the quiz.",
+        },
+        { status: 422 }
+      );
+    }
+
+    const questionIds =
+      questionList.map(
+        (question) =>
+          Number(question.id)
+      );
+
+    /*
+     * ---------------------------------------------------------
+     * LOAD ALL OPTIONS
+     * ---------------------------------------------------------
+     */
+
+    let options: any[] = [];
+
+    const {
+      data: optionRows,
+      error: optionsError,
+    } = await supabaseAdmin
+      .from("quiz_options")
+      .select("*")
+      .in(
+        "question_id",
+        questionIds
+      )
+      .order(
+        "option_order",
+        {
+          ascending: true,
+        }
+      );
+
+    if (optionsError) {
+      console.error(
+        "START OPTIONS ERROR:",
+        optionsError
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Unable to load quiz options.",
+          details:
+            optionsError.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    options =
+      optionRows || [];
+
+    /*
+     * Never send correct answers to the student.
+     */
+    const questionsWithOptions =
+      questionList.map(
+        (question) => ({
+          ...question,
+
+          options: options
+            .filter(
+              (option) =>
+                Number(
+                  option.question_id
+                ) ===
+                Number(
+                  question.id
+                )
+            )
+            .map((option) => {
+              const {
+                is_correct,
+                ...safeOption
+              } = option;
+
+              return safeOption;
+            }),
+        })
+      );
+
+    const questionCount =
+      questionList.length;
+
+    const totalMarks =
+      calculateTotalMarks(
+        questionList,
+        quiz
+      );
 
     /*
      * ---------------------------------------------------------
@@ -304,22 +470,9 @@ export async function POST(
       previousResults || [];
 
     /*
-     * =========================================================
-     * IMPORTANT RE-ATTEMPT FIX
-     * =========================================================
-     *
-     * A RE-ATTEMPT must NEVER resume an old unfinished result.
-     *
-     * If reattempt=true:
-     *
-     *   - ignore old unfinished attempts
-     *   - check teacher permission
-     *   - create a NEW result row
-     *   - assign next attempt number
-     *   - give it a fresh timer
-     *
-     * This prevents a previous blank/zero result from being
-     * accidentally reused by the re-attempt.
+     * ---------------------------------------------------------
+     * ATTEMPT VARIABLES
+     * ---------------------------------------------------------
      */
 
     let resultId: number;
@@ -331,301 +484,392 @@ export async function POST(
 
     /*
      * =========================================================
-     * AUTHORIZED RE-ATTEMPT
+     * RE-ATTEMPT
      * =========================================================
      */
 
     if (isReattempt) {
-      const submittedResults =
-        results.filter(
+      /*
+       * IMPORTANT:
+       * If an older reattempt row already exists but was never
+       * submitted, RESUME THAT EXACT ROW.
+       *
+       * This recovers old/orphaned reattempt records instead of
+       * creating Attempt #3 and losing the old Attempt #2.
+       */
+      const unfinishedReattempt =
+        results.find(
           (result) =>
-            Boolean(
-              result.submitted_at
+            !result.submitted_at &&
+            safeNumber(
+              result.attempt_number,
+              1
+            ) > 1
+        );
+
+      if (unfinishedReattempt) {
+        resultId =
+          Number(
+            unfinishedReattempt.id
+          );
+
+        attemptNumber =
+          Math.max(
+            2,
+            safeNumber(
+              unfinishedReattempt.attempt_number,
+              2
             )
-        );
+          );
 
-      /*
-       * A re-attempt requires at least one
-       * previous submitted attempt.
-       */
-      if (
-        submittedResults.length === 0
-      ) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "A re-attempt is available only after a previous quiz attempt has been submitted.",
-          },
-          { status: 409 }
-        );
-      }
+        const existingStartedAt =
+          unfinishedReattempt.started_at
+            ? new Date(
+                unfinishedReattempt.started_at
+              )
+            : null;
 
-      /*
-       * Find unused teacher permission.
-       */
-      const {
-        data: permission,
-        error: permissionError,
-      } = await supabaseAdmin
-        .from(
-          "quiz_reattempt_permissions"
-        )
-        .select("*")
-        .eq(
-          "quiz_id",
-          quizId
-        )
-        .eq(
-          "student_id",
-          studentId
-        )
-        .eq(
-          "allowed",
-          true
-        )
-        .is(
-          "used_at",
-          null
-        )
-        .order(
-          "created_at",
-          {
-            ascending: true,
-          }
-        )
-        .limit(1)
-        .maybeSingle();
+        /*
+         * The previously created empty/orphaned attempt
+         * has no question count. Recover it as a fresh attempt.
+         */
+        const shouldRecoverEmptyAttempt =
+          safeNumber(
+            unfinishedReattempt.total_questions
+          ) <= 0;
 
-      if (permissionError) {
-        console.error(
-          "START REATTEMPT PERMISSION ERROR:",
-          permissionError
-        );
+        if (
+          shouldRecoverEmptyAttempt
+        ) {
+          startedAt = now;
+        } else if (
+          existingStartedAt &&
+          !Number.isNaN(
+            existingStartedAt.getTime()
+          )
+        ) {
+          startedAt =
+            existingStartedAt;
+        } else {
+          startedAt = now;
+        }
 
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Unable to check re-attempt permission.",
-            details:
-              permissionError.message,
-          },
-          { status: 500 }
-        );
-      }
-
-      if (!permission) {
-        return NextResponse.json(
-          {
-            success: false,
-            reattemptNotAuthorized:
-              true,
-            error:
-              "Your teacher has not authorized a re-attempt for this quiz.",
-          },
-          { status: 403 }
-        );
-      }
-
-      /*
-       * Find next attempt number.
-       */
-      const highestAttemptNumber =
-        results.reduce(
-          (
-            highest: number,
-            result: any
-          ) => {
-            const number =
-              safeNumber(
-                result.attempt_number,
-                1
-              );
-
-            return Math.max(
-              highest,
-              number
+        const { error: recoverError } =
+          await supabaseAdmin
+            .from("quiz_results")
+            .update({
+              total_questions:
+                questionCount,
+              unanswered:
+                questionCount,
+              total_marks:
+                totalMarks,
+              correct_answers: 0,
+              wrong_answers: 0,
+              obtained_marks:
+                safeNumber(
+                  unfinishedReattempt.obtained_marks
+                ),
+              percentage:
+                safeNumber(
+                  unfinishedReattempt.percentage
+                ),
+              result_status:
+                "IN_PROGRESS",
+              started_at:
+                startedAt.toISOString(),
+            })
+            .eq(
+              "id",
+              resultId
+            )
+            .eq(
+              "quiz_id",
+              quizId
+            )
+            .eq(
+              "student_id",
+              studentId
+            )
+            .is(
+              "submitted_at",
+              null
             );
-          },
-          0
-        );
 
-      attemptNumber =
-        highestAttemptNumber + 1;
+        if (recoverError) {
+          console.error(
+            "START REATTEMPT RECOVERY ERROR:",
+            recoverError
+          );
 
-      /*
-       * New re-attempt starts NOW.
-       */
-      startedAt = now;
+          return NextResponse.json(
+            {
+              success: false,
+              error:
+                "Unable to recover the previous re-attempt.",
+              details:
+                recoverError.message,
+            },
+            { status: 500 }
+          );
+        }
+      } else {
+        const submittedResults =
+          results.filter(
+            (result) =>
+              Boolean(
+                result.submitted_at
+              )
+          );
 
-      /*
-       * Load actual question count now.
-       * This means even before submission the new
-       * attempt knows how many questions it contains.
-       */
-      const {
-        data: questionRows,
-        error: questionCountError,
-      } = await supabaseAdmin
-        .from("quiz_questions")
-        .select("id")
-        .eq(
-          "quiz_id",
-          quizId
-        );
+        if (
+          submittedResults.length === 0
+        ) {
+          return NextResponse.json(
+            {
+              success: false,
+              error:
+                "A re-attempt is available only after a previous quiz attempt has been submitted.",
+            },
+            { status: 409 }
+          );
+        }
 
-      if (questionCountError) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Unable to load quiz questions.",
-            details:
-              questionCountError.message,
-          },
-          { status: 500 }
-        );
-      }
+        /*
+         * -----------------------------------------------------
+         * FIND UNUSED TEACHER PERMISSION
+         * -----------------------------------------------------
+         */
 
-      const questionCount =
-        (questionRows || []).length;
-
-      /*
-       * CREATE COMPLETELY NEW RESULT
-       */
-      const {
-        data: newResult,
-        error: insertError,
-      } = await supabaseAdmin
-        .from("quiz_results")
-        .insert({
-          quiz_id: quizId,
-          student_id: studentId,
-          attempt_number:
-            attemptNumber,
-
-          total_questions:
-            questionCount,
-
-          correct_answers: 0,
-          wrong_answers: 0,
-          unanswered:
-            questionCount,
-
-          total_marks: 0,
-          obtained_marks: 0,
-          percentage: 0,
-
-          result_status: "FAIL",
-
-          started_at:
-            startedAt.toISOString(),
-
-          submitted_at: null,
-
-          submission_type: "manual",
-        })
-        .select("*")
-        .single();
-
-      if (insertError) {
-        console.error(
-          "START REATTEMPT RESULT INSERT ERROR:",
-          insertError
-        );
-
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Unable to create re-attempt.",
-            details:
-              insertError.message,
-          },
-          { status: 500 }
-        );
-      }
-
-      resultId = Number(
-        newResult.id
-      );
-
-      createdNewAttempt = true;
-
-      reattemptPermissionId =
-        Number(permission.id);
-
-      /*
-       * Consume EXACT permission.
-       */
-      const {
-        data: consumedPermission,
-        error: consumeError,
-      } = await supabaseAdmin
-        .from(
-          "quiz_reattempt_permissions"
-        )
-        .update({
-          used_at:
-            new Date().toISOString(),
-        })
-        .eq(
-          "id",
-          permission.id
-        )
-        .eq(
-          "quiz_id",
-          quizId
-        )
-        .eq(
-          "student_id",
-          studentId
-        )
-        .eq(
-          "allowed",
-          true
-        )
-        .is(
-          "used_at",
-          null
-        )
-        .select("id")
-        .maybeSingle();
-
-      if (
-        consumeError ||
-        !consumedPermission
-      ) {
-        console.error(
-          "START REATTEMPT PERMISSION CONSUME ERROR:",
-          consumeError
-        );
-
-        await supabaseAdmin
-          .from("quiz_results")
-          .delete()
+        const {
+          data: permission,
+          error: permissionError,
+        } = await supabaseAdmin
+          .from(
+            "quiz_reattempt_permissions"
+          )
+          .select("*")
           .eq(
-            "id",
-            resultId
+            "quiz_id",
+            quizId
           )
           .eq(
             "student_id",
             studentId
           )
+          .eq(
+            "allowed",
+            true
+          )
           .is(
-            "submitted_at",
+            "used_at",
             null
+          )
+          .order(
+            "created_at",
+            {
+              ascending: true,
+            }
+          )
+          .limit(1)
+          .maybeSingle();
+
+        if (permissionError) {
+          console.error(
+            "START REATTEMPT PERMISSION ERROR:",
+            permissionError
           );
 
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "This re-attempt permission has already been used. Please refresh and try again.",
-          },
-          { status: 409 }
-        );
+          return NextResponse.json(
+            {
+              success: false,
+              error:
+                "Unable to check re-attempt permission.",
+              details:
+                permissionError.message,
+            },
+            { status: 500 }
+          );
+        }
+
+        if (!permission) {
+          return NextResponse.json(
+            {
+              success: false,
+              reattemptNotAuthorized:
+                true,
+              error:
+                "Your teacher has not authorized a re-attempt for this quiz.",
+            },
+            { status: 403 }
+          );
+        }
+
+        const highestAttemptNumber =
+          results.reduce(
+            (
+              highest: number,
+              result: any
+            ) => {
+              const number =
+                safeNumber(
+                  result.attempt_number,
+                  1
+                );
+
+              return Math.max(
+                highest,
+                number
+              );
+            },
+            0
+          );
+
+        attemptNumber =
+          highestAttemptNumber + 1;
+
+        startedAt = now;
+
+        /*
+         * CREATE NEW SEPARATE ATTEMPT
+         */
+        const {
+          data: newResult,
+          error: insertError,
+        } = await supabaseAdmin
+          .from("quiz_results")
+          .insert({
+            quiz_id: quizId,
+            student_id: studentId,
+            attempt_number:
+              attemptNumber,
+
+            total_questions:
+              questionCount,
+
+            correct_answers: 0,
+            wrong_answers: 0,
+            unanswered:
+              questionCount,
+
+            total_marks:
+              totalMarks,
+            obtained_marks: 0,
+            percentage: 0,
+
+            result_status:
+              "IN_PROGRESS",
+
+            started_at:
+              startedAt.toISOString(),
+
+            submitted_at: null,
+
+            submission_type:
+              "manual",
+          })
+          .select("*")
+          .single();
+
+        if (insertError) {
+          console.error(
+            "START REATTEMPT RESULT INSERT ERROR:",
+            insertError
+          );
+
+          return NextResponse.json(
+            {
+              success: false,
+              error:
+                "Unable to create re-attempt.",
+              details:
+                insertError.message,
+            },
+            { status: 500 }
+          );
+        }
+
+        resultId =
+          Number(
+            newResult.id
+          );
+
+        createdNewAttempt = true;
+
+        reattemptPermissionId =
+          Number(permission.id);
+
+        /*
+         * Consume EXACT permission.
+         */
+        const {
+          data: consumedPermission,
+          error: consumeError,
+        } = await supabaseAdmin
+          .from(
+            "quiz_reattempt_permissions"
+          )
+          .update({
+            used_at:
+              new Date().toISOString(),
+          })
+          .eq(
+            "id",
+            permission.id
+          )
+          .eq(
+            "quiz_id",
+            quizId
+          )
+          .eq(
+            "student_id",
+            studentId
+          )
+          .eq(
+            "allowed",
+            true
+          )
+          .is(
+            "used_at",
+            null
+          )
+          .select("id")
+          .maybeSingle();
+
+        if (
+          consumeError ||
+          !consumedPermission
+        ) {
+          console.error(
+            "START REATTEMPT PERMISSION CONSUME ERROR:",
+            consumeError
+          );
+
+          await supabaseAdmin
+            .from("quiz_results")
+            .delete()
+            .eq(
+              "id",
+              resultId
+            )
+            .eq(
+              "student_id",
+              studentId
+            )
+            .is(
+              "submitted_at",
+              null
+            );
+
+          return NextResponse.json(
+            {
+              success: false,
+              error:
+                "This re-attempt permission has already been used. Please refresh and try again.",
+            },
+            { status: 409 }
+          );
+        }
       }
     } else {
       /*
@@ -635,42 +879,93 @@ export async function POST(
        */
 
       /*
-       * Only NORMAL attempts can resume an unfinished result.
+       * Only Attempt #1 may be resumed by the normal flow.
        */
-      const unfinishedResult =
+      const unfinishedNormalResult =
         results.find(
           (result) =>
-            !result.submitted_at
+            !result.submitted_at &&
+            safeNumber(
+              result.attempt_number,
+              1
+            ) <= 1
         );
 
-      if (unfinishedResult) {
-        resultId = Number(
-          unfinishedResult.id
-        );
+      if (unfinishedNormalResult) {
+        resultId =
+          Number(
+            unfinishedNormalResult.id
+          );
+
+        attemptNumber = 1;
+
+        const existingStartedAt =
+          unfinishedNormalResult.started_at
+            ? new Date(
+                unfinishedNormalResult.started_at
+              )
+            : null;
 
         startedAt =
-          unfinishedResult.started_at
-            ? new Date(
-                unfinishedResult.started_at
-              )
+          existingStartedAt &&
+          !Number.isNaN(
+            existingStartedAt.getTime()
+          )
+            ? existingStartedAt
             : now;
 
-        if (
-          Number.isNaN(
-            startedAt.getTime()
-          )
-        ) {
-          startedAt = now;
-        }
-
-        attemptNumber =
-          Math.max(
-            1,
-            safeNumber(
-              unfinishedResult.attempt_number,
-              1
+        /*
+         * Repair any incomplete normal-attempt metadata.
+         */
+        const { error: repairError } =
+          await supabaseAdmin
+            .from("quiz_results")
+            .update({
+              total_questions:
+                questionCount,
+              unanswered:
+                questionCount,
+              total_marks:
+                totalMarks,
+              result_status:
+                "IN_PROGRESS",
+              started_at:
+                startedAt.toISOString(),
+            })
+            .eq(
+              "id",
+              resultId
             )
+            .eq(
+              "quiz_id",
+              quizId
+            )
+            .eq(
+              "student_id",
+              studentId
+            )
+            .is(
+              "submitted_at",
+              null
+            );
+
+        if (repairError) {
+          console.error(
+            "START NORMAL ATTEMPT REPAIR ERROR:",
+            repairError
           );
+
+          return NextResponse.json(
+            {
+              success: false,
+              error:
+                "Unable to resume the quiz attempt.",
+              details:
+                repairError.message,
+            },
+            { status: 500 }
+          );
+        }
       } else {
         const submittedResults =
           results.filter(
@@ -737,33 +1032,6 @@ export async function POST(
         startedAt = now;
 
         const {
-          data: questionRows,
-          error: questionCountError,
-        } = await supabaseAdmin
-          .from("quiz_questions")
-          .select("id")
-          .eq(
-            "quiz_id",
-            quizId
-          );
-
-        if (questionCountError) {
-          return NextResponse.json(
-            {
-              success: false,
-              error:
-                "Unable to load quiz questions.",
-              details:
-                questionCountError.message,
-            },
-            { status: 500 }
-          );
-        }
-
-        const questionCount =
-          (questionRows || []).length;
-
-        const {
           data: newResult,
           error: insertError,
         } = await supabaseAdmin
@@ -782,18 +1050,21 @@ export async function POST(
             unanswered:
               questionCount,
 
-            total_marks: 0,
+            total_marks:
+              totalMarks,
             obtained_marks: 0,
             percentage: 0,
 
-            result_status: "FAIL",
+            result_status:
+              "IN_PROGRESS",
 
             started_at:
               startedAt.toISOString(),
 
             submitted_at: null,
 
-            submission_type: "manual",
+            submission_type:
+              "manual",
           })
           .select("*")
           .single();
@@ -816,9 +1087,10 @@ export async function POST(
           );
         }
 
-        resultId = Number(
-          newResult.id
-        );
+        resultId =
+          Number(
+            newResult.id
+          );
 
         createdNewAttempt = true;
       }
@@ -843,113 +1115,6 @@ export async function POST(
         0,
         attemptEnd.getTime() -
           now.getTime()
-      );
-
-    /*
-     * ---------------------------------------------------------
-     * LOAD QUESTIONS
-     * ---------------------------------------------------------
-     */
-
-    const {
-      data: questions,
-      error: questionsError,
-    } = await supabaseAdmin
-      .from("quiz_questions")
-      .select("*")
-      .eq("quiz_id", quizId)
-      .order(
-        "question_order",
-        {
-          ascending: true,
-        }
-      );
-
-    if (questionsError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Unable to load quiz questions.",
-          details:
-            questionsError.message,
-        },
-        { status: 500 }
-      );
-    }
-
-    const questionIds =
-      (questions || []).map(
-        (question) =>
-          Number(question.id)
-      );
-
-    let options: any[] = [];
-
-    if (
-      questionIds.length > 0
-    ) {
-      const {
-        data: optionRows,
-        error: optionsError,
-      } = await supabaseAdmin
-        .from("quiz_options")
-        .select("*")
-        .in(
-          "question_id",
-          questionIds
-        )
-        .order(
-          "option_order",
-          {
-            ascending: true,
-          }
-        );
-
-      if (optionsError) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Unable to load quiz options.",
-            details:
-              optionsError.message,
-          },
-          { status: 500 }
-        );
-      }
-
-      options =
-        optionRows || [];
-    }
-
-    /*
-     * Never send correct answers to student.
-     */
-    const questionsWithOptions =
-      (questions || []).map(
-        (question) => ({
-          ...question,
-
-          options: options
-            .filter(
-              (option) =>
-                Number(
-                  option.question_id
-                ) ===
-                Number(
-                  question.id
-                )
-            )
-            .map((option) => {
-              const {
-                is_correct,
-                ...safeOption
-              } = option;
-
-              return safeOption;
-            }),
-        })
       );
 
     /*

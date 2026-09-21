@@ -45,6 +45,28 @@ function safeNumber(
     : fallback;
 }
 
+function isCorrectOption(
+  value: unknown
+): boolean {
+  if (value === true) {
+    return true;
+  }
+
+  if (
+    typeof value === "string" &&
+    value.trim().toLowerCase() ===
+      "true"
+  ) {
+    return true;
+  }
+
+  if (Number(value) === 1) {
+    return true;
+  }
+
+  return false;
+}
+
 export async function POST(
   request: Request
 ) {
@@ -89,12 +111,6 @@ export async function POST(
      * ---------------------------------------------------------
      * LOAD EXACT ATTEMPT
      * ---------------------------------------------------------
-     *
-     * IMPORTANT:
-     * We use resultId as the primary identity.
-     *
-     * This guarantees that re-attempt #2 can NEVER overwrite
-     * attempt #1.
      */
 
     const {
@@ -126,7 +142,7 @@ export async function POST(
         {
           success: false,
           error:
-            "Quiz attempt not found.",
+            "Quiz attempt not found for this student.",
         },
         { status: 404 }
       );
@@ -142,6 +158,8 @@ export async function POST(
           success: true,
           alreadySubmitted: true,
           result,
+          resultId:
+            Number(result.id),
         },
         { status: 200 }
       );
@@ -233,6 +251,22 @@ export async function POST(
     const questionList =
       questions || [];
 
+    /*
+     * Never save a fake 0-question result.
+     */
+    if (
+      questionList.length === 0
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "This quiz has no questions available for submission. Please contact the teacher.",
+        },
+        { status: 422 }
+      );
+    }
+
     const questionIds =
       questionList.map(
         (question) =>
@@ -241,40 +275,34 @@ export async function POST(
 
     /*
      * ---------------------------------------------------------
-     * LOAD ALL OPTIONS IN ONE QUERY
+     * LOAD OPTIONS IN ONE QUERY
      * ---------------------------------------------------------
      */
 
-    let optionList: any[] = [];
+    const {
+      data: options,
+      error: optionError,
+    } = await supabaseAdmin
+      .from("quiz_options")
+      .select("*")
+      .in(
+        "question_id",
+        questionIds
+      );
 
-    if (
-      questionIds.length > 0
-    ) {
-      const {
-        data: options,
-        error: optionError,
-      } = await supabaseAdmin
-        .from("quiz_options")
-        .select("*")
-        .in(
-          "question_id",
-          questionIds
-        );
-
-      if (optionError) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              optionError.message,
-          },
-          { status: 500 }
-        );
-      }
-
-      optionList =
-        options || [];
+    if (optionError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            optionError.message,
+        },
+        { status: 500 }
+      );
     }
+
+    const optionList =
+      options || [];
 
     /*
      * ---------------------------------------------------------
@@ -352,8 +380,9 @@ export async function POST(
       const correctOption =
         questionOptions.find(
           (option) =>
-            option.is_correct ===
-            true
+            isCorrectOption(
+              option.is_correct
+            )
         );
 
       const questionMarks =
@@ -381,9 +410,6 @@ export async function POST(
       totalMarks +=
         questionMarks;
 
-      /*
-       * Read exact question answer.
-       */
       const rawSelected =
         answers[
           String(
@@ -437,7 +463,7 @@ export async function POST(
       }
 
       /*
-       * Find selected option.
+       * SELECTED OPTION
        */
       const selectedOption =
         questionOptions.find(
@@ -462,18 +488,12 @@ export async function POST(
             correctOption.id
           );
 
-      /*
-       * CORRECT
-       */
       if (isCorrect) {
         correctAnswers += 1;
 
         obtainedMarks +=
           questionMarks;
       } else {
-        /*
-         * WRONG
-         */
         wrongAnswers += 1;
 
         obtainedMarks -=
@@ -555,6 +575,70 @@ export async function POST(
 
     /*
      * ---------------------------------------------------------
+     * SAVE QUESTION-WISE ANSWERS FIRST
+     * ---------------------------------------------------------
+     *
+     * This guarantees that:
+     * Attempt #1 answers stay with Attempt #1.
+     * Attempt #2 answers stay with Attempt #2.
+     */
+
+    const {
+      error: deleteAnswersError,
+    } = await supabaseAdmin
+      .from("quiz_answers")
+      .delete()
+      .eq(
+        "result_id",
+        result.id
+      );
+
+    if (deleteAnswersError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Unable to prepare quiz answers for submission.",
+          details:
+            deleteAnswersError.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    if (
+      answerRows.length > 0
+    ) {
+      const {
+        error:
+          answerInsertError,
+      } = await supabaseAdmin
+        .from("quiz_answers")
+        .insert(
+          answerRows
+        );
+
+      if (answerInsertError) {
+        console.error(
+          "Quiz answers insert error:",
+          answerInsertError
+        );
+
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Quiz answers could not be saved. Your result was not finalized.",
+            details:
+              answerInsertError.message,
+          },
+          { status: 500 }
+        );
+      }
+    }
+
+    /*
+     * ---------------------------------------------------------
      * UPDATE EXACT RESULT
      * ---------------------------------------------------------
      */
@@ -615,6 +699,23 @@ export async function POST(
       .maybeSingle();
 
     if (updateError) {
+      console.error(
+        "Quiz result update error:",
+        updateError
+      );
+
+      /*
+       * Roll back the exact attempt's answers so the attempt
+       * can be submitted again safely.
+       */
+      await supabaseAdmin
+        .from("quiz_answers")
+        .delete()
+        .eq(
+          "result_id",
+          result.id
+        );
+
       return NextResponse.json(
         {
           success: false,
@@ -626,8 +727,7 @@ export async function POST(
     }
 
     /*
-     * If another request submitted first,
-     * return the already saved result.
+     * If another request submitted first.
      */
     if (!updatedResult) {
       const {
@@ -651,6 +751,8 @@ export async function POST(
           alreadySubmitted: true,
           result:
             alreadySaved,
+          resultId:
+            result.id,
         },
         { status: 200 }
       );
@@ -658,67 +760,18 @@ export async function POST(
 
     /*
      * ---------------------------------------------------------
-     * SAVE QUESTION-WISE ANSWERS
+     * RETURN EXACT FRESHLY CALCULATED RESULT
      * ---------------------------------------------------------
-     *
-     * IMPORTANT:
-     * result_id = exact attempt.
-     *
-     * Therefore:
-     * Attempt #1 answers stay with Attempt #1.
-     * Attempt #2 answers stay with Attempt #2.
      */
 
-    const {
-      error: deleteAnswersError,
-    } = await supabaseAdmin
-      .from("quiz_answers")
-      .delete()
-      .eq(
-        "result_id",
-        result.id
-      );
-
-    if (deleteAnswersError) {
-      console.error(
-        "Old quiz answers delete error:",
-        deleteAnswersError
-      );
-    }
-
-    if (
-      answerRows.length > 0
-    ) {
-      const {
-        error:
-          answerInsertError,
-      } = await supabaseAdmin
-        .from("quiz_answers")
-        .insert(
-          answerRows
-        );
-
-      if (answerInsertError) {
-        /*
-         * Do NOT change the already calculated aggregate result.
-         * Log the question-wise storage problem for debugging.
-         */
-        console.error(
-          "Quiz answers insert error:",
-          answerInsertError
-        );
-      }
-    }
-
-    /*
-     * Return the EXACT freshly calculated result.
-     */
     return NextResponse.json({
       success: true,
-
       alreadySubmitted:
         false,
-
+      resultId:
+        Number(
+          updatedResult.id
+        ),
       result:
         updatedResult,
     });
