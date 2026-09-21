@@ -274,9 +274,12 @@ function StudentQuizAttemptContent() {
     quizIdParam
   );
 
-  const isReattempt =
-    searchParams.get("reattempt") ===
-    "true";
+  const requestedReattempt =
+  searchParams.get("reattempt") ===
+  "true";
+
+const [isReattempt, setIsReattempt] =
+  useState(requestedReattempt);
 
   const [student, setStudent] =
     useState<StudentData | null>(
@@ -828,6 +831,11 @@ function StudentQuizAttemptContent() {
 
         const actualResultId =
           Number(data.resultId);
+
+	setIsReattempt(
+  data.isReattempt === true ||
+    Number(data.attemptNumber || 1) > 1
+);
 
         setQuiz(data.quiz);
 
