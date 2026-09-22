@@ -39,7 +39,6 @@ type QuizResult = {
   id: number;
   quiz_id: number;
   student_id: number;
-
   attempt_number: number | null;
 
   total_questions: number | null;
@@ -138,6 +137,7 @@ function formatTime(time: string | null): string {
   if (!time) return "Not available";
 
   const parts = time.split(":");
+
   if (parts.length < 2) return time;
 
   const hour = Number(parts[0]);
@@ -189,7 +189,11 @@ function sortClasses(classes: string[]): string[] {
     const na = Number(a.replace(/[^0-9]/g, ""));
     const nb = Number(b.replace(/[^0-9]/g, ""));
 
-    if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) {
+    if (
+      Number.isFinite(na) &&
+      Number.isFinite(nb) &&
+      na !== nb
+    ) {
       return na - nb;
     }
 
@@ -209,7 +213,9 @@ function getQuizClasses(quiz: QuizTest): string[] {
 
   if (Array.isArray(quiz.target_classes)) {
     quiz.target_classes.forEach((value) => {
-      if (value) classes.add(normalizeClassName(value));
+      if (value) {
+        classes.add(normalizeClassName(value));
+      }
     });
   }
 
@@ -223,9 +229,16 @@ function TeacherQuizResultsContent() {
   const quizIdParam = searchParams.get("quizId");
   const quizId = Number(quizIdParam);
 
-  const [currentQuiz, setCurrentQuiz] = useState<QuizTest | null>(null);
-  const [currentStudents, setCurrentStudents] = useState<Student[]>([]);
-  const [currentResults, setCurrentResults] = useState<QuizResult[]>([]);
+  const [currentQuiz, setCurrentQuiz] =
+    useState<QuizTest | null>(null);
+
+  const [currentStudents, setCurrentStudents] = useState<
+    Student[]
+  >([]);
+
+  const [currentResults, setCurrentResults] = useState<
+    QuizResult[]
+  >([]);
 
   const [allQuizzes, setAllQuizzes] = useState<QuizTest[]>([]);
   const [allResults, setAllResults] = useState<QuizResult[]>([]);
@@ -240,25 +253,29 @@ function TeacherQuizResultsContent() {
   const [selectedClass, setSelectedClass] = useState("ALL");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
 
-  const [expandedDates, setExpandedDates] = useState<Set<string>>(
-    new Set()
-  );
-  const [expandedClasses, setExpandedClasses] = useState<Set<string>>(
-    new Set()
-  );
-  const [expandedStudents, setExpandedStudents] = useState<Set<string>>(
-    new Set()
-  );
+  const [expandedDates, setExpandedDates] =
+    useState<Set<string>>(new Set());
 
-  const [reattemptQuizIds, setReattemptQuizIds] = useState<Set<string>>(
-    new Set()
-  );
+  const [expandedClasses, setExpandedClasses] =
+    useState<Set<string>>(new Set());
 
-  const [reattemptLoading, setReattemptLoading] = useState<string | null>(
-    null
-  );
+  const [expandedStudents, setExpandedStudents] =
+    useState<Set<string>>(new Set());
 
-  const [reattemptMessage, setReattemptMessage] = useState("");
+  const [reattemptQuizIds, setReattemptQuizIds] =
+    useState<Set<string>>(new Set());
+
+  const [reattemptLoading, setReattemptLoading] =
+    useState<string | null>(null);  
+  
+  const [reattemptMessage, setReattemptMessage] =
+    useState("");
+
+  const [dateReattemptLoading, setDateReattemptLoading] =
+    useState<string | null>(null);
+
+  const [dateReattemptMessage, setDateReattemptMessage] =
+    useState("");
 
   const goBack = () => {
     router.back();
@@ -287,56 +304,78 @@ function TeacherQuizResultsContent() {
   const loadReattemptPermissions = useCallback(
     async (quizRows: QuizTest[], studentRows: Student[]) => {
       try {
-        const pairs: Array<{ quiz: QuizTest; student: Student }> = [];
+        const pairs: Array<{
+          quiz: QuizTest;
+          student: Student;
+        }> = [];
 
         for (const quiz of quizRows) {
           for (const student of studentRows) {
-            pairs.push({ quiz, student });
+            pairs.push({
+              quiz,
+              student,
+            });
           }
         }
 
         const allowed = new Set<string>();
         const batchSize = 12;
 
-        for (let index = 0; index < pairs.length; index += batchSize) {
-          const batch = pairs.slice(index, index + batchSize);
+        for (
+          let index = 0;
+          index < pairs.length;
+          index += batchSize
+        ) {
+          const batch = pairs.slice(
+            index,
+            index + batchSize
+          );
 
           const responses = await Promise.all(
-            batch.map(async ({ quiz, student }) => {
-              try {
-                const response = await fetch(
-                  `/api/quiz-tests/reattempt?studentId=${encodeURIComponent(
-                    String(student.id)
-                  )}&quizId=${encodeURIComponent(String(quiz.id))}`,
-                  {
-                    method: "GET",
-                    cache: "no-store",
+            batch.map(
+              async ({ quiz, student }) => {
+                try {
+                  const response = await fetch(
+                    `/api/quiz-tests/reattempt?studentId=${encodeURIComponent(
+                      String(student.id)
+                    )}&quizId=${encodeURIComponent(
+                      String(quiz.id)
+                    )}`,
+                    {
+                      method: "GET",
+                      cache: "no-store",
+                    }
+                  );
+
+                  if (!response.ok) {
+                    return null;
                   }
-                );
 
-                if (!response.ok) return null;
+                  const data = await response.json();
 
-                const data = await response.json();
-
-                if (
-                  data?.allowed === true ||
-                  (Array.isArray(data?.quizIds) &&
-                    data.quizIds.some(
-                      (id: unknown) => Number(id) === Number(quiz.id)
-                    ))
-                ) {
-                  return `${quiz.id}__${student.id}`;
+                  if (
+                    data?.allowed === true ||
+                    (Array.isArray(data?.quizIds) &&
+                      data.quizIds.some(
+                        (id: unknown) =>
+                          Number(id) === Number(quiz.id)
+                      ))
+                  ) {
+                    return `${quiz.id}__${student.id}`;
+                  }
+                } catch {
+                  return null;
                 }
-              } catch {
+
                 return null;
               }
-
-              return null;
-            })
+            )
           );
 
           responses.forEach((key) => {
-            if (key) allowed.add(key);
+            if (key) {
+              allowed.add(key);
+            }
           });
         }
 
@@ -359,11 +398,6 @@ function TeacherQuizResultsContent() {
     setError("");
 
     try {
-      /*
-       * FAST FIRST PAINT:
-       * Load only the quiz opened by the teacher, its attempts and students
-       * first. The page is allowed to render immediately after this.
-       */
       const [
         currentQuizResponse,
         currentResultsResponse,
@@ -415,7 +449,9 @@ function TeacherQuizResultsContent() {
             `
           )
           .eq("quiz_id", quizId)
-          .order("created_at", { ascending: true }),
+          .order("created_at", {
+            ascending: true,
+          }),
 
         supabase
           .from("students")
@@ -427,8 +463,12 @@ function TeacherQuizResultsContent() {
               class_name
             `
           )
-          .order("class_name", { ascending: true })
-          .order("student_name", { ascending: true }),
+          .order("class_name", {
+            ascending: true,
+          })
+          .order("student_name", {
+            ascending: true,
+          }),
       ]);
 
       if (currentQuizResponse.error) {
@@ -452,7 +492,10 @@ function TeacherQuizResultsContent() {
         id: Number(row.id),
         quiz_id: Number(row.quiz_id),
         student_id: Number(row.student_id),
-        attempt_number: Math.max(1, safeNumber(row.attempt_number)),
+        attempt_number: Math.max(
+          1,
+          safeNumber(row.attempt_number)
+        ),
       }));
 
       const normalizedStudents = (
@@ -462,12 +505,6 @@ function TeacherQuizResultsContent() {
         id: Number(student.id),
       }));
 
-      /*
-       * Seed the complete UI with the current quiz immediately.
-       * This means the teacher does not see a 1–2 minute blocking loader.
-       * All attempts remain in currentResults, including old + reattempted
-       * records.
-       */
       setCurrentQuiz(quiz);
       setCurrentResults(normalizedCurrentResults);
       setCurrentStudents(normalizedStudents);
@@ -492,20 +529,14 @@ function TeacherQuizResultsContent() {
       setExpandedClasses(new Set());
       setExpandedStudents(new Set());
 
-      /*
-       * FIRST PAINT IS READY.
-       * Do not wait for the heavy historical-data/reattempt work.
-       */
       setLoading(false);
 
-      /*
-       * BACKGROUND LOAD:
-       * Historical quizzes/results and reattempt permissions are loaded after
-       * the current quiz is already visible.
-       */
       void (async () => {
         try {
-          const [quizzesResponse, resultsResponse] = await Promise.all([
+          const [
+            quizzesResponse,
+            resultsResponse,
+          ] = await Promise.all([
             supabase
               .from("quiz_tests")
               .select(
@@ -553,11 +584,17 @@ function TeacherQuizResultsContent() {
                   created_at
                 `
               )
-              .order("created_at", { ascending: true }),
+              .order("created_at", {
+                ascending: true,
+              }),
           ]);
 
-          if (!quizzesResponse.error && !resultsResponse.error) {
-            const normalizedQuizzes = (quizzesResponse.data || []) as QuizTest[];
+          if (
+            !quizzesResponse.error &&
+            !resultsResponse.error
+          ) {
+            const normalizedQuizzes =
+              (quizzesResponse.data || []) as QuizTest[];
 
             const normalizedAllResults = (
               (resultsResponse.data || []) as QuizResult[]
@@ -566,7 +603,10 @@ function TeacherQuizResultsContent() {
               id: Number(row.id),
               quiz_id: Number(row.quiz_id),
               student_id: Number(row.student_id),
-              attempt_number: Math.max(1, safeNumber(row.attempt_number)),
+              attempt_number: Math.max(
+                1,
+                safeNumber(row.attempt_number)
+              ),
             }));
 
             setAllQuizzes(normalizedQuizzes);
@@ -576,7 +616,9 @@ function TeacherQuizResultsContent() {
               new Set(
                 normalizedQuizzes
                   .filter((q) => q.scheduled_date)
-                  .map((q) => q.scheduled_date as string)
+                  .map(
+                    (q) => q.scheduled_date as string
+                  )
               )
             );
 
@@ -585,25 +627,29 @@ function TeacherQuizResultsContent() {
               normalizedStudents
             );
           } else {
-            /*
-             * If historical loading fails, keep the already-visible current
-             * quiz instead of replacing it with a full-page error.
-             */
-            void loadReattemptPermissions([quiz], normalizedStudents);
+            void loadReattemptPermissions(
+              [quiz],
+              normalizedStudents
+            );
           }
         } catch {
-          /*
-           * Current quiz/results are already rendered, so background failure
-           * must never bring the teacher back to the blocking error screen.
-           */
-          void loadReattemptPermissions([quiz], normalizedStudents);
+          void loadReattemptPermissions(
+            [quiz],
+            normalizedStudents
+          );
         }
       })();
     } catch (err: any) {
-      setError(err?.message || "Unable to load quiz results.");
+      setError(
+        err?.message ||
+          "Unable to load quiz results."
+      );
       setLoading(false);
     }
-  }, [quizId, loadReattemptPermissions]);
+  }, [
+    quizId,
+    loadReattemptPermissions,
+  ]);
 
   useEffect(() => {
     loadData();
@@ -618,17 +664,23 @@ function TeacherQuizResultsContent() {
       }
     });
 
-    return [...dates].sort((a, b) => b.localeCompare(a));
+    return [...dates].sort((a, b) =>
+      b.localeCompare(a)
+    );
   }, [allQuizzes]);
 
   const availableSubjects = useMemo(() => {
     const subjects = new Set<string>();
 
     allQuizzes.forEach((quiz) => {
-      subjects.add(normalizeSubject(quiz.subject));
+      subjects.add(
+        normalizeSubject(quiz.subject)
+      );
     });
 
-    SUBJECTS.forEach((subject) => subjects.add(subject));
+    SUBJECTS.forEach((subject) =>
+      subjects.add(subject)
+    );
 
     return [...subjects].sort((a, b) =>
       a.localeCompare(b, undefined, {
@@ -642,12 +694,18 @@ function TeacherQuizResultsContent() {
 
     allStudents.forEach((student) => {
       if (student.class_name) {
-        classes.add(normalizeClassName(student.class_name));
+        classes.add(
+          normalizeClassName(
+            student.class_name
+          )
+        );
       }
     });
 
     allQuizzes.forEach((quiz) => {
-      getQuizClasses(quiz).forEach((className) => classes.add(className));
+      getQuizClasses(quiz).forEach(
+        (className) => classes.add(className)
+      );
     });
 
     return sortClasses([...classes]);
@@ -657,17 +715,27 @@ function TeacherQuizResultsContent() {
     return allQuizzes.filter((quiz) => {
       const dateMatch =
         selectedDate === "ALL" ||
-        String(quiz.scheduled_date || "") === selectedDate;
+        String(
+          quiz.scheduled_date || ""
+        ) === selectedDate;
 
       const subjectMatch =
         selectedSubject === "ALL" ||
-        normalizeSubject(quiz.subject) === selectedSubject;
+        normalizeSubject(
+          quiz.subject
+        ) === selectedSubject;
 
       const classMatch =
         selectedClass === "ALL" ||
-        getQuizClasses(quiz).includes(selectedClass);
+        getQuizClasses(quiz).includes(
+          selectedClass
+        );
 
-      return dateMatch && subjectMatch && classMatch;
+      return (
+        dateMatch &&
+        subjectMatch &&
+        classMatch
+      );
     });
   }, [
     allQuizzes,
@@ -677,17 +745,27 @@ function TeacherQuizResultsContent() {
   ]);
 
   const filteredQuizIds = useMemo(
-    () => new Set(filteredQuizzes.map((quiz) => Number(quiz.id))),
+    () =>
+      new Set(
+        filteredQuizzes.map((quiz) =>
+          Number(quiz.id)
+        )
+      ),
     [filteredQuizzes]
   );
 
   const filteredResultRows = useMemo(() => {
     return allResults.filter((result) =>
-      filteredQuizIds.has(Number(result.quiz_id))
+      filteredQuizIds.has(
+        Number(result.quiz_id)
+      )
     );
-  }, [allResults, filteredQuizIds]);
+  }, [
+    allResults,
+    filteredQuizIds,
+  ]);
 
-  const resultByQuizStudent = useMemo(() => {
+   const resultByQuizStudent = useMemo(() => {
     const map = new Map<string, QuizResult[]>();
 
     filteredResultRows.forEach((result) => {
@@ -701,9 +779,12 @@ function TeacherQuizResultsContent() {
     map.forEach((rows) => {
       rows.sort((a, b) => {
         const attemptDiff =
-          safeNumber(a.attempt_number) - safeNumber(b.attempt_number);
+          safeNumber(a.attempt_number) -
+          safeNumber(b.attempt_number);
 
-        if (attemptDiff !== 0) return attemptDiff;
+        if (attemptDiff !== 0) {
+          return attemptDiff;
+        }
 
         return String(a.created_at || "").localeCompare(
           String(b.created_at || "")
@@ -736,12 +817,17 @@ function TeacherQuizResultsContent() {
       const studentsForQuiz = filteredStudentRows.filter((student) => {
         const studentClass = normalizeClassName(student.class_name);
 
-        return quizClasses.length === 0 || quizClasses.includes(studentClass);
+        return (
+          quizClasses.length === 0 ||
+          quizClasses.includes(studentClass)
+        );
       });
 
       studentsForQuiz.forEach((student) => {
         const results =
-          resultByQuizStudent.get(`${quiz.id}__${student.id}`) || [];
+          resultByQuizStudent.get(
+            `${quiz.id}__${student.id}`
+          ) || [];
 
         rows.push({
           quiz,
@@ -763,7 +849,9 @@ function TeacherQuizResultsContent() {
 
     allStudentQuizRows.forEach((row) => {
       const existing = map.get(row.student.id) || [];
+
       existing.push(row);
+
       map.set(row.student.id, existing);
     });
 
@@ -785,7 +873,10 @@ function TeacherQuizResultsContent() {
 
       const status = resultStatus(latest);
 
-      if (selectedStatus === "SUBMITTED") return true;
+      if (selectedStatus === "SUBMITTED") {
+        return true;
+      }
+
       if (selectedStatus === "PASS") {
         return status.includes("PASS");
       }
@@ -811,11 +902,16 @@ function TeacherQuizResultsContent() {
       (row) => row.results.length > 0
     ).length;
 
-    const notSubmitted = Math.max(0, totalAssigned - submitted);
+    const notSubmitted = Math.max(
+      0,
+      totalAssigned - submitted
+    );
 
     const latestRows = allStudentQuizRows
       .filter((row) => row.results.length > 0)
-      .map((row) => row.results[row.results.length - 1]);
+      .map(
+        (row) => row.results[row.results.length - 1]
+      );
 
     const pass = latestRows.filter((result) =>
       resultStatus(result).includes("PASS")
@@ -828,19 +924,22 @@ function TeacherQuizResultsContent() {
     const attempts = filteredResultRows.length;
 
     const totalMarks = latestRows.reduce(
-      (sum, result) => sum + safeNumber(result.total_marks),
+      (sum, result) =>
+        sum + safeNumber(result.total_marks),
       0
     );
 
     const obtainedMarks = latestRows.reduce(
-      (sum, result) => sum + safeNumber(result.obtained_marks),
+      (sum, result) =>
+        sum + safeNumber(result.obtained_marks),
       0
     );
 
     const averagePercentage =
       latestRows.length > 0
         ? latestRows.reduce(
-            (sum, result) => sum + safeNumber(result.percentage),
+            (sum, result) =>
+              sum + safeNumber(result.percentage),
             0
           ) / latestRows.length
         : 0;
@@ -857,7 +956,11 @@ function TeacherQuizResultsContent() {
       obtainedMarks,
       averagePercentage,
     };
-  }, [filteredQuizzes, allStudentQuizRows, filteredResultRows]);
+  }, [
+    filteredQuizzes,
+    allStudentQuizRows,
+    filteredResultRows,
+  ]);
 
   const groupedRows = useMemo(() => {
     const dateMap = new Map<
@@ -866,8 +969,12 @@ function TeacherQuizResultsContent() {
     >();
 
     filteredStatusRows.forEach((row) => {
-      const date = row.quiz.scheduled_date || "unknown";
-      const className = normalizeClassName(row.student.class_name);
+      const date =
+        row.quiz.scheduled_date || "unknown";
+
+      const className = normalizeClassName(
+        row.student.class_name
+      );
 
       if (!dateMap.has(date)) {
         dateMap.set(date, new Map());
@@ -885,6 +992,7 @@ function TeacherQuizResultsContent() {
     const dates = [...dateMap.keys()].sort((a, b) => {
       if (a === "unknown") return 1;
       if (b === "unknown") return -1;
+
       return b.localeCompare(a);
     });
 
@@ -893,16 +1001,24 @@ function TeacherQuizResultsContent() {
 
       const classes = [...classMap.keys()]
         .sort((a, b) =>
-          a.localeCompare(b, undefined, {
-            numeric: true,
-            sensitivity: "base",
-          })
+          a.localeCompare(
+            b,
+            undefined,
+            {
+              numeric: true,
+              sensitivity: "base",
+            }
+          )
         )
         .map((className) => ({
           className,
           rows: classMap.get(className)!.sort((a, b) =>
-            String(a.student.student_name || "").localeCompare(
-              String(b.student.student_name || ""),
+            String(
+              a.student.student_name || ""
+            ).localeCompare(
+              String(
+                b.student.student_name || ""
+              ),
               undefined,
               {
                 sensitivity: "base",
@@ -919,18 +1035,25 @@ function TeacherQuizResultsContent() {
   }, [filteredStatusRows]);
 
   const currentQuizClasses = useMemo(() => {
-    if (!currentQuiz) return [];
+    if (!currentQuiz) {
+      return [];
+    }
+
     return getQuizClasses(currentQuiz);
   }, [currentQuiz]);
 
   const currentQuizStudents = useMemo(() => {
-    if (!currentQuiz) return [];
+    if (!currentQuiz) {
+      return [];
+    }
 
     return currentStudents
       .filter((student) => {
         const classes = currentQuizClasses;
 
-        if (classes.length === 0) return true;
+        if (classes.length === 0) {
+          return true;
+        }
 
         return classes.includes(
           normalizeClassName(student.class_name)
@@ -945,23 +1068,33 @@ function TeacherQuizResultsContent() {
           }
         )
       );
-  }, [currentQuiz, currentStudents, currentQuizClasses]);
+  }, [
+    currentQuiz,
+    currentStudents,
+    currentQuizClasses,
+  ]);
 
   const currentQuizResultsByStudent = useMemo(() => {
     const map = new Map<number, QuizResult[]>();
 
     currentResults.forEach((result) => {
-      const rows = map.get(result.student_id) || [];
+      const rows =
+        map.get(result.student_id) || [];
+
       rows.push(result);
+
       map.set(result.student_id, rows);
     });
 
     map.forEach((rows) => {
       rows.sort((a, b) => {
         const attemptDiff =
-          safeNumber(a.attempt_number) - safeNumber(b.attempt_number);
+          safeNumber(a.attempt_number) -
+          safeNumber(b.attempt_number);
 
-        if (attemptDiff !== 0) return attemptDiff;
+        if (attemptDiff !== 0) {
+          return attemptDiff;
+        }
 
         return String(a.created_at || "").localeCompare(
           String(b.created_at || "")
@@ -982,16 +1115,21 @@ function TeacherQuizResultsContent() {
 
     currentQuizStudents.forEach((student) => {
       const results =
-        currentQuizResultsByStudent.get(student.id) || [];
+        currentQuizResultsByStudent.get(
+          student.id
+        ) || [];
 
       attempts += results.length;
 
       if (results.length > 0) {
         submitted += 1;
 
-        const latest = results[results.length - 1];
+        const latest =
+          results[results.length - 1];
 
-        if (resultStatus(latest).includes("PASS")) {
+        if (
+          resultStatus(latest).includes("PASS")
+        ) {
           pass += 1;
         }
 
@@ -1057,7 +1195,105 @@ function TeacherQuizResultsContent() {
     targetQuizId: number,
     studentId: number
   ) => {
-    setReattemptLoading(`${targetQuizId}__${studentId}`);
+    const actionKey = `${targetQuizId}__${studentId}`;
+
+    setReattemptLoading(actionKey);
+    setReattemptMessage("");
+
+    try {
+      const hasFirstAttempt = allResults.some(
+        (result) =>
+          Number(result.quiz_id) === Number(targetQuizId) &&
+          Number(result.student_id) === Number(studentId)
+      );
+
+      if (!hasFirstAttempt) {
+        setReattemptMessage(
+          "Re-attempt can be allowed only after the student's first attempt."
+        );
+        return;
+      }
+
+      let teacherId: number | null = null;
+
+      try {
+        const storedTeacherId =
+          localStorage.getItem("attendance_teacher_id") ||
+          localStorage.getItem("teacher_id");
+
+        if (storedTeacherId) {
+          const parsedTeacherId = Number(storedTeacherId);
+
+          if (Number.isFinite(parsedTeacherId)) {
+            teacherId = parsedTeacherId;
+          }
+        }
+      } catch {
+        teacherId = null;
+      }
+
+      const response = await fetch(
+        "/api/quiz-tests/reattempt",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            action: "allow",
+            quizId: Number(targetQuizId),
+            studentId: Number(studentId),
+            teacherId,
+          }),
+        }
+      );
+
+      let data: any = null;
+
+      try {
+        data = await response.json();
+      } catch {
+        data = null;
+      }
+
+      if (!response.ok || data?.success === false) {
+        throw new Error(
+          data?.error ||
+            data?.message ||
+            "Unable to allow re-attempt."
+        );
+      }
+
+      setReattemptQuizIds((previous) => {
+        const next = new Set(previous);
+        next.add(actionKey);
+        return next;
+      });
+
+      setReattemptMessage(
+        "Re-attempt access allowed successfully."
+      );
+    } catch (err: any) {
+      setReattemptMessage(
+        err?.message ||
+          "Unable to allow re-attempt. Please try again."
+      );
+    } finally {
+      setReattemptLoading(null);
+    }
+  };
+
+  const allowAllReattemptForDate = async (
+    date: string
+  ) => {
+    if (!date || date === "unknown") {
+      setReattemptMessage(
+        "Re-attempt cannot be allowed because the quiz date is not available."
+      );
+      return;
+    }
+
+    setDateReattemptLoading(date);
     setReattemptMessage("");
 
     try {
@@ -1069,48 +1305,195 @@ function TeacherQuizResultsContent() {
           localStorage.getItem("teacher_id");
 
         if (storedTeacherId) {
-          teacherId = Number(storedTeacherId);
+          const parsedTeacherId = Number(storedTeacherId);
+
+          if (Number.isFinite(parsedTeacherId)) {
+            teacherId = parsedTeacherId;
+          }
         }
       } catch {
         teacherId = null;
       }
 
-      const response = await fetch("/api/quiz-tests/reattempt", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          action: "allow",
-          quizId: targetQuizId,
-          studentId,
-          teacherId,
-        }),
-      });
+      const dateQuizzes = allQuizzes.filter(
+        (quiz) =>
+          String(quiz.scheduled_date || "") ===
+          String(date)
+      );
 
-      const data = await response.json();
-
-      if (!response.ok || data?.success === false) {
-        throw new Error(
-          data?.error || "Unable to allow re-attempt."
+      if (dateQuizzes.length === 0) {
+        setReattemptMessage(
+          "No quizzes were found for this date."
         );
+        return;
       }
 
-      setReattemptQuizIds((previous) => {
-        const next = new Set(previous);
-        next.add(`${targetQuizId}__${studentId}`);
-        return next;
+      const allowedPairs: Array<{
+        quizId: number;
+        studentId: number;
+        key: string;
+      }> = [];
+
+      dateQuizzes.forEach((quiz) => {
+        const quizClasses = getQuizClasses(quiz);
+
+        const studentsForQuiz = allStudents.filter(
+          (student) => {
+            const studentClass = normalizeClassName(
+              student.class_name
+            );
+
+            return (
+              quizClasses.length === 0 ||
+              quizClasses.includes(studentClass)
+            );
+          }
+        );
+
+        studentsForQuiz.forEach((student) => {
+          const key = `${quiz.id}__${student.id}`;
+
+          const hasFirstAttempt = allResults.some(
+            (result) =>
+              Number(result.quiz_id) === Number(quiz.id) &&
+              Number(result.student_id) ===
+                Number(student.id)
+          );
+
+          if (!hasFirstAttempt) {
+            return;
+          }
+
+          if (reattemptQuizIds.has(key)) {
+            return;
+          }
+
+          allowedPairs.push({
+            quizId: Number(quiz.id),
+            studentId: Number(student.id),
+            key,
+          });
+        });
       });
 
-      setReattemptMessage(
-        "Re-attempt access allowed successfully."
-      );
+      if (allowedPairs.length === 0) {
+        setReattemptMessage(
+          "No eligible students found. Students must have a first attempt, and students already allowed are skipped."
+        );
+        return;
+      }
+
+      let successCount = 0;
+      let failedCount = 0;
+
+      const batchSize = 8;
+
+      for (
+        let index = 0;
+        index < allowedPairs.length;
+        index += batchSize
+      ) {
+        const batch = allowedPairs.slice(
+          index,
+          index + batchSize
+        );
+
+        const responses = await Promise.all(
+          batch.map(async (pair) => {
+            try {
+              const response = await fetch(
+                "/api/quiz-tests/reattempt",
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    action: "allow",
+                    quizId: pair.quizId,
+                    studentId: pair.studentId,
+                    teacherId,
+                  }),
+                }
+              );
+
+              let data: any = null;
+
+              try {
+                data = await response.json();
+              } catch {
+                data = null;
+              }
+
+              if (
+                !response.ok ||
+                data?.success === false
+              ) {
+                return {
+                  key: pair.key,
+                  success: false,
+                };
+              }
+
+              return {
+                key: pair.key,
+                success: true,
+              };
+            } catch {
+              return {
+                key: pair.key,
+                success: false,
+              };
+            }
+          })
+        );
+
+        const successfulKeys: string[] = [];
+
+        responses.forEach((result) => {
+          if (result.success) {
+            successCount += 1;
+            successfulKeys.push(result.key);
+          } else {
+            failedCount += 1;
+          }
+        });
+
+        if (successfulKeys.length > 0) {
+          setReattemptQuizIds((previous) => {
+            const next = new Set(previous);
+
+            successfulKeys.forEach((key) => {
+              next.add(key);
+            });
+
+            return next;
+          });
+        }
+      }
+
+      if (failedCount === 0) {
+        setReattemptMessage(
+          `Re-attempt access allowed successfully for ${successCount} student${
+            successCount !== 1 ? "s" : ""
+          } across all quizzes on ${formatDate(date)}.`
+        );
+      } else {
+        setReattemptMessage(
+          `Re-attempt access allowed for ${successCount} student${
+            successCount !== 1 ? "s" : ""
+          }. ${failedCount} request${
+            failedCount !== 1 ? "s" : ""
+          } failed.`
+        );
+      }
     } catch (err: any) {
       setReattemptMessage(
-        err?.message || "Unable to allow re-attempt."
+        err?.message ||
+          "Unable to allow all re-attempts for this date."
       );
     } finally {
-      setReattemptLoading(null);
+      setDateReattemptLoading(null);
     }
   };
 
@@ -1119,9 +1502,10 @@ function TeacherQuizResultsContent() {
     title: string,
     subtitle?: string
   ) => {
-    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageWidth =
+      pdf.internal.pageSize.getWidth();
 
-    pdf.setFillColor(15, 23, 42);
+        pdf.setFillColor(15, 23, 42);
     pdf.rect(0, 0, pageWidth, 34, "F");
 
     pdf.setTextColor(255, 255, 255);
@@ -1172,9 +1556,14 @@ function TeacherQuizResultsContent() {
 
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(7);
-    pdf.text("Authorized Academic Record", pageWidth - 62, pageHeight - 21, {
-      align: "center",
-    });
+    pdf.text(
+      "Authorized Academic Record",
+      pageWidth - 62,
+      pageHeight - 21,
+      {
+        align: "center",
+      }
+    );
 
     const stampX = pageWidth - 29;
     const stampY = pageHeight - 31;
@@ -1260,7 +1649,10 @@ function TeacherQuizResultsContent() {
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(7);
 
-      const maxChars = Math.max(8, Math.floor(widths[index] / 2));
+      const maxChars = Math.max(
+        8,
+        Math.floor(widths[index] / 2)
+      );
 
       let display = String(value ?? "");
 
@@ -1434,7 +1826,9 @@ function TeacherQuizResultsContent() {
     }
 
     const latest =
-      results.length > 0 ? results[results.length - 1] : null;
+      results.length > 0
+        ? results[results.length - 1]
+        : null;
 
     y += 4;
 
@@ -1466,7 +1860,11 @@ function TeacherQuizResultsContent() {
     } else {
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(9);
-      pdf.text("No submitted result is available.", 18, y);
+      pdf.text(
+        "No submitted result is available.",
+        18,
+        y
+      );
     }
 
     drawSignatureAndStamp(
@@ -1533,7 +1931,18 @@ function TeacherQuizResultsContent() {
 
       y += 8;
 
-      const widths = [32, 24, 35, 26, 29, 23, 23, 25, 25, 28];
+      const widths = [
+        32,
+        24,
+        35,
+        26,
+        29,
+        23,
+        23,
+        25,
+        25,
+        28,
+      ];
 
       addTableHeader(
         pdf,
@@ -1556,29 +1965,35 @@ function TeacherQuizResultsContent() {
 
       y += 9;
 
-      const rows = [...filteredStatusRows].sort((a, b) => {
-        const dateDiff = String(
-          b.quiz.scheduled_date || ""
-        ).localeCompare(String(a.quiz.scheduled_date || ""));
+      const rows = [...filteredStatusRows].sort(
+        (a, b) => {
+          const dateDiff = String(
+            b.quiz.scheduled_date || ""
+          ).localeCompare(
+            String(a.quiz.scheduled_date || "")
+          );
 
-        if (dateDiff !== 0) return dateDiff;
+          if (dateDiff !== 0) return dateDiff;
 
-        const classDiff = normalizeClassName(
-          a.student.class_name
-        ).localeCompare(
-          normalizeClassName(b.student.class_name),
-          undefined,
-          {
-            numeric: true,
-          }
-        );
+          const classDiff = normalizeClassName(
+            a.student.class_name
+          ).localeCompare(
+            normalizeClassName(b.student.class_name),
+            undefined,
+            {
+              numeric: true,
+            }
+          );
 
-        if (classDiff !== 0) return classDiff;
+          if (classDiff !== 0) return classDiff;
 
-        return String(a.student.student_name || "").localeCompare(
-          String(b.student.student_name || "")
-        );
-      });
+          return String(
+            a.student.student_name || ""
+          ).localeCompare(
+            String(b.student.student_name || "")
+          );
+        }
+      );
 
       rows.forEach((row) => {
         if (y > 175) {
@@ -1628,25 +2043,41 @@ function TeacherQuizResultsContent() {
           pdf,
           [
             row.student.student_name || "Unnamed",
-            normalizeClassName(row.student.class_name),
+            normalizeClassName(
+              row.student.class_name
+            ),
             row.quiz.title,
             formatDate(row.quiz.scheduled_date),
             normalizeSubject(row.quiz.subject),
             latest
               ? String(
-                  safeNumber(latest.attempt_number) || 1
+                  safeNumber(
+                    latest.attempt_number
+                  ) || 1
                 )
               : "-",
             latest
-              ? String(safeNumber(latest.obtained_marks))
+              ? String(
+                  safeNumber(
+                    latest.obtained_marks
+                  )
+                )
               : "0",
             latest
-              ? String(safeNumber(latest.total_marks))
+              ? String(
+                  safeNumber(
+                    latest.total_marks
+                  )
+                )
               : "0",
             latest
-              ? `${safeNumber(latest.percentage).toFixed(2)}%`
+              ? `${safeNumber(
+                  latest.percentage
+                ).toFixed(2)}%`
               : "0%",
-            latest ? resultStatus(latest) : "NOT SUBMITTED",
+            latest
+              ? resultStatus(latest)
+              : "NOT SUBMITTED",
           ],
           widths,
           14,
@@ -1689,9 +2120,11 @@ function TeacherQuizResultsContent() {
       <main style={styles.page}>
         <div style={styles.loadingCard}>
           <div style={styles.loaderCircle}>RA</div>
+
           <h2 style={styles.loadingTitle}>
             Loading Quiz Results...
           </h2>
+
           <p style={styles.loadingText}>
             Please wait while RACER ACADEMY loads all student
             results.
@@ -1714,7 +2147,10 @@ function TeacherQuizResultsContent() {
           <p style={styles.errorText}>{error}</p>
 
           <div style={styles.actionRow}>
-            <button style={styles.secondaryButton} onClick={goBack}>
+            <button
+              style={styles.secondaryButton}
+              onClick={goBack}
+            >
               ← Back
             </button>
 
@@ -1798,9 +2234,13 @@ function TeacherQuizResultsContent() {
             </div>
 
             <div style={styles.heroQuizMeta}>
-              {normalizeSubject(currentQuiz?.subject || null)}
+              {normalizeSubject(
+                currentQuiz?.subject || null
+              )}
               {" • "}
-              {formatDate(currentQuiz?.scheduled_date || null)}
+              {formatDate(
+                currentQuiz?.scheduled_date || null
+              )}
             </div>
           </div>
         </section>
@@ -1822,7 +2262,9 @@ function TeacherQuizResultsContent() {
               onClick={loadData}
               disabled={filterLoading}
             >
-              {filterLoading ? "Working..." : "↻ Refresh"}
+              {filterLoading
+                ? "Working..."
+                : "↻ Refresh"}
             </button>
           </div>
 
@@ -1864,7 +2306,10 @@ function TeacherQuizResultsContent() {
                 </option>
 
                 {availableSubjects.map((subject) => (
-                  <option key={subject} value={subject}>
+                  <option
+                    key={subject}
+                    value={subject}
+                  >
                     {subject}
                   </option>
                 ))}
@@ -1886,7 +2331,10 @@ function TeacherQuizResultsContent() {
                 </option>
 
                 {availableClasses.map((className) => (
-                  <option key={className} value={className}>
+                  <option
+                    key={className}
+                    value={className}
+                  >
                     {className}
                   </option>
                 ))}
@@ -1928,18 +2376,25 @@ function TeacherQuizResultsContent() {
 
           <div style={styles.filterSummary}>
             <span>
-              Showing <strong>{filteredQuizzes.length}</strong>{" "}
+              Showing{" "}
+              <strong>{filteredQuizzes.length}</strong>{" "}
               quiz
-              {filteredQuizzes.length !== 1 ? "zes" : ""}
+              {filteredQuizzes.length !== 1
+                ? "zes"
+                : ""}
             </span>
 
             <span>
-              <strong>{filteredStatusRows.length}</strong>{" "}
+              <strong>
+                {filteredStatusRows.length}
+              </strong>{" "}
               student entries
             </span>
 
             <span>
-              <strong>{filteredResultRows.length}</strong>{" "}
+              <strong>
+                {filteredResultRows.length}
+              </strong>{" "}
               submitted attempts
             </span>
           </div>
@@ -1948,10 +2403,12 @@ function TeacherQuizResultsContent() {
         <section style={styles.statsGrid}>
           <div style={styles.statCard}>
             <div style={styles.statIcon}>Q</div>
+
             <div>
               <div style={styles.statNumber}>
                 {stats.quizCount}
               </div>
+
               <div style={styles.statLabel}>
                 Quizzes
               </div>
@@ -1960,10 +2417,12 @@ function TeacherQuizResultsContent() {
 
           <div style={styles.statCard}>
             <div style={styles.statIcon}>S</div>
+
             <div>
               <div style={styles.statNumber}>
                 {stats.totalAssigned}
               </div>
+
               <div style={styles.statLabel}>
                 Student Entries
               </div>
@@ -1972,10 +2431,12 @@ function TeacherQuizResultsContent() {
 
           <div style={styles.statCard}>
             <div style={styles.statIcon}>✓</div>
+
             <div>
               <div style={styles.statNumber}>
                 {stats.submitted}
               </div>
+
               <div style={styles.statLabel}>
                 Submitted
               </div>
@@ -1984,10 +2445,12 @@ function TeacherQuizResultsContent() {
 
           <div style={styles.statCard}>
             <div style={styles.statIcon}>!</div>
+
             <div>
               <div style={styles.statNumber}>
                 {stats.notSubmitted}
               </div>
+
               <div style={styles.statLabel}>
                 Not Submitted
               </div>
@@ -1996,10 +2459,12 @@ function TeacherQuizResultsContent() {
 
           <div style={styles.statCard}>
             <div style={styles.statIcon}>P</div>
+
             <div>
               <div style={styles.statNumber}>
                 {stats.pass}
               </div>
+
               <div style={styles.statLabel}>
                 Pass
               </div>
@@ -2008,10 +2473,12 @@ function TeacherQuizResultsContent() {
 
           <div style={styles.statCard}>
             <div style={styles.statIcon}>F</div>
+
             <div>
               <div style={styles.statNumber}>
                 {stats.fail}
               </div>
+
               <div style={styles.statLabel}>
                 Fail
               </div>
@@ -2020,10 +2487,12 @@ function TeacherQuizResultsContent() {
 
           <div style={styles.statCard}>
             <div style={styles.statIcon}>#</div>
+
             <div>
               <div style={styles.statNumber}>
                 {stats.attempts}
               </div>
+
               <div style={styles.statLabel}>
                 Attempts
               </div>
@@ -2032,10 +2501,12 @@ function TeacherQuizResultsContent() {
 
           <div style={styles.statCard}>
             <div style={styles.statIcon}>%</div>
+
             <div>
               <div style={styles.statNumber}>
                 {stats.averagePercentage.toFixed(1)}%
               </div>
+
               <div style={styles.statLabel}>
                 Average
               </div>
@@ -2050,8 +2521,8 @@ function TeacherQuizResultsContent() {
             </div>
 
             <div style={styles.downloadSub}>
-              Download complete filtered results or an individual
-              student's detailed PDF.
+              Download complete filtered results or an
+              individual student's detailed PDF.
             </div>
           </div>
 
@@ -2101,83 +2572,150 @@ function TeacherQuizResultsContent() {
           ) : (
             <div style={styles.dateList}>
               {groupedRows.map((dateGroup) => {
-                const dateOpen = expandedDates.has(
-                  dateGroup.date
-                );
+                const dateOpen =
+                  expandedDates.has(
+                    dateGroup.date
+                  );
 
-                const dateRows = dateGroup.classes.flatMap(
-                  (group) => group.rows
-                );
+                const dateRows =
+                  dateGroup.classes.flatMap(
+                    (group) => group.rows
+                  );
 
-                const dateSubmitted = dateRows.filter(
-                  (row) => row.results.length > 0
-                ).length;
+                const dateSubmitted =
+                  dateRows.filter(
+                    (row) =>
+                      row.results.length > 0
+                  ).length;
 
                 return (
                   <div
                     key={dateGroup.date}
                     style={styles.dateCard}
                   >
-                    <button
-                      style={styles.dateButton}
-                      onClick={() =>
-                        toggleDate(dateGroup.date)
-                      }
-                    >
-                      <div style={styles.dateButtonLeft}>
-                        <div style={styles.dateIcon}>
-                          {dateGroup.date === "unknown"
-                            ? "?"
-                            : "D"}
+                    <div style={styles.dateHeader}>
+                      <button
+                        type="button"
+                        style={styles.dateButton}
+                        onClick={() =>
+                          toggleDate(
+                            dateGroup.date
+                          )
+                        }
+                      >
+                        <div
+                          style={
+                            styles.dateButtonLeft
+                          }
+                        >
+                          <div
+                            style={styles.dateIcon}
+                          >
+                            {dateGroup.date ===
+                            "unknown"
+                              ? "?"
+                              : "D"}
+                          </div>
+
+                          <div>
+                            <div
+                              style={
+                                styles.dateLabel
+                              }
+                            >
+                              QUIZ DATE
+                            </div>
+
+                            <div
+                              style={
+                                styles.dateTitle
+                              }
+                            >
+                              {dateGroup.date ===
+                              "unknown"
+                                ? "Date Not Available"
+                                : formatDateLong(
+                                    dateGroup.date
+                                  )}
+                            </div>
+
+                            <div
+                              style={
+                                styles.dateMeta
+                              }
+                            >
+                              {dateRows.length}{" "}
+                              student entries
+                              {" • "}
+                              {dateSubmitted}{" "}
+                              submitted
+                            </div>
+                          </div>
                         </div>
 
-                        <div>
-                          <div style={styles.dateLabel}>
-                            QUIZ DATE
-                          </div>
-
-                          <div style={styles.dateTitle}>
-                            {dateGroup.date === "unknown"
-                              ? "Date Not Available"
-                              : formatDateLong(
-                                  dateGroup.date
-                                )}
-                          </div>
-
-                          <div style={styles.dateMeta}>
-                            {dateRows.length} student entries
-                            {" • "}
-                            {dateSubmitted} submitted
-                          </div>
+                        <div
+                          style={styles.chevron}
+                        >
+                          {dateOpen
+                            ? "−"
+                            : "+"}
                         </div>
-                      </div>
+                      </button>
 
-                      <div style={styles.chevron}>
-                        {dateOpen ? "−" : "+"}
-                      </div>
-                    </button>
+                      {dateGroup.date !==
+                      "unknown" ? (
+                        <button
+                          type="button"
+                          style={
+                            styles.dateBulkButton
+                          }
+                          disabled={
+                            dateReattemptLoading ===
+                            dateGroup.date
+                          }
+                          onClick={() =>
+                            allowAllReattemptForDate(
+                              dateGroup.date
+                            )
+                          }
+                        >
+                          {dateReattemptLoading ===
+                          dateGroup.date
+                            ? "ALLOWING..."
+                            : "ALLOW ALL RE-ATTEMPT"}
+                        </button>
+                      ) : null}
+                    </div>
 
                     {dateOpen ? (
-                      <div style={styles.classList}>
+                      <div
+                        style={styles.classList}
+                      >
                         {dateGroup.classes.map(
                           (classGroup) => {
                             const classKey = `${dateGroup.date}__${classGroup.className}`;
+
                             const classOpen =
-                              expandedClasses.has(classKey);
+                              expandedClasses.has(
+                                classKey
+                              );
 
                             const submittedCount =
                               classGroup.rows.filter(
                                 (row) =>
-                                  row.results.length > 0
+                                  row.results.length >
+                                  0
                               ).length;
 
                             const passCount =
                               classGroup.rows.filter(
                                 (row) =>
-                                  row.results.length > 0 &&
+                                  row.results.length >
+                                    0 &&
                                   resultStatus(
                                     row.results[
-                                      row.results.length - 1
+                                      row.results.length -
+                                        1
                                     ]
                                   ).includes("PASS")
                               ).length;
@@ -2185,10 +2723,12 @@ function TeacherQuizResultsContent() {
                             const failCount =
                               classGroup.rows.filter(
                                 (row) =>
-                                  row.results.length > 0 &&
+                                  row.results.length >
+                                    0 &&
                                   resultStatus(
                                     row.results[
-                                      row.results.length - 1
+                                      row.results.length -
+                                        1
                                     ]
                                   ).includes("FAIL")
                               ).length;
@@ -2196,14 +2736,19 @@ function TeacherQuizResultsContent() {
                             return (
                               <div
                                 key={classKey}
-                                style={styles.classCard}
+                                style={
+                                  styles.classCard
+                                }
                               >
                                 <button
+                                  type="button"
                                   style={
                                     styles.classButton
                                   }
                                   onClick={() =>
-                                    toggleClass(classKey)
+                                    toggleClass(
+                                      classKey
+                                    )
                                   }
                                 >
                                   <div
@@ -2216,7 +2761,9 @@ function TeacherQuizResultsContent() {
                                         styles.classBadge
                                       }
                                     >
-                                      {classGroup.className}
+                                      {
+                                        classGroup.className
+                                      }
                                     </div>
 
                                     <div>
@@ -2237,12 +2784,15 @@ function TeacherQuizResultsContent() {
                                         }
                                       >
                                         {
-                                          classGroup.rows
+                                          classGroup
+                                            .rows
                                             .length
                                         }{" "}
                                         students
                                         {" • "}
-                                        {submittedCount}{" "}
+                                        {
+                                          submittedCount
+                                        }{" "}
                                         submitted
                                         {" • "}
                                         {passCount} pass
@@ -2253,9 +2803,13 @@ function TeacherQuizResultsContent() {
                                   </div>
 
                                   <div
-                                    style={styles.chevron}
+                                    style={
+                                      styles.chevron
+                                    }
                                   >
-                                    {classOpen ? "−" : "+"}
+                                    {classOpen
+                                      ? "−"
+                                      : "+"}
                                   </div>
                                 </button>
 
@@ -2275,11 +2829,14 @@ function TeacherQuizResultsContent() {
                                           );
 
                                         const latest =
-                                          row.results.length >
-                                          0
-                                            ? row.results[
-                                                row.results
-                                                  .length - 1
+                                          row.results
+                                            .length > 0
+                                            ? row
+                                                .results[
+                                                row
+                                                  .results
+                                                  .length -
+                                                  1
                                               ]
                                             : null;
 
@@ -2305,6 +2862,7 @@ function TeacherQuizResultsContent() {
                                               }
                                             >
                                               <button
+                                                type="button"
                                                 style={
                                                   styles.studentMainButton
                                                 }
@@ -2320,7 +2878,8 @@ function TeacherQuizResultsContent() {
                                                   }
                                                 >
                                                   {String(
-                                                    row.student
+                                                    row
+                                                      .student
                                                       .student_name ||
                                                       "S"
                                                   )
@@ -2341,7 +2900,8 @@ function TeacherQuizResultsContent() {
                                                       styles.studentName
                                                     }
                                                   >
-                                                    {row.student
+                                                    {row
+                                                      .student
                                                       .student_name ||
                                                       "Unnamed Student"}
                                                   </div>
@@ -2351,12 +2911,14 @@ function TeacherQuizResultsContent() {
                                                       styles.studentUsername
                                                     }
                                                   >
-                                                    {row.student
+                                                    {row
+                                                      .student
                                                       .student_username ||
                                                       "Username not available"}
                                                     {" • "}
                                                     {normalizeSubject(
-                                                      row.quiz
+                                                      row
+                                                        .quiz
                                                         .subject
                                                     )}
                                                   </div>
@@ -2384,8 +2946,8 @@ function TeacherQuizResultsContent() {
                                                             "pass"
                                                               ? "#15803d"
                                                               : statusClass(
-                                                                    latest
-                                                                  ) ===
+                                                                  latest
+                                                                ) ===
                                                                 "fail"
                                                               ? "#dc2626"
                                                               : "#334155",
@@ -2404,11 +2966,9 @@ function TeacherQuizResultsContent() {
                                                           styles.summaryStatus
                                                         }
                                                       >
-                                                        {
-                                                          resultStatus(
-                                                            latest
-                                                          )
-                                                        }
+                                                        {resultStatus(
+                                                          latest
+                                                        )}
                                                       </span>
                                                     </>
                                                   ) : (
@@ -2423,6 +2983,7 @@ function TeacherQuizResultsContent() {
                                                 </div>
 
                                                 <button
+                                                  type="button"
                                                   style={
                                                     styles.pdfSmallButton
                                                   }
@@ -2438,6 +2999,7 @@ function TeacherQuizResultsContent() {
                                                 </button>
 
                                                 <button
+                                                  type="button"
                                                   style={
                                                     styles.expandButton
                                                   }
@@ -2476,7 +3038,8 @@ function TeacherQuizResultsContent() {
 
                                                     <strong>
                                                       {
-                                                        row.quiz
+                                                        row
+                                                          .quiz
                                                           .title
                                                       }
                                                     </strong>
@@ -2493,7 +3056,8 @@ function TeacherQuizResultsContent() {
 
                                                     <strong>
                                                       {formatDate(
-                                                        row.quiz
+                                                        row
+                                                          .quiz
                                                           .scheduled_date
                                                       )}
                                                     </strong>
@@ -2510,7 +3074,8 @@ function TeacherQuizResultsContent() {
 
                                                     <strong>
                                                       {normalizeSubject(
-                                                        row.quiz
+                                                        row
+                                                          .quiz
                                                           .subject
                                                       )}
                                                     </strong>
@@ -2527,14 +3092,16 @@ function TeacherQuizResultsContent() {
 
                                                     <strong>
                                                       {
-                                                        row.results
+                                                        row
+                                                          .results
                                                           .length
                                                       }
                                                     </strong>
                                                   </div>
                                                 </div>
 
-                                                {row.results.length ===
+                                                {row.results
+                                                  .length ===
                                                 0 ? (
                                                   <div
                                                     style={
@@ -2560,32 +3127,14 @@ function TeacherQuizResultsContent() {
                                                     </div>
 
                                                     <button
+                                                      type="button"
+                                                      disabled
                                                       style={
-                                                        reattemptAllowed
-                                                          ? styles.allowedButton
-                                                          : styles.reattemptButton
-                                                      }
-                                                      disabled={
-                                                        reattemptAllowed ||
-                                                        reattemptLoading ===
-                                                          allowedKey
-                                                      }
-                                                      onClick={() =>
-                                                        allowReattempt(
-                                                          row.quiz
-                                                            .id,
-                                                          row
-                                                            .student
-                                                            .id
-                                                        )
+                                                        styles.firstAttemptRequiredButton
                                                       }
                                                     >
-                                                      {reattemptLoading ===
-                                                      allowedKey
-                                                        ? "Allowing..."
-                                                        : reattemptAllowed
-                                                        ? "RE-ATTEMPT ALLOWED"
-                                                        : "ALLOW RE-ATTEMPT"}
+                                                      FIRST ATTEMPT
+                                                      REQUIRED
                                                     </button>
                                                   </div>
                                                 ) : (
@@ -2646,8 +3195,8 @@ function TeacherQuizResultsContent() {
                                                                   "pass"
                                                                     ? styles.passPill
                                                                     : statusClass(
-                                                                          result
-                                                                        ) ===
+                                                                        result
+                                                                      ) ===
                                                                       "fail"
                                                                     ? styles.failPill
                                                                     : styles.neutralPill),
@@ -2672,6 +3221,7 @@ function TeacherQuizResultsContent() {
                                                                 <span>
                                                                   Questions
                                                                 </span>
+
                                                                 <strong>
                                                                   {safeNumber(
                                                                     result.total_questions
@@ -2687,6 +3237,7 @@ function TeacherQuizResultsContent() {
                                                                 <span>
                                                                   Correct
                                                                 </span>
+
                                                                 <strong>
                                                                   {safeNumber(
                                                                     result.correct_answers
@@ -2702,6 +3253,7 @@ function TeacherQuizResultsContent() {
                                                                 <span>
                                                                   Wrong
                                                                 </span>
+
                                                                 <strong>
                                                                   {safeNumber(
                                                                     result.wrong_answers
@@ -2717,6 +3269,7 @@ function TeacherQuizResultsContent() {
                                                                 <span>
                                                                   Unanswered
                                                                 </span>
+
                                                                 <strong>
                                                                   {safeNumber(
                                                                     result.unanswered
@@ -2732,6 +3285,7 @@ function TeacherQuizResultsContent() {
                                                                 <span>
                                                                   Marks
                                                                 </span>
+
                                                                 <strong>
                                                                   {safeNumber(
                                                                     result.obtained_marks
@@ -2751,6 +3305,7 @@ function TeacherQuizResultsContent() {
                                                                 <span>
                                                                   Percentage
                                                                 </span>
+
                                                                 <strong>
                                                                   {safeNumber(
                                                                     result.percentage
@@ -2810,34 +3365,44 @@ function TeacherQuizResultsContent() {
                                                         </span>
                                                       </div>
 
-                                                      <button
-                                                        style={
-                                                          reattemptAllowed
-                                                            ? styles.allowedButton
-                                                            : styles.reattemptButton
-                                                        }
-                                                        disabled={
-                                                          reattemptAllowed ||
-                                                          reattemptLoading ===
+                                                      {reattemptAllowed ? (
+                                                        <button
+                                                          type="button"
+                                                          disabled
+                                                          style={
+                                                            styles.allowedButton
+                                                          }
+                                                        >
+                                                          RE-ATTEMPT
+                                                          ALLOWED
+                                                        </button>
+                                                      ) : (
+                                                        <button
+                                                          type="button"
+                                                          style={
+                                                            styles.reattemptButton
+                                                          }
+                                                          disabled={
+                                                            reattemptLoading ===
                                                             allowedKey
-                                                        }
-                                                        onClick={() =>
-                                                          allowReattempt(
-                                                            row.quiz
-                                                              .id,
-                                                            row
-                                                              .student
-                                                              .id
-                                                          )
-                                                        }
-                                                      >
-                                                        {reattemptLoading ===
-                                                        allowedKey
-                                                          ? "Allowing..."
-                                                          : reattemptAllowed
-                                                          ? "RE-ATTEMPT ALLOWED"
-                                                          : "ALLOW RE-ATTEMPT"}
-                                                      </button>
+                                                          }
+                                                          onClick={() =>
+                                                            allowReattempt(
+                                                              row
+                                                                .quiz
+                                                                .id,
+                                                              row
+                                                                .student
+                                                                .id
+                                                            )
+                                                          }
+                                                        >
+                                                          {reattemptLoading ===
+                                                          allowedKey
+                                                            ? "ALLOWING..."
+                                                            : "ALLOW RE-ATTEMPT"}
+                                                        </button>
+                                                      )}
                                                     </div>
                                                   </>
                                                 )}
@@ -2862,20 +3427,25 @@ function TeacherQuizResultsContent() {
           )}
         </section>
 
-        <section style={styles.currentQuizSection}>
-          <div style={styles.currentQuizHeader}>
+        <section
+          style={styles.currentQuizSection}
+        >
+          <div
+            style={styles.currentQuizHeader}
+          >
             <div>
               <h2 style={styles.sectionTitle}>
                 Current Quiz Snapshot
               </h2>
 
               <p style={styles.sectionSub}>
-                Quick view of the quiz opened from the quiz
-                results page.
+                Quick view of the quiz opened from the
+                quiz results page.
               </p>
             </div>
 
             <button
+              type="button"
               style={styles.pdfButton}
               onClick={() =>
                 currentQuiz &&
@@ -2887,35 +3457,49 @@ function TeacherQuizResultsContent() {
           </div>
 
           {currentQuiz ? (
-            <div style={styles.currentQuizGrid}>
+            <div
+              style={styles.currentQuizGrid}
+            >
               <div style={styles.currentQuizInfo}>
                 <span>Quiz</span>
-                <strong>{currentQuiz.title}</strong>
+
+                <strong>
+                  {currentQuiz.title}
+                </strong>
               </div>
 
               <div style={styles.currentQuizInfo}>
                 <span>Subject</span>
+
                 <strong>
-                  {normalizeSubject(currentQuiz.subject)}
+                  {normalizeSubject(
+                    currentQuiz.subject
+                  )}
                 </strong>
               </div>
 
               <div style={styles.currentQuizInfo}>
                 <span>Date</span>
+
                 <strong>
-                  {formatDate(currentQuiz.scheduled_date)}
+                  {formatDate(
+                    currentQuiz.scheduled_date
+                  )}
                 </strong>
               </div>
 
               <div style={styles.currentQuizInfo}>
                 <span>Classes</span>
+
                 <strong>
-                  {currentQuizClasses.join(", ") || "All"}
+                  {currentQuizClasses.join(", ") ||
+                    "All"}
                 </strong>
               </div>
 
               <div style={styles.currentQuizInfo}>
                 <span>Submitted</span>
+
                 <strong>
                   {currentQuizStats.submitted}
                 </strong>
@@ -2923,6 +3507,7 @@ function TeacherQuizResultsContent() {
 
               <div style={styles.currentQuizInfo}>
                 <span>Not Submitted</span>
+
                 <strong>
                   {currentQuizStats.notSubmitted}
                 </strong>
@@ -2930,12 +3515,18 @@ function TeacherQuizResultsContent() {
 
               <div style={styles.currentQuizInfo}>
                 <span>Pass</span>
-                <strong>{currentQuizStats.pass}</strong>
+
+                <strong>
+                  {currentQuizStats.pass}
+                </strong>
               </div>
 
               <div style={styles.currentQuizInfo}>
                 <span>Fail</span>
-                <strong>{currentQuizStats.fail}</strong>
+
+                <strong>
+                  {currentQuizStats.fail}
+                </strong>
               </div>
             </div>
           ) : null}
@@ -2965,7 +3556,9 @@ export default function TeacherQuizResultsPage() {
       fallback={
         <main style={styles.page}>
           <div style={styles.loadingCard}>
-            <div style={styles.loaderCircle}>RA</div>
+            <div style={styles.loaderCircle}>
+              RA
+            </div>
 
             <h2 style={styles.loadingTitle}>
               Loading Quiz Results...
@@ -2983,7 +3576,10 @@ export default function TeacherQuizResultsPage() {
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
+const styles: Record<
+  string,
+  React.CSSProperties
+> = {
   page: {
     minHeight: "100vh",
     background:
@@ -3025,7 +3621,8 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#ffffff",
     fontWeight: 900,
     fontSize: "16px",
-    boxShadow: "0 10px 24px rgba(15,23,42,0.18)",
+    boxShadow:
+      "0 10px 24px rgba(15,23,42,0.18)",
   },
 
   brandName: {
@@ -3055,7 +3652,8 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "11px",
     fontWeight: 800,
     cursor: "pointer",
-    boxShadow: "0 5px 14px rgba(15,23,42,0.06)",
+    boxShadow:
+      "0 5px 14px rgba(15,23,42,0.06)",
   },
 
   logoutButton: {
@@ -3079,7 +3677,8 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "stretch",
     gap: "24px",
     marginBottom: "18px",
-    boxShadow: "0 22px 55px rgba(15,23,42,0.18)",
+    boxShadow:
+      "0 22px 55px rgba(15,23,42,0.18)",
     flexWrap: "wrap",
   },
 
@@ -3114,7 +3713,8 @@ const styles: Record<string, React.CSSProperties> = {
     minWidth: "290px",
     maxWidth: "420px",
     flex: "0 1 420px",
-    border: "1px solid rgba(255,255,255,0.16)",
+    border:
+      "1px solid rgba(255,255,255,0.16)",
     background: "rgba(255,255,255,0.08)",
     borderRadius: "20px",
     padding: "20px",
@@ -3147,7 +3747,8 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "22px",
     padding: "22px",
     marginBottom: "18px",
-    boxShadow: "0 10px 30px rgba(15,23,42,0.06)",
+    boxShadow:
+      "0 10px 30px rgba(15,23,42,0.06)",
   },
 
   filterHeadingRow: {
@@ -3238,7 +3839,8 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     alignItems: "center",
     gap: "11px",
-    boxShadow: "0 8px 22px rgba(15,23,42,0.045)",
+    boxShadow:
+      "0 8px 22px rgba(15,23,42,0.045)",
   },
 
   statIcon: {
@@ -3301,7 +3903,8 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "11px",
     fontWeight: 900,
     cursor: "pointer",
-    boxShadow: "0 9px 22px rgba(49,46,129,0.18)",
+    boxShadow:
+      "0 9px 22px rgba(49,46,129,0.18)",
   },
 
   messageBox: {
@@ -3334,11 +3937,22 @@ const styles: Record<string, React.CSSProperties> = {
     border: "1px solid #dbe3ef",
     borderRadius: "19px",
     overflow: "hidden",
-    boxShadow: "0 9px 25px rgba(15,23,42,0.05)",
+    boxShadow:
+      "0 9px 25px rgba(15,23,42,0.05)",
+  },
+
+  dateHeader: {
+    display: "flex",
+    alignItems: "stretch",
+    justifyContent: "space-between",
+    gap: "10px",
+    flexWrap: "wrap",
+    padding: "0",
   },
 
   dateButton: {
-    width: "100%",
+    flex: "1 1 430px",
+    minWidth: 0,
     border: "none",
     background: "#ffffff",
     padding: "17px",
@@ -3392,18 +4006,22 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
   },
 
-  chevron: {
-    width: "33px",
-    height: "33px",
+  dateBulkButton: {
+    alignSelf: "center",
+    flex: "0 1 auto",
+    border: "none",
+    background:
+      "linear-gradient(135deg, #4338ca, #312e81)",
+    color: "#ffffff",
+    padding: "11px 14px",
     borderRadius: "10px",
-    background: "#f1f5f9",
-    color: "#334155",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "21px",
-    fontWeight: 900,
-    flexShrink: 0,
+    fontSize: "9px",
+    fontWeight: 950,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    boxShadow:
+      "0 7px 18px rgba(49,46,129,0.18)",
+    marginRight: "12px",
   },
 
   classList: {
@@ -3735,6 +4353,17 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 950,
   },
 
+  firstAttemptRequiredButton: {
+    border: "1px solid #d1d5db",
+    borderRadius: "8px",
+    padding: "8px 12px",
+    background: "#f3f4f6",
+    color: "#6b7280",
+    fontSize: "11px",
+    fontWeight: 800,
+    cursor: "not-allowed",
+  },
+
   currentQuizSection: {
     background: "#ffffff",
     border: "1px solid #e2e8f0",
@@ -3803,7 +4432,8 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "24px",
     padding: "38px",
     textAlign: "center",
-    boxShadow: "0 25px 60px rgba(15,23,42,0.12)",
+    boxShadow:
+      "0 25px 60px rgba(15,23,42,0.12)",
     border: "1px solid #e2e8f0",
   },
 
@@ -3841,7 +4471,8 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "24px",
     padding: "35px",
     textAlign: "center",
-    boxShadow: "0 25px 60px rgba(15,23,42,0.12)",
+    boxShadow:
+      "0 25px 60px rgba(15,23,42,0.12)",
     border: "1px solid #fecaca",
   },
 
