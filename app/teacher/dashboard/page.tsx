@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -49,22 +49,23 @@ export default function TeacherDashboard() {
   }
 
   const menuItems = [
-    { title: "Mark Attendance", description: "Mark today's student attendance", icon: "✓", path: "/teacher/attendance" },
-    { title: "Attendance History", description: "Check previous attendance records", icon: "▤", path: "/teacher/attendance-history" },
-    { title: "Calendar", description: "View academic and attendance calendar", icon: "▦", path: "/teacher/calendar" },
-    { title: "Reports", description: "View attendance reports", icon: "▥", path: "/teacher/reports" },
-    { title: "Fees", description: "Manage student fee information", icon: "₹", path: "/teacher/fees" },
-    { title: "Payments", description: "Manage cash and online fee payments", icon: "¤", path: "/teacher/payments" },
-    { title: "Homework", description: "Create and manage student homework", icon: "□", path: "/teacher/homework" },
-    { title: "Announcements", description: "Create and manage announcements for all students", icon: "●", path: "/teacher/announcements" },
-    { title: "Student Login Activity", description: "Track when every student logs into the portal", icon: "◉", path: "/teacher/login-activity" },
-    { title: "Profile", description: "Manage your teacher profile and picture", icon: "○", path: "/teacher/profile" },
-    { title: "Settings", description: "Manage teacher account settings", icon: "⚙", path: "/teacher/settings" },
-    { title: "Student Directory", description: "View and export complete student details", icon: "◎", path: "/teacher/student-directory" },
+    { title: "Mark Attendance", description: "Mark today's student attendance", icon: "âœ“", path: "/teacher/attendance" },
+    { title: "Attendance History", description: "Check previous attendance records", icon: "â–¤", path: "/teacher/attendance-history" },
+    { title: "Calendar", description: "View academic and attendance calendar", icon: "â–¦", path: "/teacher/calendar" },
+    { title: "Reports", description: "View attendance reports", icon: "â–¥", path: "/teacher/reports" },
+    { title: "Fees", description: "Manage student fee information", icon: "â‚¹", path: "/teacher/fees" },
+    { title: "Payments", description: "Manage cash and online fee payments", icon: "Â¤", path: "/teacher/payments" },
+    { title: "Homework", description: "Create and manage student homework", icon: "â–¡", path: "/teacher/homework" },
+    { title: "Announcements", description: "Create and manage announcements for all students", icon: "â—", path: "/teacher/announcements" },
+    { title: "Student Login Activity", description: "Track when every student logs into the portal", icon: "â—‰", path: "/teacher/login-activity" },
+    { title: "Profile", description: "Manage your teacher profile and picture", icon: "â—‹", path: "/teacher/profile" },
+    { title: "Settings", description: "Manage teacher account settings", icon: "âš™", path: "/teacher/settings" },
+    { title: "Student Directory", description: "View and export complete student details", icon: "â—Ž", path: "/teacher/student-directory" },
     { title: "Extra Classes", description: "Manage extra classes and attendance", icon: "+", path: "/teacher/extra-class" },
     { title: "Quiz Tests", description: "Create, manage and review student quiz tests", icon: "Q", path: "/teacher/quiz-tests" },
-    { title: "Voice & Call Center", description: "Contact students and manage academy communication", icon: "☎", path: "/teacher/voice-call" },
+    { title: "Voice & Call Center", description: "Contact students and manage academy communication", icon: "â˜Ž", path: "/teacher/voice-call" },
     { title: "Teachers", description: "Manage teacher accounts and teacher information", icon: "T", path: "/teacher/teachers" },
+    { title: "Timetable", description: "Create and manage class timetables", icon: "▦", path: "/teacher/timetable" },
   ];
 
   return (
@@ -81,7 +82,7 @@ export default function TeacherDashboard() {
           </div>
 
           <div className="racer-teacher-header-actions">
-            <button type="button" onClick={() => router.push("/teacher/announcements")} aria-label="Announcements">●</button>
+            <button type="button" onClick={() => router.push("/teacher/announcements")} aria-label="Announcements">â—</button>
             <button type="button" onClick={handleLogout} disabled={loggingOut} className="racer-teacher-logout">
               {loggingOut ? "..." : "Logout"}
             </button>
@@ -123,3 +124,5 @@ export default function TeacherDashboard() {
     </main>
   );
 }
+
+

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -780,7 +780,7 @@ export default function StudentDashboardPage() {
   const cards: DashboardCard[] =
     [
       {
-        icon: "📊",
+        icon: "ðŸ“Š",
         title: "My Attendance",
         description:
           "View your current attendance and attendance percentage.",
@@ -788,7 +788,7 @@ export default function StudentDashboardPage() {
         className: "blue",
       },
       {
-        icon: "📜",
+        icon: "ðŸ“œ",
         title: "Attendance History",
         description:
           "Check your previous attendance records and details.",
@@ -796,7 +796,7 @@ export default function StudentDashboardPage() {
         className: "purple",
       },
       {
-        icon: "📅",
+        icon: "ðŸ“…",
         title: "Academic Calendar",
         description:
           "View important academic dates and calendar information.",
@@ -804,7 +804,7 @@ export default function StudentDashboardPage() {
         className: "green",
       },
       {
-        icon: "📈",
+        icon: "ðŸ“ˆ",
         title: "Reports",
         description:
           "View your attendance reports and performance details.",
@@ -812,7 +812,7 @@ export default function StudentDashboardPage() {
         className: "orange",
       },
       {
-        icon: "💰",
+        icon: "ðŸ’°",
         title: "Fees",
         description:
           "Check your student fee information and payment details.",
@@ -820,7 +820,7 @@ export default function StudentDashboardPage() {
         className: "pink",
       },
       {
-        icon: "📚",
+        icon: "ðŸ“š",
         title: "Homework",
         description:
           "View homework assigned to your class by your teacher.",
@@ -828,7 +828,7 @@ export default function StudentDashboardPage() {
         className: "indigo",
       },
       {
-        icon: "⚙️",
+        icon: "âš™ï¸",
         title: "Settings",
         description:
           "Manage your account, name and password.",
@@ -836,7 +836,7 @@ export default function StudentDashboardPage() {
         className: "cyan",
       },
       {
-        icon: "🧠",
+        icon: "ðŸ§ ",
         title: "QUIZ TESTS",
         description:
           "Attempt scheduled quizzes, view your scores and quiz history.",
@@ -1343,7 +1343,7 @@ export default function StudentDashboardPage() {
                 className="student-brand-icon"
                 style={styles.brandIcon}
               >
-                🎓
+                ðŸŽ“
               </div>
 
               <div>
@@ -1351,14 +1351,14 @@ export default function StudentDashboardPage() {
                   className="student-brand-name"
                   style={styles.brandName}
                 >
-                  ATTENDANCE PORTAL
+                  RACER ACADEMY
                 </div>
 
                 <div
                   className="student-brand-sub"
                   style={styles.brandSub}
                 >
-                  STUDENT CENTER
+                  STUDENT PORTAL
                 </div>
               </div>
             </div>
@@ -1371,7 +1371,7 @@ export default function StudentDashboardPage() {
                 className="student-clock"
                 style={styles.clock}
               >
-                🕒 {time}
+                ðŸ•’ {time}
               </div>
 
               <button
@@ -1499,7 +1499,7 @@ export default function StudentDashboardPage() {
                         styles.latestAnnouncementEyebrow
                       }
                     >
-                      🔔 NEW ANNOUNCEMENT
+                      ðŸ”” NEW ANNOUNCEMENT
                     </div>
 
                     <h2
@@ -1528,7 +1528,7 @@ export default function StudentDashboardPage() {
                       styles.latestAnnouncementBadge
                     }
                   >
-                    NEW • 24 HOURS
+                    NEW â€¢ 24 HOURS
                   </div>
                 </div>
 
@@ -1550,7 +1550,7 @@ export default function StudentDashboardPage() {
                         styles.latestAnnouncementIcon
                       }
                     >
-                      🔔
+                      ðŸ””
                     </div>
 
                     <div
@@ -1630,7 +1630,7 @@ export default function StudentDashboardPage() {
                         styles.everyoneText
                       }
                     >
-                      👥 For all students
+                      ðŸ‘¥ For all students
                     </div>
 
                     <button
@@ -1663,8 +1663,8 @@ export default function StudentDashboardPage() {
                       }}
                     >
                       {latestAnnouncement.likedByMe
-                        ? "❤️ Liked"
-                        : "🤍 Like"}
+                        ? "â¤ï¸ Liked"
+                        : "ðŸ¤ Like"}
 
                       <span
                         className="student-like-count"
@@ -1701,7 +1701,7 @@ export default function StudentDashboardPage() {
                     styles.announcementEyebrow
                   }
                 >
-                  📢 IMPORTANT
+                  ðŸ“¢ IMPORTANT
                 </div>
 
                 <h2
@@ -1736,7 +1736,7 @@ export default function StudentDashboardPage() {
                   styles.viewAnnouncementsButton
                 }
               >
-                View All →
+                View All â†’
               </button>
             </div>
           </section>
@@ -1749,7 +1749,7 @@ export default function StudentDashboardPage() {
               className="student-notice-icon"
               style={styles.noticeIcon}
             >
-              ℹ️
+              â„¹ï¸
             </div>
 
             <div>
@@ -1852,7 +1852,7 @@ export default function StudentDashboardPage() {
                           styles.arrow
                         }
                       >
-                        →
+                        â†’
                       </div>
                     </div>
 
@@ -1891,7 +1891,7 @@ export default function StudentDashboardPage() {
                         </span>
 
                         <span>
-                          →
+                          â†’
                         </span>
                       </div>
                     </div>
@@ -1913,7 +1913,7 @@ export default function StudentDashboardPage() {
                 styles.bottomIcon
               }
             >
-              👤
+              ðŸ‘¤
             </div>
 
             <div
@@ -1955,7 +1955,7 @@ export default function StudentDashboardPage() {
                 styles.profileButton
               }
             >
-              View Profile →
+              View Profile â†’
             </button>
           </section>
 
@@ -1966,11 +1966,11 @@ export default function StudentDashboardPage() {
             <div
               style={styles.footerBrand}
             >
-              🎓 Attendance Portal
+              ðŸŽ“ Attendance Portal
             </div>
 
             <div>
-              Student Portal • 2026
+              Student Portal â€¢ 2026
             </div>
           </footer>
         </div>

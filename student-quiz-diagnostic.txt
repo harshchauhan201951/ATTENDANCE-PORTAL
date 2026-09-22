@@ -1,0 +1,207 @@
+﻿===== STUDENT QUIZ FILES =====
+
+C:\Users\User\attendance-portal\app\student\quiz-tests\page.tsx
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx.backup-20260921
+C:\Users\User\attendance-portal\app\student\quiz-tests\available\page.tsx
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx.backup-20260921
+
+===== REATTEMPT FILES =====
+
+C:\Users\User\attendance-portal\app\api\quiz-tests\reattempt\route.ts
+
+===== CODE REFERENCES =====
+
+C:\Users\User\attendance-portal\app\student\quiz-tests\page.tsx:36: student_name: string | null;
+C:\Users\User\attendance-portal\app\student\quiz-tests\page.tsx:37: student_username: string | null;
+C:\Users\User\attendance-portal\app\student\quiz-tests\page.tsx:122: let currentStudentId:
+C:\Users\User\attendance-portal\app\student\quiz-tests\page.tsx:131: "student_username"
+C:\Users\User\attendance-portal\app\student\quiz-tests\page.tsx:134: "studentUsername"
+C:\Users\User\attendance-portal\app\student\quiz-tests\page.tsx:140: "studentId"
+C:\Users\User\attendance-portal\app\student\quiz-tests\page.tsx:143: "student_id"
+C:\Users\User\attendance-portal\app\student\quiz-tests\page.tsx:146: "attendance_student_id"
+C:\Users\User\attendance-portal\app\student\quiz-tests\page.tsx:155: "id,student_name,student_username,class_name"
+C:\Users\User\attendance-portal\app\student\quiz-tests\page.tsx:158: "student_username",
+C:\Users\User\attendance-portal\app\student\quiz-tests\page.tsx:171: currentStudentId =
+C:\Users\User\attendance-portal\app\student\quiz-tests\page.tsx:182: "studentId",
+C:\Users\User\attendance-portal\app\student\quiz-tests\page.tsx:183: String(currentStudentId)
+C:\Users\User\attendance-portal\app\student\quiz-tests\page.tsx:189: currentStudentId === null &&
+C:\Users\User\attendance-portal\app\student\quiz-tests\page.tsx:205: "id,student_name,student_username,class_name"
+C:\Users\User\attendance-portal\app\student\quiz-tests\page.tsx:221: currentStudentId =
+C:\Users\User\attendance-portal\app\student\quiz-tests\page.tsx:235: currentStudentId === null ||
+C:\Users\User\attendance-portal\app\student\quiz-tests\page.tsx:321: .from("quiz_results")
+C:\Users\User\attendance-portal\app\student\quiz-tests\page.tsx:326: "student_id",
+C:\Users\User\attendance-portal\app\student\quiz-tests\page.tsx:327: currentStudentId
+C:\Users\User\attendance-portal\app\student\quiz-tests\page.tsx:663: {student?.student_name ||
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:48: student_name: string | null;
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:49: student_username: string | null;
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:58: isReattempt?: boolean;
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:60: reattemptPermissionId?: number | null;
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:81: student_id: number;
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:159: student_name:
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:160: parsed?.student_name || null,
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:161: student_username:
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:162: parsed?.student_username || null,
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:173: "attendance_student_id",
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:174: "studentId",
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:175: "student_id",
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:190: student_name: null,
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:191: student_username:
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:193: "student_username"
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:213: "attendance_student_id",
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:218: "studentId",
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:223: "student_id",
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:227: if (student.student_username) {
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:229: "student_username",
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:230: student.student_username
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:234: "student_username",
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:235: student.student_username
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:240: "attendance_student_id",
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:245: "studentId",
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:250: "student_id",
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:254: if (student.student_name) {
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:256: "attendance_student_name",
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:257: student.student_name
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:277: const requestedReattempt =
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:278: searchParams.get("reattempt") ===
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:281: const [isReattempt, setIsReattempt] =
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:282: useState(requestedReattempt);
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:503: studentId:
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:552: if (!isReattempt) {
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:619: isReattempt,
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:664: (!currentStudent.student_name ||
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:668: currentStudent.student_username
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:672: "id,student_name,student_username,class_name"
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:675: "student_username",
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:676: currentStudent.student_username
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:682: "id,student_name,student_username,class_name"
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:718: "student_username"
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:730: "id,student_name,student_username,class_name"
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:733: "student_username",
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:787: studentId:
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:789: reattempt:
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:790: isReattempt,
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:804: !isReattempt
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:831: setIsReattempt(
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:832: data.isReattempt === true ||
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:869: !isReattempt
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:965: if (!isReattempt) {
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:1003: isReattempt,
+C:\Users\User\attendance-portal\app\student\quiz-tests\attempt\page.tsx:1292: {isReattempt
+C:\Users\User\attendance-portal\app\student\quiz-tests\available\page.tsx:325: reattemptQuizIds,
+C:\Users\User\attendance-portal\app\student\quiz-tests\available\page.tsx:326: setReattemptQuizIds,
+C:\Users\User\attendance-portal\app\student\quiz-tests\available\page.tsx:349: let studentId:
+C:\Users\User\attendance-portal\app\student\quiz-tests\available\page.tsx:360: "attendance_student_id",
+C:\Users\User\attendance-portal\app\student\quiz-tests\available\page.tsx:361: "studentId",
+C:\Users\User\attendance-portal\app\student\quiz-tests\available\page.tsx:362: "student_id",
+C:\Users\User\attendance-portal\app\student\quiz-tests\available\page.tsx:383: studentId = id;
+C:\Users\User\attendance-portal\app\student\quiz-tests\available\page.tsx:390: "student_username"
+C:\Users\User\attendance-portal\app\student\quiz-tests\available\page.tsx:422: "student_username",
+C:\Users\User\attendance-portal\app\student\quiz-tests\available\page.tsx:439: studentId =
+C:\Users\User\attendance-portal\app\student\quiz-tests\available\page.tsx:454: studentId
+C:\Users\User\attendance-portal\app\student\quiz-tests\available\page.tsx:470: studentId
+C:\Users\User\attendance-portal\app\student\quiz-tests\available\page.tsx:573: if (studentId) {
+C:\Users\User\attendance-portal\app\student\quiz-tests\available\page.tsx:581: "quiz_results"
+C:\Users\User\attendance-portal\app\student\quiz-tests\available\page.tsx:587: "student_id",
+C:\Users\User\attendance-portal\app\student\quiz-tests\available\page.tsx:588: studentId
+C:\Users\User\attendance-portal\app\student\quiz-tests\available\page.tsx:632: `/api/quiz-tests/reattempt?studentId=${studentId}`,
+C:\Users\User\attendance-portal\app\student\quiz-tests\available\page.tsx:671: setReattemptQuizIds(
+C:\Users\User\attendance-portal\app\student\quiz-tests\available\page.tsx:684: setReattemptQuizIds(
+C:\Users\User\attendance-portal\app\student\quiz-tests\available\page.tsx:696: setReattemptQuizIds(
+C:\Users\User\attendance-portal\app\student\quiz-tests\available\page.tsx:847: const hasReattemptPermission =
+C:\Users\User\attendance-portal\app\student\quiz-tests\available\page.tsx:848: reattemptQuizIds.has(
+C:\Users\User\attendance-portal\app\student\quiz-tests\available\page.tsx:967: {hasReattemptPermission && (
+C:\Users\User\attendance-portal\app\student\quiz-tests\available\page.tsx:972: `/student/quiz-tests/attempt?quizId=${quiz.id}&reattempt=true`
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:29: student_id: string;
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:235: function getStudentIdentity(): {
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:236: studentId: string;
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:241: studentId: "",
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:246: const studentId =
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:248: "attendance_student_id"
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:250: sessionStorage.getItem("studentId") ||
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:251: sessionStorage.getItem("student_id") ||
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:253: "attendance_student_id"
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:255: localStorage.getItem("studentId") ||
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:256: localStorage.getItem("student_id") ||
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:261: "student_username"
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:264: "studentUsername"
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:267: "student_username"
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:270: "studentUsername"
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:275: studentId,
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:289: const [studentName, setStudentName] =
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:313: studentId: storedStudentId,
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:315: } = getStudentIdentity();
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:317: let studentId = storedStudentId;
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:322: student_username: string | null;
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:323: student_name: string | null;
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:328: if (studentId) {
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:333: "id, student_username, student_name, class_name"
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:335: .eq("id", studentId)
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:353: "id, student_username, student_name, class_name"
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:356: "student_username",
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:389: "id, student_username, student_name, class_name"
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:392: "student_username",
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:414: studentId = String(
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:423: setStudentName(
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:424: studentRecord.student_name || ""
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:428: "attendance_student_id",
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:429: studentId
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:433: "attendance_student_id",
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:434: studentId
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:438: studentRecord.student_username
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:441: "student_username",
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:442: studentRecord.student_username
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:446: "student_username",
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:447: studentRecord.student_username
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:455: .from("quiz_results")
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:460: student_id,
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:475: .eq("student_id", studentId)
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:710: {studentName
+C:\Users\User\attendance-portal\app\student\quiz-tests\history\page.tsx:711: ? `${studentName}'s completed quiz history`
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:32: student_id: number;
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:33: attempt_number: number | null;
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:200: const [studentName, setStudentName] =
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:231: "attendance_student_id"
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:234: "studentId"
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:237: "student_id"
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:242: "student_username"
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:245: "studentUsername"
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:248: let studentId: number | null =
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:253: "attendance_student_name"
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:256: "studentName"
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:259: "student_name"
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:272: studentId = parsedId;
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:275: if (studentId) {
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:282: "id,student_name,student_username,class_name"
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:284: .eq("id", studentId)
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:295: studentId =
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:299: data.student_name ||
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:310: (!studentId ||
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:320: "id,student_name,student_username,class_name"
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:323: "student_username",
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:336: studentId =
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:340: data.student_name ||
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:350: if (!studentId) {
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:357: id: studentId,
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:371: setStudentName(
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:411: studentId: number,
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:418: .from("quiz_results")
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:421: "student_id",
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:422: studentId
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:525: studentId: number,
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:561: .from("quiz_results")
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:568: "student_id",
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:569: studentId
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:628: parsed.student_id
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:629: ) === studentId &&
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:769: {studentName && (
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:773: {studentName}
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:820: item.attempt_number ??
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:1020: result.attempt_number ?? 1
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:1117: {studentName && (
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:1121: {studentName}
+C:\Users\User\attendance-portal\app\student\quiz-tests\results\page.tsx:1475: export default function StudentQuizResultsPage() {
+
+===== DONE =====

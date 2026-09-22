@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   Suspense,
@@ -1201,18 +1201,6 @@ function TeacherQuizResultsContent() {
     setReattemptMessage("");
 
     try {
-      const hasFirstAttempt = allResults.some(
-        (result) =>
-          Number(result.quiz_id) === Number(targetQuizId) &&
-          Number(result.student_id) === Number(studentId)
-      );
-
-      if (!hasFirstAttempt) {
-        setReattemptMessage(
-          "Re-attempt can be allowed only after the student's first attempt."
-        );
-        return;
-      }
 
       let teacherId: number | null = null;
 
@@ -1352,17 +1340,6 @@ function TeacherQuizResultsContent() {
 
         studentsForQuiz.forEach((student) => {
           const key = `${quiz.id}__${student.id}`;
-
-          const hasFirstAttempt = allResults.some(
-            (result) =>
-              Number(result.quiz_id) === Number(quiz.id) &&
-              Number(result.student_id) ===
-                Number(student.id)
-          );
-
-          if (!hasFirstAttempt) {
-            return;
-          }
 
           if (reattemptQuizIds.has(key)) {
             return;
@@ -1682,7 +1659,7 @@ function TeacherQuizResultsContent() {
     drawAcademyHeader(
       pdf,
       "INDIVIDUAL QUIZ RESULT",
-      `${quiz.title} • ${formatDateLong(quiz.scheduled_date)}`
+      `${quiz.title} â€¢ ${formatDateLong(quiz.scheduled_date)}`
     );
 
     let y = 64;
@@ -1755,7 +1732,7 @@ function TeacherQuizResultsContent() {
         drawAcademyHeader(
           pdf,
           "INDIVIDUAL QUIZ RESULT",
-          `${quiz.title} • Continued`
+          `${quiz.title} â€¢ Continued`
         );
 
         y = 64;
@@ -1908,11 +1885,11 @@ function TeacherQuizResultsContent() {
           selectedDate === "ALL"
             ? "All Dates"
             : formatDate(selectedDate)
-        } • ${
+        } â€¢ ${
           selectedSubject === "ALL"
             ? "All Subjects"
             : selectedSubject
-        } • ${
+        } â€¢ ${
           selectedClass === "ALL"
             ? "All Classes"
             : selectedClass
@@ -2151,7 +2128,7 @@ function TeacherQuizResultsContent() {
               style={styles.secondaryButton}
               onClick={goBack}
             >
-              ← Back
+              â† Back
             </button>
 
             <button
@@ -2189,7 +2166,7 @@ function TeacherQuizResultsContent() {
               style={styles.headerButton}
               onClick={goBack}
             >
-              ← Back
+              â† Back
             </button>
 
             <button
@@ -2237,7 +2214,7 @@ function TeacherQuizResultsContent() {
               {normalizeSubject(
                 currentQuiz?.subject || null
               )}
-              {" • "}
+              {" â€¢ "}
               {formatDate(
                 currentQuiz?.scheduled_date || null
               )}
@@ -2264,7 +2241,7 @@ function TeacherQuizResultsContent() {
             >
               {filterLoading
                 ? "Working..."
-                : "↻ Refresh"}
+                : "â†» Refresh"}
             </button>
           </div>
 
@@ -2430,7 +2407,7 @@ function TeacherQuizResultsContent() {
           </div>
 
           <div style={styles.statCard}>
-            <div style={styles.statIcon}>✓</div>
+            <div style={styles.statIcon}>âœ“</div>
 
             <div>
               <div style={styles.statNumber}>
@@ -2547,7 +2524,7 @@ function TeacherQuizResultsContent() {
           <div style={styles.resultsHeader}>
             <div>
               <h2 style={styles.sectionTitle}>
-                Datewise → Classwise → Studentwise
+                Datewise â†’ Classwise â†’ Studentwise
               </h2>
 
               <p style={styles.sectionSub}>
@@ -2646,7 +2623,7 @@ function TeacherQuizResultsContent() {
                             >
                               {dateRows.length}{" "}
                               student entries
-                              {" • "}
+                              {" â€¢ "}
                               {dateSubmitted}{" "}
                               submitted
                             </div>
@@ -2657,7 +2634,7 @@ function TeacherQuizResultsContent() {
                           style={styles.chevron}
                         >
                           {dateOpen
-                            ? "−"
+                            ? "âˆ’"
                             : "+"}
                         </div>
                       </button>
@@ -2789,14 +2766,14 @@ function TeacherQuizResultsContent() {
                                             .length
                                         }{" "}
                                         students
-                                        {" • "}
+                                        {" â€¢ "}
                                         {
                                           submittedCount
                                         }{" "}
                                         submitted
-                                        {" • "}
+                                        {" â€¢ "}
                                         {passCount} pass
-                                        {" • "}
+                                        {" â€¢ "}
                                         {failCount} fail
                                       </div>
                                     </div>
@@ -2808,7 +2785,7 @@ function TeacherQuizResultsContent() {
                                     }
                                   >
                                     {classOpen
-                                      ? "−"
+                                      ? "âˆ’"
                                       : "+"}
                                   </div>
                                 </button>
@@ -2915,7 +2892,7 @@ function TeacherQuizResultsContent() {
                                                       .student
                                                       .student_username ||
                                                       "Username not available"}
-                                                    {" • "}
+                                                    {" â€¢ "}
                                                     {normalizeSubject(
                                                       row
                                                         .quiz
@@ -3010,7 +2987,7 @@ function TeacherQuizResultsContent() {
                                                   }
                                                 >
                                                   {studentOpen
-                                                    ? "−"
+                                                    ? "âˆ’"
                                                     : "+"}
                                                 </button>
                                               </div>
@@ -3126,16 +3103,6 @@ function TeacherQuizResultsContent() {
                                                       </span>
                                                     </div>
 
-                                                    <button
-                                                      type="button"
-                                                      disabled
-                                                      style={
-                                                        styles.firstAttemptRequiredButton
-                                                      }
-                                                    >
-                                                      FIRST ATTEMPT
-                                                      REQUIRED
-                                                    </button>
                                                   </div>
                                                 ) : (
                                                   <>
@@ -3327,12 +3294,12 @@ function TeacherQuizResultsContent() {
                                                                 {result.submission_type ||
                                                                   "Normal"}
                                                               </strong>
-                                                              {" • "}
+                                                              {" â€¢ "}
                                                               Started:{" "}
                                                               {formatDateTime(
                                                                 result.started_at
                                                               )}
-                                                              {" • "}
+                                                              {" â€¢ "}
                                                               Created:{" "}
                                                               {formatDateTime(
                                                                 result.created_at
@@ -4563,3 +4530,5 @@ const styles: Record<
     fontSize: "12px",
   },
 };
+
+
