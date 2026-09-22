@@ -1,27 +1,30 @@
 "use client";
 
 import {
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
   useState,
 } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
+import jsPDF from "jspdf";
 
-type Quiz = {
+type QuizTest = {
   id: number;
   title: string;
   description: string | null;
-  scheduled_date: string | null;
   class_name: string | null;
   target_classes: string[] | null;
   subject: string | null;
+  scheduled_date: string | null;
+  scheduled_time: string | null;
   duration_minutes: number | null;
   marks_per_question: number | null;
   negative_marks: number | null;
   pass_percentage: number | null;
-  published: boolean | null;
-  created_by: number | null;
+  is_published: boolean;
   created_at: string | null;
 };
 
@@ -36,1879 +39,2819 @@ type QuizResult = {
   id: number;
   quiz_id: number;
   student_id: number;
+
   attempt_number: number | null;
+
   total_questions: number | null;
-  total_marks: number | null;
-  obtained_marks: number | null;
-  percentage: number | null;
   correct_answers: number | null;
   wrong_answers: number | null;
   unanswered: number | null;
+
+  total_marks: number | null;
+  obtained_marks: number | null;
+  percentage: number | null;
+
   result_status: string | null;
+
   started_at: string | null;
   submitted_at: string | null;
+  submission_type: string | null;
+
   created_at: string | null;
 };
 
-type QuizAnswer = {
-  id: number;
-  result_id: number;
-  question_id: number;
-  selected_option_id: number | null;
-  is_correct: boolean | null;
-  marks_obtained: number | null;
-  created_at: string | null;
+type QuizStudentRow = {
+  quiz: QuizTest;
+  student: Student;
+  results: QuizResult[];
 };
 
-type QuestionOption = {
-  id: number;
-  question_id: number;
-  option_text: string | null;
-  is_correct: boolean | null;
-};
+const SUBJECTS = [
+  "Hindi",
+  "English",
+  "Mathematics",
+  "Science",
+  "Social Science",
+  "General Knowledge",
+  "Others",
+];
 
-type QuizQuestion = {
-  id: number;
-  quiz_id: number;
-  question_text: string | null;
-  marks: number | null;
-  negative_marks: number | null;
-  question_order: number | null;
-};
-
-type AttemptView = {
-  result: QuizResult;
-  student: Student | null;
-  answers: QuizAnswer[];
-};
-
-type PermissionMap = Record<string, boolean>;
-
-function numberValue(value: unknown, fallback = 0): number {
+function safeNumber(value: unknown): number {
   const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
+  return Number.isFinite(n) ? n : 0;
 }
 
-function displayNumber(value: unknown): string {
-  const n = numberValue(value);
-  if (Number.isInteger(n)) return String(n);
-  return n.toFixed(2).replace(/\.00$/, "");
-}
+function formatDate(date: string | null): string {
+  if (!date) return "Not available";
 
-function formatDate(date: string | null | undefined): string {
-  if (!date) return "—";
+  try {
+    const d = new Date(`${date}T00:00:00+05:30`);
 
-  const d = new Date(`${date}T00:00:00+05:30`);
-
-  if (Number.isNaN(d.getTime())) {
+    return d.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      timeZone: "Asia/Kolkata",
+    });
+  } catch {
     return date;
   }
+}
 
-  return d.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
+function formatDateLong(date: string | null): string {
+  if (!date) return "Not available";
+
+  try {
+    const d = new Date(`${date}T00:00:00+05:30`);
+
+    return d.toLocaleDateString("en-IN", {
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      timeZone: "Asia/Kolkata",
+    });
+  } catch {
+    return date;
+  }
+}
+
+function formatDateTime(date: string | null): string {
+  if (!date) return "Not available";
+
+  try {
+    return new Date(date).toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: "Asia/Kolkata",
+    });
+  } catch {
+    return date;
+  }
+}
+
+function formatTime(time: string | null): string {
+  if (!time) return "Not available";
+
+  const parts = time.split(":");
+  if (parts.length < 2) return time;
+
+  const hour = Number(parts[0]);
+  const minute = Number(parts[1]);
+
+  if (!Number.isFinite(hour)) return time;
+
+  const suffix = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 || 12;
+
+  return `${displayHour}:${String(minute).padStart(2, "0")} ${suffix}`;
+}
+
+function normalizeClassName(value: string | null): string {
+  return String(value || "").trim() || "Unknown Class";
+}
+
+function normalizeSubject(value: string | null): string {
+  return String(value || "").trim() || "Other";
+}
+
+function resultStatus(result: QuizResult): string {
+  const status = String(result.result_status || "").trim();
+
+  if (status) return status.toUpperCase();
+
+  const percentage = safeNumber(result.percentage);
+
+  return percentage >= 40 ? "PASS" : "FAIL";
+}
+
+function statusClass(result: QuizResult): string {
+  const status = resultStatus(result);
+
+  if (status.includes("PASS")) return "pass";
+  if (status.includes("FAIL")) return "fail";
+
+  return "neutral";
+}
+
+function getAttemptLabel(result: QuizResult, index: number): string {
+  const attempt = safeNumber(result.attempt_number);
+
+  return `Attempt #${attempt > 0 ? attempt : index + 1}`;
+}
+
+function sortClasses(classes: string[]): string[] {
+  return [...classes].sort((a, b) => {
+    const na = Number(a.replace(/[^0-9]/g, ""));
+    const nb = Number(b.replace(/[^0-9]/g, ""));
+
+    if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) {
+      return na - nb;
+    }
+
+    return a.localeCompare(b, undefined, {
+      numeric: true,
+      sensitivity: "base",
+    });
   });
 }
 
-function formatDateTime(value: string | null | undefined): string {
-  if (!value) return "—";
+function getQuizClasses(quiz: QuizTest): string[] {
+  const classes = new Set<string>();
 
-  const d = new Date(value);
-
-  if (Number.isNaN(d.getTime())) {
-    return value;
+  if (quiz.class_name) {
+    classes.add(normalizeClassName(quiz.class_name));
   }
 
-  return d.toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
-
-function normalizeClass(value: string | null | undefined): string {
-  return String(value ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "");
-}
-
-function quizTargetsClass(quiz: Quiz, className: string | null): boolean {
-  if (!className) return false;
-
-  const target = normalizeClass(className);
-
-  if (normalizeClass(quiz.class_name) === target) {
-    return true;
+  if (Array.isArray(quiz.target_classes)) {
+    quiz.target_classes.forEach((value) => {
+      if (value) classes.add(normalizeClassName(value));
+    });
   }
 
-  return (
-    Array.isArray(quiz.target_classes) &&
-    quiz.target_classes.some(
-      (item) => normalizeClass(item) === target
-    )
-  );
+  return sortClasses([...classes]);
 }
 
-function permissionKey(quizId: number, studentId: number): string {
-  return `${quizId}:${studentId}`;
-}
+function TeacherQuizResultsContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-export default function TeacherQuizResultsPage() {
-  const [teacherId, setTeacherId] = useState<number | null>(null);
-  const [teacherName, setTeacherName] = useState("");
+  const quizIdParam = searchParams.get("quizId");
+  const quizId = Number(quizIdParam);
 
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
-  const [students, setStudents] = useState<Student[]>([]);
-  const [results, setResults] = useState<QuizResult[]>([]);
+  const [currentQuiz, setCurrentQuiz] = useState<QuizTest | null>(null);
+  const [currentStudents, setCurrentStudents] = useState<Student[]>([]);
+  const [currentResults, setCurrentResults] = useState<QuizResult[]>([]);
 
-  const [selectedQuizId, setSelectedQuizId] = useState<number | null>(null);
-  const [selectedAttempt, setSelectedAttempt] =
-    useState<AttemptView | null>(null);
-
-  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
-  const [options, setOptions] = useState<QuestionOption[]>([]);
-
-  const [permissions, setPermissions] = useState<PermissionMap>({});
+  const [allQuizzes, setAllQuizzes] = useState<QuizTest[]>([]);
+  const [allResults, setAllResults] = useState<QuizResult[]>([]);
+  const [allStudents, setAllStudents] = useState<Student[]>([]);
 
   const [loading, setLoading] = useState(true);
-  const [resultsLoading, setResultsLoading] = useState(false);
-  const [detailLoading, setDetailLoading] = useState(false);
-
-  const [allowingKey, setAllowingKey] = useState<string | null>(null);
-  const [allowingAll, setAllowingAll] = useState(false);
-
-  const [search, setSearch] = useState("");
-  const [attemptFilter, setAttemptFilter] = useState<
-    "all" | "original" | "reattempt"
-  >("all");
-
+  const [filterLoading, setFilterLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const selectedQuiz = useMemo(
-    () =>
-      quizzes.find((quiz) => quiz.id === selectedQuizId) ?? null,
-    [quizzes, selectedQuizId]
+  const [selectedDate, setSelectedDate] = useState("ALL");
+  const [selectedSubject, setSelectedSubject] = useState("ALL");
+  const [selectedClass, setSelectedClass] = useState("ALL");
+  const [selectedStatus, setSelectedStatus] = useState("ALL");
+
+  const [expandedDates, setExpandedDates] = useState<Set<string>>(
+    new Set()
+  );
+  const [expandedClasses, setExpandedClasses] = useState<Set<string>>(
+    new Set()
+  );
+  const [expandedStudents, setExpandedStudents] = useState<Set<string>>(
+    new Set()
   );
 
-  const quizResults = useMemo(() => {
-    if (!selectedQuizId) return [];
+  const [reattemptQuizIds, setReattemptQuizIds] = useState<Set<string>>(
+    new Set()
+  );
 
-    return results
-      .filter((row) => row.quiz_id === selectedQuizId)
-      .filter((row) => {
-        const attempt = numberValue(row.attempt_number, 1);
+  const [reattemptLoading, setReattemptLoading] = useState<string | null>(
+    null
+  );
 
-        if (attemptFilter === "original") {
-          return attempt <= 1;
-        }
+  const [reattemptMessage, setReattemptMessage] = useState("");
 
-        if (attemptFilter === "reattempt") {
-          return attempt > 1;
-        }
+  const goBack = () => {
+    router.back();
+  };
 
-        return true;
-      })
-      .filter((row) => {
-        const student = students.find(
-          (item) => item.id === row.student_id
-        );
+  const goDashboard = () => {
+    router.push("/teacher");
+  };
 
-        const q = search.trim().toLowerCase();
-
-        if (!q) return true;
-
-        return (
-          String(student?.student_name ?? "")
-            .toLowerCase()
-            .includes(q) ||
-          String(student?.student_username ?? "")
-            .toLowerCase()
-            .includes(q) ||
-          String(student?.class_name ?? "")
-            .toLowerCase()
-            .includes(q)
-        );
-      })
-      .sort((a, b) => {
-        const dateA = new Date(
-          a.submitted_at ?? a.created_at ?? 0
-        ).getTime();
-
-        const dateB = new Date(
-          b.submitted_at ?? b.created_at ?? 0
-        ).getTime();
-
-        return dateB - dateA;
-      });
-  }, [
-    results,
-    selectedQuizId,
-    students,
-    search,
-    attemptFilter,
-  ]);
-
-  const relevantStudents = useMemo(() => {
-    if (!selectedQuiz) return [];
-
-    return students
-      .filter((student) => quizTargetsClass(selectedQuiz, student.class_name))
-      .sort((a, b) =>
-        String(a.student_name ?? "").localeCompare(
-          String(b.student_name ?? "")
-        )
-      );
-  }, [selectedQuiz, students]);
-
-  const submittedStudentIds = useMemo(() => {
-    if (!selectedQuizId) return new Set<number>();
-
-    return new Set(
-      results
-        .filter(
-          (row) =>
-            row.quiz_id === selectedQuizId &&
-            String(row.result_status ?? "").toUpperCase() !==
-              "IN_PROGRESS" &&
-            !!row.submitted_at
-        )
-        .map((row) => row.student_id)
-    );
-  }, [results, selectedQuizId]);
-
-  const latestResultByStudent = useMemo(() => {
-    const map = new Map<number, QuizResult>();
-
-    results
-      .filter((row) => row.quiz_id === selectedQuizId)
-      .sort(
-        (a, b) =>
-          numberValue(b.attempt_number, 1) -
-          numberValue(a.attempt_number, 1)
-      )
-      .forEach((row) => {
-        if (!map.has(row.student_id)) {
-          map.set(row.student_id, row);
-        }
-      });
-
-    return map;
-  }, [results, selectedQuizId]);
-
-  const hasCompletedReattemptByStudent = useMemo(() => {
-    const map = new Map<number, boolean>();
-
-    results
-      .filter((row) => row.quiz_id === selectedQuizId)
-      .forEach((row) => {
-        if (
-          numberValue(row.attempt_number, 1) > 1 &&
-          !!row.submitted_at &&
-          String(row.result_status ?? "").toUpperCase() !==
-            "IN_PROGRESS"
-        ) {
-          map.set(row.student_id, true);
-        }
-      });
-
-    return map;
-  }, [results, selectedQuizId]);
-
-  const loadTeacher = useCallback(async () => {
-    let storedId =
-      window.localStorage.getItem("attendance_teacher_id") ||
-      window.localStorage.getItem("teacherId");
-
-    const storedName =
-      window.localStorage.getItem("attendance_username") ||
-      window.localStorage.getItem("teacher_username") ||
-      window.localStorage.getItem("teacherUsername") ||
-      "";
-
-    if (!storedId) {
-      storedId = window.sessionStorage.getItem(
-        "attendance_teacher_id"
-      );
-    }
-
-    const id = Number(storedId);
-
-    if (Number.isFinite(id) && id > 0) {
-      setTeacherId(id);
-    } else {
-      setTeacherId(null);
-    }
-
-    setTeacherName(storedName);
-  }, []);
-
-  const loadInitialData = useCallback(async () => {
-    setLoading(true);
-    setError("");
-
+  const logout = () => {
     try {
-      const quizQuery = supabase
-        .from("quiz_tests")
-        .select(
-          "id,title,description,scheduled_date,class_name,target_classes,subject,duration_minutes,marks_per_question,negative_marks,pass_percentage,published,created_by,created_at"
-        )
-        .order("scheduled_date", { ascending: false })
-        .order("created_at", { ascending: false });
-
-      const studentQuery = supabase
-        .from("students")
-        .select(
-          "id,student_name,student_username,class_name"
-        )
-        .order("student_name", { ascending: true });
-
-      const result = await Promise.all([
-        quizQuery,
-        studentQuery,
-      ]);
-
-      const quizResponse = result[0];
-      const studentResponse = result[1];
-
-      if (quizResponse.error) {
-        throw quizResponse.error;
-      }
-
-      if (studentResponse.error) {
-        throw studentResponse.error;
-      }
-
-      const quizRows = (quizResponse.data ?? []) as Quiz[];
-      const studentRows = (studentResponse.data ?? []) as Student[];
-
-      setQuizzes(quizRows);
-      setStudents(studentRows);
-
-      if (!selectedQuizId && quizRows.length > 0) {
-        setSelectedQuizId(quizRows[0].id);
-      }
-    } catch (err: any) {
-      setError(
-        err?.message || "Unable to load teacher quiz results."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedQuizId]);
-
-  const loadResults = useCallback(async () => {
-    if (!selectedQuizId) {
-      setResults([]);
-      setPermissions({});
-      return;
+      localStorage.removeItem("teacher_username");
+      localStorage.removeItem("teacherUsername");
+      localStorage.removeItem("teacherLoggedIn");
+      localStorage.removeItem("attendance_role");
+      localStorage.removeItem("attendance_username");
+      localStorage.removeItem("attendance_teacher_id");
+      localStorage.removeItem("teacher_id");
+    } catch {
+      // ignore
     }
 
-    setResultsLoading(true);
-    setError("");
+    router.replace("/");
+  };
 
-    try {
-      const { data, error: resultError } = await supabase
-        .from("quiz_results")
-        .select(
-          "id,quiz_id,student_id,attempt_number,total_questions,total_marks,obtained_marks,percentage,correct_answers,wrong_answers,unanswered,result_status,started_at,submitted_at,created_at"
-        )
-        .eq("quiz_id", selectedQuizId)
-        .order("submitted_at", { ascending: false });
-
-      if (resultError) {
-        throw resultError;
-      }
-
-      setResults((data ?? []) as QuizResult[]);
-
-      const permissionResponse = await fetch(
-        `/api/quiz-tests/reattempt?studentId=0`
-      );
-
-      /*
-       * The existing reattempt GET endpoint is student-scoped.
-       * Permissions are therefore loaded exactly for the students
-       * shown in the selected quiz.
-       */
-      const permissionEntries: PermissionMap = {};
-
-      const studentIds = Array.from(
-        new Set(
-          (data ?? [])
-            .map((row: any) => Number(row.student_id))
-            .filter((id: number) => Number.isFinite(id) && id > 0)
-        )
-      );
-
-      if (studentIds.length > 0) {
-        await Promise.all(
-          studentIds.map(async (studentId) => {
-            try {
-              const response = await fetch(
-                `/api/quiz-tests/reattempt?studentId=${studentId}`
-              );
-
-              const json = await response.json();
-
-              if (!response.ok || !json?.success) {
-                return;
-              }
-
-              const allowedQuizIds = Array.isArray(
-                json.quizIds
-              )
-                ? json.quizIds.map(Number)
-                : [];
-
-              if (allowedQuizIds.includes(selectedQuizId)) {
-                permissionEntries[
-                  permissionKey(selectedQuizId, studentId)
-                ] = true;
-              }
-            } catch {
-              // Keep existing results usable even if permission lookup fails.
-            }
-          })
-        );
-      }
-
-      setPermissions(permissionEntries);
-
-      void permissionResponse;
-    } catch (err: any) {
-      setError(
-        err?.message || "Unable to load quiz results."
-      );
-      setResults([]);
-      setPermissions({});
-    } finally {
-      setResultsLoading(false);
-    }
-  }, [selectedQuizId]);
-
-  const refresh = useCallback(async () => {
-    await loadInitialData();
-    await loadResults();
-  }, [loadInitialData, loadResults]);
-
-  useEffect(() => {
-    void loadTeacher();
-    void loadInitialData();
-  }, [loadTeacher, loadInitialData]);
-
-  useEffect(() => {
-    void loadResults();
-  }, [loadResults]);
-
-  const openAttempt = useCallback(
-    async (result: QuizResult) => {
-      setDetailLoading(true);
-      setSelectedAttempt(null);
-      setError("");
-
+  const loadReattemptPermissions = useCallback(
+    async (quizRows: QuizTest[], studentRows: Student[]) => {
       try {
-        const [studentResponse, answerResponse, questionResponse] =
-          await Promise.all([
-            supabase
-              .from("students")
-              .select(
-                "id,student_name,student_username,class_name"
-              )
-              .eq("id", result.student_id)
-              .maybeSingle(),
+        const pairs: Array<{ quiz: QuizTest; student: Student }> = [];
 
-            supabase
-              .from("quiz_answers")
-              .select(
-                "id,result_id,question_id,selected_option_id,is_correct,marks_obtained,created_at"
-              )
-              .eq("result_id", result.id)
-              .order("id", { ascending: true }),
-
-            supabase
-              .from("quiz_questions")
-              .select(
-                "id,quiz_id,question_text,marks,negative_marks,question_order"
-              )
-              .eq("quiz_id", result.quiz_id)
-              .order("question_order", { ascending: true }),
-          ]);
-
-        if (studentResponse.error) {
-          throw studentResponse.error;
-        }
-
-        if (answerResponse.error) {
-          throw answerResponse.error;
-        }
-
-        if (questionResponse.error) {
-          throw questionResponse.error;
-        }
-
-        setSelectedAttempt({
-          result,
-          student: (studentResponse.data ?? null) as Student | null,
-          answers: (answerResponse.data ?? []) as QuizAnswer[],
-        });
-
-        setQuestions((questionResponse.data ?? []) as QuizQuestion[]);
-
-        const questionIds = (questionResponse.data ?? []).map(
-          (q: any) => Number(q.id)
-        );
-
-        if (questionIds.length > 0) {
-          const { data: optionData, error: optionError } =
-            await supabase
-              .from("quiz_options")
-              .select(
-                "id,question_id,option_text,is_correct"
-              )
-              .in("question_id", questionIds)
-              .order("id", { ascending: true });
-
-          if (!optionError) {
-            setOptions((optionData ?? []) as QuestionOption[]);
-          } else {
-            setOptions([]);
+        for (const quiz of quizRows) {
+          for (const student of studentRows) {
+            pairs.push({ quiz, student });
           }
-        } else {
-          setOptions([]);
         }
-      } catch (err: any) {
-        setError(
-          err?.message ||
-            "Unable to open this attempt."
-        );
-      } finally {
-        setDetailLoading(false);
+
+        const allowed = new Set<string>();
+        const batchSize = 12;
+
+        for (let index = 0; index < pairs.length; index += batchSize) {
+          const batch = pairs.slice(index, index + batchSize);
+
+          const responses = await Promise.all(
+            batch.map(async ({ quiz, student }) => {
+              try {
+                const response = await fetch(
+                  `/api/quiz-tests/reattempt?studentId=${encodeURIComponent(
+                    String(student.id)
+                  )}&quizId=${encodeURIComponent(String(quiz.id))}`,
+                  {
+                    method: "GET",
+                    cache: "no-store",
+                  }
+                );
+
+                if (!response.ok) return null;
+
+                const data = await response.json();
+
+                if (
+                  data?.allowed === true ||
+                  (Array.isArray(data?.quizIds) &&
+                    data.quizIds.some(
+                      (id: unknown) => Number(id) === Number(quiz.id)
+                    ))
+                ) {
+                  return `${quiz.id}__${student.id}`;
+                }
+              } catch {
+                return null;
+              }
+
+              return null;
+            })
+          );
+
+          responses.forEach((key) => {
+            if (key) allowed.add(key);
+          });
+        }
+
+        setReattemptQuizIds(allowed);
+      } catch {
+        setReattemptQuizIds(new Set());
       }
     },
     []
   );
 
-  const allowReattempt = useCallback(
-    async (studentId: number) => {
-      if (!selectedQuizId) return;
-
-      const key = permissionKey(selectedQuizId, studentId);
-
-      if (allowingKey) return;
-
-      setAllowingKey(key);
-      setError("");
-
-      try {
-        const response = await fetch(
-          "/api/quiz-tests/reattempt",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              action: "allow",
-              quizId: selectedQuizId,
-              studentId,
-              teacherId,
-            }),
-          }
-        );
-
-        const json = await response.json();
-
-        if (!response.ok || !json?.success) {
-          throw new Error(
-            json?.error || "Unable to allow reattempt."
-          );
-        }
-
-        setPermissions((previous) => ({
-          ...previous,
-          [key]: true,
-        }));
-      } catch (err: any) {
-        setError(
-          err?.message ||
-            "Unable to allow reattempt."
-        );
-      } finally {
-        setAllowingKey(null);
-      }
-    },
-    [selectedQuizId, teacherId, allowingKey]
-  );
-
-  const revokeReattempt = useCallback(
-    async (studentId: number) => {
-      if (!selectedQuizId) return;
-
-      const key = permissionKey(selectedQuizId, studentId);
-
-      setAllowingKey(key);
-      setError("");
-
-      try {
-        const response = await fetch(
-          "/api/quiz-tests/reattempt",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              action: "revoke",
-              quizId: selectedQuizId,
-              studentId,
-            }),
-          }
-        );
-
-        const json = await response.json();
-
-        if (!response.ok || !json?.success) {
-          throw new Error(
-            json?.error || "Unable to revoke permission."
-          );
-        }
-
-        setPermissions((previous) => {
-          const next = { ...previous };
-          delete next[key];
-          return next;
-        });
-      } catch (err: any) {
-        setError(
-          err?.message ||
-            "Unable to revoke reattempt permission."
-        );
-      } finally {
-        setAllowingKey(null);
-      }
-    },
-    [selectedQuizId]
-  );
-
-  const allowAll = useCallback(async () => {
-    if (!selectedQuizId || !teacherId) return;
-
-    const candidateStudents = relevantStudents.filter(
-      (student) =>
-        submittedStudentIds.has(student.id) &&
-        !hasCompletedReattemptByStudent.get(student.id)
-    );
-
-    if (candidateStudents.length === 0) {
-      window.alert(
-        "There are no eligible students for reattempt permission in this quiz."
-      );
+  const loadData = useCallback(async () => {
+    if (!Number.isFinite(quizId) || quizId <= 0) {
+      setError("Quiz ID is missing or invalid.");
+      setLoading(false);
       return;
     }
 
-    setAllowingAll(true);
+    setLoading(true);
     setError("");
 
     try {
-      const responses = await Promise.all(
-        candidateStudents.map(async (student) => {
-          const response = await fetch(
-            "/api/quiz-tests/reattempt",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                action: "allow",
-                quizId: selectedQuizId,
-                studentId: student.id,
-                teacherId,
+      /*
+       * FAST FIRST PAINT:
+       * Load only the quiz opened by the teacher, its attempts and students
+       * first. The page is allowed to render immediately after this.
+       */
+      const [
+        currentQuizResponse,
+        currentResultsResponse,
+        studentsResponse,
+      ] = await Promise.all([
+        supabase
+          .from("quiz_tests")
+          .select(
+            `
+              id,
+              title,
+              description,
+              class_name,
+              target_classes,
+              subject,
+              scheduled_date,
+              scheduled_time,
+              duration_minutes,
+              marks_per_question,
+              negative_marks,
+              pass_percentage,
+              is_published,
+              created_at
+            `
+          )
+          .eq("id", quizId)
+          .single(),
+
+        supabase
+          .from("quiz_results")
+          .select(
+            `
+              id,
+              quiz_id,
+              student_id,
+              attempt_number,
+              total_questions,
+              correct_answers,
+              wrong_answers,
+              unanswered,
+              total_marks,
+              obtained_marks,
+              percentage,
+              result_status,
+              started_at,
+              submitted_at,
+              submission_type,
+              created_at
+            `
+          )
+          .eq("quiz_id", quizId)
+          .order("created_at", { ascending: true }),
+
+        supabase
+          .from("students")
+          .select(
+            `
+              id,
+              student_name,
+              student_username,
+              class_name
+            `
+          )
+          .order("class_name", { ascending: true })
+          .order("student_name", { ascending: true }),
+      ]);
+
+      if (currentQuizResponse.error) {
+        throw currentQuizResponse.error;
+      }
+
+      if (currentResultsResponse.error) {
+        throw currentResultsResponse.error;
+      }
+
+      if (studentsResponse.error) {
+        throw studentsResponse.error;
+      }
+
+      const quiz = currentQuizResponse.data as QuizTest;
+
+      const normalizedCurrentResults = (
+        (currentResultsResponse.data || []) as QuizResult[]
+      ).map((row) => ({
+        ...row,
+        id: Number(row.id),
+        quiz_id: Number(row.quiz_id),
+        student_id: Number(row.student_id),
+        attempt_number: Math.max(1, safeNumber(row.attempt_number)),
+      }));
+
+      const normalizedStudents = (
+        (studentsResponse.data || []) as Student[]
+      ).map((student) => ({
+        ...student,
+        id: Number(student.id),
+      }));
+
+      /*
+       * Seed the complete UI with the current quiz immediately.
+       * This means the teacher does not see a 1–2 minute blocking loader.
+       * All attempts remain in currentResults, including old + reattempted
+       * records.
+       */
+      setCurrentQuiz(quiz);
+      setCurrentResults(normalizedCurrentResults);
+      setCurrentStudents(normalizedStudents);
+
+      setAllQuizzes([quiz]);
+      setAllResults(normalizedCurrentResults);
+      setAllStudents(normalizedStudents);
+
+      setSelectedDate("ALL");
+      setSelectedSubject("ALL");
+      setSelectedClass("ALL");
+      setSelectedStatus("ALL");
+
+      setExpandedDates(
+        new Set(
+          quiz.scheduled_date
+            ? [quiz.scheduled_date]
+            : []
+        )
+      );
+
+      setExpandedClasses(new Set());
+      setExpandedStudents(new Set());
+
+      /*
+       * FIRST PAINT IS READY.
+       * Do not wait for the heavy historical-data/reattempt work.
+       */
+      setLoading(false);
+
+      /*
+       * BACKGROUND LOAD:
+       * Historical quizzes/results and reattempt permissions are loaded after
+       * the current quiz is already visible.
+       */
+      void (async () => {
+        try {
+          const [quizzesResponse, resultsResponse] = await Promise.all([
+            supabase
+              .from("quiz_tests")
+              .select(
+                `
+                  id,
+                  title,
+                  description,
+                  class_name,
+                  target_classes,
+                  subject,
+                  scheduled_date,
+                  scheduled_time,
+                  duration_minutes,
+                  marks_per_question,
+                  negative_marks,
+                  pass_percentage,
+                  is_published,
+                  created_at
+                `
+              )
+              .order("scheduled_date", {
+                ascending: false,
+                nullsFirst: false,
               }),
-            }
-          );
 
-          const json = await response.json();
+            supabase
+              .from("quiz_results")
+              .select(
+                `
+                  id,
+                  quiz_id,
+                  student_id,
+                  attempt_number,
+                  total_questions,
+                  correct_answers,
+                  wrong_answers,
+                  unanswered,
+                  total_marks,
+                  obtained_marks,
+                  percentage,
+                  result_status,
+                  started_at,
+                  submitted_at,
+                  submission_type,
+                  created_at
+                `
+              )
+              .order("created_at", { ascending: true }),
+          ]);
 
-          return {
-            studentId: student.id,
-            ok: response.ok && !!json?.success,
-            error: json?.error,
-          };
-        })
-      );
+          if (!quizzesResponse.error && !resultsResponse.error) {
+            const normalizedQuizzes = (quizzesResponse.data || []) as QuizTest[];
 
-      const nextPermissions: PermissionMap = {
-        ...permissions,
-      };
+            const normalizedAllResults = (
+              (resultsResponse.data || []) as QuizResult[]
+            ).map((row) => ({
+              ...row,
+              id: Number(row.id),
+              quiz_id: Number(row.quiz_id),
+              student_id: Number(row.student_id),
+              attempt_number: Math.max(1, safeNumber(row.attempt_number)),
+            }));
 
-      let successCount = 0;
-      let failedCount = 0;
+            setAllQuizzes(normalizedQuizzes);
+            setAllResults(normalizedAllResults);
 
-      for (const row of responses) {
-        const key = permissionKey(
-          selectedQuizId,
-          row.studentId
-        );
+            setExpandedDates(
+              new Set(
+                normalizedQuizzes
+                  .filter((q) => q.scheduled_date)
+                  .map((q) => q.scheduled_date as string)
+              )
+            );
 
-        if (row.ok) {
-          nextPermissions[key] = true;
-          successCount += 1;
-        } else {
-          failedCount += 1;
+            void loadReattemptPermissions(
+              normalizedQuizzes,
+              normalizedStudents
+            );
+          } else {
+            /*
+             * If historical loading fails, keep the already-visible current
+             * quiz instead of replacing it with a full-page error.
+             */
+            void loadReattemptPermissions([quiz], normalizedStudents);
+          }
+        } catch {
+          /*
+           * Current quiz/results are already rendered, so background failure
+           * must never bring the teacher back to the blocking error screen.
+           */
+          void loadReattemptPermissions([quiz], normalizedStudents);
         }
-      }
-
-      setPermissions(nextPermissions);
-
-      if (failedCount > 0) {
-        setError(
-          `${successCount} reattempt permissions allowed. ${failedCount} could not be allowed.`
-        );
-      }
+      })();
     } catch (err: any) {
-      setError(
-        err?.message ||
-          "Unable to allow all reattempts."
-      );
-    } finally {
-      setAllowingAll(false);
+      setError(err?.message || "Unable to load quiz results.");
+      setLoading(false);
     }
+  }, [quizId, loadReattemptPermissions]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const availableDates = useMemo(() => {
+    const dates = new Set<string>();
+
+    allQuizzes.forEach((quiz) => {
+      if (quiz.scheduled_date) {
+        dates.add(quiz.scheduled_date);
+      }
+    });
+
+    return [...dates].sort((a, b) => b.localeCompare(a));
+  }, [allQuizzes]);
+
+  const availableSubjects = useMemo(() => {
+    const subjects = new Set<string>();
+
+    allQuizzes.forEach((quiz) => {
+      subjects.add(normalizeSubject(quiz.subject));
+    });
+
+    SUBJECTS.forEach((subject) => subjects.add(subject));
+
+    return [...subjects].sort((a, b) =>
+      a.localeCompare(b, undefined, {
+        sensitivity: "base",
+      })
+    );
+  }, [allQuizzes]);
+
+  const availableClasses = useMemo(() => {
+    const classes = new Set<string>();
+
+    allStudents.forEach((student) => {
+      if (student.class_name) {
+        classes.add(normalizeClassName(student.class_name));
+      }
+    });
+
+    allQuizzes.forEach((quiz) => {
+      getQuizClasses(quiz).forEach((className) => classes.add(className));
+    });
+
+    return sortClasses([...classes]);
+  }, [allStudents, allQuizzes]);
+
+  const filteredQuizzes = useMemo(() => {
+    return allQuizzes.filter((quiz) => {
+      const dateMatch =
+        selectedDate === "ALL" ||
+        String(quiz.scheduled_date || "") === selectedDate;
+
+      const subjectMatch =
+        selectedSubject === "ALL" ||
+        normalizeSubject(quiz.subject) === selectedSubject;
+
+      const classMatch =
+        selectedClass === "ALL" ||
+        getQuizClasses(quiz).includes(selectedClass);
+
+      return dateMatch && subjectMatch && classMatch;
+    });
   }, [
-    selectedQuizId,
-    teacherId,
-    relevantStudents,
-    submittedStudentIds,
-    hasCompletedReattemptByStudent,
-    permissions,
+    allQuizzes,
+    selectedDate,
+    selectedSubject,
+    selectedClass,
   ]);
 
-  const selectedQuizResultsByStudent = useMemo(() => {
-    if (!selectedQuizId) return new Map<number, QuizResult[]>();
+  const filteredQuizIds = useMemo(
+    () => new Set(filteredQuizzes.map((quiz) => Number(quiz.id))),
+    [filteredQuizzes]
+  );
 
-    const map = new Map<number, QuizResult[]>();
+  const filteredResultRows = useMemo(() => {
+    return allResults.filter((result) =>
+      filteredQuizIds.has(Number(result.quiz_id))
+    );
+  }, [allResults, filteredQuizIds]);
 
-    results
-      .filter((row) => row.quiz_id === selectedQuizId)
-      .forEach((row) => {
-        const existing = map.get(row.student_id) ?? [];
-        existing.push(row);
-        map.set(row.student_id, existing);
+  const resultByQuizStudent = useMemo(() => {
+    const map = new Map<string, QuizResult[]>();
+
+    filteredResultRows.forEach((result) => {
+      const key = `${result.quiz_id}__${result.student_id}`;
+
+      const existing = map.get(key) || [];
+      existing.push(result);
+      map.set(key, existing);
+    });
+
+    map.forEach((rows) => {
+      rows.sort((a, b) => {
+        const attemptDiff =
+          safeNumber(a.attempt_number) - safeNumber(b.attempt_number);
+
+        if (attemptDiff !== 0) return attemptDiff;
+
+        return String(a.created_at || "").localeCompare(
+          String(b.created_at || "")
+        );
       });
-
-    map.forEach((rows, studentId) => {
-      rows.sort(
-        (a, b) =>
-          numberValue(a.attempt_number, 1) -
-          numberValue(b.attempt_number, 1)
-      );
-
-      map.set(studentId, rows);
     });
 
     return map;
-  }, [results, selectedQuizId]);
+  }, [filteredResultRows]);
 
-  const printResult = useCallback(() => {
-    if (!selectedAttempt || !selectedQuiz) return;
+  const filteredStudentRows = useMemo(() => {
+    return allStudents.filter((student) => {
+      if (
+        selectedClass !== "ALL" &&
+        normalizeClassName(student.class_name) !== selectedClass
+      ) {
+        return false;
+      }
 
-    const student = selectedAttempt.student;
-    const result = selectedAttempt.result;
+      return true;
+    });
+  }, [allStudents, selectedClass]);
 
-    const questionRows = questions.map((question) => {
-      const answer = selectedAttempt.answers.find(
-        (item) => item.question_id === question.id
-      );
+  const allStudentQuizRows = useMemo<QuizStudentRow[]>(() => {
+    const rows: QuizStudentRow[] = [];
 
-      const selectedOption =
-        options.find(
-          (option) =>
-            option.id === answer?.selected_option_id
-        ) ?? null;
+    filteredQuizzes.forEach((quiz) => {
+      const quizClasses = getQuizClasses(quiz);
 
-      const correctOption =
-        options.find(
-          (option) =>
-            option.question_id === question.id &&
-            option.is_correct === true
-        ) ?? null;
+      const studentsForQuiz = filteredStudentRows.filter((student) => {
+        const studentClass = normalizeClassName(student.class_name);
 
-      return {
-        question,
-        answer,
-        selectedOption,
-        correctOption,
-      };
+        return quizClasses.length === 0 || quizClasses.includes(studentClass);
+      });
+
+      studentsForQuiz.forEach((student) => {
+        const results =
+          resultByQuizStudent.get(`${quiz.id}__${student.id}`) || [];
+
+        rows.push({
+          quiz,
+          student,
+          results,
+        });
+      });
     });
 
-    const popup = window.open(
-      "",
-      "_blank",
-      "width=1000,height=800"
-    );
-
-    if (!popup) {
-      window.alert(
-        "Please allow popups to print/download the result PDF."
-      );
-      return;
-    }
-
-    const rowsHtml = questionRows
-      .map((row, index) => {
-        const answerText =
-          row.selectedOption?.option_text ??
-          "Not answered";
-
-        const correctText =
-          row.correctOption?.option_text ??
-          "—";
-
-        const status = row.answer?.is_correct
-          ? "Correct"
-          : row.answer
-              ? "Wrong"
-              : "Unanswered";
-
-        return `
-          <tr>
-            <td>${index + 1}</td>
-            <td>${escapeHtml(
-              row.question.question_text ?? ""
-            )}</td>
-            <td>${escapeHtml(answerText)}</td>
-            <td>${escapeHtml(correctText)}</td>
-            <td>${status}</td>
-            <td>${displayNumber(
-              row.answer?.marks_obtained ?? 0
-            )}</td>
-          </tr>
-        `;
-      })
-      .join("");
-
-    popup.document.write(`
-      <!doctype html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>${escapeHtml(
-            selectedQuiz.title
-          )} - Result</title>
-          <style>
-            * {
-              box-sizing: border-box;
-            }
-
-            body {
-              font-family: Arial, sans-serif;
-              margin: 24px;
-              color: #111827;
-              background: white;
-            }
-
-            h1,
-            h2,
-            h3,
-            p {
-              margin-top: 0;
-            }
-
-            .header {
-              border-bottom: 2px solid #111827;
-              padding-bottom: 16px;
-              margin-bottom: 20px;
-            }
-
-            .grid {
-              display: grid;
-              grid-template-columns: repeat(4, 1fr);
-              gap: 10px;
-              margin: 20px 0;
-            }
-
-            .box {
-              border: 1px solid #d1d5db;
-              border-radius: 8px;
-              padding: 10px;
-            }
-
-            .label {
-              font-size: 11px;
-              color: #6b7280;
-            }
-
-            .value {
-              font-size: 18px;
-              font-weight: 700;
-              margin-top: 5px;
-            }
-
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-top: 20px;
-              font-size: 11px;
-            }
-
-            th,
-            td {
-              border: 1px solid #d1d5db;
-              padding: 7px;
-              vertical-align: top;
-            }
-
-            th {
-              background: #f3f4f6;
-            }
-
-            .footer {
-              margin-top: 24px;
-              font-size: 11px;
-              color: #6b7280;
-            }
-
-            @media print {
-              body {
-                margin: 10mm;
-              }
-            }
-          </style>
-        </head>
-
-        <body>
-          <div class="header">
-            <h1>${escapeHtml(
-              selectedQuiz.title
-            )}</h1>
-            <p>
-              <strong>Student:</strong>
-              ${escapeHtml(
-                student?.student_name ?? "—"
-              )}
-            </p>
-            <p>
-              <strong>Username:</strong>
-              ${escapeHtml(
-                student?.student_username ?? "—"
-              )}
-            </p>
-            <p>
-              <strong>Class:</strong>
-              ${escapeHtml(
-                student?.class_name ?? "—"
-              )}
-            </p>
-            <p>
-              <strong>Subject:</strong>
-              ${escapeHtml(
-                selectedQuiz.subject ?? "—"
-              )}
-            </p>
-            <p>
-              <strong>Date:</strong>
-              ${formatDate(
-                selectedQuiz.scheduled_date
-              )}
-            </p>
-            <p>
-              <strong>Attempt:</strong>
-              ${numberValue(
-                result.attempt_number,
-                1
-              ) > 1
-                ? "Reattempt"
-                : "Original Attempt"}
-            </p>
-          </div>
-
-          <div class="grid">
-            <div class="box">
-              <div class="label">Total Marks</div>
-              <div class="value">
-                ${displayNumber(result.total_marks)}
-              </div>
-            </div>
-
-            <div class="box">
-              <div class="label">Obtained Marks</div>
-              <div class="value">
-                ${displayNumber(result.obtained_marks)}
-              </div>
-            </div>
-
-            <div class="box">
-              <div class="label">Percentage</div>
-              <div class="value">
-                ${displayNumber(result.percentage)}%
-              </div>
-            </div>
-
-            <div class="box">
-              <div class="label">Result</div>
-              <div class="value">
-                ${escapeHtml(
-                  String(
-                    result.result_status ?? "—"
-                  )
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <strong>Correct:</strong>
-            ${numberValue(result.correct_answers)}
-            &nbsp;&nbsp;&nbsp;
-
-            <strong>Wrong:</strong>
-            ${numberValue(result.wrong_answers)}
-            &nbsp;&nbsp;&nbsp;
-
-            <strong>Unanswered:</strong>
-            ${numberValue(result.unanswered)}
-          </div>
-
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Question</th>
-                <th>Student Answer</th>
-                <th>Correct Answer</th>
-                <th>Status</th>
-                <th>Marks</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              ${rowsHtml}
-            </tbody>
-          </table>
-
-          <div class="footer">
-            Submitted:
-            ${formatDateTime(result.submitted_at)}
-          </div>
-        </body>
-      </html>
-    `);
-
-    popup.document.close();
-
-    setTimeout(() => {
-      popup.focus();
-      popup.print();
-    }, 400);
+    return rows;
   }, [
-    selectedAttempt,
-    selectedQuiz,
-    questions,
-    options,
+    filteredQuizzes,
+    filteredStudentRows,
+    resultByQuizStudent,
   ]);
 
-  function escapeHtml(value: string): string {
-    return value
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  }
+  const studentLatestRows = useMemo(() => {
+    const map = new Map<number, QuizStudentRow[]>();
 
-  const closeDetail = () => {
-    setSelectedAttempt(null);
-    setQuestions([]);
-    setOptions([]);
+    allStudentQuizRows.forEach((row) => {
+      const existing = map.get(row.student.id) || [];
+      existing.push(row);
+      map.set(row.student.id, existing);
+    });
+
+    return map;
+  }, [allStudentQuizRows]);
+
+  const filteredStatusRows = useMemo(() => {
+    if (selectedStatus === "ALL") {
+      return allStudentQuizRows;
+    }
+
+    return allStudentQuizRows.filter((row) => {
+      if (row.results.length === 0) {
+        return selectedStatus === "NOT_SUBMITTED";
+      }
+
+      const latest =
+        row.results[row.results.length - 1];
+
+      const status = resultStatus(latest);
+
+      if (selectedStatus === "SUBMITTED") return true;
+      if (selectedStatus === "PASS") {
+        return status.includes("PASS");
+      }
+
+      if (selectedStatus === "FAIL") {
+        return status.includes("FAIL");
+      }
+
+      if (selectedStatus === "NOT_SUBMITTED") {
+        return false;
+      }
+
+      return true;
+    });
+  }, [allStudentQuizRows, selectedStatus]);
+
+  const stats = useMemo(() => {
+    const quizCount = filteredQuizzes.length;
+
+    const totalAssigned = allStudentQuizRows.length;
+
+    const submitted = allStudentQuizRows.filter(
+      (row) => row.results.length > 0
+    ).length;
+
+    const notSubmitted = Math.max(0, totalAssigned - submitted);
+
+    const latestRows = allStudentQuizRows
+      .filter((row) => row.results.length > 0)
+      .map((row) => row.results[row.results.length - 1]);
+
+    const pass = latestRows.filter((result) =>
+      resultStatus(result).includes("PASS")
+    ).length;
+
+    const fail = latestRows.filter((result) =>
+      resultStatus(result).includes("FAIL")
+    ).length;
+
+    const attempts = filteredResultRows.length;
+
+    const totalMarks = latestRows.reduce(
+      (sum, result) => sum + safeNumber(result.total_marks),
+      0
+    );
+
+    const obtainedMarks = latestRows.reduce(
+      (sum, result) => sum + safeNumber(result.obtained_marks),
+      0
+    );
+
+    const averagePercentage =
+      latestRows.length > 0
+        ? latestRows.reduce(
+            (sum, result) => sum + safeNumber(result.percentage),
+            0
+          ) / latestRows.length
+        : 0;
+
+    return {
+      quizCount,
+      totalAssigned,
+      submitted,
+      notSubmitted,
+      pass,
+      fail,
+      attempts,
+      totalMarks,
+      obtainedMarks,
+      averagePercentage,
+    };
+  }, [filteredQuizzes, allStudentQuizRows, filteredResultRows]);
+
+  const groupedRows = useMemo(() => {
+    const dateMap = new Map<
+      string,
+      Map<string, QuizStudentRow[]>
+    >();
+
+    filteredStatusRows.forEach((row) => {
+      const date = row.quiz.scheduled_date || "unknown";
+      const className = normalizeClassName(row.student.class_name);
+
+      if (!dateMap.has(date)) {
+        dateMap.set(date, new Map());
+      }
+
+      const classMap = dateMap.get(date)!;
+
+      if (!classMap.has(className)) {
+        classMap.set(className, []);
+      }
+
+      classMap.get(className)!.push(row);
+    });
+
+    const dates = [...dateMap.keys()].sort((a, b) => {
+      if (a === "unknown") return 1;
+      if (b === "unknown") return -1;
+      return b.localeCompare(a);
+    });
+
+    return dates.map((date) => {
+      const classMap = dateMap.get(date)!;
+
+      const classes = [...classMap.keys()]
+        .sort((a, b) =>
+          a.localeCompare(b, undefined, {
+            numeric: true,
+            sensitivity: "base",
+          })
+        )
+        .map((className) => ({
+          className,
+          rows: classMap.get(className)!.sort((a, b) =>
+            String(a.student.student_name || "").localeCompare(
+              String(b.student.student_name || ""),
+              undefined,
+              {
+                sensitivity: "base",
+              }
+            )
+          ),
+        }));
+
+      return {
+        date,
+        classes,
+      };
+    });
+  }, [filteredStatusRows]);
+
+  const currentQuizClasses = useMemo(() => {
+    if (!currentQuiz) return [];
+    return getQuizClasses(currentQuiz);
+  }, [currentQuiz]);
+
+  const currentQuizStudents = useMemo(() => {
+    if (!currentQuiz) return [];
+
+    return currentStudents
+      .filter((student) => {
+        const classes = currentQuizClasses;
+
+        if (classes.length === 0) return true;
+
+        return classes.includes(
+          normalizeClassName(student.class_name)
+        );
+      })
+      .sort((a, b) =>
+        String(a.student_name || "").localeCompare(
+          String(b.student_name || ""),
+          undefined,
+          {
+            sensitivity: "base",
+          }
+        )
+      );
+  }, [currentQuiz, currentStudents, currentQuizClasses]);
+
+  const currentQuizResultsByStudent = useMemo(() => {
+    const map = new Map<number, QuizResult[]>();
+
+    currentResults.forEach((result) => {
+      const rows = map.get(result.student_id) || [];
+      rows.push(result);
+      map.set(result.student_id, rows);
+    });
+
+    map.forEach((rows) => {
+      rows.sort((a, b) => {
+        const attemptDiff =
+          safeNumber(a.attempt_number) - safeNumber(b.attempt_number);
+
+        if (attemptDiff !== 0) return attemptDiff;
+
+        return String(a.created_at || "").localeCompare(
+          String(b.created_at || "")
+        );
+      });
+    });
+
+    return map;
+  }, [currentResults]);
+
+  const currentQuizStats = useMemo(() => {
+    const total = currentQuizStudents.length;
+
+    let submitted = 0;
+    let pass = 0;
+    let fail = 0;
+    let attempts = 0;
+
+    currentQuizStudents.forEach((student) => {
+      const results =
+        currentQuizResultsByStudent.get(student.id) || [];
+
+      attempts += results.length;
+
+      if (results.length > 0) {
+        submitted += 1;
+
+        const latest = results[results.length - 1];
+
+        if (resultStatus(latest).includes("PASS")) {
+          pass += 1;
+        }
+
+        if (resultStatus(latest).includes("FAIL")) {
+          fail += 1;
+        }
+      }
+    });
+
+    return {
+      total,
+      submitted,
+      notSubmitted: Math.max(0, total - submitted),
+      pass,
+      fail,
+      attempts,
+    };
+  }, [currentQuizStudents, currentQuizResultsByStudent]);
+
+  const toggleDate = (date: string) => {
+    setExpandedDates((previous) => {
+      const next = new Set(previous);
+
+      if (next.has(date)) {
+        next.delete(date);
+      } else {
+        next.add(date);
+      }
+
+      return next;
+    });
+  };
+
+  const toggleClass = (key: string) => {
+    setExpandedClasses((previous) => {
+      const next = new Set(previous);
+
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+
+      return next;
+    });
+  };
+
+  const toggleStudent = (key: string) => {
+    setExpandedStudents((previous) => {
+      const next = new Set(previous);
+
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+
+      return next;
+    });
+  };
+
+  const allowReattempt = async (
+    targetQuizId: number,
+    studentId: number
+  ) => {
+    setReattemptLoading(`${targetQuizId}__${studentId}`);
+    setReattemptMessage("");
+
+    try {
+      let teacherId: number | null = null;
+
+      try {
+        const storedTeacherId =
+          localStorage.getItem("attendance_teacher_id") ||
+          localStorage.getItem("teacher_id");
+
+        if (storedTeacherId) {
+          teacherId = Number(storedTeacherId);
+        }
+      } catch {
+        teacherId = null;
+      }
+
+      const response = await fetch("/api/quiz-tests/reattempt", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "allow",
+          quizId: targetQuizId,
+          studentId,
+          teacherId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || data?.success === false) {
+        throw new Error(
+          data?.error || "Unable to allow re-attempt."
+        );
+      }
+
+      setReattemptQuizIds((previous) => {
+        const next = new Set(previous);
+        next.add(`${targetQuizId}__${studentId}`);
+        return next;
+      });
+
+      setReattemptMessage(
+        "Re-attempt access allowed successfully."
+      );
+    } catch (err: any) {
+      setReattemptMessage(
+        err?.message || "Unable to allow re-attempt."
+      );
+    } finally {
+      setReattemptLoading(null);
+    }
+  };
+
+  const drawAcademyHeader = (
+    pdf: jsPDF,
+    title: string,
+    subtitle?: string
+  ) => {
+    const pageWidth = pdf.internal.pageSize.getWidth();
+
+    pdf.setFillColor(15, 23, 42);
+    pdf.rect(0, 0, pageWidth, 34, "F");
+
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(20);
+    pdf.text("RACER ACADEMY", pageWidth / 2, 13, {
+      align: "center",
+    });
+
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(
+      "Student Quiz Performance & Academic Record",
+      pageWidth / 2,
+      20,
+      {
+        align: "center",
+      }
+    );
+
+    pdf.setTextColor(15, 23, 42);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(15);
+    pdf.text(title, 14, 46);
+
+    if (subtitle) {
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(9);
+      pdf.text(subtitle, 14, 53);
+    }
+  };
+
+  const drawSignatureAndStamp = (
+    pdf: jsPDF,
+    submissionDate: string | null
+  ) => {
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+
+    pdf.setTextColor(20, 20, 20);
+
+    pdf.setFont("times", "italic");
+    pdf.setFontSize(17);
+    pdf.text("Racer Academy", pageWidth - 62, pageHeight - 27, {
+      align: "center",
+      angle: -7,
+    });
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7);
+    pdf.text("Authorized Academic Record", pageWidth - 62, pageHeight - 21, {
+      align: "center",
+    });
+
+    const stampX = pageWidth - 29;
+    const stampY = pageHeight - 31;
+
+    pdf.setDrawColor(90, 90, 90);
+    pdf.setLineWidth(0.8);
+    pdf.circle(stampX, stampY, 12);
+    pdf.setLineWidth(0.4);
+    pdf.circle(stampX, stampY, 9);
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(5.5);
+    pdf.text("RACER ACADEMY", stampX, stampY - 4, {
+      align: "center",
+    });
+
+    pdf.setFontSize(5);
+    pdf.text("OFFICIAL", stampX, stampY + 1, {
+      align: "center",
+    });
+
+    pdf.setFont("helvetica", "normal");
+    pdf.text(
+      submissionDate ? formatDate(submissionDate) : "QUIZ DATE",
+      stampX,
+      stampY + 5,
+      {
+        align: "center",
+      }
+    );
+
+    pdf.setFontSize(7);
+    pdf.text(
+      `Generated: ${new Date().toLocaleDateString("en-IN")}`,
+      14,
+      pageHeight - 10
+    );
+  };
+
+  const addTableHeader = (
+    pdf: jsPDF,
+    headers: string[],
+    widths: number[],
+    startX: number,
+    startY: number
+  ) => {
+    let x = startX;
+
+    pdf.setFillColor(226, 232, 240);
+    pdf.setDrawColor(148, 163, 184);
+
+    headers.forEach((header, index) => {
+      pdf.rect(x, startY, widths[index], 9, "FD");
+
+      pdf.setTextColor(15, 23, 42);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(7);
+
+      pdf.text(header, x + widths[index] / 2, startY + 6, {
+        align: "center",
+      });
+
+      x += widths[index];
+    });
+  };
+
+  const addTableRow = (
+    pdf: jsPDF,
+    values: string[],
+    widths: number[],
+    startX: number,
+    startY: number,
+    height = 9
+  ) => {
+    let x = startX;
+
+    pdf.setDrawColor(203, 213, 225);
+
+    values.forEach((value, index) => {
+      pdf.rect(x, startY, widths[index], height);
+
+      pdf.setTextColor(30, 41, 59);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(7);
+
+      const maxChars = Math.max(8, Math.floor(widths[index] / 2));
+
+      let display = String(value ?? "");
+
+      if (display.length > maxChars) {
+        display = `${display.slice(0, maxChars - 3)}...`;
+      }
+
+      pdf.text(display, x + widths[index] / 2, startY + 6, {
+        align: "center",
+      });
+
+      x += widths[index];
+    });
+  };
+
+  const createStudentPdf = async (
+    quiz: QuizTest,
+    student: Student,
+    results: QuizResult[]
+  ) => {
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+    });
+
+    drawAcademyHeader(
+      pdf,
+      "INDIVIDUAL QUIZ RESULT",
+      `${quiz.title} • ${formatDateLong(quiz.scheduled_date)}`
+    );
+
+    let y = 64;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    pdf.text("STUDENT DETAILS", 14, y);
+
+    y += 7;
+
+    const details = [
+      ["Name", student.student_name || "Not available"],
+      ["Username", student.student_username || "Not available"],
+      ["Class", normalizeClassName(student.class_name)],
+      ["Subject", normalizeSubject(quiz.subject)],
+      ["Quiz Date", formatDate(quiz.scheduled_date)],
+      ["Quiz Time", formatTime(quiz.scheduled_time)],
+    ];
+
+    details.forEach(([label, value]) => {
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(8);
+      pdf.text(`${label}:`, 16, y);
+
+      pdf.setFont("helvetica", "normal");
+      pdf.text(String(value), 53, y);
+
+      y += 6;
+    });
+
+    y += 4;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    pdf.text("ATTEMPT DETAILS", 14, y);
+
+    y += 6;
+
+    const widths = [20, 25, 24, 22, 22, 25, 34];
+
+    addTableHeader(
+      pdf,
+      [
+        "Attempt",
+        "Questions",
+        "Correct",
+        "Wrong",
+        "Unanswered",
+        "Marks",
+        "Status",
+      ],
+      widths,
+      14,
+      y
+    );
+
+    y += 9;
+
+    results.forEach((result, index) => {
+      if (y > 255) {
+        drawSignatureAndStamp(
+          pdf,
+          result.submitted_at
+            ? result.submitted_at.slice(0, 10)
+            : quiz.scheduled_date
+        );
+
+        pdf.addPage();
+
+        drawAcademyHeader(
+          pdf,
+          "INDIVIDUAL QUIZ RESULT",
+          `${quiz.title} • Continued`
+        );
+
+        y = 64;
+
+        addTableHeader(
+          pdf,
+          [
+            "Attempt",
+            "Questions",
+            "Correct",
+            "Wrong",
+            "Unanswered",
+            "Marks",
+            "Status",
+          ],
+          widths,
+          14,
+          y
+        );
+
+        y += 9;
+      }
+
+      const status = resultStatus(result);
+
+      addTableRow(
+        pdf,
+        [
+          getAttemptLabel(result, index),
+          String(safeNumber(result.total_questions)),
+          String(safeNumber(result.correct_answers)),
+          String(safeNumber(result.wrong_answers)),
+          String(safeNumber(result.unanswered)),
+          `${safeNumber(result.obtained_marks)}/${safeNumber(
+            result.total_marks
+          )}`,
+          status,
+        ],
+        widths,
+        14,
+        y
+      );
+
+      y += 9;
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(7);
+      pdf.setTextColor(71, 85, 105);
+
+      pdf.text(
+        `Percentage: ${safeNumber(result.percentage).toFixed(
+          2
+        )}%   |   Submission: ${
+          result.submission_type || "Normal"
+        }   |   Submitted: ${formatDateTime(result.submitted_at)}`,
+        16,
+        y + 4
+      );
+
+      y += 10;
+    });
+
+    if (results.length === 0) {
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(10);
+      pdf.text("NO ATTEMPT SUBMITTED", 16, y + 5);
+      y += 15;
+    }
+
+    const latest =
+      results.length > 0 ? results[results.length - 1] : null;
+
+    y += 4;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    pdf.text("FINAL SUMMARY", 14, y);
+
+    y += 8;
+
+    if (latest) {
+      const summary = [
+        `Final Percentage: ${safeNumber(
+          latest.percentage
+        ).toFixed(2)}%`,
+        `Final Status: ${resultStatus(latest)}`,
+        `Obtained Marks: ${safeNumber(
+          latest.obtained_marks
+        )}/${safeNumber(latest.total_marks)}`,
+        `Attempts: ${results.length}`,
+        `Submitted On: ${formatDateTime(latest.submitted_at)}`,
+      ];
+
+      summary.forEach((line) => {
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(9);
+        pdf.text(line, 18, y);
+        y += 6;
+      });
+    } else {
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(9);
+      pdf.text("No submitted result is available.", 18, y);
+    }
+
+    drawSignatureAndStamp(
+      pdf,
+      latest?.submitted_at
+        ? latest.submitted_at.slice(0, 10)
+        : quiz.scheduled_date
+    );
+
+    const safeStudentName =
+      (student.student_name || "student")
+        .replace(/[^a-z0-9]+/gi, "_")
+        .replace(/^_+|_+$/g, "");
+
+    const safeQuizTitle =
+      (quiz.title || "quiz")
+        .replace(/[^a-z0-9]+/gi, "_")
+        .replace(/^_+|_+$/g, "");
+
+    pdf.save(
+      `RACER_ACADEMY_${safeStudentName}_${safeQuizTitle}_RESULT.pdf`
+    );
+  };
+
+  const downloadOverallPdf = async () => {
+    setFilterLoading(true);
+
+    try {
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+
+      drawAcademyHeader(
+        pdf,
+        "OVERALL QUIZ RESULT REPORT",
+        `Filters: ${
+          selectedDate === "ALL"
+            ? "All Dates"
+            : formatDate(selectedDate)
+        } • ${
+          selectedSubject === "ALL"
+            ? "All Subjects"
+            : selectedSubject
+        } • ${
+          selectedClass === "ALL"
+            ? "All Classes"
+            : selectedClass
+        }`
+      );
+
+      let y = 64;
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(9);
+      pdf.text(
+        `Quizzes: ${stats.quizCount}   |   Students: ${stats.totalAssigned}   |   Submitted: ${stats.submitted}   |   Not Submitted: ${stats.notSubmitted}   |   Pass: ${stats.pass}   |   Fail: ${stats.fail}   |   Attempts: ${stats.attempts}`,
+        14,
+        y
+      );
+
+      y += 8;
+
+      const widths = [32, 24, 35, 26, 29, 23, 23, 25, 25, 28];
+
+      addTableHeader(
+        pdf,
+        [
+          "Student",
+          "Class",
+          "Quiz",
+          "Date",
+          "Subject",
+          "Attempt",
+          "Obtained",
+          "Total",
+          "%",
+          "Status",
+        ],
+        widths,
+        14,
+        y
+      );
+
+      y += 9;
+
+      const rows = [...filteredStatusRows].sort((a, b) => {
+        const dateDiff = String(
+          b.quiz.scheduled_date || ""
+        ).localeCompare(String(a.quiz.scheduled_date || ""));
+
+        if (dateDiff !== 0) return dateDiff;
+
+        const classDiff = normalizeClassName(
+          a.student.class_name
+        ).localeCompare(
+          normalizeClassName(b.student.class_name),
+          undefined,
+          {
+            numeric: true,
+          }
+        );
+
+        if (classDiff !== 0) return classDiff;
+
+        return String(a.student.student_name || "").localeCompare(
+          String(b.student.student_name || "")
+        );
+      });
+
+      rows.forEach((row) => {
+        if (y > 175) {
+          drawSignatureAndStamp(
+            pdf,
+            row.quiz.scheduled_date
+          );
+
+          pdf.addPage();
+
+          drawAcademyHeader(
+            pdf,
+            "OVERALL QUIZ RESULT REPORT",
+            "Continued"
+          );
+
+          y = 64;
+
+          addTableHeader(
+            pdf,
+            [
+              "Student",
+              "Class",
+              "Quiz",
+              "Date",
+              "Subject",
+              "Attempt",
+              "Obtained",
+              "Total",
+              "%",
+              "Status",
+            ],
+            widths,
+            14,
+            y
+          );
+
+          y += 9;
+        }
+
+        const latest =
+          row.results.length > 0
+            ? row.results[row.results.length - 1]
+            : null;
+
+        addTableRow(
+          pdf,
+          [
+            row.student.student_name || "Unnamed",
+            normalizeClassName(row.student.class_name),
+            row.quiz.title,
+            formatDate(row.quiz.scheduled_date),
+            normalizeSubject(row.quiz.subject),
+            latest
+              ? String(
+                  safeNumber(latest.attempt_number) || 1
+                )
+              : "-",
+            latest
+              ? String(safeNumber(latest.obtained_marks))
+              : "0",
+            latest
+              ? String(safeNumber(latest.total_marks))
+              : "0",
+            latest
+              ? `${safeNumber(latest.percentage).toFixed(2)}%`
+              : "0%",
+            latest ? resultStatus(latest) : "NOT SUBMITTED",
+          ],
+          widths,
+          14,
+          y
+        );
+
+        y += 9;
+      });
+
+      if (rows.length === 0) {
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(11);
+        pdf.text(
+          "No students/results match the selected filters.",
+          pageWidth / 2,
+          y + 10,
+          {
+            align: "center",
+          }
+        );
+      }
+
+      drawSignatureAndStamp(
+        pdf,
+        selectedDate !== "ALL"
+          ? selectedDate
+          : currentQuiz?.scheduled_date || null
+      );
+
+      pdf.save(
+        "RACER_ACADEMY_OVERALL_QUIZ_RESULTS.pdf"
+      );
+    } finally {
+      setFilterLoading(false);
+    }
   };
 
   if (loading) {
     return (
-      <main style={pageStyle}>
-        <div style={loadingStyle}>
-          Loading quiz results...
+      <main style={styles.page}>
+        <div style={styles.loadingCard}>
+          <div style={styles.loaderCircle}>RA</div>
+          <h2 style={styles.loadingTitle}>
+            Loading Quiz Results...
+          </h2>
+          <p style={styles.loadingText}>
+            Please wait while RACER ACADEMY loads all student
+            results.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (error) {
+    return (
+      <main style={styles.page}>
+        <div style={styles.errorCard}>
+          <div style={styles.errorIcon}>!</div>
+
+          <h2 style={styles.errorTitle}>
+            Unable to Load Results
+          </h2>
+
+          <p style={styles.errorText}>{error}</p>
+
+          <div style={styles.actionRow}>
+            <button style={styles.secondaryButton} onClick={goBack}>
+              ← Back
+            </button>
+
+            <button
+              style={styles.primaryButton}
+              onClick={loadData}
+            >
+              Refresh
+            </button>
+          </div>
         </div>
       </main>
     );
   }
 
   return (
-    <main style={pageStyle}>
-      <div style={containerStyle}>
-        <header style={headerStyle}>
-          <div>
-            <div style={eyebrowStyle}>
-              RACER ACADEMY
-            </div>
+    <main style={styles.page}>
+      <div style={styles.container}>
+        <header style={styles.topHeader}>
+          <div style={styles.brandBlock}>
+            <div style={styles.brandBadge}>RA</div>
 
-            <h1 style={titleStyle}>
-              Teacher Quiz Results
+            <div>
+              <div style={styles.brandName}>
+                RACER ACADEMY
+              </div>
+
+              <div style={styles.brandSub}>
+                Teacher Quiz Results
+              </div>
+            </div>
+          </div>
+
+          <div style={styles.topActions}>
+            <button
+              style={styles.headerButton}
+              onClick={goBack}
+            >
+              ← Back
+            </button>
+
+            <button
+              style={styles.headerButton}
+              onClick={goDashboard}
+            >
+              Dashboard
+            </button>
+
+            <button
+              style={styles.logoutButton}
+              onClick={logout}
+            >
+              Logout
+            </button>
+          </div>
+        </header>
+
+        <section style={styles.heroCard}>
+          <div style={styles.heroLeft}>
+            <span style={styles.heroEyebrow}>
+              QUIZ PERFORMANCE CENTER
+            </span>
+
+            <h1 style={styles.heroTitle}>
+              All Student Results
             </h1>
 
-            <p style={subtitleStyle}>
-              {teacherName
-                ? `Teacher: ${teacherName}`
-                : "Quiz result management"}
+            <p style={styles.heroText}>
+              View quiz performance date-wise, class-wise and
+              student-wise with complete attempt details.
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => void refresh()}
-            style={buttonStyle}
-          >
-            Refresh
-          </button>
-        </header>
-
-        {error ? (
-          <div style={errorStyle}>
-            <strong>Error:</strong> {error}
-          </div>
-        ) : null}
-
-        <section style={panelStyle}>
-          <div style={sectionHeaderStyle}>
-            <div>
-              <h2 style={sectionTitleStyle}>
-                Select Quiz
-              </h2>
-              <p style={sectionHintStyle}>
-                Results and reattempt permissions are scoped to
-                the selected quiz/date.
-              </p>
+          <div style={styles.heroQuizBox}>
+            <div style={styles.heroQuizLabel}>
+              CURRENT QUIZ
             </div>
 
-            <div style={countBadgeStyle}>
-              {quizzes.length} quizzes
-            </div>
-          </div>
-
-          <div style={controlGridStyle}>
-            <div>
-              <label style={labelStyle}>
-                Quiz
-              </label>
-
-              <select
-                value={selectedQuizId ?? ""}
-                onChange={(event) => {
-                  const value = Number(event.target.value);
-
-                  setSelectedQuizId(
-                    Number.isFinite(value) && value > 0
-                      ? value
-                      : null
-                  );
-
-                  setSelectedAttempt(null);
-                }}
-                style={selectStyle}
-              >
-                {quizzes.length === 0 ? (
-                  <option value="">
-                    No quizzes found
-                  </option>
-                ) : (
-                  quizzes.map((quiz) => (
-                    <option
-                      key={quiz.id}
-                      value={quiz.id}
-                    >
-                      {quiz.title} —{" "}
-                      {formatDate(
-                        quiz.scheduled_date
-                      )}
-                    </option>
-                  ))
-                )}
-              </select>
+            <div style={styles.heroQuizTitle}>
+              {currentQuiz?.title || "Quiz Results"}
             </div>
 
-            <div>
-              <label style={labelStyle}>
-                Search Student
-              </label>
-
-              <input
-                value={search}
-                onChange={(event) =>
-                  setSearch(event.target.value)
-                }
-                placeholder="Name, username or class"
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>
-                Attempt
-              </label>
-
-              <select
-                value={attemptFilter}
-                onChange={(event) =>
-                  setAttemptFilter(
-                    event.target.value as
-                      | "all"
-                      | "original"
-                      | "reattempt"
-                  )
-                }
-                style={selectStyle}
-              >
-                <option value="all">
-                  All Attempts
-                </option>
-                <option value="original">
-                  Original Only
-                </option>
-                <option value="reattempt">
-                  Reattempts Only
-                </option>
-              </select>
+            <div style={styles.heroQuizMeta}>
+              {normalizeSubject(currentQuiz?.subject || null)}
+              {" • "}
+              {formatDate(currentQuiz?.scheduled_date || null)}
             </div>
           </div>
         </section>
 
-        {selectedQuiz ? (
-          <section style={panelStyle}>
-            <div style={sectionHeaderStyle}>
-              <div>
-                <h2 style={sectionTitleStyle}>
-                  {selectedQuiz.title}
-                </h2>
+        <section style={styles.filtersCard}>
+          <div style={styles.filterHeadingRow}>
+            <div>
+              <h2 style={styles.sectionTitle}>
+                Result Filters
+              </h2>
 
-                <p style={sectionHintStyle}>
-                  Date:{" "}
-                  {formatDate(
-                    selectedQuiz.scheduled_date
-                  )}{" "}
-                  · Subject:{" "}
-                  {selectedQuiz.subject || "—"}{" "}
-                  · Duration:{" "}
-                  {numberValue(
-                    selectedQuiz.duration_minutes,
-                    30
-                  )}{" "}
-                  min
-                </p>
-              </div>
+              <p style={styles.sectionSub}>
+                Select date, subject, class and result status.
+              </p>
+            </div>
 
-              <button
-                type="button"
-                onClick={() => void allowAll()}
-                disabled={
-                  allowingAll ||
-                  relevantStudents.every(
-                    (student) =>
-                      !submittedStudentIds.has(
-                        student.id
-                      ) ||
-                      !!hasCompletedReattemptByStudent.get(
-                        student.id
-                      )
-                  )
+            <button
+              style={styles.refreshButton}
+              onClick={loadData}
+              disabled={filterLoading}
+            >
+              {filterLoading ? "Working..." : "↻ Refresh"}
+            </button>
+          </div>
+
+          <div style={styles.filtersGrid}>
+            <label style={styles.filterLabel}>
+              <span>Date</span>
+
+              <select
+                value={selectedDate}
+                onChange={(event) =>
+                  setSelectedDate(event.target.value)
                 }
-                style={{
-                  ...primaryButtonStyle,
-                  opacity: allowingAll ? 0.6 : 1,
-                }}
+                style={styles.select}
               >
-                {allowingAll
-                  ? "Allowing..."
-                  : "Allow All"}
-              </button>
-            </div>
+                <option value="ALL">
+                  All Quiz Dates
+                </option>
 
-            <div style={statsGridStyle}>
-              <div style={statCardStyle}>
-                <div style={statLabelStyle}>
-                  Target Students
-                </div>
-                <div style={statValueStyle}>
-                  {relevantStudents.length}
-                </div>
-              </div>
+                {availableDates.map((date) => (
+                  <option key={date} value={date}>
+                    {formatDate(date)}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-              <div style={statCardStyle}>
-                <div style={statLabelStyle}>
+            <label style={styles.filterLabel}>
+              <span>Subject</span>
+
+              <select
+                value={selectedSubject}
+                onChange={(event) =>
+                  setSelectedSubject(event.target.value)
+                }
+                style={styles.select}
+              >
+                <option value="ALL">
+                  All Subjects
+                </option>
+
+                {availableSubjects.map((subject) => (
+                  <option key={subject} value={subject}>
+                    {subject}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label style={styles.filterLabel}>
+              <span>Class</span>
+
+              <select
+                value={selectedClass}
+                onChange={(event) =>
+                  setSelectedClass(event.target.value)
+                }
+                style={styles.select}
+              >
+                <option value="ALL">
+                  All Classes
+                </option>
+
+                {availableClasses.map((className) => (
+                  <option key={className} value={className}>
+                    {className}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label style={styles.filterLabel}>
+              <span>Status</span>
+
+              <select
+                value={selectedStatus}
+                onChange={(event) =>
+                  setSelectedStatus(event.target.value)
+                }
+                style={styles.select}
+              >
+                <option value="ALL">
+                  All Students
+                </option>
+
+                <option value="SUBMITTED">
                   Submitted
-                </div>
-                <div style={statValueStyle}>
-                  {submittedStudentIds.size}
-                </div>
-              </div>
+                </option>
 
-              <div style={statCardStyle}>
-                <div style={statLabelStyle}>
-                  Reattempt Permissions
-                </div>
-                <div style={statValueStyle}>
-                  {
-                    Object.keys(permissions).filter(
-                      (key) =>
-                        key.startsWith(
-                          `${selectedQuiz.id}:`
-                        )
-                    ).length
-                  }
-                </div>
-              </div>
+                <option value="NOT_SUBMITTED">
+                  Not Submitted
+                </option>
 
-              <div style={statCardStyle}>
-                <div style={statLabelStyle}>
-                  Result Records
-                </div>
-                <div style={statValueStyle}>
-                  {quizResults.length}
-                </div>
+                <option value="PASS">
+                  Pass
+                </option>
+
+                <option value="FAIL">
+                  Fail
+                </option>
+              </select>
+            </label>
+          </div>
+
+          <div style={styles.filterSummary}>
+            <span>
+              Showing <strong>{filteredQuizzes.length}</strong>{" "}
+              quiz
+              {filteredQuizzes.length !== 1 ? "zes" : ""}
+            </span>
+
+            <span>
+              <strong>{filteredStatusRows.length}</strong>{" "}
+              student entries
+            </span>
+
+            <span>
+              <strong>{filteredResultRows.length}</strong>{" "}
+              submitted attempts
+            </span>
+          </div>
+        </section>
+
+        <section style={styles.statsGrid}>
+          <div style={styles.statCard}>
+            <div style={styles.statIcon}>Q</div>
+            <div>
+              <div style={styles.statNumber}>
+                {stats.quizCount}
+              </div>
+              <div style={styles.statLabel}>
+                Quizzes
               </div>
             </div>
+          </div>
 
-            {resultsLoading ? (
-              <div style={inlineLoadingStyle}>
-                Loading results...
+          <div style={styles.statCard}>
+            <div style={styles.statIcon}>S</div>
+            <div>
+              <div style={styles.statNumber}>
+                {stats.totalAssigned}
               </div>
-            ) : null}
+              <div style={styles.statLabel}>
+                Student Entries
+              </div>
+            </div>
+          </div>
 
-            <div style={tableWrapStyle}>
-              <table style={tableStyle}>
-                <thead>
-                  <tr>
-                    <th style={thStyle}>Student</th>
-                    <th style={thStyle}>Class</th>
-                    <th style={thStyle}>Attempt</th>
-                    <th style={thStyle}>Marks</th>
-                    <th style={thStyle}>%</th>
-                    <th style={thStyle}>Correct</th>
-                    <th style={thStyle}>Wrong</th>
-                    <th style={thStyle}>Unanswered</th>
-                    <th style={thStyle}>Result</th>
-                    <th style={thStyle}>Submitted</th>
-                    <th style={thStyle}>Reattempt</th>
-                    <th style={thStyle}>View</th>
-                  </tr>
-                </thead>
+          <div style={styles.statCard}>
+            <div style={styles.statIcon}>✓</div>
+            <div>
+              <div style={styles.statNumber}>
+                {stats.submitted}
+              </div>
+              <div style={styles.statLabel}>
+                Submitted
+              </div>
+            </div>
+          </div>
 
-                <tbody>
-                  {quizResults.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={12}
-                        style={emptyCellStyle}
-                      >
-                        No result records found for this
-                        quiz.
-                      </td>
-                    </tr>
-                  ) : (
-                    quizResults.map((result) => {
-                      const student =
-                        students.find(
-                          (item) =>
-                            item.id ===
-                            result.student_id
-                        );
+          <div style={styles.statCard}>
+            <div style={styles.statIcon}>!</div>
+            <div>
+              <div style={styles.statNumber}>
+                {stats.notSubmitted}
+              </div>
+              <div style={styles.statLabel}>
+                Not Submitted
+              </div>
+            </div>
+          </div>
 
-                      const attemptNumber =
-                        numberValue(
-                          result.attempt_number,
-                          1
-                        );
+          <div style={styles.statCard}>
+            <div style={styles.statIcon}>P</div>
+            <div>
+              <div style={styles.statNumber}>
+                {stats.pass}
+              </div>
+              <div style={styles.statLabel}>
+                Pass
+              </div>
+            </div>
+          </div>
 
-                      const isReattempt =
-                        attemptNumber > 1;
+          <div style={styles.statCard}>
+            <div style={styles.statIcon}>F</div>
+            <div>
+              <div style={styles.statNumber}>
+                {stats.fail}
+              </div>
+              <div style={styles.statLabel}>
+                Fail
+              </div>
+            </div>
+          </div>
 
-                      const key = permissionKey(
-                        selectedQuiz.id,
-                        result.student_id
-                      );
+          <div style={styles.statCard}>
+            <div style={styles.statIcon}>#</div>
+            <div>
+              <div style={styles.statNumber}>
+                {stats.attempts}
+              </div>
+              <div style={styles.statLabel}>
+                Attempts
+              </div>
+            </div>
+          </div>
 
-                      const permissionAllowed =
-                        !!permissions[key];
+          <div style={styles.statCard}>
+            <div style={styles.statIcon}>%</div>
+            <div>
+              <div style={styles.statNumber}>
+                {stats.averagePercentage.toFixed(1)}%
+              </div>
+              <div style={styles.statLabel}>
+                Average
+              </div>
+            </div>
+          </div>
+        </section>
 
-                      const hasCompletedReattempt =
-                        !!hasCompletedReattemptByStudent.get(
-                          result.student_id
-                        );
-
-                      const latest =
-                        latestResultByStudent.get(
-                          result.student_id
-                        );
-
-                      const isLatest =
-                        latest?.id === result.id;
-
-                      return (
-                        <tr
-                          key={result.id}
-                          style={{
-                            background:
-                              isReattempt
-                                ? "#fffdf5"
-                                : "white",
-                          }}
-                        >
-                          <td style={tdStyle}>
-                            <div
-                              style={{
-                                fontWeight: 700,
-                              }}
-                            >
-                              {student?.student_name ||
-                                "Unknown Student"}
-                            </div>
-
-                            <div
-                              style={{
-                                fontSize: 12,
-                                color: "#6b7280",
-                                marginTop: 3,
-                              }}
-                            >
-                              {student?.student_username ||
-                                "—"}
-                            </div>
-                          </td>
-
-                          <td style={tdStyle}>
-                            {student?.class_name ||
-                              "—"}
-                          </td>
-
-                          <td style={tdStyle}>
-                            <span
-                              style={{
-                                ...attemptBadgeStyle,
-                                background:
-                                  isReattempt
-                                    ? "#fff7ed"
-                                    : "#eff6ff",
-                                color:
-                                  isReattempt
-                                    ? "#c2410c"
-                                    : "#1d4ed8",
-                                borderColor:
-                                  isReattempt
-                                    ? "#fed7aa"
-                                    : "#bfdbfe",
-                              }}
-                            >
-                              {isReattempt
-                                ? `Reattempt #${attemptNumber - 1}`
-                                : "Original"}
-                            </span>
-
-                            {isLatest ? (
-                              <div
-                                style={{
-                                  fontSize: 11,
-                                  color: "#6b7280",
-                                  marginTop: 4,
-                                }}
-                              >
-                                Latest
-                              </div>
-                            ) : null}
-                          </td>
-
-                          <td style={tdStyle}>
-                            <strong>
-                              {displayNumber(
-                                result.obtained_marks
-                              )}
-                            </strong>
-                            {" / "}
-                            {displayNumber(
-                              result.total_marks
-                            )}
-                          </td>
-
-                          <td style={tdStyle}>
-                            {displayNumber(
-                              result.percentage
-                            )}
-                            %
-                          </td>
-
-                          <td style={tdStyle}>
-                            {numberValue(
-                              result.correct_answers
-                            )}
-                          </td>
-
-                          <td style={tdStyle}>
-                            {numberValue(
-                              result.wrong_answers
-                            )}
-                          </td>
-
-                          <td style={tdStyle}>
-                            {numberValue(
-                              result.unanswered
-                            )}
-                          </td>
-
-                          <td style={tdStyle}>
-                            <span
-                              style={{
-                                ...statusBadgeStyle,
-                                background:
-                                  String(
-                                    result.result_status ??
-                                      ""
-                                  ).toUpperCase() ===
-                                  "PASS"
-                                    ? "#ecfdf5"
-                                    : "#fef2f2",
-                                color:
-                                  String(
-                                    result.result_status ??
-                                      ""
-                                  ).toUpperCase() ===
-                                  "PASS"
-                                    ? "#047857"
-                                    : "#b91c1c",
-                              }}
-                            >
-                              {result.result_status ||
-                                "—"}
-                            </span>
-                          </td>
-
-                          <td style={tdStyle}>
-                            {formatDateTime(
-                              result.submitted_at
-                            )}
-                          </td>
-
-                          <td style={tdStyle}>
-                            {!isReattempt &&
-                            submittedStudentIds.has(
-                              result.student_id
-                            ) &&
-                            !hasCompletedReattempt ? (
-                              permissionAllowed ? (
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    flexDirection:
-                                      "column",
-                                    gap: 6,
-                                  }}
-                                >
-                                  <span
-                                    style={{
-                                      ...permissionBadgeStyle,
-                                    }}
-                                  >
-                                    Allowed
-                                  </span>
-
-                                  <button
-                                    type="button"
-                                    disabled={
-                                      allowingKey === key
-                                    }
-                                    onClick={() =>
-                                      void revokeReattempt(
-                                        result.student_id
-                                      )
-                                    }
-                                    style={
-                                      smallDangerButtonStyle
-                                    }
-                                  >
-                                    {allowingKey === key
-                                      ? "..."
-                                      : "Revoke"}
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  type="button"
-                                  disabled={
-                                    allowingKey === key
-                                  }
-                                  onClick={() =>
-                                    void allowReattempt(
-                                      result.student_id
-                                    )
-                                  }
-                                  style={
-                                    smallPrimaryButtonStyle
-                                  }
-                                >
-                                  {allowingKey === key
-                                    ? "Allowing..."
-                                    : "Allow Reattempt"}
-                                </button>
-                              )
-                            ) : hasCompletedReattempt ? (
-                              <span
-                                style={{
-                                  ...usedBadgeStyle,
-                                }}
-                              >
-                                Used
-                              </span>
-                            ) : isReattempt ? (
-                              <span
-                                style={{
-                                  fontSize: 12,
-                                  color: "#6b7280",
-                                }}
-                              >
-                                One reattempt used
-                              </span>
-                            ) : (
-                              <span
-                                style={{
-                                  fontSize: 12,
-                                  color: "#6b7280",
-                                }}
-                              >
-                                Not eligible
-                              </span>
-                            )}
-                          </td>
-
-                          <td style={tdStyle}>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                void openAttempt(
-                                  result
-                                )
-                              }
-                              style={
-                                viewButtonStyle
-                              }
-                            >
-                              View
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+        <section style={styles.downloadBar}>
+          <div>
+            <div style={styles.downloadTitle}>
+              Result Reports
             </div>
 
-            <div style={noteStyle}>
-              <strong>Reattempt rule:</strong>{" "}
-              Permission is stored for this exact student
-              and this exact quiz record/date. A completed
-              reattempt remains a separate result record.
-              The student cannot receive a second completed
-              reattempt for the same quiz.
+            <div style={styles.downloadSub}>
+              Download complete filtered results or an individual
+              student's detailed PDF.
             </div>
-          </section>
+          </div>
+
+          <button
+            style={styles.pdfButton}
+            onClick={downloadOverallPdf}
+            disabled={filterLoading}
+          >
+            {filterLoading
+              ? "Preparing PDF..."
+              : "Download Overall PDF"}
+          </button>
+        </section>
+
+        {reattemptMessage ? (
+          <div style={styles.messageBox}>
+            {reattemptMessage}
+          </div>
         ) : null}
 
-        {selectedQuiz ? (
-          <section style={panelStyle}>
-            <div style={sectionHeaderStyle}>
-              <div>
-                <h2 style={sectionTitleStyle}>
-                  Student Attempt Summary
-                </h2>
-                <p style={sectionHintStyle}>
-                  All stored attempts remain separate.
-                </p>
-              </div>
+        <section style={styles.resultsSection}>
+          <div style={styles.resultsHeader}>
+            <div>
+              <h2 style={styles.sectionTitle}>
+                Datewise → Classwise → Studentwise
+              </h2>
+
+              <p style={styles.sectionSub}>
+                All selected quiz results are organized below.
+              </p>
             </div>
+          </div>
 
-            <div style={summaryGridStyle}>
-              {relevantStudents.map((student) => {
-                const studentResults =
-                  selectedQuizResultsByStudent.get(
-                    student.id
-                  ) ?? [];
+          {groupedRows.length === 0 ? (
+            <div style={styles.emptyCard}>
+              <div style={styles.emptyIcon}>R</div>
 
-                const latestResult =
-                  studentResults[
-                    studentResults.length - 1
-                  ];
+              <h3 style={styles.emptyTitle}>
+                No Results Found
+              </h3>
 
-                const hasSubmitted =
-                  submittedStudentIds.has(
-                    student.id
-                  );
+              <p style={styles.emptyText}>
+                No quiz/student entries match the selected
+                filters.
+              </p>
+            </div>
+          ) : (
+            <div style={styles.dateList}>
+              {groupedRows.map((dateGroup) => {
+                const dateOpen = expandedDates.has(
+                  dateGroup.date
+                );
 
-                const permission =
-                  permissions[
-                    permissionKey(
-                      selectedQuiz.id,
-                      student.id
-                    )
-                  ];
+                const dateRows = dateGroup.classes.flatMap(
+                  (group) => group.rows
+                );
 
-                const used =
-                  !!hasCompletedReattemptByStudent.get(
-                    student.id
-                  );
+                const dateSubmitted = dateRows.filter(
+                  (row) => row.results.length > 0
+                ).length;
 
                 return (
                   <div
-                    key={student.id}
-                    style={studentCardStyle}
+                    key={dateGroup.date}
+                    style={styles.dateCard}
                   >
-                    <div
-                      style={{
-                        fontWeight: 800,
-                        fontSize: 16,
-                      }}
+                    <button
+                      style={styles.dateButton}
+                      onClick={() =>
+                        toggleDate(dateGroup.date)
+                      }
                     >
-                      {student.student_name ||
-                        "Unnamed Student"}
-                    </div>
+                      <div style={styles.dateButtonLeft}>
+                        <div style={styles.dateIcon}>
+                          {dateGroup.date === "unknown"
+                            ? "?"
+                            : "D"}
+                        </div>
 
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: "#6b7280",
-                        marginTop: 3,
-                      }}
-                    >
-                      {student.student_username ||
-                        "—"}{" "}
-                      ·{" "}
-                      {student.class_name || "—"}
-                    </div>
+                        <div>
+                          <div style={styles.dateLabel}>
+                            QUIZ DATE
+                          </div>
 
-                    <div
-                      style={{
-                        marginTop: 14,
-                        display: "grid",
-                        gridTemplateColumns:
-                          "repeat(2, minmax(0, 1fr))",
-                        gap: 8,
-                      }}
-                    >
-                      <div style={miniStatStyle}>
-                        <span>Attempts</span>
-                        <strong>
-                          {studentResults.length}
-                        </strong>
-                      </div>
-
-                      <div style={miniStatStyle}>
-                        <span>Status</span>
-                        <strong>
-                          {hasSubmitted
-                            ? "Submitted"
-                            : "Pending"}
-                        </strong>
-                      </div>
-                    </div>
-
-                    {latestResult ? (
-                      <div
-                        style={{
-                          marginTop: 10,
-                          fontSize: 12,
-                          color: "#374151",
-                        }}
-                      >
-                        Latest:{" "}
-                        {displayNumber(
-                          latestResult.obtained_marks
-                        )}
-                        /
-                        {displayNumber(
-                          latestResult.total_marks
-                        )}{" "}
-                        ·{" "}
-                        {displayNumber(
-                          latestResult.percentage
-                        )}
-                        %
-                      </div>
-                    ) : null}
-
-                    <div
-                      style={{
-                        marginTop: 12,
-                        display: "flex",
-                        gap: 6,
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      {permission ? (
-                        <span
-                          style={
-                            permissionBadgeStyle
-                          }
-                        >
-                          Reattempt Allowed
-                        </span>
-                      ) : null}
-
-                      {used ? (
-                        <span
-                          style={usedBadgeStyle}
-                        >
-                          Reattempt Used
-                        </span>
-                      ) : null}
-                    </div>
-
-                    {studentResults.length > 0 ? (
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 6,
-                          marginTop: 12,
-                        }}
-                      >
-                        {studentResults.map(
-                          (attempt) => (
-                            <button
-                              key={attempt.id}
-                              type="button"
-                              onClick={() =>
-                                void openAttempt(
-                                  attempt
-                                )
-                              }
-                              style={
-                                attemptRowButtonStyle
-                              }
-                            >
-                              <span>
-                                Attempt{" "}
-                                {numberValue(
-                                  attempt.attempt_number,
-                                  1
-                                ) >
-                                1
-                                  ? `Reattempt #${
-                                      numberValue(
-                                        attempt.attempt_number,
-                                        1
-                                      ) - 1
-                                    }`
-                                  : "Original"}
-                              </span>
-
-                              <span>
-                                {displayNumber(
-                                  attempt.percentage
+                          <div style={styles.dateTitle}>
+                            {dateGroup.date === "unknown"
+                              ? "Date Not Available"
+                              : formatDateLong(
+                                  dateGroup.date
                                 )}
-                                %
-                              </span>
-                            </button>
-                          )
+                          </div>
+
+                          <div style={styles.dateMeta}>
+                            {dateRows.length} student entries
+                            {" • "}
+                            {dateSubmitted} submitted
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={styles.chevron}>
+                        {dateOpen ? "−" : "+"}
+                      </div>
+                    </button>
+
+                    {dateOpen ? (
+                      <div style={styles.classList}>
+                        {dateGroup.classes.map(
+                          (classGroup) => {
+                            const classKey = `${dateGroup.date}__${classGroup.className}`;
+                            const classOpen =
+                              expandedClasses.has(classKey);
+
+                            const submittedCount =
+                              classGroup.rows.filter(
+                                (row) =>
+                                  row.results.length > 0
+                              ).length;
+
+                            const passCount =
+                              classGroup.rows.filter(
+                                (row) =>
+                                  row.results.length > 0 &&
+                                  resultStatus(
+                                    row.results[
+                                      row.results.length - 1
+                                    ]
+                                  ).includes("PASS")
+                              ).length;
+
+                            const failCount =
+                              classGroup.rows.filter(
+                                (row) =>
+                                  row.results.length > 0 &&
+                                  resultStatus(
+                                    row.results[
+                                      row.results.length - 1
+                                    ]
+                                  ).includes("FAIL")
+                              ).length;
+
+                            return (
+                              <div
+                                key={classKey}
+                                style={styles.classCard}
+                              >
+                                <button
+                                  style={
+                                    styles.classButton
+                                  }
+                                  onClick={() =>
+                                    toggleClass(classKey)
+                                  }
+                                >
+                                  <div
+                                    style={
+                                      styles.classButtonLeft
+                                    }
+                                  >
+                                    <div
+                                      style={
+                                        styles.classBadge
+                                      }
+                                    >
+                                      {classGroup.className}
+                                    </div>
+
+                                    <div>
+                                      <div
+                                        style={
+                                          styles.classTitle
+                                        }
+                                      >
+                                        Class{" "}
+                                        {
+                                          classGroup.className
+                                        }
+                                      </div>
+
+                                      <div
+                                        style={
+                                          styles.classMeta
+                                        }
+                                      >
+                                        {
+                                          classGroup.rows
+                                            .length
+                                        }{" "}
+                                        students
+                                        {" • "}
+                                        {submittedCount}{" "}
+                                        submitted
+                                        {" • "}
+                                        {passCount} pass
+                                        {" • "}
+                                        {failCount} fail
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div
+                                    style={styles.chevron}
+                                  >
+                                    {classOpen ? "−" : "+"}
+                                  </div>
+                                </button>
+
+                                {classOpen ? (
+                                  <div
+                                    style={
+                                      styles.studentList
+                                    }
+                                  >
+                                    {classGroup.rows.map(
+                                      (row) => {
+                                        const studentKey = `${row.quiz.id}__${row.student.id}`;
+
+                                        const studentOpen =
+                                          expandedStudents.has(
+                                            studentKey
+                                          );
+
+                                        const latest =
+                                          row.results.length >
+                                          0
+                                            ? row.results[
+                                                row.results
+                                                  .length - 1
+                                              ]
+                                            : null;
+
+                                        const allowedKey = `${row.quiz.id}__${row.student.id}`;
+
+                                        const reattemptAllowed =
+                                          reattemptQuizIds.has(
+                                            allowedKey
+                                          );
+
+                                        return (
+                                          <div
+                                            key={
+                                              studentKey
+                                            }
+                                            style={
+                                              styles.studentCard
+                                            }
+                                          >
+                                            <div
+                                              style={
+                                                styles.studentTop
+                                              }
+                                            >
+                                              <button
+                                                style={
+                                                  styles.studentMainButton
+                                                }
+                                                onClick={() =>
+                                                  toggleStudent(
+                                                    studentKey
+                                                  )
+                                                }
+                                              >
+                                                <div
+                                                  style={
+                                                    styles.avatar
+                                                  }
+                                                >
+                                                  {String(
+                                                    row.student
+                                                      .student_name ||
+                                                      "S"
+                                                  )
+                                                    .trim()
+                                                    .charAt(
+                                                      0
+                                                    )
+                                                    .toUpperCase()}
+                                                </div>
+
+                                                <div
+                                                  style={
+                                                    styles.studentIdentity
+                                                  }
+                                                >
+                                                  <div
+                                                    style={
+                                                      styles.studentName
+                                                    }
+                                                  >
+                                                    {row.student
+                                                      .student_name ||
+                                                      "Unnamed Student"}
+                                                  </div>
+
+                                                  <div
+                                                    style={
+                                                      styles.studentUsername
+                                                    }
+                                                  >
+                                                    {row.student
+                                                      .student_username ||
+                                                      "Username not available"}
+                                                    {" • "}
+                                                    {normalizeSubject(
+                                                      row.quiz
+                                                        .subject
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              </button>
+
+                                              <div
+                                                style={
+                                                  styles.studentActions
+                                                }
+                                              >
+                                                <div
+                                                  style={
+                                                    styles.studentSummary
+                                                  }
+                                                >
+                                                  {latest ? (
+                                                    <>
+                                                      <strong
+                                                        style={{
+                                                          color:
+                                                            statusClass(
+                                                              latest
+                                                            ) ===
+                                                            "pass"
+                                                              ? "#15803d"
+                                                              : statusClass(
+                                                                    latest
+                                                                  ) ===
+                                                                "fail"
+                                                              ? "#dc2626"
+                                                              : "#334155",
+                                                        }}
+                                                      >
+                                                        {safeNumber(
+                                                          latest.percentage
+                                                        ).toFixed(
+                                                          1
+                                                        )}
+                                                        %
+                                                      </strong>
+
+                                                      <span
+                                                        style={
+                                                          styles.summaryStatus
+                                                        }
+                                                      >
+                                                        {
+                                                          resultStatus(
+                                                            latest
+                                                          )
+                                                        }
+                                                      </span>
+                                                    </>
+                                                  ) : (
+                                                    <span
+                                                      style={
+                                                        styles.noAttempt
+                                                      }
+                                                    >
+                                                      NO ATTEMPT
+                                                    </span>
+                                                  )}
+                                                </div>
+
+                                                <button
+                                                  style={
+                                                    styles.pdfSmallButton
+                                                  }
+                                                  onClick={() =>
+                                                    createStudentPdf(
+                                                      row.quiz,
+                                                      row.student,
+                                                      row.results
+                                                    )
+                                                  }
+                                                >
+                                                  PDF
+                                                </button>
+
+                                                <button
+                                                  style={
+                                                    styles.expandButton
+                                                  }
+                                                  onClick={() =>
+                                                    toggleStudent(
+                                                      studentKey
+                                                    )
+                                                  }
+                                                >
+                                                  {studentOpen
+                                                    ? "−"
+                                                    : "+"}
+                                                </button>
+                                              </div>
+                                            </div>
+
+                                            {studentOpen ? (
+                                              <div
+                                                style={
+                                                  styles.studentDetails
+                                                }
+                                              >
+                                                <div
+                                                  style={
+                                                    styles.detailGrid
+                                                  }
+                                                >
+                                                  <div
+                                                    style={
+                                                      styles.detailBox
+                                                    }
+                                                  >
+                                                    <span>
+                                                      Quiz
+                                                    </span>
+
+                                                    <strong>
+                                                      {
+                                                        row.quiz
+                                                          .title
+                                                      }
+                                                    </strong>
+                                                  </div>
+
+                                                  <div
+                                                    style={
+                                                      styles.detailBox
+                                                    }
+                                                  >
+                                                    <span>
+                                                      Date
+                                                    </span>
+
+                                                    <strong>
+                                                      {formatDate(
+                                                        row.quiz
+                                                          .scheduled_date
+                                                      )}
+                                                    </strong>
+                                                  </div>
+
+                                                  <div
+                                                    style={
+                                                      styles.detailBox
+                                                    }
+                                                  >
+                                                    <span>
+                                                      Subject
+                                                    </span>
+
+                                                    <strong>
+                                                      {normalizeSubject(
+                                                        row.quiz
+                                                          .subject
+                                                      )}
+                                                    </strong>
+                                                  </div>
+
+                                                  <div
+                                                    style={
+                                                      styles.detailBox
+                                                    }
+                                                  >
+                                                    <span>
+                                                      Attempts
+                                                    </span>
+
+                                                    <strong>
+                                                      {
+                                                        row.results
+                                                          .length
+                                                      }
+                                                    </strong>
+                                                  </div>
+                                                </div>
+
+                                                {row.results.length ===
+                                                0 ? (
+                                                  <div
+                                                    style={
+                                                      styles.noResultBox
+                                                    }
+                                                  >
+                                                    <div>
+                                                      <strong>
+                                                        No quiz
+                                                        result
+                                                        submitted
+                                                      </strong>
+
+                                                      <span>
+                                                        This
+                                                        student
+                                                        has no
+                                                        submitted
+                                                        attempt
+                                                        for this
+                                                        quiz.
+                                                      </span>
+                                                    </div>
+
+                                                    <button
+                                                      style={
+                                                        reattemptAllowed
+                                                          ? styles.allowedButton
+                                                          : styles.reattemptButton
+                                                      }
+                                                      disabled={
+                                                        reattemptAllowed ||
+                                                        reattemptLoading ===
+                                                          allowedKey
+                                                      }
+                                                      onClick={() =>
+                                                        allowReattempt(
+                                                          row.quiz
+                                                            .id,
+                                                          row
+                                                            .student
+                                                            .id
+                                                        )
+                                                      }
+                                                    >
+                                                      {reattemptLoading ===
+                                                      allowedKey
+                                                        ? "Allowing..."
+                                                        : reattemptAllowed
+                                                        ? "RE-ATTEMPT ALLOWED"
+                                                        : "ALLOW RE-ATTEMPT"}
+                                                    </button>
+                                                  </div>
+                                                ) : (
+                                                  <>
+                                                    <div
+                                                      style={
+                                                        styles.attemptList
+                                                      }
+                                                    >
+                                                      {row.results.map(
+                                                        (
+                                                          result,
+                                                          index
+                                                        ) => (
+                                                          <div
+                                                            key={
+                                                              result.id
+                                                            }
+                                                            style={
+                                                              styles.attemptCard
+                                                            }
+                                                          >
+                                                            <div
+                                                              style={
+                                                                styles.attemptHeader
+                                                              }
+                                                            >
+                                                              <div>
+                                                                <div
+                                                                  style={
+                                                                    styles.attemptNumber
+                                                                  }
+                                                                >
+                                                                  {getAttemptLabel(
+                                                                    result,
+                                                                    index
+                                                                  )}
+                                                                </div>
+
+                                                                <div
+                                                                  style={
+                                                                    styles.attemptTime
+                                                                  }
+                                                                >
+                                                                  Submitted:{" "}
+                                                                  {formatDateTime(
+                                                                    result.submitted_at
+                                                                  )}
+                                                                </div>
+                                                              </div>
+
+                                                              <div
+                                                                style={{
+                                                                  ...styles.statusPill,
+                                                                  ...(statusClass(
+                                                                    result
+                                                                  ) ===
+                                                                  "pass"
+                                                                    ? styles.passPill
+                                                                    : statusClass(
+                                                                          result
+                                                                        ) ===
+                                                                      "fail"
+                                                                    ? styles.failPill
+                                                                    : styles.neutralPill),
+                                                                }}
+                                                              >
+                                                                {resultStatus(
+                                                                  result
+                                                                )}
+                                                              </div>
+                                                            </div>
+
+                                                            <div
+                                                              style={
+                                                                styles.metricsGrid
+                                                              }
+                                                            >
+                                                              <div
+                                                                style={
+                                                                  styles.metric
+                                                                }
+                                                              >
+                                                                <span>
+                                                                  Questions
+                                                                </span>
+                                                                <strong>
+                                                                  {safeNumber(
+                                                                    result.total_questions
+                                                                  )}
+                                                                </strong>
+                                                              </div>
+
+                                                              <div
+                                                                style={
+                                                                  styles.metric
+                                                                }
+                                                              >
+                                                                <span>
+                                                                  Correct
+                                                                </span>
+                                                                <strong>
+                                                                  {safeNumber(
+                                                                    result.correct_answers
+                                                                  )}
+                                                                </strong>
+                                                              </div>
+
+                                                              <div
+                                                                style={
+                                                                  styles.metric
+                                                                }
+                                                              >
+                                                                <span>
+                                                                  Wrong
+                                                                </span>
+                                                                <strong>
+                                                                  {safeNumber(
+                                                                    result.wrong_answers
+                                                                  )}
+                                                                </strong>
+                                                              </div>
+
+                                                              <div
+                                                                style={
+                                                                  styles.metric
+                                                                }
+                                                              >
+                                                                <span>
+                                                                  Unanswered
+                                                                </span>
+                                                                <strong>
+                                                                  {safeNumber(
+                                                                    result.unanswered
+                                                                  )}
+                                                                </strong>
+                                                              </div>
+
+                                                              <div
+                                                                style={
+                                                                  styles.metric
+                                                                }
+                                                              >
+                                                                <span>
+                                                                  Marks
+                                                                </span>
+                                                                <strong>
+                                                                  {safeNumber(
+                                                                    result.obtained_marks
+                                                                  )}
+                                                                  /
+                                                                  {safeNumber(
+                                                                    result.total_marks
+                                                                  )}
+                                                                </strong>
+                                                              </div>
+
+                                                              <div
+                                                                style={
+                                                                  styles.metric
+                                                                }
+                                                              >
+                                                                <span>
+                                                                  Percentage
+                                                                </span>
+                                                                <strong>
+                                                                  {safeNumber(
+                                                                    result.percentage
+                                                                  ).toFixed(
+                                                                    2
+                                                                  )}
+                                                                  %
+                                                                </strong>
+                                                              </div>
+                                                            </div>
+
+                                                            <div
+                                                              style={
+                                                                styles.submissionInfo
+                                                              }
+                                                            >
+                                                              Submission:{" "}
+                                                              <strong>
+                                                                {result.submission_type ||
+                                                                  "Normal"}
+                                                              </strong>
+                                                              {" • "}
+                                                              Started:{" "}
+                                                              {formatDateTime(
+                                                                result.started_at
+                                                              )}
+                                                              {" • "}
+                                                              Created:{" "}
+                                                              {formatDateTime(
+                                                                result.created_at
+                                                              )}
+                                                            </div>
+                                                          </div>
+                                                        )
+                                                      )}
+                                                    </div>
+
+                                                    <div
+                                                      style={
+                                                        styles.reattemptPanel
+                                                      }
+                                                    >
+                                                      <div>
+                                                        <strong>
+                                                          Need another
+                                                          attempt?
+                                                        </strong>
+
+                                                        <span>
+                                                          Teacher can
+                                                          allow a
+                                                          re-attempt
+                                                          without
+                                                          removing the
+                                                          previous
+                                                          result.
+                                                        </span>
+                                                      </div>
+
+                                                      <button
+                                                        style={
+                                                          reattemptAllowed
+                                                            ? styles.allowedButton
+                                                            : styles.reattemptButton
+                                                        }
+                                                        disabled={
+                                                          reattemptAllowed ||
+                                                          reattemptLoading ===
+                                                            allowedKey
+                                                        }
+                                                        onClick={() =>
+                                                          allowReattempt(
+                                                            row.quiz
+                                                              .id,
+                                                            row
+                                                              .student
+                                                              .id
+                                                          )
+                                                        }
+                                                      >
+                                                        {reattemptLoading ===
+                                                        allowedKey
+                                                          ? "Allowing..."
+                                                          : reattemptAllowed
+                                                          ? "RE-ATTEMPT ALLOWED"
+                                                          : "ALLOW RE-ATTEMPT"}
+                                                      </button>
+                                                    </div>
+                                                  </>
+                                                )}
+                                              </div>
+                                            ) : null}
+                                          </div>
+                                        );
+                                      }
+                                    )}
+                                  </div>
+                                ) : null}
+                              </div>
+                            );
+                          }
                         )}
                       </div>
                     ) : null}
@@ -1916,811 +2859,1076 @@ export default function TeacherQuizResultsPage() {
                 );
               })}
             </div>
-          </section>
-        ) : null}
-      </div>
+          )}
+        </section>
 
-      {selectedAttempt ? (
-        <div style={modalBackdropStyle}>
-          <div style={modalStyle}>
-            <div style={modalHeaderStyle}>
-              <div>
-                <div style={eyebrowStyle}>
-                  RESULT DETAILS
-                </div>
+        <section style={styles.currentQuizSection}>
+          <div style={styles.currentQuizHeader}>
+            <div>
+              <h2 style={styles.sectionTitle}>
+                Current Quiz Snapshot
+              </h2>
 
-                <h2 style={modalTitleStyle}>
-                  {selectedQuiz?.title ||
-                    "Quiz Result"}
-                </h2>
-
-                <p style={sectionHintStyle}>
-                  {selectedAttempt.student
-                    ?.student_name || "Student"}{" "}
-                  · Attempt{" "}
-                  {numberValue(
-                    selectedAttempt.result
-                      .attempt_number,
-                    1
-                  )}
-                </p>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  gap: 8,
-                  flexWrap: "wrap",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={printResult}
-                  style={primaryButtonStyle}
-                >
-                  PDF / Print
-                </button>
-
-                <button
-                  type="button"
-                  onClick={closeDetail}
-                  style={buttonStyle}
-                >
-                  Close
-                </button>
-              </div>
+              <p style={styles.sectionSub}>
+                Quick view of the quiz opened from the quiz
+                results page.
+              </p>
             </div>
 
-            {detailLoading ? (
-              <div style={inlineLoadingStyle}>
-                Loading full result...
-              </div>
-            ) : (
-              <>
-                <div style={resultHeaderGridStyle}>
-                  <div style={resultBoxStyle}>
-                    <span>Total Marks</span>
-                    <strong>
-                      {displayNumber(
-                        selectedAttempt.result
-                          .total_marks
-                      )}
-                    </strong>
-                  </div>
-
-                  <div style={resultBoxStyle}>
-                    <span>Obtained</span>
-                    <strong>
-                      {displayNumber(
-                        selectedAttempt.result
-                          .obtained_marks
-                      )}
-                    </strong>
-                  </div>
-
-                  <div style={resultBoxStyle}>
-                    <span>Percentage</span>
-                    <strong>
-                      {displayNumber(
-                        selectedAttempt.result
-                          .percentage
-                      )}
-                      %
-                    </strong>
-                  </div>
-
-                  <div style={resultBoxStyle}>
-                    <span>Result</span>
-                    <strong>
-                      {selectedAttempt.result
-                        .result_status || "—"}
-                    </strong>
-                  </div>
-
-                  <div style={resultBoxStyle}>
-                    <span>Correct</span>
-                    <strong>
-                      {numberValue(
-                        selectedAttempt.result
-                          .correct_answers
-                      )}
-                    </strong>
-                  </div>
-
-                  <div style={resultBoxStyle}>
-                    <span>Wrong</span>
-                    <strong>
-                      {numberValue(
-                        selectedAttempt.result
-                          .wrong_answers
-                      )}
-                    </strong>
-                  </div>
-
-                  <div style={resultBoxStyle}>
-                    <span>Unanswered</span>
-                    <strong>
-                      {numberValue(
-                        selectedAttempt.result
-                          .unanswered
-                      )}
-                    </strong>
-                  </div>
-
-                  <div style={resultBoxStyle}>
-                    <span>Submitted</span>
-                    <strong
-                      style={{
-                        fontSize: 12,
-                        lineHeight: 1.35,
-                      }}
-                    >
-                      {formatDateTime(
-                        selectedAttempt.result
-                          .submitted_at
-                      )}
-                    </strong>
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    marginTop: 20,
-                    fontWeight: 800,
-                    fontSize: 17,
-                  }}
-                >
-                  Question Performance
-                </div>
-
-                <div style={tableWrapStyle}>
-                  <table style={tableStyle}>
-                    <thead>
-                      <tr>
-                        <th style={thStyle}>
-                          #
-                        </th>
-                        <th style={thStyle}>
-                          Question
-                        </th>
-                        <th style={thStyle}>
-                          Student Answer
-                        </th>
-                        <th style={thStyle}>
-                          Correct Answer
-                        </th>
-                        <th style={thStyle}>
-                          Status
-                        </th>
-                        <th style={thStyle}>
-                          Marks
-                        </th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {questions.length === 0 ? (
-                        <tr>
-                          <td
-                            colSpan={6}
-                            style={
-                              emptyCellStyle
-                            }
-                          >
-                            No question data found.
-                          </td>
-                        </tr>
-                      ) : (
-                        questions.map(
-                          (question, index) => {
-                            const answer =
-                              selectedAttempt.answers.find(
-                                (item) =>
-                                  item.question_id ===
-                                  question.id
-                              );
-
-                            const selectedOption =
-                              options.find(
-                                (option) =>
-                                  option.id ===
-                                  answer?.selected_option_id
-                              );
-
-                            const correctOption =
-                              options.find(
-                                (option) =>
-                                  option.question_id ===
-                                    question.id &&
-                                  option.is_correct ===
-                                    true
-                              );
-
-                            const status =
-                              answer?.is_correct ===
-                              true
-                                ? "Correct"
-                                : answer
-                                      ? "Wrong"
-                                      : "Unanswered";
-
-                            return (
-                              <tr
-                                key={
-                                  question.id
-                                }
-                              >
-                                <td style={tdStyle}>
-                                  {index + 1}
-                                </td>
-
-                                <td
-                                  style={
-                                    questionCellStyle
-                                  }
-                                >
-                                  {
-                                    question.question_text
-                                  }
-                                </td>
-
-                                <td
-                                  style={
-                                    questionCellStyle
-                                  }
-                                >
-                                  {selectedOption
-                                    ?.option_text ||
-                                    "Not answered"}
-                                </td>
-
-                                <td
-                                  style={
-                                    questionCellStyle
-                                  }
-                                >
-                                  {correctOption
-                                    ?.option_text ||
-                                    "—"}
-                                </td>
-
-                                <td
-                                  style={
-                                    tdStyle
-                                  }
-                                >
-                                  <span
-                                    style={{
-                                      ...statusBadgeStyle,
-                                      background:
-                                        status ===
-                                        "Correct"
-                                          ? "#ecfdf5"
-                                          : status ===
-                                              "Wrong"
-                                            ? "#fef2f2"
-                                            : "#f9fafb",
-                                      color:
-                                        status ===
-                                        "Correct"
-                                          ? "#047857"
-                                          : status ===
-                                              "Wrong"
-                                            ? "#b91c1c"
-                                            : "#374151",
-                                    }}
-                                  >
-                                    {status}
-                                  </span>
-                                </td>
-
-                                <td
-                                  style={
-                                    tdStyle
-                                  }
-                                >
-                                  {displayNumber(
-                                    answer?.marks_obtained ??
-                                      0
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                          }
-                        )
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div style={detailInfoStyle}>
-                  <div>
-                    <strong>
-                      Quiz Date:
-                    </strong>{" "}
-                    {formatDate(
-                      selectedQuiz?.scheduled_date
-                    )}
-                  </div>
-
-                  <div>
-                    <strong>
-                      Attempt:
-                    </strong>{" "}
-                    {numberValue(
-                      selectedAttempt.result
-                        .attempt_number,
-                      1
-                    ) > 1
-                      ? `Reattempt #${
-                          numberValue(
-                            selectedAttempt
-                              .result
-                              .attempt_number,
-                            1
-                          ) - 1
-                        }`
-                      : "Original Attempt"}
-                  </div>
-
-                  <div>
-                    <strong>
-                      Started:
-                    </strong>{" "}
-                    {formatDateTime(
-                      selectedAttempt.result
-                        .started_at
-                    )}
-                  </div>
-
-                  <div>
-                    <strong>
-                      Submitted:
-                    </strong>{" "}
-                    {formatDateTime(
-                      selectedAttempt.result
-                        .submitted_at
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
+            <button
+              style={styles.pdfButton}
+              onClick={() =>
+                currentQuiz &&
+                downloadOverallPdf()
+              }
+            >
+              Download Report
+            </button>
           </div>
-        </div>
-      ) : null}
+
+          {currentQuiz ? (
+            <div style={styles.currentQuizGrid}>
+              <div style={styles.currentQuizInfo}>
+                <span>Quiz</span>
+                <strong>{currentQuiz.title}</strong>
+              </div>
+
+              <div style={styles.currentQuizInfo}>
+                <span>Subject</span>
+                <strong>
+                  {normalizeSubject(currentQuiz.subject)}
+                </strong>
+              </div>
+
+              <div style={styles.currentQuizInfo}>
+                <span>Date</span>
+                <strong>
+                  {formatDate(currentQuiz.scheduled_date)}
+                </strong>
+              </div>
+
+              <div style={styles.currentQuizInfo}>
+                <span>Classes</span>
+                <strong>
+                  {currentQuizClasses.join(", ") || "All"}
+                </strong>
+              </div>
+
+              <div style={styles.currentQuizInfo}>
+                <span>Submitted</span>
+                <strong>
+                  {currentQuizStats.submitted}
+                </strong>
+              </div>
+
+              <div style={styles.currentQuizInfo}>
+                <span>Not Submitted</span>
+                <strong>
+                  {currentQuizStats.notSubmitted}
+                </strong>
+              </div>
+
+              <div style={styles.currentQuizInfo}>
+                <span>Pass</span>
+                <strong>{currentQuizStats.pass}</strong>
+              </div>
+
+              <div style={styles.currentQuizInfo}>
+                <span>Fail</span>
+                <strong>{currentQuizStats.fail}</strong>
+              </div>
+            </div>
+          ) : null}
+        </section>
+
+        <footer style={styles.footer}>
+          <div style={styles.footerBrand}>
+            RACER ACADEMY
+          </div>
+
+          <div style={styles.footerText}>
+            Official Student Quiz Performance Record
+          </div>
+
+          <div style={styles.footerSignature}>
+            Racer Academy
+          </div>
+        </footer>
+      </div>
     </main>
   );
 }
 
-const pageStyle: React.CSSProperties = {
-  minHeight: "100vh",
-  background:
-    "linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%)",
-  padding: "20px",
-  color: "#111827",
-};
+export default function TeacherQuizResultsPage() {
+  return (
+    <Suspense
+      fallback={
+        <main style={styles.page}>
+          <div style={styles.loadingCard}>
+            <div style={styles.loaderCircle}>RA</div>
 
-const containerStyle: React.CSSProperties = {
-  maxWidth: 1600,
-  margin: "0 auto",
-};
+            <h2 style={styles.loadingTitle}>
+              Loading Quiz Results...
+            </h2>
 
-const headerStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-start",
-  gap: 16,
-  marginBottom: 18,
-};
+            <p style={styles.loadingText}>
+              RACER ACADEMY
+            </p>
+          </div>
+        </main>
+      }
+    >
+      <TeacherQuizResultsContent />
+    </Suspense>
+  );
+}
 
-const eyebrowStyle: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 800,
-  letterSpacing: 1.2,
-  color: "#6b7280",
-  marginBottom: 6,
-};
+const styles: Record<string, React.CSSProperties> = {
+  page: {
+    minHeight: "100vh",
+    background:
+      "linear-gradient(135deg, #f8fafc 0%, #eef2ff 48%, #f8fafc 100%)",
+    padding: "20px",
+    color: "#0f172a",
+  },
 
-const titleStyle: React.CSSProperties = {
-  margin: 0,
-  fontSize: 28,
-  lineHeight: 1.15,
-};
+  container: {
+    width: "100%",
+    maxWidth: "1500px",
+    margin: "0 auto",
+  },
 
-const modalTitleStyle: React.CSSProperties = {
-  margin: 0,
-  fontSize: 22,
-  lineHeight: 1.2,
-};
+  topHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "18px",
+    marginBottom: "18px",
+    flexWrap: "wrap",
+  },
 
-const subtitleStyle: React.CSSProperties = {
-  margin: "7px 0 0",
-  color: "#6b7280",
-  fontSize: 14,
-};
+  brandBlock: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+  },
 
-const panelStyle: React.CSSProperties = {
-  background: "#ffffff",
-  border: "1px solid #e5e7eb",
-  borderRadius: 16,
-  padding: 18,
-  marginBottom: 18,
-  boxShadow:
-    "0 10px 30px rgba(15, 23, 42, 0.05)",
-};
+  brandBadge: {
+    width: "48px",
+    height: "48px",
+    borderRadius: "15px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background:
+      "linear-gradient(135deg, #0f172a, #334155)",
+    color: "#ffffff",
+    fontWeight: 900,
+    fontSize: "16px",
+    boxShadow: "0 10px 24px rgba(15,23,42,0.18)",
+  },
 
-const sectionHeaderStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-start",
-  gap: 12,
-  marginBottom: 16,
-};
+  brandName: {
+    fontSize: "17px",
+    fontWeight: 950,
+    letterSpacing: "0.7px",
+  },
 
-const sectionTitleStyle: React.CSSProperties = {
-  margin: 0,
-  fontSize: 19,
-};
+  brandSub: {
+    marginTop: "3px",
+    fontSize: "12px",
+    color: "#64748b",
+    fontWeight: 700,
+  },
 
-const sectionHintStyle: React.CSSProperties = {
-  margin: "5px 0 0",
-  color: "#6b7280",
-  fontSize: 13,
-  lineHeight: 1.45,
-};
+  topActions: {
+    display: "flex",
+    gap: "8px",
+    flexWrap: "wrap",
+  },
 
-const countBadgeStyle: React.CSSProperties = {
-  background: "#f3f4f6",
-  color: "#374151",
-  borderRadius: 999,
-  padding: "7px 11px",
-  fontSize: 12,
-  fontWeight: 700,
-  whiteSpace: "nowrap",
-};
+  headerButton: {
+    border: "1px solid #cbd5e1",
+    background: "#ffffff",
+    color: "#0f172a",
+    padding: "10px 15px",
+    borderRadius: "11px",
+    fontWeight: 800,
+    cursor: "pointer",
+    boxShadow: "0 5px 14px rgba(15,23,42,0.06)",
+  },
 
-const controlGridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns:
-    "minmax(240px, 1.5fr) minmax(200px, 1fr) minmax(180px, .8fr)",
-  gap: 12,
-};
+  logoutButton: {
+    border: "1px solid #fecaca",
+    background: "#fff1f2",
+    color: "#be123c",
+    padding: "10px 15px",
+    borderRadius: "11px",
+    fontWeight: 900,
+    cursor: "pointer",
+  },
 
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  fontSize: 12,
-  fontWeight: 700,
-  color: "#374151",
-  marginBottom: 6,
-};
+  heroCard: {
+    background:
+      "linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #312e81 100%)",
+    borderRadius: "25px",
+    padding: "28px",
+    color: "#ffffff",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "stretch",
+    gap: "24px",
+    marginBottom: "18px",
+    boxShadow: "0 22px 55px rgba(15,23,42,0.18)",
+    flexWrap: "wrap",
+  },
 
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  minHeight: 42,
-  border: "1px solid #d1d5db",
-  borderRadius: 9,
-  padding: "0 12px",
-  fontSize: 14,
-  outline: "none",
-  background: "white",
-};
+  heroLeft: {
+    flex: "1 1 450px",
+    minWidth: 0,
+  },
 
-const selectStyle: React.CSSProperties = {
-  width: "100%",
-  minHeight: 42,
-  border: "1px solid #d1d5db",
-  borderRadius: 9,
-  padding: "0 12px",
-  fontSize: 14,
-  background: "white",
-};
+  heroEyebrow: {
+    fontSize: "11px",
+    fontWeight: 900,
+    letterSpacing: "1.5px",
+    opacity: 0.72,
+  },
 
-const buttonStyle: React.CSSProperties = {
-  minHeight: 40,
-  padding: "0 14px",
-  border: "1px solid #d1d5db",
-  borderRadius: 9,
-  background: "#ffffff",
-  color: "#111827",
-  fontWeight: 700,
-  cursor: "pointer",
-};
+  heroTitle: {
+    margin: "8px 0 8px",
+    fontSize: "34px",
+    lineHeight: 1.08,
+    fontWeight: 950,
+  },
 
-const primaryButtonStyle: React.CSSProperties = {
-  minHeight: 40,
-  padding: "0 14px",
-  border: "1px solid #111827",
-  borderRadius: 9,
-  background: "#111827",
-  color: "#ffffff",
-  fontWeight: 700,
-  cursor: "pointer",
-};
+  heroText: {
+    margin: 0,
+    maxWidth: "680px",
+    color: "#cbd5e1",
+    fontSize: "14px",
+    lineHeight: 1.65,
+  },
 
-const smallPrimaryButtonStyle: React.CSSProperties = {
-  border: "1px solid #2563eb",
-  borderRadius: 7,
-  background: "#eff6ff",
-  color: "#1d4ed8",
-  padding: "6px 8px",
-  fontSize: 11,
-  fontWeight: 800,
-  cursor: "pointer",
-};
+  heroQuizBox: {
+    minWidth: "290px",
+    maxWidth: "420px",
+    flex: "0 1 420px",
+    border: "1px solid rgba(255,255,255,0.16)",
+    background: "rgba(255,255,255,0.08)",
+    borderRadius: "20px",
+    padding: "20px",
+    alignSelf: "stretch",
+  },
 
-const smallDangerButtonStyle: React.CSSProperties = {
-  border: "1px solid #fecaca",
-  borderRadius: 7,
-  background: "#fef2f2",
-  color: "#b91c1c",
-  padding: "5px 8px",
-  fontSize: 11,
-  fontWeight: 800,
-  cursor: "pointer",
-};
+  heroQuizLabel: {
+    fontSize: "10px",
+    fontWeight: 900,
+    letterSpacing: "1.2px",
+    color: "#cbd5e1",
+  },
 
-const viewButtonStyle: React.CSSProperties = {
-  border: "1px solid #d1d5db",
-  borderRadius: 7,
-  background: "#f9fafb",
-  color: "#111827",
-  padding: "6px 10px",
-  fontSize: 12,
-  fontWeight: 800,
-  cursor: "pointer",
-};
+  heroQuizTitle: {
+    marginTop: "9px",
+    fontSize: "21px",
+    lineHeight: 1.25,
+    fontWeight: 900,
+  },
 
-const statsGridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns:
-    "repeat(4, minmax(140px, 1fr))",
-  gap: 10,
-  marginBottom: 16,
-};
+  heroQuizMeta: {
+    marginTop: "9px",
+    fontSize: "12px",
+    color: "#cbd5e1",
+  },
 
-const statCardStyle: React.CSSProperties = {
-  border: "1px solid #e5e7eb",
-  borderRadius: 12,
-  padding: 13,
-  background: "#fafafa",
-};
+  filtersCard: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "22px",
+    padding: "22px",
+    marginBottom: "18px",
+    boxShadow: "0 10px 30px rgba(15,23,42,0.06)",
+  },
 
-const statLabelStyle: React.CSSProperties = {
-  fontSize: 11,
-  color: "#6b7280",
-  fontWeight: 700,
-};
+  filterHeadingRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "15px",
+    marginBottom: "18px",
+    flexWrap: "wrap",
+  },
 
-const statValueStyle: React.CSSProperties = {
-  fontSize: 22,
-  fontWeight: 800,
-  marginTop: 3,
-};
+  sectionTitle: {
+    margin: 0,
+    fontSize: "21px",
+    fontWeight: 950,
+    color: "#0f172a",
+  },
 
-const tableWrapStyle: React.CSSProperties = {
-  width: "100%",
-  overflowX: "auto",
-  border: "1px solid #e5e7eb",
-  borderRadius: 12,
-};
+  sectionSub: {
+    margin: "5px 0 0",
+    color: "#64748b",
+    fontSize: "12px",
+    lineHeight: 1.5,
+  },
 
-const tableStyle: React.CSSProperties = {
-  width: "100%",
-  borderCollapse: "collapse",
-  minWidth: 1250,
-};
+  refreshButton: {
+    border: "1px solid #c7d2fe",
+    background: "#eef2ff",
+    color: "#3730a3",
+    padding: "10px 15px",
+    borderRadius: "11px",
+    fontWeight: 900,
+    cursor: "pointer",
+  },
 
-const thStyle: React.CSSProperties = {
-  background: "#f8fafc",
-  borderBottom: "1px solid #e5e7eb",
-  padding: "11px 9px",
-  textAlign: "left",
-  fontSize: 11,
-  fontWeight: 800,
-  color: "#475569",
-  whiteSpace: "nowrap",
-};
+  filtersGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(210px, 1fr))",
+    gap: "13px",
+  },
 
-const tdStyle: React.CSSProperties = {
-  borderBottom: "1px solid #eef2f7",
-  padding: "10px 9px",
-  fontSize: 12,
-  verticalAlign: "top",
-};
+  filterLabel: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "7px",
+    fontSize: "11px",
+    color: "#475569",
+    fontWeight: 900,
+  },
 
-const questionCellStyle: React.CSSProperties = {
-  ...tdStyle,
-  minWidth: 220,
-  maxWidth: 360,
-  whiteSpace: "normal",
-  lineHeight: 1.45,
-};
+  select: {
+    width: "100%",
+    height: "44px",
+    border: "1px solid #cbd5e1",
+    borderRadius: "11px",
+    padding: "0 12px",
+    background: "#ffffff",
+    color: "#0f172a",
+    fontWeight: 700,
+    outline: "none",
+  },
 
-const emptyCellStyle: React.CSSProperties = {
-  padding: 28,
-  textAlign: "center",
-  color: "#6b7280",
-  fontSize: 13,
-};
+  filterSummary: {
+    marginTop: "16px",
+    paddingTop: "14px",
+    borderTop: "1px solid #e2e8f0",
+    display: "flex",
+    gap: "20px",
+    flexWrap: "wrap",
+    color: "#64748b",
+    fontSize: "12px",
+  },
 
-const statusBadgeStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  borderRadius: 999,
-  padding: "5px 8px",
-  fontSize: 11,
-  fontWeight: 800,
-};
+  statsGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(150px, 1fr))",
+    gap: "11px",
+    marginBottom: "18px",
+  },
 
-const attemptBadgeStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  border: "1px solid",
-  borderRadius: 999,
-  padding: "5px 8px",
-  fontSize: 11,
-  fontWeight: 800,
-};
+  statCard: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "17px",
+    padding: "15px",
+    display: "flex",
+    alignItems: "center",
+    gap: "11px",
+    boxShadow: "0 8px 22px rgba(15,23,42,0.045)",
+  },
 
-const permissionBadgeStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  width: "fit-content",
-  borderRadius: 999,
-  background: "#ecfdf5",
-  color: "#047857",
-  border: "1px solid #a7f3d0",
-  padding: "5px 8px",
-  fontSize: 11,
-  fontWeight: 800,
-};
+  statIcon: {
+    width: "39px",
+    height: "39px",
+    borderRadius: "12px",
+    background: "#f1f5f9",
+    color: "#334155",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 950,
+    fontSize: "14px",
+  },
 
-const usedBadgeStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  width: "fit-content",
-  borderRadius: 999,
-  background: "#f3f4f6",
-  color: "#374151",
-  border: "1px solid #d1d5db",
-  padding: "5px 8px",
-  fontSize: 11,
-  fontWeight: 800,
-};
+  statNumber: {
+    fontSize: "22px",
+    fontWeight: 950,
+    lineHeight: 1,
+  },
 
-const noteStyle: React.CSSProperties = {
-  marginTop: 14,
-  padding: 12,
-  borderRadius: 10,
-  border: "1px solid #dbeafe",
-  background: "#eff6ff",
-  color: "#1e3a8a",
-  fontSize: 12,
-  lineHeight: 1.5,
-};
+  statLabel: {
+    marginTop: "4px",
+    color: "#64748b",
+    fontSize: "10px",
+    fontWeight: 800,
+  },
 
-const summaryGridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns:
-    "repeat(auto-fit, minmax(250px, 1fr))",
-  gap: 12,
-};
+  downloadBar: {
+    background:
+      "linear-gradient(135deg, #ffffff, #f8fafc)",
+    border: "1px solid #cbd5e1",
+    borderRadius: "19px",
+    padding: "17px 19px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "15px",
+    marginBottom: "18px",
+    flexWrap: "wrap",
+  },
 
-const studentCardStyle: React.CSSProperties = {
-  border: "1px solid #e5e7eb",
-  borderRadius: 13,
-  padding: 14,
-  background: "#ffffff",
-};
+  downloadTitle: {
+    fontSize: "16px",
+    fontWeight: 950,
+  },
 
-const miniStatStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: 8,
-  border: "1px solid #f1f5f9",
-  background: "#f8fafc",
-  borderRadius: 8,
-  padding: "7px 9px",
-  fontSize: 11,
-  color: "#64748b",
-};
+  downloadSub: {
+    marginTop: "4px",
+    color: "#64748b",
+    fontSize: "11px",
+  },
 
-const attemptRowButtonStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  width: "100%",
-  border: "1px solid #e5e7eb",
-  borderRadius: 8,
-  background: "#fafafa",
-  padding: "8px 10px",
-  fontSize: 12,
-  fontWeight: 700,
-  cursor: "pointer",
-};
+  pdfButton: {
+    border: "none",
+    background:
+      "linear-gradient(135deg, #0f172a, #312e81)",
+    color: "#ffffff",
+    padding: "12px 17px",
+    borderRadius: "11px",
+    fontWeight: 900,
+    cursor: "pointer",
+    boxShadow: "0 9px 22px rgba(49,46,129,0.18)",
+  },
 
-const loadingStyle: React.CSSProperties = {
-  minHeight: "70vh",
-  display: "grid",
-  placeItems: "center",
-  fontSize: 16,
-  color: "#4b5563",
-};
+  messageBox: {
+    marginBottom: "18px",
+    background: "#ecfdf5",
+    border: "1px solid #a7f3d0",
+    color: "#047857",
+    padding: "12px 15px",
+    borderRadius: "12px",
+    fontSize: "12px",
+    fontWeight: 800,
+  },
 
-const inlineLoadingStyle: React.CSSProperties = {
-  padding: 14,
-  textAlign: "center",
-  color: "#6b7280",
-  fontSize: 13,
-};
+  resultsSection: {
+    marginBottom: "18px",
+  },
 
-const errorStyle: React.CSSProperties = {
-  background: "#fef2f2",
-  border: "1px solid #fecaca",
-  color: "#991b1b",
-  borderRadius: 12,
-  padding: 12,
-  marginBottom: 16,
-  fontSize: 13,
-  lineHeight: 1.5,
-};
+  resultsHeader: {
+    marginBottom: "12px",
+  },
 
-const modalBackdropStyle: React.CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  background: "rgba(15, 23, 42, 0.58)",
-  zIndex: 9999,
-  padding: 16,
-  overflowY: "auto",
-};
+  dateList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+  },
 
-const modalStyle: React.CSSProperties = {
-  width: "min(1400px, 100%)",
-  margin: "0 auto",
-  background: "#ffffff",
-  borderRadius: 16,
-  minHeight: "calc(100vh - 32px)",
-  padding: 18,
-  boxShadow:
-    "0 25px 60px rgba(15, 23, 42, .25)",
-};
+  dateCard: {
+    background: "#ffffff",
+    border: "1px solid #dbe3ef",
+    borderRadius: "19px",
+    overflow: "hidden",
+    boxShadow: "0 9px 25px rgba(15,23,42,0.05)",
+  },
 
-const modalHeaderStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-start",
-  gap: 12,
-  paddingBottom: 14,
-  borderBottom: "1px solid #e5e7eb",
-};
+  dateButton: {
+    width: "100%",
+    border: "none",
+    background: "#ffffff",
+    padding: "17px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "15px",
+    cursor: "pointer",
+    textAlign: "left",
+  },
 
-const resultHeaderGridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns:
-    "repeat(4, minmax(140px, 1fr))",
-  gap: 10,
-  marginTop: 16,
-};
+  dateButtonLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: "13px",
+    minWidth: 0,
+  },
 
-const resultBoxStyle: React.CSSProperties = {
-  border: "1px solid #e5e7eb",
-  borderRadius: 10,
-  padding: 11,
-  background: "#fafafa",
-  display: "flex",
-  flexDirection: "column",
-  gap: 4,
-};
+  dateIcon: {
+    width: "47px",
+    height: "47px",
+    borderRadius: "14px",
+    background:
+      "linear-gradient(135deg, #0f172a, #4338ca)",
+    color: "#ffffff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 950,
+    flexShrink: 0,
+  },
 
-const detailInfoStyle: React.CSSProperties = {
-  marginTop: 16,
-  display: "grid",
-  gridTemplateColumns:
-    "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: 8,
-  border: "1px solid #e5e7eb",
-  borderRadius: 10,
-  padding: 12,
-  fontSize: 12,
-  color: "#374151",
+  dateLabel: {
+    fontSize: "9px",
+    color: "#64748b",
+    fontWeight: 950,
+    letterSpacing: "1px",
+  },
+
+  dateTitle: {
+    marginTop: "3px",
+    fontSize: "17px",
+    fontWeight: 950,
+    color: "#0f172a",
+  },
+
+  dateMeta: {
+    marginTop: "4px",
+    fontSize: "11px",
+    color: "#64748b",
+    fontWeight: 700,
+  },
+
+  chevron: {
+    width: "33px",
+    height: "33px",
+    borderRadius: "10px",
+    background: "#f1f5f9",
+    color: "#334155",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "21px",
+    fontWeight: 900,
+    flexShrink: 0,
+  },
+
+  classList: {
+    padding: "0 12px 12px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "9px",
+  },
+
+  classCard: {
+    border: "1px solid #e2e8f0",
+    borderRadius: "15px",
+    overflow: "hidden",
+    background: "#f8fafc",
+  },
+
+  classButton: {
+    width: "100%",
+    border: "none",
+    background: "#f8fafc",
+    padding: "13px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "12px",
+    cursor: "pointer",
+    textAlign: "left",
+  },
+
+  classButtonLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: "11px",
+    minWidth: 0,
+  },
+
+  classBadge: {
+    minWidth: "50px",
+    height: "36px",
+    padding: "0 10px",
+    borderRadius: "10px",
+    background: "#e0e7ff",
+    color: "#3730a3",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 950,
+    fontSize: "12px",
+  },
+
+  classTitle: {
+    fontWeight: 900,
+    fontSize: "14px",
+    color: "#0f172a",
+  },
+
+  classMeta: {
+    marginTop: "3px",
+    fontSize: "10px",
+    color: "#64748b",
+    fontWeight: 700,
+  },
+
+  studentList: {
+    padding: "0 10px 10px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "7px",
+  },
+
+  studentCard: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "13px",
+    overflow: "hidden",
+  },
+
+  studentTop: {
+    padding: "11px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "12px",
+  },
+
+  studentMainButton: {
+    flex: "1 1 auto",
+    minWidth: 0,
+    border: "none",
+    background: "transparent",
+    padding: 0,
+    display: "flex",
+    alignItems: "center",
+    gap: "11px",
+    cursor: "pointer",
+    textAlign: "left",
+  },
+
+  avatar: {
+    width: "40px",
+    height: "40px",
+    borderRadius: "12px",
+    background: "#f1f5f9",
+    color: "#334155",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 950,
+    flexShrink: 0,
+  },
+
+  studentIdentity: {
+    minWidth: 0,
+  },
+
+  studentName: {
+    fontSize: "14px",
+    fontWeight: 900,
+    color: "#0f172a",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+
+  studentUsername: {
+    marginTop: "3px",
+    fontSize: "10px",
+    color: "#64748b",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+
+  studentActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: "7px",
+    flexShrink: 0,
+  },
+
+  studentSummary: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-end",
+    minWidth: "65px",
+  },
+
+  summaryStatus: {
+    fontSize: "8px",
+    color: "#64748b",
+    fontWeight: 900,
+    marginTop: "2px",
+  },
+
+  noAttempt: {
+    fontSize: "8px",
+    color: "#dc2626",
+    fontWeight: 950,
+  },
+
+  pdfSmallButton: {
+    border: "1px solid #c7d2fe",
+    background: "#eef2ff",
+    color: "#3730a3",
+    padding: "8px 9px",
+    borderRadius: "9px",
+    fontSize: "9px",
+    fontWeight: 950,
+    cursor: "pointer",
+  },
+
+  expandButton: {
+    width: "31px",
+    height: "31px",
+    border: "none",
+    borderRadius: "9px",
+    background: "#f1f5f9",
+    color: "#334155",
+    fontSize: "18px",
+    fontWeight: 900,
+    cursor: "pointer",
+  },
+
+  studentDetails: {
+    borderTop: "1px solid #e2e8f0",
+    padding: "13px",
+    background: "#f8fafc",
+  },
+
+  detailGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(160px, 1fr))",
+    gap: "8px",
+    marginBottom: "11px",
+  },
+
+  detailBox: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "10px",
+    padding: "9px",
+  },
+
+  detailBoxSpan: {
+    fontSize: "9px",
+    color: "#64748b",
+  },
+
+  attemptList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "9px",
+  },
+
+  attemptCard: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "13px",
+    padding: "12px",
+  },
+
+  attemptHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: "12px",
+  },
+
+  attemptNumber: {
+    fontSize: "13px",
+    fontWeight: 950,
+    color: "#0f172a",
+  },
+
+  attemptTime: {
+    marginTop: "3px",
+    fontSize: "9px",
+    color: "#64748b",
+  },
+
+  statusPill: {
+    padding: "5px 9px",
+    borderRadius: "999px",
+    fontSize: "8px",
+    fontWeight: 950,
+  },
+
+  passPill: {
+    background: "#dcfce7",
+    color: "#15803d",
+  },
+
+  failPill: {
+    background: "#fee2e2",
+    color: "#b91c1c",
+  },
+
+  neutralPill: {
+    background: "#e2e8f0",
+    color: "#475569",
+  },
+
+  metricsGrid: {
+    marginTop: "11px",
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(90px, 1fr))",
+    gap: "7px",
+  },
+
+  metric: {
+    background: "#f8fafc",
+    border: "1px solid #e2e8f0",
+    borderRadius: "9px",
+    padding: "8px",
+  },
+
+  submissionInfo: {
+    marginTop: "9px",
+    fontSize: "9px",
+    color: "#64748b",
+    lineHeight: 1.55,
+  },
+
+  noResultBox: {
+    background: "#fff7ed",
+    border: "1px solid #fed7aa",
+    borderRadius: "12px",
+    padding: "13px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "12px",
+    flexWrap: "wrap",
+  },
+
+  reattemptPanel: {
+    marginTop: "10px",
+    background: "#eef2ff",
+    border: "1px solid #c7d2fe",
+    borderRadius: "12px",
+    padding: "12px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "12px",
+    flexWrap: "wrap",
+  },
+
+  reattemptButton: {
+    border: "none",
+    background: "#4338ca",
+    color: "#ffffff",
+    padding: "9px 12px",
+    borderRadius: "9px",
+    fontSize: "9px",
+    fontWeight: 950,
+    cursor: "pointer",
+  },
+
+  allowedButton: {
+    border: "1px solid #86efac",
+    background: "#dcfce7",
+    color: "#15803d",
+    padding: "9px 12px",
+    borderRadius: "9px",
+    fontSize: "9px",
+    fontWeight: 950,
+  },
+
+  currentQuizSection: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "20px",
+    padding: "20px",
+    marginBottom: "20px",
+  },
+
+  currentQuizHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "15px",
+    marginBottom: "15px",
+    flexWrap: "wrap",
+  },
+
+  currentQuizGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(150px, 1fr))",
+    gap: "9px",
+  },
+
+  currentQuizInfo: {
+    border: "1px solid #e2e8f0",
+    background: "#f8fafc",
+    borderRadius: "11px",
+    padding: "11px",
+  },
+
+  footer: {
+    background: "#0f172a",
+    color: "#ffffff",
+    borderRadius: "18px",
+    padding: "18px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "15px",
+    flexWrap: "wrap",
+  },
+
+  footerBrand: {
+    fontWeight: 950,
+    letterSpacing: "1px",
+    fontSize: "13px",
+  },
+
+  footerText: {
+    fontSize: "10px",
+    color: "#cbd5e1",
+  },
+
+  footerSignature: {
+    fontFamily: "cursive",
+    fontStyle: "italic",
+    fontSize: "17px",
+    transform: "rotate(-5deg)",
+  },
+
+  loadingCard: {
+    maxWidth: "500px",
+    margin: "12vh auto",
+    background: "#ffffff",
+    borderRadius: "24px",
+    padding: "38px",
+    textAlign: "center",
+    boxShadow: "0 25px 60px rgba(15,23,42,0.12)",
+    border: "1px solid #e2e8f0",
+  },
+
+  loaderCircle: {
+    width: "65px",
+    height: "65px",
+    borderRadius: "20px",
+    margin: "0 auto 18px",
+    background:
+      "linear-gradient(135deg, #0f172a, #4338ca)",
+    color: "#ffffff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 950,
+    fontSize: "20px",
+  },
+
+  loadingTitle: {
+    margin: 0,
+    fontSize: "21px",
+    fontWeight: 950,
+  },
+
+  loadingText: {
+    color: "#64748b",
+    fontSize: "12px",
+    marginTop: "8px",
+  },
+
+  errorCard: {
+    maxWidth: "600px",
+    margin: "12vh auto",
+    background: "#ffffff",
+    borderRadius: "24px",
+    padding: "35px",
+    textAlign: "center",
+    boxShadow: "0 25px 60px rgba(15,23,42,0.12)",
+    border: "1px solid #fecaca",
+  },
+
+  errorIcon: {
+    width: "55px",
+    height: "55px",
+    margin: "0 auto 15px",
+    borderRadius: "50%",
+    background: "#fee2e2",
+    color: "#dc2626",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "25px",
+    fontWeight: 950,
+  },
+
+  errorTitle: {
+    margin: 0,
+    fontSize: "21px",
+    fontWeight: 950,
+  },
+
+  errorText: {
+    color: "#64748b",
+    fontSize: "12px",
+    lineHeight: 1.6,
+    margin: "10px 0 20px",
+  },
+
+  actionRow: {
+    display: "flex",
+    justifyContent: "center",
+    gap: "9px",
+    flexWrap: "wrap",
+  },
+
+  primaryButton: {
+    border: "none",
+    background: "#0f172a",
+    color: "#ffffff",
+    padding: "11px 16px",
+    borderRadius: "10px",
+    fontWeight: 900,
+    cursor: "pointer",
+  },
+
+  secondaryButton: {
+    border: "1px solid #cbd5e1",
+    background: "#ffffff",
+    color: "#0f172a",
+    padding: "11px 16px",
+    borderRadius: "10px",
+    fontWeight: 900,
+    cursor: "pointer",
+  },
+
+  emptyCard: {
+    background: "#ffffff",
+    border: "1px dashed #cbd5e1",
+    borderRadius: "20px",
+    padding: "45px 20px",
+    textAlign: "center",
+  },
+
+  emptyIcon: {
+    width: "52px",
+    height: "52px",
+    borderRadius: "16px",
+    background: "#f1f5f9",
+    color: "#475569",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    margin: "0 auto 13px",
+    fontWeight: 950,
+  },
+
+  emptyTitle: {
+    margin: 0,
+    fontSize: "18px",
+    fontWeight: 950,
+  },
+
+  emptyText: {
+    margin: "6px 0 0",
+    color: "#64748b",
+    fontSize: "12px",
+  },
 };
