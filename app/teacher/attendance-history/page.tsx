@@ -304,7 +304,7 @@ export default function AttendanceHistoryPage() {
             </div>
 
             <h1 style={styles.title}>
-              ðŸ“… Attendance History
+               Attendance History
             </h1>
 
             <p style={styles.subtitle}>
@@ -319,7 +319,7 @@ export default function AttendanceHistoryPage() {
             }
             style={styles.backButton}
           >
-            â† Back
+             Back
           </button>
         </header>
 
@@ -327,7 +327,7 @@ export default function AttendanceHistoryPage() {
 
         {successMessage && (
           <div style={styles.successBox}>
-            âœ… {successMessage}
+             {successMessage}
           </div>
         )}
 
@@ -335,7 +335,7 @@ export default function AttendanceHistoryPage() {
 
         <section style={styles.filterCard}>
           <div style={styles.filterTitle}>
-            ðŸ”Ž Search Attendance
+             Search Attendance
           </div>
 
           <div style={styles.filterGrid}>
@@ -396,7 +396,7 @@ export default function AttendanceHistoryPage() {
                 onClick={clearFilters}
                 style={styles.clearButton}
               >
-                âœ• Clear Filters
+                 Clear Filters
               </button>
             </div>
 
@@ -414,7 +414,7 @@ export default function AttendanceHistoryPage() {
                 background: "#dbeafe",
               }}
             >
-              ðŸ‘¨â€ðŸŽ“
+              
             </div>
 
             <div>
@@ -439,7 +439,7 @@ export default function AttendanceHistoryPage() {
                 background: "#dcfce7",
               }}
             >
-              âœ“
+              
             </div>
 
             <div>
@@ -469,7 +469,7 @@ export default function AttendanceHistoryPage() {
                 background: "#fee2e2",
               }}
             >
-              âœ•
+              
             </div>
 
             <div>
@@ -498,7 +498,7 @@ export default function AttendanceHistoryPage() {
 
         {errorMessage && (
           <div style={styles.errorBox}>
-            âš ï¸ {errorMessage}
+             {errorMessage}
           </div>
         )}
 
@@ -509,7 +509,7 @@ export default function AttendanceHistoryPage() {
           <div style={styles.historyHeader}>
             <div>
               <h2 style={styles.historyTitle}>
-                ðŸ“‹ Attendance Records
+                 Attendance Records
               </h2>
 
               <p style={styles.historySubtitle}>
@@ -525,14 +525,14 @@ export default function AttendanceHistoryPage() {
               onClick={loadData}
               style={styles.refreshButton}
             >
-              ðŸ”„ Refresh
+               Refresh
             </button>
           </div>
 
           {loading ? (
             <div style={styles.loadingBox}>
               <div style={styles.loadingIcon}>
-                â³
+                
               </div>
 
               <h3 style={styles.loadingTitle}>
@@ -547,7 +547,7 @@ export default function AttendanceHistoryPage() {
           ) : historyRows.length === 0 ? (
             <div style={styles.emptyBox}>
               <div style={styles.emptyIcon}>
-                ðŸ“­
+                
               </div>
 
               <h3 style={styles.emptyTitle}>
@@ -676,7 +676,7 @@ export default function AttendanceHistoryPage() {
                                   styles.presentBadge
                                 }
                               >
-                                âœ“ Present
+                                 Present
                               </span>
                             ) : (
                               <span
@@ -684,7 +684,7 @@ export default function AttendanceHistoryPage() {
                                   styles.absentBadge
                                 }
                               >
-                                âœ• Absent
+                                 Absent
                               </span>
                             )}
                           </td>
@@ -716,8 +716,8 @@ export default function AttendanceHistoryPage() {
                               }}
                             >
                               {isDeleting
-                                ? "â³ Deleting..."
-                                : "ðŸ—‘ï¸ Delete"}
+                                ? " Deleting..."
+                                : " Delete"}
                             </button>
                           </td>
                         </tr>
@@ -734,7 +734,7 @@ export default function AttendanceHistoryPage() {
 
         <section style={styles.deleteInfoCard}>
           <div style={styles.deleteInfoIcon}>
-            ðŸ—‘ï¸
+            
           </div>
 
           <div>
@@ -752,7 +752,7 @@ export default function AttendanceHistoryPage() {
             </p>
 
             <p style={styles.deleteWarning}>
-              âš ï¸ Delete karne ke baad attendance
+               Delete karne ke baad attendance
               record permanently remove ho jayega.
             </p>
           </div>
@@ -761,8 +761,8 @@ export default function AttendanceHistoryPage() {
         {/* FOOTER */}
 
         <footer style={styles.footer}>
-          Attendance Portal â€¢ Teacher Attendance
-          History â€¢ 2026
+          Attendance Portal  Teacher Attendance
+          History  2026
         </footer>
 
       </div>
@@ -1215,4 +1215,6 @@ const styles: {
     fontWeight: "700",
   },
 };
+
+
 

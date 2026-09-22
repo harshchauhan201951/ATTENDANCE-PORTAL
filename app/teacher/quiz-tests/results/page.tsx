@@ -1659,7 +1659,7 @@ function TeacherQuizResultsContent() {
     drawAcademyHeader(
       pdf,
       "INDIVIDUAL QUIZ RESULT",
-      `${quiz.title} â€¢ ${formatDateLong(quiz.scheduled_date)}`
+      `${quiz.title}  ${formatDateLong(quiz.scheduled_date)}`
     );
 
     let y = 64;
@@ -1732,7 +1732,7 @@ function TeacherQuizResultsContent() {
         drawAcademyHeader(
           pdf,
           "INDIVIDUAL QUIZ RESULT",
-          `${quiz.title} â€¢ Continued`
+          `${quiz.title}  Continued`
         );
 
         y = 64;
@@ -1885,11 +1885,11 @@ function TeacherQuizResultsContent() {
           selectedDate === "ALL"
             ? "All Dates"
             : formatDate(selectedDate)
-        } â€¢ ${
+        }  ${
           selectedSubject === "ALL"
             ? "All Subjects"
             : selectedSubject
-        } â€¢ ${
+        }  ${
           selectedClass === "ALL"
             ? "All Classes"
             : selectedClass
@@ -2128,7 +2128,7 @@ function TeacherQuizResultsContent() {
               style={styles.secondaryButton}
               onClick={goBack}
             >
-              â† Back
+               Back
             </button>
 
             <button
@@ -2166,7 +2166,7 @@ function TeacherQuizResultsContent() {
               style={styles.headerButton}
               onClick={goBack}
             >
-              â† Back
+               Back
             </button>
 
             <button
@@ -2214,7 +2214,7 @@ function TeacherQuizResultsContent() {
               {normalizeSubject(
                 currentQuiz?.subject || null
               )}
-              {" â€¢ "}
+              {"  "}
               {formatDate(
                 currentQuiz?.scheduled_date || null
               )}
@@ -2241,7 +2241,7 @@ function TeacherQuizResultsContent() {
             >
               {filterLoading
                 ? "Working..."
-                : "â†» Refresh"}
+                : " Refresh"}
             </button>
           </div>
 
@@ -2407,7 +2407,7 @@ function TeacherQuizResultsContent() {
           </div>
 
           <div style={styles.statCard}>
-            <div style={styles.statIcon}>âœ“</div>
+            <div style={styles.statIcon}></div>
 
             <div>
               <div style={styles.statNumber}>
@@ -2524,7 +2524,7 @@ function TeacherQuizResultsContent() {
           <div style={styles.resultsHeader}>
             <div>
               <h2 style={styles.sectionTitle}>
-                Datewise â†’ Classwise â†’ Studentwise
+                Datewise  Classwise  Studentwise
               </h2>
 
               <p style={styles.sectionSub}>
@@ -2623,7 +2623,7 @@ function TeacherQuizResultsContent() {
                             >
                               {dateRows.length}{" "}
                               student entries
-                              {" â€¢ "}
+                              {"  "}
                               {dateSubmitted}{" "}
                               submitted
                             </div>
@@ -2634,7 +2634,7 @@ function TeacherQuizResultsContent() {
                           style={styles.chevron}
                         >
                           {dateOpen
-                            ? "âˆ’"
+                            ? ""
                             : "+"}
                         </div>
                       </button>
@@ -2766,14 +2766,14 @@ function TeacherQuizResultsContent() {
                                             .length
                                         }{" "}
                                         students
-                                        {" â€¢ "}
+                                        {"  "}
                                         {
                                           submittedCount
                                         }{" "}
                                         submitted
-                                        {" â€¢ "}
+                                        {"  "}
                                         {passCount} pass
-                                        {" â€¢ "}
+                                        {"  "}
                                         {failCount} fail
                                       </div>
                                     </div>
@@ -2785,7 +2785,7 @@ function TeacherQuizResultsContent() {
                                     }
                                   >
                                     {classOpen
-                                      ? "âˆ’"
+                                      ? ""
                                       : "+"}
                                   </div>
                                 </button>
@@ -2892,7 +2892,7 @@ function TeacherQuizResultsContent() {
                                                       .student
                                                       .student_username ||
                                                       "Username not available"}
-                                                    {" â€¢ "}
+                                                    {"  "}
                                                     {normalizeSubject(
                                                       row
                                                         .quiz
@@ -2987,7 +2987,7 @@ function TeacherQuizResultsContent() {
                                                   }
                                                 >
                                                   {studentOpen
-                                                    ? "âˆ’"
+                                                    ? ""
                                                     : "+"}
                                                 </button>
                                               </div>
@@ -3294,12 +3294,12 @@ function TeacherQuizResultsContent() {
                                                                 {result.submission_type ||
                                                                   "Normal"}
                                                               </strong>
-                                                              {" â€¢ "}
+                                                              {"  "}
                                                               Started:{" "}
                                                               {formatDateTime(
                                                                 result.started_at
                                                               )}
-                                                              {" â€¢ "}
+                                                              {"  "}
                                                               Created:{" "}
                                                               {formatDateTime(
                                                                 result.created_at
@@ -4530,5 +4530,7 @@ const styles: Record<
     fontSize: "12px",
   },
 };
+
+
 
 

@@ -285,7 +285,7 @@ export default function TeacherAttendancePage() {
       });
 
       setMessage(
-        `âœ… All ${students.length} students marked ${status} successfully.`
+        ` All ${students.length} students marked ${status} successfully.`
       );
     } catch (error) {
       setMessage(
@@ -344,7 +344,7 @@ export default function TeacherAttendancePage() {
       );
 
       setMessage(
-        `ðŸ—‘ï¸ All attendance for ${formatDate(
+        ` All attendance for ${formatDate(
           selectedDate
         )} deleted successfully.`
       );
@@ -436,7 +436,7 @@ export default function TeacherAttendancePage() {
       <main style={styles.page}>
         <div style={styles.loadingCard}>
           <div style={styles.loadingIcon}>
-            â³
+            
           </div>
 
           <h2 style={styles.loadingTitle}>
@@ -462,7 +462,7 @@ export default function TeacherAttendancePage() {
             </div>
 
             <h1 style={styles.title}>
-              ðŸ“‹ Attendance Management
+               Attendance Management
             </h1>
 
             <p style={styles.subtitle}>
@@ -476,7 +476,7 @@ export default function TeacherAttendancePage() {
             disabled={saving}
             style={styles.refreshButton}
           >
-            ðŸ”„ Refresh
+             Refresh
           </button>
         </header>
 
@@ -490,8 +490,8 @@ export default function TeacherAttendancePage() {
           >
             <strong>
               {message.includes("successfully")
-                ? "âœ… "
-                : "âŒ "}
+                ? " "
+                : " "}
             </strong>
             {message}
           </div>
@@ -499,28 +499,28 @@ export default function TeacherAttendancePage() {
 
         <section style={styles.statsGrid}>
           <Stat
-            icon="ðŸ‘¨â€ðŸŽ“"
+            icon=""
             title="Total Students"
             value={String(totalStudents)}
             background="linear-gradient(135deg,#2563eb,#1e40af)"
           />
 
           <Stat
-            icon="âœ…"
+            icon=""
             title="Present Today"
             value={String(presentToday)}
             background="linear-gradient(135deg,#16a34a,#166534)"
           />
 
           <Stat
-            icon="âŒ"
+            icon=""
             title="Absent Today"
             value={String(absentToday)}
             background="linear-gradient(135deg,#dc2626,#991b1b)"
           />
 
           <Stat
-            icon="â³"
+            icon=""
             title="Pending"
             value={String(pendingToday)}
             background="linear-gradient(135deg,#f59e0b,#b45309)"
@@ -530,7 +530,7 @@ export default function TeacherAttendancePage() {
         <section style={styles.controlCard}>
           <div style={styles.controlBox}>
             <label style={styles.label}>
-              ðŸ“… Attendance Date
+               Attendance Date
             </label>
 
             <input
@@ -545,7 +545,7 @@ export default function TeacherAttendancePage() {
 
           <div style={styles.controlBox}>
             <label style={styles.label}>
-              ðŸ”Ž Search Student
+               Search Student
             </label>
 
             <input
@@ -565,7 +565,7 @@ export default function TeacherAttendancePage() {
         <section style={styles.actionCard}>
           <div>
             <h2 style={styles.actionTitle}>
-              âš¡ Quick Attendance Actions
+               Quick Attendance Actions
             </h2>
 
             <p style={styles.actionSubtitle}>
@@ -592,7 +592,7 @@ export default function TeacherAttendancePage() {
                     : 1,
               }}
             >
-              âœ“ Mark All Present
+               Mark All Present
             </button>
 
             <button
@@ -608,7 +608,7 @@ export default function TeacherAttendancePage() {
                     : 1,
               }}
             >
-              âœ• Mark All Absent
+               Mark All Absent
             </button>
 
             <button
@@ -626,7 +626,7 @@ export default function TeacherAttendancePage() {
                     : 1,
               }}
             >
-              ðŸ—‘ï¸ Delete Attendance
+               Delete Attendance
             </button>
           </div>
         </section>
@@ -635,7 +635,7 @@ export default function TeacherAttendancePage() {
           <div style={styles.sectionHeader}>
             <div>
               <h2 style={styles.sectionTitle}>
-                ðŸ‘¨â€ðŸŽ“ Students Attendance
+                 Students Attendance
               </h2>
 
               <p style={styles.sectionSubtitle}>
@@ -654,7 +654,7 @@ export default function TeacherAttendancePage() {
           {filteredStudents.length === 0 ? (
             <div style={styles.empty}>
               <div style={styles.emptyIcon}>
-                ðŸ”
+                
               </div>
 
               <h3 style={styles.emptyTitle}>
@@ -742,7 +742,7 @@ export default function TeacherAttendancePage() {
                               styles.statText
                             }
                           >
-                            ðŸ“š {stats.total} Classes
+                             {stats.total} Classes
                           </span>
 
                           <span
@@ -750,7 +750,7 @@ export default function TeacherAttendancePage() {
                               styles.presentText
                             }
                           >
-                            âœ… {stats.present} Present
+                             {stats.present} Present
                           </span>
 
                           <span
@@ -758,7 +758,7 @@ export default function TeacherAttendancePage() {
                               styles.absentText
                             }
                           >
-                            âŒ {stats.absent} Absent
+                             {stats.absent} Absent
                           </span>
 
                           <span
@@ -766,7 +766,7 @@ export default function TeacherAttendancePage() {
                               styles.percentText
                             }
                           >
-                            ðŸ“Š {stats.percentage}%
+                             {stats.percentage}%
                           </span>
                         </div>
                       </div>
@@ -787,8 +787,8 @@ export default function TeacherAttendancePage() {
                           >
                             {status ===
                             "present"
-                              ? "âœ“ PRESENT"
-                              : "âœ• ABSENT"}
+                              ? " PRESENT"
+                              : " ABSENT"}
                           </div>
                         )}
 
@@ -819,7 +819,7 @@ export default function TeacherAttendancePage() {
                                 "2px solid #15803d",
                             }}
                           >
-                            âœ“ Present
+                             Present
                           </button>
 
                           <button
@@ -846,7 +846,7 @@ export default function TeacherAttendancePage() {
                                 "2px solid #b91c1c",
                             }}
                           >
-                            âœ• Absent
+                             Absent
                           </button>
                         </div>
                       </div>
@@ -862,7 +862,7 @@ export default function TeacherAttendancePage() {
           <div style={styles.sectionHeader}>
             <div>
               <h2 style={styles.sectionTitle}>
-                ðŸ“œ Attendance History
+                 Attendance History
               </h2>
 
               <p style={styles.sectionSubtitle}>
@@ -883,7 +883,7 @@ export default function TeacherAttendancePage() {
           {history.length === 0 ? (
             <div style={styles.empty}>
               <div style={styles.emptyIcon}>
-                ðŸ“…
+                
               </div>
 
               <h3 style={styles.emptyTitle}>
@@ -964,8 +964,8 @@ export default function TeacherAttendancePage() {
                               }
                             >
                               {isPresent
-                                ? "âœ“ PRESENT"
-                                : "âœ• ABSENT"}
+                                ? " PRESENT"
+                                : " ABSENT"}
                             </span>
                           </td>
                         </tr>
@@ -979,8 +979,8 @@ export default function TeacherAttendancePage() {
         </section>
 
         <footer style={styles.footer}>
-          <strong>Attendance Portal</strong> â€¢
-          Teacher Management Center â€¢ 2026
+          <strong>Attendance Portal</strong> 
+          Teacher Management Center  2026
         </footer>
       </div>
     </main>
@@ -1567,6 +1567,7 @@ const styles: {
     fontWeight: "600",
   },
 };
+
 
 
 
