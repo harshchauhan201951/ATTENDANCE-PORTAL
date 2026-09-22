@@ -219,13 +219,27 @@ function ResultsContent() {
     useState("");
 
   useEffect(() => {
-    loadPage();
+  getStudent()
   }, [
     quizIdParam,
     resultIdParam,
   ]);
 
-  async function getStudent() {
+    async function getStudent() {
+    /*
+     * IMPORTANT:
+     * Always prefer the CURRENT logged-in student's username.
+     * Old/stale student IDs must never override the current login.
+     */
+
+    const storedUsername =
+      localStorage.getItem(
+        "student_username"
+      ) ||
+      localStorage.getItem(
+        "studentUsername"
+      );
+
     const storedId =
       localStorage.getItem(
         "attendance_student_id"
@@ -237,80 +251,18 @@ function ResultsContent() {
         "student_id"
       );
 
-    const storedUsername =
-      localStorage.getItem(
-        "student_username"
-      ) ||
-      localStorage.getItem(
-        "studentUsername"
-      );
-
     let studentId: number | null =
       null;
 
-    let name =
-      localStorage.getItem(
-        "attendance_student_name"
-      ) ||
-      localStorage.getItem(
-        "studentName"
-      ) ||
-      localStorage.getItem(
-        "student_name"
-      ) ||
-      "";
-
+    let name = "";
     let className = "";
 
-    const parsedId =
-      Number(storedId);
-
-    if (
-      Number.isFinite(parsedId) &&
-      parsedId > 0
-    ) {
-      studentId = parsedId;
-    }
-
-    if (studentId) {
-      const {
-        data,
-        error: studentError,
-      } = await supabase
-        .from("students")
-        .select(
-          "id,student_name,student_username,class_name"
-        )
-        .eq("id", studentId)
-        .maybeSingle();
-
-      if (studentError) {
-        console.error(
-          "Student ID lookup error:",
-          studentError
-        );
-      }
-
-      if (data) {
-        studentId =
-          Number(data.id);
-
-        name =
-          data.student_name ||
-          name;
-
-        className =
-          normalizeClass(
-            data.class_name
-          );
-      }
-    }
-
-    if (
-      (!studentId ||
-        !className) &&
-      storedUsername
-    ) {
+    /*
+     * ---------------------------------------------------------
+     * 1. AUTHORITATIVE LOOKUP BY CURRENT USERNAME
+     * ---------------------------------------------------------
+     */
+    if (storedUsername) {
       const {
         data,
         error: usernameError,
@@ -321,7 +273,7 @@ function ResultsContent() {
         )
         .eq(
           "student_username",
-          storedUsername
+          storedUsername.trim()
         )
         .maybeSingle();
 
@@ -338,15 +290,155 @@ function ResultsContent() {
 
         name =
           data.student_name ||
-          name;
+          "";
 
         className =
           normalizeClass(
             data.class_name
           );
+
+        /*
+         * Repair localStorage so every student page uses
+         * the same authoritative student identity.
+         */
+        localStorage.setItem(
+          "attendance_student_id",
+          String(data.id)
+        );
+
+        localStorage.setItem(
+          "studentId",
+          String(data.id)
+        );
+
+        localStorage.setItem(
+          "student_id",
+          String(data.id)
+        );
+
+        localStorage.setItem(
+          "student_username",
+          data.student_username ||
+            storedUsername.trim()
+        );
+
+        localStorage.setItem(
+          "studentName",
+          data.student_name ||
+            ""
+        );
+
+        localStorage.setItem(
+          "student_name",
+          data.student_name ||
+            ""
+        );
+
+        localStorage.setItem(
+          "attendance_student_name",
+          data.student_name ||
+            ""
+        );
       }
     }
 
+    /*
+     * ---------------------------------------------------------
+     * 2. ID FALLBACK ONLY IF USERNAME LOOKUP FAILED
+     * ---------------------------------------------------------
+     */
+    if (!studentId) {
+      const parsedId =
+        Number(storedId);
+
+      if (
+        Number.isFinite(parsedId) &&
+        parsedId > 0
+      ) {
+        const {
+          data,
+          error: studentError,
+        } = await supabase
+          .from("students")
+          .select(
+            "id,student_name,student_username,class_name"
+          )
+          .eq(
+            "id",
+            parsedId
+          )
+          .maybeSingle();
+
+        if (studentError) {
+          console.error(
+            "Student ID lookup error:",
+            studentError
+          );
+        }
+
+        if (data) {
+          studentId =
+            Number(data.id);
+
+          name =
+            data.student_name ||
+            "";
+
+          className =
+            normalizeClass(
+              data.class_name
+            );
+
+          if (
+            data.student_username
+          ) {
+            localStorage.setItem(
+              "student_username",
+              data.student_username
+            );
+          }
+
+          localStorage.setItem(
+            "attendance_student_id",
+            String(data.id)
+          );
+
+          localStorage.setItem(
+            "studentId",
+            String(data.id)
+          );
+
+          localStorage.setItem(
+            "student_id",
+            String(data.id)
+          );
+
+          localStorage.setItem(
+            "studentName",
+            data.student_name ||
+              ""
+          );
+
+          localStorage.setItem(
+            "student_name",
+            data.student_name ||
+              ""
+          );
+
+          localStorage.setItem(
+            "attendance_student_name",
+            data.student_name ||
+              ""
+          );
+        }
+      }
+    }
+
+    /*
+     * ---------------------------------------------------------
+     * 3. NEVER USE A STALE LOCAL NAME AS STUDENT IDENTITY
+     * ---------------------------------------------------------
+     */
     if (!studentId) {
       throw new Error(
         "Student login information not found. Please login again."
@@ -359,54 +451,6 @@ function ResultsContent() {
       className,
     };
   }
-
-  async function loadPage() {
-    setLoading(true);
-    setError("");
-
-    try {
-      const student =
-        await getStudent();
-
-      setStudentName(
-        student.name
-      );
-
-      setStudentClass(
-        student.className
-      );
-
-      if (isDetail) {
-        await loadSingleResult(
-          student.id,
-          parsedQuizId,
-          Number.isFinite(parsedResultId) &&
-            parsedResultId > 0
-            ? parsedResultId
-            : null
-        );
-      } else {
-        await loadAllResults(
-          student.id,
-          student.className
-        );
-      }
-    } catch (loadError) {
-      console.error(
-        "Results page error:",
-        loadError
-      );
-
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "Unable to load results."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
   async function loadAllResults(
     studentId: number,
     currentClass: string
@@ -1493,3 +1537,4 @@ export default function StudentQuizResultsPage() {
     </Suspense>
   );
 }
+
