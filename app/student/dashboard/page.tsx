@@ -780,7 +780,7 @@ export default function StudentDashboardPage() {
   const cards: DashboardCard[] =
     [
       {
-        icon: "ðŸ“Š",
+        icon: "",
         title: "My Attendance",
         description:
           "View your current attendance and attendance percentage.",
@@ -788,7 +788,7 @@ export default function StudentDashboardPage() {
         className: "blue",
       },
       {
-        icon: "ðŸ“œ",
+        icon: "",
         title: "Attendance History",
         description:
           "Check your previous attendance records and details.",
@@ -796,7 +796,7 @@ export default function StudentDashboardPage() {
         className: "purple",
       },
       {
-        icon: "ðŸ“…",
+        icon: "",
         title: "Academic Calendar",
         description:
           "View important academic dates and calendar information.",
@@ -804,7 +804,7 @@ export default function StudentDashboardPage() {
         className: "green",
       },
       {
-        icon: "ðŸ“ˆ",
+        icon: "",
         title: "Reports",
         description:
           "View your attendance reports and performance details.",
@@ -812,7 +812,7 @@ export default function StudentDashboardPage() {
         className: "orange",
       },
       {
-        icon: "ðŸ’°",
+        icon: "",
         title: "Fees",
         description:
           "Check your student fee information and payment details.",
@@ -820,7 +820,7 @@ export default function StudentDashboardPage() {
         className: "pink",
       },
       {
-        icon: "ðŸ“š",
+        icon: "",
         title: "Homework",
         description:
           "View homework assigned to your class by your teacher.",
@@ -828,7 +828,7 @@ export default function StudentDashboardPage() {
         className: "indigo",
       },
       {
-        icon: "âš™ï¸",
+        icon: "",
         title: "Settings",
         description:
           "Manage your account, name and password.",
@@ -836,7 +836,7 @@ export default function StudentDashboardPage() {
         className: "cyan",
       },
       {
-        icon: "ðŸ§ ",
+        icon: "",
         title: "QUIZ TESTS",
         description:
           "Attempt scheduled quizzes, view your scores and quiz history.",
@@ -1343,7 +1343,7 @@ export default function StudentDashboardPage() {
                 className="student-brand-icon"
                 style={styles.brandIcon}
               >
-                ðŸŽ“
+                
               </div>
 
               <div>
@@ -1371,7 +1371,7 @@ export default function StudentDashboardPage() {
                 className="student-clock"
                 style={styles.clock}
               >
-                ðŸ•’ {time}
+                 {time}
               </div>
 
               <button
@@ -1499,7 +1499,7 @@ export default function StudentDashboardPage() {
                         styles.latestAnnouncementEyebrow
                       }
                     >
-                      ðŸ”” NEW ANNOUNCEMENT
+                       NEW ANNOUNCEMENT
                     </div>
 
                     <h2
@@ -1528,7 +1528,7 @@ export default function StudentDashboardPage() {
                       styles.latestAnnouncementBadge
                     }
                   >
-                    NEW â€¢ 24 HOURS
+                    NEW  24 HOURS
                   </div>
                 </div>
 
@@ -1550,7 +1550,7 @@ export default function StudentDashboardPage() {
                         styles.latestAnnouncementIcon
                       }
                     >
-                      ðŸ””
+                      
                     </div>
 
                     <div
@@ -1630,7 +1630,7 @@ export default function StudentDashboardPage() {
                         styles.everyoneText
                       }
                     >
-                      ðŸ‘¥ For all students
+                       For all students
                     </div>
 
                     <button
@@ -1663,8 +1663,8 @@ export default function StudentDashboardPage() {
                       }}
                     >
                       {latestAnnouncement.likedByMe
-                        ? "â¤ï¸ Liked"
-                        : "ðŸ¤ Like"}
+                        ? " Liked"
+                        : " Like"}
 
                       <span
                         className="student-like-count"
@@ -1701,7 +1701,7 @@ export default function StudentDashboardPage() {
                     styles.announcementEyebrow
                   }
                 >
-                  ðŸ“¢ IMPORTANT
+                   IMPORTANT
                 </div>
 
                 <h2
@@ -1736,7 +1736,7 @@ export default function StudentDashboardPage() {
                   styles.viewAnnouncementsButton
                 }
               >
-                View All â†’
+                View All 
               </button>
             </div>
           </section>
@@ -1749,7 +1749,7 @@ export default function StudentDashboardPage() {
               className="student-notice-icon"
               style={styles.noticeIcon}
             >
-              â„¹ï¸
+              
             </div>
 
             <div>
@@ -1852,7 +1852,7 @@ export default function StudentDashboardPage() {
                           styles.arrow
                         }
                       >
-                        â†’
+                        
                       </div>
                     </div>
 
@@ -1891,7 +1891,7 @@ export default function StudentDashboardPage() {
                         </span>
 
                         <span>
-                          â†’
+                          
                         </span>
                       </div>
                     </div>
@@ -1913,7 +1913,7 @@ export default function StudentDashboardPage() {
                 styles.bottomIcon
               }
             >
-              ðŸ‘¤
+              
             </div>
 
             <div
@@ -1955,7 +1955,7 @@ export default function StudentDashboardPage() {
                 styles.profileButton
               }
             >
-              View Profile â†’
+              View Profile 
             </button>
           </section>
 
@@ -1966,11 +1966,11 @@ export default function StudentDashboardPage() {
             <div
               style={styles.footerBrand}
             >
-              ðŸŽ“ Attendance Portal
+               Attendance Portal
             </div>
 
             <div>
-              Student Portal â€¢ 2026
+              Student Portal  2026
             </div>
           </footer>
         </div>
@@ -2747,3 +2747,4 @@ const styles: {
     fontWeight: 900,
   },
 };
+
