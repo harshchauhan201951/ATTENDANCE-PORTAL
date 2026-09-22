@@ -16,11 +16,15 @@ function parseIST(
   dateValue: unknown,
   timeValue: unknown
 ): Date | null {
-  if (!dateValue) return null;
+  if (!dateValue) {
+    return null;
+  }
 
   const date = String(dateValue).trim();
 
-  if (!date) return null;
+  if (!date) {
+    return null;
+  }
 
   let time = timeValue
     ? String(timeValue).trim()
@@ -54,8 +58,9 @@ function safeNumber(
     : fallback;
 }
 
-function getStudentAttemptWindow(
-  scheduledDate: unknown
+function getAttemptWindow(
+  scheduledDate: unknown,
+  endHour: number
 ) {
   if (!scheduledDate) {
     return null;
@@ -78,7 +83,7 @@ function getStudentAttemptWindow(
 
   const end = parseIST(
     date,
-    "21:00:00"
+    `${String(endHour).padStart(2, "0")}:00:00`
   );
 
   if (!start || !end) {
@@ -100,21 +105,26 @@ function calculateTotalMarks(
       const marks =
         Number(question?.marks) > 0
           ? Number(question.marks)
-          : Number(quiz?.marks_per_question) || 0;
+          : Number(
+              quiz?.marks_per_question
+            ) || 0;
 
       return sum + marks;
     },
     0
   );
 
-  return Number(total.toFixed(2));
+  return Number(
+    total.toFixed(2)
+  );
 }
 
 export async function POST(
   request: Request
 ) {
   try {
-    const body = await request.json();
+    const body =
+      await request.json();
 
     const quizId = safeNumber(
       body?.quizId
@@ -175,7 +185,8 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-          error: "Student not found.",
+          error:
+            "Student not found.",
         },
         { status: 404 }
       );
@@ -218,7 +229,8 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-          error: "Quiz not found.",
+          error:
+            "Quiz not found.",
         },
         { status: 404 }
       );
@@ -235,11 +247,12 @@ export async function POST(
       );
     }
 
-    const now = new Date();
+    const now =
+      new Date();
 
     /*
      * ---------------------------------------------------------
-     * ORIGINAL QUIZ SCHEDULE
+     * QUIZ SCHEDULE
      * ---------------------------------------------------------
      */
 
@@ -269,12 +282,26 @@ export async function POST(
         )
       );
 
-    const attemptWindow =
-      getStudentAttemptWindow(
-        quiz.scheduled_date
+    /*
+     * Normal attempt:
+     * 5:00 AM -> 9:00 PM IST
+     *
+     * Teacher-authorized reattempt:
+     * 5:00 AM -> 10:00 PM IST
+     */
+    const normalAttemptWindow =
+      getAttemptWindow(
+        quiz.scheduled_date,
+        21
       );
 
-    if (!attemptWindow) {
+    const reattemptWindow =
+      getAttemptWindow(
+        quiz.scheduled_date,
+        22
+      );
+
+    if (!normalAttemptWindow) {
       return NextResponse.json(
         {
           success: false,
@@ -285,13 +312,23 @@ export async function POST(
       );
     }
 
+    if (!reattemptWindow) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Quiz re-attempt schedule date is invalid.",
+        },
+        { status: 400 }
+      );
+    }
+
     /*
      * ---------------------------------------------------------
      * LOAD QUESTIONS FIRST
      * ---------------------------------------------------------
      *
-     * IMPORTANT:
-     * Never create a quiz_results row with 0 questions.
+     * Never create a result with zero questions.
      */
 
     const {
@@ -329,7 +366,9 @@ export async function POST(
     const questionList =
       questions || [];
 
-    if (questionList.length === 0) {
+    if (
+      questionList.length === 0
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -348,11 +387,9 @@ export async function POST(
 
     /*
      * ---------------------------------------------------------
-     * LOAD ALL OPTIONS
+     * LOAD OPTIONS
      * ---------------------------------------------------------
      */
-
-    let options: any[] = [];
 
     const {
       data: optionRows,
@@ -389,17 +426,16 @@ export async function POST(
       );
     }
 
-    options =
+    const options =
       optionRows || [];
 
     /*
-     * Never send correct answers to the student.
+     * Never send correct-answer information to student.
      */
     const questionsWithOptions =
       questionList.map(
         (question) => ({
           ...question,
-
           options: options
             .filter(
               (option) =>
@@ -438,15 +474,25 @@ export async function POST(
 
     const {
       data: previousResults,
-      error: previousResultsError,
+      error:
+        previousResultsError,
     } = await supabaseAdmin
       .from("quiz_results")
       .select("*")
-      .eq("quiz_id", quizId)
-      .eq("student_id", studentId)
-      .order("created_at", {
-        ascending: false,
-      });
+      .eq(
+        "quiz_id",
+        quizId
+      )
+      .eq(
+        "student_id",
+        studentId
+      )
+      .order(
+        "created_at",
+        {
+          ascending: false,
+        }
+      );
 
     if (previousResultsError) {
       console.error(
@@ -483,6 +529,32 @@ export async function POST(
       number | null = null;
 
     /*
+     * Highest attempt number already stored.
+     */
+    const highestAttemptNumber =
+      results.reduce(
+        (
+          highest: number,
+          result: any
+        ) => {
+          const current =
+            Math.max(
+              1,
+              safeNumber(
+                result?.attempt_number,
+                1
+              )
+            );
+
+          return Math.max(
+            highest,
+            current
+          );
+        },
+        0
+      );
+
+    /*
      * =========================================================
      * RE-ATTEMPT
      * =========================================================
@@ -490,24 +562,40 @@ export async function POST(
 
     if (isReattempt) {
       /*
-       * IMPORTANT:
-       * If an older reattempt row already exists but was never
-       * submitted, RESUME THAT EXACT ROW.
+       * -------------------------------------------------------
+       * FIRST: RESUME AN ALREADY CREATED UNFINISHED RE-ATTEMPT
+       * -------------------------------------------------------
        *
-       * This recovers old/orphaned reattempt records instead of
-       * creating Attempt #3 and losing the old Attempt #2.
+       * Once a re-attempt result row exists, its permission was
+       * consumed while creating it. We must therefore NOT ask
+       * for a fresh permission again merely to resume the same
+       * attempt.
        */
       const unfinishedReattempt =
-        results.find(
-          (result) =>
-            !result.submitted_at &&
-            safeNumber(
-              result.attempt_number,
-              1
-            ) > 1
-        );
+        results
+          .filter(
+            (result) =>
+              !result.submitted_at &&
+              safeNumber(
+                result.attempt_number,
+                1
+              ) > 1
+          )
+          .sort(
+            (a, b) =>
+              safeNumber(
+                b.attempt_number,
+                1
+              ) -
+              safeNumber(
+                a.attempt_number,
+                1
+              )
+          )[0] || null;
 
-      if (unfinishedReattempt) {
+      if (
+        unfinishedReattempt
+      ) {
         resultId =
           Number(
             unfinishedReattempt.id
@@ -529,72 +617,55 @@ export async function POST(
               )
             : null;
 
-        /*
-         * The previously created empty/orphaned attempt
-         * has no question count. Recover it as a fresh attempt.
-         */
-        const shouldRecoverEmptyAttempt =
-          safeNumber(
-            unfinishedReattempt.total_questions
-          ) <= 0;
-
-        if (
-          shouldRecoverEmptyAttempt
-        ) {
-          startedAt = now;
-        } else if (
+        const validExistingStartedAt =
           existingStartedAt &&
           !Number.isNaN(
             existingStartedAt.getTime()
           )
-        ) {
-          startedAt =
-            existingStartedAt;
-        } else {
-          startedAt = now;
-        }
+            ? existingStartedAt
+            : null;
 
-        const { error: recoverError } =
-          await supabaseAdmin
-            .from("quiz_results")
-            .update({
-              total_questions:
-                questionCount,
-              unanswered:
-                questionCount,
-              total_marks:
-                totalMarks,
-              correct_answers: 0,
-              wrong_answers: 0,
-              obtained_marks:
-                safeNumber(
-                  unfinishedReattempt.obtained_marks
-                ),
-              percentage:
-                safeNumber(
-                  unfinishedReattempt.percentage
-                ),
-              result_status:
-                "IN_PROGRESS",
-              started_at:
-                startedAt.toISOString(),
-            })
-            .eq(
-              "id",
-              resultId
-            )
-            .eq(
-              "quiz_id",
-              quizId
-            )
-            .eq(
-              "student_id",
-              studentId
-            )
-            .is(
-              "submitted_at",
-              null
-            );
+        startedAt =
+          validExistingStartedAt ||
+          now;
+
+        /*
+         * Repair incomplete metadata without changing the
+         * existing attempt identity.
+         */
+        const {
+          error:
+            recoverError,
+        } = await supabaseAdmin
+          .from("quiz_results")
+          .update({
+            total_questions:
+              questionCount,
+            unanswered:
+              questionCount,
+            total_marks:
+              totalMarks,
+            result_status:
+              "IN_PROGRESS",
+            started_at:
+              startedAt.toISOString(),
+          })
+          .eq(
+            "id",
+            resultId
+          )
+          .eq(
+            "quiz_id",
+            quizId
+          )
+          .eq(
+            "student_id",
+            studentId
+          )
+          .is(
+            "submitted_at",
+            null
+          );
 
         if (recoverError) {
           console.error(
@@ -606,7 +677,7 @@ export async function POST(
             {
               success: false,
               error:
-                "Unable to recover the previous re-attempt.",
+                "Unable to resume the previous re-attempt.",
               details:
                 recoverError.message,
             },
@@ -614,41 +685,88 @@ export async function POST(
           );
         }
       } else {
-        const submittedResults =
-          results.filter(
+        /*
+         * -------------------------------------------------------
+         * NO UNFINISHED RE-ATTEMPT
+         * -------------------------------------------------------
+         *
+         * If any submitted re-attempt already exists, this student
+         * has already consumed the one allowed re-attempt.
+         */
+        const submittedReattempt =
+          results.find(
             (result) =>
               Boolean(
                 result.submitted_at
-              )
+              ) &&
+              safeNumber(
+                result.attempt_number,
+                1
+              ) > 1
           );
 
         if (
-          submittedResults.length === 0
+          submittedReattempt
         ) {
           return NextResponse.json(
             {
               success: false,
+              alreadySubmitted:
+                true,
+              reattemptAlreadyUsed:
+                true,
               error:
-                "A re-attempt is available only after a previous quiz attempt has been submitted.",
+                "Your one allowed re-attempt for this quiz has already been used.",
             },
             { status: 409 }
           );
         }
 
         /*
-         * -----------------------------------------------------
-         * FIND UNUSED TEACHER PERMISSION
-         * -----------------------------------------------------
+         * A re-attempt is only possible after the original attempt
+         * has been submitted.
          */
+        const submittedOriginal =
+          results.some(
+            (result) =>
+              Boolean(
+                result.submitted_at
+              ) &&
+              safeNumber(
+                result.attempt_number,
+                1
+              ) <= 1
+          );
 
+        if (
+          !submittedOriginal
+        ) {
+          return NextResponse.json(
+            {
+              success: false,
+              error:
+                "A re-attempt is available only after the original quiz attempt has been submitted.",
+            },
+            { status: 409 }
+          );
+        }
+
+        /*
+         * -------------------------------------------------------
+         * CHECK UNUSED TEACHER PERMISSION
+         * -------------------------------------------------------
+         */
         const {
           data: permission,
-          error: permissionError,
+          error:
+            permissionError,
         } = await supabaseAdmin
           .from(
             "quiz_reattempt_permissions"
           )
-          .select("*")
+          .select(
+            "id, quiz_id, student_id, allowed, created_at, used_at, created_by"
+          )
           .eq(
             "quiz_id",
             quizId
@@ -668,7 +786,7 @@ export async function POST(
           .order(
             "created_at",
             {
-              ascending: true,
+              ascending: false,
             }
           )
           .limit(1)
@@ -705,57 +823,89 @@ export async function POST(
           );
         }
 
-        const highestAttemptNumber =
-          results.reduce(
-            (
-              highest: number,
-              result: any
-            ) => {
-              const number =
-                safeNumber(
-                  result.attempt_number,
-                  1
-                );
-
-              return Math.max(
-                highest,
-                number
-              );
+        /*
+         * -------------------------------------------------------
+         * RE-ATTEMPT MUST START ON SAME QUIZ DATE
+         * AND ONLY BETWEEN 5 AM AND 10 PM IST.
+         * -------------------------------------------------------
+         */
+        if (
+          now < reattemptWindow.start
+        ) {
+          return NextResponse.json(
+            {
+              success: false,
+              reattemptWindowStart:
+                reattemptWindow.start.toISOString(),
+              reattemptWindowEnd:
+                reattemptWindow.end.toISOString(),
+              error:
+                "Re-attempt can be started only from 5:00 AM on the scheduled quiz date.",
             },
-            0
+            { status: 403 }
           );
+        }
 
-        attemptNumber =
-          highestAttemptNumber + 1;
-
-        startedAt = now;
+        if (
+          now >= reattemptWindow.end
+        ) {
+          return NextResponse.json(
+            {
+              success: false,
+              reattemptWindowStart:
+                reattemptWindow.start.toISOString(),
+              reattemptWindowEnd:
+                reattemptWindow.end.toISOString(),
+              error:
+                "The re-attempt starting window has ended. Re-attempts are allowed only until 10:00 PM IST on the scheduled quiz date.",
+            },
+            { status: 403 }
+          );
+        }
 
         /*
-         * CREATE NEW SEPARATE ATTEMPT
+         * -------------------------------------------------------
+         * CREATE NEW SEPARATE RE-ATTEMPT
+         * -------------------------------------------------------
          */
+        attemptNumber =
+          Math.max(
+            2,
+            highestAttemptNumber + 1
+          );
+
+        startedAt =
+          now;
+
         const {
           data: newResult,
           error: insertError,
         } = await supabaseAdmin
           .from("quiz_results")
           .insert({
-            quiz_id: quizId,
-            student_id: studentId,
+            quiz_id:
+              quizId,
+            student_id:
+              studentId,
             attempt_number:
               attemptNumber,
 
             total_questions:
               questionCount,
 
-            correct_answers: 0,
-            wrong_answers: 0,
+            correct_answers:
+              0,
+            wrong_answers:
+              0,
             unanswered:
               questionCount,
 
             total_marks:
               totalMarks,
-            obtained_marks: 0,
-            percentage: 0,
+            obtained_marks:
+              0,
+            percentage:
+              0,
 
             result_status:
               "IN_PROGRESS",
@@ -763,7 +913,8 @@ export async function POST(
             started_at:
               startedAt.toISOString(),
 
-            submitted_at: null,
+            submitted_at:
+              null,
 
             submission_type:
               "manual",
@@ -794,17 +945,34 @@ export async function POST(
             newResult.id
           );
 
-        createdNewAttempt = true;
+        createdNewAttempt =
+          true;
 
         reattemptPermissionId =
-          Number(permission.id);
+          Number(
+            permission.id
+          );
 
         /*
-         * Consume EXACT permission.
+         * -------------------------------------------------------
+         * CONSUME EXACT PERMISSION
+         * -------------------------------------------------------
+         *
+         * The update succeeds only while:
+         * - exact permission id matches
+         * - exact quiz matches
+         * - exact student matches
+         * - allowed is still true
+         * - used_at is still NULL
+         *
+         * This prevents the same permission from creating
+         * another re-attempt.
          */
         const {
-          data: consumedPermission,
-          error: consumeError,
+          data:
+            consumedPermission,
+          error:
+            consumeError,
         } = await supabaseAdmin
           .from(
             "quiz_reattempt_permissions"
@@ -833,7 +1001,9 @@ export async function POST(
             "used_at",
             null
           )
-          .select("id")
+          .select(
+            "id"
+          )
           .maybeSingle();
 
         if (
@@ -845,93 +1015,20 @@ export async function POST(
             consumeError
           );
 
+          /*
+           * Roll back ONLY the newly created attempt.
+           */
+          await supabaseAdmin
+            .from("quiz_answers")
+            .delete()
+            .eq(
+              "result_id",
+              resultId
+            );
+
           await supabaseAdmin
             .from("quiz_results")
             .delete()
-            .eq(
-              "id",
-              resultId
-            )
-            .eq(
-              "student_id",
-              studentId
-            )
-            .is(
-              "submitted_at",
-              null
-            );
-
-          return NextResponse.json(
-            {
-              success: false,
-              error:
-                "This re-attempt permission has already been used. Please refresh and try again.",
-            },
-            { status: 409 }
-          );
-        }
-      }
-    } else {
-      /*
-       * =======================================================
-       * NORMAL ATTEMPT
-       * =======================================================
-       */
-
-      /*
-       * Only Attempt #1 may be resumed by the normal flow.
-       */
-      const unfinishedNormalResult =
-        results.find(
-          (result) =>
-            !result.submitted_at &&
-            safeNumber(
-              result.attempt_number,
-              1
-            ) <= 1
-        );
-
-      if (unfinishedNormalResult) {
-        resultId =
-          Number(
-            unfinishedNormalResult.id
-          );
-
-        attemptNumber = 1;
-
-        const existingStartedAt =
-          unfinishedNormalResult.started_at
-            ? new Date(
-                unfinishedNormalResult.started_at
-              )
-            : null;
-
-        startedAt =
-          existingStartedAt &&
-          !Number.isNaN(
-            existingStartedAt.getTime()
-          )
-            ? existingStartedAt
-            : now;
-
-        /*
-         * Repair any incomplete normal-attempt metadata.
-         */
-        const { error: repairError } =
-          await supabaseAdmin
-            .from("quiz_results")
-            .update({
-              total_questions:
-                questionCount,
-              unanswered:
-                questionCount,
-              total_marks:
-                totalMarks,
-              result_status:
-                "IN_PROGRESS",
-              started_at:
-                startedAt.toISOString(),
-            })
             .eq(
               "id",
               resultId
@@ -948,6 +1045,103 @@ export async function POST(
               "submitted_at",
               null
             );
+
+          return NextResponse.json(
+            {
+              success: false,
+              error:
+                "This re-attempt permission has already been used. A new re-attempt could not be created.",
+            },
+            { status: 409 }
+          );
+        }
+      }
+    } else {
+      /*
+       * =========================================================
+       * NORMAL ATTEMPT
+       * =========================================================
+       */
+
+      /*
+       * Only Attempt #1 may be resumed by the normal flow.
+       */
+      const unfinishedNormalResult =
+        results.find(
+          (result) =>
+            !result.submitted_at &&
+            safeNumber(
+              result.attempt_number,
+              1
+            ) <= 1
+        );
+
+      if (
+        unfinishedNormalResult
+      ) {
+        resultId =
+          Number(
+            unfinishedNormalResult.id
+          );
+
+        attemptNumber =
+          1;
+
+        const existingStartedAt =
+          unfinishedNormalResult.started_at
+            ? new Date(
+                unfinishedNormalResult.started_at
+              )
+            : null;
+
+        const validExistingStartedAt =
+          existingStartedAt &&
+          !Number.isNaN(
+            existingStartedAt.getTime()
+          )
+            ? existingStartedAt
+            : null;
+
+        startedAt =
+          validExistingStartedAt ||
+          now;
+
+        /*
+         * Repair incomplete normal-attempt metadata.
+         */
+        const {
+          error:
+            repairError,
+        } = await supabaseAdmin
+          .from("quiz_results")
+          .update({
+            total_questions:
+              questionCount,
+            unanswered:
+              questionCount,
+            total_marks:
+              totalMarks,
+            result_status:
+              "IN_PROGRESS",
+            started_at:
+              startedAt.toISOString(),
+          })
+          .eq(
+            "id",
+            resultId
+          )
+          .eq(
+            "quiz_id",
+            quizId
+          )
+          .eq(
+            "student_id",
+            studentId
+          )
+          .is(
+            "submitted_at",
+            null
+          );
 
         if (repairError) {
           console.error(
@@ -967,6 +1161,10 @@ export async function POST(
           );
         }
       } else {
+        /*
+         * If any submitted result exists for normal flow,
+         * do not create another original attempt.
+         */
         const submittedResults =
           results.filter(
             (result) =>
@@ -981,7 +1179,8 @@ export async function POST(
           return NextResponse.json(
             {
               success: false,
-              alreadySubmitted: true,
+              alreadySubmitted:
+                true,
               error:
                 "You have already submitted this quiz.",
             },
@@ -990,11 +1189,12 @@ export async function POST(
         }
 
         /*
-         * Normal new attempt timing.
+         * Normal attempt timing:
+         * 5 AM -> 9 PM IST.
          */
         if (
           now <
-          attemptWindow.start
+          normalAttemptWindow.start
         ) {
           return NextResponse.json(
             {
@@ -1002,9 +1202,9 @@ export async function POST(
               error:
                 "This quiz can be started only from 5:00 AM on the scheduled date.",
               attemptWindowStart:
-                attemptWindow.start.toISOString(),
+                normalAttemptWindow.start.toISOString(),
               attemptWindowEnd:
-                attemptWindow.end.toISOString(),
+                normalAttemptWindow.end.toISOString(),
             },
             { status: 403 }
           );
@@ -1012,24 +1212,27 @@ export async function POST(
 
         if (
           now >=
-          attemptWindow.end
+          normalAttemptWindow.end
         ) {
           return NextResponse.json(
             {
               success: false,
               error:
-                "The quiz starting time has ended. New attempts are allowed only until 9:00 PM on the scheduled date.",
+                "The quiz starting time has ended. New original attempts are allowed only until 9:00 PM on the scheduled date.",
               attemptWindowStart:
-                attemptWindow.start.toISOString(),
+                normalAttemptWindow.start.toISOString(),
               attemptWindowEnd:
-                attemptWindow.end.toISOString(),
+                normalAttemptWindow.end.toISOString(),
             },
             { status: 403 }
           );
         }
 
-        attemptNumber = 1;
-        startedAt = now;
+        attemptNumber =
+          1;
+
+        startedAt =
+          now;
 
         const {
           data: newResult,
@@ -1037,23 +1240,29 @@ export async function POST(
         } = await supabaseAdmin
           .from("quiz_results")
           .insert({
-            quiz_id: quizId,
-            student_id: studentId,
+            quiz_id:
+              quizId,
+            student_id:
+              studentId,
             attempt_number:
               attemptNumber,
 
             total_questions:
               questionCount,
 
-            correct_answers: 0,
-            wrong_answers: 0,
+            correct_answers:
+              0,
+            wrong_answers:
+              0,
             unanswered:
               questionCount,
 
             total_marks:
               totalMarks,
-            obtained_marks: 0,
-            percentage: 0,
+            obtained_marks:
+              0,
+            percentage:
+              0,
 
             result_status:
               "IN_PROGRESS",
@@ -1061,7 +1270,8 @@ export async function POST(
             started_at:
               startedAt.toISOString(),
 
-            submitted_at: null,
+            submitted_at:
+              null,
 
             submission_type:
               "manual",
@@ -1092,7 +1302,8 @@ export async function POST(
             newResult.id
           );
 
-        createdNewAttempt = true;
+        createdNewAttempt =
+          true;
       }
     }
 
@@ -1100,8 +1311,10 @@ export async function POST(
      * ---------------------------------------------------------
      * ACTUAL ATTEMPT TIMER
      * ---------------------------------------------------------
+     *
+     * Timer is always based on the exact stored started_at
+     * of this exact quiz_results row.
      */
-
     const attemptEnd =
       new Date(
         startedAt.getTime() +
@@ -1149,10 +1362,12 @@ export async function POST(
           scheduledStart.toISOString(),
 
         attemptWindowStart:
-          attemptWindow.start.toISOString(),
+          normalAttemptWindow.start.toISOString(),
 
         attemptWindowEnd:
-          attemptWindow.end.toISOString(),
+          attemptNumber > 1
+            ? reattemptWindow.end.toISOString()
+            : normalAttemptWindow.end.toISOString(),
 
         endAt:
           attemptEnd.toISOString(),
@@ -1204,10 +1419,12 @@ export async function POST(
         scheduledStart.toISOString(),
 
       attemptWindowStart:
-        attemptWindow.start.toISOString(),
+        normalAttemptWindow.start.toISOString(),
 
       attemptWindowEnd:
-        attemptWindow.end.toISOString(),
+        attemptNumber > 1
+          ? reattemptWindow.end.toISOString()
+          : normalAttemptWindow.end.toISOString(),
 
       endAt:
         attemptEnd.toISOString(),

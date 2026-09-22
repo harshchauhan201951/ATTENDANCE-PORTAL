@@ -111,6 +111,17 @@ export async function POST(
      * ---------------------------------------------------------
      * LOAD EXACT ATTEMPT
      * ---------------------------------------------------------
+     *
+     * IMPORTANT:
+     * Result ID identifies exactly one attempt.
+     *
+     * Original attempt:
+     *   resultId = one quiz_results row
+     *
+     * Re-attempt:
+     *   resultId = different quiz_results row
+     *
+     * Therefore their answers and scores can never be mixed.
      */
 
     const {
@@ -150,7 +161,7 @@ export async function POST(
 
     /*
      * Already submitted:
-     * return exact stored result.
+     * return the exact stored result.
      */
     if (result.submitted_at) {
       return NextResponse.json(
@@ -252,7 +263,7 @@ export async function POST(
       questions || [];
 
     /*
-     * Never save a fake 0-question result.
+     * Never save a fake zero-question result.
      */
     if (
       questionList.length === 0
@@ -308,6 +319,9 @@ export async function POST(
      * ---------------------------------------------------------
      * SCORE EXACT ATTEMPT
      * ---------------------------------------------------------
+     *
+     * Marks are calculated from the exact quiz settings and
+     * exact question settings for this exact resultId.
      */
 
     const now =
@@ -431,8 +445,11 @@ export async function POST(
             );
 
       /*
+       * -------------------------------------------------------
        * UNANSWERED
+       * -------------------------------------------------------
        */
+
       if (
         selectedOptionId ===
           null ||
@@ -463,8 +480,11 @@ export async function POST(
       }
 
       /*
+       * -------------------------------------------------------
        * SELECTED OPTION
+       * -------------------------------------------------------
        */
+
       const selectedOption =
         questionOptions.find(
           (option) =>
@@ -578,9 +598,15 @@ export async function POST(
      * SAVE QUESTION-WISE ANSWERS FIRST
      * ---------------------------------------------------------
      *
-     * This guarantees that:
-     * Attempt #1 answers stay with Attempt #1.
-     * Attempt #2 answers stay with Attempt #2.
+     * IMPORTANT:
+     *
+     * Attempt #1:
+     *   quiz_answers.result_id = Attempt #1 result ID
+     *
+     * Re-attempt:
+     *   quiz_answers.result_id = Re-attempt result ID
+     *
+     * Old attempt answers are never attached to the new result.
      */
 
     const {
@@ -705,8 +731,7 @@ export async function POST(
       );
 
       /*
-       * Roll back the exact attempt's answers so the attempt
-       * can be submitted again safely.
+       * Roll back only this exact attempt's answers.
        */
       await supabaseAdmin
         .from("quiz_answers")
@@ -727,8 +752,11 @@ export async function POST(
     }
 
     /*
-     * If another request submitted first.
+     * ---------------------------------------------------------
+     * CONCURRENT SUBMISSION PROTECTION
+     * ---------------------------------------------------------
      */
+
     if (!updatedResult) {
       const {
         data: alreadySaved,
@@ -760,7 +788,7 @@ export async function POST(
 
     /*
      * ---------------------------------------------------------
-     * RETURN EXACT FRESHLY CALCULATED RESULT
+     * RETURN EXACT FRESH RESULT
      * ---------------------------------------------------------
      */
 
