@@ -2963,48 +2963,20 @@ function TeacherQuizResultsContent() {
                                                   type="button"
                                                   style={
                                                     styles.pdfSmallButton
-                                                  {!studentOpen ? (
-  reattemptAllowed ? (
-    <button
-      type="button"
-      disabled
-      style={styles.allowedButton}
-    >
-      RE-ATTEMPT ALLOWED
-    </button>
-  ) : (
-    <button
-      type="button"
-      style={styles.reattemptButton}
-      disabled={
-        reattemptLoading ===
-        allowedKey
-      }
-      onClick={() =>
-        allowReattempt(
-          row.quiz.id,
-          row.student.id
-        )
-      }
-    >
-      {reattemptLoading ===
-      allowedKey
-        ? "ALLOWING..."
-        : "ALLOW RE-ATTEMPT"}
-    </button>
-  )
-) : null}
+                                                  }
+                                                  onClick={() => latest && createStudentPdf(row.quiz, row.student, row.results)}
+                                                  disabled={!latest}
+                                                >
+                                                  PDF
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  style={
                                                     styles.expandButton
                                                   }
-                                                  onClick={() =>
-                                                    toggleStudent(
-                                                      studentKey
-                                                    )
-                                                  }
+                                                  onClick={() => toggleStudent(studentKey)}
                                                 >
-                                                  {studentOpen
-                                                    ? ""
-                                                    : "+"}
+                                                  {studentOpen ? "" : "+"}
                                                 </button>
                                               </div>
                                             </div>
