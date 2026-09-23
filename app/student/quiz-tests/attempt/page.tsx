@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   Suspense,
@@ -1171,37 +1171,26 @@ const [isReattempt, setIsReattempt] =
   ]);
 
   /*
-   * Refresh / close warning.
+   * Refresh / close / accidental navigation: auto-submit.
    */
   useEffect(() => {
-    if (
-      loading ||
-      submitting
-    ) {
-      return;
-    }
-
-    const handleBeforeUnload =
-      (event: BeforeUnloadEvent) => {
-        event.preventDefault();
-        event.returnValue = "";
-      };
-
-    window.addEventListener(
-      "beforeunload",
-      handleBeforeUnload
-    );
-
-    return () => {
-      window.removeEventListener(
-        "beforeunload",
-        handleBeforeUnload
-      );
+    if (loading || submitting || !student || !resultId || !questions.length) return;
+    const submitOnExit = () => {
+      if (submittingRef.current) return;
+      const currentAnswers = latestAnswersRef.current;
+      saveLocalAnswers(currentAnswers, resultId);
+      const answerPayload: Record<string, number | null> = {};
+      for (const question of questions) answerPayload[String(question.id)] = currentAnswers[String(question.id)] ?? null;
+      const payload = JSON.stringify({ resultId, studentId: student.id, answers: answerPayload, submissionType: "auto_submit" });
+      try {
+        const sent = navigator.sendBeacon("/api/quiz-tests/submit", new Blob([payload], { type: "application/json" }));
+        if (!sent) fetch("/api/quiz-tests/submit", { method: "POST", headers: { "Content-Type": "application/json" }, body: payload, keepalive: true }).catch(() => {});
+      } catch { fetch("/api/quiz-tests/submit", { method: "POST", headers: { "Content-Type": "application/json" }, body: payload, keepalive: true }).catch(() => {}); }
     };
-  }, [
-    loading,
-    submitting,
-  ]);
+    window.addEventListener("beforeunload", submitOnExit);
+    window.addEventListener("pagehide", submitOnExit);
+    return () => { window.removeEventListener("beforeunload", submitOnExit); window.removeEventListener("pagehide", submitOnExit); };
+  }, [loading, submitting, student, resultId, questions, saveLocalAnswers]);
 
   const confirmExit =
     useCallback(() => {
@@ -1292,7 +1281,7 @@ const [isReattempt, setIsReattempt] =
                 <p className="text-[10px] text-slate-400 sm:text-xs">
                   RACER ACADEMY
                   {isReattempt
-                    ? " â€¢ RE-ATTEMPT"
+                    ? " Ã¢â‚¬Â¢ RE-ATTEMPT"
                     : ""}
                 </p>
               </div>
@@ -1717,3 +1706,5 @@ export default function StudentQuizAttemptPage() {
     </Suspense>
   );
 }
+
+
