@@ -414,11 +414,14 @@ function TeacherQuizResultsContent() {
   );
 
   const loadData = useCallback(async () => {
-    if (!quizIdReady) {
+    const browserQuizId = typeof window !== "undefined" ? Number(new URLSearchParams(window.location.search).get("quizId")) : 0;
+    const activeQuizId = Number.isInteger(browserQuizId) && browserQuizId > 0 ? browserQuizId : quizId;
+
+    if (!quizIdReady && !activeQuizId) {
       return;
     }
 
-    if (!quizId || quizId <= 0) {
+    if (!activeQuizId || activeQuizId <= 0) {
       setError("Quiz ID is missing or invalid.");
       setLoading(false);
       return;
@@ -453,7 +456,7 @@ function TeacherQuizResultsContent() {
               created_at
             `
           )
-          .eq("id", quizId)
+          .eq("id", activeQuizId)
           .single(),
 
         supabase
@@ -478,7 +481,7 @@ function TeacherQuizResultsContent() {
               created_at
             `
           )
-          .eq("quiz_id", quizId)
+          .eq("quiz_id", activeQuizId)
           .order("created_at", {
             ascending: true,
           }),
@@ -4560,6 +4563,7 @@ const styles: Record<
     fontSize: "12px",
   },
 };
+
 
 
 
