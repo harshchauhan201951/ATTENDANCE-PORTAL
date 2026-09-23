@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   Suspense,
@@ -219,13 +219,66 @@ function ResultsContent() {
     useState("");
 
   useEffect(() => {
-  getStudent()
+    let cancelled = false;
+
+    async function loadPage() {
+      setLoading(true);
+      setError("");
+
+      try {
+        const student = await getStudent();
+
+        if (cancelled) {
+          return;
+        }
+
+        if (isDetail) {
+          await loadSingleResult(
+            student.id,
+            parsedQuizId,
+            parsedResultId
+          );
+        } else {
+          await loadAllResults(
+            student.id,
+            student.className
+          );
+        }
+
+        if (!cancelled) {
+          setLoading(false);
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          console.error(
+            "Student results loading error:",
+            err
+          );
+
+          setError(
+            err?.message ||
+              "Unable to load quiz results."
+          );
+
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadPage();
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     quizIdParam,
     resultIdParam,
+    isDetail,
+    parsedQuizId,
+    parsedResultId,
   ]);
 
-    async function getStudent() {
+  async function getStudent() {
     /*
      * IMPORTANT:
      * Always prefer the CURRENT logged-in student's username.
