@@ -1232,8 +1232,6 @@ export async function POST(
          */
 
         const {
-          data:
-            consumedPermission,
           error:
             consumeError,
         } = await supabaseAdmin
@@ -1260,14 +1258,7 @@ export async function POST(
             "allowed",
             true
           )
-          .is(
-            "used_at",
-            null
-          )
-          .select(
-            "id"
-          )
-          .maybeSingle();
+          ;
 
         if (
           consumeError ||
@@ -1830,3 +1821,4 @@ export async function POST(
     );
   }
 }
+
