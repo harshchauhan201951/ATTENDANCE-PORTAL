@@ -791,11 +791,7 @@ export async function POST(
          * The teacher permission itself is the authorization.
          */
 
-        attemptNumber =
-          Math.max(
-            2,
-            highestAttemptNumber + 1
-          );
+        attemptNumber = highestAttemptNumber > 0 ? highestAttemptNumber + 1 : 1;
 
         startedAt =
           now;
@@ -1265,8 +1261,7 @@ export async function POST(
 
         attemptNumber,
 
-        isReattempt:
-          attemptNumber > 1,
+        isReattempt: isReattempt,
 
         reattemptPermissionId,
 
@@ -1325,8 +1320,7 @@ export async function POST(
 
       attemptNumber,
 
-      isReattempt:
-        attemptNumber > 1,
+      isReattempt: isReattempt,
 
       reattemptPermissionId,
 
