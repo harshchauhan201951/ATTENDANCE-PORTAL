@@ -1621,13 +1621,13 @@ function TeacherQuizResultsContent() {
     const pageWidth =
       pdf.internal.pageSize.getWidth();
 
-    pdf.setFillColor(15, 23, 42);
+    pdf.setFillColor(235,242,250);
     pdf.rect(0, 0, pageWidth, 34, "F");
 
-    pdf.setFillColor(255, 255, 255);
+    pdf.setFillColor(235,242,250);
     pdf.rect(0, 34, pageWidth, pdf.internal.pageSize.getHeight() - 34, "F");
 
-    pdf.setTextColor(255, 255, 255);
+    pdf.setTextColor(25,35,50);
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(20);
     pdf.text("RACER ACADEMY", pageWidth / 2, 13, {
@@ -1645,7 +1645,7 @@ function TeacherQuizResultsContent() {
       }
     );
 
-    pdf.setTextColor(15, 23, 42);
+    pdf.setTextColor(25,35,50);
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(15);
     pdf.text(title, 14, 46);
@@ -1664,7 +1664,7 @@ function TeacherQuizResultsContent() {
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
 
-    pdf.setTextColor(20, 20, 20);
+    pdf.setTextColor(25,35,50);
 
     pdf.setFont("times", "italic");
     pdf.setFontSize(17);
@@ -1731,13 +1731,13 @@ function TeacherQuizResultsContent() {
   ) => {
     let x = startX;
 
-    pdf.setFillColor(226, 232, 240);
+    pdf.setFillColor(235,242,250);
     pdf.setDrawColor(148, 163, 184);
 
     headers.forEach((header, index) => {
       pdf.rect(x, startY, widths[index], 9, "FD");
 
-      pdf.setTextColor(15, 23, 42);
+      pdf.setTextColor(25,35,50);
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(7);
 
@@ -1762,10 +1762,10 @@ function TeacherQuizResultsContent() {
     pdf.setDrawColor(203, 213, 225);
 
     values.forEach((value, index) => {
-      pdf.setFillColor(255, 255, 255);
+      pdf.setFillColor(235,242,250);
       pdf.rect(x, startY, widths[index], height, "FD");
 
-      pdf.setTextColor(30, 41, 59);
+      pdf.setTextColor(25,35,50);
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(7);
 
@@ -1822,19 +1822,19 @@ function TeacherQuizResultsContent() {
       ["Quiz Time", formatTime(quiz.scheduled_time)],
     ];
 
-    pdf.setFillColor(248, 250, 252);
+    pdf.setFillColor(235,242,250);
     pdf.setDrawColor(191, 219, 254);
     pdf.roundedRect(13, y - 5, pdf.internal.pageSize.getWidth() - 26, 44, 3, 3, "FD");
 
     details.forEach(([label, value]) => {
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(7);
-      pdf.setTextColor(37, 99, 235);
+      pdf.setTextColor(25,35,50);
       pdf.text(`${label}:`, 16, y);
 
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(8.5);
-      pdf.setTextColor(15, 23, 42);
+      pdf.setTextColor(25,35,50);
       pdf.text(String(value), 53, y);
 
       y += 6;
@@ -1930,7 +1930,7 @@ function TeacherQuizResultsContent() {
 
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(7);
-      pdf.setTextColor(71, 85, 105);
+      pdf.setTextColor(25,35,50);
 
       pdf.text(
         `Percentage: ${safeNumber(result.percentage).toFixed(
@@ -4398,6 +4398,8 @@ const styles: Record<
     fontSize: "12px",
   },
 };
+
+
 
 
 
