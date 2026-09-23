@@ -1043,7 +1043,78 @@ function ResultsContent() {
 
                           </div>
 
-                          <div className="mt-tempt_number ?? 1
+                          <div className="mt-4 rounded-xl bg-white/5 p-3">
+                            <p className="text-[9px] font-bold text-slate-500">
+                              SUBMITTED
+                            </p>
+
+                            <p className="mt-1 text-xs font-semibold text-slate-300">
+                              {dateTimeText(
+                                item.submitted_at ||
+                                  item.created_at
+                              )}
+                            </p>
+                          </div>
+
+                          <button
+                            onClick={() =>
+                              router.push(
+                                `/student/quiz-tests/results?quizId=${item.quiz_id}&resultId=${item.id}`
+                              )
+                            }
+                            className="mt-4 w-full rounded-xl bg-indigo-600 px-4 py-3 font-black hover:bg-indigo-500"
+                          >
+                             â†’
+                          </button>
+
+                        </div>
+
+                      </div>
+                    );
+                  }
+                )}
+
+              </div>
+            )}
+
+            <div className="mt-6">
+              <button
+                onClick={() =>
+                  router.push(
+                    "/student/quiz-tests/history"
+                  )
+                }
+                className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 font-black hover:bg-white/10"
+              >
+                 â†’
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  const result =
+    selectedResult;
+
+  const quiz =
+    selectedQuiz;
+
+  if (!result || !quiz) {
+    return null;
+  }
+
+  const passed =
+    String(
+      result.result_status
+    ).toUpperCase() ===
+    "PASS";
+
+  const attemptNumber =
+    Number(
+      result.attempt_number ?? 1
     );
 
   return (
