@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   CSSProperties,
@@ -50,14 +50,20 @@ export default function StudentQuizTestsPage() {
   const [results, setResults] =
     useState<QuizResult[]>([]);
 
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(true);
+
+  const [now, setNow] = useState(() => new Date());
 
   const [errorMessage, setErrorMessage] =
     useState("");
 
   useEffect(() => {
     loadDashboard();
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(timer);
   }, []);
 
   function normalizeClass(
@@ -387,10 +393,7 @@ export default function StudentQuizTestsPage() {
     | "LIVE"
     | "UPCOMING"
     | "ENDED" {
-    const now =
-      new Date();
-
-    const start =
+const start =
       getStartTime(
         quiz
       );
@@ -479,20 +482,7 @@ export default function StudentQuizTestsPage() {
         ) === "UPCOMING"
     );
 
-  const availableQuizzes =
-    quizzes.filter(
-      (quiz) => {
-        const status =
-          getStatus(
-            quiz
-          );
-
-        return (
-          status === "LIVE" ||
-          status === "UPCOMING"
-        );
-      }
-    );
+  const availableQuizzes = quizzes.filter((quiz) => getStatus(quiz) === "LIVE");
 
   const passedResults =
     results.filter(
@@ -793,7 +783,7 @@ export default function StudentQuizTestsPage() {
                 styles.quickArrow
               }
             >
-              →
+              â†’
             </span>
           </button>
 
@@ -842,7 +832,7 @@ export default function StudentQuizTestsPage() {
                 styles.quickArrow
               }
             >
-              →
+              â†’
             </span>
           </button>
 
@@ -891,7 +881,7 @@ export default function StudentQuizTestsPage() {
                 styles.quickArrow
               }
             >
-              →
+              â†’
             </span>
           </button>
         </section>
@@ -1058,7 +1048,7 @@ export default function StudentQuizTestsPage() {
               }
               className="quiz-view-all-button"
             >
-              View All →
+              View All â†’
             </button>
           </div>
 
@@ -1182,7 +1172,7 @@ export default function StudentQuizTestsPage() {
               }
               className="quiz-view-all-button"
             >
-              View All →
+              View All â†’
             </button>
           </div>
 
@@ -1308,7 +1298,7 @@ export default function StudentQuizTestsPage() {
               }
               className="quiz-view-all-button"
             >
-              All Results →
+              All Results â†’
             </button>
           </div>
 
@@ -1443,7 +1433,7 @@ export default function StudentQuizTestsPage() {
                             styles.smallButton
                           }
                         >
-                          View →
+                          View â†’
                         </button>
                       </div>
                     </div>
@@ -1462,7 +1452,7 @@ export default function StudentQuizTestsPage() {
           className="quiz-footer"
         >
           <span>
-            RACER ACADEMY • Student Quiz Center
+            RACER ACADEMY â€¢ Student Quiz Center
           </span>
 
           <span>
@@ -2182,7 +2172,7 @@ function QuizCard({
             styles.resultButton
           }
         >
-          View Result →
+          View Result â†’
         </button>
       ) : status === "LIVE" ? (
         <button
@@ -2192,7 +2182,7 @@ function QuizCard({
             styles.startButton
           }
         >
-          Start Quiz →
+          Start Quiz â†’
         </button>
       ) : (
         <div
