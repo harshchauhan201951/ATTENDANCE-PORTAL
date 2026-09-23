@@ -54,6 +54,8 @@ export default function StudentQuizTestsPage() {
 
   const [now, setNow] = useState(() => new Date());
 
+  const [reattemptQuizIds, setReattemptQuizIds] = useState<Set<number>>(new Set());
+
   const [errorMessage, setErrorMessage] =
     useState("");
 
@@ -316,6 +318,15 @@ export default function StudentQuizTestsPage() {
             )
         );
 
+            const reattemptResponse = await fetch(`/api/quiz-tests/reattempt?studentId=${currentStudentId}`, { cache: "no-store" });
+      if (reattemptResponse.ok) {
+        const reattemptData = await reattemptResponse.json();
+        const ids = Array.isArray(reattemptData?.quizIds) ? reattemptData.quizIds.map((id: unknown) => Number(id)).filter((id: number) => Number.isInteger(id) && id > 0) : [];
+        setReattemptQuizIds(new Set(ids));
+      } else {
+        setReattemptQuizIds(new Set());
+      }
+
       setQuizzes(
         filteredQuizzes
       );
@@ -369,9 +380,7 @@ export default function StudentQuizTestsPage() {
   function getStartTime(
     quiz: Quiz
   ): Date {
-    return new Date(
-      `${quiz.scheduled_date}T${quiz.scheduled_time}`
-    );
+    return new Date(`${quiz.scheduled_date}T${String(quiz.scheduled_time || "00:00").slice(0,5)}:00+05:30`);
   }
 
   function getEndTime(
@@ -482,7 +491,7 @@ const start =
         ) === "UPCOMING"
     );
 
-  const availableQuizzes = quizzes.filter((quiz) => getStatus(quiz) === "LIVE");
+  const availableQuizzes = quizzes.filter((quiz) => reattemptQuizIds.has(quiz.id) || (getStatus(quiz) === "LIVE" && !hasAttempted(quiz.id)));
 
   const passedResults =
     results.filter(
@@ -783,7 +792,7 @@ const start =
                 styles.quickArrow
               }
             >
-              â†’
+              
             </span>
           </button>
 
@@ -832,7 +841,7 @@ const start =
                 styles.quickArrow
               }
             >
-              â†’
+              
             </span>
           </button>
 
@@ -881,7 +890,7 @@ const start =
                 styles.quickArrow
               }
             >
-              â†’
+              
             </span>
           </button>
         </section>
@@ -979,15 +988,13 @@ const start =
                     key={quiz.id}
                     quiz={quiz}
                     status="LIVE"
-                    attempted={hasAttempted(
-                      quiz.id
-                    )}
+                    attempted={!reattemptQuizIds.has(quiz.id) && hasAttempted(quiz.id)}
                     result={getResult(
                       quiz.id
                     )}
                     onStart={() =>
                       router.push(
-                        `/student/quiz-tests/attempt?quizId=${quiz.id}`
+                        `/student/quiz-tests/attempt?quizId=${quiz.id}${reattemptQuizIds.has(quiz.id) ? "&reattempt=true" : ""}`
                       )
                     }
                     onResult={() =>
@@ -1048,7 +1055,7 @@ const start =
               }
               className="quiz-view-all-button"
             >
-              View All â†’
+              View All 
             </button>
           </div>
 
@@ -1111,7 +1118,7 @@ const start =
                       )}
                       onStart={() =>
                         router.push(
-                          `/student/quiz-tests/attempt?quizId=${quiz.id}`
+                          `/student/quiz-tests/attempt?quizId=${quiz.id}${reattemptQuizIds.has(quiz.id) ? "&reattempt=true" : ""}`
                         )
                       }
                       onResult={() =>
@@ -1172,7 +1179,7 @@ const start =
               }
               className="quiz-view-all-button"
             >
-              View All â†’
+              View All 
             </button>
           </div>
 
@@ -1226,9 +1233,7 @@ const start =
                     <QuizCard
                       key={quiz.id}
                       quiz={quiz}
-                      status={getStatus(
-                        quiz
-                      )}
+                      status={reattemptQuizIds.has(quiz.id) ? "LIVE" : getStatus(quiz)}
                       attempted={hasAttempted(
                         quiz.id
                       )}
@@ -1237,7 +1242,7 @@ const start =
                       )}
                       onStart={() =>
                         router.push(
-                          `/student/quiz-tests/attempt?quizId=${quiz.id}`
+                          `/student/quiz-tests/attempt?quizId=${quiz.id}${reattemptQuizIds.has(quiz.id) ? "&reattempt=true" : ""}`
                         )
                       }
                       onResult={() =>
@@ -1298,7 +1303,7 @@ const start =
               }
               className="quiz-view-all-button"
             >
-              All Results â†’
+              All Results 
             </button>
           </div>
 
@@ -1433,7 +1438,7 @@ const start =
                             styles.smallButton
                           }
                         >
-                          View â†’
+                          View 
                         </button>
                       </div>
                     </div>
@@ -1452,7 +1457,7 @@ const start =
           className="quiz-footer"
         >
           <span>
-            RACER ACADEMY â€¢ Student Quiz Center
+            RACER ACADEMY  /  Student Quiz Center
           </span>
 
           <span>
@@ -2096,6 +2101,7 @@ function QuizCard({
         </div>
 
         <span
+          className={status === "LIVE" ? "animate-pulse" : ""}
           style={
             status === "LIVE"
               ? styles.liveBadge
@@ -2172,7 +2178,7 @@ function QuizCard({
             styles.resultButton
           }
         >
-          View Result â†’
+          View Result 
         </button>
       ) : status === "LIVE" ? (
         <button
@@ -2182,7 +2188,7 @@ function QuizCard({
             styles.startButton
           }
         >
-          Start Quiz â†’
+          Start Quiz 
         </button>
       ) : (
         <div
@@ -2967,3 +2973,4 @@ const styles: Record<
     maxWidth: "100%",
   },
 };
+

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   useEffect,
@@ -157,53 +157,13 @@ function getISTDateTime() {
 function getQuizStatus(
   quiz: Quiz
 ) {
-  const now =
-    getISTDateTime();
-
-  const scheduledDate =
-    String(
-      quiz.scheduled_date
-    ).trim();
-
-  if (
-    scheduledDate >
-    now.date
-  ) {
-    return "UPCOMING";
-  }
-
-  if (
-    scheduledDate <
-    now.date
-  ) {
-    return "ENDED";
-  }
-
-  const currentMinutes =
-    now.hour * 60 +
-    now.minute;
-
-  const startMinutes =
-    5 * 60;
-
-  const endMinutes =
-    21 * 60;
-
-  if (
-    currentMinutes <
-    startMinutes
-  ) {
-    return "UPCOMING";
-  }
-
-  if (
-    currentMinutes >=
-    endMinutes
-  ) {
-    return "ENDED";
-  }
-
-  return "LIVE";
+  const scheduledStart = new Date(`${quiz.scheduled_date}T${String(quiz.scheduled_time || "00:00").slice(0, 5)}:00+05:30`);
+  const durationMs = Number(quiz.duration_minutes || 0) * 60 * 1000;
+  const scheduledEnd = new Date(scheduledStart.getTime() + durationMs);
+  const now = new Date();
+  if (now < scheduledStart) return "UPCOMING";
+  if (now <= scheduledEnd) return "LIVE";
+  return "ENDED";
 }
 
 function formatDate(
@@ -293,6 +253,13 @@ export default function StudentAvailableQuizzesPage() {
     error,
     setError,
   ] = useState("");
+
+  const [, setClock] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock((value) => value + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -658,6 +625,13 @@ export default function StudentAvailableQuizzesPage() {
     load();
   }, []);
 
+  const pendingQuizzes = quizzes.filter((quiz) => {
+    const status = getQuizStatus(quiz);
+    const attempted = attemptedQuizIds.has(quiz.id);
+    const reattempt = reattemptQuizIds.has(quiz.id);
+    return reattempt || (!attempted && status === "LIVE");
+  });
+
   /*
    * ---------------------------------------------------------
    * LOADING
@@ -761,20 +735,20 @@ export default function StudentAvailableQuizzesPage() {
             </p>
           </div>
 
-          {quizzes.length ===
+          {pendingQuizzes.length ===
           0 ? (
             <div className="rounded-3xl border border-dashed border-white/10 bg-white/5 p-10 text-center">
               <h2 className="text-xl font-black">
-                No Quizzes Available
+                No Pending Quizzes
               </h2>
 
               <p className="mt-2 text-sm text-slate-400">
-                There are currently no published quizzes for your class.
+                There are currently no pending quizzes or active re-attempts for your class.
               </p>
             </div>
           ) : (
             <div className="grid gap-5 md:grid-cols-2">
-              {quizzes.map(
+              {pendingQuizzes.map(
                 (quiz) => {
                   const attempted =
                     attemptedQuizIds.has(
