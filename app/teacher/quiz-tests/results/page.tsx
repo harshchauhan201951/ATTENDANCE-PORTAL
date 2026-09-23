@@ -413,18 +413,71 @@ function TeacherQuizResultsContent() {
     []
   );
 
+  const hasSubmittedResult = (
+    results: QuizResult[]
+  ): boolean => {
+    return results.some((result) => Boolean(result.submitted_at));
+  };
+
+  const getLatestResult = (
+    results: QuizResult[]
+  ): QuizResult | null => {
+    if (results.length === 0) {
+      return null;
+    }
+
+    const sorted = [...results].sort((a, b) => {
+      const attemptDiff =
+        safeNumber(a.attempt_number) -
+        safeNumber(b.attempt_number);
+
+      if (attemptDiff !== 0) {
+        return attemptDiff;
+      }
+
+      return String(a.created_at || "").localeCompare(
+        String(b.created_at || "")
+      );
+    });
+
+    for (let index = sorted.length - 1; index >= 0; index -= 1) {
+      if (sorted[index].submitted_at) {
+        return sorted[index];
+      }
+    }
+
+    return sorted[sorted.length - 1];
+  };
+
   const loadData = useCallback(async () => {
     const browserQuizId = typeof window !== "undefined" ? Number(new URLSearchParams(window.location.search).get("quizId")) : 0;
-    const activeQuizId = Number.isInteger(browserQuizId) && browserQuizId > 0 ? browserQuizId : quizId;
+    let activeQuizId = Number.isInteger(browserQuizId) && browserQuizId > 0 ? browserQuizId : quizId;
 
     if (!quizIdReady && !activeQuizId) {
       return;
     }
 
     if (!activeQuizId || activeQuizId <= 0) {
-      setError("Quiz ID is missing or invalid.");
-      setLoading(false);
-      return;
+      const fallbackResponse = await supabase
+        .from("quiz_tests")
+        .select("id")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (fallbackResponse.error) {
+        throw fallbackResponse.error;
+      }
+
+      const fallbackId = Number(fallbackResponse.data?.id);
+
+      if (!Number.isInteger(fallbackId) || fallbackId <= 0) {
+        setError("No quiz is available to load results.");
+        setLoading(false);
+        return;
+      }
+
+      activeQuizId = fallbackId;
     }
 
     setLoading(true);
@@ -1284,41 +1337,6 @@ function TeacherQuizResultsContent() {
     } finally {
       setDeleteResultLoading(null);
     }
-  };
-  const hasSubmittedResult = (
-    results: QuizResult[]
-  ): boolean => {
-    return results.some((result) => Boolean(result.submitted_at));
-  };
-
-  const getLatestResult = (
-    results: QuizResult[]
-  ): QuizResult | null => {
-    if (results.length === 0) {
-      return null;
-    }
-
-    const sorted = [...results].sort((a, b) => {
-      const attemptDiff =
-        safeNumber(a.attempt_number) -
-        safeNumber(b.attempt_number);
-
-      if (attemptDiff !== 0) {
-        return attemptDiff;
-      }
-
-      return String(a.created_at || "").localeCompare(
-        String(b.created_at || "")
-      );
-    });
-
-    for (let index = sorted.length - 1; index >= 0; index -= 1) {
-      if (sorted[index].submitted_at) {
-        return sorted[index];
-      }
-    }
-
-    return sorted[sorted.length - 1];
   };
   const allowReattempt = async (
     targetQuizId: number,
