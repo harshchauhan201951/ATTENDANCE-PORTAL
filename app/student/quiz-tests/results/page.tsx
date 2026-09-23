@@ -803,7 +803,7 @@ function ResultsContent() {
               }
               className="rounded-xl border border-white/10 bg-white/5 px-6 py-3 font-black hover:bg-white/10"
             >
-              â† QUIZ TESTS
+               QUIZ TESTS
             </button>
 
           </div>
@@ -829,7 +829,7 @@ function ResultsContent() {
                 <p className="text-xs text-slate-400">
                   QUIZ RESULTS
                   {studentClass
-                    ? ` â€¢ CLASS ${studentClass}`
+                    ? ` • CLASS ${studentClass}`
                     : ""}
                 </p>
               </div>
@@ -1131,7 +1131,7 @@ function ResultsContent() {
 
               <p className="text-xs text-slate-400">
                 FULL QUIZ RESULT
-                {" â€¢ "}
+                {" • "}
                 ATTEMPT #{attemptNumber}
               </p>
             </div>
@@ -1144,7 +1144,7 @@ function ResultsContent() {
               }
               className="rounded-xl bg-white/5 px-4 py-2 text-sm font-bold hover:bg-white/10"
             >
-              â† All Results
+              All Results
             </button>
 
           </div>
@@ -1543,7 +1543,7 @@ function ResultsContent() {
               }
               className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4 font-black hover:bg-white/10"
             >
-              â† ALL RESULTS
+               ALL RESULTS
             </button>
 
             <button
@@ -1560,7 +1560,7 @@ function ResultsContent() {
           </div>
 
           <div className="py-8 text-center text-xs text-slate-500">
-            RACER ACADEMY â€¢ Quiz Result
+            RACER ACADEMY • Quiz Result
           </div>
 
         </div>
