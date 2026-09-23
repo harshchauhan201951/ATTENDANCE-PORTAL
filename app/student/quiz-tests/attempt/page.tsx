@@ -52,6 +52,7 @@ type StudentData = {
 
 type StartResponse = {
   success: boolean;
+  error?: string;
   resultId?: number;
   resumed?: boolean;
   alreadyStarted?: boolean;
@@ -810,8 +811,9 @@ const [isReattempt, setIsReattempt] =
           }
 
           throw new Error(
+            data.error ||
             data.message ||
-              "Unable to start quiz."
+            "Unable to start quiz."
           );
         }
 
