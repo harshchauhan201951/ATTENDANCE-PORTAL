@@ -235,12 +235,23 @@ function TeacherQuizResultsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const quizIdParam =
-    searchParams.get("quizId") ||
-    (typeof window !== "undefined"
-      ? new URLSearchParams(window.location.search).get("quizId")
-      : null);
-  const quizId = Number(quizIdParam);
+  const [quizId, setQuizId] = useState<number | null>(null);
+  const [quizIdReady, setQuizIdReady] = useState(false);
+
+  useEffect(() => {
+    const rawQuizId =
+      searchParams.get("quizId") ||
+      (typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("quizId")
+        : null);
+    const parsedQuizId = Number(rawQuizId);
+    setQuizId(
+      Number.isInteger(parsedQuizId) && parsedQuizId > 0
+        ? parsedQuizId
+        : null
+    );
+    setQuizIdReady(true);
+  }, [searchParams]);
 
   const [currentQuiz, setCurrentQuiz] =
     useState<QuizTest | null>(null);
@@ -403,7 +414,11 @@ function TeacherQuizResultsContent() {
   );
 
   const loadData = useCallback(async () => {
-    if (!Number.isFinite(quizId) || quizId <= 0) {
+    if (!quizIdReady) {
+      return;
+    }
+
+    if (!quizId || quizId <= 0) {
       setError("Quiz ID is missing or invalid.");
       setLoading(false);
       return;
@@ -663,6 +678,7 @@ function TeacherQuizResultsContent() {
     }
   }, [
     quizId,
+    quizIdReady,
     loadReattemptPermissions,
   ]);
 
@@ -4544,6 +4560,7 @@ const styles: Record<
     fontSize: "12px",
   },
 };
+
 
 
 
