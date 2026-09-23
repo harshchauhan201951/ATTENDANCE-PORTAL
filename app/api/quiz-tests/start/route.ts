@@ -83,7 +83,10 @@ function getAttemptWindow(
 
   const end = parseIST(
     date,
-    `${String(endHour).padStart(2, "0")}:00:00`
+    `${String(endHour).padStart(
+      2,
+      "0"
+    )}:00:00`
   );
 
   if (!start || !end) {
@@ -286,19 +289,14 @@ export async function POST(
      * Normal attempt:
      * 5:00 AM -> 9:00 PM IST
      *
-     * Teacher-authorized reattempt:
-     * 5:00 AM -> 10:00 PM IST
+     * Re-attempt:
+     * Controlled by an active teacher permission.
+     * It is NOT restricted by the original quiz date/time.
      */
     const normalAttemptWindow =
       getAttemptWindow(
         quiz.scheduled_date,
         21
-      );
-
-    const reattemptWindow =
-      getAttemptWindow(
-        quiz.scheduled_date,
-        22
       );
 
     if (!normalAttemptWindow) {
@@ -312,23 +310,10 @@ export async function POST(
       );
     }
 
-    if (!reattemptWindow) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Quiz re-attempt schedule date is invalid.",
-        },
-        { status: 400 }
-      );
-    }
-
     /*
      * ---------------------------------------------------------
-     * LOAD QUESTIONS FIRST
+     * LOAD QUESTIONS
      * ---------------------------------------------------------
-     *
-     * Never create a result with zero questions.
      */
 
     const {
@@ -528,9 +513,6 @@ export async function POST(
     let reattemptPermissionId:
       number | null = null;
 
-    /*
-     * Highest attempt number already stored.
-     */
     const highestAttemptNumber =
       results.reduce(
         (
@@ -558,19 +540,22 @@ export async function POST(
      * =========================================================
      * RE-ATTEMPT
      * =========================================================
+     *
+     * Teacher authorization is the authority for a re-attempt.
+     *
+     * IMPORTANT:
+     * - Student does NOT need a previous original attempt.
+     * - Original quiz date/time does NOT block the re-attempt.
+     * - A used permission can NEVER be reused.
      */
 
     if (isReattempt) {
       /*
        * -------------------------------------------------------
-       * FIRST: RESUME AN ALREADY CREATED UNFINISHED RE-ATTEMPT
+       * RESUME AN ALREADY CREATED UNFINISHED RE-ATTEMPT
        * -------------------------------------------------------
-       *
-       * Once a re-attempt result row exists, its permission was
-       * consumed while creating it. We must therefore NOT ask
-       * for a fresh permission again merely to resume the same
-       * attempt.
        */
+
       const unfinishedReattempt =
         results
           .filter(
@@ -629,10 +614,6 @@ export async function POST(
           validExistingStartedAt ||
           now;
 
-        /*
-         * Repair incomplete metadata without changing the
-         * existing attempt identity.
-         */
         const {
           error:
             recoverError,
@@ -687,12 +668,10 @@ export async function POST(
       } else {
         /*
          * -------------------------------------------------------
-         * NO UNFINISHED RE-ATTEMPT
+         * IF A RE-ATTEMPT WAS ALREADY SUBMITTED
          * -------------------------------------------------------
-         *
-         * If any submitted re-attempt already exists, this student
-         * has already consumed the one allowed re-attempt.
          */
+
         const submittedReattempt =
           results.find(
             (result) =>
@@ -723,39 +702,13 @@ export async function POST(
         }
 
         /*
-         * A re-attempt is only possible after the original attempt
-         * has been submitted.
-         */
-        const submittedOriginal =
-          results.some(
-            (result) =>
-              Boolean(
-                result.submitted_at
-              ) &&
-              safeNumber(
-                result.attempt_number,
-                1
-              ) <= 1
-          );
-
-        if (
-          !submittedOriginal
-        ) {
-          return NextResponse.json(
-            {
-              success: false,
-              error:
-                "A re-attempt is available only after the original quiz attempt has been submitted.",
-            },
-            { status: 409 }
-          );
-        }
-
-        /*
          * -------------------------------------------------------
-         * CHECK UNUSED TEACHER PERMISSION
+         * CHECK ACTIVE TEACHER PERMISSION
          * -------------------------------------------------------
+         *
+         * NO requirement for an original/submitted attempt.
          */
+
         const {
           data: permission,
           error:
@@ -825,49 +778,19 @@ export async function POST(
 
         /*
          * -------------------------------------------------------
-         * RE-ATTEMPT MUST START ON SAME QUIZ DATE
-         * AND ONLY BETWEEN 5 AM AND 10 PM IST.
+         * NO DATE/TIME RESTRICTION FOR AUTHORIZED RE-ATTEMPT
          * -------------------------------------------------------
+         *
+         * This is intentional.
+         *
+         * A teacher-authorized re-attempt can be started even if:
+         * - the quiz was scheduled on an earlier date;
+         * - today's normal 9 PM window has ended;
+         * - the student never attempted the original quiz.
+         *
+         * The teacher permission itself is the authorization.
          */
-        if (
-          now < reattemptWindow.start
-        ) {
-          return NextResponse.json(
-            {
-              success: false,
-              reattemptWindowStart:
-                reattemptWindow.start.toISOString(),
-              reattemptWindowEnd:
-                reattemptWindow.end.toISOString(),
-              error:
-                "Re-attempt can be started only from 5:00 AM on the scheduled quiz date.",
-            },
-            { status: 403 }
-          );
-        }
 
-        if (
-          now >= reattemptWindow.end
-        ) {
-          return NextResponse.json(
-            {
-              success: false,
-              reattemptWindowStart:
-                reattemptWindow.start.toISOString(),
-              reattemptWindowEnd:
-                reattemptWindow.end.toISOString(),
-              error:
-                "The re-attempt starting window has ended. Re-attempts are allowed only until 10:00 PM IST on the scheduled quiz date.",
-            },
-            { status: 403 }
-          );
-        }
-
-        /*
-         * -------------------------------------------------------
-         * CREATE NEW SEPARATE RE-ATTEMPT
-         * -------------------------------------------------------
-         */
         attemptNumber =
           Math.max(
             2,
@@ -876,6 +799,12 @@ export async function POST(
 
         startedAt =
           now;
+
+        /*
+         * -------------------------------------------------------
+         * CREATE NEW RE-ATTEMPT RESULT
+         * -------------------------------------------------------
+         */
 
         const {
           data: newResult,
@@ -955,19 +884,10 @@ export async function POST(
 
         /*
          * -------------------------------------------------------
-         * CONSUME EXACT PERMISSION
+         * CONSUME EXACT TEACHER PERMISSION
          * -------------------------------------------------------
-         *
-         * The update succeeds only while:
-         * - exact permission id matches
-         * - exact quiz matches
-         * - exact student matches
-         * - allowed is still true
-         * - used_at is still NULL
-         *
-         * This prevents the same permission from creating
-         * another re-attempt.
          */
+
         const {
           data:
             consumedPermission,
@@ -1059,13 +979,14 @@ export async function POST(
     } else {
       /*
        * =========================================================
-       * NORMAL ATTEMPT
+       * NORMAL ORIGINAL ATTEMPT
        * =========================================================
+       *
+       * Normal quiz rules stay unchanged:
+       * - one original attempt only
+       * - 5 AM to 9 PM IST
        */
 
-      /*
-       * Only Attempt #1 may be resumed by the normal flow.
-       */
       const unfinishedNormalResult =
         results.find(
           (result) =>
@@ -1106,9 +1027,6 @@ export async function POST(
           validExistingStartedAt ||
           now;
 
-        /*
-         * Repair incomplete normal-attempt metadata.
-         */
         const {
           error:
             repairError,
@@ -1161,10 +1079,6 @@ export async function POST(
           );
         }
       } else {
-        /*
-         * If any submitted result exists for normal flow,
-         * do not create another original attempt.
-         */
         const submittedResults =
           results.filter(
             (result) =>
@@ -1309,12 +1223,13 @@ export async function POST(
 
     /*
      * ---------------------------------------------------------
-     * ACTUAL ATTEMPT TIMER
+     * ATTEMPT TIMER
      * ---------------------------------------------------------
      *
-     * Timer is always based on the exact stored started_at
-     * of this exact quiz_results row.
+     * Every attempt gets a fresh duration from its own
+     * started_at timestamp.
      */
+
     const attemptEnd =
       new Date(
         startedAt.getTime() +
@@ -1364,10 +1279,13 @@ export async function POST(
         attemptWindowStart:
           normalAttemptWindow.start.toISOString(),
 
+        /*
+         * Normal window remains 9 PM.
+         * Re-attempt itself has no schedule restriction,
+         * so this is only informational.
+         */
         attemptWindowEnd:
-          attemptNumber > 1
-            ? reattemptWindow.end.toISOString()
-            : normalAttemptWindow.end.toISOString(),
+          normalAttemptWindow.end.toISOString(),
 
         endAt:
           attemptEnd.toISOString(),
@@ -1421,10 +1339,12 @@ export async function POST(
       attemptWindowStart:
         normalAttemptWindow.start.toISOString(),
 
+      /*
+       * For an authorized re-attempt this is informational only.
+       * The server has already bypassed the normal schedule check.
+       */
       attemptWindowEnd:
-        attemptNumber > 1
-          ? reattemptWindow.end.toISOString()
-          : normalAttemptWindow.end.toISOString(),
+        normalAttemptWindow.end.toISOString(),
 
       endAt:
         attemptEnd.toISOString(),
