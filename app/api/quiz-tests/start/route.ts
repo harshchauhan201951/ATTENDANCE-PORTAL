@@ -1232,6 +1232,8 @@ export async function POST(
          */
 
         const {
+          data:
+            consumedPermission,
           error:
             consumeError,
         } = await supabaseAdmin
@@ -1258,10 +1260,14 @@ export async function POST(
             "allowed",
             true
           )
-          ;
+          .select(
+            "id"
+          )
+          .maybeSingle();
 
         if (
-          consumeError
+          consumeError ||
+          !consumedPermission
         ) {
           console.error(
             "START REATTEMPT PERMISSION CONSUME ERROR:",
@@ -1820,5 +1826,3 @@ export async function POST(
     );
   }
 }
-
-
