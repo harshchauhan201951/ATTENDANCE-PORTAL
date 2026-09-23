@@ -2340,177 +2340,40 @@ function TeacherQuizResultsContent() {
             </p>
           </div>
 
-          <div style={styles.heroQuizBox}>`n            <div style={styles.heroQuizLabel}>`n              OVERALL PERFORMANCE`n            </div>`n`n            <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:"8px",marginTop:"10px"}}>`n              <div style={{padding:"8px 10px",borderRadius:"10px",background:"#f8fafc"}}>`n                <div style={{fontSize:"11px",color:"#64748b"}}>TOTAL QUIZZES</div>`n                <strong>{allQuizzes.length}</strong>`n              </div>`n              <div style={{padding:"8px 10px",borderRadius:"10px",background:"#f8fafc"}}>`n                <div style={{fontSize:"11px",color:"#64748b"}}>TOTAL ATTEMPTS</div>`n                <strong>{allResults.length}</strong>`n              </div>`n              <div style={{padding:"8px 10px",borderRadius:"10px",background:"#f8fafc"}}>`n                <div style={{fontSize:"11px",color:"#64748b"}}>PASSED</div>`n                <strong>{allResults.filter((r:any)=>r.result_status==="PASS").length}</strong>`n              </div>`n              <div style={{padding:"8px 10px",borderRadius:"10px",background:"#f8fafc"}}>`n                <div style={{fontSize:"11px",color:"#64748b"}}>FAILED</div>`n                <strong>{allResults.filter((r:any)=>r.result_status==="FAIL").length}</strong>`n              </div>`n            </div>`n          </div>
-        </section>
-
-        <section style={styles.filtersCard}>
-          <div style={styles.filterHeadingRow}>
-            <div>
-              <h2 style={styles.sectionTitle}>
-                Result Filters
-              </h2>
-
-              <p style={styles.sectionSub}>
-                Select date, subject, class and result status.
-              </p>
+          <div style={styles.heroQuizBox}>
+            <div style={styles.heroQuizLabel}>
+              CLASS PERFORMANCE
             </div>
-
-            <button
-              style={styles.refreshButton}
-              onClick={loadData}
-              disabled={filterLoading}
-            >
-              {filterLoading
-                ? "Working..."
-                : "Refresh"}
-            </button>
-          </div>
-
-          <div style={styles.filtersGrid}>
-            <label style={styles.filterLabel}>
-              <span>Date</span>
-
-              <select
-                value={selectedDate}
-                onChange={(event) =>
-                  setSelectedDate(event.target.value)
-                }
-                style={styles.select}
-              >
-                <option value="ALL">
-                  All Quiz Dates
-                </option>
-
-                {availableDates.map((date) => (
-                  <option key={date} value={date}>
-                    {formatDate(date)}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label style={styles.filterLabel}>
-              <span>Subject</span>
-
-              <select
-                value={selectedSubject}
-                onChange={(event) =>
-                  setSelectedSubject(event.target.value)
-                }
-                style={styles.select}
-              >
-                <option value="ALL">
-                  All Subjects
-                </option>
-
-                {availableSubjects.map((subject) => (
-                  <option
-                    key={subject}
-                    value={subject}
-                  >
-                    {subject}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label style={styles.filterLabel}>
-              <span>Class</span>
-
-              <select
-                value={selectedClass}
-                onChange={(event) =>
-                  setSelectedClass(event.target.value)
-                }
-                style={styles.select}
-              >
-                <option value="ALL">
-                  All Classes
-                </option>
-
-                {availableClasses.map((className) => (
-                  <option
-                    key={className}
-                    value={className}
-                  >
-                    {className}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label style={styles.filterLabel}>
-              <span>Status</span>
-
-              <select
-                value={selectedStatus}
-                onChange={(event) =>
-                  setSelectedStatus(event.target.value)
-                }
-                style={styles.select}
-              >
-                <option value="ALL">
-                  All Students
-                </option>
-
-                <option value="SUBMITTED">
-                  Submitted
-                </option>
-
-                <option value="NOT_SUBMITTED">
-                  Not Submitted
-                </option>
-
-                <option value="PASS">
-                  Pass
-                </option>
-
-                <option value="FAIL">
-                  Fail
-                </option>
-              </select>
-            </label>
-          </div>
-
-          <div style={styles.filterSummary}>
-            <span>
-              Showing{" "}
-              <strong>{filteredQuizzes.length}</strong>{" "}
-              quiz
-              {filteredQuizzes.length !== 1
-                ? "zes"
-                : ""}
-            </span>
-
-            <span>
-              <strong>
-                {filteredStatusRows.length}
-              </strong>{" "}
-              student entries
-            </span>
-
-            <span>
-              <strong>
-                {filteredResultRows.length}
-              </strong>{" "}
-              submitted attempts
-            </span>
-          </div>
-        </section>
-
-        <section style={styles.statsGrid}>
-          <div style={styles.statCard}>
-            <div style={styles.statIcon}>Q</div>
-
-            <div>
-              <div style={styles.statNumber}>
-                {stats.quizCount}
-              </div>
-
-              <div style={styles.statLabel}>
-                Quizzes
-              </div>
+            <div style={{display:"flex",flexWrap:"wrap",justifyContent:"center",gap:"8px",marginTop:"7px"}}>
+              {(() => {
+                const classMap:any = {};
+                allResults.forEach((r:any) => {
+                  const cls = r.class_name || r.className || r.student?.class_name || r.student?.className || "Unknown";
+                  if (!classMap[cls]) classMap[cls] = { total: 0, passed: 0 };
+                  classMap[cls].total += 1;
+                  if (r.result_status === "PASS") classMap[cls].passed += 1;
+                });
+                return Object.entries(classMap).sort(([a],[b]) => a.localeCompare(b, undefined, {numeric:true})).map(([cls,data]:any) => {
+                  const percentage = data.total ? Math.round((data.passed / data.total) * 100) : 0;
+                  const radius = 20;
+                  const circumference = 2 * Math.PI * radius;
+                  const dash = (percentage / 100) * circumference;
+                  return (
+                    <div key={cls} style={{width:"56px",textAlign:"center",flex:"0 0 56px"}}>
+                      <div style={{width:"48px",height:"48px",margin:"0 auto",position:"relative"}}>
+                        <svg width="48" height="48" viewBox="0 0 50 50" style={{transform:"rotate(-90deg)"}}>
+                          <circle cx="25" cy="25" r={radius} fill="none" stroke="#e2e8f0" strokeWidth="5" />
+                          <circle cx="25" cy="25" r={radius} fill="none" stroke="#2563eb" strokeWidth="5" strokeLinecap="round" strokeDasharray={`${dash} ${circumference}`} />
+                        </svg>
+                        <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"10px",fontWeight:800,color:"#0f172a"}}>{percentage}%</div>
+                      </div>
+                      <div style={{marginTop:"2px",fontSize:"10px",fontWeight:700,color:"#475569",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{cls}</div>
+                    </div>
+                  );
+                });
+              })()}
             </div>
+          </div>
           </div>
 
           <div style={styles.statCard}>
@@ -4645,3 +4508,4 @@ const styles: Record<
     fontSize: "12px",
   },
 };
+
