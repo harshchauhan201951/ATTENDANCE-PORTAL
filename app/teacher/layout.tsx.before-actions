@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import RacerPageActions from "../../components/RacerPageActions";
 
 const items = [
   { href: "/teacher/dashboard", label: "Home", icon: "⌂" },
@@ -31,13 +30,6 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
             ●
           </Link>
         </header>
-      )}
-
-      {!isDashboard && (
-        <RacerPageActions
-          dashboardPath="/teacher/dashboard"
-          logoutKeys={["teacher_username","teacherUsername","teacherLoggedIn","attendance_role","attendance_username","attendance_teacher_id","teacher_id"]}
-        />
       )}
 
       <div className="racer-portal-content">{children}</div>

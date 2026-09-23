@@ -1,0 +1,1593 @@
+"use client";
+
+import {
+  Suspense,
+  useEffect,
+  useState,
+} from "react";
+import {
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
+import { supabase } from "../../../../lib/supabase";
+
+type Quiz = {
+  id: number;
+  title: string;
+  description: string | null;
+  class_name: string | null;
+  target_classes: string[] | null;
+  subject: string | null;
+  scheduled_date: string | null;
+  scheduled_time: string | null;
+  duration_minutes: number | null;
+  marks_per_question: number | null;
+  negative_marks: number | null;
+  pass_percentage: number | null;
+};
+
+type QuizResult = {
+  id: number;
+  quiz_id: number;
+  student_id: number;
+  attempt_number: number | null;
+  total_questions: number;
+  correct_answers: number;
+  wrong_answers: number;
+  unanswered: number;
+  total_marks: number;
+  obtained_marks: number;
+  percentage: number;
+  result_status: string;
+  started_at: string | null;
+  submitted_at: string | null;
+  submission_type: string | null;
+  created_at: string | null;
+};
+
+type ResultItem = QuizResult & {
+  quiz: Quiz | null;
+};
+
+function normalizeClass(value: unknown): string {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value
+    .trim()
+    .toUpperCase()
+    .replace(/^CLASS\s+/i, "")
+    .replace(/\s+/g, " ");
+}
+
+function matchesClass(
+  quiz: Quiz,
+  studentClass: string
+): boolean {
+  const currentClass =
+    normalizeClass(studentClass);
+
+  if (!currentClass) {
+    return false;
+  }
+
+  const targets = Array.isArray(
+    quiz.target_classes
+  )
+    ? quiz.target_classes
+        .filter(
+          (value): value is string =>
+            typeof value === "string"
+        )
+        .map(normalizeClass)
+        .filter(Boolean)
+    : [];
+
+  if (targets.length > 0) {
+    return targets.includes(currentClass);
+  }
+
+  return (
+    normalizeClass(quiz.class_name) ===
+    currentClass
+  );
+}
+
+function numberText(
+  value: number | null | undefined
+): string {
+  const n = Number(value ?? 0);
+
+  if (!Number.isFinite(n)) {
+    return "0";
+  }
+
+  return Number.isInteger(n)
+    ? String(n)
+    : n.toFixed(2);
+}
+
+function dateTimeText(
+  value: string | null
+): string {
+  if (!value) {
+    return "â€”";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function dateText(
+  value: string | null
+): string {
+  if (!value) {
+    return "â€”";
+  }
+
+  const date = new Date(
+    `${value}T00:00:00`
+  );
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function timeText(
+  value: string | null
+): string {
+  if (!value) {
+    return "â€”";
+  }
+
+  const parts = value.split(":");
+
+  let hour = Number(parts[0]);
+
+  if (!Number.isFinite(hour)) {
+    return value;
+  }
+
+  const minute = parts[1] || "00";
+
+  const period =
+    hour >= 12 ? "PM" : "AM";
+
+  hour = hour % 12 || 12;
+
+  return `${hour}:${minute} ${period}`;
+}
+
+function ResultsContent() {
+  const router = useRouter();
+
+  const searchParams =
+    useSearchParams();
+
+  const quizIdParam =
+    searchParams.get("quizId");
+
+  const resultIdParam =
+    searchParams.get("resultId");
+
+  const parsedQuizId =
+    Number(quizIdParam);
+
+  const parsedResultId =
+    Number(resultIdParam);
+
+  const isDetail = Number.isFinite(parsedQuizId) && parsedQuizId > 0 && Number.isFinite(parsedResultId) && parsedResultId > 0;
+
+  const [studentName, setStudentName] =
+    useState("");
+
+  const [studentClass, setStudentClass] =
+    useState("");
+
+  const [results, setResults] =
+    useState<ResultItem[]>([]);
+
+  const [selectedQuiz, setSelectedQuiz] =
+    useState<Quiz | null>(null);
+
+  const [selectedResult, setSelectedResult] =
+    useState<QuizResult | null>(null);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPage() {
+      setLoading(true);
+      setError("");
+
+      try {
+        const student = await getStudent();
+
+        if (cancelled) {
+          return;
+        }
+
+        if (isDetail) {
+          await loadSingleResult(
+            student.id,
+            parsedQuizId,
+            parsedResultId
+          );
+        } else {
+          await loadAllResults(
+            student.id,
+            student.className
+          );
+        }
+
+        if (!cancelled) {
+          setLoading(false);
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          console.error(
+            "Student results loading error:",
+            err
+          );
+
+          setError(
+            err?.message ||
+              "Unable to load quiz results."
+          );
+
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadPage();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    quizIdParam,
+    resultIdParam,
+    isDetail,
+    parsedQuizId,
+    parsedResultId,
+  ]);
+
+  async function getStudent() {
+    /*
+     * IMPORTANT:
+     * Always prefer the CURRENT logged-in student's username.
+     * Old/stale student IDs must never override the current login.
+     */
+
+    const storedUsername =
+      localStorage.getItem(
+        "student_username"
+      ) ||
+      localStorage.getItem(
+        "studentUsername"
+      );
+
+    const storedId =
+      localStorage.getItem(
+        "attendance_student_id"
+      ) ||
+      localStorage.getItem(
+        "studentId"
+      ) ||
+      localStorage.getItem(
+        "student_id"
+      );
+
+    let studentId: number | null =
+      null;
+
+    let name = "";
+    let className = "";
+
+    /*
+     * ---------------------------------------------------------
+     * 1. AUTHORITATIVE LOOKUP BY CURRENT USERNAME
+     * ---------------------------------------------------------
+     */
+    if (storedUsername) {
+      const {
+        data,
+        error: usernameError,
+      } = await supabase
+        .from("students")
+        .select(
+          "id,student_name,student_username,class_name"
+        )
+        .eq(
+          "student_username",
+          storedUsername.trim()
+        )
+        .maybeSingle();
+
+      if (usernameError) {
+        console.error(
+          "Student username lookup error:",
+          usernameError
+        );
+      }
+
+      if (data) {
+        studentId =
+          Number(data.id);
+
+        name =
+          data.student_name ||
+          "";
+
+        className =
+          normalizeClass(
+            data.class_name
+          );
+
+        /*
+         * Repair localStorage so every student page uses
+         * the same authoritative student identity.
+         */
+        localStorage.setItem(
+          "attendance_student_id",
+          String(data.id)
+        );
+
+        localStorage.setItem(
+          "studentId",
+          String(data.id)
+        );
+
+        localStorage.setItem(
+          "student_id",
+          String(data.id)
+        );
+
+        localStorage.setItem(
+          "student_username",
+          data.student_username ||
+            storedUsername.trim()
+        );
+
+        localStorage.setItem(
+          "studentName",
+          data.student_name ||
+            ""
+        );
+
+        localStorage.setItem(
+          "student_name",
+          data.student_name ||
+            ""
+        );
+
+        localStorage.setItem(
+          "attendance_student_name",
+          data.student_name ||
+            ""
+        );
+      }
+    }
+
+    /*
+     * ---------------------------------------------------------
+     * 2. ID FALLBACK ONLY IF USERNAME LOOKUP FAILED
+     * ---------------------------------------------------------
+     */
+    if (!studentId) {
+      const parsedId =
+        Number(storedId);
+
+      if (
+        Number.isFinite(parsedId) &&
+        parsedId > 0
+      ) {
+        const {
+          data,
+          error: studentError,
+        } = await supabase
+          .from("students")
+          .select(
+            "id,student_name,student_username,class_name"
+          )
+          .eq(
+            "id",
+            parsedId
+          )
+          .maybeSingle();
+
+        if (studentError) {
+          console.error(
+            "Student ID lookup error:",
+            studentError
+          );
+        }
+
+        if (data) {
+          studentId =
+            Number(data.id);
+
+          name =
+            data.student_name ||
+            "";
+
+          className =
+            normalizeClass(
+              data.class_name
+            );
+
+          if (
+            data.student_username
+          ) {
+            localStorage.setItem(
+              "student_username",
+              data.student_username
+            );
+          }
+
+          localStorage.setItem(
+            "attendance_student_id",
+            String(data.id)
+          );
+
+          localStorage.setItem(
+            "studentId",
+            String(data.id)
+          );
+
+          localStorage.setItem(
+            "student_id",
+            String(data.id)
+          );
+
+          localStorage.setItem(
+            "studentName",
+            data.student_name ||
+              ""
+          );
+
+          localStorage.setItem(
+            "student_name",
+            data.student_name ||
+              ""
+          );
+
+          localStorage.setItem(
+            "attendance_student_name",
+            data.student_name ||
+              ""
+          );
+        }
+      }
+    }
+
+    /*
+     * ---------------------------------------------------------
+     * 3. NEVER USE A STALE LOCAL NAME AS STUDENT IDENTITY
+     * ---------------------------------------------------------
+     */
+    if (!studentId) {
+      throw new Error(
+        "Student login information not found. Please login again."
+      );
+    }
+
+    return {
+      id: studentId,
+      name,
+      className,
+    };
+  }
+  async function loadAllResults(
+    studentId: number,
+    currentClass: string
+  ) {
+    const {
+      data: resultData,
+      error: resultError,
+    } = await supabase
+      .from("quiz_results")
+      .select("*")
+      .eq(
+        "student_id",
+        studentId
+      )
+      .order(
+        "submitted_at",
+        {
+          ascending: false,
+        }
+      );
+
+    if (resultError) {
+      throw new Error(
+        resultError.message
+      );
+    }
+
+    const rawResults =
+      (resultData ||
+        []) as QuizResult[];
+
+    if (rawResults.length === 0) {
+      setResults([]);
+      return;
+    }
+
+    const quizIds =
+      Array.from(
+        new Set(
+          rawResults
+            .map((item) =>
+              Number(item.quiz_id)
+            )
+            .filter(
+              (id) =>
+                Number.isFinite(id) &&
+                id > 0
+            )
+        )
+      );
+
+    if (quizIds.length === 0) {
+      setResults([]);
+      return;
+    }
+
+    const {
+      data: quizData,
+      error: quizError,
+    } = await supabase
+      .from("quiz_tests")
+      .select(
+        "id,title,description,class_name,target_classes,subject,scheduled_date,scheduled_time,duration_minutes,marks_per_question,negative_marks,pass_percentage"
+      )
+      .in(
+        "id",
+        quizIds
+      );
+
+    if (quizError) {
+      throw new Error(
+        quizError.message
+      );
+    }
+
+    const quizMap =
+      new Map<number, Quiz>();
+
+    (
+      (quizData ||
+        []) as Quiz[]
+    ).forEach((quiz) => {
+      quizMap.set(
+        Number(quiz.id),
+        quiz
+      );
+    });
+
+    const combined =
+      rawResults
+        .map((result) => ({
+          ...result,
+          quiz:
+            quizMap.get(
+              Number(result.quiz_id)
+            ) || null,
+        }))
+        .filter((item) => {
+          if (
+            item.quiz &&
+            currentClass
+          ) {
+            return matchesClass(
+              item.quiz,
+              currentClass
+            );
+          }
+
+          return true;
+        });
+
+    setResults(combined);
+  }
+
+  async function loadSingleResult(
+    studentId: number,
+    quizId: number,
+    resultId: number | null
+  ) {
+    const {
+      data: quizData,
+      error: quizError,
+    } = await supabase
+      .from("quiz_tests")
+      .select(
+        "id,title,description,class_name,target_classes,subject,scheduled_date,scheduled_time,duration_minutes,marks_per_question,negative_marks,pass_percentage"
+      )
+      .eq(
+        "id",
+        quizId
+      )
+      .maybeSingle();
+
+    if (quizError) {
+      throw new Error(
+        quizError.message
+      );
+    }
+
+    if (!quizData) {
+      throw new Error(
+        "Quiz not found."
+      );
+    }
+
+    const quiz =
+      quizData as Quiz;
+
+    setSelectedQuiz(quiz);
+
+    let resultQuery = supabase
+      .from("quiz_results")
+      .select("*")
+      .eq(
+        "quiz_id",
+        quizId
+      )
+      .eq(
+        "student_id",
+        studentId
+      );
+
+    if (resultId) {
+      resultQuery =
+        resultQuery.eq(
+          "id",
+          resultId
+        );
+    } else {
+      resultQuery =
+        resultQuery
+          .order(
+            "submitted_at",
+            {
+              ascending: false,
+            }
+          )
+          .limit(1);
+    }
+
+    const {
+      data: resultData,
+      error: resultError,
+    } = await resultQuery.maybeSingle();
+
+    if (resultError) {
+      throw new Error(
+        resultError.message
+      );
+    }
+
+    let result =
+      (resultData ||
+        null) as QuizResult | null;
+
+    if (!result) {
+      try {
+        const storageKey =
+          resultId
+            ? `quiz-result-${quizId}-${resultId}`
+            : `quiz-result-${quizId}`;
+
+        const stored =
+          sessionStorage.getItem(
+            storageKey
+          );
+
+        if (stored) {
+          const parsed =
+            JSON.parse(
+              stored
+            ) as QuizResult;
+
+          if (
+            Number(
+              parsed.quiz_id
+            ) === quizId &&
+            Number(
+              parsed.student_id
+            ) === studentId &&
+            (!resultId ||
+              Number(
+                parsed.id
+              ) === resultId)
+          ) {
+            result = parsed;
+          }
+        }
+      } catch (storageError) {
+        console.error(
+          "Session result error:",
+          storageError
+        );
+      }
+    }
+
+    if (!result) {
+      throw new Error(
+        "Result not found for this quiz."
+      );
+    }
+
+    setSelectedResult(
+      result
+    );
+  }
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
+        <div className="text-center">
+          <div className="mx-auto mb-5 h-12 w-12 animate-spin rounded-full border-4 border-white/10 border-t-indigo-500" />
+
+          <h1 className="text-xl font-black">
+            Loading Results...
+          </h1>
+
+          <p className="mt-2 text-sm text-slate-400">
+            Please wait.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (error) {
+    return (
+      <main className="min-h-screen bg-slate-950 px-4 py-10 text-white">
+        <div className="mx-auto max-w-2xl rounded-3xl border border-red-400/20 bg-red-500/10 p-8 text-center">
+
+          <h1 className="text-2xl font-black">
+            Unable to Load Result
+          </h1>
+
+          <p className="mt-3 text-sm leading-6 text-red-200">
+            {error}
+          </p>
+
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+
+            <button
+              onClick={() =>
+                router.push(
+                  "/student/quiz-tests/results"
+                )
+              }
+              className="rounded-xl bg-indigo-600 px-6 py-3 font-black hover:bg-indigo-500"
+            >
+              VIEW ALL RESULTS
+            </button>
+
+            <button
+              onClick={() =>
+                router.push(
+                  "/student/quiz-tests"
+                )
+              }
+              className="rounded-xl border border-white/10 bg-white/5 px-6 py-3 font-black hover:bg-white/10"
+            >
+              â† QUIZ TESTS
+            </button>
+
+          </div>
+
+        </div>
+      </main>
+    );
+  }
+
+  if (!isDetail) {
+    return (
+      <main className="min-h-screen bg-slate-950 text-white">
+        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
+
+          <header className="border-b border-white/10 bg-slate-950/90 backdrop-blur-xl">
+            <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4">
+
+              <div>
+                <h1 className="text-lg font-black sm:text-xl">
+                  RACER ACADEMY
+                </h1>
+
+                <p className="text-xs text-slate-400">
+                  QUIZ RESULTS
+                  {studentClass
+                    ? ` â€¢ CLASS ${studentClass}`
+                    : ""}
+                </p>
+              </div>
+
+              <button
+                onClick={() =>
+                  router.push(
+                    "/student/quiz-tests"
+                  )
+                }
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold hover:bg-white/10"
+              >
+                â† Quiz Tests
+              </button>
+
+            </div>
+          </header>
+
+          <div className="mx-auto max-w-6xl px-4 py-8">
+
+            <div className="mb-7">
+              <p className="text-xs font-black tracking-[0.25em] text-indigo-400">
+                PERFORMANCE
+              </p>
+
+              <h2 className="mt-2 text-3xl font-black sm:text-4xl">
+                My Quiz Results
+              </h2>
+
+              <p className="mt-2 text-sm text-slate-400">
+                Results of all quizzes you have completed.
+              </p>
+
+              {studentName && (
+                <p className="mt-2 text-sm text-slate-500">
+                  Student:{" "}
+                  <strong className="text-slate-300">
+                    {studentName}
+                  </strong>
+                </p>
+              )}
+            </div>
+
+            {results.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-white/10 bg-white/5 p-12 text-center">
+
+                <div className="text-5xl">
+                  RESULTS
+                </div>
+
+                <h3 className="mt-5 text-xl font-black">
+                  No Quiz Results Yet
+                </h3>
+
+                <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-slate-400">
+                  Your marks will appear here automatically
+                  after you complete and submit a quiz.
+                </p>
+
+                <button
+                  onClick={() =>
+                    router.push(
+                      "/student/quiz-tests/available"
+                    )
+                  }
+                  className="mt-6 rounded-xl bg-indigo-600 px-6 py-3 font-black hover:bg-indigo-500"
+                >
+                  VIEW AVAILABLE QUIZZES
+                </button>
+
+              </div>
+            ) : (
+              <div className="grid gap-5 md:grid-cols-2">
+
+                {results.map(
+                  (item, index) => {
+                    const passed =
+                      String(
+                        item.result_status
+                      ).toUpperCase() ===
+                      "PASS";
+
+                    const attemptNumber =
+                      Number(
+                        item.attempt_number ??
+                          1
+                      );
+
+                    return (
+                      <div
+                        key={
+                          item.id ||
+                          `${item.quiz_id}-${index}`
+                        }
+                        className="overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-xl backdrop-blur-xl"
+                      >
+
+                        <div
+                          className={`p-5 ${
+                            passed
+                              ? "bg-emerald-500/10"
+                              : "bg-red-500/10"
+                          }`}
+                        >
+
+                          <div className="flex items-start justify-between gap-4">
+
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-black tracking-[0.2em] text-slate-500">
+                                COMPLETED QUIZ
+                              </p>
+
+                              <h3 className="mt-2 text-xl font-black">
+                                {item.quiz?.title ||
+                                  `Quiz #${item.quiz_id}`}
+                              </h3>
+
+                              {item.quiz?.subject && (
+                                <p className="mt-1 text-sm text-slate-400">
+                                  {item.quiz.subject}
+                                </p>
+                              )}
+
+                              <p className="mt-2 text-xs font-black text-indigo-300">
+                                ATTEMPT #{attemptNumber}
+                              </p>
+                            </div>
+
+                            <span
+                              className={`shrink-0 rounded-full px-3 py-1 text-[10px] font-black ${
+                                passed
+                                  ? "bg-emerald-500/20 text-emerald-300"
+                                  : "bg-red-500/20 text-red-300"
+                              }`}
+                            >
+                              {passed
+                                ? "PASS"
+                                : "FAIL"}
+                            </span>
+
+                          </div>
+
+                          <div className="mt-6 grid grid-cols-2 gap-3">
+
+                            <div className="rounded-xl bg-white/5 p-4">
+                              <p className="text-[9px] font-bold text-slate-500">
+                                PERCENTAGE
+                              </p>
+
+                              <p className="mt-1 text-2xl font-black">
+                                {numberText(
+                                  item.percentage
+                                )}
+                                %
+                              </p>
+                            </div>
+
+                            <div className="rounded-xl bg-white/5 p-4">
+                              <p className="text-[9px] font-bold text-slate-500">
+                                MARKS
+                              </p>
+
+                              <p className="mt-1 text-2xl font-black">
+                                {numberText(
+                                  item.obtained_marks
+                                )}{" "}
+                                /{" "}
+                                {numberText(
+                                  item.total_marks
+                                )}
+                              </p>
+                            </div>
+
+                          </div>
+
+                        </div>
+
+                        <div className="p-5">
+
+                          <div className="grid grid-cols-3 gap-2">
+
+                            <div className="rounded-xl bg-emerald-500/10 p-3 text-center">
+                              <p className="text-lg font-black text-emerald-300">
+                                {item.correct_answers}
+                              </p>
+
+                              <p className="text-[9px] font-bold text-emerald-200/60">
+                                CORRECT
+                              </p>
+                            </div>
+
+                            <div className="rounded-xl bg-red-500/10 p-3 text-center">
+                              <p className="text-lg font-black text-red-300">
+                                {item.wrong_answers}
+                              </p>
+
+                              <p className="text-[9px] font-bold text-red-200/60">
+                                WRONG
+                              </p>
+                            </div>
+
+                            <div className="rounded-xl bg-amber-500/10 p-3 text-center">
+                              <p className="text-lg font-black text-amber-300">
+                                {item.unanswered}
+                              </p>
+
+                              <p className="text-[9px] font-bold text-amber-200/60">
+                                SKIPPED
+                              </p>
+                            </div>
+
+                          </div>
+
+                          <div className="mt-4 rounded-xl bg-white/5 p-3">
+                            <p className="text-[9px] font-bold text-slate-500">
+                              SUBMITTED
+                            </p>
+
+                            <p className="mt-1 text-xs font-semibold text-slate-300">
+                              {dateTimeText(
+                                item.submitted_at ||
+                                  item.created_at
+                              )}
+                            </p>
+                          </div>
+
+                          <button
+                            onClick={() =>
+                              router.push(
+                                `/student/quiz-tests/results?quizId=${item.quiz_id}&resultId=${item.id}`
+                              )
+                            }
+                            className="mt-4 w-full rounded-xl bg-indigo-600 px-4 py-3 font-black hover:bg-indigo-500"
+                          >
+                             
+                          </button>
+
+                        </div>
+
+                      </div>
+                    );
+                  }
+                )}
+
+              </div>
+            )}
+
+            <div className="mt-6">
+              <button
+                onClick={() =>
+                  router.push(
+                    "/student/quiz-tests/history"
+                  )
+                }
+                className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 font-black hover:bg-white/10"
+              >
+                 
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  const result =
+    selectedResult;
+
+  const quiz =
+    selectedQuiz;
+
+  if (!result || !quiz) {
+    return null;
+  }
+
+  const passed =
+    String(
+      result.result_status
+    ).toUpperCase() ===
+    "PASS";
+
+  const attemptNumber =
+    Number(
+      result.attempt_number ?? 1
+    );
+
+  return (
+    <main className="min-h-screen bg-slate-950 text-white">
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
+
+        <header className="border-b border-white/10 bg-slate-950/90 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4">
+
+            <div>
+              <h1 className="text-lg font-black">
+                RACER ACADEMY
+              </h1>
+
+              <p className="text-xs text-slate-400">
+                FULL QUIZ RESULT
+                {" â€¢ "}
+                ATTEMPT #{attemptNumber}
+              </p>
+            </div>
+
+            <button
+              onClick={() =>
+                router.push(
+                  "/student/quiz-tests/results"
+                )
+              }
+              className="rounded-xl bg-white/5 px-4 py-2 text-sm font-bold hover:bg-white/10"
+            >
+              â† All Results
+            </button>
+
+          </div>
+        </header>
+
+        <div className="mx-auto max-w-5xl px-4 py-8">
+
+          <section
+            className={`rounded-3xl border p-7 text-center ${
+              passed
+                ? "border-emerald-400/20 bg-emerald-500/10"
+                : "border-red-400/20 bg-red-500/10"
+            }`}
+          >
+
+            <p className="text-xs font-black tracking-[0.25em] text-slate-400">
+              QUIZ RESULT
+            </p>
+
+            <h2 className="mt-3 text-3xl font-black">
+              {quiz.title}
+            </h2>
+
+            {quiz.subject && (
+              <p className="mt-2 text-sm text-slate-400">
+                {quiz.subject}
+              </p>
+            )}
+
+            <div className="mx-auto mt-7 flex h-44 w-44 items-center justify-center rounded-full border-[12px] border-indigo-500/30 bg-slate-950/70">
+
+              <div>
+                <div className="text-4xl font-black">
+                  {numberText(
+                    result.percentage
+                  )}
+                  %
+                </div>
+
+                <p className="text-xs font-bold text-slate-500">
+                  SCORE
+                </p>
+              </div>
+
+            </div>
+
+            <div className="mt-6">
+              <span
+                className={`inline-block rounded-full px-7 py-3 text-lg font-black ${
+                  passed
+                    ? "bg-emerald-500/20 text-emerald-300"
+                    : "bg-red-500/20 text-red-300"
+                }`}
+              >
+                {passed
+                  ? "PASSED"
+                  : "FAILED"}
+              </span>
+            </div>
+
+            <div className="mt-4">
+              <span className="inline-block rounded-full border border-indigo-400/20 bg-indigo-500/10 px-5 py-2 text-xs font-black text-indigo-300">
+                ATTEMPT #{attemptNumber}
+              </span>
+            </div>
+
+            {studentName && (
+              <p className="mt-5 text-sm text-slate-400">
+                Student:{" "}
+                <strong className="text-white">
+                  {studentName}
+                </strong>
+              </p>
+            )}
+
+          </section>
+
+          <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-center">
+              <p className="text-3xl font-black">
+                {numberText(
+                  result.total_questions
+                )}
+              </p>
+
+              <p className="mt-1 text-[10px] font-bold text-slate-500">
+                QUESTIONS
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-emerald-500/10 p-5 text-center">
+              <p className="text-3xl font-black text-emerald-300">
+                {result.correct_answers}
+              </p>
+
+              <p className="mt-1 text-[10px] font-bold text-emerald-200/60">
+                CORRECT
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-red-500/10 p-5 text-center">
+              <p className="text-3xl font-black text-red-300">
+                {result.wrong_answers}
+              </p>
+
+              <p className="mt-1 text-[10px] font-bold text-red-200/60">
+                WRONG
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-amber-500/10 p-5 text-center">
+              <p className="text-3xl font-black text-amber-300">
+                {result.unanswered}
+              </p>
+
+              <p className="mt-1 text-[10px] font-bold text-amber-200/60">
+                SKIPPED
+              </p>
+            </div>
+
+          </section>
+
+          <section className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-6">
+
+            <h3 className="text-xl font-black">
+              Marks Summary
+            </h3>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-3">
+
+              <div className="rounded-2xl bg-slate-900/70 p-5">
+                <p className="text-xs font-bold text-slate-500">
+                  TOTAL MARKS
+                </p>
+
+                <p className="mt-2 text-3xl font-black">
+                  {numberText(
+                    result.total_marks
+                  )}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-indigo-500/10 p-5">
+                <p className="text-xs font-bold text-indigo-300">
+                  OBTAINED MARKS
+                </p>
+
+                <p className="mt-2 text-3xl font-black text-indigo-300">
+                  {numberText(
+                    result.obtained_marks
+                  )}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-emerald-500/10 p-5">
+                <p className="text-xs font-bold text-emerald-300">
+                  PERCENTAGE
+                </p>
+
+                <p className="mt-2 text-3xl font-black text-emerald-300">
+                  {numberText(
+                    result.percentage
+                  )}
+                  %
+                </p>
+              </div>
+
+            </div>
+
+            <div className="mt-6 h-4 overflow-hidden rounded-full bg-slate-800">
+              <div
+                className={`h-full rounded-full ${
+                  passed
+                    ? "bg-emerald-500"
+                    : "bg-red-500"
+                }`}
+                style={{
+                  width: `${Math.min(
+                    100,
+                    Math.max(
+                      0,
+                      Number(
+                        result.percentage ||
+                          0
+                      )
+                    )
+                  )}%`,
+                }}
+              />
+            </div>
+
+          </section>
+
+          <section className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-6">
+
+            <h3 className="text-xl font-black">
+              Question Performance
+            </h3>
+
+            <div className="mt-5 space-y-3">
+
+              <div className="flex items-center justify-between rounded-2xl bg-emerald-500/10 p-4">
+                <div>
+                  <p className="font-bold text-emerald-300">
+                    Correct Answers
+                  </p>
+
+                  <p className="text-xs text-slate-400">
+                    Questions answered correctly
+                  </p>
+                </div>
+
+                <strong className="text-2xl text-emerald-300">
+                  {result.correct_answers}
+                </strong>
+              </div>
+
+              <div className="flex items-center justify-between rounded-2xl bg-red-500/10 p-4">
+                <div>
+                  <p className="font-bold text-red-300">
+                    Wrong Answers
+                  </p>
+
+                  <p className="text-xs text-slate-400">
+                    Questions answered incorrectly
+                  </p>
+                </div>
+
+                <strong className="text-2xl text-red-300">
+                  {result.wrong_answers}
+                </strong>
+              </div>
+
+              <div className="flex items-center justify-between rounded-2xl bg-amber-500/10 p-4">
+                <div>
+                  <p className="font-bold text-amber-300">
+                    Unanswered
+                  </p>
+
+                  <p className="text-xs text-slate-400">
+                    Questions left unanswered
+                  </p>
+                </div>
+
+                <strong className="text-2xl text-amber-300">
+                  {result.unanswered}
+                </strong>
+              </div>
+
+            </div>
+
+          </section>
+
+          <section className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-6">
+
+            <h3 className="text-xl font-black">
+              Quiz Information
+            </h3>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+
+              <div className="rounded-xl bg-slate-900/70 p-4">
+                <p className="text-[10px] font-bold text-slate-500">
+                  CLASS
+                </p>
+
+                <p className="mt-1 font-black">
+                  {quiz.class_name
+                    ? `Class ${normalizeClass(
+                        quiz.class_name
+                      )}`
+                    : studentClass
+                      ? `Class ${studentClass}`
+                      : "â€”"}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-slate-900/70 p-4">
+                <p className="text-[10px] font-bold text-slate-500">
+                  SUBJECT
+                </p>
+
+                <p className="mt-1 font-black">
+                  {quiz.subject || "â€”"}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-slate-900/70 p-4">
+                <p className="text-[10px] font-bold text-slate-500">
+                  PASS PERCENTAGE
+                </p>
+
+                <p className="mt-1 font-black">
+                  {numberText(
+                    quiz.pass_percentage
+                  )}
+                  %
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-slate-900/70 p-4">
+                <p className="text-[10px] font-bold text-slate-500">
+                  DURATION
+                </p>
+
+                <p className="mt-1 font-black">
+                  {quiz.duration_minutes ||
+                    30}{" "}
+                  Minutes
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-slate-900/70 p-4">
+                <p className="text-[10px] font-bold text-slate-500">
+                  QUIZ DATE
+                </p>
+
+                <p className="mt-1 font-black">
+                  {dateText(
+                    quiz.scheduled_date
+                  )}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-slate-900/70 p-4">
+                <p className="text-[10px] font-bold text-slate-500">
+                  START TIME
+                </p>
+
+                <p className="mt-1 font-black">
+                  {timeText(
+                    quiz.scheduled_time
+                  )}
+                </p>
+              </div>
+
+            </div>
+
+          </section>
+
+          <section className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-6">
+
+            <h3 className="text-xl font-black">
+              Submission Details
+            </h3>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+
+              <div className="rounded-xl bg-slate-900/70 p-4">
+                <p className="text-[10px] font-bold text-slate-500">
+                  STARTED AT
+                </p>
+
+                <p className="mt-1 text-sm font-bold">
+                  {dateTimeText(
+                    result.started_at
+                  )}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-slate-900/70 p-4">
+                <p className="text-[10px] font-bold text-slate-500">
+                  SUBMITTED AT
+                </p>
+
+                <p className="mt-1 text-sm font-bold">
+                  {dateTimeText(
+                    result.submitted_at
+                  )}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-slate-900/70 p-4 sm:col-span-2">
+                <p className="text-[10px] font-bold text-slate-500">
+                  SUBMISSION TYPE
+                </p>
+
+                <p className="mt-1 text-sm font-bold uppercase">
+                  {result.submission_type ||
+                    "MANUAL SUBMISSION"}
+                </p>
+              </div>
+
+            </div>
+
+          </section>
+
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+
+            <button
+              onClick={() =>
+                router.push(
+                  "/student/quiz-tests/results"
+                )
+              }
+              className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4 font-black hover:bg-white/10"
+            >
+              â† ALL RESULTS
+            </button>
+
+            <button
+              onClick={() =>
+                router.push(
+                  "/student/quiz-tests/history"
+                )
+              }
+              className="rounded-2xl bg-indigo-600 px-5 py-4 font-black hover:bg-indigo-500"
+            >
+              QUIZ HISTORY 
+            </button>
+
+          </div>
+
+          <div className="py-8 text-center text-xs text-slate-500">
+            RACER ACADEMY â€¢ Quiz Result
+          </div>
+
+        </div>
+      </div>
+    </main>
+  );
+}
+
+export default function StudentQuizResultsPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
+          <div className="text-center">
+
+            <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-indigo-500" />
+
+            <p className="font-bold">
+              Loading Results...
+            </p>
+
+          </div>
+        </main>
+      }
+    >
+      <ResultsContent />
+    </Suspense>
+  );
+}
+
