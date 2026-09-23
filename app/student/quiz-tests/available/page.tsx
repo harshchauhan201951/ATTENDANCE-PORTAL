@@ -77,9 +77,6 @@ function quizBelongsToStudent(
           .filter(Boolean)
       : [];
 
-  /*
-   * Multiple selected classes
-   */
   if (
     targetClasses.length > 0
   ) {
@@ -88,9 +85,6 @@ function quizBelongsToStudent(
     );
   }
 
-  /*
-   * Existing single-class behavior
-   */
   return (
     normalizeClass(
       quiz.class_name
@@ -104,14 +98,14 @@ function quizBelongsToStudent(
  * INDIA / IST DATE-TIME HELPERS
  * ---------------------------------------------------------
  *
- * Quiz start window is based on IST:
+ * Normal quiz window:
  *
  * 05:00 AM IST
  * to
  * 09:00 PM IST
  *
- * This avoids depending on the student's computer
- * timezone.
+ * Teacher-authorized re-attempts are handled separately
+ * and can override this normal time-window restriction.
  */
 
 function getISTDateTime() {
@@ -160,16 +154,6 @@ function getISTDateTime() {
   };
 }
 
-/*
- * Returns the quiz status based ONLY on:
- *
- * scheduled date
- * 05:00 AM
- * 09:00 PM
- *
- * Teacher's scheduled_time does not control
- * whether the student can start.
- */
 function getQuizStatus(
   quiz: Quiz
 ) {
@@ -181,9 +165,6 @@ function getQuizStatus(
       quiz.scheduled_date
     ).trim();
 
-  /*
-   * Future date
-   */
   if (
     scheduledDate >
     now.date
@@ -191,9 +172,6 @@ function getQuizStatus(
     return "UPCOMING";
   }
 
-  /*
-   * Previous date
-   */
   if (
     scheduledDate <
     now.date
@@ -201,12 +179,6 @@ function getQuizStatus(
     return "ENDED";
   }
 
-  /*
-   * Same scheduled date.
-   *
-   * Convert current IST time to
-   * minutes since midnight.
-   */
   const currentMinutes =
     now.hour * 60 +
     now.minute;
@@ -217,9 +189,6 @@ function getQuizStatus(
   const endMinutes =
     21 * 60;
 
-  /*
-   * Before 05:00 AM
-   */
   if (
     currentMinutes <
     startMinutes
@@ -227,9 +196,6 @@ function getQuizStatus(
     return "UPCOMING";
   }
 
-  /*
-   * 09:00 PM or later
-   */
   if (
     currentMinutes >=
     endMinutes
@@ -237,19 +203,12 @@ function getQuizStatus(
     return "ENDED";
   }
 
-  /*
-   * 05:00 AM to 08:59 PM
-   */
   return "LIVE";
 }
 
 function formatDate(
   value: string
 ) {
-  /*
-   * Add noon so the displayed date does
-   * not shift because of timezone conversion.
-   */
   const date = new Date(
     `${value}T12:00:00+05:30`
   );
@@ -313,14 +272,6 @@ export default function StudentAvailableQuizzesPage() {
     Set<number>
   >(new Set());
 
-  /*
-   * Quiz IDs for which the teacher has
-   * currently authorized a re-attempt.
-   *
-   * The permission is NOT consumed here.
-   * It is consumed only when the student
-   * actually starts the re-attempt.
-   */
   const [
     reattemptQuizIds,
     setReattemptQuizIds,
@@ -540,11 +491,6 @@ export default function StudentAvailableQuizzesPage() {
          * -----------------------------------------------------
          * FILTER BY STUDENT CLASS
          * -----------------------------------------------------
-         *
-         * Supports:
-         * - class_name
-         * - target_classes
-         * - multiple target classes
          */
 
         const matchingQuizzes =
@@ -615,15 +561,11 @@ export default function StudentAvailableQuizzesPage() {
            * LOAD TEACHER-AUTHORIZED RE-ATTEMPTS
            * ---------------------------------------------------
            *
-           * This only READS the permission.
+           * Active unused permissions returned by the API
+           * are stored in reattemptQuizIds.
            *
-           * It does NOT start the quiz,
-           * create a result,
-           * or consume the permission.
-           *
-           * The start API consumes the permission
-           * only when the student actually clicks
-           * the Re-attempt button.
+           * These permissions intentionally override the
+           * normal quiz date/time availability on this page.
            */
 
           try {
@@ -672,11 +614,6 @@ export default function StudentAvailableQuizzesPage() {
                 new Set(ids)
               );
             } else {
-              /*
-               * A re-attempt permission loading
-               * problem must not break the normal
-               * quiz page.
-               */
               console.error(
                 "Unable to load re-attempt permissions."
               );
@@ -880,7 +817,9 @@ export default function StudentAvailableQuizzesPage() {
 
                         <span
                           className={`shrink-0 rounded-full px-3 py-1 text-[10px] font-black ${
-                            attempted
+                            hasReattemptPermission
+                              ? "bg-indigo-500/15 text-indigo-300"
+                              : attempted
                               ? "bg-emerald-500/15 text-emerald-300"
                               : status ===
                                 "LIVE"
@@ -891,7 +830,9 @@ export default function StudentAvailableQuizzesPage() {
                               : "bg-red-500/15 text-red-300"
                           }`}
                         >
-                          {attempted
+                          {hasReattemptPermission
+                            ? "RE-ATTEMPT ALLOWED"
+                            : attempted
                             ? "COMPLETED"
                             : status}
                         </span>
@@ -950,7 +891,57 @@ export default function StudentAvailableQuizzesPage() {
                       </div>
 
                       <div className="mt-5">
-                        {attempted ? (
+
+                        {/*
+                         * ------------------------------------------------
+                         * IMPORTANT:
+                         *
+                         * Teacher-authorized re-attempt has PRIORITY
+                         * over the normal quiz status.
+                         *
+                         * Therefore even when:
+                         * - quiz is from an old date
+                         * - today's 9 PM window has ended
+                         * - student has never attempted before
+                         *
+                         * an active re-attempt permission still shows
+                         * the Re-attempt button.
+                         * ------------------------------------------------
+                         */}
+
+                        {hasReattemptPermission ? (
+                          <div className="space-y-3">
+                            {attempted ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  router.push(
+                                    `/student/quiz-tests/results?quizId=${quiz.id}`
+                                  )
+                                }
+                                className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black"
+                              >
+                                View Result
+                              </button>
+                            ) : null}
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                router.push(
+                                  `/student/quiz-tests/attempt?quizId=${quiz.id}&reattempt=true`
+                                )
+                              }
+                              className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-black"
+                            >
+                              Re-attempt
+                            </button>
+
+                            <div className="rounded-xl border border-indigo-400/20 bg-indigo-500/10 px-4 py-3 text-center text-xs font-bold text-indigo-200">
+                              Teacher has authorized an extra attempt for this quiz.
+                            </div>
+                          </div>
+                        ) : attempted ? (
                           <div className="space-y-3">
                             <button
                               type="button"
@@ -963,25 +954,12 @@ export default function StudentAvailableQuizzesPage() {
                             >
                               View Result
                             </button>
-
-                            {hasReattemptPermission && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  router.push(
-                                    `/student/quiz-tests/attempt?quizId=${quiz.id}&reattempt=true`
-                                  )
-                                }
-                                className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-black"
-                              >
-                                Re-attempt
-                              </button>
-                            )}
                           </div>
                         ) : status ===
                           "LIVE" ? (
                           /*
-                           * 05:00 AM to before 09:00 PM
+                           * Normal first attempt:
+                           * 05:00 AM to before 09:00 PM IST.
                            */
                           <button
                             type="button"
