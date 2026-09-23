@@ -2374,7 +2374,6 @@ function TeacherQuizResultsContent() {
               })()}
             </div>
           </div>
-          </div>
 
           <div style={styles.statCard}>
             <div style={styles.statIcon}>S</div>
@@ -4508,4 +4507,5 @@ const styles: Record<
     fontSize: "12px",
   },
 };
+
 
