@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   Suspense,
@@ -2340,25 +2340,7 @@ function TeacherQuizResultsContent() {
             </p>
           </div>
 
-          <div style={styles.heroQuizBox}>
-            <div style={styles.heroQuizLabel}>
-              CURRENT QUIZ
-            </div>
-
-            <div style={styles.heroQuizTitle}>
-              {currentQuiz?.title || "Quiz Results"}
-            </div>
-
-            <div style={styles.heroQuizMeta}>
-              {normalizeSubject(
-                currentQuiz?.subject || null
-              )}
-              {"  "}
-              {formatDate(
-                currentQuiz?.scheduled_date || null
-              )}
-            </div>
-          </div>
+          <div style={styles.heroQuizBox}>`n            <div style={styles.heroQuizLabel}>`n              OVERALL PERFORMANCE`n            </div>`n`n            <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:"8px",marginTop:"10px"}}>`n              <div style={{padding:"8px 10px",borderRadius:"10px",background:"#f8fafc"}}>`n                <div style={{fontSize:"11px",color:"#64748b"}}>TOTAL QUIZZES</div>`n                <strong>{allQuizzes.length}</strong>`n              </div>`n              <div style={{padding:"8px 10px",borderRadius:"10px",background:"#f8fafc"}}>`n                <div style={{fontSize:"11px",color:"#64748b"}}>TOTAL ATTEMPTS</div>`n                <strong>{allResults.length}</strong>`n              </div>`n              <div style={{padding:"8px 10px",borderRadius:"10px",background:"#f8fafc"}}>`n                <div style={{fontSize:"11px",color:"#64748b"}}>PASSED</div>`n                <strong>{allResults.filter((r:any)=>r.result_status==="PASS").length}</strong>`n              </div>`n              <div style={{padding:"8px 10px",borderRadius:"10px",background:"#f8fafc"}}>`n                <div style={{fontSize:"11px",color:"#64748b"}}>FAILED</div>`n                <strong>{allResults.filter((r:any)=>r.result_status==="FAIL").length}</strong>`n              </div>`n            </div>`n          </div>
         </section>
 
         <section style={styles.filtersCard}>
