@@ -211,7 +211,8 @@ function TeacherQuizQuestionsContent() {
 
   const [pasteText, setPasteText] = useState("");
   const [answerPasteText, setAnswerPasteText] = useState("");
-  const [showAnswerPasteBox, setShowAnswerPasteBox] = useState(false);
+  const [showAnswerPasteBox, setShowAnswerPasteBox] = useState(true);
+
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -545,114 +546,7 @@ function TeacherQuizQuestionsContent() {
     }
   }
 
-    function parseBulkAnswers(text: string): Array<{ questionNumber: number; answerIndex: number }> {
-    const normalized = text.trim().replace(/[,;]+/g, "\n");
-    if (!normalized) return [];
-
-    const lines = normalized
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-
-    const answers: Array<{ questionNumber: number; answerIndex: number }> = [];
-    let sequentialQuestion = 1;
-
-    for (const line of lines) {
-      const numbered = line.match(/^(?:Q(?:UESTION)?\s*)?(\d+)\s*[\.\)\:\-]\s*([ABCD1-4])\b/i) || line.match(/^(?:Q(?:UESTION)?\s*)?(\d+)\s+([ABCD1-4])\b/i);
-
-      if (numbered) {
-        const answerIndex = normalizeAnswer(numbered[2]);
-        if (answerIndex !== null) {
-          answers.push({
-            questionNumber: Number(numbered[1]),
-            answerIndex,
-          });
-        }
-        continue;
-      }
-
-      const answerLabel = line.match(/^(?:ANSWER|ANS|CORRECT\s+ANSWER|RIGHT\s+ANSWER)\s*(?:(?:Q(?:UESTION)?\s*)?(\d+)\s*)?[\:\-\.]?\s*([ABCD1-4])\b/i);
-
-      if (answerLabel) {
-        const answerIndex = normalizeAnswer(answerLabel[2]);
-        if (answerIndex !== null) {
-          answers.push({
-            questionNumber: answerLabel[1] ? Number(answerLabel[1]) : sequentialQuestion,
-            answerIndex,
-          });
-          if (!answerLabel[1]) sequentialQuestion += 1;
-        }
-        continue;
-      }
-
-      const single = line.match(/^([ABCD1-4])[\.\)\:\-]?$/i);
-
-      if (single) {
-        const answerIndex = normalizeAnswer(single[1]);
-        if (answerIndex !== null) {
-          answers.push({
-            questionNumber: sequentialQuestion,
-            answerIndex,
-          });
-          sequentialQuestion += 1;
-        }
-      }
-    }
-
-    return answers;
-  }
-
-  function handleApplyBulkAnswers() {
-    setError("");
-    setMessage("");
-
-    if (questions.length === 0) {
-      setError("Please add or parse questions first.");
-      return;
-    }
-
-    const parsed = parseBulkAnswers(answerPasteText);
-
-    if (parsed.length === 0) {
-      setError("No valid answers found. Use 1. B, 2. C or one answer per line.");
-      return;
-    }
-
-    const nextQuestions = [...questions];
-    const invalidQuestions: number[] = [];
-    let applied = 0;
-
-    parsed.forEach(({ questionNumber, answerIndex }) => {
-      const questionIndex = questionNumber - 1;
-
-      if (questionIndex < 0 || questionIndex >= nextQuestions.length) {
-        invalidQuestions.push(questionNumber);
-        return;
-      }
-
-      nextQuestions[questionIndex] = {
-        ...nextQuestions[questionIndex],
-        options: nextQuestions[questionIndex].options.map((option, optionIndex) => ({
-          ...option,
-          is_correct: optionIndex === answerIndex,
-        })),
-      };
-
-      applied += 1;
-    });
-
-    setQuestions(nextQuestions);
-
-    const invalidText = invalidQuestions.length > 0
-      ? ` Invalid question numbers: ${[...new Set(invalidQuestions)].join(", ")}.`
-      : "";
-
-    setMessage(`Correct answers automatically selected for ${applied} question${applied === 1 ? "" : "s"}.${invalidText} Click Save All Questions to store them.`);
-    setAnswerPasteText("");
-    setShowAnswerPasteBox(false);
-  }
-  
-function handleParsePaste() {
+  function handleParsePaste() {
     setError("");
     setMessage("");
 
@@ -696,7 +590,134 @@ function handleParsePaste() {
     setShowPasteBox(false);
   }
 
+  function parseBulkAnswers(text: string): Array<{ questionNumber: number; answerIndex: number }> {
+    const normalized = text
+      .replace(/\r\n/g, "`n")
+      .replace(/\r/g, "`n")
+      .trim();
 
+    if (!normalized) return [];
+
+    const lines = normalized
+      .split("`n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    const answers: Array<{ questionNumber: number; answerIndex: number }> = [];
+    let sequentialQuestion = 1;
+
+    for (const line of lines) {
+      const numbered = line.match(/^(?:Q(?:UESTION)?\s*)?(\d+)\s*[\.\)\:\-]\s*([ABCD1-4])\b/i);
+
+      if (numbered) {
+        const answerIndex = normalizeAnswer(numbered[2]);
+        if (answerIndex !== null) {
+          answers.push({ questionNumber: Number(numbered[1]), answerIndex });
+        }
+        continue;
+      }
+
+      const named = line.match(/^(?:ANSWER|ANS|CORRECT\s+ANSWER|RIGHT\s+ANSWER)\s*(?:(?:Q(?:UESTION)?\s*)?(\d+)\s*)?[\:\-\.]?\s*([ABCD1-4])\b/i);
+
+      if (named) {
+        const answerIndex = normalizeAnswer(named[2]);
+        if (answerIndex !== null) {
+          answers.push({
+            questionNumber: named[1] ? Number(named[1]) : sequentialQuestion,
+            answerIndex,
+          });
+          if (!named[1]) sequentialQuestion += 1;
+        }
+        continue;
+      }
+
+      const sequenceLine = line.match(/^(?:ANSWERS?|CORRECT\s+ANSWERS?)\s*[\:\-]\s*(.+)$/i);
+      const sequenceText = sequenceLine ? sequenceLine[1] : line;
+      const tokens = sequenceText.split(/[\s,;]+/).filter(Boolean);
+
+      if (tokens.length > 1 && tokens.every((token) => normalizeAnswer(token) !== null)) {
+        for (const token of tokens) {
+          const answerIndex = normalizeAnswer(token);
+          if (answerIndex !== null) {
+            answers.push({ questionNumber: sequentialQuestion, answerIndex });
+            sequentialQuestion += 1;
+          }
+        }
+        continue;
+      }
+
+      const single = line.match(/^([ABCD1-4])[\.\)\:\-]?\s*$/i);
+      if (single) {
+        const answerIndex = normalizeAnswer(single[1]);
+        if (answerIndex !== null) {
+          answers.push({ questionNumber: sequentialQuestion, answerIndex });
+          sequentialQuestion += 1;
+        }
+      }
+    }
+
+    return answers;
+  }
+
+  function handleApplyBulkAnswers() {
+    setError("");
+    setMessage("");
+
+    if (questions.length === 0) {
+      setError("Please add or parse questions first.");
+      return;
+    }
+
+    const parsed = parseBulkAnswers(answerPasteText);
+    if (parsed.length === 0) {
+      setError("No valid answers found. Use 1. B, 2. C or one answer per line.");
+      return;
+    }
+
+    const answerMap = new Map<number, number>();
+    parsed.forEach(({ questionNumber, answerIndex }) => {
+      answerMap.set(questionNumber, answerIndex);
+    });
+
+    let applied = 0;
+    const invalidNumbers: number[] = [];
+
+    answerMap.forEach((answerIndex, questionNumber) => {
+      if (questionNumber >= 1 && questionNumber <= questions.length) {
+        applied += 1;
+      } else {
+        invalidNumbers.push(questionNumber);
+      }
+    });
+
+    setQuestions((current) =>
+      current.map((question, index) => {
+        const answerIndex = answerMap.get(index + 1);
+        if (answerIndex === undefined) {
+          return question;
+        }
+
+        return {
+          ...question,
+          options: question.options.map((option, optionIndex) => ({
+            ...option,
+            is_correct: optionIndex === answerIndex,
+          })),
+        };
+      })
+    );
+
+    const invalidText = invalidNumbers.length
+      ? ` Invalid question numbers: ${invalidNumbers.join(", ")}.`
+      : "";
+
+    setMessage(`Correct answers automatically selected for ${applied} question${applied === 1 ? "" : "s"}.${invalidText} Click Save All Questions to store them.`);
+    setAnswerPasteText("");
+    setShowAnswerPasteBox(false);
+  }
+
+
+  function moveQuestion(
     questionIndex: number,
     direction: "up" | "down"
   ) {
@@ -1233,7 +1254,7 @@ D. Jupiter`}
                   Bulk Paste Correct Answers
                 </h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  Paste all correct answers together and the correct options will be selected automatically.
+                  Paste all correct answers together. The correct options will be selected automatically.
                 </p>
               </div>
               <span className="text-xl text-emerald-300">
@@ -1246,17 +1267,7 @@ D. Jupiter`}
                 <textarea
                   value={answerPasteText}
                   onChange={(event) => setAnswerPasteText(event.target.value)}
-                  placeholder={`Paste like this:
-1. B
-2. C
-3. A
-4. D
-
-or simply one answer per line:
-B
-C
-A
-D`}
+                  placeholder={"1. B\n2. C\n3. A\n4. D\n\nor one answer per line:\nB\nC\nA\nD"}
                   className="min-h-[220px] w-full rounded-2xl border border-white/10 bg-slate-950/80 p-4 text-sm leading-6 text-white outline-none placeholder:text-slate-600 focus:border-emerald-400/40"
                 />
 
