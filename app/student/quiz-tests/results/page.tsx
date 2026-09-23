@@ -112,7 +112,7 @@ function dateTimeText(
   value: string | null
 ): string {
   if (!value) {
-    return "â€”";
+    return "—";
   }
 
   const date = new Date(value);
@@ -134,7 +134,7 @@ function dateText(
   value: string | null
 ): string {
   if (!value) {
-    return "â€”";
+    return "—";
   }
 
   const date = new Date(
@@ -156,7 +156,7 @@ function timeText(
   value: string | null
 ): string {
   if (!value) {
-    return "â€”";
+    return "—";
   }
 
   const parts = value.split(":");
@@ -177,6 +177,125 @@ function timeText(
   return `${hour}:${minute} ${period}`;
 }
 
+/*
+ * ---------------------------------------------------------
+ * CHECK WHETHER AN ATTEMPT HAS EXPIRED
+ * ---------------------------------------------------------
+ */
+function isAttemptExpired(
+  result: QuizResult,
+  quiz: Quiz | null
+): boolean {
+  if (!result.started_at) {
+    return false;
+  }
+
+  if (result.submitted_at) {
+    return false;
+  }
+
+  if (!quiz) {
+    return false;
+  }
+
+  const durationMinutes =
+    Number(
+      quiz.duration_minutes || 30
+    );
+
+  if (
+    !Number.isFinite(durationMinutes) ||
+    durationMinutes <= 0
+  ) {
+    return false;
+  }
+
+  const startedAt =
+    new Date(
+      result.started_at
+    ).getTime();
+
+  if (!Number.isFinite(startedAt)) {
+    return false;
+  }
+
+  const endTime =
+    startedAt +
+    durationMinutes * 60 * 1000;
+
+  return Date.now() >= endTime;
+}
+
+/*
+ * ---------------------------------------------------------
+ * FINALIZE ONE EXPIRED RESULT
+ *
+ * We intentionally send an empty answers object here.
+ * The submit API is responsible for calculating the marks.
+ *
+ * If answers were already saved on the server, the submit
+ * API will use them.
+ *
+ * If nothing was saved, result becomes 0 marks / 0%.
+ * ---------------------------------------------------------
+ */
+async function finalizeExpiredResult(
+  result: QuizResult,
+  quiz: Quiz | null
+): Promise<boolean> {
+  if (!quiz) {
+    return false;
+  }
+
+  if (!isAttemptExpired(result, quiz)) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(
+      "/api/quiz-tests/submit",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+        body: JSON.stringify({
+          resultId: result.id,
+          studentId: result.student_id,
+          answers: {},
+          submissionType:
+            "auto_submit",
+        }),
+        keepalive: true,
+      }
+    );
+
+    const data =
+      await response
+        .json()
+        .catch(() => null);
+
+    if (!response.ok) {
+      console.error(
+        "Expired quiz finalization failed:",
+        data
+      );
+
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error(
+      "Expired quiz finalization error:",
+      error
+    );
+
+    return false;
+  }
+}
+
 function ResultsContent() {
   const router = useRouter();
 
@@ -195,7 +314,11 @@ function ResultsContent() {
   const parsedResultId =
     Number(resultIdParam);
 
-  const isDetail = Number.isFinite(parsedQuizId) && parsedQuizId > 0 && Number.isFinite(parsedResultId) && parsedResultId > 0;
+  const isDetail =
+    Number.isFinite(parsedQuizId) &&
+    parsedQuizId > 0 &&
+    Number.isFinite(parsedResultId) &&
+    parsedResultId > 0;
 
   const [studentName, setStudentName] =
     useState("");
@@ -226,7 +349,8 @@ function ResultsContent() {
       setError("");
 
       try {
-        const student = await getStudent();
+        const student =
+          await getStudent();
 
         if (cancelled) {
           return;
@@ -350,10 +474,6 @@ function ResultsContent() {
             data.class_name
           );
 
-        /*
-         * Repair localStorage so every student page uses
-         * the same authoritative student identity.
-         */
         localStorage.setItem(
           "attendance_student_id",
           String(data.id)
@@ -498,12 +618,16 @@ function ResultsContent() {
       );
     }
 
+    setStudentName(name);
+    setStudentClass(className);
+
     return {
       id: studentId,
       name,
       className,
     };
   }
+
   async function loadAllResults(
     studentId: number,
     currentClass: string
@@ -592,7 +716,7 @@ function ResultsContent() {
       );
     });
 
-    const combined =
+    const combinedBeforeCleanup =
       rawResults
         .map((result) => ({
           ...result,
@@ -615,7 +739,95 @@ function ResultsContent() {
           return true;
         });
 
-    setResults(combined);
+    /*
+     * ---------------------------------------------------------
+     * AUTO-FINALIZE OLD EXPIRED ATTEMPTS
+     * ---------------------------------------------------------
+     */
+    let changed = false;
+
+    for (
+      const item of combinedBeforeCleanup
+    ) {
+      if (
+        isAttemptExpired(
+          item,
+          item.quiz
+        )
+      ) {
+        const finalized =
+          await finalizeExpiredResult(
+            item,
+            item.quiz
+          );
+
+        if (finalized) {
+          changed = true;
+        }
+      }
+    }
+
+    /*
+     * If anything was finalized, reload the database so the
+     * page displays the newly calculated marks/status.
+     */
+    if (changed) {
+      const {
+        data: refreshedData,
+        error: refreshedError,
+      } = await supabase
+        .from("quiz_results")
+        .select("*")
+        .eq(
+          "student_id",
+          studentId
+        )
+        .order(
+          "submitted_at",
+          {
+            ascending: false,
+          }
+        );
+
+      if (!refreshedError) {
+        const refreshedResults =
+          (refreshedData ||
+            []) as QuizResult[];
+
+        const refreshedCombined =
+          refreshedResults
+            .map((result) => ({
+              ...result,
+              quiz:
+                quizMap.get(
+                  Number(result.quiz_id)
+                ) || null,
+            }))
+            .filter((item) => {
+              if (
+                item.quiz &&
+                currentClass
+              ) {
+                return matchesClass(
+                  item.quiz,
+                  currentClass
+                );
+              }
+
+              return true;
+            });
+
+        setResults(
+          refreshedCombined
+        );
+
+        return;
+      }
+    }
+
+    setResults(
+      combinedBeforeCleanup
+    );
   }
 
   async function loadSingleResult(
@@ -746,6 +958,55 @@ function ResultsContent() {
       );
     }
 
+    /*
+     * ---------------------------------------------------------
+     * FINALIZE THIS DETAIL RESULT IF ITS 30 MINUTES ARE OVER
+     * ---------------------------------------------------------
+     */
+    if (
+      isAttemptExpired(
+        result,
+        quiz
+      )
+    ) {
+      const finalized =
+        await finalizeExpiredResult(
+          result,
+          quiz
+        );
+
+      if (finalized) {
+        const {
+          data: refreshedResult,
+          error: refreshedResultError,
+        } = await supabase
+          .from("quiz_results")
+          .select("*")
+          .eq(
+            "id",
+            result.id
+          )
+          .eq(
+            "student_id",
+            studentId
+          )
+          .maybeSingle();
+
+        if (
+          refreshedResultError
+        ) {
+          throw new Error(
+            refreshedResultError.message
+          );
+        }
+
+        if (refreshedResult) {
+          result =
+            refreshedResult as QuizResult;
+        }
+      }
+    }
+
     setSelectedResult(
       result
     );
@@ -803,7 +1064,7 @@ function ResultsContent() {
               }
               className="rounded-xl border border-white/10 bg-white/5 px-6 py-3 font-black hover:bg-white/10"
             >
-               QUIZ TESTS
+              QUIZ TESTS
             </button>
 
           </div>
@@ -1036,7 +1297,7 @@ function ResultsContent() {
                                 {item.unanswered}
                               </p>
 
-                              <p className="text-[9px] font-bold text-amber-200/60">
+                              <p className="text-[9px] font-bold text-amber-300">
                                 SKIPPED
                               </p>
                             </div>
@@ -1064,7 +1325,7 @@ function ResultsContent() {
                             }
                             className="mt-4 w-full rounded-xl bg-indigo-600 px-4 py-3 font-black hover:bg-indigo-500"
                           >
-                             View Result
+                            View Result
                           </button>
 
                         </div>
@@ -1086,7 +1347,7 @@ function ResultsContent() {
                 }
                 className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 font-black hover:bg-white/10"
               >
-                 View Result
+                View Result
               </button>
             </div>
 
@@ -1419,7 +1680,7 @@ function ResultsContent() {
                       )}`
                     : studentClass
                       ? `Class ${studentClass}`
-                      : "â€”"}
+                      : "—"}
                 </p>
               </div>
 
@@ -1429,7 +1690,7 @@ function ResultsContent() {
                 </p>
 
                 <p className="mt-1 font-black">
-                  {quiz.subject || "â€”"}
+                  {quiz.subject || "—"}
                 </p>
               </div>
 
@@ -1543,7 +1804,7 @@ function ResultsContent() {
               }
               className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4 font-black hover:bg-white/10"
             >
-               ALL RESULTS
+              ALL RESULTS
             </button>
 
             <button
@@ -1590,4 +1851,3 @@ export default function StudentQuizResultsPage() {
     </Suspense>
   );
 }
-

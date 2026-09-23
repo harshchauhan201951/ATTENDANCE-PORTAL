@@ -22,15 +22,10 @@ type SubmitBody = {
   submissionType?: string;
 };
 
-function cleanSubmissionType(
-  value: unknown
-): "manual" | "time_expired" {
-  if (
-    value === "time_expired"
-  ) {
-    return "time_expired";
-  }
-
+function cleanSubmissionType(value: unknown): "manual" | "time_expired" | "left_quiz" | "auto_submit" {
+  if (value === "time_expired") return "time_expired";
+  if (value === "left_quiz") return "left_quiz";
+  if (value === "auto_submit") return "auto_submit";
   return "manual";
 }
 
@@ -821,3 +816,5 @@ export async function POST(
     );
   }
 }
+
+

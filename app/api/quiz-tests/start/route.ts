@@ -122,6 +122,310 @@ function calculateTotalMarks(
   );
 }
 
+function isCorrectOption(
+  value: unknown
+): boolean {
+  if (value === true) {
+    return true;
+  }
+
+  if (
+    typeof value === "string" &&
+    value.trim().toLowerCase() ===
+      "true"
+  ) {
+    return true;
+  }
+
+  if (Number(value) === 1) {
+    return true;
+  }
+
+  return false;
+}
+
+/*
+ * ---------------------------------------------------------
+ * FINALIZE EXPIRED ATTEMPT
+ * ---------------------------------------------------------
+ *
+ * This is the server-side safety net.
+ *
+ * If the browser is closed before sendBeacon/fetch can reach
+ * the submit API, the attempt can otherwise remain IN_PROGRESS.
+ *
+ * We therefore finalize an expired attempt whenever the start
+ * API sees that its 30-minute window has already ended.
+ *
+ * Any quiz_answers already saved for the result are scored.
+ * If there are no saved answers, the attempt becomes 0 marks.
+ */
+async function finalizeExpiredAttempt(
+  result: any,
+  questions: any[],
+  options: any[],
+  quiz: any,
+  studentId: number
+) {
+  const resultId =
+    Number(result?.id);
+
+  if (
+    !Number.isFinite(resultId) ||
+    resultId <= 0
+  ) {
+    return null;
+  }
+
+  const {
+    data: savedAnswers,
+    error: savedAnswersError,
+  } = await supabaseAdmin
+    .from("quiz_answers")
+    .select("*")
+    .eq(
+      "result_id",
+      resultId
+    );
+
+  if (savedAnswersError) {
+    console.error(
+      "FINALIZE EXPIRED ANSWERS ERROR:",
+      savedAnswersError
+    );
+
+    return null;
+  }
+
+  const answerRows =
+    savedAnswers || [];
+
+  let correctAnswers = 0;
+  let wrongAnswers = 0;
+  let unanswered = 0;
+  let totalMarks = 0;
+  let obtainedMarks = 0;
+
+  for (
+    const question of questions
+  ) {
+    const questionId =
+      Number(question.id);
+
+    const questionOptions =
+      options.filter(
+        (option) =>
+          Number(
+            option.question_id
+          ) === questionId
+      );
+
+    const correctOption =
+      questionOptions.find(
+        (option) =>
+          isCorrectOption(
+            option.is_correct
+          )
+      );
+
+    const questionMarks =
+      Number(question?.marks) > 0
+        ? Number(question.marks)
+        : Number(
+            quiz?.marks_per_question
+          ) || 0;
+
+    const negativeMarks =
+      Number(
+        question?.negative_marks
+      ) >= 0
+        ? Number(
+            question.negative_marks
+          )
+        : Number(
+            quiz?.negative_marks
+          ) || 0;
+
+    totalMarks +=
+      questionMarks;
+
+    const savedAnswer =
+      answerRows.find(
+        (answer: any) =>
+          Number(
+            answer.question_id
+          ) === questionId
+      );
+
+    const selectedOptionId =
+      savedAnswer &&
+      savedAnswer.selected_option_id !==
+        null &&
+      savedAnswer.selected_option_id !==
+        undefined &&
+      savedAnswer.selected_option_id !==
+        ""
+        ? Number(
+            savedAnswer.selected_option_id
+          )
+        : null;
+
+    if (
+      selectedOptionId === null ||
+      !Number.isFinite(
+        selectedOptionId
+      )
+    ) {
+      unanswered += 1;
+      continue;
+    }
+
+    const selectedOption =
+      questionOptions.find(
+        (option) =>
+          Number(option.id) ===
+          selectedOptionId
+      );
+
+    const isCorrect =
+      Boolean(
+        selectedOption
+      ) &&
+      Boolean(
+        correctOption
+      ) &&
+      Number(
+        selectedOption.id
+      ) ===
+        Number(
+          correctOption.id
+        );
+
+    if (isCorrect) {
+      correctAnswers += 1;
+      obtainedMarks +=
+        questionMarks;
+    } else {
+      wrongAnswers += 1;
+      obtainedMarks -=
+        negativeMarks;
+    }
+  }
+
+  obtainedMarks =
+    Math.max(
+      0,
+      Number(
+        obtainedMarks.toFixed(2)
+      )
+    );
+
+  totalMarks =
+    Number(
+      totalMarks.toFixed(2)
+    );
+
+  const percentage =
+    totalMarks > 0
+      ? Number(
+          (
+            (obtainedMarks /
+              totalMarks) *
+            100
+          ).toFixed(2)
+        )
+      : 0;
+
+  const passPercentage =
+    Number(
+      quiz?.pass_percentage
+    ) >= 0
+      ? Number(
+          quiz.pass_percentage
+        )
+      : 40;
+
+  const resultStatus =
+    percentage >=
+    passPercentage
+      ? "PASS"
+      : "FAIL";
+
+  const submittedAt =
+    new Date().toISOString();
+
+  const {
+    data: updatedResult,
+    error: updateError,
+  } = await supabaseAdmin
+    .from("quiz_results")
+    .update({
+      total_questions:
+        questions.length,
+
+      correct_answers:
+        correctAnswers,
+
+      wrong_answers:
+        wrongAnswers,
+
+      unanswered:
+        unanswered,
+
+      total_marks:
+        totalMarks,
+
+      obtained_marks:
+        obtainedMarks,
+
+      percentage:
+        percentage,
+
+      result_status:
+        resultStatus,
+
+      submitted_at:
+        submittedAt,
+
+      submission_type:
+        "time_expired",
+
+      updated_at:
+        submittedAt,
+    })
+    .eq(
+      "id",
+      resultId
+    )
+    .eq(
+      "quiz_id",
+      Number(result.quiz_id)
+    )
+    .eq(
+      "student_id",
+      studentId
+    )
+    .is(
+      "submitted_at",
+      null
+    )
+    .select("*")
+    .maybeSingle();
+
+  if (updateError) {
+    console.error(
+      "FINALIZE EXPIRED RESULT ERROR:",
+      updateError
+    );
+
+    return null;
+  }
+
+  return (
+    updatedResult || null
+  );
+}
+
 export async function POST(
   request: Request
 ) {
@@ -163,7 +467,10 @@ export async function POST(
     } = await supabaseAdmin
       .from("students")
       .select("*")
-      .eq("id", studentId)
+      .eq(
+        "id",
+        studentId
+      )
       .maybeSingle();
 
     if (studentError) {
@@ -207,7 +514,10 @@ export async function POST(
     } = await supabaseAdmin
       .from("quiz_tests")
       .select("*")
-      .eq("id", quizId)
+      .eq(
+        "id",
+        quizId
+      )
       .maybeSingle();
 
     if (quizError) {
@@ -293,6 +603,7 @@ export async function POST(
      * Controlled by an active teacher permission.
      * It is NOT restricted by the original quiz date/time.
      */
+
     const normalAttemptWindow =
       getAttemptWindow(
         quiz.scheduled_date,
@@ -322,7 +633,10 @@ export async function POST(
     } = await supabaseAdmin
       .from("quiz_questions")
       .select("*")
-      .eq("quiz_id", quizId)
+      .eq(
+        "quiz_id",
+        quizId
+      )
       .order(
         "question_order",
         {
@@ -417,6 +731,7 @@ export async function POST(
     /*
      * Never send correct-answer information to student.
      */
+
     const questionsWithOptions =
       questionList.map(
         (question) => ({
@@ -540,19 +855,12 @@ export async function POST(
      * =========================================================
      * RE-ATTEMPT
      * =========================================================
-     *
-     * Teacher authorization is the authority for a re-attempt.
-     *
-     * IMPORTANT:
-     * - Student does NOT need a previous original attempt.
-     * - Original quiz date/time does NOT block the re-attempt.
-     * - A used permission can NEVER be reused.
      */
 
     if (isReattempt) {
       /*
        * -------------------------------------------------------
-       * RESUME AN ALREADY CREATED UNFINISHED RE-ATTEMPT
+       * RESUME OR FINALIZE AN UNFINISHED RE-ATTEMPT
        * -------------------------------------------------------
        */
 
@@ -614,9 +922,80 @@ export async function POST(
           validExistingStartedAt ||
           now;
 
+        const attemptEnd =
+          new Date(
+            startedAt.getTime() +
+              durationMinutes *
+                60 *
+                1000
+          );
+
+        /*
+         * IMPORTANT:
+         * Never revive an already expired attempt.
+         */
+        if (
+          now.getTime() >=
+          attemptEnd.getTime()
+        ) {
+          const finalized =
+            await finalizeExpiredAttempt(
+              unfinishedReattempt,
+              questionList,
+              options,
+              quiz,
+              studentId
+            );
+
+          if (!finalized) {
+            return NextResponse.json(
+              {
+                success: false,
+                error:
+                  "This re-attempt has expired and could not be finalized automatically.",
+              },
+              { status: 500 }
+            );
+          }
+
+          return NextResponse.json({
+            success: true,
+            resultId:
+              Number(
+                finalized.id
+              ),
+            quizId,
+            studentId,
+            attemptNumber,
+            isReattempt: true,
+            reattemptPermissionId:
+              null,
+            startedAt:
+              startedAt.toISOString(),
+            scheduledStart:
+              scheduledStart.toISOString(),
+            attemptWindowStart:
+              normalAttemptWindow.start.toISOString(),
+            attemptWindowEnd:
+              normalAttemptWindow.end.toISOString(),
+            endAt:
+              attemptEnd.toISOString(),
+            remainingMilliseconds: 0,
+            timeExpired: true,
+            alreadyStarted: true,
+            attemptFinalized: true,
+            quiz: {
+              ...quiz,
+              duration_minutes:
+                durationMinutes,
+            },
+            questions:
+              questionsWithOptions,
+          });
+        }
+
         const {
-          error:
-            recoverError,
+          error: recoverError,
         } = await supabaseAdmin
           .from("quiz_results")
           .update({
@@ -705,8 +1084,6 @@ export async function POST(
          * -------------------------------------------------------
          * CHECK ACTIVE TEACHER PERMISSION
          * -------------------------------------------------------
-         *
-         * NO requirement for an original/submitted attempt.
          */
 
         const {
@@ -777,21 +1154,14 @@ export async function POST(
         }
 
         /*
-         * -------------------------------------------------------
-         * NO DATE/TIME RESTRICTION FOR AUTHORIZED RE-ATTEMPT
-         * -------------------------------------------------------
-         *
-         * This is intentional.
-         *
-         * A teacher-authorized re-attempt can be started even if:
-         * - the quiz was scheduled on an earlier date;
-         * - today's normal 9 PM window has ended;
-         * - the student never attempted the original quiz.
-         *
-         * The teacher permission itself is the authorization.
+         * Authorized re-attempt is not restricted by original
+         * quiz date/time.
          */
 
-        attemptNumber = highestAttemptNumber > 0 ? highestAttemptNumber + 1 : 1;
+        attemptNumber =
+          highestAttemptNumber > 0
+            ? highestAttemptNumber + 1
+            : 1;
 
         startedAt =
           now;
@@ -856,10 +1226,15 @@ export async function POST(
           return NextResponse.json(
             {
               success: false,
-              error: "Unable to create re-attempt: " + insertError.message,
-              details: insertError.message,
-              code: insertError.code,
-              hint: insertError.hint,
+              error:
+                "Unable to create re-attempt: " +
+                insertError.message,
+              details:
+                insertError.message,
+              code:
+                insertError.code,
+              hint:
+                insertError.hint,
             },
             { status: 500 }
           );
@@ -931,9 +1306,6 @@ export async function POST(
             consumeError
           );
 
-          /*
-           * Roll back ONLY the newly created attempt.
-           */
           await supabaseAdmin
             .from("quiz_answers")
             .delete()
@@ -977,10 +1349,6 @@ export async function POST(
        * =========================================================
        * NORMAL ORIGINAL ATTEMPT
        * =========================================================
-       *
-       * Normal quiz rules stay unchanged:
-       * - one original attempt only
-       * - 5 AM to 9 PM IST
        */
 
       const unfinishedNormalResult =
@@ -1022,6 +1390,78 @@ export async function POST(
         startedAt =
           validExistingStartedAt ||
           now;
+
+        const attemptEnd =
+          new Date(
+            startedAt.getTime() +
+              durationMinutes *
+                60 *
+                1000
+          );
+
+        /*
+         * IMPORTANT:
+         * Never revive an already expired original attempt.
+         */
+        if (
+          now.getTime() >=
+          attemptEnd.getTime()
+        ) {
+          const finalized =
+            await finalizeExpiredAttempt(
+              unfinishedNormalResult,
+              questionList,
+              options,
+              quiz,
+              studentId
+            );
+
+          if (!finalized) {
+            return NextResponse.json(
+              {
+                success: false,
+                error:
+                  "This quiz attempt has expired and could not be finalized automatically.",
+              },
+              { status: 500 }
+            );
+          }
+
+          return NextResponse.json({
+            success: true,
+            resultId:
+              Number(
+                finalized.id
+              ),
+            quizId,
+            studentId,
+            attemptNumber,
+            isReattempt: false,
+            reattemptPermissionId:
+              null,
+            startedAt:
+              startedAt.toISOString(),
+            scheduledStart:
+              scheduledStart.toISOString(),
+            attemptWindowStart:
+              normalAttemptWindow.start.toISOString(),
+            attemptWindowEnd:
+              normalAttemptWindow.end.toISOString(),
+            endAt:
+              attemptEnd.toISOString(),
+            remainingMilliseconds: 0,
+            timeExpired: true,
+            alreadyStarted: true,
+            attemptFinalized: true,
+            quiz: {
+              ...quiz,
+              duration_minutes:
+                durationMinutes,
+            },
+            questions:
+              questionsWithOptions,
+          });
+        }
 
         const {
           error:
@@ -1102,6 +1542,7 @@ export async function POST(
          * Normal attempt timing:
          * 5 AM -> 9 PM IST.
          */
+
         if (
           now <
           normalAttemptWindow.start
@@ -1221,9 +1662,6 @@ export async function POST(
      * ---------------------------------------------------------
      * ATTEMPT TIMER
      * ---------------------------------------------------------
-     *
-     * Every attempt gets a fresh duration from its own
-     * started_at timestamp.
      */
 
     const attemptEnd =
@@ -1243,64 +1681,108 @@ export async function POST(
 
     /*
      * ---------------------------------------------------------
-     * EXPIRED ATTEMPT
+     * FINAL EXPIRED SAFETY CHECK
      * ---------------------------------------------------------
      */
 
     if (
       remainingMilliseconds <= 0
     ) {
-      return NextResponse.json({
-        success: true,
+      const {
+        data: currentResult,
+        error: currentResultError,
+      } = await supabaseAdmin
+        .from("quiz_results")
+        .select("*")
+        .eq(
+          "id",
+          resultId
+        )
+        .eq(
+          "quiz_id",
+          quizId
+        )
+        .eq(
+          "student_id",
+          studentId
+        )
+        .maybeSingle();
 
-        resultId,
+      if (currentResultError) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Unable to verify expired attempt.",
+            details:
+              currentResultError.message,
+          },
+          { status: 500 }
+        );
+      }
 
-        quizId,
+      if (
+        currentResult &&
+        !currentResult.submitted_at
+      ) {
+        const finalized =
+          await finalizeExpiredAttempt(
+            currentResult,
+            questionList,
+            options,
+            quiz,
+            studentId
+          );
 
-        studentId,
+        if (!finalized) {
+          return NextResponse.json(
+            {
+              success: false,
+              error:
+                "Expired quiz attempt could not be finalized.",
+            },
+            { status: 500 }
+          );
+        }
 
-        attemptNumber,
-
-        isReattempt: isReattempt,
-
-        reattemptPermissionId,
-
-        startedAt:
-          startedAt.toISOString(),
-
-        scheduledStart:
-          scheduledStart.toISOString(),
-
-        attemptWindowStart:
-          normalAttemptWindow.start.toISOString(),
-
-        /*
-         * Normal window remains 9 PM.
-         * Re-attempt itself has no schedule restriction,
-         * so this is only informational.
-         */
-        attemptWindowEnd:
-          normalAttemptWindow.end.toISOString(),
-
-        endAt:
-          attemptEnd.toISOString(),
-
-        remainingMilliseconds: 0,
-
-        timeExpired: true,
-
-        alreadyStarted:
-          !createdNewAttempt,
-
-        quiz: {
-          ...quiz,
-          duration_minutes:
-            durationMinutes,
-        },
-
-        questions:
-          questionsWithOptions,
-      });
+        return NextResponse.json({
+          success: true,
+          resultId:
+            Number(
+              finalized.id
+            ),
+          quizId,
+          studentId,
+          attemptNumber,
+          isReattempt:
+            isReattempt,
+          reattemptPermissionId:
+            reattemptPermissionId,
+          startedAt:
+            startedAt.toISOString(),
+          scheduledStart:
+            scheduledStart.toISOString(),
+          attemptWindowStart:
+            normalAttemptWindow.start.toISOString(),
+          attemptWindowEnd:
+            normalAttemptWindow.end.toISOString(),
+          endAt:
+            attemptEnd.toISOString(),
+          remainingMilliseconds: 0,
+          timeExpired: true,
+          alreadyStarted:
+            !createdNewAttempt,
+          attemptFinalized:
+            true,
+          quiz: {
+            ...quiz,
+            duration_minutes:
+              durationMinutes,
+          },
+          questions:
+            questionsWithOptions,
+        });
+      }
     }
 
     /*
@@ -1320,7 +1802,8 @@ export async function POST(
 
       attemptNumber,
 
-      isReattempt: isReattempt,
+      isReattempt:
+        isReattempt,
 
       reattemptPermissionId,
 
@@ -1333,10 +1816,6 @@ export async function POST(
       attemptWindowStart:
         normalAttemptWindow.start.toISOString(),
 
-      /*
-       * For an authorized re-attempt this is informational only.
-       * The server has already bypassed the normal schedule check.
-       */
       attemptWindowEnd:
         normalAttemptWindow.end.toISOString(),
 
@@ -1373,7 +1852,7 @@ export async function POST(
         details:
           error instanceof Error
             ? error.message
-            : "Unknown server error",
+            : "Unknown error",
       },
       { status: 500 }
     );
