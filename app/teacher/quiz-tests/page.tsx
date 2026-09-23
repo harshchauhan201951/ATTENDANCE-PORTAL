@@ -113,101 +113,148 @@ export default function TeacherQuizTestsPage() {
   }).length;
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
+    <main className="min-h-screen bg-white text-slate-900">
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,_rgba(99,102,241,0.08),_transparent_30%),radial-gradient(circle_at_bottom_left,_rgba(14,165,233,0.06),_transparent_30%)]">
         {/* HEADER */}
-        <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/90 backdrop-blur-xl">
-          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-            <div>
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-2xl shadow-lg shadow-indigo-500/20">
-                  🧠
-                </div>
+        <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-lg font-black text-indigo-600 shadow-sm">
+                QT
+              </div>
 
-                <div>
-                  <h1 className="text-lg font-black tracking-wide sm:text-xl">
-                    QUIZ TESTS
-                  </h1>
+              <div className="min-w-0">
+                <h1 className="truncate text-lg font-black tracking-wide text-slate-900 sm:text-xl">
+                  QUIZ TESTS
+                </h1>
 
-                  <p className="text-xs text-slate-400">
-                    RACER ACADEMY • Teacher Panel
-                  </p>
-                </div>
+                <p className="truncate text-xs font-medium text-slate-500">
+                  RACER ACADEMY • Teacher Panel
+                </p>
               </div>
             </div>
 
             <button
               onClick={() => router.push("/teacher")}
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10"
+              className="shrink-0 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
             >
               ← Dashboard
             </button>
           </div>
         </header>
 
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl px-4 py-7 sm:px-6 sm:py-8 lg:px-8">
           {/* WELCOME */}
-          <section className="mb-8 overflow-hidden rounded-3xl border border-indigo-400/20 bg-gradient-to-r from-indigo-600/20 via-purple-600/10 to-transparent p-6 shadow-2xl shadow-indigo-950/30">
-            <p className="mb-1 text-sm font-medium text-indigo-300">
-              Welcome back
-            </p>
+          <section className="relative mb-8 overflow-hidden rounded-3xl border border-indigo-100 bg-gradient-to-r from-white via-indigo-50/60 to-blue-50/80 p-6 shadow-[0_12px_40px_rgba(15,23,42,0.06)] sm:p-8">
+            <div className="absolute right-0 top-0 h-32 w-32 translate-x-8 -translate-y-8 rounded-full bg-indigo-200/20 blur-2xl" />
+            <div className="absolute bottom-0 left-1/3 h-24 w-24 rounded-full bg-sky-200/20 blur-2xl" />
 
-            <h2 className="text-2xl font-black sm:text-3xl">
-              {teacherName}
-            </h2>
+            <div className="relative">
+              <div className="mb-3 inline-flex items-center rounded-full border border-indigo-100 bg-white px-3 py-1 text-xs font-bold uppercase tracking-widest text-indigo-600 shadow-sm">
+                Teacher Quiz Workspace
+              </div>
 
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-              Create, schedule, publish and manage your student quizzes from
-              one place.
-            </p>
+              <p className="text-sm font-semibold text-slate-500">
+                Welcome back
+              </p>
+
+              <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+                {teacherName}
+              </h2>
+
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                Create, schedule, publish and manage your student quizzes from
+                one clean workspace.
+              </p>
+            </div>
           </section>
 
           {/* STATS */}
-          <section className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-xl">
-              <div className="mb-3 text-2xl">🧠</div>
+          <section className="mb-9 grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
+              <div className="absolute left-0 top-0 h-1 w-full bg-indigo-500" />
 
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-sm font-black text-indigo-600">
+                  ALL
+                </div>
+
+                <span className="text-xs font-semibold text-slate-400">
+                  Overview
+                </span>
+              </div>
+
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
                 Total Quizzes
               </p>
 
-              <p className="mt-1 text-3xl font-black">
+              <p className="mt-1 text-3xl font-black text-slate-950">
                 {totalQuizzes}
               </p>
             </div>
 
-            <div className="rounded-2xl border border-emerald-400/10 bg-emerald-500/5 p-5 backdrop-blur-xl">
-              <div className="mb-3 text-2xl">🚀</div>
+            <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
+              <div className="absolute left-0 top-0 h-1 w-full bg-emerald-500" />
 
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-sm font-black text-emerald-600">
+                  PUB
+                </div>
+
+                <span className="text-xs font-semibold text-slate-400">
+                  Live
+                </span>
+              </div>
+
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
                 Published
               </p>
 
-              <p className="mt-1 text-3xl font-black text-emerald-400">
+              <p className="mt-1 text-3xl font-black text-emerald-600">
                 {publishedQuizzes}
               </p>
             </div>
 
-            <div className="rounded-2xl border border-amber-400/10 bg-amber-500/5 p-5 backdrop-blur-xl">
-              <div className="mb-3 text-2xl">📝</div>
+            <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
+              <div className="absolute left-0 top-0 h-1 w-full bg-amber-500" />
 
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 text-sm font-black text-amber-600">
+                  DFT
+                </div>
+
+                <span className="text-xs font-semibold text-slate-400">
+                  Pending
+                </span>
+              </div>
+
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
                 Drafts
               </p>
 
-              <p className="mt-1 text-3xl font-black text-amber-400">
+              <p className="mt-1 text-3xl font-black text-amber-600">
                 {draftQuizzes}
               </p>
             </div>
 
-            <div className="rounded-2xl border border-cyan-400/10 bg-cyan-500/5 p-5 backdrop-blur-xl">
-              <div className="mb-3 text-2xl">⏰</div>
+            <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
+              <div className="absolute left-0 top-0 h-1 w-full bg-sky-500" />
 
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-50 text-sm font-black text-sky-600">
+                  UPC
+                </div>
+
+                <span className="text-xs font-semibold text-slate-400">
+                  Scheduled
+                </span>
+              </div>
+
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
                 Upcoming
               </p>
 
-              <p className="mt-1 text-3xl font-black text-cyan-400">
+              <p className="mt-1 text-3xl font-black text-sky-600">
                 {scheduledQuizzes}
               </p>
             </div>
@@ -215,14 +262,24 @@ export default function TeacherQuizTestsPage() {
 
           {/* MAIN ACTIONS */}
           <section className="mb-10">
-            <div className="mb-4">
-              <h3 className="text-xl font-black">
-                Quiz Control Center
-              </h3>
+            <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <div className="mb-2 text-xs font-black uppercase tracking-[0.22em] text-indigo-600">
+                  Control Center
+                </div>
 
-              <p className="mt-1 text-sm text-slate-400">
-                Manage every part of your quiz system.
-              </p>
+                <h3 className="text-2xl font-black tracking-tight text-slate-950">
+                  Quiz Management
+                </h3>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Manage every part of your quiz system from one place.
+                </p>
+              </div>
+
+              <div className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-500 shadow-sm">
+                5 management tools
+              </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -231,26 +288,32 @@ export default function TeacherQuizTestsPage() {
                 onClick={() =>
                   router.push("/teacher/quiz-tests/create")
                 }
-                className="group rounded-3xl border border-indigo-400/20 bg-gradient-to-br from-indigo-600/20 to-purple-600/10 p-6 text-left transition hover:-translate-y-1 hover:border-indigo-400/40 hover:bg-indigo-500/20"
+                className="group relative overflow-hidden rounded-3xl border border-indigo-100 bg-white p-6 text-left shadow-sm transition duration-200 hover:-translate-y-1 hover:border-indigo-200 hover:shadow-[0_16px_35px_rgba(79,70,229,0.10)]"
               >
-                <div className="mb-5 flex items-center justify-between">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-500/20 text-3xl">
-                    ➕
+                <div className="absolute right-0 top-0 h-20 w-20 translate-x-8 -translate-y-8 rounded-full bg-indigo-50" />
+
+                <div className="relative mb-6 flex items-center justify-between">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-xl font-black text-indigo-600">
+                    +
                   </div>
 
-                  <span className="text-xl text-indigo-300 transition group-hover:translate-x-1">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full border border-indigo-100 bg-white text-lg font-bold text-indigo-500 transition group-hover:translate-x-1">
                     →
                   </span>
                 </div>
 
-                <h4 className="text-lg font-black">
+                <h4 className="text-lg font-black text-slate-950">
                   Create New Quiz
                 </h4>
 
-                <p className="mt-2 text-sm leading-6 text-slate-400">
+                <p className="mt-2 text-sm leading-6 text-slate-600">
                   Create a quiz title, schedule, marks, negative marking and
                   pass percentage.
                 </p>
+
+                <div className="mt-5 text-xs font-black uppercase tracking-wider text-indigo-600">
+                  Start creating
+                </div>
               </button>
 
               {/* MANAGE */}
@@ -258,26 +321,32 @@ export default function TeacherQuizTestsPage() {
                 onClick={() =>
                   router.push("/teacher/quiz-tests/manage")
                 }
-                className="group rounded-3xl border border-blue-400/20 bg-gradient-to-br from-blue-600/20 to-cyan-600/10 p-6 text-left transition hover:-translate-y-1 hover:border-blue-400/40 hover:bg-blue-500/20"
+                className="group relative overflow-hidden rounded-3xl border border-blue-100 bg-white p-6 text-left shadow-sm transition duration-200 hover:-translate-y-1 hover:border-blue-200 hover:shadow-[0_16px_35px_rgba(37,99,235,0.10)]"
               >
-                <div className="mb-5 flex items-center justify-between">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/20 text-3xl">
-                    📋
+                <div className="absolute right-0 top-0 h-20 w-20 translate-x-8 -translate-y-8 rounded-full bg-blue-50" />
+
+                <div className="relative mb-6 flex items-center justify-between">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-sm font-black text-blue-600">
+                    M
                   </div>
 
-                  <span className="text-xl text-blue-300 transition group-hover:translate-x-1">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full border border-blue-100 bg-white text-lg font-bold text-blue-500 transition group-hover:translate-x-1">
                     →
                   </span>
                 </div>
 
-                <h4 className="text-lg font-black">
+                <h4 className="text-lg font-black text-slate-950">
                   Manage Quizzes
                 </h4>
 
-                <p className="mt-2 text-sm leading-6 text-slate-400">
+                <p className="mt-2 text-sm leading-6 text-slate-600">
                   View, edit, publish, unpublish and manage all created
                   quizzes.
                 </p>
+
+                <div className="mt-5 text-xs font-black uppercase tracking-wider text-blue-600">
+                  Open quiz manager
+                </div>
               </button>
 
               {/* QUESTIONS */}
@@ -285,26 +354,32 @@ export default function TeacherQuizTestsPage() {
                 onClick={() =>
                   router.push("/teacher/quiz-tests/questions")
                 }
-                className="group rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-600/20 to-pink-600/10 p-6 text-left transition hover:-translate-y-1 hover:border-purple-400/40 hover:bg-purple-500/20"
+                className="group relative overflow-hidden rounded-3xl border border-violet-100 bg-white p-6 text-left shadow-sm transition duration-200 hover:-translate-y-1 hover:border-violet-200 hover:shadow-[0_16px_35px_rgba(124,58,237,0.10)]"
               >
-                <div className="mb-5 flex items-center justify-between">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-500/20 text-3xl">
-                    ❓
+                <div className="absolute right-0 top-0 h-20 w-20 translate-x-8 -translate-y-8 rounded-full bg-violet-50" />
+
+                <div className="relative mb-6 flex items-center justify-between">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-violet-100 bg-violet-50 text-lg font-black text-violet-600">
+                    Q
                   </div>
 
-                  <span className="text-xl text-purple-300 transition group-hover:translate-x-1">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full border border-violet-100 bg-white text-lg font-bold text-violet-500 transition group-hover:translate-x-1">
                     →
                   </span>
                 </div>
 
-                <h4 className="text-lg font-black">
+                <h4 className="text-lg font-black text-slate-950">
                   Questions
                 </h4>
 
-                <p className="mt-2 text-sm leading-6 text-slate-400">
+                <p className="mt-2 text-sm leading-6 text-slate-600">
                   Add questions, multiple options and select the correct
                   answer.
                 </p>
+
+                <div className="mt-5 text-xs font-black uppercase tracking-wider text-violet-600">
+                  Build questions
+                </div>
               </button>
 
               {/* RESULTS */}
@@ -316,26 +391,32 @@ export default function TeacherQuizTestsPage() {
                     router.push("/teacher/quiz-tests/manage");
                   }
                 }}
-                className="group rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-600/20 to-teal-600/10 p-6 text-left transition hover:-translate-y-1 hover:border-emerald-400/40 hover:bg-emerald-500/20"
+                className="group relative overflow-hidden rounded-3xl border border-emerald-100 bg-white p-6 text-left shadow-sm transition duration-200 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-[0_16px_35px_rgba(16,185,129,0.10)]"
               >
-                <div className="mb-5 flex items-center justify-between">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/20 text-3xl">
-                    📊
+                <div className="absolute right-0 top-0 h-20 w-20 translate-x-8 -translate-y-8 rounded-full bg-emerald-50" />
+
+                <div className="relative mb-6 flex items-center justify-between">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 text-sm font-black text-emerald-600">
+                    R
                   </div>
 
-                  <span className="text-xl text-emerald-300 transition group-hover:translate-x-1">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-100 bg-white text-lg font-bold text-emerald-500 transition group-hover:translate-x-1">
                     →
                   </span>
                 </div>
 
-                <h4 className="text-lg font-black">
+                <h4 className="text-lg font-black text-slate-950">
                   Results
                 </h4>
 
-                <p className="mt-2 text-sm leading-6 text-slate-400">
+                <p className="mt-2 text-sm leading-6 text-slate-600">
                   View student-wise scores, correct/wrong answers,
                   percentages and PASS/FAIL results.
                 </p>
+
+                <div className="mt-5 text-xs font-black uppercase tracking-wider text-emerald-600">
+                  View latest results
+                </div>
               </button>
 
               {/* SETTINGS */}
@@ -343,43 +424,80 @@ export default function TeacherQuizTestsPage() {
                 onClick={() =>
                   router.push("/teacher/quiz-tests/settings")
                 }
-                className="group rounded-3xl border border-orange-400/20 bg-gradient-to-br from-orange-600/20 to-amber-600/10 p-6 text-left transition hover:-translate-y-1 hover:border-orange-400/40 hover:bg-orange-500/20"
+                className="group relative overflow-hidden rounded-3xl border border-orange-100 bg-white p-6 text-left shadow-sm transition duration-200 hover:-translate-y-1 hover:border-orange-200 hover:shadow-[0_16px_35px_rgba(249,115,22,0.10)]"
               >
-                <div className="mb-5 flex items-center justify-between">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-500/20 text-3xl">
-                    ⚙️
+                <div className="absolute right-0 top-0 h-20 w-20 translate-x-8 -translate-y-8 rounded-full bg-orange-50" />
+
+                <div className="relative mb-6 flex items-center justify-between">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-orange-100 bg-orange-50 text-sm font-black text-orange-600">
+                    S
                   </div>
 
-                  <span className="text-xl text-orange-300 transition group-hover:translate-x-1">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full border border-orange-100 bg-white text-lg font-bold text-orange-500 transition group-hover:translate-x-1">
                     →
                   </span>
                 </div>
 
-                <h4 className="text-lg font-black">
+                <h4 className="text-lg font-black text-slate-950">
                   Quiz Settings
                 </h4>
 
-                <p className="mt-2 text-sm leading-6 text-slate-400">
+                <p className="mt-2 text-sm leading-6 text-slate-600">
                   Configure quiz defaults and review quiz rules.
                 </p>
+
+                <div className="mt-5 text-xs font-black uppercase tracking-wider text-orange-600">
+                  Configure system
+                </div>
               </button>
 
               {/* RULES */}
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-                <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-3xl">
-                  ⏱️
+              <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
+                <div className="absolute right-0 top-0 h-24 w-24 translate-x-10 -translate-y-10 rounded-full bg-slate-200/70" />
+
+                <div className="relative mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-200 bg-white text-sm font-black text-slate-700 shadow-sm">
+                  RULE
                 </div>
 
-                <h4 className="text-lg font-black">
+                <h4 className="text-lg font-black text-slate-950">
                   Quiz Rules
                 </h4>
 
-                <div className="mt-4 space-y-2 text-sm text-slate-400">
-                  <p>• Fixed duration: 30 minutes</p>
-                  <p>• Multiple-choice questions</p>
-                  <p>• Negative marking supported</p>
-                  <p>• Scheduled start time</p>
-                  <p>• Automatic result calculation</p>
+                <div className="mt-4 space-y-2.5 text-sm text-slate-600">
+                  <p className="flex items-start gap-2">
+                    <span className="mt-0.5 font-black text-indigo-500">
+                      •
+                    </span>
+                    Fixed duration: 30 minutes
+                  </p>
+
+                  <p className="flex items-start gap-2">
+                    <span className="mt-0.5 font-black text-indigo-500">
+                      •
+                    </span>
+                    Multiple-choice questions
+                  </p>
+
+                  <p className="flex items-start gap-2">
+                    <span className="mt-0.5 font-black text-indigo-500">
+                      •
+                    </span>
+                    Negative marking supported
+                  </p>
+
+                  <p className="flex items-start gap-2">
+                    <span className="mt-0.5 font-black text-indigo-500">
+                      •
+                    </span>
+                    Scheduled start time
+                  </p>
+
+                  <p className="flex items-start gap-2">
+                    <span className="mt-0.5 font-black text-indigo-500">
+                      •
+                    </span>
+                    Automatic result calculation
+                  </p>
                 </div>
               </div>
             </div>
@@ -387,13 +505,17 @@ export default function TeacherQuizTestsPage() {
 
           {/* RECENT QUIZZES */}
           <section>
-            <div className="mb-4 flex items-end justify-between gap-4">
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h3 className="text-xl font-black">
+                <div className="mb-2 text-xs font-black uppercase tracking-[0.22em] text-slate-400">
+                  Activity
+                </div>
+
+                <h3 className="text-2xl font-black tracking-tight text-slate-950">
                   Recent Quizzes
                 </h3>
 
-                <p className="mt-1 text-sm text-slate-400">
+                <p className="mt-1 text-sm text-slate-500">
                   Your latest created quizzes.
                 </p>
               </div>
@@ -402,31 +524,31 @@ export default function TeacherQuizTestsPage() {
                 onClick={() =>
                   router.push("/teacher/quiz-tests/manage")
                 }
-                className="text-sm font-bold text-indigo-300 hover:text-indigo-200"
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-indigo-600 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50"
               >
                 View All →
               </button>
             </div>
 
             {loading ? (
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-10 text-center">
-                <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-indigo-400" />
+              <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+                <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-500" />
 
-                <p className="text-sm text-slate-400">
+                <p className="text-sm font-medium text-slate-500">
                   Loading quizzes...
                 </p>
               </div>
             ) : quizzes.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-white/15 bg-white/5 p-10 text-center">
-                <div className="mb-3 text-5xl">
-                  🧠
+              <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50 text-lg font-black text-indigo-600">
+                  QT
                 </div>
 
-                <h4 className="text-lg font-black">
+                <h4 className="text-lg font-black text-slate-950">
                   No quizzes created yet
                 </h4>
 
-                <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">
+                <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
                   Create your first quiz and add questions for your students.
                 </p>
 
@@ -434,7 +556,7 @@ export default function TeacherQuizTestsPage() {
                   onClick={() =>
                     router.push("/teacher/quiz-tests/create")
                   }
-                  className="mt-5 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold transition hover:bg-indigo-500"
+                  className="mt-5 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-indigo-700"
                 >
                   + Create First Quiz
                 </button>
@@ -444,20 +566,20 @@ export default function TeacherQuizTestsPage() {
                 {quizzes.slice(0, 5).map((quiz) => (
                   <div
                     key={quiz.id}
-                    className="rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:bg-white/[0.07]"
+                    className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-indigo-100 hover:shadow-md sm:p-5"
                   >
                     <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h4 className="truncate font-bold">
+                          <h4 className="min-w-0 truncate font-black text-slate-950">
                             {quiz.title}
                           </h4>
 
                           <span
-                            className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${
+                            className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${
                               quiz.is_published
-                                ? "bg-emerald-500/15 text-emerald-400"
-                                : "bg-amber-500/15 text-amber-400"
+                                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                : "border-amber-200 bg-amber-50 text-amber-700"
                             }`}
                           >
                             {quiz.is_published
@@ -466,25 +588,25 @@ export default function TeacherQuizTestsPage() {
                           </span>
                         </div>
 
-                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
-                          <span>
-                            📅 {formatDate(quiz.scheduled_date)}
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium text-slate-500">
+                          <span className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5">
+                            Date: {formatDate(quiz.scheduled_date)}
                           </span>
 
-                          <span>
-                            ⏰ {formatTime(quiz.scheduled_time)}
+                          <span className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5">
+                            Time: {formatTime(quiz.scheduled_time)}
                           </span>
 
-                          <span>
-                            ⏱️ {quiz.duration_minutes} min
+                          <span className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5">
+                            {quiz.duration_minutes} min
                           </span>
 
-                          <span>
-                            🎯 {quiz.marks_per_question} marks
+                          <span className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5">
+                            {quiz.marks_per_question} marks
                           </span>
 
-                          <span>
-                            ➖ {quiz.negative_marks} negative
+                          <span className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5">
+                            {quiz.negative_marks} negative
                           </span>
                         </div>
                       </div>
@@ -495,7 +617,7 @@ export default function TeacherQuizTestsPage() {
                           onClick={() =>
                             openQuizResults(quiz.id)
                           }
-                          className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-2 text-sm font-bold text-emerald-300 transition hover:bg-emerald-500/20"
+                          className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700 transition hover:bg-emerald-100"
                         >
                           Results
                         </button>
@@ -505,7 +627,7 @@ export default function TeacherQuizTestsPage() {
                           onClick={() =>
                             router.push("/teacher/quiz-tests/manage")
                           }
-                          className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold transition hover:bg-white/10"
+                          className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
                         >
                           Manage
                         </button>
