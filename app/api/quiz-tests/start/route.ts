@@ -1261,8 +1261,7 @@ export async function POST(
           ;
 
         if (
-          consumeError ||
-          !consumedPermission
+          consumeError
         ) {
           console.error(
             "START REATTEMPT PERMISSION CONSUME ERROR:",
@@ -1821,4 +1820,5 @@ export async function POST(
     );
   }
 }
+
 
