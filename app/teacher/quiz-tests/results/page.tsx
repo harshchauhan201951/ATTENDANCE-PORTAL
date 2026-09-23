@@ -1624,6 +1624,9 @@ function TeacherQuizResultsContent() {
     pdf.setFillColor(15, 23, 42);
     pdf.rect(0, 0, pageWidth, 34, "F");
 
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(0, 34, pageWidth, pdf.internal.pageSize.getHeight() - 34, "F");
+
     pdf.setTextColor(255, 255, 255);
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(20);
@@ -1759,7 +1762,8 @@ function TeacherQuizResultsContent() {
     pdf.setDrawColor(203, 213, 225);
 
     values.forEach((value, index) => {
-      pdf.rect(x, startY, widths[index], height);
+      pdf.setFillColor(255, 255, 255);
+      pdf.rect(x, startY, widths[index], height, "FD");
 
       pdf.setTextColor(30, 41, 59);
       pdf.setFont("helvetica", "normal");
@@ -1818,12 +1822,19 @@ function TeacherQuizResultsContent() {
       ["Quiz Time", formatTime(quiz.scheduled_time)],
     ];
 
+    pdf.setFillColor(248, 250, 252);
+    pdf.setDrawColor(191, 219, 254);
+    pdf.roundedRect(13, y - 5, pdf.internal.pageSize.getWidth() - 26, 44, 3, 3, "FD");
+
     details.forEach(([label, value]) => {
       pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(8);
+      pdf.setFontSize(7);
+      pdf.setTextColor(37, 99, 235);
       pdf.text(`${label}:`, 16, y);
 
-      pdf.setFont("helvetica", "normal");
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(8.5);
+      pdf.setTextColor(15, 23, 42);
       pdf.text(String(value), 53, y);
 
       y += 6;
@@ -4387,6 +4398,7 @@ const styles: Record<
     fontSize: "12px",
   },
 };
+
 
 
 
