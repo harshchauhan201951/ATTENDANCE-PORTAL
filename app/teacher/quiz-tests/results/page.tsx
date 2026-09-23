@@ -235,7 +235,11 @@ function TeacherQuizResultsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const quizIdParam = searchParams.get("quizId");
+  const quizIdParam =
+    searchParams.get("quizId") ||
+    (typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("quizId")
+      : null);
   const quizId = Number(quizIdParam);
 
   const [currentQuiz, setCurrentQuiz] =
@@ -4540,6 +4544,7 @@ const styles: Record<
     fontSize: "12px",
   },
 };
+
 
 
 
