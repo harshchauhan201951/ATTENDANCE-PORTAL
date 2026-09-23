@@ -160,13 +160,17 @@ function normalizeSubject(value: string | null): string {
 }
 
 function resultStatus(result: QuizResult): string {
-  const status = String(result.result_status || "").trim();
+  const status = String(result.result_status || "").trim().toUpperCase();
 
-  if (status) return status.toUpperCase();
+  if (result.submitted_at) {
+    if (status.includes("PASS")) return "PASS";
+    if (status.includes("FAIL")) return "FAIL";
+    return "SUBMITTED";
+  }
 
-  const percentage = safeNumber(result.percentage);
+  if (status) return status;
 
-  return percentage >= 40 ? "PASS" : "FAIL";
+  return "IN_PROGRESS";
 }
 
 function statusClass(result: QuizResult): string {
@@ -869,6 +873,7 @@ function TeacherQuizResultsContent() {
       }
 
       const latest =
+        row.results.find((result) => Boolean(result.submitted_at)) ||
         row.results[row.results.length - 1];
 
       const status = resultStatus(latest);
@@ -4398,6 +4403,9 @@ const styles: Record<
     fontSize: "12px",
   },
 };
+
+
+
 
 
 
