@@ -2339,139 +2339,19 @@ function TeacherQuizResultsContent() {
               student-wise with complete attempt details.
             </p>
           </div>
-
           <div style={styles.heroQuizBox}>
-            <div style={styles.heroQuizLabel}>
-              CLASS PERFORMANCE
+            <div style={{fontSize:"11px",fontWeight:900,letterSpacing:"1.5px",color:"#2563eb",textAlign:"center"}}>OVERALL PERFORMANCE</div>
+            <div style={{display:"flex",flexWrap:"wrap",justifyContent:"center",alignItems:"stretch",gap:"6px",marginTop:"8px"}}>
+              {(() => { const submitted=allResults.filter((r:any)=>r.submitted_at || r.submittedAt).length; const notSubmitted=Math.max(0,allResults.length-submitted); const passed=allResults.filter((r:any)=>r.result_status==="PASS").length; const failed=allResults.filter((r:any)=>r.result_status==="FAIL").length; const attempts=allResults.length; const avg=attempts?Math.round((allResults.reduce((sum:number,r:any)=>sum+Number(r.percentage||0),0)/attempts)*10)/10:0; const stats=[["STUDENTS",allResults.length,"#2563eb"],["SUBMITTED",submitted,"#059669"],["PENDING",notSubmitted,"#d97706"],["PASS",passed,"#16a34a"],["FAIL",failed,"#dc2626"],["ATTEMPTS",attempts,"#7c3aed"],["AVERAGE",avg+"%","#0891b2"]]; return stats.map(([label,value,color]:any)=><div key={label} style={{minWidth:"54px",padding:"5px 7px",borderRadius:"9px",background:"#ffffff",border:"1px solid #e2e8f0",boxShadow:"0 2px 6px rgba(15,23,42,.06)",textAlign:"center"}}><div style={{fontSize:"14px",fontWeight:900,color}}>{value}</div><div style={{fontSize:"7px",fontWeight:800,letterSpacing:".3px",color:"#475569",marginTop:"1px"}}>{label}</div></div>); })()}
             </div>
-            <div style={{display:"flex",flexWrap:"wrap",justifyContent:"center",gap:"8px",marginTop:"7px"}}>
-              {(() => {
-                const classMap:any = {};
-                allResults.forEach((r:any) => {
-                  const cls = r.class_name || r.className || r.student?.class_name || r.student?.className || "Unknown";
-                  if (!classMap[cls]) classMap[cls] = { total: 0, passed: 0 };
-                  classMap[cls].total += 1;
-                  if (r.result_status === "PASS") classMap[cls].passed += 1;
-                });
-                return Object.entries(classMap).sort(([a],[b]) => a.localeCompare(b, undefined, {numeric:true})).map(([cls,data]:any) => {
-                  const percentage = data.total ? Math.round((data.passed / data.total) * 100) : 0;
-                  const radius = 20;
-                  const circumference = 2 * Math.PI * radius;
-                  const dash = (percentage / 100) * circumference;
-                  return (
-                    <div key={cls} style={{width:"56px",textAlign:"center",flex:"0 0 56px"}}>
-                      <div style={{width:"48px",height:"48px",margin:"0 auto",position:"relative"}}>
-                        <svg width="48" height="48" viewBox="0 0 50 50" style={{transform:"rotate(-90deg)"}}>
-                          <circle cx="25" cy="25" r={radius} fill="none" stroke="#e2e8f0" strokeWidth="5" />
-                          <circle cx="25" cy="25" r={radius} fill="none" stroke="#2563eb" strokeWidth="5" strokeLinecap="round" strokeDasharray={`${dash} ${circumference}`} />
-                        </svg>
-                        <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"10px",fontWeight:800,color:"#0f172a"}}>{percentage}%</div>
-                      </div>
-                      <div style={{marginTop:"2px",fontSize:"10px",fontWeight:700,color:"#475569",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{cls}</div>
-                    </div>
-                  );
-                });
-              })()}
-            </div>
-          </div>
-
-          <div style={styles.statCard}>
-            <div style={styles.statIcon}>S</div>
-
-            <div>
-              <div style={styles.statNumber}>
-                {stats.totalAssigned}
-              </div>
-
-              <div style={styles.statLabel}>
-                Student Entries
+            <div style={{marginTop:"8px",paddingTop:"7px",borderTop:"1px solid #e2e8f0"}}>
+              <div style={{fontSize:"8px",fontWeight:900,letterSpacing:"1px",color:"#475569",textAlign:"center",marginBottom:"4px"}}>CLASS PERFORMANCE</div>
+              <div style={{display:"flex",flexWrap:"wrap",justifyContent:"center",alignItems:"center",gap:"7px"}}>
+                {(() => { const classMap:any={}; allResults.forEach((r:any)=>{ const cls=r.class_name||r.className||r.student?.class_name||r.student?.className; if(!cls)return; if(!classMap[cls])classMap[cls]={total:0,score:0}; classMap[cls].total+=1; classMap[cls].score+=Number(r.percentage||0); }); return Object.entries(classMap).sort(([a],[b])=>String(a).localeCompare(String(b),undefined,{numeric:true})).map(([cls,data]:any)=>{ const percentage=data.total?Math.round((data.score/data.total)*10)/10:0; const radius=18; const circumference=2*Math.PI*radius; const dash=(Math.min(100,Math.max(0,percentage))/100)*circumference; return <div key={cls} style={{width:"48px",textAlign:"center"}}><div style={{width:"42px",height:"42px",margin:"0 auto",position:"relative"}}><svg width="42" height="42" viewBox="0 0 42 42" style={{transform:"rotate(-90deg)"}}><circle cx="21" cy="21" r={radius} fill="none" stroke="#e2e8f0" strokeWidth="4"/><circle cx="21" cy="21" r={radius} fill="none" stroke="#2563eb" strokeWidth="4" strokeLinecap="round" strokeDasharray={`${dash} ${circumference}`}/></svg><div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"8px",fontWeight:900,color:"#0f172a"}}>{percentage}%</div></div><div style={{fontSize:"8px",fontWeight:800,color:"#334155",marginTop:"1px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{cls}</div></div>; }); })()}
               </div>
             </div>
           </div>
 
-          <div style={styles.statCard}>
-            <div style={styles.statIcon}></div>
-
-            <div>
-              <div style={styles.statNumber}>
-                {stats.submitted}
-              </div>
-
-              <div style={styles.statLabel}>
-                Submitted
-              </div>
-            </div>
-          </div>
-
-          <div style={styles.statCard}>
-            <div style={styles.statIcon}>!</div>
-
-            <div>
-              <div style={styles.statNumber}>
-                {stats.notSubmitted}
-              </div>
-
-              <div style={styles.statLabel}>
-                Not Submitted
-              </div>
-            </div>
-          </div>
-
-          <div style={styles.statCard}>
-            <div style={styles.statIcon}>P</div>
-
-            <div>
-              <div style={styles.statNumber}>
-                {stats.pass}
-              </div>
-
-              <div style={styles.statLabel}>
-                Pass
-              </div>
-            </div>
-          </div>
-
-          <div style={styles.statCard}>
-            <div style={styles.statIcon}>F</div>
-
-            <div>
-              <div style={styles.statNumber}>
-                {stats.fail}
-              </div>
-
-              <div style={styles.statLabel}>
-                Fail
-              </div>
-            </div>
-          </div>
-
-          <div style={styles.statCard}>
-            <div style={styles.statIcon}>#</div>
-
-            <div>
-              <div style={styles.statNumber}>
-                {stats.attempts}
-              </div>
-
-              <div style={styles.statLabel}>
-                Attempts
-              </div>
-            </div>
-          </div>
-
-          <div style={styles.statCard}>
-            <div style={styles.statIcon}>%</div>
-
-            <div>
-              <div style={styles.statNumber}>
-                {stats.averagePercentage.toFixed(1)}%
-              </div>
-
-              <div style={styles.statLabel}>
-                Average
-              </div>
-            </div>
-          </div>
         </section>
 
         <section style={styles.downloadBar}>
@@ -4507,5 +4387,6 @@ const styles: Record<
     fontSize: "12px",
   },
 };
+
 
 
