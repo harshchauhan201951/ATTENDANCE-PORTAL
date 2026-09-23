@@ -1051,34 +1051,6 @@ export async function POST(
          * -------------------------------------------------------
          */
 
-        const submittedReattempt =
-          results.find(
-            (result) =>
-              Boolean(
-                result.submitted_at
-              ) &&
-              safeNumber(
-                result.attempt_number,
-                1
-              ) > 1
-          );
-
-        if (
-          submittedReattempt
-        ) {
-          return NextResponse.json(
-            {
-              success: false,
-              alreadySubmitted:
-                true,
-              reattemptAlreadyUsed:
-                true,
-              error:
-                "Your one allowed re-attempt for this quiz has already been used.",
-            },
-            { status: 409 }
-          );
-        }
 
         /*
          * -------------------------------------------------------
