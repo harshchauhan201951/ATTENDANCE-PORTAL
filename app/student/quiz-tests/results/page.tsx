@@ -1064,7 +1064,7 @@ function ResultsContent() {
                             }
                             className="mt-4 w-full rounded-xl bg-indigo-600 px-4 py-3 font-black hover:bg-indigo-500"
                           >
-                             â†’
+                             
                           </button>
 
                         </div>
@@ -1086,7 +1086,7 @@ function ResultsContent() {
                 }
                 className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 font-black hover:bg-white/10"
               >
-                 â†’
+                 
               </button>
             </div>
 
@@ -1554,7 +1554,7 @@ function ResultsContent() {
               }
               className="rounded-2xl bg-indigo-600 px-5 py-4 font-black hover:bg-indigo-500"
             >
-              QUIZ HISTORY â†’
+              QUIZ HISTORY 
             </button>
 
           </div>
