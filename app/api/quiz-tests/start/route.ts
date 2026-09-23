@@ -856,10 +856,10 @@ export async function POST(
           return NextResponse.json(
             {
               success: false,
-              error:
-                "Unable to create re-attempt.",
-              details:
-                insertError.message,
+              error: "Unable to create re-attempt: " + insertError.message,
+              details: insertError.message,
+              code: insertError.code,
+              hint: insertError.hint,
             },
             { status: 500 }
           );
