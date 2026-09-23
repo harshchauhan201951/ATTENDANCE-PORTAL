@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   Suspense,
@@ -210,6 +210,8 @@ function TeacherQuizQuestionsContent() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const [pasteText, setPasteText] = useState("");
+  const [answerPasteText, setAnswerPasteText] = useState("");
+  const [showAnswerPasteBox, setShowAnswerPasteBox] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -543,7 +545,114 @@ function TeacherQuizQuestionsContent() {
     }
   }
 
-  function handleParsePaste() {
+    function parseBulkAnswers(text: string): Array<{ questionNumber: number; answerIndex: number }> {
+    const normalized = text.trim().replace(/[,;]+/g, "\n");
+    if (!normalized) return [];
+
+    const lines = normalized
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    const answers: Array<{ questionNumber: number; answerIndex: number }> = [];
+    let sequentialQuestion = 1;
+
+    for (const line of lines) {
+      const numbered = line.match(/^(?:Q(?:UESTION)?\s*)?(\d+)\s*[\.\)\:\-]\s*([ABCD1-4])\b/i) || line.match(/^(?:Q(?:UESTION)?\s*)?(\d+)\s+([ABCD1-4])\b/i);
+
+      if (numbered) {
+        const answerIndex = normalizeAnswer(numbered[2]);
+        if (answerIndex !== null) {
+          answers.push({
+            questionNumber: Number(numbered[1]),
+            answerIndex,
+          });
+        }
+        continue;
+      }
+
+      const answerLabel = line.match(/^(?:ANSWER|ANS|CORRECT\s+ANSWER|RIGHT\s+ANSWER)\s*(?:(?:Q(?:UESTION)?\s*)?(\d+)\s*)?[\:\-\.]?\s*([ABCD1-4])\b/i);
+
+      if (answerLabel) {
+        const answerIndex = normalizeAnswer(answerLabel[2]);
+        if (answerIndex !== null) {
+          answers.push({
+            questionNumber: answerLabel[1] ? Number(answerLabel[1]) : sequentialQuestion,
+            answerIndex,
+          });
+          if (!answerLabel[1]) sequentialQuestion += 1;
+        }
+        continue;
+      }
+
+      const single = line.match(/^([ABCD1-4])[\.\)\:\-]?$/i);
+
+      if (single) {
+        const answerIndex = normalizeAnswer(single[1]);
+        if (answerIndex !== null) {
+          answers.push({
+            questionNumber: sequentialQuestion,
+            answerIndex,
+          });
+          sequentialQuestion += 1;
+        }
+      }
+    }
+
+    return answers;
+  }
+
+  function handleApplyBulkAnswers() {
+    setError("");
+    setMessage("");
+
+    if (questions.length === 0) {
+      setError("Please add or parse questions first.");
+      return;
+    }
+
+    const parsed = parseBulkAnswers(answerPasteText);
+
+    if (parsed.length === 0) {
+      setError("No valid answers found. Use 1. B, 2. C or one answer per line.");
+      return;
+    }
+
+    const nextQuestions = [...questions];
+    const invalidQuestions: number[] = [];
+    let applied = 0;
+
+    parsed.forEach(({ questionNumber, answerIndex }) => {
+      const questionIndex = questionNumber - 1;
+
+      if (questionIndex < 0 || questionIndex >= nextQuestions.length) {
+        invalidQuestions.push(questionNumber);
+        return;
+      }
+
+      nextQuestions[questionIndex] = {
+        ...nextQuestions[questionIndex],
+        options: nextQuestions[questionIndex].options.map((option, optionIndex) => ({
+          ...option,
+          is_correct: optionIndex === answerIndex,
+        })),
+      };
+
+      applied += 1;
+    });
+
+    setQuestions(nextQuestions);
+
+    const invalidText = invalidQuestions.length > 0
+      ? ` Invalid question numbers: ${[...new Set(invalidQuestions)].join(", ")}.`
+      : "";
+
+    setMessage(`Correct answers automatically selected for ${applied} question${applied === 1 ? "" : "s"}.${invalidText} Click Save All Questions to store them.`);
+    setAnswerPasteText("");
+    setShowAnswerPasteBox(false);
+  }
+  
+function handleParsePaste() {
     setError("");
     setMessage("");
 
@@ -587,7 +696,7 @@ function TeacherQuizQuestionsContent() {
     setShowPasteBox(false);
   }
 
-  function moveQuestion(
+
     questionIndex: number,
     direction: "up" | "down"
   ) {
@@ -1058,7 +1167,7 @@ function TeacherQuizQuestionsContent() {
               </div>
 
               <span className="text-xl text-cyan-300">
-                {showPasteBox ? "−" : "+"}
+                {showPasteBox ? "âˆ’" : "+"}
               </span>
             </button>
 
@@ -1106,6 +1215,71 @@ D. Jupiter`}
                   <p className="text-xs text-slate-500">
                     Supports numbered questions, Q1 format, A/B/C/D and
                     optional Answer: B.
+                  </p>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* BULK PASTE CORRECT ANSWERS */}
+          <section className="mb-8 overflow-hidden rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent">
+            <button
+              type="button"
+              onClick={() => setShowAnswerPasteBox((current) => !current)}
+              className="flex w-full items-center justify-between gap-4 p-5 text-left"
+            >
+              <div>
+                <h2 className="text-lg font-black">
+                  Bulk Paste Correct Answers
+                </h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Paste all correct answers together and the correct options will be selected automatically.
+                </p>
+              </div>
+              <span className="text-xl text-emerald-300">
+                {showAnswerPasteBox ? "−" : "+"}
+              </span>
+            </button>
+
+            {showAnswerPasteBox && (
+              <div className="border-t border-white/10 p-5">
+                <textarea
+                  value={answerPasteText}
+                  onChange={(event) => setAnswerPasteText(event.target.value)}
+                  placeholder={`Paste like this:
+1. B
+2. C
+3. A
+4. D
+
+or simply one answer per line:
+B
+C
+A
+D`}
+                  className="min-h-[220px] w-full rounded-2xl border border-white/10 bg-slate-950/80 p-4 text-sm leading-6 text-white outline-none placeholder:text-slate-600 focus:border-emerald-400/40"
+                />
+
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleApplyBulkAnswers}
+                    disabled={!answerPasteText.trim() || questions.length === 0}
+                    className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-black transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Apply Correct Answers
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAnswerPasteText("")}
+                    className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-bold text-slate-300 hover:bg-white/10"
+                  >
+                    Clear
+                  </button>
+
+                  <p className="text-xs text-slate-500">
+                    Supports 1. B, 2. C, Answer: A, or one answer per line.
                   </p>
                 </div>
               </div>
@@ -1237,7 +1411,7 @@ D. Jupiter`}
                         }
                         className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold disabled:opacity-30"
                       >
-                        ↑ Up
+                        â†‘ Up
                       </button>
 
                       <button
@@ -1254,7 +1428,7 @@ D. Jupiter`}
                         }
                         className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold disabled:opacity-30"
                       >
-                        ↓ Down
+                        â†“ Down
                       </button>
 
                       {question.id ? (
