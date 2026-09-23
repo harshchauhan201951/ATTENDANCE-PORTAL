@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   Suspense,
@@ -266,8 +266,8 @@ function TeacherQuizResultsContent() {
     useState<Set<string>>(new Set());
 
   const [reattemptLoading, setReattemptLoading] =
-    useState<string | null>(null);  
-  
+    useState<string | null>(null);
+
   const [reattemptMessage, setReattemptMessage] =
     useState("");
 
@@ -765,7 +765,7 @@ function TeacherQuizResultsContent() {
     filteredQuizIds,
   ]);
 
-   const resultByQuizStudent = useMemo(() => {
+  const resultByQuizStudent = useMemo(() => {
     const map = new Map<string, QuizResult[]>();
 
     filteredResultRows.forEach((result) => {
@@ -1201,7 +1201,6 @@ function TeacherQuizResultsContent() {
     setReattemptMessage("");
 
     try {
-
       let teacherId: number | null = null;
 
       try {
@@ -1210,14 +1209,25 @@ function TeacherQuizResultsContent() {
           localStorage.getItem("teacher_id");
 
         if (storedTeacherId) {
-          const parsedTeacherId = Number(storedTeacherId);
+          const parsedTeacherId = Number(
+            storedTeacherId
+          );
 
-          if (Number.isFinite(parsedTeacherId)) {
+          if (
+            Number.isInteger(parsedTeacherId) &&
+            parsedTeacherId > 0
+          ) {
             teacherId = parsedTeacherId;
           }
         }
       } catch {
         teacherId = null;
+      }
+
+      if (!teacherId) {
+        throw new Error(
+          "Teacher ID was not found. Please login again as a teacher."
+        );
       }
 
       const response = await fetch(
@@ -1227,6 +1237,7 @@ function TeacherQuizResultsContent() {
           headers: {
             "Content-Type": "application/json",
           },
+          cache: "no-store",
           body: JSON.stringify({
             action: "allow",
             quizId: Number(targetQuizId),
@@ -1259,7 +1270,9 @@ function TeacherQuizResultsContent() {
       });
 
       setReattemptMessage(
-        "Re-attempt access allowed successfully."
+        data?.alreadyAllowed
+          ? "Re-attempt access is already allowed for this student."
+          : "Re-attempt access allowed successfully."
       );
     } catch (err: any) {
       setReattemptMessage(
@@ -1283,6 +1296,7 @@ function TeacherQuizResultsContent() {
 
     setDateReattemptLoading(date);
     setReattemptMessage("");
+    setDateReattemptMessage("");
 
     try {
       let teacherId: number | null = null;
@@ -1293,14 +1307,25 @@ function TeacherQuizResultsContent() {
           localStorage.getItem("teacher_id");
 
         if (storedTeacherId) {
-          const parsedTeacherId = Number(storedTeacherId);
+          const parsedTeacherId = Number(
+            storedTeacherId
+          );
 
-          if (Number.isFinite(parsedTeacherId)) {
+          if (
+            Number.isInteger(parsedTeacherId) &&
+            parsedTeacherId > 0
+          ) {
             teacherId = parsedTeacherId;
           }
         }
       } catch {
         teacherId = null;
+      }
+
+      if (!teacherId) {
+        throw new Error(
+          "Teacher ID was not found. Please login again as a teacher."
+        );
       }
 
       const dateQuizzes = allQuizzes.filter(
@@ -1322,153 +1347,267 @@ function TeacherQuizResultsContent() {
         key: string;
       }> = [];
 
+      const pairMap = new Map<
+        string,
+        {
+          quizId: number;
+          studentId: number;
+          key: string;
+        }
+      >();
+
       dateQuizzes.forEach((quiz) => {
         const quizClasses = getQuizClasses(quiz);
 
-        const studentsForQuiz = allStudents.filter(
-          (student) => {
-            const studentClass = normalizeClassName(
-              student.class_name
-            );
+        const studentsForQuiz =
+          allStudents.filter((student) => {
+            const studentClass =
+              normalizeClassName(
+                student.class_name
+              );
 
             return (
               quizClasses.length === 0 ||
-              quizClasses.includes(studentClass)
+              quizClasses.includes(
+                studentClass
+              )
             );
-          }
-        );
+          });
 
         studentsForQuiz.forEach((student) => {
-          const key = `${quiz.id}__${student.id}`;
+          const numericQuizId = Number(quiz.id);
+          const numericStudentId = Number(student.id);
 
+          if (
+            !Number.isInteger(numericQuizId) ||
+            numericQuizId <= 0 ||
+            !Number.isInteger(numericStudentId) ||
+            numericStudentId <= 0
+          ) {
+            return;
+          }
+
+          const key = `${numericQuizId}__${numericStudentId}`;
+
+          /*
+           * Skip only permissions already known to be active.
+           * A student DOES NOT need a previous attempt.
+           *
+           * Previously used permissions are intentionally not
+           * known here as "allowed", so the API itself decides
+           * whether used_at prevents a reset.
+           */
           if (reattemptQuizIds.has(key)) {
             return;
           }
 
-          allowedPairs.push({
-            quizId: Number(quiz.id),
-            studentId: Number(student.id),
-            key,
-          });
+          if (!pairMap.has(key)) {
+            pairMap.set(key, {
+              quizId: numericQuizId,
+              studentId: numericStudentId,
+              key,
+            });
+          }
         });
+      });
+
+      pairMap.forEach((pair) => {
+        allowedPairs.push(pair);
       });
 
       if (allowedPairs.length === 0) {
         setReattemptMessage(
-          "No eligible students found. Students must have a first attempt, and students already allowed are skipped."
+          "No students need re-attempt access for this date. Students already authorized are skipped."
         );
         return;
       }
 
-      let successCount = 0;
-      let failedCount = 0;
-
-      const batchSize = 8;
-
-      for (
-        let index = 0;
-        index < allowedPairs.length;
-        index += batchSize
-      ) {
-        const batch = allowedPairs.slice(
-          index,
-          index + batchSize
-        );
-
-        const responses = await Promise.all(
-          batch.map(async (pair) => {
-            try {
-              const response = await fetch(
-                "/api/quiz-tests/reattempt",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    action: "allow",
-                    quizId: pair.quizId,
-                    studentId: pair.studentId,
-                    teacherId,
-                  }),
-                }
-              );
-
-              let data: any = null;
-
-              try {
-                data = await response.json();
-              } catch {
-                data = null;
-              }
-
-              if (
-                !response.ok ||
-                data?.success === false
-              ) {
-                return {
-                  key: pair.key,
-                  success: false,
-                };
-              }
-
-              return {
-                key: pair.key,
-                success: true,
-              };
-            } catch {
-              return {
-                key: pair.key,
-                success: false,
-              };
-            }
-          })
-        );
-
-        const successfulKeys: string[] = [];
-
-        responses.forEach((result) => {
-          if (result.success) {
-            successCount += 1;
-            successfulKeys.push(result.key);
-          } else {
-            failedCount += 1;
-          }
-        });
-
-        if (successfulKeys.length > 0) {
-          setReattemptQuizIds((previous) => {
-            const next = new Set(previous);
-
-            successfulKeys.forEach((key) => {
-              next.add(key);
-            });
-
-            return next;
-          });
+      /*
+       * IMPORTANT:
+       *
+       * Use the dedicated bulk API endpoint instead of sending
+       * many individual requests. This allows students who have
+       * never attempted the quiz as well.
+       */
+      const response = await fetch(
+        "/api/quiz-tests/reattempt",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+          body: JSON.stringify({
+            action: "allow_all",
+            items: allowedPairs.map((pair) => ({
+              quizId: pair.quizId,
+              studentId: pair.studentId,
+            })),
+            teacherId,
+          }),
         }
+      );
+
+      let data: any = null;
+
+      try {
+        data = await response.json();
+      } catch {
+        data = null;
       }
 
-      if (failedCount === 0) {
+      if (
+        !response.ok ||
+        data?.success === false
+      ) {
+        throw new Error(
+          data?.error ||
+            data?.message ||
+            `Bulk re-attempt request failed with status ${response.status}.`
+        );
+      }
+
+      const allowedPairKeys = Array.isArray(
+        data?.allowedPairs
+      )
+        ? data.allowedPairs.filter(
+            (value: unknown): value is string =>
+              typeof value === "string"
+          )
+        : [];
+
+      const alreadyAllowedPairKeys =
+        Array.isArray(
+          data?.alreadyAllowedPairs
+        )
+          ? data.alreadyAllowedPairs.filter(
+              (value: unknown): value is string =>
+                typeof value === "string"
+            )
+          : [];
+
+      const skippedUsedPairKeys =
+        Array.isArray(
+          data?.skippedUsedPairs
+        )
+          ? data.skippedUsedPairs.filter(
+              (value: unknown): value is string =>
+                typeof value === "string"
+            )
+          : [];
+
+      const successfulKeys = [
+        ...new Set([
+          ...allowedPairKeys,
+          ...alreadyAllowedPairKeys,
+        ]),
+      ];
+
+      if (successfulKeys.length > 0) {
+        setReattemptQuizIds((previous) => {
+          const next = new Set(previous);
+
+          successfulKeys.forEach((key) => {
+            next.add(key);
+          });
+
+          return next;
+        });
+      }
+
+      /*
+       * Route currently returns allowedCount as the total number
+       * of allowed pairs, including alreadyAllowedPairs.
+       *
+       * Therefore:
+       * newlyAuthorized = allowedCount - alreadyAllowedCount
+       * totalProcessed = allowedCount
+       */
+      const routeAllowedCount = Math.max(
+        0,
+        Number(data?.allowedCount || 0)
+      );
+
+      const alreadyAllowedCount = Math.max(
+        0,
+        Number(data?.alreadyAllowedCount || 0)
+      );
+
+      const skippedUsedCount = Math.max(
+        0,
+        Number(
+          data?.skippedUsedCount ||
+            skippedUsedPairKeys.length ||
+            0
+        )
+      );
+
+      const newlyAuthorizedCount = Math.max(
+        0,
+        routeAllowedCount -
+          alreadyAllowedCount
+      );
+
+      const totalProcessed = Math.max(
+        0,
+        routeAllowedCount
+      );
+
+      if (totalProcessed > 0) {
+        let message =
+          `Re-attempt access allowed for ${totalProcessed} student${
+            totalProcessed !== 1 ? "s" : ""
+          } across all quizzes on ${formatDate(date)}.`;
+
+        if (newlyAuthorizedCount > 0) {
+          message +=
+            ` ${newlyAuthorizedCount} newly authorized.`;
+        }
+
+        if (alreadyAllowedCount > 0) {
+          message +=
+            ` ${alreadyAllowedCount} already authorized.`;
+        }
+
+        if (skippedUsedCount > 0) {
+          message +=
+            ` ${skippedUsedCount} already-used re-attempt${
+              skippedUsedCount !== 1
+                ? "s were"
+                : " was"
+            } not reset.`;
+        }
+
+        setReattemptMessage(message);
+      } else if (skippedUsedCount > 0) {
         setReattemptMessage(
-          `Re-attempt access allowed successfully for ${successCount} student${
-            successCount !== 1 ? "s" : ""
-          } across all quizzes on ${formatDate(date)}.`
+          `No new re-attempt access was added. ${skippedUsedCount} already-used re-attempt${
+            skippedUsedCount !== 1
+              ? "s were"
+              : " was"
+          } not reset.`
         );
       } else {
         setReattemptMessage(
-          `Re-attempt access allowed for ${successCount} student${
-            successCount !== 1 ? "s" : ""
-          }. ${failedCount} request${
-            failedCount !== 1 ? "s" : ""
-          } failed.`
+          "No new re-attempt access was required."
         );
       }
+
+      setDateReattemptMessage(
+        "Bulk re-attempt authorization completed."
+      );
     } catch (err: any) {
+      console.error(
+        "Allow all re-attempt error:",
+        err
+      );
+
       setReattemptMessage(
         err?.message ||
           "Unable to allow all re-attempts for this date."
       );
+
+      setDateReattemptMessage("");
     } finally {
       setDateReattemptLoading(null);
     }
@@ -1482,7 +1621,7 @@ function TeacherQuizResultsContent() {
     const pageWidth =
       pdf.internal.pageSize.getWidth();
 
-        pdf.setFillColor(15, 23, 42);
+    pdf.setFillColor(15, 23, 42);
     pdf.rect(0, 0, pageWidth, 34, "F");
 
     pdf.setTextColor(255, 255, 255);
@@ -2128,7 +2267,7 @@ function TeacherQuizResultsContent() {
               style={styles.secondaryButton}
               onClick={goBack}
             >
-               Back
+              Back
             </button>
 
             <button
@@ -2166,7 +2305,7 @@ function TeacherQuizResultsContent() {
               style={styles.headerButton}
               onClick={goBack}
             >
-               Back
+              Back
             </button>
 
             <button
@@ -2241,7 +2380,7 @@ function TeacherQuizResultsContent() {
             >
               {filterLoading
                 ? "Working..."
-                : " Refresh"}
+                : "Refresh"}
             </button>
           </div>
 
@@ -2964,19 +3103,33 @@ function TeacherQuizResultsContent() {
                                                   style={
                                                     styles.pdfSmallButton
                                                   }
-                                                  onClick={() => latest && createStudentPdf(row.quiz, row.student, row.results)}
+                                                  onClick={() =>
+                                                    latest &&
+                                                    createStudentPdf(
+                                                      row.quiz,
+                                                      row.student,
+                                                      row.results
+                                                    )
+                                                  }
                                                   disabled={!latest}
                                                 >
                                                   PDF
                                                 </button>
+
                                                 <button
                                                   type="button"
                                                   style={
                                                     styles.expandButton
                                                   }
-                                                  onClick={() => toggleStudent(studentKey)}
+                                                  onClick={() =>
+                                                    toggleStudent(
+                                                      studentKey
+                                                    )
+                                                  }
                                                 >
-                                                  {studentOpen ? "" : "+"}
+                                                  {studentOpen
+                                                    ? ""
+                                                    : "+"}
                                                 </button>
                                               </div>
                                             </div>
@@ -3065,9 +3218,7 @@ function TeacherQuizResultsContent() {
                                                   </div>
                                                 </div>
 
-                                                {row.results
-                                                  .length ===
-                                                0 ? (
+                                                {row.results.length === 0 ? (
                                                   <div
                                                     style={
                                                       styles.noResultBox
@@ -3090,277 +3241,271 @@ function TeacherQuizResultsContent() {
                                                         quiz.
                                                       </span>
                                                     </div>
-
                                                   </div>
                                                 ) : (
-                                                  <>
-                                                    <div
-                                                      style={
-                                                        styles.attemptList
-                                                      }
-                                                    >
-                                                      {row.results.map(
-                                                        (
-                                                          result,
-                                                          index
-                                                        ) => (
+                                                  <div
+                                                    style={
+                                                      styles.attemptList
+                                                    }
+                                                  >
+                                                    {row.results.map(
+                                                      (
+                                                        result,
+                                                        index
+                                                      ) => (
+                                                        <div
+                                                          key={
+                                                            result.id
+                                                          }
+                                                          style={
+                                                            styles.attemptCard
+                                                          }
+                                                        >
                                                           <div
-                                                            key={
-                                                              result.id
-                                                            }
                                                             style={
-                                                              styles.attemptCard
+                                                              styles.attemptHeader
                                                             }
                                                           >
-                                                            <div
-                                                              style={
-                                                                styles.attemptHeader
-                                                              }
-                                                            >
-                                                              <div>
-                                                                <div
-                                                                  style={
-                                                                    styles.attemptNumber
-                                                                  }
-                                                                >
-                                                                  {getAttemptLabel(
-                                                                    result,
-                                                                    index
-                                                                  )}
-                                                                </div>
-
-                                                                <div
-                                                                  style={
-                                                                    styles.attemptTime
-                                                                  }
-                                                                >
-                                                                  Submitted:{" "}
-                                                                  {formatDateTime(
-                                                                    result.submitted_at
-                                                                  )}
-                                                                </div>
+                                                            <div>
+                                                              <div
+                                                                style={
+                                                                  styles.attemptNumber
+                                                                }
+                                                              >
+                                                                {getAttemptLabel(
+                                                                  result,
+                                                                  index
+                                                                )}
                                                               </div>
 
                                                               <div
-                                                                style={{
-                                                                  ...styles.statusPill,
-                                                                  ...(statusClass(
-                                                                    result
-                                                                  ) ===
-                                                                  "pass"
-                                                                    ? styles.passPill
-                                                                    : statusClass(
-                                                                        result
-                                                                      ) ===
-                                                                      "fail"
-                                                                    ? styles.failPill
-                                                                    : styles.neutralPill),
-                                                                }}
+                                                                style={
+                                                                  styles.attemptTime
+                                                                }
                                                               >
-                                                                {resultStatus(
-                                                                  result
+                                                                Submitted:{" "}
+                                                                {formatDateTime(
+                                                                  result.submitted_at
                                                                 )}
                                                               </div>
                                                             </div>
 
                                                             <div
+                                                              style={{
+                                                                ...styles.statusPill,
+                                                                ...(statusClass(
+                                                                  result
+                                                                ) ===
+                                                                "pass"
+                                                                  ? styles.passPill
+                                                                  : statusClass(
+                                                                      result
+                                                                    ) ===
+                                                                    "fail"
+                                                                  ? styles.failPill
+                                                                  : styles.neutralPill),
+                                                              }}
+                                                            >
+                                                              {resultStatus(
+                                                                result
+                                                              )}
+                                                            </div>
+                                                          </div>
+
+                                                          <div
+                                                            style={
+                                                              styles.metricsGrid
+                                                            }
+                                                          >
+                                                            <div
                                                               style={
-                                                                styles.metricsGrid
+                                                                styles.metric
                                                               }
                                                             >
-                                                              <div
-                                                                style={
-                                                                  styles.metric
-                                                                }
-                                                              >
-                                                                <span>
-                                                                  Questions
-                                                                </span>
+                                                              <span>
+                                                                Questions
+                                                              </span>
 
-                                                                <strong>
-                                                                  {safeNumber(
-                                                                    result.total_questions
-                                                                  )}
-                                                                </strong>
-                                                              </div>
-
-                                                              <div
-                                                                style={
-                                                                  styles.metric
-                                                                }
-                                                              >
-                                                                <span>
-                                                                  Correct
-                                                                </span>
-
-                                                                <strong>
-                                                                  {safeNumber(
-                                                                    result.correct_answers
-                                                                  )}
-                                                                </strong>
-                                                              </div>
-
-                                                              <div
-                                                                style={
-                                                                  styles.metric
-                                                                }
-                                                              >
-                                                                <span>
-                                                                  Wrong
-                                                                </span>
-
-                                                                <strong>
-                                                                  {safeNumber(
-                                                                    result.wrong_answers
-                                                                  )}
-                                                                </strong>
-                                                              </div>
-
-                                                              <div
-                                                                style={
-                                                                  styles.metric
-                                                                }
-                                                              >
-                                                                <span>
-                                                                  Unanswered
-                                                                </span>
-
-                                                                <strong>
-                                                                  {safeNumber(
-                                                                    result.unanswered
-                                                                  )}
-                                                                </strong>
-                                                              </div>
-
-                                                              <div
-                                                                style={
-                                                                  styles.metric
-                                                                }
-                                                              >
-                                                                <span>
-                                                                  Marks
-                                                                </span>
-
-                                                                <strong>
-                                                                  {safeNumber(
-                                                                    result.obtained_marks
-                                                                  )}
-                                                                  /
-                                                                  {safeNumber(
-                                                                    result.total_marks
-                                                                  )}
-                                                                </strong>
-                                                              </div>
-
-                                                              <div
-                                                                style={
-                                                                  styles.metric
-                                                                }
-                                                              >
-                                                                <span>
-                                                                  Percentage
-                                                                </span>
-
-                                                                <strong>
-                                                                  {safeNumber(
-                                                                    result.percentage
-                                                                  ).toFixed(
-                                                                    2
-                                                                  )}
-                                                                  %
-                                                                </strong>
-                                                              </div>
+                                                              <strong>
+                                                                {safeNumber(
+                                                                  result.total_questions
+                                                                )}
+                                                              </strong>
                                                             </div>
 
                                                             <div
                                                               style={
-                                                                styles.submissionInfo
+                                                                styles.metric
                                                               }
                                                             >
-                                                              Submission:{" "}
+                                                              <span>
+                                                                Correct
+                                                              </span>
+
                                                               <strong>
-                                                                {result.submission_type ||
-                                                                  "Normal"}
+                                                                {safeNumber(
+                                                                  result.correct_answers
+                                                                )}
                                                               </strong>
-                                                              {"  "}
-                                                              Started:{" "}
-                                                              {formatDateTime(
-                                                                result.started_at
-                                                              )}
-                                                              {"  "}
-                                                              Created:{" "}
-                                                              {formatDateTime(
-                                                                result.created_at
-                                                              )}
+                                                            </div>
+
+                                                            <div
+                                                              style={
+                                                                styles.metric
+                                                              }
+                                                            >
+                                                              <span>
+                                                                Wrong
+                                                              </span>
+
+                                                              <strong>
+                                                                {safeNumber(
+                                                                  result.wrong_answers
+                                                                )}
+                                                              </strong>
+                                                            </div>
+
+                                                            <div
+                                                              style={
+                                                                styles.metric
+                                                              }
+                                                            >
+                                                              <span>
+                                                                Unanswered
+                                                              </span>
+
+                                                              <strong>
+                                                                {safeNumber(
+                                                                  result.unanswered
+                                                                )}
+                                                              </strong>
+                                                            </div>
+
+                                                            <div
+                                                              style={
+                                                                styles.metric
+                                                              }
+                                                            >
+                                                              <span>
+                                                                Marks
+                                                              </span>
+
+                                                              <strong>
+                                                                {safeNumber(
+                                                                  result.obtained_marks
+                                                                )}
+                                                                /
+                                                                {safeNumber(
+                                                                  result.total_marks
+                                                                )}
+                                                              </strong>
+                                                            </div>
+
+                                                            <div
+                                                              style={
+                                                                styles.metric
+                                                              }
+                                                            >
+                                                              <span>
+                                                                Percentage
+                                                              </span>
+
+                                                              <strong>
+                                                                {safeNumber(
+                                                                  result.percentage
+                                                                ).toFixed(
+                                                                  2
+                                                                )}
+                                                                %
+                                                              </strong>
                                                             </div>
                                                           </div>
-                                                        )
-                                                      )}
-                                                    </div>
 
-                                                    <div
+                                                          <div
+                                                            style={
+                                                              styles.submissionInfo
+                                                            }
+                                                          >
+                                                            Submission:{" "}
+                                                            <strong>
+                                                              {result.submission_type ||
+                                                                "Normal"}
+                                                            </strong>
+                                                            {"  "}
+                                                            Started:{" "}
+                                                            {formatDateTime(
+                                                              result.started_at
+                                                            )}
+                                                            {"  "}
+                                                            Created:{" "}
+                                                            {formatDateTime(
+                                                              result.created_at
+                                                            )}
+                                                          </div>
+                                                        </div>
+                                                      )
+                                                    )}
+                                                  </div>
+                                                )}
+
+                                                <div
+                                                  style={
+                                                    styles.reattemptPanel
+                                                  }
+                                                >
+                                                  <div>
+                                                    <strong>
+                                                      {latest
+                                                        ? "Need another attempt?"
+                                                        : "Allow this student to attempt the quiz"}
+                                                    </strong>
+
+                                                    <span>
+                                                      {latest
+                                                        ? "Teacher can allow a re-attempt without removing the previous result."
+                                                        : "This student has not submitted an attempt yet. Teacher can still authorize one re-attempt access for this quiz."}
+                                                    </span>
+                                                  </div>
+
+                                                  {reattemptAllowed ? (
+                                                    <button
+                                                      type="button"
+                                                      disabled
                                                       style={
-                                                        styles.reattemptPanel
+                                                        styles.allowedButton
                                                       }
                                                     >
-                                                      <div>
-                                                        <strong>
-                                                          Need another
-                                                          attempt?
-                                                        </strong>
-
-                                                        <span>
-                                                          Teacher can
-                                                          allow a
-                                                          re-attempt
-                                                          without
-                                                          removing the
-                                                          previous
-                                                          result.
-                                                        </span>
-                                                      </div>
-
-                                                      {reattemptAllowed ? (
-                                                        <button
-                                                          type="button"
-                                                          disabled
-                                                          style={
-                                                            styles.allowedButton
-                                                          }
-                                                        >
-                                                          RE-ATTEMPT
-                                                          ALLOWED
-                                                        </button>
-                                                      ) : (
-                                                        <button
-                                                          type="button"
-                                                          style={
-                                                            styles.reattemptButton
-                                                          }
-                                                          disabled={
-                                                            reattemptLoading ===
-                                                            allowedKey
-                                                          }
-                                                          onClick={() =>
-                                                            allowReattempt(
-                                                              row
-                                                                .quiz
-                                                                .id,
-                                                              row
-                                                                .student
-                                                                .id
-                                                            )
-                                                          }
-                                                        >
-                                                          {reattemptLoading ===
-                                                          allowedKey
-                                                            ? "ALLOWING..."
-                                                            : "ALLOW RE-ATTEMPT"}
-                                                        </button>
-                                                      )}
-                                                    </div>
-                                                  </>
-                                                )}
+                                                      RE-ATTEMPT
+                                                      ALLOWED
+                                                    </button>
+                                                  ) : (
+                                                    <button
+                                                      type="button"
+                                                      style={
+                                                        styles.reattemptButton
+                                                      }
+                                                      disabled={
+                                                        reattemptLoading ===
+                                                        allowedKey
+                                                      }
+                                                      onClick={() =>
+                                                        allowReattempt(
+                                                          row
+                                                            .quiz
+                                                            .id,
+                                                          row
+                                                            .student
+                                                            .id
+                                                        )
+                                                      }
+                                                    >
+                                                      {reattemptLoading ===
+                                                      allowedKey
+                                                        ? "ALLOWING..."
+                                                        : "ALLOW RE-ATTEMPT"}
+                                                    </button>
+                                                  )}
+                                                </div>
                                               </div>
                                             ) : null}
                                           </div>
@@ -4518,7 +4663,3 @@ const styles: Record<
     fontSize: "12px",
   },
 };
-
-
-
-
