@@ -159,10 +159,15 @@ function normalizeSubject(value: string | null): string {
   return String(value || "").trim() || "Other";
 }
 
-function resultStatus(result: QuizResult): string {
+function resultStatus(
+  result: QuizResult
+): string {
   const status = String(result.result_status || "").trim().toUpperCase();
 
-  if (result.submitted_at) {
+  const submissionType = String(result.submission_type || "").trim().toLowerCase();
+  const finalizedSubmission = ["manual","left_quiz","time_expired","auto_submit"].includes(submissionType);
+
+  if (result.submitted_at || finalizedSubmission) {
     if (status.includes("PASS")) return "PASS";
     if (status.includes("FAIL")) return "FAIL";
     return "SUBMITTED";
@@ -280,6 +285,8 @@ function TeacherQuizResultsContent() {
 
   const [dateReattemptMessage, setDateReattemptMessage] =
     useState("");
+
+  const [deleteResultLoading, setDeleteResultLoading] = useState<number | null>(null);
 
   const goBack = () => {
     router.back();
@@ -874,13 +881,11 @@ function TeacherQuizResultsContent() {
 
       const latest =
         row.results.find((result) => Boolean(result.submitted_at)) ||
-        row.results[row.results.length - 1];
+        getLatestResult(row.results);
 
-      const status = resultStatus(latest);
+      const status = latest ? resultStatus(latest) : "FAIL";
 
-      if (selectedStatus === "SUBMITTED") {
-        return true;
-      }
+      if (selectedStatus === "SUBMITTED") { return hasSubmittedResult(row.results); }
 
       if (selectedStatus === "PASS") {
         return status.includes("PASS");
@@ -903,9 +908,7 @@ function TeacherQuizResultsContent() {
 
     const totalAssigned = allStudentQuizRows.length;
 
-    const submitted = allStudentQuizRows.filter(
-      (row) => row.results.length > 0
-    ).length;
+    const submitted = allStudentQuizRows.filter((row) => hasSubmittedResult(row.results)).length;
 
     const notSubmitted = Math.max(
       0,
@@ -914,9 +917,8 @@ function TeacherQuizResultsContent() {
 
     const latestRows = allStudentQuizRows
       .filter((row) => row.results.length > 0)
-      .map(
-        (row) => row.results[row.results.length - 1]
-      );
+      .map((row) => getLatestResult(row.results))
+      .filter((result): result is QuizResult => result !== null);
 
     const pass = latestRows.filter((result) =>
       resultStatus(result).includes("PASS")
@@ -1126,19 +1128,15 @@ function TeacherQuizResultsContent() {
 
       attempts += results.length;
 
-      if (results.length > 0) {
-        submitted += 1;
+      if (hasSubmittedResult(results)) { submitted += 1;
 
-        const latest =
-          results[results.length - 1];
+        const latest = getLatestResult(results);
 
-        if (
-          resultStatus(latest).includes("PASS")
-        ) {
+        if (latest && resultStatus(latest).includes("PASS")) {
           pass += 1;
         }
 
-        if (resultStatus(latest).includes("FAIL")) {
+        if (latest && resultStatus(latest).includes("FAIL")) {
           fail += 1;
         }
       }
@@ -1196,6 +1194,109 @@ function TeacherQuizResultsContent() {
     });
   };
 
+  const deleteQuizResult = async (
+    resultId: number,
+    studentId: number,
+    targetQuizId: number
+  ) => {
+    if (!window.confirm(
+      "Delete this result entry? The selected attempt will be removed. Other attempts will be preserved and automatically renumbered. Marks and results of the remaining attempts will not change."
+    )) {
+      return;
+    }
+
+    setDeleteResultLoading(resultId);
+    setReattemptMessage("");
+
+    try {
+      const storedTeacherId =
+        localStorage.getItem("attendance_teacher_id") ||
+        localStorage.getItem("teacher_id");
+
+      const teacherId = Number(storedTeacherId);
+
+      if (!Number.isInteger(teacherId) || teacherId <= 0) {
+        throw new Error(
+          "Teacher ID was not found. Please login again as a teacher."
+        );
+      }
+
+      const response = await fetch(
+        "/api/quiz-tests/results/delete",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+          body: JSON.stringify({
+            resultId,
+            studentId,
+            quizId: targetQuizId,
+            teacherId,
+          }),
+        }
+      );
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || data?.success === false) {
+        throw new Error(
+          data?.error ||
+            data?.message ||
+            "Unable to delete quiz result entry."
+        );
+      }
+
+      setReattemptMessage(
+        "Result entry deleted successfully. Remaining attempts were automatically renumbered."
+      );
+
+      await loadData();
+    } catch (err: any) {
+      setReattemptMessage(
+        err?.message ||
+          "Unable to delete quiz result entry."
+      );
+    } finally {
+      setDeleteResultLoading(null);
+    }
+  };
+  const hasSubmittedResult = (
+    results: QuizResult[]
+  ): boolean => {
+    return results.some((result) => Boolean(result.submitted_at));
+  };
+
+  const getLatestResult = (
+    results: QuizResult[]
+  ): QuizResult | null => {
+    if (results.length === 0) {
+      return null;
+    }
+
+    const sorted = [...results].sort((a, b) => {
+      const attemptDiff =
+        safeNumber(a.attempt_number) -
+        safeNumber(b.attempt_number);
+
+      if (attemptDiff !== 0) {
+        return attemptDiff;
+      }
+
+      return String(a.created_at || "").localeCompare(
+        String(b.created_at || "")
+      );
+    });
+
+    for (let index = sorted.length - 1; index >= 0; index -= 1) {
+      if (sorted[index].submitted_at) {
+        return sorted[index];
+      }
+    }
+
+    return sorted[sorted.length - 1];
+  };
   const allowReattempt = async (
     targetQuizId: number,
     studentId: number
@@ -1959,7 +2060,7 @@ function TeacherQuizResultsContent() {
 
     const latest =
       results.length > 0
-        ? results[results.length - 1]
+        ? getLatestResult(results)
         : null;
 
     y += 4;
@@ -2166,10 +2267,7 @@ function TeacherQuizResultsContent() {
           y += 9;
         }
 
-        const latest =
-          row.results.length > 0
-            ? row.results[row.results.length - 1]
-            : null;
+        const latest = getLatestResult(row.results);
 
         addTableRow(
           pdf,
@@ -2438,11 +2536,7 @@ function TeacherQuizResultsContent() {
                     (group) => group.rows
                   );
 
-                const dateSubmitted =
-                  dateRows.filter(
-                    (row) =>
-                      row.results.length > 0
-                  ).length;
+                const dateSubmitted = dateRows.filter((row) => hasSubmittedResult(row.results)).length;
 
                 return (
                   <div
@@ -2556,12 +2650,7 @@ function TeacherQuizResultsContent() {
                                 classKey
                               );
 
-                            const submittedCount =
-                              classGroup.rows.filter(
-                                (row) =>
-                                  row.results.length >
-                                  0
-                              ).length;
+                            const submittedCount = classGroup.rows.filter((row) => hasSubmittedResult(row.results)).length;
 
                             const passCount =
                               classGroup.rows.filter(
@@ -2569,10 +2658,7 @@ function TeacherQuizResultsContent() {
                                   row.results.length >
                                     0 &&
                                   resultStatus(
-                                    row.results[
-                                      row.results.length -
-                                        1
-                                    ]
+                                    getLatestResult(row.results)!
                                   ).includes("PASS")
                               ).length;
 
@@ -2582,10 +2668,7 @@ function TeacherQuizResultsContent() {
                                   row.results.length >
                                     0 &&
                                   resultStatus(
-                                    row.results[
-                                      row.results.length -
-                                        1
-                                    ]
+                                    getLatestResult(row.results)!
                                   ).includes("FAIL")
                               ).length;
 
@@ -2838,6 +2921,34 @@ function TeacherQuizResultsContent() {
                                                   )}
                                                 </div>
 
+                                                {reattemptAllowed ? (
+                                                  <button
+                                                    type="button"
+                                                    style={{
+                                                      ...styles.pdfSmallButton,
+                                                      background: "#16a34a",
+                                                      color: "#ffffff",
+                                                    }}
+                                                    disabled
+                                                  >
+                                                    ALLOWED
+                                                  </button>
+                                                ) : (
+                                                  <button
+                                                    type="button"
+                                                    style={{
+                                                      ...styles.pdfSmallButton,
+                                                      background: "#4f46e5",
+                                                      color: "#ffffff",
+                                                      opacity: reattemptLoading === allowedKey ? 0.65 : 1,
+                                                      cursor: reattemptLoading === allowedKey ? "wait" : "pointer",
+                                                    }}
+                                                    disabled={reattemptLoading === allowedKey}
+                                                    onClick={() => allowReattempt(row.quiz.id, row.student.id)}
+                                                  >
+                                                    {reattemptLoading === allowedKey ? "ALLOWING..." : "ALLOW RE-ATTEMPT"}
+                                                  </button>
+                                                )}
                                                 <button
                                                   type="button"
                                                   style={
@@ -3159,6 +3270,32 @@ function TeacherQuizResultsContent() {
                                                                 %
                                                               </strong>
                                                             </div>
+                                                          </div>
+                                                          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "10px" }}>
+                                                            <button
+                                                              type="button"
+                                                              disabled={deleteResultLoading === result.id}
+                                                              onClick={() =>
+                                                                deleteQuizResult(
+                                                                  result.id,
+                                                                  row.student.id,
+                                                                  row.quiz.id
+                                                                )
+                                                              }
+                                                              style={{
+                                                                border: "1px solid #fecaca",
+                                                                background: "#fff1f2",
+                                                                color: "#be123c",
+                                                                padding: "8px 11px",
+                                                                borderRadius: "9px",
+                                                                fontSize: "9px",
+                                                                fontWeight: 950,
+                                                                cursor: deleteResultLoading === result.id ? "not-allowed" : "pointer",
+                                                                opacity: deleteResultLoading === result.id ? 0.55 : 1,
+                                                              }}
+                                                            >
+                                                              {deleteResultLoading === result.id ? "DELETING..." : "DELETE ENTRY"}
+                                                            </button>
                                                           </div>
 
                                                           <div
@@ -4403,6 +4540,9 @@ const styles: Record<
     fontSize: "12px",
   },
 };
+
+
+
 
 
 
