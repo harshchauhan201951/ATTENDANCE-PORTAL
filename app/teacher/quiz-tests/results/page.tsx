@@ -1325,7 +1325,7 @@ function TeacherQuizResultsContent() {
       }
 
       setReattemptMessage(
-        "Result entry deleted successfully. Remaining attempts were automatically renumbered."
+        "Result entry deleted successfully. Other attempts were preserved."
       );
 
       await loadData();
@@ -4581,6 +4581,7 @@ const styles: Record<
     fontSize: "12px",
   },
 };
+
 
 
 
