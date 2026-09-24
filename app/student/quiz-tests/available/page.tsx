@@ -20,6 +20,7 @@ type Quiz = {
   negative_marks: number;
   pass_percentage: number;
   is_published: boolean;
+  access_mode: "scheduled" | "any_time" | null;
 };
 
 function normalizeClass(
@@ -967,3 +968,4 @@ export default function StudentAvailableQuizzesPage() {
     </main>
   );
 }
+
