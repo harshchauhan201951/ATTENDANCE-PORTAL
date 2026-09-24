@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   Suspense,
@@ -2163,10 +2163,18 @@ function TeacherQuizResultsContent() {
     );
   };
 
-  const downloadOverallPdf = async () => {
+  const downloadOverallPdf = async (reportDate?: string) => {
     setFilterLoading(true);
 
     try {
+      const reportRows = reportDate ? filteredStatusRows.filter((row) => String(row.quiz.scheduled_date || "") === reportDate) : filteredStatusRows;
+      const reportQuizCount = new Set(reportRows.map((row) => Number(row.quiz.id))).size;
+      const reportTotalAssigned = reportRows.length;
+      const reportSubmitted = reportRows.filter((row) => hasSubmittedResult(row.results)).length;
+      const reportNotSubmitted = Math.max(0, reportTotalAssigned - reportSubmitted);
+      const reportPass = reportRows.filter((row) => { const latest = getLatestResult(row.results); return Boolean(latest && resultStatus(latest).includes("PASS")); }).length;
+      const reportFail = reportRows.filter((row) => { const latest = getLatestResult(row.results); return Boolean(latest && resultStatus(latest).includes("FAIL")); }).length;
+      const reportAttempts = reportRows.reduce((sum, row) => sum + row.results.length, 0);
       const pdf = new jsPDF({
         orientation: "landscape",
         unit: "mm",
@@ -2198,7 +2206,7 @@ function TeacherQuizResultsContent() {
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(9);
       pdf.text(
-        `Quizzes: ${stats.quizCount}   |   Students: ${stats.totalAssigned}   |   Submitted: ${stats.submitted}   |   Not Submitted: ${stats.notSubmitted}   |   Pass: ${stats.pass}   |   Fail: ${stats.fail}   |   Attempts: ${stats.attempts}`,
+        `Quizzes: ${reportQuizCount}   |   Students: ${reportTotalAssigned}   |   Submitted: ${reportSubmitted}   |   Not Submitted: ${reportNotSubmitted}   |   Pass: ${reportPass}   |   Fail: ${reportFail}   |   Attempts: ${reportAttempts}`,
         14,
         y
       );
@@ -2239,7 +2247,7 @@ function TeacherQuizResultsContent() {
 
       y += 9;
 
-      const rows = [...filteredStatusRows].sort(
+      const rows = [...reportRows].sort(
         (a, b) => {
           const dateDiff = String(
             b.quiz.scheduled_date || ""
@@ -2379,7 +2387,7 @@ function TeacherQuizResultsContent() {
       );
 
       pdf.save(
-        "RACER_ACADEMY_OVERALL_QUIZ_RESULTS.pdf"
+        reportDate ? "RACER_ACADEMY_"+reportDate+"_QUIZ_RESULTS.pdf" : reportDate ? "RACER_ACADEMY_"+reportDate+"_QUIZ_RESULTS.pdf" : "RACER_ACADEMY_OVERALL_QUIZ_RESULTS.pdf"
       );
     } finally {
       setFilterLoading(false);
@@ -2523,7 +2531,7 @@ function TeacherQuizResultsContent() {
 
           <button
             style={styles.pdfButton}
-            onClick={downloadOverallPdf}
+            onClick={() => downloadOverallPdf()}
             disabled={filterLoading}
           >
             {filterLoading
@@ -2652,6 +2660,12 @@ function TeacherQuizResultsContent() {
                             : "+"}
                         </div>
                       </button>
+
+                      {dateGroup.date !== "unknown" ? (
+                        <button type="button" style={{...styles.dateBulkButton, marginRight: "0", background: "#0f172a"}} disabled={filterLoading} onClick={() => downloadOverallPdf(dateGroup.date)}>
+                          {filterLoading ? "PREPARING..." : "PDF"}
+                        </button>
+                      ) : null}
 
                       {dateGroup.date !==
                       "unknown" ? (
