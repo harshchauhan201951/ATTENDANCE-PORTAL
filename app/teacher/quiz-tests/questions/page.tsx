@@ -592,14 +592,14 @@ function TeacherQuizQuestionsContent() {
 
   function parseBulkAnswers(text: string): Array<{ questionNumber: number; answerIndex: number }> {
     const normalized = text
-      .replace(/\r\n/g, "`n")
-      .replace(/\r/g, "`n")
+      .replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n")
       .trim();
 
     if (!normalized) return [];
 
     const lines = normalized
-      .split("`n")
+      .split("\n")
       .map((line) => line.trim())
       .filter(Boolean);
 
@@ -1639,3 +1639,4 @@ export default function TeacherQuizQuestionsPage() {
     </Suspense>
   );
 }
+
