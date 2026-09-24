@@ -155,13 +155,24 @@ function getISTDateTime() {
   };
 }
 
-function getQuizStatus(
-  quiz: Quiz
-) {
-  const scheduledStart = new Date(`${quiz.scheduled_date}T${String(quiz.scheduled_time || "00:00").slice(0, 5)}:00+05:30`);
+function getQuizStatus(quiz: Quiz) {
+  const now = new Date();
+
+  if (quiz.access_mode === "any_time") {
+    const ist = getISTDateTime();
+    if (ist.date < quiz.scheduled_date) return "UPCOMING";
+    if (ist.date > quiz.scheduled_date) return "ENDED";
+
+    const currentMinutes = ist.hour * 60 + ist.minute;
+    if (currentMinutes < 5 * 60) return "UPCOMING";
+    if (currentMinutes >= 21 * 60) return "ENDED";
+    return "LIVE";
+  }
+
+  const scheduledStart = new Date(`T:00+05:30`);
   const durationMs = Number(quiz.duration_minutes || 0) * 60 * 1000;
   const scheduledEnd = new Date(scheduledStart.getTime() + durationMs);
-  const now = new Date();
+
   if (now < scheduledStart) return "UPCOMING";
   if (now <= scheduledEnd) return "LIVE";
   return "ENDED";
@@ -968,4 +979,5 @@ export default function StudentAvailableQuizzesPage() {
     </main>
   );
 }
+
 
