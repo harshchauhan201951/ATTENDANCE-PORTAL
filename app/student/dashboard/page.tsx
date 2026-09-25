@@ -22,7 +22,7 @@ type Announcement = {
 };
 
 export default function StudentDashboardPage() {
-  const router = useRouter();
+  const router = useRouter(); const [headerTime,setHeaderTime]=useState(""); useEffect(()=>{const updateHeaderTime=()=>setHeaderTime(new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:true})); updateHeaderTime(); const timer=setInterval(updateHeaderTime,1000); return ()=>clearInterval(timer);},[]);
 
   const [studentName, setStudentName] = useState("Student");
   const [username, setUsername] = useState("");
@@ -2756,6 +2756,7 @@ const styles: {
     fontWeight: 900,
   },
 };
+
 
 
 
