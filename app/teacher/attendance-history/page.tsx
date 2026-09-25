@@ -292,6 +292,7 @@ export default function AttendanceHistoryPage() {
   }
 
   return (
+    <style>{`@media (max-width: 640px){.mobile-history-card .mobile-history-table{table-layout:fixed;width:100%;}.mobile-history-card .mobile-history-table th,.mobile-history-card .mobile-history-table td{padding:6px 3px!important;font-size:10px!important;white-space:normal!important;overflow-wrap:anywhere!important;vertical-align:middle!important;}.mobile-history-card .mobile-history-table th:nth-child(1),.mobile-history-card .mobile-history-table td:nth-child(1){width:7%;text-align:center;}.mobile-history-card .mobile-history-table th:nth-child(2),.mobile-history-card .mobile-history-table td:nth-child(2){width:28%;}.mobile-history-card .mobile-history-table th:nth-child(3),.mobile-history-card .mobile-history-table td:nth-child(3){width:20%;}.mobile-history-card .mobile-history-table th:nth-child(4),.mobile-history-card .mobile-history-table td:nth-child(4){width:18%;}.mobile-history-card .mobile-history-table th:nth-child(5),.mobile-history-card .mobile-history-table td:nth-child(5){width:12%;text-align:center;}.mobile-history-card .mobile-history-table th:nth-child(6),.mobile-history-card .mobile-history-table td:nth-child(6){width:15%;text-align:center;}.mobile-history-card .studentCell{gap:4px!important;flex-direction:column!important;align-items:flex-start!important;}.mobile-history-card .studentAvatar{width:26px!important;height:26px!important;font-size:11px!important;}.mobile-history-card .studentName{font-size:10px!important;line-height:1.15!important;}.mobile-history-card .username{display:inline-block!important;max-width:100%!important;padding:3px 4px!important;font-size:9px!important;overflow-wrap:anywhere!important;}.mobile-history-card .mobile-present-badge,.mobile-history-card .mobile-absent-badge{width:27px!important;height:27px!important;padding:0!important;border-radius:50%!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;font-size:0!important;line-height:1!important;}.mobile-history-card .mobile-present-badge::after{content:"P";font-size:12px;font-weight:900;}.mobile-history-card .mobile-absent-badge::after{content:"A";font-size:12px;font-weight:900;}.mobile-history-card .mobile-delete-button{width:30px!important;height:30px!important;padding:0!important;border-radius:50%!important;font-size:0!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;}.mobile-history-card .mobile-delete-button::after{content:"\\1F5D1 ";font-size:16px;line-height:1;}}`}</style>
     <main style={styles.page}>
       <div style={styles.container}>
 
@@ -504,7 +505,7 @@ export default function AttendanceHistoryPage() {
 
         {/* HISTORY */}
 
-        <section style={styles.historyCard}>
+        <section className="mobile-history-card" style={styles.historyCard}>
 
           <div style={styles.historyHeader}>
             <div>
@@ -568,7 +569,7 @@ export default function AttendanceHistoryPage() {
             </div>
           ) : (
             <div style={styles.tableWrapper}>
-              <table style={styles.table}>
+              <table className="mobile-history-table" style={styles.table}>
                 <thead>
                   <tr>
                     <th style={styles.th}>
@@ -703,6 +704,7 @@ export default function AttendanceHistoryPage() {
                                 )
                               }
                               disabled={isDeleting}
+                              className="mobile-delete-button"
                               style={{
                                 ...styles.deleteButton,
                                 opacity:
@@ -1216,6 +1218,7 @@ const styles: {
     fontWeight: "700",
   },
 };
+
 
 
 

@@ -1334,11 +1334,11 @@ const styles: {
 
   studentRow: {
     width: "100%",
-    borderRadius: "16px",
-    padding: "17px",
+    borderRadius: "12px",
+    padding: "10px 12px",
     display: "flex",
     alignItems: "center",
-    gap: "10px",
+    gap: "8px",
     boxSizing: "border-box",
     boxShadow:
       "0 4px 12px rgba(15,23,42,0.06)",
@@ -1377,7 +1377,7 @@ const styles: {
   studentName: {
     margin: 0,
     color: "#020617",
-    fontSize: "17px",
+    fontSize: "16px",
     fontWeight: "900",
   },
 
@@ -1390,7 +1390,7 @@ const styles: {
 
   miniStats: {
     display: "flex",
-    gap: "12px",
+    gap: "4px",
     flexWrap: "wrap",
     marginTop: "9px",
   },
@@ -1423,14 +1423,14 @@ const styles: {
     display: "flex",
     flexDirection: "column",
     alignItems: "flex-end",
-    gap: "9px",
-    minWidth: "165px",
+    gap: "6px",
+    minWidth: "0",
   },
 
   buttons: {
     flexWrap: "wrap",
     display: "flex",
-    gap: "8px",
+    gap: "6px",
   },
 
   presentButton: {
@@ -1571,6 +1571,7 @@ const styles: {
     fontWeight: "600",
   },
 };
+
 
 
 
