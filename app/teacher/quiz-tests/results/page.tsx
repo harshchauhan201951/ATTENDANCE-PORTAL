@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   Suspense,
@@ -10,6 +10,7 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
 import jsPDF from "jspdf";
+import * as XLSX from "xlsx";
 
 type QuizTest = {
   id: number;
@@ -416,7 +417,7 @@ function TeacherQuizResultsContent() {
   const hasSubmittedResult = (
     results: QuizResult[]
   ): boolean => {
-    return results.some((result) => Boolean(result.submitted_at));
+    return results.some((result) => Boolean(result.submitted_at) || ["manual","left_quiz","time_expired","auto_submit"].includes(String(result.submission_type || "").trim().toLowerCase()));
   };
 
   const getLatestResult = (
@@ -441,7 +442,7 @@ function TeacherQuizResultsContent() {
     });
 
     for (let index = sorted.length - 1; index >= 0; index -= 1) {
-      if (sorted[index].submitted_at) {
+      const submissionType = String(sorted[index].submission_type || "").trim().toLowerCase(); if (sorted[index].submitted_at || ["manual","left_quiz","time_expired","auto_submit"].includes(submissionType)) {
         return sorted[index];
       }
     }
@@ -2163,6 +2164,28 @@ function TeacherQuizResultsContent() {
     );
   };
 
+  const downloadOverallExcel = async (reportDate?: string) => {
+    setFilterLoading(true);
+    try {
+      const reportRows = reportDate ? filteredStatusRows.filter((row) => String(row.quiz.scheduled_date || "") === reportDate) : filteredStatusRows;
+      const excelRows = reportRows.map((row) => {
+        const latest = getLatestResult(row.results);
+        const submitted = Boolean(latest && (latest.submitted_at || ["manual","left_quiz","time_expired","auto_submit"].includes(String(latest.submission_type || "").trim().toLowerCase())));
+        return {
+          "Student Name": row.student.student_name || "Unnamed", "Class": normalizeClassName(row.student.class_name), "Username": row.student.student_username || "", "Quiz": row.quiz.title || "", "Quiz Date": row.quiz.scheduled_date || "", "Subject": row.quiz.subject || "", "Total Questions": latest ? safeNumber(latest.total_questions) : 0, "Correct Answers": latest ? safeNumber(latest.correct_answers) : 0, "Wrong Answers": latest ? safeNumber(latest.wrong_answers) : 0, "Marks": latest ? safeNumber(latest.obtained_marks) : 0, "Percentage": latest ? (safeNumber(latest.percentage).toFixed(2) + "%") : "0.00%", "Result Status": latest ? resultStatus(latest) : "NOT SUBMITTED", "Submission Type": latest?.submission_type || "", "Submitted": submitted ? "YES" : "NO", "Submitted At": latest?.submitted_at ? formatDateTime(latest.submitted_at) : ""
+        };
+      });
+      const worksheet = XLSX.utils.json_to_sheet(excelRows);
+      worksheet["!cols"] = [{wch:24},{wch:12},{wch:18},{wch:30},{wch:14},{wch:18},{wch:16},{wch:16},{wch:16},{wch:12},{wch:14},{wch:18},{wch:18},{wch:12},{wch:22}];
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, reportDate ? "Date Result" : "Overall Result");
+      const fileName = reportDate ? `RACER_ACADEMY_${reportDate}_QUIZ_RESULTS.xlsx` : "RACER_ACADEMY_OVERALL_QUIZ_RESULTS.xlsx";
+      XLSX.writeFile(workbook, fileName);
+    } finally {
+      setFilterLoading(false);
+    }
+  };
+
   const downloadOverallPdf = async (reportDate?: string) => {
     setFilterLoading(true);
 
@@ -2187,7 +2210,7 @@ function TeacherQuizResultsContent() {
         pdf,
         "OVERALL QUIZ RESULT REPORT",
         `Filters: ${
-          selectedDate === "ALL"
+          reportDate ? false : selectedDate === "ALL"
             ? "All Dates"
             : formatDate(selectedDate)
         }  ${
@@ -2381,13 +2404,11 @@ function TeacherQuizResultsContent() {
 
       drawSignatureAndStamp(
         pdf,
-        selectedDate !== "ALL"
-          ? selectedDate
-          : currentQuiz?.scheduled_date || null
+        reportDate || (selectedDate !== "ALL" ? selectedDate : currentQuiz?.scheduled_date || null)
       );
 
       pdf.save(
-        reportDate ? "RACER_ACADEMY_"+reportDate+"_QUIZ_RESULTS.pdf" : reportDate ? "RACER_ACADEMY_"+reportDate+"_QUIZ_RESULTS.pdf" : "RACER_ACADEMY_OVERALL_QUIZ_RESULTS.pdf"
+        reportDate ? "RACER_ACADEMY_"+reportDate+"_QUIZ_RESULTS.pdf" : "RACER_ACADEMY_OVERALL_QUIZ_RESULTS.pdf"
       );
     } finally {
       setFilterLoading(false);
@@ -2538,6 +2559,16 @@ function TeacherQuizResultsContent() {
               ? "Preparing PDF..."
               : "Download Overall PDF"}
           </button>
+          <button
+            style={{ ...styles.pdfButton, background: "#166534", marginLeft: "10px" }}
+            onClick={() => downloadOverallExcel()}
+            disabled={filterLoading}
+          >
+            {filterLoading
+              ? "Preparing Excel..."
+              : "Download Overall Excel"}
+          </button>
+
         </section>
 
         {reattemptMessage ? (
@@ -4595,6 +4626,19 @@ const styles: Record<
     fontSize: "12px",
   },
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
