@@ -1,34 +1,47 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import RacerPageActions from "../../components/RacerPageActions";
 
 const items = [
-  { href: "/student/dashboard", label: "Home", icon: "⌂" },
-  { href: "/student/calendar", label: "Calendar", icon: "▦" },
-  { href: "/student/announcements", label: "Notice", icon: "●" },
-  { href: "/student/profile", label: "Profile", icon: "○" },
+  { href: "/student/dashboard", label: "Home", icon: "âŒ‚" },
+  { href: "/student/calendar", label: "Calendar", icon: "â–¦" },
+  { href: "/student/announcements", label: "Notice", icon: "â—" },
+  { href: "/student/profile", label: "Profile", icon: "â—‹" },
 ];
 
 export default function StudentLayout({ children }: { children: ReactNode }) {
+  const [headerName, setHeaderName] = useState("Student");
+  const [headerTime, setHeaderTime] = useState("");
+
+  useEffect(() => {
+    const savedName = localStorage.getItem("studentName") || localStorage.getItem("student_name") || "Student";
+    const firstName = savedName.trim().split(/\s+/)[0] || "Student";
+    setHeaderName(firstName);
+    const updateHeaderTime = () => setHeaderTime(new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }));
+    updateHeaderTime();
+    const timer = setInterval(updateHeaderTime, 1000);
+    return () => clearInterval(timer);
+  }, []);
   const pathname = usePathname();
   const isDashboard = pathname === "/student/dashboard";
 
   return (
     <div className="racer-portal-shell racer-student-shell">
       {!isDashboard && (
-        <header className="racer-mobile-appbar">
+        <header className="racer-mobile-appbar" style={{ position: "sticky", top: 0, zIndex: 80 }}>
           <Link href="/student/dashboard" className="racer-appbar-brand">
             <span className="racer-appbar-logo">RA</span>
             <span>
               <strong>RACER ACADEMY</strong>
-              <small>STUDENT PORTAL</small>
+              <small>Hello, {headerName}</small>
             </span>
           </Link>
           <Link href="/student/announcements" className="racer-appbar-action" aria-label="Announcements">
-            ●
+            â—
           </Link>
         </header>
       )}
@@ -59,3 +72,4 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+

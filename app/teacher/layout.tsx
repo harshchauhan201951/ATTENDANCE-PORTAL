@@ -1,18 +1,31 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import RacerPageActions from "../../components/RacerPageActions";
 
 const items = [
-  { href: "/teacher/dashboard", label: "Home", icon: "⌂" },
-  { href: "/teacher/attendance", label: "Attendance", icon: "✓" },
-  { href: "/teacher/students", label: "Students", icon: "○" },
-  { href: "/teacher/profile", label: "Profile", icon: "●" },
+  { href: "/teacher/dashboard", label: "Home", icon: "âŒ‚" },
+  { href: "/teacher/attendance", label: "Attendance", icon: "âœ“" },
+  { href: "/teacher/students", label: "Students", icon: "â—‹" },
+  { href: "/teacher/profile", label: "Profile", icon: "â—" },
 ];
 
 export default function TeacherLayout({ children }: { children: ReactNode }) {
+  const [headerName, setHeaderName] = useState("Teacher");
+  const [headerTime, setHeaderTime] = useState("");
+
+  useEffect(() => {
+    const savedName = localStorage.getItem("teacherName") || localStorage.getItem("teacher_name") || localStorage.getItem("teacherUsername") || localStorage.getItem("teacher_username") || "Teacher";
+    const firstName = savedName.trim().split(/\s+/)[0] || "Teacher";
+    setHeaderName(firstName);
+    const updateHeaderTime = () => setHeaderTime(new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }));
+    updateHeaderTime();
+    const timer = setInterval(updateHeaderTime, 1000);
+    return () => clearInterval(timer);
+  }, []);
   const pathname = usePathname();
   const isDashboard = pathname === "/teacher/dashboard";
 
@@ -24,11 +37,11 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
             <span className="racer-appbar-logo">RA</span>
             <span>
               <strong>RACER ACADEMY</strong>
-              <small>TEACHER PORTAL</small>
+              <small>Welcome, {headerName}</small>
             </span>
           </Link>
           <Link href="/teacher/announcements" className="racer-appbar-action" aria-label="Announcements">
-            ●
+            â—
           </Link>
         </header>
       )}
@@ -59,3 +72,4 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+

@@ -7,6 +7,7 @@ export default function TeacherDashboard() {
   const router = useRouter();
   const [teacherName, setTeacherName] = useState("Teacher");
   const [loggingOut, setLoggingOut] = useState(false);
+  const [headerTime, setHeaderTime] = useState("");
 
   useEffect(() => {
     const savedTeacherName =
@@ -17,7 +18,13 @@ export default function TeacherDashboard() {
       "Teacher";
 
     setTeacherName(savedTeacherName);
+    const updateHeaderTime = () => setHeaderTime(new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }));
+    updateHeaderTime();
+    const timer = setInterval(updateHeaderTime, 1000);
+    return () => clearInterval(timer);
   }, []);
+
+  const firstName = teacherName.trim().split(/\s+/)[0] || "Teacher";
 
   async function handleLogout() {
     if (loggingOut) return;
@@ -71,12 +78,12 @@ export default function TeacherDashboard() {
   return (
     <main className="racer-teacher-dashboard">
       <div className="racer-teacher-inner">
-        <header className="racer-teacher-header">
+        <header className="racer-teacher-header" style={{ position: "sticky", top: 0, zIndex: 100 }}>
           <div className="racer-teacher-brand">
-            <div className="racer-teacher-logo">RA</div>
+            <div className="racer-teacher-logo" style={{ width: "48px", height: "48px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: "18px" }}>{firstName.charAt(0).toUpperCase()}</div>
             <div>
               <div className="racer-teacher-kicker">RACER ACADEMY</div>
-              <h1>Welcome, {teacherName}</h1>
+              <h1>Welcome, {firstName}</h1>
               <p>Teacher Control Center</p>
             </div>
           </div>
@@ -124,6 +131,7 @@ export default function TeacherDashboard() {
     </main>
   );
 }
+
 
 
 

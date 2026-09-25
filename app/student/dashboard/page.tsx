@@ -766,6 +766,9 @@ export default function StudentDashboardPage() {
       ? announcements[0]
       : null;
 
+
+  const firstName = studentName.trim().split(/\s+/)[0] || "Student";
+
   const firstLetter =
     studentName
       .charAt(0)
@@ -1358,7 +1361,7 @@ export default function StudentDashboardPage() {
                   className="student-brand-sub"
                   style={styles.brandSub}
                 >
-                  STUDENT PORTAL
+                  Hello, {firstName}
                 </div>
               </div>
             </div>
@@ -1367,11 +1370,17 @@ export default function StudentDashboardPage() {
               className="student-nav-right"
               style={styles.navRight}
             >
+              <button
+                type="button"
+                onClick={() => router.push("/student/announcements")}
+                aria-label="Announcements"
+                style={{ width: "36px", height: "36px", borderRadius: "50%", border: "1px solid #dbeafe", background: "#eff6ff", color: "#1d4ed8", cursor: "pointer", fontSize: "17px" }}
+              >{"\u{1F514}"}</button>
               <div
                 className="student-clock"
                 style={styles.clock}
               >
-                 {time}
+                WATCH TIME {time}
               </div>
 
               <button
@@ -1426,7 +1435,7 @@ export default function StudentDashboardPage() {
                   className="student-welcome-title"
                   style={styles.welcomeTitle}
                 >
-                  Welcome, {studentName}
+                  Hello, {firstName}
                 </h1>
 
                 <p
@@ -1440,7 +1449,7 @@ export default function StudentDashboardPage() {
                   one place.
                 </p>
 
-                {username && (
+                {false && username && (
                   <div
                     className="student-username"
                     style={styles.usernameBadge}
@@ -2747,4 +2756,5 @@ const styles: {
     fontWeight: 900,
   },
 };
+
 
