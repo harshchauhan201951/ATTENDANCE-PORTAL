@@ -1374,7 +1374,7 @@ export default function StudentDashboardPage() {
                 type="button"
                 onClick={() => router.push("/student/announcements")}
                 aria-label="Announcements"
-                style={{ width: "36px", height: "36px", borderRadius: "50%", border: "1px solid #dbeafe", background: "#eff6ff", color: "#1d4ed8", cursor: "pointer", fontSize: "17px" }}
+                style={{ width: "36px", height: "36px", borderRadius: "50%", border: "1px solid #1e293b", background: "#1e293b", color: "#ffffff", cursor: "pointer", fontSize: "17px", boxShadow: "0 3px 8px rgba(15,23,42,0.18)" }}
               >{"\u{1F514}"}</button>
               <div
                 className="student-clock"
@@ -2047,7 +2047,7 @@ const styles: {
     fontSize: "13px",
     fontWeight: 1000,
     letterSpacing: "1px",
-    color: "#172554",
+    color: "#0f172a",
   },
 
   brandSub: {
@@ -2055,7 +2055,7 @@ const styles: {
     fontSize: "9px",
     fontWeight: 900,
     letterSpacing: "2px",
-    color: "#64748b",
+    color: "#334155",
   },
 
   navRight: {
@@ -2273,14 +2273,14 @@ const styles: {
 
   latestAnnouncementTitle: {
     margin: 0,
-    color: "#172554",
+    color: "#0f172a",
     fontSize: "24px",
     fontWeight: 1000,
   },
 
   latestAnnouncementSubtitle: {
     margin: "5px 0 0",
-    color: "#64748b",
+    color: "#334155",
     fontSize: "11px",
     fontWeight: 600,
   },
@@ -2341,7 +2341,7 @@ const styles: {
 
   latestAnnouncementCardTitle: {
     margin: "7px 0 0",
-    color: "#172554",
+    color: "#0f172a",
     fontSize: "18px",
     fontWeight: 1000,
     wordBreak: "break-word",
@@ -2375,14 +2375,14 @@ const styles: {
 
   announcementTitle: {
     margin: 0,
-    color: "#172554",
+    color: "#0f172a",
     fontSize: "24px",
     fontWeight: 1000,
   },
 
   announcementSubtitle: {
     margin: "5px 0 0",
-    color: "#64748b",
+    color: "#334155",
     fontSize: "11px",
     fontWeight: 600,
   },
@@ -2447,7 +2447,7 @@ const styles: {
   },
 
   everyoneText: {
-    color: "#64748b",
+    color: "#334155",
     fontSize: "10px",
     fontWeight: 800,
   },
@@ -2512,14 +2512,14 @@ const styles: {
   },
 
   noticeTitle: {
-    color: "#172554",
+    color: "#0f172a",
     fontSize: "13px",
     fontWeight: 900,
   },
 
   noticeText: {
     margin: "3px 0 0",
-    color: "#64748b",
+    color: "#334155",
     fontSize: "11px",
     lineHeight: 1.5,
     fontWeight: 600,
@@ -2545,13 +2545,13 @@ const styles: {
     margin: 0,
     fontSize: "24px",
     fontWeight: 1000,
-    color: "#172554",
+    color: "#0f172a",
   },
 
   serviceCount: {
     background: "#ffffff",
     border: "1px solid #e2e8f0",
-    color: "#64748b",
+    color: "#334155",
     padding: "8px 11px",
     borderRadius: "9px",
     fontSize: "10px",
@@ -2649,7 +2649,7 @@ const styles: {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    color: "#172554",
+    color: "#0f172a",
     fontWeight: 1000,
   },
 
@@ -2659,14 +2659,14 @@ const styles: {
 
   cardTitle: {
     margin: 0,
-    color: "#172554",
+    color: "#0f172a",
     fontSize: "17px",
     fontWeight: 1000,
   },
 
   cardDescription: {
     margin: "7px 0 0",
-    color: "#64748b",
+    color: "#334155",
     fontSize: "11px",
     lineHeight: 1.6,
     minHeight: "36px",
@@ -2716,14 +2716,14 @@ const styles: {
 
   bottomTitle: {
     margin: 0,
-    color: "#172554",
+    color: "#0f172a",
     fontSize: "14px",
     fontWeight: 1000,
   },
 
   bottomDescription: {
     margin: "4px 0 0",
-    color: "#64748b",
+    color: "#334155",
     fontSize: "11px",
     fontWeight: 600,
   },
@@ -2756,5 +2756,6 @@ const styles: {
     fontWeight: 900,
   },
 };
+
 
 
