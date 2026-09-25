@@ -53,7 +53,7 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
         />
       )}
 
-      <div className="racer-portal-content" style={{paddingTop:"72px"}}>{children}</div>
+      <div className="racer-portal-content" style={{paddingTop:isDashboard ? "0px" : "72px"}}>{children}</div>
 
       <nav className="racer-bottom-nav" aria-label="Teacher navigation">
         {items.map((item) => {
@@ -72,6 +72,7 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
 
 
 
