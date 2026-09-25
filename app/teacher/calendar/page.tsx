@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 
@@ -867,11 +867,11 @@ export default function TeacherCalendarPage() {
             </div>
 
             <h1 style={styles.title}>
-              📅 Academic Calendar
+              ðŸ“… Academic Calendar
             </h1>
 
             <p style={styles.subtitle}>
-              Classes • Weekly Tests • Sundays •
+              Classes â€¢ Weekly Tests â€¢ Sundays â€¢
               Holidays
             </p>
           </div>
@@ -880,41 +880,41 @@ export default function TeacherCalendarPage() {
             href="/teacher"
             style={styles.backButton}
           >
-            ← Teacher Dashboard
+            â† Teacher Dashboard
           </a>
         </header>
 
         <section style={styles.legendCard}>
           <Legend
-            icon="📚"
+            icon="ðŸ“š"
             title="Regular Class"
             color="#2563eb"
             background="#eff6ff"
           />
 
           <Legend
-            icon="📝"
+            icon="ðŸ“"
             title="Every Saturday - Weekly Test"
             color="#7c3aed"
             background="#f5f3ff"
           />
 
           <Legend
-            icon="📚"
+            icon="ðŸ“š"
             title="Sunday - CLASS"
             color="#2563eb"
             background="#eff6ff"
           />
 
           <Legend
-            icon="🔴"
+            icon="ðŸ”´"
             title="Monday - OFF"
             color="#dc2626"
             background="#fef2f2"
           />
 
           <Legend
-            icon="🎉"
+            icon="ðŸŽ‰"
             title="Holiday"
             color="#ea580c"
             background="#fff7ed"
@@ -928,7 +928,7 @@ export default function TeacherCalendarPage() {
               onClick={previousMonth}
               style={styles.navButton}
             >
-              ←
+              â†
             </button>
 
             <div style={styles.monthTitle}>
@@ -940,7 +940,7 @@ export default function TeacherCalendarPage() {
               onClick={nextMonth}
               style={styles.navButton}
             >
-              →
+              â†’
             </button>
           </div>
 
@@ -1075,7 +1075,7 @@ export default function TeacherCalendarPage() {
                             styles.holidayLabel
                           }
                         >
-                          🎉 HOLIDAY
+                          ðŸŽ‰ HOLIDAY
                         </div>
 
                         <div
@@ -1093,7 +1093,7 @@ export default function TeacherCalendarPage() {
                             styles.classLabel
                           }
                         >
-                          📚 CLASS
+                          ðŸ“š CLASS
                         </div>
 
                         <div
@@ -1107,7 +1107,7 @@ export default function TeacherCalendarPage() {
                         <div
                           style={styles.offLabel}
                         >
-                          🔴 OFF
+                          ðŸ”´ OFF
                         </div>
 
                         <div
@@ -1121,7 +1121,7 @@ export default function TeacherCalendarPage() {
                         <div
                           style={styles.offLabel}
                         >
-                          🔴 OFF
+                          ðŸ”´ OFF
                         </div>
 
                         <div
@@ -1137,7 +1137,7 @@ export default function TeacherCalendarPage() {
                             styles.testLabel
                           }
                         >
-                          📝 TEST
+                          ðŸ“ TEST
                         </div>
 
                         <div
@@ -1153,7 +1153,7 @@ export default function TeacherCalendarPage() {
                             styles.classLabel
                           }
                         >
-                          📚 CLASS
+                          ðŸ“š CLASS
                         </div>
 
                         <div
@@ -1172,13 +1172,13 @@ export default function TeacherCalendarPage() {
 
         <section style={styles.infoCard}>
           <h2 style={styles.sectionTitle}>
-            📋 {monthNames[month]} Schedule
+            ðŸ“‹ {monthNames[month]} Schedule
           </h2>
 
           <div style={styles.infoGrid}>
             <div style={styles.infoItem}>
               <div style={styles.infoIcon}>
-                📚
+                ðŸ“š
               </div>
 
               <div>
@@ -1194,7 +1194,7 @@ export default function TeacherCalendarPage() {
 
             <div style={styles.infoItem}>
               <div style={styles.infoIcon}>
-                📚
+                ðŸ“š
               </div>
 
               <div>
@@ -1210,7 +1210,7 @@ export default function TeacherCalendarPage() {
 
             <div style={styles.infoItem}>
               <div style={styles.infoIcon}>
-                📝
+                ðŸ“
               </div>
 
               <div>
@@ -1226,7 +1226,7 @@ export default function TeacherCalendarPage() {
 
             <div style={styles.infoItem}>
               <div style={styles.infoIcon}>
-                🔴
+                ðŸ”´
               </div>
 
               <div>
@@ -1242,7 +1242,7 @@ export default function TeacherCalendarPage() {
 
             <div style={styles.infoItem}>
               <div style={styles.infoIcon}>
-                🎉
+                ðŸŽ‰
               </div>
 
               <div>
@@ -1260,7 +1260,7 @@ export default function TeacherCalendarPage() {
 
         <section style={styles.holidayCard}>
           <h2 style={styles.sectionTitle}>
-            🎉 Tuition Holidays
+            ðŸŽ‰ Tuition Holidays
           </h2>
 
           <div style={styles.holidayList}>
@@ -1290,7 +1290,7 @@ export default function TeacherCalendarPage() {
                   </strong>
 
                   <span>
-                    🎉 {holiday.title}
+                    ðŸŽ‰ {holiday.title}
                   </span>
                 </button>
               ))}
@@ -1325,11 +1325,11 @@ export default function TeacherCalendarPage() {
               <div style={styles.modalIcon}>
                 {selectedEvent.type ===
                 "test"
-                  ? "📝"
+                  ? "ðŸ“"
                   : selectedEvent.type ===
                     "class"
-                  ? "📚"
-                  : "🎉"}
+                  ? "ðŸ“š"
+                  : "ðŸŽ‰"}
               </div>
 
               <h2 style={styles.modalTitle}>
@@ -1337,7 +1337,7 @@ export default function TeacherCalendarPage() {
               </h2>
 
               <p style={styles.modalDate}>
-                📅{" "}
+                ðŸ“…{" "}
                 {formatDate(
                   new Date(
                     `${selectedEvent.date}T00:00:00`
@@ -1367,8 +1367,8 @@ export default function TeacherCalendarPage() {
         )}
 
         <footer style={styles.footer}>
-          Attendance Portal • Teacher Calendar •
-          2025–2030
+          Attendance Portal â€¢ Teacher Calendar â€¢
+          2025â€“2030
         </footer>
       </div>
     </main>
@@ -1515,7 +1515,7 @@ const styles: {
     padding: "18px",
     boxShadow:
       "0 4px 15px rgba(15,23,42,0.07)",
-    overflowX: "auto",
+    overflowX: "hidden",
   },
 
   calendarTop: {
@@ -1560,9 +1560,9 @@ const styles: {
   weekGrid: {
     display: "grid",
     gridTemplateColumns:
-      "repeat(7,minmax(80px,1fr))",
+      "repeat(7,minmax(0,1fr))",
     gap: "5px",
-    minWidth: "620px",
+    minWidth: "0",
   },
 
   weekDay: {
@@ -1593,10 +1593,10 @@ const styles: {
   calendarGrid: {
     display: "grid",
     gridTemplateColumns:
-      "repeat(7,minmax(80px,1fr))",
+      "repeat(7,minmax(0,1fr))",
     gap: "5px",
     marginTop: "5px",
-    minWidth: "620px",
+    minWidth: "0",
   },
 
   emptyDay: {

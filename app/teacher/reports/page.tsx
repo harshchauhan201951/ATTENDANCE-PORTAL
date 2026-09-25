@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   useEffect,
@@ -1204,22 +1204,22 @@ export default function TeacherReportsPage() {
             }</td>
             <td>${
               isAbsentStudent || isNoTestStudent
-                ? "—"
+                ? "â€”"
                 : escapeHtml(item.total_marks)
             }</td>
             <td>${
               isAbsentStudent || isNoTestStudent
-                ? "—"
+                ? "â€”"
                 : escapeHtml(item.obtained_marks)
             }</td>
             <td>${
               isAbsentStudent || isNoTestStudent
-                ? "—"
+                ? "â€”"
                 : `${percentage.toFixed(1)}%`
             }</td>
             <td>${
               isAbsentStudent || isNoTestStudent
-                ? "—"
+                ? "â€”"
                 : getGrade(percentage)
             }</td>
             <td>${
@@ -1691,7 +1691,7 @@ export default function TeacherReportsPage() {
             href="/teacher"
             style={styles.backButton}
           >
-            ← Teacher Dashboard
+            â† Teacher Dashboard
           </a>
         </header>
 
@@ -2270,7 +2270,7 @@ export default function TeacherReportsPage() {
                                   }
                                 >
                                   {student.admission_date ||
-                                    "—"}
+                                    "â€”"}
                                 </span>
                               </td>
 
@@ -2320,9 +2320,9 @@ export default function TeacherReportsPage() {
                               <td style={styles.td}>
                                 {isAbsentStudent ||
                                 isNoTestStudent
-                                  ? "—"
+                                  ? "â€”"
                                   : totalMarks ||
-                                    "—"}
+                                    "â€”"}
                               </td>
 
                               <td style={styles.td}>
@@ -2371,7 +2371,7 @@ export default function TeacherReportsPage() {
                                     ? `${percentage.toFixed(
                                         1
                                       )}%`
-                                    : "—"}
+                                    : "â€”"}
                                 </strong>
                               </td>
 
@@ -2405,7 +2405,7 @@ export default function TeacherReportsPage() {
                                     ? "NO TEST"
                                     : total > 0
                                     ? grade
-                                    : "—"}
+                                    : "â€”"}
                                 </span>
                               </td>
 
@@ -2447,7 +2447,7 @@ export default function TeacherReportsPage() {
                                       )
                                       ? "PASS"
                                       : "FAIL"
-                                    : "—"}
+                                    : "â€”"}
                                 </span>
                               </td>
 
@@ -2555,7 +2555,7 @@ export default function TeacherReportsPage() {
                                                   styles.removeImageButton
                                                 }
                                               >
-                                                ×
+                                                Ã—
                                               </button>
                                             </div>
                                           )
@@ -2726,13 +2726,13 @@ export default function TeacherReportsPage() {
                             }
                           >
                             {first.test_date}
-                            {" • "}
+                            {" â€¢ "}
                             Total Marks:{" "}
                             {total}
-                            {" • "}
+                            {" â€¢ "}
                             Students:{" "}
                             {group.length}
-                            {" • "}
+                            {" â€¢ "}
                             Average:{" "}
                             {average.toFixed(
                               1
@@ -2864,12 +2864,12 @@ export default function TeacherReportsPage() {
 
             <div style={styles.gradeGrid}>
               {[
-                ["90–100%", "A+", "PASS"],
-                ["80–89%", "A", "PASS"],
-                ["70–79%", "B+", "PASS"],
-                ["60–69%", "B", "PASS"],
-                ["50–59%", "C", "PASS"],
-                ["40–49%", "D", "PASS"],
+                ["90â€“100%", "A+", "PASS"],
+                ["80â€“89%", "A", "PASS"],
+                ["70â€“79%", "B+", "PASS"],
+                ["60â€“69%", "B", "PASS"],
+                ["50â€“59%", "C", "PASS"],
+                ["40â€“49%", "D", "PASS"],
                 ["Below 40%", "F", "FAIL"],
               ].map((item) => (
                 <div
@@ -2973,7 +2973,7 @@ export default function TeacherReportsPage() {
         </section>
 
         <footer style={styles.footer}>
-          RACER ACADEMY • Teacher Reports •{" "}
+          RACER ACADEMY â€¢ Teacher Reports â€¢{" "}
           {year}
         </footer>
       </div>
@@ -3204,8 +3204,10 @@ const styles: Record<
 
   table: {
     width: "100%",
-    minWidth: "850px",
+    minWidth: "0",
     borderCollapse: "collapse",
+    tableLayout: "fixed",
+    overflowWrap: "anywhere",
   },
 
   assessmentTable: {
@@ -3253,12 +3255,12 @@ const styles: Record<
   percentageWrapper: {
     display: "flex",
     alignItems: "center",
-    gap: "10px",
-    minWidth: "150px",
+    gap: "6px",
+    minWidth: "120px",
   },
 
   progressBackground: {
-    width: "90px",
+    width: "70px",
     height: "8px",
     background: "#e2e8f0",
     borderRadius: "999px",

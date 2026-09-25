@@ -774,6 +774,7 @@ const styles: {
   [key: string]: React.CSSProperties;
 } = {
   page: {
+    overflowX: "hidden",
     minHeight: "100vh",
     background:
       "linear-gradient(135deg,#eef2ff,#f8fafc,#eff6ff)",
@@ -1021,14 +1022,14 @@ const styles: {
 
   tableWrapper: {
     width: "100%",
-    overflowX: "auto",
+    overflowX: "hidden",
     border: "1px solid #e2e8f0",
     borderRadius: "14px",
   },
 
   table: {
     width: "100%",
-    minWidth: "850px",
+    minWidth: "0",
     borderCollapse: "collapse",
     background: "#ffffff",
   },
@@ -1036,15 +1037,15 @@ const styles: {
   th: {
     background: "#172554",
     color: "#ffffff",
-    padding: "14px 12px",
+    padding: "9px",
     textAlign: "left",
     fontSize: "12px",
     fontWeight: "900",
-    whiteSpace: "nowrap",
+    whiteSpace: "normal",
   },
 
   td: {
-    padding: "14px 12px",
+    padding: "9px",
     borderBottom:
       "1px solid #e2e8f0",
     color: "#334155",
@@ -1215,6 +1216,7 @@ const styles: {
     fontWeight: "700",
   },
 };
+
 
 
 
