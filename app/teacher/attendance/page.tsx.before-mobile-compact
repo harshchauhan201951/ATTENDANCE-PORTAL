@@ -1042,6 +1042,7 @@ const styles: {
   [key: string]: React.CSSProperties;
 } = {
   page: {
+    overflowX: "hidden",
     minHeight: "100vh",
     background:
       "linear-gradient(135deg,#e0f2fe 0%,#f8fafc 45%,#ede9fe 100%)",
@@ -1325,17 +1326,19 @@ const styles: {
   },
 
   studentList: {
+    width: "100%",
     display: "flex",
     flexDirection: "column",
     gap: "13px",
   },
 
   studentRow: {
+    width: "100%",
     borderRadius: "16px",
     padding: "17px",
     display: "flex",
     alignItems: "center",
-    gap: "15px",
+    gap: "10px",
     boxSizing: "border-box",
     boxShadow:
       "0 4px 12px rgba(15,23,42,0.06)",
@@ -1368,13 +1371,13 @@ const styles: {
 
   studentInfo: {
     flex: 1,
-    minWidth: "220px",
+    minWidth: "0",
   },
 
   studentName: {
     margin: 0,
     color: "#020617",
-    fontSize: "19px",
+    fontSize: "17px",
     fontWeight: "900",
   },
 
@@ -1421,10 +1424,11 @@ const styles: {
     flexDirection: "column",
     alignItems: "flex-end",
     gap: "9px",
-    minWidth: "205px",
+    minWidth: "165px",
   },
 
   buttons: {
+    flexWrap: "wrap",
     display: "flex",
     gap: "8px",
   },
@@ -1567,6 +1571,8 @@ const styles: {
     fontWeight: "600",
   },
 };
+
+
 
 
 

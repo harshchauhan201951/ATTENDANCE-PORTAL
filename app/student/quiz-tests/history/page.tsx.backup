@@ -638,7 +638,7 @@ export default function StudentQuizHistoryPage() {
 
     const passed = history.filter(
       ({ result }) =>
-        getResultStatus(result) === "PASS"
+        getResultStatus(result, quiz) === "PASS"
     ).length;
 
     const failed = total - passed;
@@ -872,7 +872,7 @@ export default function StudentQuizHistoryPage() {
             {history.map(
               ({ result, quiz }, index) => {
                 const status =
-                  getResultStatus(result);
+                  getResultStatus(result, quiz);
 
                 const percentage =
                   typeof result.percentage ===

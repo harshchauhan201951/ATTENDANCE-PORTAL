@@ -1171,27 +1171,128 @@ const [isReattempt, setIsReattempt] =
   ]);
 
   /*
-   * Refresh / close / accidental navigation: auto-submit.
+   * Browser refresh / close protection.
+   * The browser shows its native confirmation first.
+   * If the user confirms leaving, pagehide submits the
+   * current attempt automatically as auto_submit.
    */
   useEffect(() => {
-    if (loading || submitting || !student || !resultId || !questions.length) return;
-    const submitOnExit = () => {
-      if (submittingRef.current) return;
-      const currentAnswers = latestAnswersRef.current;
-      saveLocalAnswers(currentAnswers, resultId);
-      const answerPayload: Record<string, number | null> = {};
-      for (const question of questions) answerPayload[String(question.id)] = currentAnswers[String(question.id)] ?? null;
-      const payload = JSON.stringify({ resultId, studentId: student.id, answers: answerPayload, submissionType: "auto_submit" });
-      try {
-        const sent = navigator.sendBeacon("/api/quiz-tests/submit", new Blob([payload], { type: "application/json" }));
-        if (!sent) fetch("/api/quiz-tests/submit", { method: "POST", headers: { "Content-Type": "application/json" }, body: payload, keepalive: true }).catch(() => {});
-      } catch { fetch("/api/quiz-tests/submit", { method: "POST", headers: { "Content-Type": "application/json" }, body: payload, keepalive: true }).catch(() => {}); }
-    };
-    window.addEventListener("beforeunload", submitOnExit);
-    window.addEventListener("pagehide", submitOnExit);
-    return () => { window.removeEventListener("beforeunload", submitOnExit); window.removeEventListener("pagehide", submitOnExit); };
-  }, [loading, submitting, student, resultId, questions, saveLocalAnswers]);
+    if (
+      loading ||
+      submitting ||
+      !student ||
+      !resultId ||
+      !questions.length
+    ) {
+      return;
+    }
 
+    const submitOnPageHide = () => {
+      if (submittingRef.current) {
+        return;
+      }
+
+      const currentAnswers =
+        latestAnswersRef.current;
+
+      saveLocalAnswers(
+        currentAnswers,
+        resultId
+      );
+
+      const answerPayload: Record<
+        string,
+        number | null
+      > = {};
+
+      for (const question of questions) {
+        answerPayload[String(question.id)] =
+          currentAnswers[String(question.id)] ?? null;
+      }
+
+      const payload = JSON.stringify({
+        resultId,
+        studentId: student.id,
+        answers: answerPayload,
+        submissionType: "auto_submit",
+      });
+
+      try {
+        const sent = navigator.sendBeacon(
+          "/api/quiz-tests/submit",
+          new Blob([payload], {
+            type: "application/json",
+          })
+        );
+
+        if (!sent) {
+          fetch(
+            "/api/quiz-tests/submit",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: payload,
+              keepalive: true,
+            }
+          ).catch(() => {});
+        }
+      } catch {
+        fetch(
+          "/api/quiz-tests/submit",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: payload,
+            keepalive: true,
+          }
+        ).catch(() => {});
+      }
+    };
+
+    const handleBeforeUnload = (
+      event: BeforeUnloadEvent
+    ) => {
+      if (submittingRef.current) {
+        return;
+      }
+
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener(
+      "beforeunload",
+      handleBeforeUnload
+    );
+
+    window.addEventListener(
+      "pagehide",
+      submitOnPageHide
+    );
+
+    return () => {
+      window.removeEventListener(
+        "beforeunload",
+        handleBeforeUnload
+      );
+
+      window.removeEventListener(
+        "pagehide",
+        submitOnPageHide
+      );
+    };
+  }, [
+    loading,
+    submitting,
+    student,
+    resultId,
+    questions,
+    saveLocalAnswers,
+  ]);
   const confirmExit =
     useCallback(() => {
       setShowExitModal(
@@ -1628,7 +1729,7 @@ const [isReattempt, setIsReattempt] =
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
             <div className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900 p-6 shadow-2xl">
               <h2 className="text-xl font-black">
-                Are you sure you want to exit?
+                Are you sure you want to exit this page?
               </h2>
 
               <p className="mt-3 text-sm leading-relaxed text-slate-400">
@@ -1651,7 +1752,7 @@ const [isReattempt, setIsReattempt] =
                   }
                   className="flex-1 rounded-xl bg-white/10 px-4 py-3 text-sm font-black"
                 >
-                  NO
+                  CANCEL
                 </button>
 
                 <button
@@ -1664,7 +1765,7 @@ const [isReattempt, setIsReattempt] =
                   }
                   className="flex-1 rounded-xl bg-red-600 px-4 py-3 text-sm font-black"
                 >
-                  YES
+                  OK
                 </button>
               </div>
             </div>
@@ -1706,5 +1807,7 @@ export default function StudentQuizAttemptPage() {
     </Suspense>
   );
 }
+
+
 
 

@@ -26,8 +26,6 @@ type Quiz = {
   pass_percentage: number | null;
 };
 
-function getDisplayedStatus(result: { result_status?: string | null; percentage?: number | null; total_marks?: number | null; obtained_marks?: number | null }): "PASS" | "FAIL" { const status = String(result.result_status ?? "").trim().toUpperCase(); if(status === "PASS" || status === "FAIL") return status; const percentage = Number(result.percentage ?? 0); return percentage >= 0 ? (status === "PASSED" ? "PASS" : "FAIL") : "FAIL"; }
-
 type QuizResult = {
   id: number;
   quiz_id: number;
@@ -1165,7 +1163,7 @@ function ResultsContent() {
 
                 {results.map(
                   (item, index) => {
-                    const passed = getDisplayedStatus(item) === "PASS";
+                    const passed = getDisplayedStatus(item, item.quiz) === "PASS";
 
                     const attemptNumber =
                       Number(
@@ -1361,7 +1359,7 @@ function ResultsContent() {
     return null;
   }
 
-  const passed = getDisplayedStatus(result) === "PASS";
+  const passed = getDisplayedStatus(result, quiz) === "PASS";
 
   const attemptNumber =
     Number(

@@ -1,0 +1,269 @@
+﻿import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabaseAdmin =
+  supabaseUrl && serviceRoleKey
+    ? createClient(
+        supabaseUrl,
+        serviceRoleKey,
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+          },
+        }
+      )
+    : null;
+
+function positiveInt(value: unknown): number | null {
+  const numberValue = Number(value);
+
+  if (
+    !Number.isInteger(numberValue) ||
+    numberValue <= 0
+  ) {
+    return null;
+  }
+
+  return numberValue;
+}
+
+async function verifyTeacher(
+  teacherIdValue: unknown
+) {
+  const teacherId = positiveInt(teacherIdValue);
+
+  if (!teacherId || !supabaseAdmin) {
+    return false;
+  }
+
+  const { data, error } =
+    await supabaseAdmin
+      .from("teachers")
+      .select("id")
+      .eq("id", teacherId)
+      .maybeSingle();
+
+  return !error && Boolean(data);
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Supabase service configuration is missing.",
+        },
+        { status: 500 }
+      );
+    }
+
+    const body = await request.json();
+
+    const resultId = positiveInt(body?.resultId);
+    const teacherId = positiveInt(body?.teacherId);
+
+    if (!resultId || !teacherId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Result ID and teacher ID are required.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const teacherValid = await verifyTeacher(
+      teacherId
+    );
+
+    if (!teacherValid) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Teacher account was not found.",
+        },
+        { status: 403 }
+      );
+    }
+
+    const { data: result, error: resultError } =
+      await supabaseAdmin
+        .from("quiz_results")
+        .select(
+          "id,quiz_id,student_id,attempt_number"
+        )
+        .eq("id", resultId)
+        .maybeSingle();
+
+    if (resultError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: resultError.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!result) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Quiz result entry was not found.",
+        },
+        { status: 404 }
+      );
+    }
+
+    /*
+     * Delete only answer rows belonging to this exact result.
+     * No student, quiz, question, or other result is touched.
+     */
+    const { error: answerDeleteError } =
+      await supabaseAdmin
+        .from("quiz_answers")
+        .delete()
+        .eq("result_id", resultId);
+
+    if (answerDeleteError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            `Unable to delete answer records: ${answerDeleteError.message}`,
+        },
+        { status: 500 }
+      );
+    }
+
+    const { error: resultDeleteError } =
+      await supabaseAdmin
+        .from("quiz_results")
+        .delete()
+        .eq("id", resultId)
+        .eq("quiz_id", Number(result.quiz_id))
+        .eq("student_id", Number(result.student_id));
+
+    if (resultDeleteError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            `Unable to delete quiz result: ${resultDeleteError.message}`,
+        },
+        { status: 500 }
+      );
+    }
+
+    const { data: remaining, error: remainingError } =
+      await supabaseAdmin
+        .from("quiz_results")
+        .select("id,attempt_number,created_at")
+        .eq("quiz_id", Number(result.quiz_id))
+        .eq("student_id", Number(result.student_id))
+        .order("attempt_number", {
+          ascending: true,
+        })
+        .order("created_at", {
+          ascending: true,
+        })
+        .order("id", {
+          ascending: true,
+        });
+
+    if (remainingError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            `Result deleted, but attempts could not be re-numbered: ${remainingError.message}`,
+        },
+        { status: 500 }
+      );
+    }
+
+    const rows = remaining || [];
+
+    /*
+     * Two-phase renumbering prevents collisions if the database has
+     * a unique (quiz_id, student_id, attempt_number) constraint.
+     * Only attempt_number changes; marks and every other result field
+     * stay exactly as they were.
+     */
+    const temporaryBase =
+      900000000 +
+      Math.floor(Math.random() * 100000);
+
+    for (let index = 0; index < rows.length; index += 1) {
+      const { error } = await supabaseAdmin
+        .from("quiz_results")
+        .update({
+          attempt_number:
+            temporaryBase + index + 1,
+        })
+        .eq("id", rows[index].id)
+        .eq("quiz_id", Number(result.quiz_id))
+        .eq("student_id", Number(result.student_id));
+
+      if (error) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              `Result deleted, but temporary attempt renumbering failed: ${error.message}`,
+          },
+          { status: 500 }
+        );
+      }
+    }
+
+    for (let index = 0; index < rows.length; index += 1) {
+      const { error } = await supabaseAdmin
+        .from("quiz_results")
+        .update({
+          attempt_number: index + 1,
+        })
+        .eq("id", rows[index].id)
+        .eq("quiz_id", Number(result.quiz_id))
+        .eq("student_id", Number(result.student_id));
+
+      if (error) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              `Result deleted, but final attempt renumbering failed: ${error.message}`,
+          },
+          { status: 500 }
+        );
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      deletedResultId: resultId,
+      quizId: Number(result.quiz_id),
+      studentId: Number(result.student_id),
+      deletedAttemptNumber: Number(
+        result.attempt_number || 1
+      ),
+      remainingAttempts: rows.length,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to delete quiz result.",
+      },
+      { status: 500 }
+    );
+  }
+}

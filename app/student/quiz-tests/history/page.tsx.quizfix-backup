@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   useCallback,
@@ -458,7 +458,6 @@ export default function StudentQuizHistoryPage() {
               id,
               quiz_id,
               student_id,
-              attempt_number,
               total_questions,
               correct_answers,
               wrong_answers,
