@@ -7,10 +7,10 @@ import type { ReactNode } from "react";
 import RacerPageActions from "../../components/RacerPageActions"; import { supabase } from "../../lib/supabase";
 
 const items = [
-  { href: "/student/dashboard", label: "Home", icon: "H" },
-  { href: "/student/calendar", label: "Calendar", icon: "C" },
-  { href: "/student/announcements", label: "Notice", icon: "N" },
-  { href: "/student/profile", label: "Profile", icon: "P" },
+  { href: "/student/dashboard", label: "Home", icon: "\u2302" },
+  { href: "/student/calendar", label: "Calendar", icon: "\u25A6" },
+  { href: "/student/announcements", label: "Notice", icon: "\u2605" },
+  { href: "/student/profile", label: "Profile", icon: "\u25C9" },
 ];
 
 export default function StudentLayout({ children }: { children: ReactNode }) {
@@ -72,6 +72,7 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
 
 
 
