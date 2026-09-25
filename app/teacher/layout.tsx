@@ -15,12 +15,12 @@ const items = [
 
 export default function TeacherLayout({ children }: { children: ReactNode }) {
   const [headerName, setHeaderName] = useState("Teacher");
-  const [headerTime, setHeaderTime] = useState("");
+  const [headerTime, setHeaderTime] = useState(""); const [profileImage, setProfileImage] = useState<string | null>(null);
 
   useEffect(() => {
     const savedName = localStorage.getItem("teacherName") || localStorage.getItem("teacher_name") || localStorage.getItem("teacherUsername") || localStorage.getItem("teacher_username") || "Teacher";
     const firstName = savedName.trim().split(/\s+/)[0] || "Teacher";
-    setHeaderName(firstName);
+    setHeaderName(firstName); setProfileImage(localStorage.getItem("teacherProfileImage"));
     const updateHeaderTime = () => setHeaderTime(new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }));
     updateHeaderTime();
     const timer = setInterval(updateHeaderTime, 1000);
@@ -34,7 +34,7 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
       {!isDashboard && (
         <header className="racer-mobile-appbar" style={{position:"fixed",top:0,left:0,right:0,zIndex:9999,width:"100%"}}>
           <Link href="/teacher/dashboard" className="racer-appbar-brand">
-            <span className="racer-appbar-logo">RA</span>
+            <span className="racer-appbar-logo" style={{overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center"}}>{profileImage ? <img src={profileImage} alt="Profile" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"50%"}} onError={()=>setProfileImage(null)} /> : "RA"}</span>
             <span>
               <strong>RACER ACADEMY</strong>
               <small>Welcome, {headerName}</small>
@@ -72,6 +72,7 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
 
 
 

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import RacerPageActions from "../../components/RacerPageActions";
+import RacerPageActions from "../../components/RacerPageActions"; import { supabase } from "../../lib/supabase";
 
 const items = [
   { href: "/student/dashboard", label: "Home", icon: "H" },
@@ -15,12 +15,12 @@ const items = [
 
 export default function StudentLayout({ children }: { children: ReactNode }) {
   const [headerName, setHeaderName] = useState("Student");
-  const [headerTime, setHeaderTime] = useState("");
+  const [headerTime, setHeaderTime] = useState(""); const [profileImage, setProfileImage] = useState<string | null>(null);
 
   useEffect(() => {
     const savedName = localStorage.getItem("studentName") || localStorage.getItem("student_name") || "Student";
     const firstName = savedName.trim().split(/\s+/)[0] || "Student";
-    setHeaderName(firstName);
+    setHeaderName(firstName); (async()=>{try{const username=localStorage.getItem("studentUsername")||localStorage.getItem("student_username")||localStorage.getItem("attendance_student_id")||localStorage.getItem("studentId")||""; if(username){const {data}=await supabase.from("students").select("profile_image_url").or(`student_username.eq.${username},id.eq.${username}`).limit(1).maybeSingle(); setProfileImage(typeof data?.profile_image_url==="string"&&data.profile_image_url.trim()?data.profile_image_url.trim():null);}}catch{setProfileImage(null);}})();
     const updateHeaderTime = () => setHeaderTime(new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }));
     updateHeaderTime();
     const timer = setInterval(updateHeaderTime, 1000);
@@ -34,7 +34,7 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
       {!isDashboard && (
         <header className="racer-mobile-appbar" style={{position:"fixed",top:0,left:0,right:0,zIndex:9999,width:"100%"}}>
           <Link href="/student/dashboard" className="racer-appbar-brand">
-            <span className="racer-appbar-logo">RA</span>
+            <span className="racer-appbar-logo" style={{overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center"}}>{profileImage ? <img src={profileImage} alt="Profile" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"50%"}} onError={()=>setProfileImage(null)} /> : "RA"}</span>
             <span>
               <strong>RACER ACADEMY</strong>
               <small>Hello, {headerName}</small>
@@ -72,6 +72,7 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
 
 
 
