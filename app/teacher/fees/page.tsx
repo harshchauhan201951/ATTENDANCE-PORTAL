@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
@@ -1685,7 +1685,7 @@ export default function TeacherFeesPage() {
         : normalizedPaymentMode ===
           "CASH"
         ? "CASH"
-        : "—";
+        : "â€”";
 
     const receiptHTML = `
 <!DOCTYPE html>
@@ -1851,7 +1851,7 @@ RACER ACADEMY
 </div>
 
 <div class="tagline">
-Learn • Grow • Race Ahead
+Learn â€¢ Grow â€¢ Race Ahead
 </div>
 
 </div>
@@ -1871,7 +1871,7 @@ Receipt No: ${receiptNumber}
 </div>
 
 <div class="paid">
-✓ PAYMENT RECEIVED
+âœ“ PAYMENT RECEIVED
 </div>
 
 <div class="section">
@@ -1912,7 +1912,7 @@ Fee Details
 <tr>
 <td>Amount Paid</td>
 <td class="amount">
-₹${Number(
+â‚¹${Number(
       fee.amount
     ).toLocaleString(
       "en-IN"
@@ -1932,17 +1932,17 @@ Fee Details
 
 <tr>
 <td>Payment Date</td>
-<td>${fee.payment_date || "—"}</td>
+<td>${fee.payment_date || "â€”"}</td>
 </tr>
 
 <tr>
 <td>Transaction ID</td>
-<td>${fee.transaction_id || "—"}</td>
+<td>${fee.transaction_id || "â€”"}</td>
 </tr>
 
 <tr>
 <td>Remarks</td>
-<td>${fee.remarks || "—"}</td>
+<td>${fee.remarks || "â€”"}</td>
 </tr>
 
 </table>
@@ -1955,7 +1955,7 @@ This is a computer-generated fee receipt.
 
 <br />
 
-RACER ACADEMY • Attendance & Fee Management
+RACER ACADEMY â€¢ Attendance & Fee Management
 
 </div>
 
@@ -1963,7 +1963,7 @@ RACER ACADEMY • Attendance & Fee Management
 class="print-button"
 onclick="window.print()"
 >
-🖨️ Print / Save PDF
+ðŸ–¨ï¸ Print / Save PDF
 </button>
 
 </div>
@@ -2057,7 +2057,7 @@ onclick="window.print()"
         <div
           style={styles.loading}
         >
-          💰
+          ðŸ’°
 
           <h2>
             Loading Fees Management...
@@ -2070,7 +2070,7 @@ onclick="window.print()"
   return (
     <main
       style={styles.page}
-    >
+    ><style>{` .fee-history-table{width:100%;table-layout:fixed}.fee-history-table th:nth-child(1),.fee-history-table td:nth-child(1){width:14%}.fee-history-table th:nth-child(2),.fee-history-table td:nth-child(2){width:8%}.fee-history-table th:nth-child(3),.fee-history-table td:nth-child(3){width:7%}.fee-history-table th:nth-child(4),.fee-history-table td:nth-child(4){width:9%}.fee-history-table th:nth-child(5),.fee-history-table td:nth-child(5){width:10%}.fee-history-table th:nth-child(6),.fee-history-table td:nth-child(6){width:10%}.fee-history-table th:nth-child(7),.fee-history-table td:nth-child(7){width:11%}.fee-history-table th:nth-child(8),.fee-history-table td:nth-child(8){width:11%}.fee-history-table th:nth-child(9),.fee-history-table td:nth-child(9){width:11%}.fee-history-table th:nth-child(10),.fee-history-table td:nth-child(10){width:9%}@media (max-width:640px){.fee-history-table th,.fee-history-table td{padding:5px 3px!important;font-size:8px!important;line-height:1.2!important;overflow-wrap:anywhere!important;word-break:break-word!important;white-space:normal!important}.fee-history-table th{font-size:7px!important}.fee-history-table th:nth-child(1),.fee-history-table td:nth-child(1){width:14%!important}.fee-history-table th:nth-child(2),.fee-history-table td:nth-child(2){width:8%!important}.fee-history-table th:nth-child(3),.fee-history-table td:nth-child(3){width:7%!important}.fee-history-table th:nth-child(4),.fee-history-table td:nth-child(4){width:9%!important}.fee-history-table th:nth-child(5),.fee-history-table td:nth-child(5){width:10%!important}.fee-history-table th:nth-child(6),.fee-history-table td:nth-child(6){width:10%!important}.fee-history-table th:nth-child(7),.fee-history-table td:nth-child(7){width:11%!important}.fee-history-table th:nth-child(8),.fee-history-table td:nth-child(8){width:11%!important}.fee-history-table th:nth-child(9),.fee-history-table td:nth-child(9){width:11%!important}.fee-history-table th:nth-child(10),.fee-history-table td:nth-child(10){width:9%!important}.fee-history-table .username{font-size:7px!important;margin-top:2px!important}.fee-history-table button{font-size:7px!important;padding:5px 3px!important;white-space:normal!important;width:100%!important}.fee-history-table .notAvailable{font-size:7px!important;max-width:none!important}.fee-history-table .badge,.fee-history-table [style*="paymentModeBadge"]{font-size:7px!important;padding:4px 3px!important;white-space:normal!important;display:inline-block!important}} `}</style>
       <div
         style={styles.container}
       >
@@ -2084,7 +2084,7 @@ onclick="window.print()"
             <h1
               style={styles.title}
             >
-              💰 Fees Management
+              ðŸ’° Fees Management
             </h1>
 
             <p
@@ -2100,7 +2100,7 @@ onclick="window.print()"
             href="/teacher"
             style={styles.backButton}
           >
-            ← Teacher Dashboard
+            â† Teacher Dashboard
           </a>
 
         </header>
@@ -2112,28 +2112,28 @@ onclick="window.print()"
           <SummaryCard
             title="Submitted"
             amount={totalSubmitted}
-            icon="✅"
+            icon="âœ…"
             background="#16a34a"
           />
 
           <SummaryCard
             title="Pending"
             amount={totalPending}
-            icon="⏳"
+            icon="â³"
             background="#f59e0b"
           />
 
           <SummaryCard
             title="Refunded"
             amount={totalRefunded}
-            icon="↩️"
+            icon="â†©ï¸"
             background="#7c3aed"
           />
 
           <SummaryCard
             title="Total Records"
             amount={fees.length}
-            icon="📚"
+            icon="ðŸ“š"
             background="#2563eb"
           />
 
@@ -2146,7 +2146,7 @@ onclick="window.print()"
           <h2
             style={styles.sectionTitle}
           >
-            ➕ Add / Update Fee
+            âž• Add / Update Fee
           </h2>
 
           <form
@@ -2298,7 +2298,7 @@ onclick="window.print()"
                 <label
                   style={styles.label}
                 >
-                  Amount (₹)
+                  Amount (â‚¹)
                 </label>
 
                 <input
@@ -2496,7 +2496,7 @@ onclick="window.print()"
             >
               {saving
                 ? "Saving..."
-                : "💾 Save Fee"}
+                : "ðŸ’¾ Save Fee"}
             </button>
 
           </form>
@@ -2507,7 +2507,7 @@ onclick="window.print()"
                 styles.success
               }
             >
-              ✅ {message}
+              âœ… {message}
             </div>
           )}
 
@@ -2517,7 +2517,7 @@ onclick="window.print()"
                 styles.error
               }
             >
-              ❌ {error}
+              âŒ {error}
             </div>
           )}
 
@@ -2540,7 +2540,7 @@ onclick="window.print()"
                   styles.sectionTitle
                 }
               >
-                📚 Fee History
+                ðŸ“š Fee History
               </h2>
 
               <p
@@ -2561,7 +2561,7 @@ onclick="window.print()"
                 styles.refreshButton
               }
             >
-              🔄 Refresh
+              ðŸ”„ Refresh
             </button>
 
           </div>
@@ -2580,9 +2580,7 @@ onclick="window.print()"
               }
             >
 
-              <table
-                style={styles.table}
-              >
+              <table className="fee-history-table" style={styles.table}>
 
                 <thead>
 
@@ -2754,7 +2752,7 @@ onclick="window.print()"
                           >
 
                             <strong>
-                              ₹
+                              â‚¹
                               {Number(
                                 fee.amount
                               ).toLocaleString(
@@ -2793,7 +2791,7 @@ onclick="window.print()"
                                     "#92400e",
                                 }}
                               >
-                                💵 CASH
+                                ðŸ’µ CASH
                               </span>
                             ) : normalizedMode ===
                               "ONLINE" ? (
@@ -2806,7 +2804,7 @@ onclick="window.print()"
                                     "#166534",
                                 }}
                               >
-                                💳 ONLINE
+                                ðŸ’³ ONLINE
                               </span>
                             ) : (
                               <span
@@ -2814,7 +2812,7 @@ onclick="window.print()"
                                   styles.notSelected
                                 }
                               >
-                                —
+                                â€”
                               </span>
                             )}
 
@@ -2827,7 +2825,7 @@ onclick="window.print()"
                           >
                             {
                               fee.payment_date ||
-                              "—"
+                              "â€”"
                             }
                           </td>
 
@@ -2838,7 +2836,7 @@ onclick="window.print()"
                           >
                             {
                               fee.transaction_id ||
-                              "—"
+                              "â€”"
                             }
                           </td>
 
@@ -2849,7 +2847,7 @@ onclick="window.print()"
                           >
                             {
                               fee.remarks ||
-                              "—"
+                              "â€”"
                             }
                           </td>
 
@@ -2871,7 +2869,7 @@ onclick="window.print()"
                                   styles.receiptButton
                                 }
                               >
-                                🧾 Receipt
+                                ðŸ§¾ Receipt
                               </button>
                             ) : (
                               <span
@@ -2969,7 +2967,7 @@ function SummaryCard({
         {title ===
         "Total Records"
           ? amount
-          : `₹${amount.toLocaleString(
+          : `â‚¹${amount.toLocaleString(
               "en-IN"
             )}`}
       </div>
@@ -3048,25 +3046,25 @@ function StatusBadge({
 
       {normalized ===
         "SUBMITTED" &&
-        "✓ "}
+        "âœ“ "}
 
       {normalized ===
         "PENDING" &&
-        "⏳ "}
+        "â³ "}
 
       {normalized ===
         "REFUNDED" &&
-        "↩️ "}
+        "â†©ï¸ "}
 
       {normalized ===
         "CANCELLED" &&
-        "✕ "}
+        "âœ• "}
 
       {(normalized ===
         "PAID" ||
         normalized ===
           "PAID ONLINE") &&
-        "✓ "}
+        "âœ“ "}
 
       {normalized}
 
@@ -3353,19 +3351,23 @@ const styles: Record<
     width:
       "100%",
     overflowX:
-      "auto",
+      "hidden",
   },
 
   table: {
     width:
       "100%",
     minWidth:
-      "1400px",
+      "0",
+    tableLayout:
+      "fixed",
     borderCollapse:
       "collapse",
   },
 
   th: {
+    overflowWrap: "anywhere",
+    whiteSpace: "normal",
     background:
       "#eff6ff",
     color:
@@ -3381,6 +3383,9 @@ const styles: Record<
   },
 
   td: {
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
+    whiteSpace: "normal",
     padding:
       "13px",
     borderBottom:
