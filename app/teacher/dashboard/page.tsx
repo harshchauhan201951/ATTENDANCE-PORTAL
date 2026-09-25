@@ -56,23 +56,23 @@ export default function TeacherDashboard() {
   }
 
   const menuItems = [
-    { title: "Mark Attendance", description: "Mark today's student attendance", icon: "OK", path: "/teacher/attendance" },
-    { title: "Attendance History", description: "Check previous attendance records", icon: "AH", path: "/teacher/attendance-history" },
-    { title: "Calendar", description: "View academic and attendance calendar", icon: "CAL", path: "/teacher/calendar" },
-    { title: "Reports", description: "View attendance reports", icon: "REP", path: "/teacher/reports" },
-    { title: "Fees", description: "Manage student fee information", icon: "RS", path: "/teacher/fees" },
-    { title: "Payments", description: "Manage cash and online fee payments", icon: "PAY", path: "/teacher/payments" },
-    { title: "Homework", description: "Create and manage student homework", icon: "HW", path: "/teacher/homework" },
-    { title: "Announcements", description: "Create and manage announcements for all students", icon: "ANN", path: "/teacher/announcements" },
-    { title: "Student Login Activity", description: "Track when every student logs into the portal", icon: "ACT", path: "/teacher/login-activity" },
-    { title: "Profile", description: "Manage your teacher profile and picture", icon: "PRO", path: "/teacher/profile" },
-    { title: "Settings", description: "Manage teacher account settings", icon: "SET", path: "/teacher/settings" },
-    { title: "Student Directory", description: "View and export complete student details", icon: "DIR", path: "/teacher/student-directory" },
-    { title: "Extra Classes", description: "Manage extra classes and attendance", icon: "+", path: "/teacher/extra-class" },
-    { title: "Quiz Tests", description: "Create, manage and review student quiz tests", icon: "Q", path: "/teacher/quiz-tests" },
-    { title: "Voice & Call Center", description: "Contact students and manage academy communication", icon: "CALL", path: "/teacher/voice-call" },
-    { title: "Teachers", description: "Manage teacher accounts and teacher information", icon: "T", path: "/teacher/teachers" },
-    { title: "Timetable", description: "Create and manage class timetables", icon: "CAL", path: "/teacher/timetable" },
+    { title: "Mark Attendance", description: "Mark today's student attendance", icon: "attendance", path: "/teacher/attendance" },
+    { title: "Attendance History", description: "Check previous attendance records", icon: "history", path: "/teacher/attendance-history" },
+    { title: "Calendar", description: "View academic and attendance calendar", icon: "calendar", path: "/teacher/calendar" },
+    { title: "Reports", description: "View attendance reports", icon: "reports", path: "/teacher/reports" },
+    { title: "Fees", description: "Manage student fee information", icon: "fees", path: "/teacher/fees" },
+    { title: "Payments", description: "Manage cash and online fee payments", icon: "payments", path: "/teacher/payments" },
+    { title: "Homework", description: "Create and manage student homework", icon: "homework", path: "/teacher/homework" },
+    { title: "Announcements", description: "Create and manage announcements for all students", icon: "announcements", path: "/teacher/announcements" },
+    { title: "Student Login Activity", description: "Track when every student logs into the portal", icon: "activity", path: "/teacher/login-activity" },
+    { title: "Profile", description: "Manage your teacher profile and picture", icon: "profile", path: "/teacher/profile" },
+    { title: "Settings", description: "Manage teacher account settings", icon: "settings", path: "/teacher/settings" },
+    { title: "Student Directory", description: "View and export complete student details", icon: "directory", path: "/teacher/student-directory" },
+    { title: "Extra Classes", description: "Manage extra classes and attendance", icon: "extra", path: "/teacher/extra-class" },
+    { title: "Quiz Tests", description: "Create, manage and review student quiz tests", icon: "quiz", path: "/teacher/quiz-tests" },
+    { title: "Voice & Call Center", description: "Contact students and manage academy communication", icon: "call", path: "/teacher/voice-call" },
+    { title: "Teachers", description: "Manage teacher accounts and teacher information", icon: "teachers", path: "/teacher/teachers" },
+    { title: "Timetable", description: "Create and manage class timetables", icon: "timetable", path: "/teacher/timetable" },
   ];
 
   return (
@@ -132,6 +132,7 @@ export default function TeacherDashboard() {
     </main>
   );
 }
+
 
 
 
