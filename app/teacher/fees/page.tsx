@@ -2051,7 +2051,8 @@ onclick="window.print()"
 
   if (loading) {
     return (
-      <main
+      <>
+      <style>{`@media(max-width:640px){.fee-history-table{display:table!important;width:100%!important;min-width:0!important;table-layout:fixed!important;border-collapse:collapse!important}.fee-history-table thead{display:table-header-group!important}.fee-history-table tbody{display:table-row-group!important}.fee-history-table tr{display:table-row!important;border:0!important;padding:0!important;margin:0!important;box-shadow:none!important;background:transparent!important}.fee-history-table th,.fee-history-table td{display:table-cell!important;box-sizing:border-box!important;padding:3px 2px!important;font-size:6.5px!important;line-height:1.12!important;vertical-align:top!important;white-space:normal!important;overflow-wrap:anywhere!important;word-break:break-word!important}.fee-history-table th{font-size:6px!important;font-weight:900!important}.fee-history-table th:nth-child(1),.fee-history-table td:nth-child(1){width:18%!important}.fee-history-table th:nth-child(2),.fee-history-table td:nth-child(2){width:8%!important}.fee-history-table th:nth-child(3),.fee-history-table td:nth-child(3){width:7%!important}.fee-history-table th:nth-child(4),.fee-history-table td:nth-child(4){width:9%!important}.fee-history-table th:nth-child(5),.fee-history-table td:nth-child(5){width:8%!important}.fee-history-table th:nth-child(6),.fee-history-table td:nth-child(6){width:10%!important}.fee-history-table th:nth-child(7),.fee-history-table td:nth-child(7){width:10%!important}.fee-history-table th:nth-child(8),.fee-history-table td:nth-child(8){width:12%!important}.fee-history-table th:nth-child(9),.fee-history-table td:nth-child(9){width:10%!important}.fee-history-table th:nth-child(10),.fee-history-table td:nth-child(10){width:8%!important}.fee-history-table .username{font-size:5.5px!important;line-height:1.05!important;margin-top:1px!important;overflow-wrap:anywhere!important;word-break:break-all!important}.fee-history-table .badge,.fee-history-table .paymentModeBadge{font-size:5.8px!important;padding:2px 2px!important;white-space:normal!important;display:inline-block!important;max-width:100%!important}.fee-history-table .receiptButton,.fee-history-table .deleteButton{font-size:5.8px!important;padding:3px 2px!important;line-height:1.05!important;white-space:normal!important;width:100%!important;display:block!important}.fee-history-table .notAvailable{font-size:5.5px!important;line-height:1.05!important;max-width:100%!important;overflow-wrap:anywhere!important}.fee-history-table strong{font-size:6.5px!important}.fee-dashboard-button{padding:7px 9px!important;font-size:10px!important;border-radius:7px!important}.header{padding:14px!important;gap:8px!important}.title{font-size:20px!important}.subtitle{font-size:10px!important}.card{padding:10px!important;border-radius:12px!important}.historyHeader{gap:8px!important;margin-bottom:10px!important}.sectionTitle{font-size:16px!important}.refreshButton{padding:7px 9px!important;font-size:9px!important}}`}</style><main
         style={styles.page}
       >
         <div
@@ -2064,6 +2065,7 @@ onclick="window.print()"
           </h2>
         </div>
       </main>
+      </>
     );
   }
 
@@ -2097,6 +2099,7 @@ onclick="window.print()"
           </div>
 
           <a
+            className="fee-dashboard-button"
             href="/teacher"
             style={styles.backButton}
           >
@@ -2580,7 +2583,7 @@ onclick="window.print()"
               }
             >
 
-              <style>{`.fee-history-table{width:100%!important;min-width:0!important;table-layout:fixed!important}.fee-history-table th,.fee-history-table td{overflow-wrap:anywhere!important;word-break:break-word!important}.fee-history-table th:nth-child(1),.fee-history-table td:nth-child(1){width:13%}.fee-history-table th:nth-child(2),.fee-history-table td:nth-child(2){width:8%}.fee-history-table th:nth-child(3),.fee-history-table td:nth-child(3){width:7%}.fee-history-table th:nth-child(4),.fee-history-table td:nth-child(4){width:9%}.fee-history-table th:nth-child(5),.fee-history-table td:nth-child(5){width:10%}.fee-history-table th:nth-child(6),.fee-history-table td:nth-child(6){width:10%}.fee-history-table th:nth-child(7),.fee-history-table td:nth-child(7){width:10%}.fee-history-table th:nth-child(8),.fee-history-table td:nth-child(8){width:12%}.fee-history-table th:nth-child(9),.fee-history-table td:nth-child(9){width:11%}.fee-history-table th:nth-child(10),.fee-history-table td:nth-child(10){width:10%}@media(max-width:640px){.tableWrapper{width:100%!important;max-width:100%!important;overflow:hidden!important}.fee-history-table{display:block!important;width:100%!important;min-width:0!important}.fee-history-table thead{display:none!important}.fee-history-table tbody{display:block!important;width:100%!important}.fee-history-table tr{display:grid!important;grid-template-columns:1fr 1fr!important;gap:6px!important;margin-bottom:10px!important;padding:10px!important;border:1px solid #dbeafe!important;border-radius:12px!important;background:#fff!important;box-shadow:0 3px 12px rgba(15,23,42,.06)!important}.fee-history-table td{display:grid!important;grid-template-columns:64px minmax(0,1fr)!important;gap:5px!important;width:auto!important;min-width:0!important;padding:5px!important;border:0!important;font-size:9px!important;line-height:1.2!important;white-space:normal!important;overflow-wrap:anywhere!important;word-break:break-word!important;align-items:center!important}.fee-history-table td:before{font-size:8px!important;font-weight:900!important;color:#64748b!important;text-transform:uppercase!important}.fee-history-table td:nth-child(1){grid-column:1/-1!important}.fee-history-table td:nth-child(1):before{content:"Student"}.fee-history-table td:nth-child(2):before{content:"Month"}.fee-history-table td:nth-child(3):before{content:"Amount"}.fee-history-table td:nth-child(4):before{content:"Status"}.fee-history-table td:nth-child(5):before{content:"Mode"}.fee-history-table td:nth-child(6):before{content:"Date"}.fee-history-table td:nth-child(7):before{content:"Transaction"}.fee-history-table td:nth-child(8){grid-column:1/-1!important}.fee-history-table td:nth-child(8):before{content:"Remarks"}.fee-history-table td:nth-child(9):before{content:"Receipt"}.fee-history-table td:nth-child(10):before{content:"Action"}.fee-history-table .username{font-size:8px!important;line-height:1.1!important}.fee-history-table .badge,.fee-history-table [style*="paymentModeBadge"]{font-size:8px!important;padding:4px 5px!important;white-space:normal!important;width:max-content!important;max-width:100%!important}.fee-history-table button{width:100%!important;padding:6px 4px!important;font-size:8px!important;line-height:1.1!important;white-space:normal!important}.fee-history-table .notAvailable{max-width:100%!important;font-size:8px!important;line-height:1.15!important}}`}</style><table className="fee-history-table" style={styles.table}>
+              <table className="fee-history-table" style={styles.table}>
 
                 <thead>
 
@@ -3519,4 +3522,5 @@ const styles: Record<
       700,
   },
 };
+
 
