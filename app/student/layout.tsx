@@ -37,7 +37,7 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
             <span className="racer-appbar-logo" style={{overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center"}}>{profileImage ? <img src={profileImage} alt="Profile" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"50%"}} onError={()=>setProfileImage(null)} /> : "RA"}</span>
             <span>
               <strong>RACER ACADEMY</strong>
-              <small>Hello, {headerName}</small>
+              <small style={{color:"#000000",fontWeight:700}}>{headerTime} • Hello, {headerName}</small>
             </span>
           </Link>
           <Link href="/student/announcements" className="racer-appbar-action" aria-label="Announcements">
@@ -72,6 +72,7 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
 
 
 
