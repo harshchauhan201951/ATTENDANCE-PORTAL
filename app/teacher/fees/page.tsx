@@ -1685,7 +1685,7 @@ export default function TeacherFeesPage() {
         : normalizedPaymentMode ===
           "CASH"
         ? "CASH"
-        : "â€”";
+        : "";
 
     const receiptHTML = `
 <!DOCTYPE html>
@@ -1851,7 +1851,7 @@ RACER ACADEMY
 </div>
 
 <div class="tagline">
-Learn â€¢ Grow â€¢ Race Ahead
+Learn  Grow  Race Ahead
 </div>
 
 </div>
@@ -1871,7 +1871,7 @@ Receipt No: ${receiptNumber}
 </div>
 
 <div class="paid">
-âœ“ PAYMENT RECEIVED
+ PAYMENT RECEIVED
 </div>
 
 <div class="section">
@@ -1912,7 +1912,7 @@ Fee Details
 <tr>
 <td>Amount Paid</td>
 <td class="amount">
-â‚¹${Number(
+${Number(
       fee.amount
     ).toLocaleString(
       "en-IN"
@@ -1932,17 +1932,17 @@ Fee Details
 
 <tr>
 <td>Payment Date</td>
-<td>${fee.payment_date || "â€”"}</td>
+<td>${fee.payment_date || ""}</td>
 </tr>
 
 <tr>
 <td>Transaction ID</td>
-<td>${fee.transaction_id || "â€”"}</td>
+<td>${fee.transaction_id || ""}</td>
 </tr>
 
 <tr>
 <td>Remarks</td>
-<td>${fee.remarks || "â€”"}</td>
+<td>${fee.remarks || ""}</td>
 </tr>
 
 </table>
@@ -1955,7 +1955,7 @@ This is a computer-generated fee receipt.
 
 <br />
 
-RACER ACADEMY â€¢ Attendance & Fee Management
+RACER ACADEMY  Attendance & Fee Management
 
 </div>
 
@@ -1963,7 +1963,7 @@ RACER ACADEMY â€¢ Attendance & Fee Management
 class="print-button"
 onclick="window.print()"
 >
-ðŸ–¨ï¸ Print / Save PDF
+- Print / Save PDF
 </button>
 
 </div>
@@ -2057,7 +2057,7 @@ onclick="window.print()"
         <div
           style={styles.loading}
         >
-          ðŸ’°
+          
 
           <h2>
             Loading Fees Management...
@@ -2070,7 +2070,7 @@ onclick="window.print()"
   return (
     <main
       style={styles.page}
-    ><style>{` .fee-history-table{width:100%;table-layout:fixed}.fee-history-table th:nth-child(1),.fee-history-table td:nth-child(1){width:14%}.fee-history-table th:nth-child(2),.fee-history-table td:nth-child(2){width:8%}.fee-history-table th:nth-child(3),.fee-history-table td:nth-child(3){width:7%}.fee-history-table th:nth-child(4),.fee-history-table td:nth-child(4){width:9%}.fee-history-table th:nth-child(5),.fee-history-table td:nth-child(5){width:10%}.fee-history-table th:nth-child(6),.fee-history-table td:nth-child(6){width:10%}.fee-history-table th:nth-child(7),.fee-history-table td:nth-child(7){width:11%}.fee-history-table th:nth-child(8),.fee-history-table td:nth-child(8){width:11%}.fee-history-table th:nth-child(9),.fee-history-table td:nth-child(9){width:11%}.fee-history-table th:nth-child(10),.fee-history-table td:nth-child(10){width:9%}@media (max-width:640px){.fee-history-table th,.fee-history-table td{padding:5px 3px!important;font-size:8px!important;line-height:1.2!important;overflow-wrap:anywhere!important;word-break:break-word!important;white-space:normal!important}.fee-history-table th{font-size:7px!important}.fee-history-table th:nth-child(1),.fee-history-table td:nth-child(1){width:14%!important}.fee-history-table th:nth-child(2),.fee-history-table td:nth-child(2){width:8%!important}.fee-history-table th:nth-child(3),.fee-history-table td:nth-child(3){width:7%!important}.fee-history-table th:nth-child(4),.fee-history-table td:nth-child(4){width:9%!important}.fee-history-table th:nth-child(5),.fee-history-table td:nth-child(5){width:10%!important}.fee-history-table th:nth-child(6),.fee-history-table td:nth-child(6){width:10%!important}.fee-history-table th:nth-child(7),.fee-history-table td:nth-child(7){width:11%!important}.fee-history-table th:nth-child(8),.fee-history-table td:nth-child(8){width:11%!important}.fee-history-table th:nth-child(9),.fee-history-table td:nth-child(9){width:11%!important}.fee-history-table th:nth-child(10),.fee-history-table td:nth-child(10){width:9%!important}.fee-history-table .username{font-size:7px!important;margin-top:2px!important}.fee-history-table button{font-size:7px!important;padding:5px 3px!important;white-space:normal!important;width:100%!important}.fee-history-table .notAvailable{font-size:7px!important;max-width:none!important}.fee-history-table .badge,.fee-history-table [style*="paymentModeBadge"]{font-size:7px!important;padding:4px 3px!important;white-space:normal!important;display:inline-block!important}} `}</style>
+    ><style>{`.fee-history-table{width:100%!important;min-width:0!important}@media(max-width:640px){.fee-history-table{display:block!important;width:100%!important;min-width:0!important}.fee-history-table thead{display:none!important}.fee-history-table tbody{display:block!important;width:100%!important}.fee-history-table tbody tr{display:grid!important;grid-template-columns:1fr 1fr!important;gap:6px!important;margin:0 0 10px!important;padding:10px!important;border:1px solid #dbeafe!important;border-radius:12px!important;background:#fff!important;box-shadow:0 3px 12px rgba(15,23,42,.06)!important}.fee-history-table tbody td{display:grid!important;grid-template-columns:68px minmax(0,1fr)!important;gap:4px!important;align-items:center!important;min-width:0!important;padding:5px!important;border:0!important;overflow:hidden!important;overflow-wrap:anywhere!important;word-break:break-word!important;white-space:normal!important;font-size:9px!important;line-height:1.2!important}.fee-history-table tbody td:before{font-size:8px!important;font-weight:900!important;color:#64748b!important;text-transform:uppercase!important;letter-spacing:.2px!important}.fee-history-table tbody td:nth-child(1){grid-column:1/-1!important}.fee-history-table tbody td:nth-child(1):before{content:"Student"}.fee-history-table tbody td:nth-child(2):before{content:"Month"}.fee-history-table tbody td:nth-child(3):before{content:"Amount"}.fee-history-table tbody td:nth-child(4):before{content:"Status"}.fee-history-table tbody td:nth-child(5):before{content:"Payment Mode"}.fee-history-table tbody td:nth-child(6):before{content:"Payment Date"}.fee-history-table tbody td:nth-child(7):before{content:"Transaction"}.fee-history-table tbody td:nth-child(8){grid-column:1/-1!important}.fee-history-table tbody td:nth-child(8):before{content:"Remarks"}.fee-history-table tbody td:nth-child(9):before{content:"Receipt"}.fee-history-table tbody td:nth-child(10):before{content:"Action"}.fee-history-table .username{font-size:8px!important;line-height:1.1!important;overflow-wrap:anywhere!important;word-break:break-word!important}.fee-history-table .badge,.fee-history-table [style*="paymentModeBadge"]{font-size:8px!important;padding:4px 5px!important;white-space:normal!important;display:inline-block!important;width:max-content!important;max-width:100%!important}.fee-history-table button{width:100%!important;max-width:100%!important;padding:6px 4px!important;font-size:8px!important;line-height:1.1!important;white-space:normal!important;overflow-wrap:anywhere!important}.fee-history-table .notAvailable{max-width:100%!important;font-size:8px!important;line-height:1.15!important;overflow-wrap:anywhere!important}.tableWrapper{width:100%!important;max-width:100%!important;overflow-x:hidden!important}}`}</style><style>{` .fee-history-table{width:100%;table-layout:fixed}.fee-history-table th:nth-child(1),.fee-history-table td:nth-child(1){width:14%}.fee-history-table th:nth-child(2),.fee-history-table td:nth-child(2){width:8%}.fee-history-table th:nth-child(3),.fee-history-table td:nth-child(3){width:7%}.fee-history-table th:nth-child(4),.fee-history-table td:nth-child(4){width:9%}.fee-history-table th:nth-child(5),.fee-history-table td:nth-child(5){width:10%}.fee-history-table th:nth-child(6),.fee-history-table td:nth-child(6){width:10%}.fee-history-table th:nth-child(7),.fee-history-table td:nth-child(7){width:11%}.fee-history-table th:nth-child(8),.fee-history-table td:nth-child(8){width:11%}.fee-history-table th:nth-child(9),.fee-history-table td:nth-child(9){width:11%}.fee-history-table th:nth-child(10),.fee-history-table td:nth-child(10){width:9%}@media (max-width:640px){.fee-history-table th,.fee-history-table td{padding:5px 3px!important;font-size:8px!important;line-height:1.2!important;overflow-wrap:anywhere!important;word-break:break-word!important;white-space:normal!important}.fee-history-table th{font-size:7px!important}.fee-history-table th:nth-child(1),.fee-history-table td:nth-child(1){width:14%!important}.fee-history-table th:nth-child(2),.fee-history-table td:nth-child(2){width:8%!important}.fee-history-table th:nth-child(3),.fee-history-table td:nth-child(3){width:7%!important}.fee-history-table th:nth-child(4),.fee-history-table td:nth-child(4){width:9%!important}.fee-history-table th:nth-child(5),.fee-history-table td:nth-child(5){width:10%!important}.fee-history-table th:nth-child(6),.fee-history-table td:nth-child(6){width:10%!important}.fee-history-table th:nth-child(7),.fee-history-table td:nth-child(7){width:11%!important}.fee-history-table th:nth-child(8),.fee-history-table td:nth-child(8){width:11%!important}.fee-history-table th:nth-child(9),.fee-history-table td:nth-child(9){width:11%!important}.fee-history-table th:nth-child(10),.fee-history-table td:nth-child(10){width:9%!important}.fee-history-table .username{font-size:7px!important;margin-top:2px!important}.fee-history-table button{font-size:7px!important;padding:5px 3px!important;white-space:normal!important;width:100%!important}.fee-history-table .notAvailable{font-size:7px!important;max-width:none!important}.fee-history-table .badge,.fee-history-table [style*="paymentModeBadge"]{font-size:7px!important;padding:4px 3px!important;white-space:normal!important;display:inline-block!important}} `}</style>
       <div
         style={styles.container}
       >
@@ -2084,7 +2084,7 @@ onclick="window.print()"
             <h1
               style={styles.title}
             >
-              ðŸ’° Fees Management
+               Fees Management
             </h1>
 
             <p
@@ -2100,7 +2100,7 @@ onclick="window.print()"
             href="/teacher"
             style={styles.backButton}
           >
-            â† Teacher Dashboard
+             Teacher Dashboard
           </a>
 
         </header>
@@ -2112,28 +2112,28 @@ onclick="window.print()"
           <SummaryCard
             title="Submitted"
             amount={totalSubmitted}
-            icon="âœ…"
+            icon=""
             background="#16a34a"
           />
 
           <SummaryCard
             title="Pending"
             amount={totalPending}
-            icon="â³"
+            icon=""
             background="#f59e0b"
           />
 
           <SummaryCard
             title="Refunded"
             amount={totalRefunded}
-            icon="â†©ï¸"
+            icon=""
             background="#7c3aed"
           />
 
           <SummaryCard
             title="Total Records"
             amount={fees.length}
-            icon="ðŸ“š"
+            icon=""
             background="#2563eb"
           />
 
@@ -2146,7 +2146,7 @@ onclick="window.print()"
           <h2
             style={styles.sectionTitle}
           >
-            âž• Add / Update Fee
+             -  Add / Update Fee
           </h2>
 
           <form
@@ -2298,7 +2298,7 @@ onclick="window.print()"
                 <label
                   style={styles.label}
                 >
-                  Amount (â‚¹)
+                  Amount ()
                 </label>
 
                 <input
@@ -2496,7 +2496,7 @@ onclick="window.print()"
             >
               {saving
                 ? "Saving..."
-                : "ðŸ’¾ Save Fee"}
+                : " Save Fee"}
             </button>
 
           </form>
@@ -2507,7 +2507,7 @@ onclick="window.print()"
                 styles.success
               }
             >
-              âœ… {message}
+               {message}
             </div>
           )}
 
@@ -2517,7 +2517,7 @@ onclick="window.print()"
                 styles.error
               }
             >
-              âŒ {error}
+               {error}
             </div>
           )}
 
@@ -2540,7 +2540,7 @@ onclick="window.print()"
                   styles.sectionTitle
                 }
               >
-                ðŸ“š Fee History
+                 Fee History
               </h2>
 
               <p
@@ -2561,7 +2561,7 @@ onclick="window.print()"
                 styles.refreshButton
               }
             >
-              ðŸ”„ Refresh
+               Refresh
             </button>
 
           </div>
@@ -2752,7 +2752,7 @@ onclick="window.print()"
                           >
 
                             <strong>
-                              â‚¹
+                              
                               {Number(
                                 fee.amount
                               ).toLocaleString(
@@ -2791,7 +2791,7 @@ onclick="window.print()"
                                     "#92400e",
                                 }}
                               >
-                                ðŸ’µ CASH
+                                 CASH
                               </span>
                             ) : normalizedMode ===
                               "ONLINE" ? (
@@ -2804,7 +2804,7 @@ onclick="window.print()"
                                     "#166534",
                                 }}
                               >
-                                ðŸ’³ ONLINE
+                                 ONLINE
                               </span>
                             ) : (
                               <span
@@ -2812,7 +2812,7 @@ onclick="window.print()"
                                   styles.notSelected
                                 }
                               >
-                                â€”
+                                
                               </span>
                             )}
 
@@ -2825,7 +2825,7 @@ onclick="window.print()"
                           >
                             {
                               fee.payment_date ||
-                              "â€”"
+                              ""
                             }
                           </td>
 
@@ -2836,7 +2836,7 @@ onclick="window.print()"
                           >
                             {
                               fee.transaction_id ||
-                              "â€”"
+                              ""
                             }
                           </td>
 
@@ -2847,7 +2847,7 @@ onclick="window.print()"
                           >
                             {
                               fee.remarks ||
-                              "â€”"
+                              ""
                             }
                           </td>
 
@@ -2869,7 +2869,7 @@ onclick="window.print()"
                                   styles.receiptButton
                                 }
                               >
-                                ðŸ§¾ Receipt
+                                 Receipt
                               </button>
                             ) : (
                               <span
@@ -2967,7 +2967,7 @@ function SummaryCard({
         {title ===
         "Total Records"
           ? amount
-          : `â‚¹${amount.toLocaleString(
+          : `${amount.toLocaleString(
               "en-IN"
             )}`}
       </div>
@@ -3046,25 +3046,25 @@ function StatusBadge({
 
       {normalized ===
         "SUBMITTED" &&
-        "âœ“ "}
+        " "}
 
       {normalized ===
         "PENDING" &&
-        "â³ "}
+        " "}
 
       {normalized ===
         "REFUNDED" &&
-        "â†©ï¸ "}
+        " "}
 
       {normalized ===
         "CANCELLED" &&
-        "âœ• "}
+        " -  "}
 
       {(normalized ===
         "PAID" ||
         normalized ===
           "PAID ONLINE") &&
-        "âœ“ "}
+        " "}
 
       {normalized}
 
@@ -3519,3 +3519,4 @@ const styles: Record<
       700,
   },
 };
+
