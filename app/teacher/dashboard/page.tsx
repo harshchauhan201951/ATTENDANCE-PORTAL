@@ -80,7 +80,7 @@ export default function TeacherDashboard() {
       <div className="racer-teacher-inner">
         <header className="racer-teacher-header" style={{ position: "sticky", top: 0, zIndex: 100 }}>
           <div className="racer-teacher-brand">
-            <div className="racer-teacher-logo" style={{ width: "48px", height: "48px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: "18px" }}>{firstName.charAt(0).toUpperCase()}</div>
+            <div className="racer-teacher-logo" style={{ width: "48px", height: "48px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: "18px", background: "#1e293b", color: "#ffffff", border: "2px solid rgba(255,255,255,0.35)", boxShadow: "0 4px 12px rgba(0,0,0,0.20)" }}>{firstName.charAt(0).toUpperCase()}</div>
             <div>
               <div className="racer-teacher-kicker">RACER ACADEMY</div>
               <h1>Welcome, {firstName}</h1>
@@ -89,7 +89,7 @@ export default function TeacherDashboard() {
           </div>
 
           <div className="racer-teacher-header-actions">
-            <span style={{fontSize:"12px",fontWeight:800,whiteSpace:"nowrap"}}>WATCH TIME {headerTime}</span>`r`n            <button type="button" onClick={() => router.push("/teacher/announcements")} aria-label="Announcements" title="Announcements" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:"38px",height:"38px",borderRadius:"10px",fontSize:"20px",lineHeight:1}}>{String.fromCodePoint(0x1F514)}</button>
+            <span style={{fontSize:"12px",fontWeight:800,whiteSpace:"nowrap",color:"#0f172a",background:"#ffffff",padding:"8px 12px",borderRadius:"10px",border:"1px solid #cbd5e1",boxShadow:"0 2px 8px rgba(0,0,0,0.10)"}}>WATCH TIME {headerTime}</span>`r`n            <button type="button" onClick={() => router.push("/teacher/announcements")} aria-label="Announcements" title="Announcements" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:"38px",height:"38px",borderRadius:"10px",fontSize:"20px",lineHeight:1,background:"#1e293b",color:"#ffffff",border:"1px solid rgba(255,255,255,0.30)",boxShadow:"0 3px 8px rgba(0,0,0,0.18)"}}>{String.fromCodePoint(0x1F514)}</button>
             <button type="button" onClick={handleLogout} disabled={loggingOut} className="racer-teacher-logout">
               {loggingOut ? "..." : "Logout"}
             </button>
@@ -131,6 +131,7 @@ export default function TeacherDashboard() {
     </main>
   );
 }
+
 
 
 
