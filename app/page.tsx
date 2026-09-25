@@ -2005,7 +2005,7 @@ export default function HomePage() {
         <div className="background-orb orb-two" />
         <div className="background-grid" />
 
-        <div className="page-shell">`r`n<section className={`main-layout${showAcademyInfo ? "" : " login-only-layout"}`}>
+        <div className="page-shell"><section className={`main-layout${showAcademyInfo ? "" : " login-only-layout"}`}>
             {showAcademyInfo && (<div className="academy-side">
               <div className="academy-hero">
                 <div className="hero-glow hero-glow-one" />
@@ -5057,6 +5057,7 @@ export default function HomePage() {
     </>
   );
 }
+
 
 
 

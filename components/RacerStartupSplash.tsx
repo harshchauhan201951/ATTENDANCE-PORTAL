@@ -1,331 +1,57 @@
- "use client";
+"use client";
+import { PropsWithChildren, useEffect, useState } from "react";
 
-import { useEffect, useState } from "react";
-
-export default function RacerStartupSplash() {
-  const [visible, setVisible] = useState(true);
-
+export default function RacerStartupSplash({ children }: PropsWithChildren) {
+  const [ready, setReady] = useState(false);
   useEffect(() => {
-    const timer = window.setTimeout(() => setVisible(false), 3000);
+    const timer = window.setTimeout(() => setReady(true), 5000);
     return () => window.clearTimeout(timer);
   }, []);
-
-  if (!visible) return null;
+  if (ready) return <>{children}</>;
 
   return (
-    <div className="racer-splash" aria-hidden="true">
+    <div className="racer-startup" aria-label="RACER ACADEMY">
       <div className="racer-om">{String.fromCodePoint(0x0950)}</div>
-
-      <div className="racer-stage">
-        <div className="racer-shadow" />
-
-        <div className="racer-arm racer-arm-left">
-          <span className="racer-hand" />
-        </div>
-
-        <div className="racer-arm racer-arm-right">
-          <span className="racer-hand" />
-        </div>
-
-        <div className="racer-avatar">
-          <div className="racer-hair" />
-
-          <div className="racer-head">
-            <span className="racer-eye racer-eye-left" />
-            <span className="racer-eye racer-eye-right" />
-            <span className="racer-blush racer-blush-left" />
-            <span className="racer-blush racer-blush-right" />
-            <span className="racer-mouth" />
+      <div className="stage">
+        <div className="ground" />
+        <div className="arm left"><i /></div>
+        <div className="arm right"><i /></div>
+        <div className="person">
+          <div className="hair" />
+          <div className="face">
+            <i className="eye ex1" /><i className="eye e2" />
+            <i className="cheek c1" /><i className="cheek c2" /><i className="smile" />
           </div>
-
-          <div className="racer-neck" />
-          <div className="racer-body"><strong>RA</strong></div>
-
-          <div className="racer-leg racer-leg-left">
-            <span className="racer-shoe" />
-          </div>
-          <div className="racer-leg racer-leg-right">
-            <span className="racer-shoe" />
-          </div>
+          <div className="neck" />
+          <div className="shirt"><b>RA</b></div>
+          <div className="leg l1"><i /></div><div className="leg l2"><i /></div>
         </div>
+        <i className="spark s1" /><i className="spark s2" /><i className="spark s3" />
       </div>
-
-      <div className="racer-name">RACER ACADEMY</div>
-
+      <div className="name">RACER ACADEMY</div>
+      <div className="tag">LEARN - GROW - ACHIEVE</div>
       <style jsx>{`
-        .racer-splash {
-          position: fixed;
-          inset: 0;
-          z-index: 999999;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          overflow: hidden;
-          background:
-            radial-gradient(circle at 50% 28%, rgba(129, 140, 248, 0.18), transparent 30%),
-            radial-gradient(circle at 18% 80%, rgba(56, 189, 248, 0.12), transparent 24%),
-            #f8fafc;
-          animation: racerSplashOut 3s ease forwards;
-        }
-
-        .racer-om {
-          margin-bottom: 2px;
-          color: #312e81;
-          font: 900 clamp(52px, 9vw, 82px)/1 "Noto Sans Devanagari", "Segoe UI", sans-serif;
-          text-shadow: 0 8px 22px rgba(49, 46, 129, 0.16);
-          animation: racerOmPulse 1.7s ease-in-out infinite;
-        }
-
-        .racer-stage {
-          position: relative;
-          width: min(400px, 88vw);
-          height: 320px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          perspective: 900px;
-        }
-
-        .racer-shadow {
-          position: absolute;
-          bottom: 9px;
-          width: 220px;
-          height: 58px;
-          border-radius: 50%;
-          background: rgba(15, 23, 42, 0.15);
-          filter: blur(18px);
-        }
-
-        .racer-avatar {
-          position: relative;
-          z-index: 3;
-          width: 178px;
-          height: 282px;
-          animation: racerFloat 2.5s ease-in-out infinite;
-        }
-
-        .racer-hair {
-          position: absolute;
-          z-index: 5;
-          left: 29px;
-          top: 4px;
-          width: 120px;
-          height: 48px;
-          border-radius: 58% 58% 38% 38%;
-          background: linear-gradient(145deg, #172554, #4f46e5);
-          box-shadow: 8px 8px 0 rgba(15, 23, 42, 0.07);
-        }
-
-        .racer-head {
-          position: absolute;
-          z-index: 4;
-          left: 22px;
-          top: 19px;
-          width: 134px;
-          height: 126px;
-          border-radius: 48%;
-          background: linear-gradient(145deg, #fff5e7, #ffcda7);
-          border: 4px solid #ffffff;
-          box-shadow:
-            inset -10px -12px 18px rgba(180, 90, 40, 0.08),
-            0 14px 30px rgba(15, 23, 42, 0.15);
-        }
-
-        .racer-eye {
-          position: absolute;
-          top: 52px;
-          width: 13px;
-          height: 17px;
-          border-radius: 50%;
-          background: #0f172a;
-          box-shadow: inset 3px 3px 0 #ffffff;
-        }
-
-        .racer-eye-left { left: 32px; }
-        .racer-eye-right { right: 32px; }
-
-        .racer-blush {
-          position: absolute;
-          top: 79px;
-          width: 20px;
-          height: 9px;
-          border-radius: 50%;
-          background: rgba(244, 114, 182, 0.22);
-        }
-
-        .racer-blush-left { left: 17px; }
-        .racer-blush-right { right: 17px; }
-
-        .racer-mouth {
-          position: absolute;
-          left: 50px;
-          top: 87px;
-          width: 34px;
-          height: 18px;
-          border-bottom: 4px solid #a8550a;
-          border-radius: 0 0 28px 28px;
-        }
-
-        .racer-neck {
-          position: absolute;
-          z-index: 2;
-          left: 72px;
-          top: 132px;
-          width: 35px;
-          height: 25px;
-          border-radius: 0 0 13px 13px;
-          background: #f2bc90;
-        }
-
-        .racer-body {
-          position: absolute;
-          z-index: 3;
-          left: 30px;
-          top: 146px;
-          width: 118px;
-          height: 106px;
-          display: grid;
-          place-items: center;
-          border-radius: 32px 32px 22px 22px;
-          background: linear-gradient(150deg, #6366f1, #312e81 72%, #1e1b4b);
-          border: 4px solid #ffffff;
-          box-shadow:
-            inset -12px -12px 18px rgba(15, 23, 42, 0.16),
-            0 15px 27px rgba(30, 41, 59, 0.15);
-        }
-
-        .racer-body strong {
-          display: grid;
-          place-items: center;
-          width: 50px;
-          height: 50px;
-          border-radius: 15px;
-          background: #ffffff;
-          color: #312e81;
-          font-size: 16px;
-          font-weight: 1000;
-          box-shadow: 0 7px 16px rgba(15, 23, 42, 0.13);
-        }
-
-        .racer-arm {
-          position: absolute;
-          z-index: 2;
-          top: 150px;
-          width: 142px;
-          height: 31px;
-          border-radius: 999px;
-          background: linear-gradient(145deg, #6366f1, #312e81);
-          box-shadow:
-            inset -8px -7px 13px rgba(15, 23, 42, 0.15),
-            0 9px 18px rgba(15, 23, 42, 0.11);
-        }
-
-        .racer-arm-left {
-          left: -7px;
-          transform: rotate(154deg);
-          transform-origin: right center;
-        }
-
-        .racer-arm-right {
-          right: -7px;
-          transform: rotate(26deg);
-          transform-origin: left center;
-        }
-
-        .racer-hand {
-          position: absolute;
-          top: -9px;
-          width: 44px;
-          height: 44px;
-          border-radius: 48%;
-          background: linear-gradient(145deg, #ffe9d0, #ffc99d);
-          box-shadow: inset -6px -6px 9px rgba(160, 82, 35, 0.10);
-        }
-
-        .racer-arm-left .racer-hand { left: -18px; }
-        .racer-arm-right .racer-hand { right: -18px; }
-
-        .racer-leg {
-          position: absolute;
-          z-index: 1;
-          top: 243px;
-          width: 39px;
-          height: 39px;
-          border-radius: 0 0 18px 18px;
-          background: linear-gradient(#172554, #0f172a);
-        }
-
-        .racer-leg-left { left: 50px; }
-        .racer-leg-right { right: 50px; }
-
-        .racer-shoe {
-          position: absolute;
-          bottom: -13px;
-          width: 59px;
-          height: 24px;
-          border-radius: 17px 24px 10px 11px;
-          background: linear-gradient(145deg, #ffffff, #cbd5e1);
-          box-shadow: 0 6px 12px rgba(15, 23, 42, 0.15);
-        }
-
-        .racer-leg-left .racer-shoe { left: -10px; }
-        .racer-leg-right .racer-shoe { right: -10px; }
-
-        .racer-name {
-          font-size: clamp(24px, 5vw, 41px);
-          line-height: 1;
-          font-weight: 1000;
-          letter-spacing: 2px;
-          color: #0f172a;
-          text-align: center;
-          text-shadow: 0 6px 16px rgba(15, 23, 42, 0.11);
-          animation: racerNameIn 0.8s ease both;
-        }
-
-        @keyframes racerFloat {
-          0%, 100% { transform: translateY(0) rotateY(-4deg); }
-          50% { transform: translateY(-10px) rotateY(4deg); }
-        }
-
-        @keyframes racerOmPulse {
-          0%, 100% { transform: scale(1); opacity: 0.92; }
-          50% { transform: scale(1.05); opacity: 1; }
-        }
-
-        @keyframes racerNameIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes racerSplashOut {
-          0%, 76% { opacity: 1; visibility: visible; }
-          100% { opacity: 0; visibility: hidden; }
-        }
-
-        @media (max-width: 520px) {
-          .racer-stage {
-            width: 330px;
-            height: 300px;
-          }
-
-          .racer-avatar {
-            transform: scale(0.9);
-          }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .racer-avatar,
-          .racer-om,
-          .racer-name,
-          .racer-splash {
-            animation: none;
-          }
-
-          .racer-splash {
-            opacity: 1;
-          }
-        }
+        .racer-startup{position:fixed;inset:0;z-index:9999999;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;background:radial-gradient(circle at 50% 28%,#e0e7ff 0,transparent 31%),radial-gradient(circle at 18% 78%,#dbeafe 0,transparent 25%),linear-gradient(145deg,#f8fafc,#eef2ff,#f8fafc);font-family:Inter,system-ui,sans-serif}
+        .racer-om{height:86px;font:900 68px/1 "Noto Sans Devanagari","Segoe UI",sans-serif;color:#312e81;text-shadow:0 2px #a5b4fc,0 5px rgba(79,70,229,.25),0 14px 25px rgba(49,46,129,.2);animation:om 2s ease-in-out infinite}
+        .stage{position:relative;width:330px;height:285px}.ground{position:absolute;left:50%;bottom:10px;width:145px;height:30px;transform:translateX(-50%);border-radius:50%;background:#312e8128;filter:blur(12px)}
+        .person{position:absolute;z-index:4;left:50%;bottom:28px;width:128px;height:220px;transform:translateX(-50%);animation:float 2.4s ease-in-out infinite}
+        .hair{position:absolute;z-index:5;left:20px;top:0;width:88px;height:44px;border-radius:55%;background:linear-gradient(145deg,#172554,#4f46e5);box-shadow:inset -8px -8px 12px #0f172a25,0 7px 14px #0f172a20}
+        .face{position:absolute;z-index:4;left:10px;top:20px;width:108px;height:103px;border:4px solid #fff;border-radius:48%;background:linear-gradient(145deg,#fff0da,#ffc897);box-shadow:inset -9px -10px 14px #9f4f1c18,0 13px 24px #0f172a22}
+        .eye{position:absolute;top:42px;width:11px;height:14px;border-radius:50%;background:#0f172a;box-shadow:inset 3px 3px #fff}.e1{left:25px}.e2{right:25px}
+        .cheek{position:absolute;top:67px;width:18px;height:8px;border-radius:50%;background:#f472b640}.c1{left:11px}.c2{right:11px}
+        .smile{position:absolute;left:39px;top:70px;width:30px;height:15px;border-bottom:4px solid #a8550a;border-radius:0 0 25px 25px}
+        .neck{position:absolute;z-index:2;left:47px;top:112px;width:35px;height:27px;border-radius:0 0 13px 13px;background:#efb786}
+        .shirt{position:absolute;z-index:3;left:8px;top:127px;width:112px;height:82px;border:4px solid #fff;border-radius:30px 30px 22px 22px;display:grid;place-items:center;background:linear-gradient(150deg,#818cf8,#4f46e5 48%,#312e81);box-shadow:inset -10px -11px #0f172a25,0 14px 22px #0f172a20}
+        .shirt b{width:42px;height:42px;display:grid;place-items:center;order:background:#fff;color:#312e81;font-size:14px;font-weight:1000;box-shadow:0 6px 12px #0f172a24}
+        .arm{position:absolute;z-index:2;top:144px;width:120px;height:27px;border-radius:999px;background:linear-gradient(145deg,#818cf8,#312e81);box-shadow:inset -8px -7px 12px #0f172a22,0 7px 14px #0f172a18}
+        .arm.left{left:5px;transform:rotate(154deg);transform-origin:right center}.arm.right{right:5px;transform:rotate(26deg);transform-origin:left center}
+        .arm i{position:absolute;top:-7px;width:40px;height:40px;border-radius:48%;background:linear-gradient(145deg,#ffe8cc,#ffc897);box-shadow:inset -5px -5px 8px #a0522318}.left i{left:-10px}.right i{right:-10px}
+        .leg{position:absolute;z-index:2;top:203px;width:29px;height:27px;border-radius:0 0 12px 12px 12px;background:linear-gradient(#172554,#0f172a).l1{left:33px}.l2{right:33px}
+        .leg i{position:absolute;bottom:-9px;width:43px;height:18px;border-radius:14px;background:linear-gradient(145deg,#fff,cbd5e1);box-shadow:0 4px 9px #0f172a1f}.l1 i{left:-7px}.l2 i{right:-7px}
+        .spark{position:absolute;width:9px;height:9px;border-radius:50%;background:#818cf8;box-shadow:0 0 17px #6366f199;animation:spark 1.7s ease-in-out infinite}.s1{left:42px;top:100px}.s2{right:38px;top:67px;animation-delay:.4s}.s3{right:57px;bottom:44px;animation-delay:.8s}
+        .name{margin-top:-2px;font-size:36px;font-weight:1000;letter-spacing:2px;background:linear-gradient(90deg,#172554,#4f46e5,#172554);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 2px #fff00 7px 14px #312e8121f }
+        .tag{margin-top:7px;color:#64748b;font-size:9px;font-weight:900;letter-spacing:3px}
+        @keyframes float{50%{transform:translateX(-50%) translateY(-8px) rotateY(5deg)}}@keyframes om{50%{transform:scale(1.05)}}@keyframes spark{50%{opacity:1;transform:scale(1.2) translateY(-6px)}}@media(max-width:520px){.stage{transform:scale(.9);margin:-10px 0}.name{font-size:27px}.racer-om{font-size:60px}}@-media(prefers-reduced-motion:reduce){.person,.racer-om,.spark{animation:none}}
       `}</style>
     </div>
   );
