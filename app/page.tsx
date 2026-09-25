@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -89,16 +89,16 @@ type InfoModal =
 
 const defaultAcademyProfile: AcademyProfile = {
   academy_name: "RACER ACADEMY",
-  tagline: "Learn • Grow • Achieve",
+  tagline: "Learn ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Grow ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Achieve",
 
   about_text:
     "Welcome to RACER ACADEMY. We provide focused academic support and tuition for students from Nursery to Class 10. We focus on concept clarity, regular practice, doubt solving, discipline and individual attention so every child can learn with confidence.",
 
   classes_text:
-    "Nursery to Class 10\nHindi Medium • English Medium\nSubjects: Hindi, English, Mathematics, Science, Social Science and General Knowledge.\nRegular practice, doubt solving, revision and tests.",
+    "Nursery to Class 10\nHindi Medium ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ English Medium\nSubjects: Hindi, English, Mathematics, Science, Social Science and General Knowledge.\nRegular practice, doubt solving, revision and tests.",
 
   facilities_text:
-    "• Child-friendly learning environment\n• Individual attention\n• Regular tests and revision\n• Doubt-solving support\n• Homework and practice guidance\n• Progress monitoring\n• Parent-friendly academic communication",
+    "ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Child-friendly learning environment\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Individual attention\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Regular tests and revision\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Doubt-solving support\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Homework and practice guidance\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Progress monitoring\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Parent-friendly academic communication",
 
   timings_text:
     "Monday-Saturday\nHindi: 04:00 PM - 05:00 PM\nEnglish: 05:00 PM - 06:00 PM\nMathematics: 06:00 PM - 07:00 PM\nAdditional 1.5-hour subject sessions can be arranged at 50% additional fee.",
@@ -228,7 +228,7 @@ const defaultAcademyFees: AcademyFee[] = defaultClassNames.flatMap(
             fee_period: "Monthly",
 
             description:
-              "Per subject • 1 hour session • 1.5 hour session available at 50% additional fee • No admission fee • No yearly charge",
+              "Per subject ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ 1 hour session ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ 1.5 hour session available at 50% additional fee ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ No admission fee ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ No yearly charge",
           })
         )
     )
@@ -240,42 +240,42 @@ const defaultFacilities: AcademyFacility[] = [
     title: "Child-Friendly Learning Environment",
     description:
       "Safe, positive and comfortable atmosphere for students.",
-    icon: "🏫",
+    icon: "ÃƒÂ°Ã…Â¸Ã‚ÂÃ‚Â«",
   },
   {
     id: 2,
     title: "Individual Attention",
     description:
       "Focused support according to each student's learning needs.",
-    icon: "👨‍🏫",
+    icon: "ÃƒÂ°Ã…Â¸Ã¢â‚¬ËœÃ‚Â¨ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ°Ã…Â¸Ã‚ÂÃ‚Â«",
   },
   {
     id: 3,
     title: "Regular Tests & Revision",
     description:
       "Regular practice, tests and revision to strengthen concepts.",
-    icon: "📝",
+    icon: "ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â",
   },
   {
     id: 4,
     title: "Doubt Solving",
     description:
       "Students can ask questions freely and clear doubts without hesitation.",
-    icon: "💡",
+    icon: "ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â¡",
   },
   {
     id: 5,
     title: "Homework & Practice Support",
     description:
       "Guidance for homework, practice and daily improvement.",
-    icon: "📚",
+    icon: "ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…Â¡",
   },
   {
     id: 6,
     title: "Quiet & Disciplined Classes",
     description:
       "Focused classes without unnecessary noise or activities.",
-    icon: "🤫",
+    icon: "ÃƒÂ°Ã…Â¸Ã‚Â¤Ã‚Â«",
   },
 ];
 
@@ -287,7 +287,7 @@ const defaultTimings: AcademyTiming[] = [
     start_time: "04:00 PM",
     end_time: "05:00 PM",
     description:
-      "1 hour session • Monthly • 1.5 hour session available at 50% additional fee.",
+      "1 hour session ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Monthly ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ 1.5 hour session available at 50% additional fee.",
   },
   {
     id: 2,
@@ -296,7 +296,7 @@ const defaultTimings: AcademyTiming[] = [
     start_time: "05:00 PM",
     end_time: "06:00 PM",
     description:
-      "1 hour session • Monthly • 1.5 hour session available at 50% additional fee.",
+      "1 hour session ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Monthly ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ 1.5 hour session available at 50% additional fee.",
   },
   {
     id: 3,
@@ -305,7 +305,7 @@ const defaultTimings: AcademyTiming[] = [
     start_time: "06:00 PM",
     end_time: "07:00 PM",
     description:
-      "1 hour session • Monthly • 1.5 hour session available at 50% additional fee.",
+      "1 hour session ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Monthly ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ 1.5 hour session available at 50% additional fee.",
   },
 ];
 
@@ -423,6 +423,10 @@ export default function HomePage() {
 
   const [activeModal, setActiveModal] =
     useState<InfoModal>(null);
+
+  const [showAcademyInfo, setShowAcademyInfo] = useState(false);
+
+
 
   const [selectedMedium, setSelectedMedium] =
     useState<FeeMedium>("Hindi Medium");
@@ -1090,7 +1094,7 @@ export default function HomePage() {
               }
             >
               <span className="medium-icon">
-                🇮🇳
+                ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â®ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â³
               </span>
 
               <span>
@@ -1099,15 +1103,15 @@ export default function HomePage() {
                 </strong>
 
                 <small>
-                  हिंदी माध्यम
+                  ÃƒÂ Ã‚Â¤Ã‚Â¹ÃƒÂ Ã‚Â¤Ã‚Â¿ÃƒÂ Ã‚Â¤Ã¢â‚¬Å¡ÃƒÂ Ã‚Â¤Ã‚Â¦ÃƒÂ Ã‚Â¥Ã¢â€šÂ¬ ÃƒÂ Ã‚Â¤Ã‚Â®ÃƒÂ Ã‚Â¤Ã‚Â¾ÃƒÂ Ã‚Â¤Ã‚Â§ÃƒÂ Ã‚Â¥Ã‚ÂÃƒÂ Ã‚Â¤Ã‚Â¯ÃƒÂ Ã‚Â¤Ã‚Â®
                 </small>
               </span>
 
               <b>
                 {selectedMedium ===
                 "Hindi Medium"
-                  ? "✓"
-                  : "→"}
+                  ? "ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“"
+                  : "ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢"}
               </b>
             </button>
 
@@ -1126,7 +1130,7 @@ export default function HomePage() {
               }
             >
               <span className="medium-icon">
-                🇬🇧
+                ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¬ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â§
               </span>
 
               <span>
@@ -1142,8 +1146,8 @@ export default function HomePage() {
               <b>
                 {selectedMedium ===
                 "English Medium"
-                  ? "✓"
-                  : "→"}
+                  ? "ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“"
+                  : "ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢"}
               </b>
             </button>
           </div>
@@ -1153,8 +1157,8 @@ export default function HomePage() {
               <span>
                 {selectedMedium ===
                 "Hindi Medium"
-                  ? "🇮🇳"
-                  : "🇬🇧"}
+                  ? "ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â®ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â³"
+                  : "ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¬ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â§"}
               </span>
 
               <div>
@@ -1163,8 +1167,8 @@ export default function HomePage() {
                 </strong>
 
                 <small>
-                  Nursery to Class 10 •
-                  Monthly • Per Subject
+                  Nursery to Class 10 ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢
+                  Monthly ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Per Subject
                 </small>
               </div>
             </div>
@@ -1201,14 +1205,14 @@ export default function HomePage() {
               </strong>
 
               <span>
-                Any 2 subjects • 2 hours
+                Any 2 subjects ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ 2 hours
               </span>
             </div>
           </div>
 
           <div className="fee-notice-card">
             <div className="fee-notice-icon">
-              💡
+              ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â¡
             </div>
 
             <div>
@@ -1316,7 +1320,7 @@ export default function HomePage() {
                         </span>
 
                         <strong>
-                          ₹
+                          ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹
                           {Number(
                             rows[0]
                               ?.fee_amount ||
@@ -1335,7 +1339,7 @@ export default function HomePage() {
                       <div className="fee-session-card one-hour">
                         <div className="fee-session-heading">
                           <span>
-                            ⏱️
+                            ÃƒÂ¢Ã‚ÂÃ‚Â±ÃƒÂ¯Ã‚Â¸Ã‚Â
                           </span>
 
                           <div>
@@ -1344,7 +1348,7 @@ export default function HomePage() {
                             </strong>
 
                             <small>
-                              Monthly • per
+                              Monthly ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ per
                               subject
                             </small>
                           </div>
@@ -1376,7 +1380,7 @@ export default function HomePage() {
                                   </span>
 
                                   <strong>
-                                    ₹
+                                    ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹
                                     {amount.toLocaleString(
                                       "en-IN"
                                     )}
@@ -1391,7 +1395,7 @@ export default function HomePage() {
                       <div className="fee-session-card one-half-hour">
                         <div className="fee-session-heading">
                           <span>
-                            🕐
+                            ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¢Ã‚Â
                           </span>
 
                           <div>
@@ -1437,7 +1441,7 @@ export default function HomePage() {
                                   </span>
 
                                   <strong>
-                                    ₹
+                                    ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹
                                     {oneHalf.toLocaleString(
                                       "en-IN"
                                     )}
@@ -1452,12 +1456,12 @@ export default function HomePage() {
 
                     <div className="class-fee-note">
                       <span>
-                        ✓
+                        ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“
                       </span>
 
                       <span>
-                        No admission fee • No
-                        yearly charge •
+                        No admission fee ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ No
+                        yearly charge ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢
                         Monthly fee
                       </span>
                     </div>
@@ -1471,7 +1475,7 @@ export default function HomePage() {
             <div className="combo-offer-heading">
               <div>
                 <span className="combo-offer-icon">
-                  🎁
+                  ÃƒÂ°Ã…Â¸Ã…Â½Ã‚Â
                 </span>
 
                 <div>
@@ -1480,7 +1484,7 @@ export default function HomePage() {
                   </small>
 
                   <h3>
-                    Any 2 Subjects • 2 Hours
+                    Any 2 Subjects ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ 2 Hours
                   </h3>
 
                   <p>
@@ -1530,7 +1534,7 @@ export default function HomePage() {
 
                       <div className="combo-price">
                         <span>
-                          ₹
+                          ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹
                         </span>
 
                         {comboFee.toLocaleString(
@@ -1543,7 +1547,7 @@ export default function HomePage() {
                       </div>
 
                       <div className="combo-detail">
-                        Any 2 subjects •
+                        Any 2 subjects ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢
                         2 total hours
                       </div>
                     </div>
@@ -1554,19 +1558,19 @@ export default function HomePage() {
 
             <div className="combo-bottom-note">
               <span>
-                ⭐
+                ÃƒÂ¢Ã‚Â­Ã‚Â
               </span>
 
               <strong>
                 {selectedMedium ===
                 "Hindi Medium"
-                  ? "Starts from ₹500/month"
-                  : "Starts from ₹550/month"}
+                  ? "Starts from ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹500/month"
+                  : "Starts from ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹550/month"}
               </strong>
 
               <span>
-                Any 2 subjects • 2 hours
-                total • Monthly
+                Any 2 subjects ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ 2 hours
+                total ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Monthly
               </span>
             </div>
           </div>
@@ -1578,7 +1582,7 @@ export default function HomePage() {
       return (
         <div className="modal-section">
           <div className="big-info-icon">
-            📚
+            ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…Â¡
           </div>
 
           <h3>
@@ -1596,7 +1600,7 @@ export default function HomePage() {
                   className="subject-pill"
                   key={subject}
                 >
-                  <span>✓</span>
+                  <span>ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“</span>
                   {subject}
                 </div>
               )
@@ -1620,7 +1624,7 @@ export default function HomePage() {
                 key={timing.id}
               >
                 <div className="timing-icon">
-                  🕒
+                  ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¢Ã¢â‚¬â„¢
                 </div>
 
                 <h3>
@@ -1628,7 +1632,7 @@ export default function HomePage() {
                 </h3>
 
                 <div className="timing-time">
-                  {timing.start_time} –{" "}
+                  {timing.start_time} ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“{" "}
                   {timing.end_time}
                 </div>
 
@@ -1662,7 +1666,7 @@ export default function HomePage() {
                 key={facility.id}
               >
                 <div className="info-card-icon">
-                  {facility.icon || "⭐"}
+                  {facility.icon || "ÃƒÂ¢Ã‚Â­Ã‚Â"}
                 </div>
 
                 <h3>
@@ -1701,7 +1705,7 @@ export default function HomePage() {
                   />
                 ) : (
                   <div className="faculty-placeholder">
-                    👨‍🏫
+                    ÃƒÂ°Ã…Â¸Ã¢â‚¬ËœÃ‚Â¨ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ°Ã…Â¸Ã‚ÂÃ‚Â«
                   </div>
                 )}
 
@@ -1749,7 +1753,7 @@ export default function HomePage() {
       return (
         <div className="simple-detail-modal achievement-modal">
           <div className="large-detail-icon">
-            🏅
+            ÃƒÂ°Ã…Â¸Ã‚ÂÃ¢â‚¬Â¦
           </div>
 
           <h3>
@@ -1762,22 +1766,22 @@ export default function HomePage() {
 
           <div className="achievement-points">
             <div>
-              <span>✓</span>
+              <span>ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“</span>
               Regular academic practice
             </div>
 
             <div>
-              <span>✓</span>
+              <span>ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“</span>
               Tests and revision
             </div>
 
             <div>
-              <span>✓</span>
+              <span>ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“</span>
               Individual progress
             </div>
 
             <div>
-              <span>✓</span>
+              <span>ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“</span>
               Confidence and concept
               building
             </div>
@@ -1790,7 +1794,7 @@ export default function HomePage() {
       return (
         <div className="simple-detail-modal">
           <div className="large-detail-icon">
-            📋
+            ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã¢â‚¬Â¹
           </div>
 
           <h3>
@@ -1804,7 +1808,7 @@ export default function HomePage() {
 
           <div className="rule-highlight">
             <strong>
-              “Free to Ask”
+              ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œFree to AskÃƒÂ¢Ã¢â€šÂ¬Ã‚Â
             </strong>
 
             <span>
@@ -1871,7 +1875,7 @@ export default function HomePage() {
       return (
         <div className="contact-modal-grid">
           <div className="contact-detail-card">
-            <span>📍</span>
+            <span>ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â</span>
 
             <h3>
               Address
@@ -1884,7 +1888,7 @@ export default function HomePage() {
           </div>
 
           <div className="contact-detail-card">
-            <span>📞</span>
+            <span>ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…Â¾</span>
 
             <h3>
               Phone
@@ -1902,7 +1906,7 @@ export default function HomePage() {
           </div>
 
           <div className="contact-detail-card">
-            <span>💬</span>
+            <span>ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â¬</span>
 
             <h3>
               WhatsApp
@@ -1924,7 +1928,7 @@ export default function HomePage() {
           </div>
 
           <div className="contact-detail-card">
-            <span>✉️</span>
+            <span>ÃƒÂ¢Ã…â€œÃ¢â‚¬Â°ÃƒÂ¯Ã‚Â¸Ã‚Â</span>
 
             <h3>
               Email
@@ -1943,7 +1947,7 @@ export default function HomePage() {
 
           <div className="contact-admission-box">
             <strong>
-              🎓 Admissions
+              ÃƒÂ°Ã…Â¸Ã…Â½Ã¢â‚¬Å“ Admissions
             </strong>
 
             <p>
@@ -2004,7 +2008,7 @@ export default function HomePage() {
         <div className="page-shell">
           <header className="top-brand">
             <div className="brand-mark">
-              🎓
+              ÃƒÂ°Ã…Â¸Ã…Â½Ã¢â‚¬Å“
             </div>
 
             <div>
@@ -2015,13 +2019,13 @@ export default function HomePage() {
 
               <div className="brand-tagline">
                 {academy.tagline ||
-                  "Learn • Grow • Achieve"}
+                  "Learn ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Grow ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Achieve"}
               </div>
             </div>
           </header>
 
-          <section className="main-layout">
-            <div className="academy-side">
+          <section className={`main-layout${showAcademyInfo ? "" : " login-only-layout"}`}>
+            {showAcademyInfo && (<div className="academy-side">
               <div className="academy-hero">
                 <div className="hero-glow hero-glow-one" />
                 <div className="hero-glow hero-glow-two" />
@@ -2049,7 +2053,7 @@ export default function HomePage() {
                   <div className="hero-mini-stats">
                     <div>
                       <strong>
-                        Nursery–10
+                        NurseryÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“10
                       </strong>
 
                       <span>
@@ -2089,7 +2093,7 @@ export default function HomePage() {
                   />
 
                   <div className="image-badge">
-                    <span>⭐</span>
+                    <span>ÃƒÂ¢Ã‚Â­Ã‚Â</span>
                     Child-Friendly Learning
                   </div>
                 </div>
@@ -2121,7 +2125,7 @@ export default function HomePage() {
                     className="option-card option-blue"
                   >
                     <span className="option-icon">
-                      🏫
+                      ÃƒÂ°Ã…Â¸Ã‚ÂÃ‚Â«
                     </span>
 
                     <span>
@@ -2135,7 +2139,7 @@ export default function HomePage() {
                     </span>
 
                     <b>
-                      →
+                      ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢
                     </b>
                   </button>
 
@@ -2147,7 +2151,7 @@ export default function HomePage() {
                     className="option-card option-purple"
                   >
                     <span className="option-icon">
-                      📚
+                      ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…Â¡
                     </span>
 
                     <span>
@@ -2161,7 +2165,7 @@ export default function HomePage() {
                     </span>
 
                     <b>
-                      →
+                      ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢
                     </b>
                   </button>
 
@@ -2173,7 +2177,7 @@ export default function HomePage() {
                     className="option-card option-green"
                   >
                     <span className="option-icon">
-                      💰
+                      ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â°
                     </span>
 
                     <span>
@@ -2182,13 +2186,13 @@ export default function HomePage() {
                       </strong>
 
                       <small>
-                        Hindi / English •
+                        Hindi / English ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢
                         Class-wise
                       </small>
                     </span>
 
                     <b>
-                      →
+                      ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢
                     </b>
                   </button>
 
@@ -2200,7 +2204,7 @@ export default function HomePage() {
                     className="option-card option-orange"
                   >
                     <span className="option-icon">
-                      🕒
+                      ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¢Ã¢â‚¬â„¢
                     </span>
 
                     <span>
@@ -2209,12 +2213,12 @@ export default function HomePage() {
                       </strong>
 
                       <small>
-                        Monday–Saturday
+                        MondayÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Saturday
                       </small>
                     </span>
 
                     <b>
-                      →
+                      ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢
                     </b>
                   </button>
 
@@ -2226,7 +2230,7 @@ export default function HomePage() {
                     className="option-card option-pink"
                   >
                     <span className="option-icon">
-                      ⭐
+                      ÃƒÂ¢Ã‚Â­Ã‚Â
                     </span>
 
                     <span>
@@ -2241,7 +2245,7 @@ export default function HomePage() {
                     </span>
 
                     <b>
-                      →
+                      ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢
                     </b>
                   </button>
 
@@ -2253,7 +2257,7 @@ export default function HomePage() {
                     className="option-card option-indigo"
                   >
                     <span className="option-icon">
-                      👨‍🏫
+                      ÃƒÂ°Ã…Â¸Ã¢â‚¬ËœÃ‚Â¨ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ°Ã…Â¸Ã‚ÂÃ‚Â«
                     </span>
 
                     <span>
@@ -2268,7 +2272,7 @@ export default function HomePage() {
                     </span>
 
                     <b>
-                      →
+                      ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢
                     </b>
                   </button>
 
@@ -2282,7 +2286,7 @@ export default function HomePage() {
                     className="option-card option-yellow"
                   >
                     <span className="option-icon">
-                      🏅
+                      ÃƒÂ°Ã…Â¸Ã‚ÂÃ¢â‚¬Â¦
                     </span>
 
                     <span>
@@ -2296,7 +2300,7 @@ export default function HomePage() {
                     </span>
 
                     <b>
-                      →
+                      ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢
                     </b>
                   </button>
 
@@ -2308,7 +2312,7 @@ export default function HomePage() {
                     className="option-card option-cyan"
                   >
                     <span className="option-icon">
-                      📋
+                      ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã¢â‚¬Â¹
                     </span>
 
                     <span>
@@ -2322,7 +2326,7 @@ export default function HomePage() {
                     </span>
 
                     <b>
-                      →
+                      ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢
                     </b>
                   </button>
                 </div>
@@ -2330,15 +2334,15 @@ export default function HomePage() {
 
               <div className="highlight-strip">
                 <div>
-                  <span>🎓</span>
+                  <span>ÃƒÂ°Ã…Â¸Ã…Â½Ã¢â‚¬Å“</span>
 
                   <strong>
-                    Nursery – Class 10
+                    Nursery ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ Class 10
                   </strong>
                 </div>
 
                 <div>
-                  <span>🗣️</span>
+                  <span>ÃƒÂ°Ã…Â¸Ã¢â‚¬â€Ã‚Â£ÃƒÂ¯Ã‚Â¸Ã‚Â</span>
 
                   <strong>
                     Free to Ask
@@ -2346,7 +2350,7 @@ export default function HomePage() {
                 </div>
 
                 <div>
-                  <span>📈</span>
+                  <span>ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‹â€ </span>
 
                   <strong>
                     Progress Focused
@@ -2361,7 +2365,7 @@ export default function HomePage() {
                     openModal("gallery")
                   }
                 >
-                  📸 Gallery
+                  ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¸ Gallery
                 </button>
 
                 <button
@@ -2370,18 +2374,18 @@ export default function HomePage() {
                     openModal("contact")
                   }
                 >
-                  📞 Contact & Admission
+                  ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…Â¾ Contact & Admission
                 </button>
               </div>
             </div>
-
+            )}
             <aside className="login-side">
               <section className="racer-login-card">
                 <div className="login-top-decoration" />
 
                 <div className="login-logo">
                   <div className="login-logo-icon">
-                    🎓
+                    ÃƒÂ°Ã…Â¸Ã…Â½Ã¢â‚¬Å“
                   </div>
 
                   <div>
@@ -2415,7 +2419,7 @@ export default function HomePage() {
                     disabled={loading}
                   >
                     <span>
-                      🎓
+                      ÃƒÂ°Ã…Â¸Ã…Â½Ã¢â‚¬Å“
                     </span>
 
                     Student
@@ -2437,7 +2441,7 @@ export default function HomePage() {
                     disabled={loading}
                   >
                     <span>
-                      👨‍🏫
+                      ÃƒÂ°Ã…Â¸Ã¢â‚¬ËœÃ‚Â¨ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ°Ã…Â¸Ã‚ÂÃ‚Â«
                     </span>
 
                     Teacher
@@ -2453,7 +2457,7 @@ export default function HomePage() {
                   </div>
 
                   <h2>
-                    Welcome Back 👋
+                    Welcome Back ÃƒÂ°Ã…Â¸Ã¢â‚¬ËœÃ¢â‚¬Â¹
                   </h2>
 
                   <p>
@@ -2475,7 +2479,7 @@ export default function HomePage() {
 
                     <div className="input-box">
                       <span>
-                        👤
+                        ÃƒÂ°Ã…Â¸Ã¢â‚¬ËœÃ‚Â¤
                       </span>
 
                       <input
@@ -2508,7 +2512,7 @@ export default function HomePage() {
 
                     <div className="input-box">
                       <span>
-                        🔒
+                        ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ¢â‚¬â„¢
                       </span>
 
                       <input
@@ -2552,8 +2556,8 @@ export default function HomePage() {
                         }
                       >
                         {showPassword
-                          ? "🙈"
-                          : "👁️"}
+                          ? "ÃƒÂ°Ã…Â¸Ã¢â€žÂ¢Ã‹â€ "
+                          : "ÃƒÂ°Ã…Â¸Ã¢â‚¬ËœÃ‚ÂÃƒÂ¯Ã‚Â¸Ã‚Â"}
                       </button>
                     </div>
                   </div>
@@ -2561,7 +2565,7 @@ export default function HomePage() {
                   {error && (
                     <div className="login-error">
                       <span>
-                        ⚠️
+                        ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â
                       </span>
 
                       <span>
@@ -2589,7 +2593,7 @@ export default function HomePage() {
                           : "Teacher"}
 
                         <span>
-                          →
+                          ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢
                         </span>
                       </>
                     )}
@@ -2598,15 +2602,15 @@ export default function HomePage() {
 
                 <div className="secure-footer">
                   <span>
-                    🔒 Secure Login
+                    ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ¢â‚¬â„¢ Secure Login
                   </span>
 
                   <span className="footer-separator">
-                    •
+                    ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢
                   </span>
 
                   <span>
-                    ⚡ Fast & Reliable
+                    ÃƒÂ¢Ã…Â¡Ã‚Â¡ Fast & Reliable
                   </span>
                 </div>
 
@@ -2618,11 +2622,12 @@ export default function HomePage() {
                 </div>
               </section>
 
-              {announcements.length >
-                0 && (
+              <button type="button" className="academy-more-link" onClick={() => setShowAcademyInfo((previous) => !previous)}>{showAcademyInfo ? "Back to Login" : "RACER ACADEMY ke baare mein aur jaane ->"}</button>
+
+              {showAcademyInfo && announcements.length > 0 && (
                 <div className="announcement-mini">
                   <span>
-                    📢
+                    ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¢
                   </span>
 
                   <div>
@@ -2646,7 +2651,7 @@ export default function HomePage() {
                       )
                     }
                   >
-                    →
+                    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢
                   </button>
                 </div>
               )}
@@ -2655,13 +2660,13 @@ export default function HomePage() {
 
           <footer className="page-footer">
             <span>
-              ©{" "}
+              Ãƒâ€šÃ‚Â©{" "}
               {new Date().getFullYear()}{" "}
               RACER ACADEMY
             </span>
 
             <span>
-              Learn • Grow • Achieve
+              Learn ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Grow ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Achieve
             </span>
           </footer>
         </div>
@@ -2697,7 +2702,7 @@ export default function HomePage() {
                 onClick={closeModal}
                 aria-label="Close"
               >
-                ×
+                ÃƒÆ’Ã¢â‚¬â€
               </button>
             </div>
 
@@ -2847,6 +2852,18 @@ export default function HomePage() {
           gap: 22px;
           align-items: start;
         }
+
+        .main-layout.login-only-layout { grid-template-columns: minmax(0, 620px); justify-content: center; }
+
+        .academy-more-link { width: 100%; margin-top: 14px; padding: 9px 8px; border: 0; background: transparent; color: #4f46e5; font-size: 11px; font-weight: 850; cursor: pointer; text-decoration: none; }
+
+        .academy-more-link:hover { color: #3730a3; text-decoration: underline; }
+
+        .main-layout.login-only-layout { grid-template-columns: minmax(0, 620px); justify-content: center; }
+
+        .academy-more-link { width: 100%; margin-top: 14px; padding: 9px 8px; border: 0; background: transparent; color: #4f46e5; font-size: 11px; font-weight: 850; cursor: pointer; text-decoration: none; }
+
+        .academy-more-link:hover { color: #3730a3; text-decoration: underline; }
 
         .academy-side {
           min-width: 0;
