@@ -32,7 +32,7 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
   return (
     <div className="racer-portal-shell racer-student-shell">
       {!isDashboard && (
-        <header className="racer-mobile-appbar" style={{ position: "sticky", top: 0, zIndex: 80 }}>
+        <header className="racer-mobile-appbar" style={{position:"fixed",top:0,left:0,right:0,zIndex:9999,width:"100%"}}>
           <Link href="/student/dashboard" className="racer-appbar-brand">
             <span className="racer-appbar-logo">RA</span>
             <span>
@@ -53,7 +53,7 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
         />
       )}
 
-      <div className="racer-portal-content">{children}</div>
+      <div className="racer-portal-content" style={{paddingTop:"72px"}}>{children}</div>
 
       <nav className="racer-bottom-nav" aria-label="Student navigation">
         {items.map((item) => {
@@ -72,5 +72,7 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+
 
 

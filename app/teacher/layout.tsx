@@ -32,7 +32,7 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
   return (
     <div className="racer-portal-shell racer-teacher-shell">
       {!isDashboard && (
-        <header className="racer-mobile-appbar">
+        <header className="racer-mobile-appbar" style={{position:"fixed",top:0,left:0,right:0,zIndex:9999,width:"100%"}}>
           <Link href="/teacher/dashboard" className="racer-appbar-brand">
             <span className="racer-appbar-logo">RA</span>
             <span>
@@ -53,7 +53,7 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
         />
       )}
 
-      <div className="racer-portal-content">{children}</div>
+      <div className="racer-portal-content" style={{paddingTop:"72px"}}>{children}</div>
 
       <nav className="racer-bottom-nav" aria-label="Teacher navigation">
         {items.map((item) => {
@@ -72,6 +72,8 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+
 
 
 
