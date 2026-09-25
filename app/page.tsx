@@ -2005,26 +2005,7 @@ export default function HomePage() {
         <div className="background-orb orb-two" />
         <div className="background-grid" />
 
-        <div className="page-shell">
-          <header className="top-brand">
-            <div className="brand-mark">
-              🎓
-            </div>
-
-            <div>
-              <div className="brand-name">
-                {academy.academy_name ||
-                  "RACER ACADEMY"}
-              </div>
-
-              <div className="brand-tagline">
-                {academy.tagline ||
-                  "Learn • Grow • Achieve"}
-              </div>
-            </div>
-          </header>
-
-          <section className={`main-layout${showAcademyInfo ? "" : " login-only-layout"}`}>
+        <div className="page-shell">`r`n<section className={`main-layout${showAcademyInfo ? "" : " login-only-layout"}`}>
             {showAcademyInfo && (<div className="academy-side">
               <div className="academy-hero">
                 <div className="hero-glow hero-glow-one" />
@@ -5076,5 +5057,6 @@ export default function HomePage() {
     </>
   );
 }
+
 
 
