@@ -7,10 +7,10 @@ import type { ReactNode } from "react";
 import RacerPageActions from "../../components/RacerPageActions";
 
 const items = [
-  { href: "/teacher/dashboard", label: "Home", icon: "âŒ‚" },
-  { href: "/teacher/attendance", label: "Attendance", icon: "âœ“" },
-  { href: "/teacher/students", label: "Students", icon: "â—‹" },
-  { href: "/teacher/profile", label: "Profile", icon: "â—" },
+  { href: "/teacher/dashboard", label: "Home", icon: "H" },
+  { href: "/teacher/attendance", label: "Attendance", icon: "OK" },
+  { href: "/teacher/students", label: "Students", icon: "S" },
+  { href: "/teacher/profile", label: "Profile", icon: "P" },
 ];
 
 export default function TeacherLayout({ children }: { children: ReactNode }) {
@@ -72,4 +72,6 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+
 
