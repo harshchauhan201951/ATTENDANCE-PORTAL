@@ -18,7 +18,7 @@ export default function TeacherDashboard() {
       "Teacher";
 
     setTeacherName(savedTeacherName);
-    const updateHeaderTime = () => setHeaderTime(new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }));
+    const updateHeaderTime = () => setHeaderTime(new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }));
     updateHeaderTime();
     const timer = setInterval(updateHeaderTime, 1000);
     return () => clearInterval(timer);
@@ -89,7 +89,7 @@ export default function TeacherDashboard() {
           </div>
 
           <div className="racer-teacher-header-actions">
-            <button type="button" onClick={() => router.push("/teacher/announcements")} aria-label="Announcements">â—</button>
+            <span style={{fontSize:"12px",fontWeight:800,whiteSpace:"nowrap"}}>WATCH TIME {headerTime}</span>`r`n            <button type="button" onClick={() => router.push("/teacher/announcements")} aria-label="Announcements" title="Announcements" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:"38px",height:"38px",borderRadius:"10px",fontSize:"20px",lineHeight:1}}>{String.fromCodePoint(0x1F514)}</button>
             <button type="button" onClick={handleLogout} disabled={loggingOut} className="racer-teacher-logout">
               {loggingOut ? "..." : "Logout"}
             </button>
@@ -131,6 +131,7 @@ export default function TeacherDashboard() {
     </main>
   );
 }
+
 
 
 
