@@ -114,7 +114,7 @@ export default function TeacherDashboard() {
               className="racer-teacher-module"
               aria-label={item.title}
             >
-              <span className={"racer-teacher-module-icon icon-" + item.icon.toLowerCase()} aria-hidden="true"></span>
+              <span className={"racer-teacher-module-icon icon-" + item.icon.toLowerCase()} aria-hidden="true" style={{width:"56px",height:"56px",borderRadius:"18px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"27px",fontWeight:900,boxShadow:"0 8px 20px rgba(15,23,42,.14)",border:"1px solid rgba(255,255,255,.8)",background:({attendance:"#dcfce7",history:"#dbeafe",calendar:"#fef3c7",reports:"#ede9fe",fees:"#d1fae5",payments:"#cffafe",homework:"#ffedd5",announcements:"#fee2e2",activity:"#fef9c3",profile:"#e0e7ff",settings:"#e5e7eb",directory:"#fce7f3",extra:"#dcfce7",quiz:"#fae8ff",call:"#dbeafe",teachers:"#f3e8ff",timetable:"#cffafe"} as Record<string,string>)[item.icon] || "#e2e8f0"}}>{({attendance:String.fromCodePoint(0x2705),history:String.fromCodePoint(0x21BA),calendar:String.fromCodePoint(0x1F4C5),reports:String.fromCodePoint(0x1F4CA),fees:String.fromCodePoint(0x20B9),payments:String.fromCodePoint(0x1F4B3),homework:String.fromCodePoint(0x1F4DA),announcements:String.fromCodePoint(0x1F4E2),activity:String.fromCodePoint(0x26A1),profile:String.fromCodePoint(0x1F464),settings:String.fromCodePoint(0x2699),directory:String.fromCodePoint(0x1F465),extra:String.fromCodePoint(0x2728),quiz:String.fromCodePoint(0x1F9E0),call:String.fromCodePoint(0x260E),teachers:String.fromCodePoint(0x1F393),timetable:String.fromCodePoint(0x1F4CB)} as Record<string,string>)[item.icon] || String.fromCodePoint(0x2728)}</span>
               <span className="racer-teacher-module-title">{item.title}</span>
               <span className="racer-teacher-module-number">{String(index + 1).padStart(2, "0")}</span>
             </button>
@@ -132,6 +132,7 @@ export default function TeacherDashboard() {
     </main>
   );
 }
+
 
 
 
