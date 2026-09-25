@@ -1334,8 +1334,6 @@ const styles: {
 
   studentRow: {
     width: "100%",
-    overflow: "hidden",
-    flexWrap: "wrap",
     borderRadius: "16px",
     padding: "17px",
     display: "flex",
@@ -1426,7 +1424,7 @@ const styles: {
     flexDirection: "column",
     alignItems: "flex-end",
     gap: "9px",
-    minWidth: "190px",
+    minWidth: "165px",
   },
 
   buttons: {
@@ -1573,6 +1571,7 @@ const styles: {
     fontWeight: "600",
   },
 };
+
 
 
 
