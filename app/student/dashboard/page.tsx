@@ -783,7 +783,7 @@ export default function StudentDashboardPage() {
   const cards: DashboardCard[] =
     [
       {
-        icon: "",
+        icon: "✓",
         title: "My Attendance",
         description:
           "View your current attendance and attendance percentage.",
@@ -791,7 +791,7 @@ export default function StudentDashboardPage() {
         className: "blue",
       },
       {
-        icon: "",
+        icon: "↺",
         title: "Attendance History",
         description:
           "Check your previous attendance records and details.",
@@ -799,7 +799,7 @@ export default function StudentDashboardPage() {
         className: "purple",
       },
       {
-        icon: "",
+        icon: "□",
         title: "Academic Calendar",
         description:
           "View important academic dates and calendar information.",
@@ -807,7 +807,7 @@ export default function StudentDashboardPage() {
         className: "green",
       },
       {
-        icon: "",
+        icon: "▤",
         title: "Reports",
         description:
           "View your attendance reports and performance details.",
@@ -815,7 +815,7 @@ export default function StudentDashboardPage() {
         className: "orange",
       },
       {
-        icon: "",
+        icon: "₹",
         title: "Fees",
         description:
           "Check your student fee information and payment details.",
@@ -823,7 +823,7 @@ export default function StudentDashboardPage() {
         className: "pink",
       },
       {
-        icon: "",
+        icon: "▣",
         title: "Homework",
         description:
           "View homework assigned to your class by your teacher.",
@@ -831,7 +831,7 @@ export default function StudentDashboardPage() {
         className: "indigo",
       },
       {
-        icon: "",
+        icon: "⚙",
         title: "Settings",
         description:
           "Manage your account, name and password.",
@@ -839,7 +839,7 @@ export default function StudentDashboardPage() {
         className: "cyan",
       },
       {
-        icon: "",
+        icon: "?",
         title: "QUIZ TESTS",
         description:
           "Attempt scheduled quizzes, view your scores and quiz history.",
@@ -2756,6 +2756,7 @@ const styles: {
     fontWeight: 900,
   },
 };
+
 
 
 
