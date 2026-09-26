@@ -80,7 +80,7 @@ export default function TeacherDashboard() {
       <div className="racer-teacher-inner">
         <header className="racer-teacher-header" style={{ position: "sticky", top: 0, zIndex: 100 }}>
           <div className="racer-teacher-brand">
-            <div className="racer-teacher-logo" style={{ width: "48px", height: "48px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: "18px", background: "#1e293b", color: "#ffffff", border: "2px solid rgba(255,255,255,0.35)", boxShadow: "0 4px 12px rgba(0,0,0,0.20)" }}>{firstName.charAt(0).toUpperCase()}</div>
+            <div className="racer-teacher-logo" style={{ width: "48px", height: "48px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: "18px", background: "#1e293b", color: "#ffffff", border: "2px solid rgba(255,255,255,0.35)", boxShadow: "0 4px 12px rgba(0,0,0,0.20)" }}><img src="/racer-academy-icon.png" alt="RACER ACADEMY" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"50%"}} /></div>
             <div>
               <div className="racer-teacher-kicker">RACER ACADEMY</div>
               <h1>Welcome, {firstName}</h1>
@@ -132,6 +132,7 @@ export default function TeacherDashboard() {
     </main>
   );
 }
+
 
 
 

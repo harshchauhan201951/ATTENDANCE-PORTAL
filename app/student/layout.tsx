@@ -34,7 +34,7 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
       {!isDashboard && (
         <header className="racer-mobile-appbar" style={{position:"fixed",top:0,left:0,right:0,zIndex:9999,width:"100%"}}>
           <Link href="/student/dashboard" className="racer-appbar-brand">
-            <span className="racer-appbar-logo" style={{overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center"}}>{profileImage ? <img src={profileImage} alt="Profile" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"50%"}} onError={()=>setProfileImage(null)} /> : "RA"}</span>
+            <span className="racer-appbar-logo" style={{overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center"}}>{profileImage ? <img src={profileImage} alt="Profile" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"50%"}} onError={()=>setProfileImage(null)} /> : <img src="/racer-academy-icon.png" alt="RACER ACADEMY" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"50%"}} />}</span>
             <span>
               <strong>RACER ACADEMY</strong>
               <small style={{color:"#000000",fontWeight:700}}>{headerTime} • Hello, {headerName}</small>
@@ -72,6 +72,7 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
 
 
 

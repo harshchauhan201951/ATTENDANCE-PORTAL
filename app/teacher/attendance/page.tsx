@@ -497,7 +497,7 @@ export default function TeacherAttendancePage() {
           </div>
         )}
 
-        <section style={styles.statsGrid}>
+        <section className="racer-teacher-attendance-summary" style={styles.statsGrid}>
           <Stat
             icon=""
             title="Total Students"
@@ -680,6 +680,7 @@ export default function TeacherAttendancePage() {
                   return (
                     <div
                       key={student.id}
+                      className="teacher-attendance-student-card"
                       style={{
                         ...styles.studentRow,
                         border:
@@ -1571,6 +1572,11 @@ const styles: {
     fontWeight: "600",
   },
 };
+
+
+
+
+
 
 
 
