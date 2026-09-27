@@ -51,6 +51,20 @@ type ResultItem = QuizResult & {
   quiz: Quiz | null;
 };
 
+type AttemptRecord = {
+  id: number;
+  question_text: string;
+  options: Array<{
+    id: number;
+    option_text: string;
+    option_order: number;
+    is_correct: boolean;
+  }>;
+  selected_option_id: number | null;
+  is_correct: boolean;
+  marks_awarded: number;
+};
+
 function normalizeClass(value: unknown): string {
   if (typeof value !== "string") {
     return "";
@@ -336,6 +350,15 @@ function ResultsContent() {
 
   const [selectedResult, setSelectedResult] =
     useState<QuizResult | null>(null);
+
+  const [attemptRecord, setAttemptRecord] =
+    useState<AttemptRecord[]>([]);
+
+  const [attemptRecordLoading, setAttemptRecordLoading] =
+    useState(false);
+
+  const [attemptRecordError, setAttemptRecordError] =
+    useState("");
 
   const [loading, setLoading] =
     useState(true);
@@ -1008,7 +1031,116 @@ function ResultsContent() {
     setSelectedResult(
       result
     );
-  }
+  
+    setAttemptRecord([]);
+    setAttemptRecordError("");
+    setAttemptRecordLoading(true);
+
+    try {
+      const {
+        data: questionData,
+        error: questionError,
+      } = await supabase
+        .from("quiz_questions")
+        .select("id,question_text,question_order")
+        .eq("quiz_id", quizId)
+        .order("question_order", { ascending: true });
+
+      if (questionError) {
+        throw new Error(questionError.message);
+      }
+
+      const questionIds = (questionData || [])
+        .map((question: any) => Number(question.id))
+        .filter((id: number) => Number.isFinite(id) && id > 0);
+
+      const {
+        data: optionData,
+        error: optionError,
+      } = questionIds.length
+        ? await supabase
+            .from("quiz_options")
+            .select(
+              "id,question_id,option_text,option_order,is_correct"
+            )
+            .in("question_id", questionIds)
+            .order("option_order", { ascending: true })
+        : { data: [], error: null };
+
+      if (optionError) {
+        throw new Error(optionError.message);
+      }
+
+      const {
+        data: answerData,
+        error: answerError,
+      } = await supabase
+        .from("quiz_answers")
+        .select(
+          "question_id,selected_option_id,is_correct,marks_awarded"
+        )
+        .eq("result_id", result.id);
+
+      if (answerError) {
+        throw new Error(answerError.message);
+      }
+
+      const optionMap = new Map<number, any[]>();
+
+      (optionData || []).forEach((option: any) => {
+        const questionId = Number(option.question_id);
+        optionMap.set(questionId, [
+          ...(optionMap.get(questionId) || []),
+          option,
+        ]);
+      });
+
+      const answerMap = new Map<number, any>();
+
+      (answerData || []).forEach((answer: any) => {
+        answerMap.set(Number(answer.question_id), answer);
+      });
+
+      const fullRecord: AttemptRecord[] = (questionData || []).map(
+        (question: any) => {
+          const answer = answerMap.get(Number(question.id));
+
+          return {
+            id: Number(question.id),
+            question_text: String(question.question_text || ""),
+            options: (optionMap.get(Number(question.id)) || []).map(
+              (option: any) => ({
+                id: Number(option.id),
+                option_text: String(option.option_text || ""),
+                option_order: Number(option.option_order || 0),
+                is_correct: Boolean(option.is_correct),
+              })
+            ),
+            selected_option_id:
+              answer?.selected_option_id == null
+                ? null
+                : Number(answer.selected_option_id),
+            is_correct: Boolean(answer?.is_correct),
+            marks_awarded: Number(answer?.marks_awarded ?? 0),
+          };
+        }
+      );
+
+      setAttemptRecord(fullRecord);
+    } catch (attemptError: any) {
+      console.error(
+        "Attempt record load error:",
+        attemptError
+      );
+
+      setAttemptRecordError(
+        attemptError?.message ||
+          "Unable to load full quiz record."
+      );
+    } finally {
+      setAttemptRecordLoading(false);
+    }
+}
 
   if (loading) {
     return (
@@ -1649,6 +1781,182 @@ function ResultsContent() {
             </div>
 
           </section>
+          <section className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-xl font-black">
+                  Full Quiz Record
+                </h3>
+                <p className="mt-1 text-sm text-slate-400">
+                  Every question, all options, your answer, correct answer and marks for this exact attempt.
+                </p>
+              </div>
+
+              <span className="rounded-full bg-indigo-500/10 px-3 py-1 text-[10px] font-black text-indigo-300">
+                {attemptRecord.length} QUESTIONS
+              </span>
+            </div>
+
+            {attemptRecordLoading ? (
+              <div className="mt-5 rounded-2xl bg-slate-900/70 p-6 text-center text-sm font-bold text-slate-400">
+                Loading full quiz record...
+              </div>
+            ) : attemptRecordError ? (
+              <div className="mt-5 rounded-2xl bg-red-500/10 p-5 text-sm font-bold text-red-200">
+                {attemptRecordError}
+              </div>
+            ) : attemptRecord.length === 0 ? (
+              <div className="mt-5 rounded-2xl bg-slate-900/70 p-6 text-center text-sm font-bold text-slate-400">
+                No question record is available for this attempt.
+              </div>
+            ) : (
+              <div className="mt-6 space-y-5">
+                {attemptRecord.map((question, index) => {
+                  const selectedOption = question.options.find(
+                    (option) =>
+                      Number(option.id) ===
+                      Number(question.selected_option_id)
+                  );
+
+                  const correctOption = question.options.find(
+                    (option) => option.is_correct
+                  );
+
+                  const status =
+                    question.selected_option_id == null
+                      ? "SKIPPED"
+                      : question.is_correct
+                        ? "CORRECT"
+                        : "WRONG";
+
+                  return (
+                    <div
+                      key={question.id}
+                      className="rounded-2xl border border-white/10 bg-slate-900/70 p-5"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-black tracking-[0.2em] text-indigo-300">
+                            QUESTION {index + 1}
+                          </p>
+
+                          <p className="mt-2 whitespace-pre-wrap text-base font-bold leading-7">
+                            {question.question_text}
+                          </p>
+                        </div>
+
+                        <span
+                          className={`shrink-0 rounded-full px-3 py-1 text-[10px] font-black ${
+                            status === "CORRECT"
+                              ? "bg-emerald-500/20 text-emerald-300"
+                              : status === "WRONG"
+                                ? "bg-red-500/20 text-red-300"
+                                : "bg-amber-500/20 text-amber-300"
+                          }`}
+                        >
+                          {status}
+                        </span>
+                      </div>
+
+                      <div className="mt-5 space-y-2">
+                        {question.options.map((option, optionIndex) => {
+                          const isSelected =
+                            Number(option.id) ===
+                            Number(question.selected_option_id);
+
+                          const isCorrect = option.is_correct;
+
+                          return (
+                            <div
+                              key={option.id}
+                              className={`rounded-xl border p-4 ${
+                                isCorrect
+                                  ? "border-emerald-400/40 bg-emerald-500/10"
+                                  : isSelected
+                                    ? "border-red-400/40 bg-red-500/10"
+                                    : "border-white/10 bg-white/5"
+                              }`}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div
+                                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black ${
+                                    isCorrect
+                                      ? "bg-emerald-500/20 text-emerald-300"
+                                      : isSelected
+                                        ? "bg-red-500/20 text-red-300"
+                                        : "bg-white/10 text-slate-300"
+                                  }`}
+                                >
+                                  {String.fromCharCode(65 + optionIndex)}
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-semibold leading-6">
+                                    {option.option_text}
+                                  </p>
+
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    {isSelected && (
+                                      <span className="rounded-full bg-red-500/20 px-2 py-1 text-[9px] font-black text-red-300">
+                                        YOUR ANSWER
+                                      </span>
+                                    )}
+
+                                    {isCorrect && (
+                                      <span className="rounded-full bg-emerald-500/20 px-2 py-1 text-[9px] font-black text-emerald-300">
+                                        CORRECT ANSWER
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                        <div className="rounded-xl bg-white/5 p-3">
+                          <p className="text-[9px] font-bold text-slate-500">
+                            YOUR ANSWER
+                          </p>
+
+                          <p className="mt-1 text-sm font-black">
+                            {selectedOption?.option_text ||
+                              "Not Answered"}
+                          </p>
+                        </div>
+
+                        <div className="rounded-xl bg-emerald-500/10 p-3">
+                          <p className="text-[9px] font-bold text-emerald-300">
+                            CORRECT ANSWER
+                          </p>
+
+                          <p className="mt-1 text-sm font-black text-emerald-300">
+                            {correctOption?.option_text ||
+                              "Not Available"}
+                          </p>
+                        </div>
+
+                        <div className="rounded-xl bg-indigo-500/10 p-3">
+                          <p className="text-[9px] font-bold text-indigo-300">
+                            MARKS
+                          </p>
+
+                          <p className="mt-1 text-sm font-black text-indigo-300">
+                            {numberText(
+                              question.marks_awarded
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
 
           <section className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-6">
 
