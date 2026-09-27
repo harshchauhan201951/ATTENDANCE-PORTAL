@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   useEffect,
@@ -7,6 +7,7 @@ import {
   type CSSProperties,
 } from "react";
 import { createClient } from "@supabase/supabase-js";
+import * as XLSX from "xlsx";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -1140,6 +1141,10 @@ export default function TeacherReportsPage() {
     URL.revokeObjectURL(url);
   }
 
+  function exportAssessmentExcel(rows: AssessmentRow[], fileName = "RACER_ACADEMY_Test_Report.xlsx") { if (!rows.length) { alert("No assessment data available."); return; } const data = rows.map((item) => { const student = students.find((s) => s.id === item.student_id); const unavailable = item.attendance_status === "ABSENT" || item.attendance_status === "NO_TEST"; const percentage = unavailable ? 0 : getPercentage(Number(item.obtained_marks), Number(item.total_marks)); return { "Student Name": student?.student_name || student?.student_username || "Unknown Student", "Student ID": student?.student_username || "", "Admission Date": student?.admission_date || "", "Test Name": item.test_name, "Test Date": item.test_date, Subject: item.subject, Attendance: item.attendance_status, "Total Marks": unavailable ? "" : Number(item.total_marks), "Obtained Marks": unavailable ? "" : Number(item.obtained_marks), Percentage: unavailable ? "" : Number(percentage.toFixed(1)), Grade: unavailable ? "" : getGrade(percentage), Result: item.attendance_status === "ABSENT" ? "ABSENT" : item.attendance_status === "NO_TEST" ? "NO TEST" : isPass(percentage) ? "PASS" : "FAIL", Remarks: item.remarks || "", "Test Images": getImageUrls(item.test_images).length }; }); const ws=XLSX.utils.json_to_sheet(data); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"Test Report"); XLSX.writeFile(wb,fileName); }
+
+  function exportOverallAssessmentExcel() { if (!assessments.length) { alert("No assessment data available."); return; } const wb=XLSX.utils.book_new(); const rows=assessments.map((item) => { const student=students.find((s)=>s.id===item.student_id); const unavailable=item.attendance_status==="ABSENT" || item.attendance_status==="NO_TEST"; const percentage=unavailable ? 0 : getPercentage(Number(item.obtained_marks),Number(item.total_marks)); return { "Student Name":student?.student_name || student?.student_username || "Unknown Student", "Student ID":student?.student_username || "", "Admission Date":student?.admission_date || "", "Test Name":item.test_name, "Test Date":item.test_date, Subject:item.subject, Attendance:item.attendance_status, "Total Marks":unavailable ? "" : Number(item.total_marks), "Obtained Marks":unavailable ? "" : Number(item.obtained_marks), Percentage:unavailable ? "" : Number(percentage.toFixed(1)), Grade:unavailable ? "" : getGrade(percentage), Result:item.attendance_status==="ABSENT" ? "ABSENT" : item.attendance_status==="NO_TEST" ? "NO TEST" : isPass(percentage) ? "PASS" : "FAIL", Remarks:item.remarks || "" }; }); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"All Assessments"); const map=new Map<number,AssessmentRow[]>(); assessments.forEach((item)=>{const list=map.get(item.student_id)||[]; list.push(item); map.set(item.student_id,list);}); const summary=Array.from(map.entries()).map(([id,list])=>{const student=students.find((s)=>s.id===id); const scored=list.filter((r)=>r.attendance_status==="PRESENT"); const total=scored.reduce((n,r)=>n+Number(r.total_marks),0); const obtained=scored.reduce((n,r)=>n+Number(r.obtained_marks),0); const avg=total>0?(obtained/total)*100:0; return {"Student Name":student?.student_name || student?.student_username || "Unknown Student","Student ID":student?.student_username || "","Admission Date":student?.admission_date || "","Total Tests":list.length,Present:list.filter((r)=>r.attendance_status==="PRESENT").length,Absent:list.filter((r)=>r.attendance_status==="ABSENT").length,"No Test":list.filter((r)=>r.attendance_status==="NO_TEST").length,"Total Marks":total,"Obtained Marks":obtained,"Average Percentage":Number(avg.toFixed(1)),Grade:scored.length?getGrade(avg):"",Result:scored.length?(isPass(avg)?"PASS":"FAIL"):""};}); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(summary),"Student Summary"); XLSX.writeFile(wb,"RACER_ACADEMY_Overall_Assessment_Report.xlsx"); }
+
   function downloadStudentResult(
     studentId: number,
     testNameValue: string,
@@ -1204,22 +1209,22 @@ export default function TeacherReportsPage() {
             }</td>
             <td>${
               isAbsentStudent || isNoTestStudent
-                ? "â€”"
+                ? ""
                 : escapeHtml(item.total_marks)
             }</td>
             <td>${
               isAbsentStudent || isNoTestStudent
-                ? "â€”"
+                ? ""
                 : escapeHtml(item.obtained_marks)
             }</td>
             <td>${
               isAbsentStudent || isNoTestStudent
-                ? "â€”"
+                ? ""
                 : `${percentage.toFixed(1)}%`
             }</td>
             <td>${
               isAbsentStudent || isNoTestStudent
-                ? "â€”"
+                ? ""
                 : getGrade(percentage)
             }</td>
             <td>${
@@ -2270,7 +2275,7 @@ export default function TeacherReportsPage() {
                                   }
                                 >
                                   {student.admission_date ||
-                                    "â€”"}
+                                    ""}
                                 </span>
                               </td>
 
@@ -2320,9 +2325,9 @@ export default function TeacherReportsPage() {
                               <td style={styles.td}>
                                 {isAbsentStudent ||
                                 isNoTestStudent
-                                  ? "â€”"
+                                  ? ""
                                   : totalMarks ||
-                                    "â€”"}
+                                    ""}
                               </td>
 
                               <td style={styles.td}>
@@ -2371,7 +2376,7 @@ export default function TeacherReportsPage() {
                                     ? `${percentage.toFixed(
                                         1
                                       )}%`
-                                    : "â€”"}
+                                    : ""}
                                 </strong>
                               </td>
 
@@ -2405,7 +2410,7 @@ export default function TeacherReportsPage() {
                                     ? "NO TEST"
                                     : total > 0
                                     ? grade
-                                    : "â€”"}
+                                    : ""}
                                 </span>
                               </td>
 
@@ -2447,7 +2452,7 @@ export default function TeacherReportsPage() {
                                       )
                                       ? "PASS"
                                       : "FAIL"
-                                    : "â€”"}
+                                    : ""}
                                 </span>
                               </td>
 
@@ -2726,13 +2731,13 @@ export default function TeacherReportsPage() {
                             }
                           >
                             {first.test_date}
-                            {" â€¢ "}
+                            {"  "}
                             Total Marks:{" "}
                             {total}
-                            {" â€¢ "}
+                            {"  "}
                             Students:{" "}
                             {group.length}
-                            {" â€¢ "}
+                            {"  "}
                             Average:{" "}
                             {average.toFixed(
                               1
@@ -2835,6 +2840,8 @@ export default function TeacherReportsPage() {
                             Result PDF
                           </button>
 
+                          <button onClick={() => exportAssessmentExcel(group, "RACER_ACADEMY_" + first.test_name.replace(/[^a-zA-Z0-9]+/g, "_") + "_" + first.test_date + ".xlsx")} style={styles.exportAssessment}>Excel</button>
+
                           <button
                             onClick={() =>
                               void deleteAssessment(
@@ -2864,12 +2871,12 @@ export default function TeacherReportsPage() {
 
             <div style={styles.gradeGrid}>
               {[
-                ["90â€“100%", "A+", "PASS"],
-                ["80â€“89%", "A", "PASS"],
-                ["70â€“79%", "B+", "PASS"],
-                ["60â€“69%", "B", "PASS"],
-                ["50â€“59%", "C", "PASS"],
-                ["40â€“49%", "D", "PASS"],
+                ["90100%", "A+", "PASS"],
+                ["8089%", "A", "PASS"],
+                ["7079%", "B+", "PASS"],
+                ["6069%", "B", "PASS"],
+                ["5059%", "C", "PASS"],
+                ["4049%", "D", "PASS"],
                 ["Below 40%", "F", "FAIL"],
               ].map((item) => (
                 <div
@@ -2973,7 +2980,7 @@ export default function TeacherReportsPage() {
         </section>
 
         <footer style={styles.footer}>
-          RACER ACADEMY â€¢ Teacher Reports â€¢{" "}
+          RACER ACADEMY  Teacher Reports {" "}
           {year}
         </footer>
       </div>
