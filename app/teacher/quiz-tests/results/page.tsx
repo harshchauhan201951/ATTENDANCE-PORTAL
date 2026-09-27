@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   Suspense,
@@ -266,6 +266,37 @@ function TeacherQuizResultsContent() {
   >([]);
 
   const [allQuizzes, setAllQuizzes] = useState<QuizTest[]>([]);
+  const [publishAllLoading, setPublishAllLoading] = useState(false);
+  const publishAllQuizzes = async () => {
+    const unpublishedCount = allQuizzes.filter((quiz) => !quiz.is_published).length;
+    if (unpublishedCount === 0) {
+      window.alert("All quizzes are already published.");
+      return;
+    }
+
+    if (!window.confirm("Publish all " + unpublishedCount + " draft/unpublished quizzes now?")) return;
+
+    setPublishAllLoading(true);
+    try {
+      const { error } = await supabase
+        .from("quiz_tests")
+        .update({ is_published: true })
+        .or("is_published.eq.false,is_published.is.null");
+
+      if (error) {
+        console.error("RACER_PUBLISH_ALL_ERROR", error);
+        window.alert("Failed to publish all quizzes: " + error.message);
+        return;
+      }
+
+      setAllQuizzes((prev) => prev.map((quiz) => ({ ...quiz, is_published: true })));
+      setCurrentQuiz((prev) => (prev ? { ...prev, is_published: true } : prev));
+      window.alert(unpublishedCount + " quizzes published successfully.");
+    } finally {
+      setPublishAllLoading(false);
+    }
+  };
+
   const [allResults, setAllResults] = useState<QuizResult[]>([]);
   const [allStudents, setAllStudents] = useState<Student[]>([]);
 
@@ -2567,6 +2598,14 @@ function TeacherQuizResultsContent() {
             {filterLoading
               ? "Preparing Excel..."
               : "Download Overall Excel"}
+          </button>
+          <button
+            type="button"
+            style={{ ...styles.pdfButton, background: "#b91c1c", marginLeft: "10px" }}
+            onClick={publishAllQuizzes}
+            disabled={publishAllLoading}
+          >
+            {publishAllLoading ? "PUBLISHING..." : "PUBLISH ALL QUIZZES"}
           </button>
 
         </section>
