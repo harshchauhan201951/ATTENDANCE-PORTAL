@@ -102,7 +102,7 @@ export default function TeacherSettingsPage() {
   }
 
   return (
-    <main style={styles.page}>
+    <main className="racer-module-page racer-settings-page" style={styles.page}>
       <div style={styles.container}>
 
         {/* HEADER */}

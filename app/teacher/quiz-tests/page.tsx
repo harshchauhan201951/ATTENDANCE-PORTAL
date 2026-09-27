@@ -113,7 +113,7 @@ export default function TeacherQuizTestsPage() {
   }).length;
 
   return (
-    <main className="min-h-screen bg-white text-slate-900">
+    <main className="min-h-screen bg-white text-slate-900 racer-module-page racer-quiz-tests-page">
       <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,_rgba(99,102,241,0.08),_transparent_30%),radial-gradient(circle_at_bottom_left,_rgba(14,165,233,0.06),_transparent_30%)]">
         {/* HEADER */}
         <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-xl">

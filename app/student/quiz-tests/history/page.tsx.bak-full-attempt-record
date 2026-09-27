@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   useCallback,
@@ -1073,7 +1073,7 @@ export default function StudentQuizHistoryPage() {
                             router.push(
                               `/student/quiz-tests/results?quizId=${encodeURIComponent(
                                 quiz.id
-                              )}&resultId=${encodeURIComponent(result.id)}`
+                              )}`
                             )
                           }
                           className="w-full rounded-xl bg-indigo-600 px-5 py-3 text-sm font-black text-white transition hover:bg-indigo-500 sm:w-auto"

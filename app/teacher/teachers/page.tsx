@@ -159,7 +159,7 @@ export default function TeacherManagementPage() {
   }
 
   return (
-    <main
+    <main className="racer-module-page racer-teachers-page"
       style={{
         minHeight: "100vh",
         background:

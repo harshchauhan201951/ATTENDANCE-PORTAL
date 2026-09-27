@@ -176,7 +176,7 @@ export default function StudentDirectoryPage() {
   }
 
   return (
-    <main className="directory-page">
+    <main className="directory-page racer-module-page racer-student-directory-page">
       <div className="page-container">
         {/* HEADER */}
         <header className="page-header">

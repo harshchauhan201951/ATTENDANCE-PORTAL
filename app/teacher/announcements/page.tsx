@@ -465,7 +465,7 @@ export default function TeacherAnnouncementsPage() {
   );
 
   return (
-    <main style={styles.page}>
+    <main className="racer-module-page racer-announcements-page" style={styles.page}>
       <div style={styles.container}>
 
         <header style={styles.header}>

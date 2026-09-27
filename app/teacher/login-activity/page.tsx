@@ -381,7 +381,7 @@ export default function StudentLoginActivityPage() {
   };
 
   return (
-    <main className="login-activity-page">
+    <main className="login-activity-page racer-module-page racer-login-activity-page">
       <div className="page-background" />
 
       <section className="page-container">

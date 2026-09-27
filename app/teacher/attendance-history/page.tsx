@@ -292,8 +292,7 @@ export default function AttendanceHistoryPage() {
   }
 
   return (
-      
-    <main style={styles.page}>
+    <main className="racer-module-page racer-attendance-history-page" style={styles.page}>
       <div style={styles.container}>
 
         {/* HEADER */}
@@ -640,12 +639,7 @@ export default function AttendanceHistoryPage() {
                               <strong
                                 style={styles.studentName}
                               >
-                                <span className="desktop-student-name">
-                                  {row.student.student_name || "Student"}
-                                </span>
-                                <span className="mobile-student-name">
-                                  {(row.student.student_name || "Student").trim().split(/\s+/)[0]}
-                                </span>
+                                {row.student.student_name || "Student"}
                               </strong>
                             </div>
                           </td>
@@ -770,7 +764,6 @@ export default function AttendanceHistoryPage() {
 
       </div>
     </main>
-
   );
 }
 

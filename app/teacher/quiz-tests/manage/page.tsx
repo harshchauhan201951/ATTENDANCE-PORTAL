@@ -614,7 +614,7 @@ export default function ManageQuizzesPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
+    <main className="min-h-screen bg-slate-950 text-white racer-module-page racer-quiz-subpage">
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
         <header className="border-b border-white/10 bg-slate-950/90">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4">

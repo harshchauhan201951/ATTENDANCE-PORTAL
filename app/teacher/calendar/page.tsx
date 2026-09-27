@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState } from "react";
 
@@ -858,7 +858,7 @@ export default function TeacherCalendarPage() {
   }
 
   return (
-    <main style={styles.page}>
+    <main className="racer-module-page racer-calendar-page" style={styles.page}>
       <div style={styles.container}>
         <header style={styles.header}>
           <div>

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   Suspense,
@@ -1046,7 +1046,7 @@ function TeacherQuizQuestionsContent() {
 
   if (!validQuizId) {
     return (
-      <main className="min-h-screen bg-slate-950 px-4 py-10 text-white">
+      <main className="min-h-screen bg-slate-950 px-4 py-10 text-white racer-module-page racer-quiz-subpage">
         <div className="mx-auto max-w-3xl rounded-3xl border border-red-400/20 bg-red-500/10 p-8 text-center">
           <h1 className="text-2xl font-black">
             Invalid Quiz ID

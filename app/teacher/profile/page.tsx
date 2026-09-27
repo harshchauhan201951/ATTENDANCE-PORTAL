@@ -524,7 +524,7 @@ export default function TeacherProfilePage() {
       .join("") || "T";
 
   return (
-    <main className="profile-page">
+    <main className="profile-page racer-module-page racer-profile-page">
       <div className="background-grid" />
 
       <div className="ambient ambient-one" />

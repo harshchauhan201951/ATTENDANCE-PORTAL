@@ -635,7 +635,7 @@ export default function TeacherStudentsPage() {
 
   return (
     <main
-      className="students-management-page"
+      className="students-management-page racer-module-page racer-students-page"
       style={styles.page}
     >
       <div

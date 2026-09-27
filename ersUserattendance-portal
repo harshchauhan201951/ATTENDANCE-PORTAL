@@ -1,0 +1,46 @@
+warning: in the working copy of 'app/globals.css', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/app/globals.css b/app/globals.css[m
+[1mindex 3f30330..6b5162a 100644[m
+[1m--- a/app/globals.css[m
+[1m+++ b/app/globals.css[m
+[36m@@ -1,4 +1,4 @@[m
+[31m-@import "tailwindcss";[m
+[32m+[m[32m﻿@import "tailwindcss";[m
+ [m
+ * {[m
+   box-sizing: border-box;[m
+[36m@@ -1092,7 +1092,7 @@[m [mbutton {[m
+ [m
+ .racer-teacher-header {[m
+   min-height: 68px;[m
+[31m-  margin: 0 -10px 12px;[m
+[32m+[m[32m  margin: 0 -10px 6px;[m
+   padding: 10px 13px;[m
+   display: flex;[m
+   align-items: center;[m
+[36m@@ -1108,9 +1108,9 @@[m [mbutton {[m
+ .racer-teacher-kicker { font-size:7px; letter-spacing:1.15px; opacity:.78; }[m
+ .racer-teacher-header h1 { margin:2px 0 0; font-size:16px; line-height:1.15; font-weight:850; }[m
+ .racer-teacher-header p { margin:2px 0 0; font-size:8px; opacity:.78; }[m
+[31m-.racer-teacher-header-actions { display:flex; align-items:center; gap:6px; }[m
+[32m+[m[32m.racer-teacher-header-actions { display:flex; align-items:center; gap:6px; } .racer-teacher-watch-time { font-size:10px; font-weight:800; white-space:nowrap; color:#fff; opacity:.92; } .racer-teacher-icon-btn { width:34px; height:34px; border-radius:9px; display:inline-flex; align-items:center; justify-content:center; padding:0; background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.28) !important; font-size:17px; line-height:1; cursor:pointer; } .racer-teacher-profile-btn { height:34px; padding:0 10px; border-radius:9px; background:#fff; color:#0b58a5; font-size:10px; font-weight:850; cursor:pointer; }[m
+ .racer-teacher-header-actions button { border:0; cursor:pointer; }[m
+[31m-.racer-teacher-header-actions > button:first-child { width:32px; height:32px; border-radius:50%; background:rgba(255,255,255,.12); color:#fff; }[m
+[32m+[m[32m.racer-teacher-header-actions > button:first-child { width:34px; height:34px; }[m
+ .racer-teacher-logout { padding:8px 10px; border-radius:8px; background:#fff; color:#0b58a5; font-size:8px; font-weight:800; }[m
+ [m
+ .racer-teacher-title { display:flex; align-items:flex-end; justify-content:space-between; gap:10px; margin:12px 1px 8px; }[m
+[36m@@ -1135,7 +1135,7 @@[m [mbutton {[m
+   .racer-teacher-module-icon { width:29px; height:29px; font-size:14px; margin-bottom:5px; }[m
+   .racer-teacher-module-title { font-size:7.5px; }[m
+ }[m
+[31m-.racer-teacher-module-icon::before{display:block;font-family:Arial,Helvetica,sans-serif;font-weight:900;line-height:1}.racer-teacher-module-icon.icon-ok::before{content:"✓"}.racer-teacher-module-icon.icon-ah::before{content:"▤"}.racer-teacher-module-icon.icon-cal::before{content:"▦"}.racer-teacher-module-icon.icon-rep::before{content:"★"}.racer-teacher-module-icon.icon-rs::before{content:"₹"}.racer-teacher-module-icon.icon-pay::before{content:"¤"}.racer-teacher-module-icon.icon-hw::before{content:"□"}.racer-teacher-module-icon.icon-ann::before{content:"●"}.racer-teacher-module-icon.icon-act::before{content:"◉"}.racer-teacher-module-icon.icon-pro::before{content:"○"}.racer-teacher-module-icon.icon-set::before{content:"⚙"}.racer-teacher-module-icon.icon-dir::before{content:"◉"}.racer-teacher-module-icon.icon-plus::before{content:"+"}.racer-teacher-module-icon.icon-q::before{content:"Q"}.racer-teacher-module-icon.icon-call::before{content:"☎"}.racer-teacher-module-icon.icon-t::before{content:"T"}.racer-teacher-module-icon.icon-tt::before{content:"▦"}[m
+[32m+[m[32m.racer-teacher-module-icon::before{display:block;font-family:Arial,Helvetica,sans-serif;font-weight:900;line-height:1}.racer-teacher-module-icon.icon-ok::before{content:"âœ“"}.racer-teacher-module-icon.icon-ah::before{content:"â–¤"}.racer-teacher-module-icon.icon-cal::before{content:"â–¦"}.racer-teacher-module-icon.icon-rep::before{content:"â˜…"}.racer-teacher-module-icon.icon-rs::before{content:"â‚¹"}.racer-teacher-module-icon.icon-pay::before{content:"Â¤"}.racer-teacher-module-icon.icon-hw::before{content:"â–¡"}.racer-teacher-module-icon.icon-ann::before{content:"â—"}.racer-teacher-module-icon.icon-act::before{content:"â—‰"}.racer-teacher-module-icon.icon-pro::before{content:"â—‹"}.racer-teacher-module-icon.icon-set::before{content:"âš™"}.racer-teacher-module-icon.icon-dir::before{content:"â—‰"}.racer-teacher-module-icon.icon-plus::before{content:"+"}.racer-teacher-module-icon.icon-q::before{content:"Q"}.racer-teacher-module-icon.icon-call::before{content:"â˜Ž"}.racer-teacher-module-icon.icon-t::before{content:"T"}.racer-teacher-module-icon.icon-tt::before{content:"â–¦"}[m
+ .ah-icon{display:inline-block;width:14px;height:14px;margin-right:5px;vertical-align:-2px;position:relative}.ah-records:before{content:"";position:absolute;width:10px;height:12px;border:2px solid currentColor;border-radius:2px}.ah-records:after{content:"";position:absolute;width:6px;height:2px;background:currentColor;left:3px;top:4px;box-shadow:0 4px 0 currentColor}.ah-present:before{content:"";position:absolute;width:11px;height:6px;border-left:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);left:1px;top:2px}.ah-absent:before,.ah-absent:after{content:"";position:absolute;width:12px;height:2px;background:currentColor;left:1px;top:6px}.ah-absent:before{transform:rotate(45deg)}.ah-absent:after{transform:rotate(-45deg)}[m
+ [m
+ /* Teacher page actions: no duplicate white header */[m
+[36m@@ -1149,3 +1149,4 @@[m [mbutton {[m
+ [m
+ /* FINAL compact teacher attendance student card */[m
+ .racer-teacher-shell .teacher-attendance-student-card{display:grid!important;grid-template-columns:26px 38px minmax(130px,1.25fr) minmax(210px,1fr) auto!important;align-items:center!important;gap:8px!important;width:100%!important;box-sizing:border-box!important;padding:8px 10px!important;min-height:64px!important;overflow:hidden!important}.racer-teacher-shell .teacher-attendance-student-card>div{min-width:0!important}.racer-teacher-shell .teacher-attendance-student-card .studentName{font-size:12px!important;line-height:1.2!important;margin:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}.racer-teacher-shell .teacher-attendance-student-card .username{font-size:8px!important;line-height:1.2!important;margin:3px 0 0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}.racer-teacher-shell .teacher-attendance-student-card .miniStats{display:flex!important;align-items:center!important;gap:7px!important;flex-wrap:nowrap!important;white-space:nowrap!important}.racer-teacher-shell .teacher-attendance-student-card .miniStats span{font-size:8px!important;line-height:1.2!important}.racer-teacher-shell .teacher-attendance-student-card .attendanceActions{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:5px!important;white-space:nowrap!important}.racer-teacher-shell .teacher-attendance-student-card .attendanceActions .buttons{display:flex!important;gap:5px!important}.racer-teacher-shell .teacher-attendance-student-card .attendanceActions button{width:32px!important;min-width:32px!important;height:30px!important;padding:0!important;border-radius:7px!important;font-size:0!important;font-weight:900!important}.racer-teacher-shell .teacher-attendance-student-card .attendanceActions button:first-child::after{content:'P';font-size:12px!important}.racer-teacher-shell .teacher-attendance-student-card .attendanceActions button:last-child::after{content:'A';font-size:12px!important}.racer-teacher-shell .teacher-attendance-student-card .presentBadge,.racer-teacher-shell .teacher-attendance-student-card .absentBadge{font-size:7px!important;padding:4px 5px!important;white-space:nowrap!important}@media(max-width:700px){.racer-teacher-shell .teacher-attendance-student-card{grid-template-columns:24px 34px minmax(105px,1fr) auto!important;gap:6px!important;padding:7px!important;min-height:62px!important}.racer-teacher-shell .teacher-attendance-student-card .miniStats{grid-column:3 / -1!important;grid-row:2!important;gap:5px!important}.racer-teacher-shell .teacher-attendance-student-card .attendanceActions{grid-column:4!important;grid-row:1!important}.racer-teacher-shell .teacher-attendance-student-card .presentBadge,.racer-teacher-shell .teacher-attendance-student-card .absentBadge{display:none!important}.racer-teacher-shell .teacher-attendance-student-card .studentName{font-size:11px!important}.racer-teacher-shell .teacher-attendance-student-card .username{font-size:7px!important}.racer-teacher-shell .teacher-attendance-student-card .miniStats span{font-size:7px!important}}[m
+[41m+[m

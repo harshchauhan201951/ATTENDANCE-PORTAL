@@ -202,7 +202,7 @@ export default function TeacherPaymentsPage() {
 
   if (loading) {
     return (
-      <main className="loading-page">
+      <main className="loading-page racer-module-page racer-payments-page">
         <div className="loader" />
         <p>Loading payment details...</p>
 

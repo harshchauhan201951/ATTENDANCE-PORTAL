@@ -7,6 +7,7 @@ import {
   type CSSProperties,
 } from "react";
 import { createClient } from "@supabase/supabase-js";
+import * as XLSX from "xlsx";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -1204,22 +1205,22 @@ export default function TeacherReportsPage() {
             }</td>
             <td>${
               isAbsentStudent || isNoTestStudent
-                ? "â€”"
+                ? ""
                 : escapeHtml(item.total_marks)
             }</td>
             <td>${
               isAbsentStudent || isNoTestStudent
-                ? "â€”"
+                ? ""
                 : escapeHtml(item.obtained_marks)
             }</td>
             <td>${
               isAbsentStudent || isNoTestStudent
-                ? "â€”"
+                ? ""
                 : `${percentage.toFixed(1)}%`
             }</td>
             <td>${
               isAbsentStudent || isNoTestStudent
-                ? "â€”"
+                ? ""
                 : getGrade(percentage)
             }</td>
             <td>${
@@ -1660,7 +1661,7 @@ export default function TeacherReportsPage() {
 
   if (loading) {
     return (
-      <main className="racer-module-page racer-reports-page" style={styles.page}>
+      <main style={styles.page}>
         <div style={styles.loading}>
           Loading Reports...
         </div>
@@ -2270,7 +2271,7 @@ export default function TeacherReportsPage() {
                                   }
                                 >
                                   {student.admission_date ||
-                                    "â€”"}
+                                    ""}
                                 </span>
                               </td>
 
@@ -2320,9 +2321,9 @@ export default function TeacherReportsPage() {
                               <td style={styles.td}>
                                 {isAbsentStudent ||
                                 isNoTestStudent
-                                  ? "â€”"
+                                  ? ""
                                   : totalMarks ||
-                                    "â€”"}
+                                    ""}
                               </td>
 
                               <td style={styles.td}>
@@ -2371,7 +2372,7 @@ export default function TeacherReportsPage() {
                                     ? `${percentage.toFixed(
                                         1
                                       )}%`
-                                    : "â€”"}
+                                    : ""}
                                 </strong>
                               </td>
 
@@ -2405,7 +2406,7 @@ export default function TeacherReportsPage() {
                                     ? "NO TEST"
                                     : total > 0
                                     ? grade
-                                    : "â€”"}
+                                    : ""}
                                 </span>
                               </td>
 
@@ -2447,7 +2448,7 @@ export default function TeacherReportsPage() {
                                       )
                                       ? "PASS"
                                       : "FAIL"
-                                    : "â€”"}
+                                    : ""}
                                 </span>
                               </td>
 
@@ -2726,13 +2727,13 @@ export default function TeacherReportsPage() {
                             }
                           >
                             {first.test_date}
-                            {" â€¢ "}
+                            {"  "}
                             Total Marks:{" "}
                             {total}
-                            {" â€¢ "}
+                            {"  "}
                             Students:{" "}
                             {group.length}
-                            {" â€¢ "}
+                            {"  "}
                             Average:{" "}
                             {average.toFixed(
                               1
@@ -2864,12 +2865,12 @@ export default function TeacherReportsPage() {
 
             <div style={styles.gradeGrid}>
               {[
-                ["90â€“100%", "A+", "PASS"],
-                ["80â€“89%", "A", "PASS"],
-                ["70â€“79%", "B+", "PASS"],
-                ["60â€“69%", "B", "PASS"],
-                ["50â€“59%", "C", "PASS"],
-                ["40â€“49%", "D", "PASS"],
+                ["90100%", "A+", "PASS"],
+                ["8089%", "A", "PASS"],
+                ["7079%", "B+", "PASS"],
+                ["6069%", "B", "PASS"],
+                ["5059%", "C", "PASS"],
+                ["4049%", "D", "PASS"],
                 ["Below 40%", "F", "FAIL"],
               ].map((item) => (
                 <div
@@ -2973,7 +2974,7 @@ export default function TeacherReportsPage() {
         </section>
 
         <footer style={styles.footer}>
-          RACER ACADEMY â€¢ Teacher Reports â€¢{" "}
+          RACER ACADEMY  Teacher Reports {" "}
           {year}
         </footer>
       </div>

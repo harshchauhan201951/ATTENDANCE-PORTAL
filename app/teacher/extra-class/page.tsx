@@ -699,7 +699,7 @@ export default function ExtraClassPage() {
   // ---------------------------------------------------------
 
   return (
-    <main className="extra-page">
+    <main className="extra-page racer-module-page racer-extra-class-page">
       <div className="page-shell">
         {/* HEADER */}
         <header className="top-header">

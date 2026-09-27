@@ -70,6 +70,16 @@ export default function TeacherAttendancePage() {
     }
   }
 
+  const displayStudentName = (student: Student | undefined) => {
+    const names: Record<string,string> = {
+      STU1001: 'ADITYA CHAUHAN', STU1002: 'ANMOL', STU1003: 'CHIRAG', STU1004: 'DUGGU SHARMA',
+      STU1005: 'DUGGU', STU1006: 'YUG SHARMA', STU1007: 'MANNU', STU1008: 'PALAK CHAUHAN',
+      STU1009: 'PIYUSH', STU1010: 'PRINCE', STU1011: 'RAGHAV VARSHNEY', STU1012: 'SHARVI',
+      STU1013: 'ARNAV CHAUHAN', STU1014: 'ANANT CHAUHAN', STU1015: 'RAGHVENDRA CHAUHAN', STU1016: 'ANGEL CHAUHAN'
+    };
+    return (student && names[student.student_username]) || student?.student_name || 'Unknown Student';
+  };
+
   const filteredStudents = useMemo(() => {
     const text = search.trim().toLowerCase();
 
@@ -235,8 +245,7 @@ export default function TeacherAttendancePage() {
         if (error) {
           throw new Error(
             `Failed for ${
-              student.student_name ||
-              student.student_username
+              displayStudentName(student) || student.student_username
             }: ${error.message}`
           );
         }
@@ -433,7 +442,7 @@ export default function TeacherAttendancePage() {
 
   if (loading) {
     return (
-      <main className="racer-module-page racer-attendance-page" style={styles.page}>
+      <main style={styles.page}>
         <div style={styles.loadingCard}>
           <div style={styles.loadingIcon}>
             
@@ -497,7 +506,7 @@ export default function TeacherAttendancePage() {
           </div>
         )}
 
-        <section style={styles.statsGrid}>
+        <section className="racer-teacher-attendance-summary" style={styles.statsGrid}>
           <Stat
             icon=""
             title="Total Students"
@@ -680,6 +689,7 @@ export default function TeacherAttendancePage() {
                   return (
                     <div
                       key={student.id}
+                      className="teacher-attendance-student-card"
                       style={{
                         ...styles.studentRow,
                         border:
@@ -702,8 +712,7 @@ export default function TeacherAttendancePage() {
 
                       <div style={styles.avatar}>
                         {(
-                          student.student_name ||
-                          student.student_username
+                          displayStudentName(student) || student.student_username
                         )
                           .charAt(0)
                           .toUpperCase()}
@@ -715,8 +724,7 @@ export default function TeacherAttendancePage() {
                             styles.studentName
                           }
                         >
-                          {student.student_name ||
-                            "Student"}
+                          {displayStudentName(student)}
                         </h3>
 
                         <p
@@ -943,8 +951,7 @@ export default function TeacherAttendancePage() {
                                 styles.historyName
                               }
                             >
-                              {student?.student_name ||
-                                "Unknown Student"}
+                              {displayStudentName(student)}
                             </strong>
                           </td>
 
@@ -1234,7 +1241,7 @@ const styles: {
   actionSubtitle: {
     margin: "7px 0 0",
     color: "#475569",
-    fontSize: "13px",
+    fontSize: "11px",
     fontWeight: "600",
   },
 
@@ -1251,7 +1258,7 @@ const styles: {
     background: "#15803d",
     color: "#ffffff",
     fontWeight: "900",
-    fontSize: "13px",
+    fontSize: "11px",
     cursor: "pointer",
   },
 
@@ -1262,7 +1269,7 @@ const styles: {
     background: "#b91c1c",
     color: "#ffffff",
     fontWeight: "900",
-    fontSize: "13px",
+    fontSize: "11px",
     cursor: "pointer",
   },
 
@@ -1273,7 +1280,7 @@ const styles: {
     background: "#ffffff",
     color: "#991b1b",
     fontWeight: "900",
-    fontSize: "13px",
+    fontSize: "11px",
     cursor: "pointer",
   },
 
@@ -1322,7 +1329,7 @@ const styles: {
     padding: "9px 14px",
     borderRadius: "999px",
     fontWeight: "900",
-    fontSize: "13px",
+    fontSize: "11px",
   },
 
   studentList: {
@@ -1335,10 +1342,10 @@ const styles: {
   studentRow: {
     width: "100%",
     borderRadius: "12px",
-    padding: "10px 12px",
+    padding: "8px 9px",
     display: "flex",
     alignItems: "center",
-    gap: "8px",
+    gap: "6px",
     boxSizing: "border-box",
     boxShadow:
       "0 4px 12px rgba(15,23,42,0.06)",
@@ -1350,13 +1357,13 @@ const styles: {
     textAlign: "center",
     color: "#0f172a",
     fontWeight: "900",
-    fontSize: "16px",
+    fontSize: "14px",
   },
 
   avatar: {
-    width: "54px",
-    height: "54px",
-    minWidth: "54px",
+    width: "38px",
+    height: "38px",
+    minWidth: "38px",
     borderRadius: "50%",
     background:
       "linear-gradient(135deg,#1d4ed8,#4f46e5)",
@@ -1377,14 +1384,14 @@ const styles: {
   studentName: {
     margin: 0,
     color: "#020617",
-    fontSize: "16px",
+    fontSize: "14px",
     fontWeight: "900",
   },
 
   username: {
-    margin: "5px 0 0",
+    margin: "3px 0 0",
     color: "#334155",
-    fontSize: "13px",
+    fontSize: "11px",
     fontWeight: "600",
   },
 
@@ -1434,18 +1441,18 @@ const styles: {
   },
 
   presentButton: {
-    padding: "10px 14px",
+    padding: "6px 8px",
     borderRadius: "9px",
     fontWeight: "900",
-    fontSize: "13px",
+    fontSize: "11px",
     cursor: "pointer",
   },
 
   absentButton: {
-    padding: "10px 14px",
+    padding: "6px 8px",
     borderRadius: "9px",
     fontWeight: "900",
-    fontSize: "13px",
+    fontSize: "11px",
     cursor: "pointer",
   },
 
@@ -1498,7 +1505,7 @@ const styles: {
     background: "#dbeafe",
     color: "#172554",
     borderBottom: "2px solid #93c5fd",
-    fontSize: "13px",
+    fontSize: "11px",
     fontWeight: "900",
   },
 
@@ -1506,7 +1513,7 @@ const styles: {
     padding: "14px",
     borderBottom: "1px solid #cbd5e1",
     color: "#0f172a",
-    fontSize: "13px",
+    fontSize: "11px",
     fontWeight: "600",
   },
 
@@ -1567,10 +1574,18 @@ const styles: {
     textAlign: "center",
     color: "#334155",
     padding: "25px",
-    fontSize: "13px",
+    fontSize: "11px",
     fontWeight: "600",
   },
 };
+
+
+
+
+
+
+
+
 
 
 

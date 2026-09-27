@@ -481,7 +481,7 @@ export default function TeacherHomeworkPage() {
   }
 
   return (
-    <main style={styles.page}>
+    <main className="racer-module-page racer-homework-page" style={styles.page}>
       <div style={styles.container}>
 
         <header style={styles.header}>
