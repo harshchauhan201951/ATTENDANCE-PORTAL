@@ -1703,7 +1703,7 @@ export default function TeacherReportsPage() {
   }
 
   return (
-    <main className="racer-module-page racer-reports-page" style={styles.page}>
+    <main style={styles.page}>
       <div style={styles.container}>
         <header style={styles.header}>
           <div>

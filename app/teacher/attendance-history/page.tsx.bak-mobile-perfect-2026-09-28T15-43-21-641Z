@@ -293,55 +293,6 @@ export default function AttendanceHistoryPage() {
 
   return (
     <main className="racer-module-page racer-attendance-history-page" style={styles.page}>
-<style>{`@media (max-width:640px){
-  .racer-attendance-history-page{padding:0 0 88px!important;background:#f5f9ff!important;min-height:100vh!important;color:#142b57!important;overflow-x:hidden!important}
-  .racer-attendance-history-page>div{width:100%!important;max-width:none!important;padding:0 16px 24px!important;box-sizing:border-box!important}
-  .racer-attendance-history-page .header{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;padding:18px 0 12px!important;margin:0!important}
-  .racer-attendance-history-page .header>div:first-child{min-width:0!important}
-  .racer-attendance-history-page .badge{display:none!important}
-  .racer-attendance-history-page .title{font-size:28px!important;line-height:1.05!important;margin:0!important;font-weight:900!important;color:#172d5f!important;letter-spacing:-.5px!important}
-  .racer-attendance-history-page .subtitle{font-size:13px!important;line-height:1.4!important;margin:8px 0 0!important;color:#61749a!important}
-  .racer-attendance-history-page .backButton{flex:0 0 auto!important;padding:10px 14px!important;border-radius:12px!important;font-size:12px!important;font-weight:900!important}
-  .racer-attendance-history-page .filterCard{margin:10px 0!important;padding:14px!important;border-radius:18px!important;background:#fff!important;border:1px solid #e2eaf6!important;box-shadow:0 8px 24px rgba(25,58,112,.07)!important}
-  .racer-attendance-history-page .filterGrid{display:grid!important;grid-template-columns:1fr!important;gap:10px!important}
-  .racer-attendance-history-page .clearButtonWrapper{display:block!important}
-  .racer-attendance-history-page .statsGrid{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:8px!important;margin:10px 0!important}
-  .racer-attendance-history-page .statCard{padding:10px 8px!important;border-radius:16px!important;min-width:0!important}
-  .racer-attendance-history-page .statIcon{width:28px!important;height:28px!important}
-  .racer-attendance-history-page .statLabel{font-size:10px!important}
-  .racer-attendance-history-page .statValue{font-size:20px!important}
-  .racer-attendance-history-page .statText{font-size:8px!important;line-height:1.2!important}
-  .racer-attendance-history-page .mobile-history-card{margin-top:12px!important;padding:14px!important;border-radius:20px!important;background:#fff!important;border:1px solid #dfe8f5!important;box-shadow:0 10px 26px rgba(25,58,112,.08)!important}
-  .racer-attendance-history-page .historyHeader{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;margin-bottom:12px!important}
-  .racer-attendance-history-page .historyTitle{font-size:19px!important;line-height:1.1!important;margin:0!important;color:#193566!important}
-  .racer-attendance-history-page .historySubtitle{font-size:10px!important;line-height:1.35!important;margin:5px 0 0!important;color:#6b7b98!important}
-  .racer-attendance-history-page .refreshButton{padding:10px 14px!important;border-radius:12px!important;background:#2563eb!important;color:#fff!important;font-size:12px!important;font-weight:900!important;box-shadow:none!important}
-  .racer-attendance-history-page .tableWrapper{overflow:visible!important;width:100%!important}
-  .racer-attendance-history-page .mobile-history-table{display:block!important;width:100%!important;min-width:0!important;border:0!important;background:transparent!important}
-  .racer-attendance-history-page .mobile-history-table thead{display:none!important}
-  .racer-attendance-history-page .mobile-history-table tbody{display:grid!important;gap:10px!important;width:100%!important}
-  .racer-attendance-history-page .mobile-history-table tbody tr{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;grid-template-areas:"student date" "user status" "action action"!important;gap:7px 10px!important;padding:13px!important;margin:0!important;border:1px solid #dce7f5!important;border-radius:17px!important;background:#fff!important;box-shadow:0 5px 16px rgba(31,65,120,.06)!important}
-  .racer-attendance-history-page .mobile-history-table tbody td{display:block!important;width:auto!important;padding:0!important;margin:0!important;border:0!important;min-width:0!important;background:transparent!important;white-space:normal!important;overflow:visible!important;word-break:normal!important;overflow-wrap:anywhere!important}
-  .racer-attendance-history-page .mobile-history-table tbody td:nth-child(1){display:none!important}
-  .racer-attendance-history-page .mobile-history-table tbody td:nth-child(2){grid-area:student!important}
-  .racer-attendance-history-page .mobile-history-table tbody td:nth-child(3){grid-area:user!important}
-  .racer-attendance-history-page .mobile-history-table tbody td:nth-child(4){grid-area:date!important;text-align:right!important;font-size:10px!important;color:#64748b!important;font-weight:800!important;white-space:nowrap!important}
-  .racer-attendance-history-page .mobile-history-table tbody td:nth-child(5){grid-area:status!important;text-align:right!important}
-  .racer-attendance-history-page .mobile-history-table tbody td:nth-child(6){grid-area:action!important;text-align:right!important}
-  .racer-attendance-history-page .studentCell{display:flex!important;align-items:center!important;gap:9px!important;min-width:0!important}
-  .racer-attendance-history-page .studentAvatar{width:34px!important;height:34px!important;min-width:34px!important;border-radius:50%!important;background:#dbeafe!important;color:#2563eb!important;display:grid!important;place-items:center!important;font-weight:900!important;font-size:13px!important}
-  .racer-attendance-history-page .studentName{font-size:14px!important;line-height:1.15!important;color:#142b57!important;white-space:normal!important;overflow-wrap:break-word!important;word-break:normal!important}
-  .racer-attendance-history-page .username{font-size:10px!important;color:#6b7b98!important;font-weight:800!important}
-  .racer-attendance-history-page .presentBadge,.racer-attendance-history-page .absentBadge{display:inline-block!important;padding:6px 10px!important;border-radius:999px!important;font-size:10px!important;font-weight:900!important;white-space:nowrap!important}
-  .racer-attendance-history-page .mobile-delete-button{width:100%!important;padding:9px 12px!important;border-radius:10px!important;font-size:11px!important;font-weight:900!important}
-  .racer-attendance-history-page .deleteInfoCard{margin-top:12px!important;padding:14px!important;border-radius:16px!important;gap:10px!important}
-  .racer-attendance-history-page .deleteInfoTitle{font-size:14px!important}
-  .racer-attendance-history-page .deleteInfoText{font-size:10px!important;line-height:1.45!important}
-  .racer-attendance-history-page .deleteWarning{font-size:9px!important}
-  .racer-attendance-history-page .footer{display:none!important}
-  }
-  @media (min-width:641px){.racer-attendance-history-page .mobile-history-table{display:table!important}}
-`}</style>
       <div style={styles.container}>
 
         {/* HEADER */}

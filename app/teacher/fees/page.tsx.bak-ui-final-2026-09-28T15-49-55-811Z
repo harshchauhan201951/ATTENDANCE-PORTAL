@@ -2070,7 +2070,7 @@ onclick="window.print()"
   }
 
   return (
-    <main className="racer-module-page racer-fees-page"
+    <main
       style={styles.page}
     >
 <style>{`@media (max-width:640px){

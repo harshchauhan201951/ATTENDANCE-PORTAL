@@ -453,7 +453,7 @@ export default function TeacherAttendancePage() {
   }
 
   return (
-    <main className="racer-module-page racer-attendance-page" style={styles.page}>
+    <main style={styles.page}>
       <div style={styles.container}>
         <header style={styles.header}>
           <div style={styles.headerLeft}>
@@ -497,7 +497,7 @@ export default function TeacherAttendancePage() {
           </div>
         )}
 
-        <section className="racer-attendance-stats" style={styles.statsGrid}>
+        <section style={styles.statsGrid}>
           <Stat
             icon=""
             title="Total Students"
@@ -527,7 +527,7 @@ export default function TeacherAttendancePage() {
           />
         </section>
 
-        <section className="racer-attendance-controls" style={styles.controlCard}>
+        <section style={styles.controlCard}>
           <div style={styles.controlBox}>
             <label style={styles.label}>
                Attendance Date
@@ -562,7 +562,7 @@ export default function TeacherAttendancePage() {
 
         {/* BULK ACTIONS */}
 
-        <section className="racer-attendance-actions-card" style={styles.actionCard}>
+        <section style={styles.actionCard}>
           <div>
             <h2 style={styles.actionTitle}>
                Quick Attendance Actions
@@ -631,7 +631,7 @@ export default function TeacherAttendancePage() {
           </div>
         </section>
 
-        <section className="racer-attendance-card" style={styles.card}>
+        <section style={styles.card}>
           <div style={styles.sectionHeader}>
             <div>
               <h2 style={styles.sectionTitle}>
@@ -666,7 +666,7 @@ export default function TeacherAttendancePage() {
               </p>
             </div>
           ) : (
-            <div className="racer-attendance-student-list" style={styles.studentList}>
+            <div style={styles.studentList}>
               {filteredStudents.map(
                 (student, index) => {
                   const status =
@@ -680,7 +680,6 @@ export default function TeacherAttendancePage() {
                   return (
                     <div
                       key={student.id}
-                      className="racer-attendance-student-row"
                       style={{
                         ...styles.studentRow,
                         border:
@@ -897,7 +896,7 @@ export default function TeacherAttendancePage() {
               </p>
             </div>
           ) : (
-            <div className="racer-attendance-history-table" style={styles.tableWrapper}>
+            <div style={styles.tableWrapper}>
               <table style={styles.table}>
                 <thead>
                   <tr>
@@ -979,7 +978,7 @@ export default function TeacherAttendancePage() {
           )}
         </section>
 
-        <footer className="racer-attendance-footer" style={styles.footer}>
+        <footer style={styles.footer}>
           <strong>Attendance Portal</strong> 
           Teacher Management Center  2026
         </footer>
