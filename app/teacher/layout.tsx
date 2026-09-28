@@ -8,8 +8,8 @@ import RacerPageActions from "../../components/RacerPageActions";
 
 const items = [
   { href: "/teacher/dashboard", label: "Home", icon: "\u2302" },
-  { href: "/teacher/attendance", label: "Attendance", icon: "\u2713" },
-  { href: "/teacher/students", label: "Students", icon: "\u2699" },
+  { href: "/teacher/dashboard", label: "Modules", icon: "\u25A6" },
+  { href: "/teacher/announcements", label: "Notifications", icon: "\u2667" },
   { href: "/teacher/profile", label: "Profile", icon: "\u25C9" },
 ];
 
