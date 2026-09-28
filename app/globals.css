@@ -1736,3 +1736,733 @@ button {
 @media (max-width:820px){.racer-dashboard-v2-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.racer-dashboard-v2-welcome h1{font-size:23px}.racer-dashboard-v2-header{border-radius:15px}.racer-reference-desktop-dashboard{padding-top:10px;}}
 @media (max-width:640px){.racer-reference-desktop-dashboard{display:none!important;}}
 /* RACER DASHBOARD REFERENCE DESKTOP REPAIR — 2026-09-28 END */
+
+
+
+/* =========================================================
+   RACER ACADEMY TEACHER UI V3 â€” VISUAL LAYER ONLY
+   2026-09-28
+   Existing routes, APIs, Supabase queries, auth and business logic
+   are intentionally untouched.
+========================================================= */
+
+.racer-teacher-shell {
+  --ra-navy:#071b3d;
+  --ra-navy2:#123b7a;
+  --ra-blue:#2f6df6;
+  --ra-violet:#7657e8;
+  --ra-cyan:#28a9e8;
+  --ra-ink:#14213b;
+  --ra-muted:#72809a;
+  --ra-line:#dce7f5;
+  --ra-bg:#f4f8fd;
+  --ra-card:rgba(255,255,255,.97);
+  background:
+    radial-gradient(circle at 9% 2%, rgba(47,109,246,.10), transparent 24%),
+    radial-gradient(circle at 92% 5%, rgba(118,87,232,.10), transparent 23%),
+    linear-gradient(145deg,#f9fbff 0%,#edf4fc 58%,#f7f3ff 100%);
+  color:var(--ra-ink);
+}
+
+/* Desktop shell */
+.racer-teacher-shell .racer-portal-content {
+  min-height:100dvh;
+  background:transparent;
+  padding-bottom:88px;
+}
+
+/* Mobile app bar */
+.racer-teacher-shell .racer-mobile-appbar {
+  min-height:64px;
+  padding:9px 13px;
+  background:
+    radial-gradient(circle at 78% -20%, rgba(255,255,255,.18), transparent 26%),
+    linear-gradient(105deg,var(--ra-navy) 0%,var(--ra-navy2) 65%,#5f4acb 100%);
+  box-shadow:0 10px 28px rgba(8,28,66,.17);
+  border-bottom:1px solid rgba(255,255,255,.10);
+}
+.racer-teacher-shell .racer-appbar-logo {
+  width:40px !important;
+  height:40px !important;
+  flex:0 0 40px;
+  border-radius:14px !important;
+  color:#245bd2 !important;
+  background:linear-gradient(145deg,#fff,#dbeaff) !important;
+  box-shadow:0 7px 20px rgba(0,0,0,.18);
+}
+.racer-teacher-shell .racer-appbar-brand strong { font-size:13px; }
+.racer-teacher-shell .racer-appbar-brand small {
+  font-size:8px;
+  letter-spacing:1.05px;
+  opacity:.74;
+}
+.racer-teacher-shell .racer-appbar-action {
+  width:38px;
+  height:38px;
+  border-radius:13px;
+  background:rgba(255,255,255,.11);
+  border:1px solid rgba(255,255,255,.11);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.09);
+}
+
+/* Bottom navigation */
+.racer-teacher-shell .racer-bottom-nav {
+  height:72px;
+  background:rgba(255,255,255,.97);
+  border-top:1px solid #dce6f2;
+  box-shadow:0 -10px 28px rgba(26,57,95,.09);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.racer-teacher-shell .racer-bottom-nav-item {
+  color:#7a879c;
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.05px;
+}
+.racer-teacher-shell .racer-bottom-nav-icon {
+  width:32px;
+  height:30px;
+  border-radius:11px;
+  font-size:17px;
+}
+.racer-teacher-shell .racer-bottom-nav-item.active { color:#285fcf; }
+.racer-teacher-shell .racer-bottom-nav-item.active .racer-bottom-nav-icon {
+  color:#285fcf;
+  background:#e9f1ff;
+  box-shadow:0 4px 12px rgba(47,109,246,.11);
+}
+
+/* Dashboard */
+.racer-teacher-dashboard {
+  min-height:100dvh;
+  padding:18px 18px 96px !important;
+  background:transparent !important;
+}
+.racer-teacher-inner {
+  width:min(1220px,100%);
+  max-width:1220px !important;
+  margin:0 auto;
+}
+.racer-teacher-header {
+  min-height:82px !important;
+  margin:0 0 16px !important;
+  padding:15px 18px !important;
+  border-radius:24px;
+  background:
+    radial-gradient(circle at 88% 0%, rgba(255,255,255,.18), transparent 23%),
+    linear-gradient(110deg,var(--ra-navy) 0%,#154b9c 57%,#6a4fd3 100%) !important;
+  box-shadow:0 20px 45px rgba(10,43,97,.19);
+  border:1px solid rgba(255,255,255,.12);
+}
+.racer-teacher-logo {
+  width:52px !important;
+  height:52px !important;
+  flex:0 0 52px !important;
+  border-radius:17px !important;
+  background:linear-gradient(145deg,#fff,#dbeaff) !important;
+  color:#245bd2 !important;
+  box-shadow:0 10px 25px rgba(0,0,0,.17);
+}
+.racer-teacher-kicker {
+  font-size:9px !important;
+  letter-spacing:1.7px !important;
+  opacity:.74;
+}
+.racer-teacher-header h1 {
+  margin-top:3px !important;
+  font-size:24px !important;
+  letter-spacing:-.45px;
+}
+.racer-teacher-header p {
+  font-size:11px !important;
+  color:rgba(255,255,255,.76);
+}
+.racer-teacher-header-actions {
+  gap:8px !important;
+}
+.racer-teacher-header-actions span {
+  color:#17305d !important;
+  background:rgba(255,255,255,.96) !important;
+  border-color:rgba(255,255,255,.34) !important;
+  box-shadow:0 7px 18px rgba(2,17,44,.11) !important;
+}
+.racer-teacher-header-actions button {
+  min-height:38px;
+}
+.racer-teacher-logout {
+  padding:10px 14px !important;
+  border-radius:12px !important;
+  background:#fff !important;
+  color:#235ed0 !important;
+  font-size:10px !important;
+  box-shadow:0 7px 18px rgba(2,17,44,.10);
+}
+
+/* Dashboard heading */
+.racer-teacher-title {
+  margin:18px 3px 13px !important;
+  padding:0 2px;
+}
+.racer-teacher-title span {
+  color:#6e7e98 !important;
+  font-size:9px !important;
+  letter-spacing:1.8px !important;
+}
+.racer-teacher-title h2 {
+  font-size:26px !important;
+  letter-spacing:-.65px;
+  color:#10234a;
+}
+.racer-teacher-title strong {
+  padding:8px 11px !important;
+  border-radius:12px !important;
+  background:#eaf2ff !important;
+  color:#275fcf !important;
+  border:1px solid #d4e3fb;
+  font-size:9px !important;
+}
+
+/* 17 module cards */
+.racer-teacher-grid {
+  grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+  gap:13px !important;
+}
+.racer-teacher-module {
+  min-height:150px !important;
+  padding:18px 13px 15px !important;
+  border-radius:20px !important;
+  border:1px solid #dce7f4 !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.99),rgba(248,251,255,.96)) !important;
+  box-shadow:
+    0 10px 26px rgba(28,60,106,.07),
+    inset 0 1px 0 rgba(255,255,255,.9);
+  text-align:left !important;
+}
+.racer-teacher-module:hover {
+  transform:translateY(-3px);
+  border-color:#cbdcf3 !important;
+  box-shadow:
+    0 17px 32px rgba(28,60,106,.11),
+    inset 0 1px 0 #fff;
+}
+.racer-teacher-module-icon {
+  width:48px !important;
+  height:48px !important;
+  margin:0 0 17px !important;
+  border-radius:16px !important;
+  background:linear-gradient(145deg,#edf5ff,#e8e9ff) !important;
+  color:#2f63cb !important;
+  font-size:21px !important;
+  box-shadow:0 8px 18px rgba(47,109,246,.09);
+}
+.racer-teacher-module-title {
+  font-size:12px !important;
+  line-height:1.25 !important;
+  color:#14213b !important;
+}
+.racer-teacher-module-number {
+  top:11px !important;
+  right:12px !important;
+  color:#9aa9bf !important;
+  font-size:8px !important;
+}
+.racer-teacher-info {
+  margin-top:15px !important;
+  padding:14px !important;
+  border-radius:18px !important;
+  border:1px solid #dce7f4 !important;
+  box-shadow:0 8px 22px rgba(28,60,106,.055);
+}
+.racer-teacher-info-icon {
+  width:31px !important;
+  height:31px !important;
+  flex:0 0 31px !important;
+  background:#eaf2ff !important;
+  color:#2c62cb !important;
+}
+.racer-teacher-info strong { font-size:11px !important; }
+.racer-teacher-info p { font-size:9px !important; }
+
+/* All teacher pages: unified card surface and typography */
+.racer-teacher-shell main:not(.racer-teacher-dashboard) {
+  color:var(--ra-ink);
+  background:transparent;
+}
+.racer-teacher-shell main:not(.racer-teacher-dashboard) > div {
+  max-width:1220px;
+}
+.racer-teacher-shell main h1,
+.racer-teacher-shell main h2 {
+  color:#10234a;
+  letter-spacing:-.45px;
+}
+.racer-teacher-shell main p {
+  color:#71809a;
+}
+.racer-teacher-shell main section {
+  border-color:var(--ra-line) !important;
+}
+.racer-teacher-shell main button {
+  border-radius:12px;
+  transition:transform .15s ease,box-shadow .15s ease,background .15s ease;
+}
+.racer-teacher-shell main button:hover:not(:disabled) {
+  transform:translateY(-1px);
+}
+.racer-teacher-shell main input,
+.racer-teacher-shell main select,
+.racer-teacher-shell main textarea {
+  border-radius:13px !important;
+  border-color:#d7e3f1 !important;
+  background:rgba(255,255,255,.98) !important;
+  color:#17213a !important;
+  box-shadow:0 3px 12px rgba(25,53,91,.035);
+  outline:none;
+}
+.racer-teacher-shell main input:focus,
+.racer-teacher-shell main select:focus,
+.racer-teacher-shell main textarea:focus {
+  border-color:#7aa5f9 !important;
+  box-shadow:0 0 0 4px rgba(47,109,246,.09) !important;
+}
+.racer-teacher-shell main table {
+  width:100%;
+  border-collapse:separate;
+  border-spacing:0;
+  overflow:hidden;
+  border-radius:18px;
+  border:1px solid #dce7f4;
+  background:#fff;
+}
+.racer-teacher-shell main thead th {
+  background:#f3f7fd !important;
+  color:#5d708d !important;
+  font-size:11px;
+  font-weight:850;
+  letter-spacing:.3px;
+}
+.racer-teacher-shell main tbody tr {
+  border-color:#edf2f8 !important;
+}
+.racer-teacher-shell main tbody tr:hover {
+  background:#f8fbff;
+}
+.racer-teacher-shell main th,
+.racer-teacher-shell main td {
+  border-color:#e8eef6 !important;
+}
+
+/* Generic rounded surfaces used throughout existing modules */
+.racer-teacher-shell main .bg-white {
+  background:rgba(255,255,255,.98) !important;
+}
+.racer-teacher-shell main .bg-slate-50,
+.racer-teacher-shell main .bg-slate-100 {
+  background:#f5f8fd !important;
+}
+.racer-teacher-shell main .border-slate-200,
+.racer-teacher-shell main .border-slate-300 {
+  border-color:#dce7f4 !important;
+}
+.racer-teacher-shell main .text-slate-900,
+.racer-teacher-shell main .text-slate-800,
+.racer-teacher-shell main .text-slate-700 {
+  color:#182644 !important;
+}
+.racer-teacher-shell main .text-slate-500,
+.racer-teacher-shell main .text-slate-400 {
+  color:#71809a !important;
+}
+
+/* Responsive tablet */
+@media (max-width: 900px) {
+  .racer-teacher-dashboard {
+    padding:14px 12px 92px !important;
+  }
+  .racer-teacher-header {
+    border-radius:20px;
+  }
+  .racer-teacher-grid {
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  }
+}
+
+/* Responsive mobile: app-like, readable, no horizontal overflow */
+@media (max-width: 600px) {
+  .racer-teacher-shell {
+    overflow-x:hidden;
+  }
+  .racer-teacher-shell .racer-portal-content {
+    padding-bottom:92px;
+  }
+  .racer-teacher-shell .racer-mobile-appbar {
+    position:fixed !important;
+    top:0 !important;
+    left:0 !important;
+    right:0 !important;
+  }
+  .racer-teacher-shell main:not(.racer-teacher-dashboard) {
+    padding-top:4px;
+  }
+  .racer-teacher-dashboard {
+    padding:77px 11px 94px !important;
+  }
+  .racer-teacher-header {
+    min-height:76px !important;
+    padding:12px 13px !important;
+    margin:0 0 12px !important;
+    border-radius:20px;
+  }
+  .racer-teacher-logo {
+    width:44px !important;
+    height:44px !important;
+    flex-basis:44px !important;
+    border-radius:14px !important;
+  }
+  .racer-teacher-header h1 {
+    font-size:18px !important;
+  }
+  .racer-teacher-header p {
+    font-size:9px !important;
+  }
+  .racer-teacher-header-actions span {
+    display:none;
+  }
+  .racer-teacher-header-actions {
+    gap:6px !important;
+  }
+  .racer-teacher-title {
+    margin:13px 1px 10px !important;
+  }
+  .racer-teacher-title h2 {
+    font-size:21px !important;
+  }
+  .racer-teacher-title strong {
+    padding:7px 9px !important;
+    font-size:8px !important;
+  }
+  .racer-teacher-grid {
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:9px !important;
+  }
+  .racer-teacher-module {
+    min-height:126px !important;
+    padding:13px 11px 12px !important;
+    border-radius:16px !important;
+  }
+  .racer-teacher-module-icon {
+    width:40px !important;
+    height:40px !important;
+    border-radius:13px !important;
+    margin-bottom:13px !important;
+    font-size:18px !important;
+  }
+  .racer-teacher-module-title {
+    font-size:10.5px !important;
+  }
+  .racer-teacher-module-number {
+    top:8px !important;
+    right:9px !important;
+    font-size:7px !important;
+  }
+  .racer-teacher-info {
+    border-radius:16px !important;
+    margin-top:11px !important;
+  }
+  .racer-teacher-shell main:not(.racer-teacher-dashboard) > div {
+    width:100%;
+    max-width:none !important;
+    padding-left:12px !important;
+    padding-right:12px !important;
+  }
+  .racer-teacher-shell main:not(.racer-teacher-dashboard) section {
+    border-radius:18px !important;
+  }
+  .racer-teacher-shell main table {
+    display:block;
+    overflow-x:auto;
+    white-space:nowrap;
+    -webkit-overflow-scrolling:touch;
+  }
+  .racer-teacher-shell main button,
+  .racer-teacher-shell main input,
+  .racer-teacher-shell main select,
+  .racer-teacher-shell main textarea {
+    font-size:14px;
+  }
+}
+
+/* Very small phones */
+@media (max-width: 380px) {
+  .racer-teacher-dashboard {
+    padding-left:8px !important;
+    padding-right:8px !important;
+  }
+  .racer-teacher-grid {
+    gap:7px !important;
+  }
+  .racer-teacher-module {
+    min-height:116px !important;
+    padding:11px 9px 10px !important;
+  }
+  .racer-teacher-module-icon {
+    width:36px !important;
+    height:36px !important;
+    border-radius:11px !important;
+    font-size:16px !important;
+    margin-bottom:11px !important;
+  }
+  .racer-teacher-module-title {
+    font-size:10px !important;
+  }
+}
+
+
+/* RACER-TEACHER-UI-V4 */
+/* Shared visual system for the existing Teacher pages. UI only; no routes, APIs, data or auth changes. */
+.racer-teacher-shell {
+  --teacher-navy: #081b3d;
+  --teacher-blue: #0e63f4;
+  --teacher-purple: #7357df;
+  --teacher-cyan: #17a4d8;
+  --teacher-ink: #14233d;
+  --teacher-muted: #6e7d95;
+  --teacher-line: #dce7f4;
+  --teacher-card: #ffffff;
+  --teacher-bg: #f5f8fd;
+}
+
+.racer-teacher-shell .teacher-content {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(14,99,244,.07), transparent 28%),
+    radial-gradient(circle at 94% 6%, rgba(115,87,223,.08), transparent 26%),
+    var(--teacher-bg);
+}
+
+/* Dashboard: premium command-center presentation. */
+.teacher-home-page {
+  background: transparent;
+}
+.teacher-dashboard-hero {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(112deg, #071a3a 0%, #123f8f 56%, #6647d6 100%) !important;
+  box-shadow: 0 18px 42px rgba(19,55,118,.18) !important;
+}
+.teacher-dashboard-hero::after {
+  content: "";
+  position: absolute;
+  width: 210px;
+  height: 210px;
+  right: -54px;
+  top: -92px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.09);
+  filter: blur(1px);
+  pointer-events: none;
+}
+.teacher-dashboard-hero-left,
+.teacher-dashboard-actions { position: relative; z-index: 1; }
+.teacher-dashboard-avatar {
+  background: linear-gradient(145deg, rgba(255,255,255,.18), rgba(255,255,255,.07)) !important;
+  border-color: rgba(255,255,255,.25) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18);
+}
+.teacher-dashboard-grid {
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 11px;
+}
+.teacher-module-card {
+  background: rgba(255,255,255,.96) !important;
+  border: 1px solid #dbe6f3 !important;
+  box-shadow: 0 10px 24px rgba(26,57,104,.07), inset 0 1px 0 rgba(255,255,255,.95) !important;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.teacher-module-card:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 18px 34px rgba(25,61,116,.13) !important;
+  border-color: #bfd3ee !important;
+}
+.teacher-module-icon {
+  box-shadow: 0 7px 16px rgba(46,94,168,.10);
+}
+.teacher-module-title { color: #122849 !important; }
+.teacher-module-description { color: #73819a !important; }
+.teacher-module-arrow { color: #2c67ca !important; background: #f1f6fd !important; }
+
+/* All existing Teacher module pages: consistent cards, headings, controls and data surfaces. */
+.racer-teacher-shell .page-container,
+.racer-teacher-shell .profile-shell,
+.racer-teacher-shell .students-management-container {
+  width: min(1220px, calc(100% - 24px));
+  margin: 0 auto;
+}
+.racer-teacher-shell .page-header,
+.racer-teacher-shell .top-header,
+.racer-teacher-shell .header,
+.racer-teacher-shell .topbar {
+  border-radius: 20px;
+  border: 1px solid var(--teacher-line);
+  background: rgba(255,255,255,.94);
+  box-shadow: 0 12px 28px rgba(19,54,102,.06);
+}
+.racer-teacher-shell .card,
+.racer-teacher-shell .stats-grid > *,
+.racer-teacher-shell .summary-grid > *,
+.racer-teacher-shell .controls-card,
+.racer-teacher-shell .control-card,
+.racer-teacher-shell .create-card,
+.racer-teacher-shell .attendance-card,
+.racer-teacher-shell .desktop-table-card,
+.racer-teacher-shell .table-card,
+.racer-teacher-shell .main-card,
+.racer-teacher-shell .student-preview {
+  border: 1px solid var(--teacher-line) !important;
+  border-radius: 20px !important;
+  background: rgba(255,255,255,.97) !important;
+  box-shadow: 0 12px 28px rgba(19,54,102,.055) !important;
+}
+.racer-teacher-shell .section-heading,
+.racer-teacher-shell .card-heading {
+  color: var(--teacher-ink);
+}
+.racer-teacher-shell button,
+.racer-teacher-shell a[class*="button"],
+.racer-teacher-shell .back-button,
+.racer-teacher-shell .refresh-button,
+.racer-teacher-shell .export-button,
+.racer-teacher-shell .new-class-button,
+.racer-teacher-shell .primary-button,
+.racer-teacher-shell .save-button,
+.racer-teacher-shell .edit-button {
+  min-height: 40px;
+  border-radius: 12px !important;
+}
+.racer-teacher-shell input,
+.racer-teacher-shell select,
+.racer-teacher-shell textarea {
+  min-height: 42px;
+  border-radius: 12px !important;
+}
+.racer-teacher-shell table {
+  overflow: hidden;
+}
+.racer-teacher-shell th {
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  font-size: .72rem;
+}
+.racer-teacher-shell td,
+.racer-teacher-shell th {
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+.racer-teacher-shell .student-avatar,
+.racer-teacher-shell .hero-avatar,
+.racer-teacher-shell .large-avatar {
+  box-shadow: 0 8px 18px rgba(36,86,150,.11);
+}
+
+/* Timetable + Voice: same light product language as the rest of the portal. */
+.teacher-timetable-page,
+.teacher-voice-page {
+  background:
+    radial-gradient(circle at 7% 5%, rgba(14,99,244,.08), transparent 27%),
+    radial-gradient(circle at 92% 5%, rgba(115,87,223,.09), transparent 27%),
+    #f5f8fd !important;
+  color: var(--teacher-ink) !important;
+}
+.teacher-timetable-page .rounded-3xl,
+.teacher-voice-page .rounded-3xl {
+  border-color: var(--teacher-line) !important;
+  background: #fff !important;
+  box-shadow: 0 12px 30px rgba(19,54,102,.06) !important;
+}
+
+/* Mobile app behavior: no fixed dashboard width, no clipped controls, no accidental page zoom. */
+@media (max-width: 900px) {
+  .racer-teacher-shell .teacher-content {
+    padding: 10px 10px 88px !important;
+  }
+  .racer-teacher-shell .page-container,
+  .racer-teacher-shell .profile-shell,
+  .racer-teacher-shell .students-management-container {
+    width: 100%;
+  }
+  .teacher-dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .teacher-module-card {
+    min-height: 124px;
+  }
+  .racer-teacher-shell .content-grid,
+  .racer-teacher-shell .details-grid,
+  .racer-teacher-shell .profile-layout,
+  .racer-teacher-shell .summary-grid,
+  .racer-teacher-shell .stats-grid {
+    grid-template-columns: minmax(0,1fr) !important;
+  }
+  .racer-teacher-shell .table-scroll,
+  .racer-teacher-shell .overflow-x-auto {
+    width: 100%;
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+  .racer-teacher-shell .mobile-view {
+    display: block !important;
+  }
+  .racer-teacher-shell .desktop-view {
+    overflow-x: auto;
+  }
+  .racer-teacher-shell .header-actions,
+  .racer-teacher-shell .students-header-buttons,
+  .racer-teacher-shell .attendance-actions,
+  .racer-teacher-shell .actions {
+    flex-wrap: wrap;
+  }
+  .racer-teacher-shell .top-header,
+  .racer-teacher-shell .page-header,
+  .racer-teacher-shell .header,
+  .racer-teacher-shell .topbar {
+    border-radius: 16px;
+  }
+}
+
+@media (max-width: 520px) {
+  .racer-teacher-shell .teacher-content {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+  .teacher-dashboard-grid {
+    gap: 7px;
+  }
+  .teacher-module-card {
+    min-height: 116px;
+    padding: 10px 9px;
+    border-radius: 15px !important;
+  }
+  .racer-teacher-shell .card,
+  .racer-teacher-shell .stats-grid > *,
+  .racer-teacher-shell .summary-grid > *,
+  .racer-teacher-shell .controls-card,
+  .racer-teacher-shell .control-card,
+  .racer-teacher-shell .create-card,
+  .racer-teacher-shell .attendance-card,
+  .racer-teacher-shell .desktop-table-card,
+  .racer-teacher-shell .table-card,
+  .racer-teacher-shell .main-card,
+  .racer-teacher-shell .student-preview {
+    border-radius: 16px !important;
+  }
+  .racer-teacher-shell table {
+    font-size: .8rem;
+  }
+  .racer-teacher-shell td,
+  .racer-teacher-shell th {
+    padding: 9px 8px;
+  }
+}
