@@ -58,7 +58,6 @@ export default function TeacherDashboard() {
   ] as const;
 
   const iconClass = (index: number) => `racer-ref-icon racer-ref-icon-${index + 1}`;
-        const [mobileCategory, setMobileCategory] = useState<"all" | "academic" | "management">("all");
 
   return (
     <main className="racer-dashboard-v2 racer-reference-dashboard">
@@ -78,13 +77,14 @@ export default function TeacherDashboard() {
             </button>
           </header>
 
-          <div className="racer-reference-mobile-tabs">`r`n                  <button type="button" className={mobileCategory === "all" ? "active" : ""} onClick={() => setMobileCategory("all")}>All</button>
-                  <button type="button" className={mobileCategory === "academic" ? "active" : ""} onClick={() => setMobileCategory("academic")}>Academic</button>
-                  <button type="button" className={mobileCategory === "management" ? "active" : ""} onClick={() => setMobileCategory("management")}>Management</button>
-                </div>
+          <div className="racer-reference-mobile-tabs" aria-hidden="true">
+            <span className="active">All</span>
+            <span>Academic</span>
+            <span>Management</span>
+          </div>
 
           <section className="racer-reference-mobile-grid">
-            {menuItems.filter((item) => mobileCategory === "all" || item[3] === mobileCategory).slice(0, 16).map(([title, path, glyph], index) => (
+            {menuItems.slice(0, 16).map(([title, path, glyph], index) => (
               <button key={path} type="button" onClick={() => router.push(path)} className="racer-reference-module-card">
                 <span className={iconClass(index)}>{glyph}</span>
                 <span className="racer-reference-module-copy">
