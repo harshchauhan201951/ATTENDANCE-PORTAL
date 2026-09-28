@@ -8,8 +8,8 @@ import RacerPageActions from "../../components/RacerPageActions";
 
 const items = [
   { href: "/teacher/dashboard", label: "Home", icon: "\u2302" },
-  { href: "/teacher/dashboard", label: "Modules", icon: "\u25A6" },
-  { href: "/teacher/announcements", label: "Notifications", icon: "\u2667" },
+  { href: "/teacher/attendance", label: "Attendance", icon: "\u2713" },
+  { href: "/teacher/students", label: "Students", icon: "\u2699" },
   { href: "/teacher/profile", label: "Profile", icon: "\u25C9" },
 ];
 
@@ -41,7 +41,7 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
             </span>
           </Link>
           <Link href="/teacher/announcements" className="racer-appbar-action" aria-label="Announcements">
-            {String.fromCodePoint(0x1F514)}
+            â—
           </Link>
         </header>
       )}
@@ -53,7 +53,7 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
         />
       )}
 
-      <div className="racer-portal-content" style={{paddingTop:isDashboard ? "0px" : "72px"}}>{children}</div>
+      <div className={`racer-portal-content${isDashboard ? "" : " racer-module-page"}`} style={{paddingTop:isDashboard ? "0px" : "72px"}}>{children}</div>
 
       <nav className="racer-bottom-nav" aria-label="Teacher navigation">
         {items.map((item) => {
