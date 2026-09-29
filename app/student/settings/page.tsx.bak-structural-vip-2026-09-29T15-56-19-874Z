@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 
@@ -54,94 +53,6 @@ const emptyForm: FormData = {
   address: "",
 };
 
-
-type SettingsReferenceVipProps = { username: string; form: FormData; newPassword: string; confirmPassword: string; setNewPassword: (value: string) => void; setConfirmPassword: (value: string) => void; saving: boolean; changingPassword: boolean; message: string; error: string; updateField: (field: keyof FormData, value: string) => void; saveProfile: (event: any) => any; changePassword: (event: any) => any; logout: () => void; };
-
-function SettingsReferenceVip({
-  username,
-  form,
-  newPassword,
-  confirmPassword,
-  setNewPassword,
-  setConfirmPassword,
-  saving,
-  changingPassword,
-  message,
-  error,
-  updateField,
-  saveProfile,
-  changePassword,
-  logout,
-}: SettingsReferenceVipProps) {
-  const inputStyle: CSSProperties = { width: '100%', minHeight: 36, border: '1px solid #cddcf1', borderRadius: 10, background: '#fbfdff', color: '#1a376d', fontSize: 8, padding: '0 8px', boxSizing: 'border-box' };
-  const labelStyle = { display: 'block', fontSize: 7, color: '#66799d', fontWeight: 900, marginBottom: 4 };
-  const row = (label: string, value: string | null | undefined, locked: boolean) => <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '7px 0', borderBottom: '1px solid #edf1f7', fontSize: 8 }}><span style={{ color: '#7182a2' }}>{label}</span><strong style={{ color: '#19366f', textAlign: 'right' }}>{value || '—'}{locked ? ' 🔒' : ''}</strong></div>;
-
-  return (
-    <main style={{ minHeight: '100vh', padding: '8px 8px 96px', background: 'linear-gradient(180deg,#f5f9ff 0%,#edf4ff 100%)', boxSizing: 'border-box' }}>
-      <div style={{ width: '100%', maxWidth: 430, margin: '0 auto' }}>
-        <header style={{ background: 'linear-gradient(112deg,#3151db,#5a49e9)', color: '#fff', borderRadius: 20, padding: 15, margin: '2px 0 9px', boxShadow: '0 10px 24px rgba(49,74,211,.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <button type="button" onClick={() => window.history.back()} style={{ width: 34, height: 34, border: 0, borderRadius: 11, background: 'rgba(255,255,255,.14)', color: '#fff', fontSize: 22 }}>‹</button>
-          <div style={{ flex: 1, textAlign: 'center' }}><div style={{ fontSize: 7, letterSpacing: 1, opacity: .78, fontWeight: 900 }}>STUDENT</div><h1 style={{ margin: '3px 0', fontSize: 21 }}>Student Settings</h1><p style={{ margin: 0, fontSize: 8, opacity: .84 }}>Manage your profile and account settings</p></div>
-          <div style={{ width: 34, height: 34, borderRadius: 11, background: 'rgba(255,255,255,.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>⚙</div>
-        </header>
-
-        <section style={{ background: '#fff', border: '1px solid #dbe6f8', borderRadius: 17, padding: 11, marginBottom: 9, boxShadow: '0 5px 15px rgba(17,56,120,.05)', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 52, height: 52, borderRadius: '50%', background: '#edf2ff', color: '#3153d7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 900 }}>{(form.student_name || 'S').trim().charAt(0).toUpperCase()}</div>
-          <div style={{ minWidth: 0, flex: 1 }}><strong style={{ display: 'block', fontSize: 13, color: '#18326d', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{form.student_name || 'Student'}</strong><span style={{ display: 'block', fontSize: 8, color: '#7182a2', marginTop: 2 }}>{form.class_name || 'Class not available'}</span><span style={{ display: 'inline-block', marginTop: 5, padding: '4px 6px', borderRadius: 999, background: '#e6faef', color: '#0a9862', fontSize: 6, fontWeight: 900 }}>● Active</span></div>
-          <span style={{ fontSize: 8, color: '#6b7e9e', fontWeight: 800 }}>@{username || 'student'}</span>
-        </section>
-
-        {message && <div style={{ background: '#e8faf0', border: '1px solid #b9ecd0', color: '#087d51', borderRadius: 12, padding: 9, marginBottom: 9, fontSize: 8, fontWeight: 800 }}>{message}</div>}
-        {error && <div style={{ background: '#fff0f0', border: '1px solid #ffcaca', color: '#9e2424', borderRadius: 12, padding: 9, marginBottom: 9, fontSize: 8, fontWeight: 800 }}>{error}</div>}
-
-        <form onSubmit={saveProfile}>
-          <section style={{ background: '#fff', border: '1px solid #dbe7f8', borderRadius: 17, padding: 11, marginBottom: 9, boxShadow: '0 6px 18px rgba(18,61,125,.05)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9, paddingBottom: 8, borderBottom: '1px solid #eef2f7' }}><div style={{ width: 34, height: 34, borderRadius: 11, background: '#e6f0ff', color: '#1c62cf', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>●</div><div><strong style={{ display: 'block', fontSize: 12, color: '#18336d' }}>Personal Information</strong><span style={{ display: 'block', marginTop: 2, fontSize: 7, color: '#7586a4' }}>Your basic student details</span></div></div>
-            {row('Full Name', form.student_name, false)}
-            {row('Admission Date', form.admission_date, true)}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, paddingTop: 7 }}>
-              <div><label style={labelStyle}>Full Name</label><input style={inputStyle} value={form.student_name} onChange={(e) => updateField('student_name', e.target.value)} /></div>
-              <div><label style={labelStyle}>Date of Birth</label><input style={inputStyle} type="date" value={form.date_of_birth} onChange={(e) => updateField('date_of_birth', e.target.value)} /></div>
-              <div><label style={labelStyle}>Blood Group</label><input style={inputStyle} value={form.blood_group} onChange={(e) => updateField('blood_group', e.target.value)} /></div>
-              <div><label style={labelStyle}>Class</label><input style={inputStyle} value={form.class_name} onChange={(e) => updateField('class_name', e.target.value)} /></div>
-            </div>
-          </section>
-
-          <section style={{ background: '#fff', border: '1px solid #dbe7f8', borderRadius: 17, padding: 11, marginBottom: 9, boxShadow: '0 6px 18px rgba(18,61,125,.05)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9, paddingBottom: 8, borderBottom: '1px solid #eef2f7' }}><div style={{ width: 34, height: 34, borderRadius: 11, background: '#e9f8f3', color: '#138f7c', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>●</div><div><strong style={{ display: 'block', fontSize: 12, color: '#18336d' }}>Parent Details</strong><span style={{ display: 'block', marginTop: 2, fontSize: 7, color: '#7586a4' }}>Parent and guardian information</span></div></div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
-              <div><label style={labelStyle}>Father&apos;s Name</label><input style={inputStyle} value={form.father_name} onChange={(e) => updateField('father_name', e.target.value)} /></div>
-              <div><label style={labelStyle}>Mother&apos;s Name</label><input style={inputStyle} value={form.mother_name} onChange={(e) => updateField('mother_name', e.target.value)} /></div>
-              <div><label style={labelStyle}>Father&apos;s Phone</label><input style={inputStyle} value={form.father_phone} onChange={(e) => updateField('father_phone', e.target.value)} /></div>
-              <div><label style={labelStyle}>Mother&apos;s Phone</label><input style={inputStyle} value={form.mother_phone} onChange={(e) => updateField('mother_phone', e.target.value)} /></div>
-            </div>
-          </section>
-
-          <section style={{ background: '#fff', border: '1px solid #dbe7f8', borderRadius: 17, padding: 11, marginBottom: 9, boxShadow: '0 6px 18px rgba(18,61,125,.05)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9, paddingBottom: 8, borderBottom: '1px solid #eef2f7' }}><div style={{ width: 34, height: 34, borderRadius: 11, background: '#eef4ff', color: '#215fc9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>⌖</div><div><strong style={{ display: 'block', fontSize: 12, color: '#18336d' }}>Contact &amp; Address</strong><span style={{ display: 'block', marginTop: 2, fontSize: 7, color: '#7586a4' }}>Reachability and location</span></div></div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
-              <div><label style={labelStyle}>City</label><input style={inputStyle} value={form.city} onChange={(e) => updateField('city', e.target.value)} /></div>
-              <div><label style={labelStyle}>Student Username</label><input style={inputStyle} value={username} disabled /></div>
-              <div style={{ gridColumn: '1/-1' }}><label style={labelStyle}>Address</label><textarea style={{ ...inputStyle, minHeight: 68, padding: 8, resize: 'vertical' }} value={form.address} onChange={(e) => updateField('address', e.target.value)} /></div>
-            </div>
-          </section>
-
-          <button type="submit" disabled={saving} style={{ width: '100%', border: 0, borderRadius: 11, padding: 10, background: 'linear-gradient(110deg,#1a62d2,#5a4ae5)', color: '#fff', fontSize: 8, fontWeight: 900, marginBottom: 9 }}>{saving ? 'Saving...' : 'Save Changes'}</button>
-        </form>
-
-        <section style={{ background: '#fff', border: '1px solid #e3dcfb', borderRadius: 17, padding: 11, marginBottom: 9, boxShadow: '0 6px 18px rgba(18,61,125,.05)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}><div style={{ width: 34, height: 34, borderRadius: 11, background: '#eee9ff', color: '#6c50db', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>🔒</div><div><strong style={{ display: 'block', fontSize: 12, color: '#18336d' }}>Change Password</strong><span style={{ display: 'block', marginTop: 2, fontSize: 7, color: '#7586a4' }}>Update your account password</span></div></div>
-          <form onSubmit={changePassword} style={{ display: 'grid', gap: 7 }}><input type="password" placeholder="New password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} style={inputStyle} /><input type="password" placeholder="Confirm new password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} style={inputStyle} /><button type="submit" disabled={changingPassword} style={{ border: 0, borderRadius: 10, padding: 9, background: '#eef3ff', color: '#3152cc', fontSize: 8, fontWeight: 900 }}>{changingPassword ? 'Updating...' : 'Update Password'}</button></form>
-        </section>
-
-        <button type="button" onClick={logout} style={{ width: '100%', border: '1px solid #ffd5dc', borderRadius: 13, padding: 10, background: '#fff1f3', color: '#d8324f', fontSize: 8, fontWeight: 900 }}>Logout</button>
-        <footer style={{ textAlign: 'center', color: '#8794ab', fontSize: 7, fontWeight: 800, padding: '11px 0 4px' }}>RACER ACADEMY • Student Settings</footer>
-      </div>
-    </main>
-  );
-}
-
 export default function StudentSettingsPage() {
   const router = useRouter();
 
@@ -152,8 +63,6 @@ export default function StudentSettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const [loading, setLoading] = useState(true);
-  const [isMobileVip, setIsMobileVip] = useState(false);
-  useEffect(() => { const check = () => setIsMobileVip(window.innerWidth <= 700); check(); window.addEventListener('resize', check); return () => window.removeEventListener('resize', check); }, []);
   const [saving, setSaving] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
 
@@ -559,10 +468,6 @@ export default function StudentSettingsPage() {
         `}</style>
       </>
     );
-  }
-
-  if (isMobileVip && !loading) {
-    return <SettingsReferenceVip username={username} form={form} newPassword={newPassword} confirmPassword={confirmPassword} setNewPassword={setNewPassword} setConfirmPassword={setConfirmPassword} saving={saving} changingPassword={changingPassword} message={message} error={error} updateField={updateField} saveProfile={saveProfile} changePassword={changePassword} logout={logout} />;
   }
 
   return (

@@ -23,114 +23,6 @@ type Homework = {
 
 type HomeworkTab = "all" | "today";
 
-
-type HomeworkReferenceVipProps = { student: Student | null; homework: Homework[]; todayHomework: Homework[]; activeTab: HomeworkTab; setActiveTab: (value: HomeworkTab) => void; loading: boolean; error: string; formatDate: (value: string) => string; formatPostedDate: (value: string | null) => string; formatPostedTime: (value: string | null) => string; isOverdue: (value: string) => boolean; };
-
-function HomeworkReferenceVip({
-  student,
-  homework,
-  todayHomework,
-  activeTab,
-  setActiveTab,
-  loading,
-  error,
-  formatDate,
-  formatPostedDate,
-  formatPostedTime,
-  isOverdue,
-}: HomeworkReferenceVipProps) {
-  const overdueCount = homework.filter((item) => isOverdue(item.due_date)).length;
-  const todayCount = todayHomework.length;
-
-  return (
-    <main style={{ minHeight: '100vh', padding: '8px 8px 96px', background: 'linear-gradient(180deg,#f5f9ff 0%,#edf4ff 100%)', boxSizing: 'border-box' }}>
-      <div style={{ width: '100%', maxWidth: 430, margin: '0 auto' }}>
-        <header style={{ background: 'linear-gradient(112deg,#3151db,#5a49e9)', color: '#fff', borderRadius: 20, padding: 15, margin: '2px 0 9px', boxShadow: '0 10px 24px rgba(49,74,211,.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <button type="button" onClick={() => window.history.back()} aria-label="Back" style={{ width: 34, height: 34, border: 0, borderRadius: 11, background: 'rgba(255,255,255,.14)', color: '#fff', fontSize: 22, lineHeight: 1 }}>‹</button>
-          <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
-            <div style={{ fontSize: 7, letterSpacing: 1, fontWeight: 900, opacity: .78 }}>STUDENT</div>
-            <h1 style={{ margin: '3px 0', fontSize: 21, lineHeight: 1.05 }}>My Homework</h1>
-            <p style={{ margin: 0, fontSize: 8, opacity: .84 }}>Stay on track with your assignments</p>
-          </div>
-          <div style={{ width: 34, height: 34, borderRadius: 11, background: 'rgba(255,255,255,.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17 }}>⌕</div>
-        </header>
-
-        <section style={{ background: '#fff', border: '1px solid #dbe6f8', borderRadius: 16, padding: 11, marginBottom: 9, boxShadow: '0 5px 15px rgba(17,56,120,.05)', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 42, height: 42, borderRadius: 13, background: '#eef1ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 21 }}>📚</div>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <strong style={{ display: 'block', fontSize: 12, color: '#17316c' }}>Stay Consistent!</strong>
-            <span style={{ display: 'block', marginTop: 3, fontSize: 8, lineHeight: 1.35, color: '#6e809f' }}>Small steps every day lead to great results. Keep going!</span>
-          </div>
-        </section>
-
-        {error && <div style={{ background: '#fff0f0', border: '1px solid #ffcaca', color: '#9e2424', borderRadius: 12, padding: 9, marginBottom: 9, fontSize: 8, fontWeight: 800 }}>{error}</div>}
-
-        <section style={{ background: '#fff', border: '1px solid #dbe6f8', borderRadius: 16, padding: 8, marginBottom: 9, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-          <button type="button" onClick={() => setActiveTab('today')} style={{ border: 0, borderRadius: 11, padding: 9, background: activeTab === 'today' ? '#4d3fe5' : '#f5f7fb', color: activeTab === 'today' ? '#fff' : '#5c6f94', fontSize: 8, fontWeight: 900 }}>Today's Homework <span style={{ opacity: .75 }}>({todayCount})</span></button>
-          <button type="button" onClick={() => setActiveTab('all')} style={{ border: 0, borderRadius: 11, padding: 9, background: activeTab === 'all' ? '#4d3fe5' : '#f5f7fb', color: activeTab === 'all' ? '#fff' : '#5c6f94', fontSize: 8, fontWeight: 900 }}>All Homework <span style={{ opacity: .75 }}>({homework.length})</span></button>
-        </section>
-
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 6, marginBottom: 9 }}>
-          {[
-            ['TOTAL', homework.length, '#1b61d4', '#eaf2ff'],
-            ['TODAY', todayCount, '#0b9a66', '#e3fbef'],
-            ['OVERDUE', overdueCount, '#db3450', '#ffe9ee'],
-          ].map((item) => {
-            const label = String(item[0]);
-            const value = item[1];
-            const color = String(item[2]);
-            const bg = String(item[3]);
-            return (
-            <div key={label} style={{ background: '#fff', border: '1px solid #dce7f7', borderRadius: 14, padding: 9, textAlign: 'center', boxShadow: '0 5px 14px rgba(20,67,136,.045)' }}>
-              <div style={{ width: 26, height: 26, borderRadius: 9, background: bg, color, margin: '0 auto 5px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 900 }}>{label === 'TOTAL' ? '▣' : label === 'TODAY' ? '✓' : '!'}</div>
-              <span style={{ display: 'block', fontSize: 6, color: '#7081a2', fontWeight: 900 }}>{label}</span>
-              <strong style={{ display: 'block', marginTop: 2, fontSize: 17, color }}>{value}</strong>
-            </div>
-          );
-          })}
-        </section>
-
-        {loading ? (
-          <section style={{ background: '#fff', border: '1px solid #dbe7f8', borderRadius: 16, padding: 26, textAlign: 'center', color: '#7082a4', fontSize: 9 }}>Loading your homework...</section>
-        ) : (activeTab === 'today' ? todayHomework : homework).length === 0 ? (
-          <section style={{ background: '#fff', border: '1px dashed #bfd1ec', borderRadius: 16, padding: 26, textAlign: 'center', color: '#6f81a3' }}>
-            <div style={{ fontSize: 27, marginBottom: 6 }}>📚</div>
-            <strong style={{ display: 'block', fontSize: 11, color: '#1a346e' }}>No Homework Available</strong>
-            <p style={{ fontSize: 8, lineHeight: 1.4, margin: '5px 0 0' }}>Your teacher&apos;s homework will appear here.</p>
-          </section>
-        ) : (
-          <section style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-            {(activeTab === 'today' ? todayHomework : homework).map((item) => {
-              const overdue = isOverdue(item.due_date);
-              const postedToday = todayHomework.some((x) => x.id === item.id);
-              return (
-                <article key={item.id} style={{ background: '#fff', border: '1px solid #dbe6f7', borderRadius: 16, padding: 10, boxShadow: '0 5px 14px rgba(17,56,120,.045)' }}>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                    <div style={{ width: 34, height: 34, minWidth: 34, borderRadius: 11, background: '#eaf0ff', color: '#4f40da', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900 }}>{(item.subject || 'H').charAt(0).toUpperCase()}</div>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, alignItems: 'flex-start' }}>
-                        <div style={{ minWidth: 0 }}><span style={{ display: 'inline-block', padding: '4px 6px', borderRadius: 999, background: '#eef3ff', color: '#3154d4', fontSize: 6, fontWeight: 900 }}>{item.subject || 'Subject'}</span><strong style={{ display: 'block', marginTop: 4, fontSize: 11, color: '#18336d', lineHeight: 1.2 }}>{item.title}</strong></div>
-                        <span style={{ flex: 'none', padding: '4px 6px', borderRadius: 999, background: overdue ? '#ffe8ed' : '#e6faf1', color: overdue ? '#db3150' : '#0a9762', fontSize: 6, fontWeight: 900 }}>{overdue ? 'Overdue' : postedToday ? 'Today' : 'Upcoming'}</span>
-                      </div>
-                      <p style={{ margin: '5px 0 0', fontSize: 8, lineHeight: 1.45, color: '#65799b' }}>{item.description || 'No description provided.'}</p>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 7 }}>
-                        <span style={{ padding: '5px 6px', borderRadius: 8, background: '#f7f9fd', color: '#63769a', fontSize: 6, fontWeight: 800 }}>Due: {formatDate(item.due_date)}</span>
-                        <span style={{ padding: '5px 6px', borderRadius: 8, background: '#f7f9fd', color: '#63769a', fontSize: 6, fontWeight: 800 }}>Posted: {formatPostedDate(item.created_at)}{formatPostedTime(item.created_at) ? ' • ' + formatPostedTime(item.created_at) : ''}</span>
-                      </div>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </section>
-        )}
-
-        <footer style={{ textAlign: 'center', color: '#8794ab', fontSize: 7, fontWeight: 800, padding: '11px 0 4px' }}>RACER ACADEMY • Homework</footer>
-      </div>
-    </main>
-  );
-}
-
 export default function StudentHomeworkPage() {
   const router = useRouter();
 
@@ -139,8 +31,6 @@ export default function StudentHomeworkPage() {
   const [activeTab, setActiveTab] =
     useState<HomeworkTab>("today");
   const [loading, setLoading] = useState(true);
-  const [isMobileVip, setIsMobileVip] = useState(false);
-  useEffect(() => { const check = () => setIsMobileVip(window.innerWidth <= 700); check(); window.addEventListener('resize', check); return () => window.removeEventListener('resize', check); }, []);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -389,10 +279,6 @@ export default function StudentHomeworkPage() {
     sessionStorage.clear();
 
     router.push("/");
-  }
-
-  if (isMobileVip && !loading) {
-    return <HomeworkReferenceVip student={student} homework={homework} todayHomework={todayHomework} activeTab={activeTab} setActiveTab={setActiveTab} loading={loading} error={error} formatDate={formatDate} formatPostedDate={formatPostedDate} formatPostedTime={formatPostedTime} isOverdue={isOverdue} />;
   }
 
   return (

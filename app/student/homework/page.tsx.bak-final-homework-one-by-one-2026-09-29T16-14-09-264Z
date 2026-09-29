@@ -75,19 +75,13 @@ function HomeworkReferenceVip({
             ['TOTAL', homework.length, '#1b61d4', '#eaf2ff'],
             ['TODAY', todayCount, '#0b9a66', '#e3fbef'],
             ['OVERDUE', overdueCount, '#db3450', '#ffe9ee'],
-          ].map((item) => {
-            const label = String(item[0]);
-            const value = item[1];
-            const color = String(item[2]);
-            const bg = String(item[3]);
-            return (
+          ].map(([label, value, color, bg]) => (
             <div key={label} style={{ background: '#fff', border: '1px solid #dce7f7', borderRadius: 14, padding: 9, textAlign: 'center', boxShadow: '0 5px 14px rgba(20,67,136,.045)' }}>
-              <div style={{ width: 26, height: 26, borderRadius: 9, background: bg, color, margin: '0 auto 5px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 900 }}>{label === 'TOTAL' ? '▣' : label === 'TODAY' ? '✓' : '!'}</div>
+              <div style={{ width: 26, height: 26, borderRadius: 9, background: String(bg), color: String(color), margin: '0 auto 5px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 900 }}>{label === 'TOTAL' ? '▣' : label === 'TODAY' ? '✓' : '!'}</div>
               <span style={{ display: 'block', fontSize: 6, color: '#7081a2', fontWeight: 900 }}>{label}</span>
               <strong style={{ display: 'block', marginTop: 2, fontSize: 17, color }}>{value}</strong>
             </div>
-          );
-          })}
+          ))}
         </section>
 
         {loading ? (

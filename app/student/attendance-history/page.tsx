@@ -1,8 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { useRouter } from "next/navigation";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,1225 +9,403 @@ const supabase = createClient(
 );
 
 type AttendanceRecord = {
+  id?: number;
   student_id: number;
   attendance_date: string;
   status: string;
 };
 
-export default function StudentAttendanceHistoryPage() {
-  const router = useRouter();
+type ExtraAttendanceRecord = {
+  id: number;
+  student_id: number;
+  extra_class_date: string;
+  class_time: string | null;
+  subject: string | null;
+  topic: string | null;
+  status: string;
+  remarks: string | null;
+};
 
+type StudentAttendanceHistoryMobileProps = {
+  studentName: string;
+  username: string;
+  loading: boolean;
+  errorMessage: string;
+  records: AttendanceRecord[];
+  extraRecords: ExtraAttendanceRecord[];
+  selectedMonth: string;
+  setSelectedMonth: (value: string) => void;
+};
+
+function safeDate(dateString: string | null | undefined): Date | null {
+  if (!dateString) return null;
+  const value = String(dateString).slice(0, 10);
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) {
+    const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  const date = new Date(dateString);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function monthKey(dateString: string | null | undefined): string {
+  const date = safeDate(dateString);
+  if (!date) return "";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthLabel(key: string): string {
+  const [year, month] = key.split("-").map(Number);
+  if (!year || !month) return key;
+  return new Date(year, month - 1, 1).toLocaleDateString("en-IN", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function shortDate(dateString: string): string {
+  const date = safeDate(dateString);
+  if (!date) return "—";
+  return date.toLocaleDateString("en-IN", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+  });
+}
+
+function statusPresent(status: string): boolean {
+  const value = String(status || "").trim().toUpperCase();
+  return value === "PRESENT" || value === "P";
+}
+
+function MobileAttendanceHistoryVIP({
+  studentName,
+  username,
+  loading,
+  errorMessage,
+  records,
+  extraRecords,
+  selectedMonth,
+  setSelectedMonth,
+}: StudentAttendanceHistoryMobileProps) {
+  const regularMonthKeys = useMemo(
+    () =>
+      Array.from(
+        new Set(records.map((record) => monthKey(record.attendance_date)).filter(Boolean))
+      ).sort((a, b) => b.localeCompare(a)),
+    [records]
+  );
+
+  const extraMonthKeys = useMemo(
+    () =>
+      Array.from(
+        new Set(extraRecords.map((record) => monthKey(record.extra_class_date)).filter(Boolean))
+      ).sort((a, b) => b.localeCompare(a)),
+    [extraRecords]
+  );
+
+  const monthKeys = useMemo(
+    () => Array.from(new Set([...regularMonthKeys, ...extraMonthKeys])).sort((a, b) => b.localeCompare(a)),
+    [regularMonthKeys, extraMonthKeys]
+  );
+
+  useEffect(() => {
+    if (!selectedMonth && monthKeys[0]) setSelectedMonth(monthKeys[0]);
+    if (selectedMonth && !monthKeys.includes(selectedMonth) && monthKeys[0]) {
+      setSelectedMonth(monthKeys[0]);
+    }
+  }, [monthKeys, selectedMonth, setSelectedMonth]);
+
+  const presentCount = records.filter((record) => statusPresent(record.status)).length;
+  const absentCount = records.filter((record) => !statusPresent(record.status)).length;
+  const totalCount = records.length;
+  const percentage = totalCount ? Math.round((presentCount / totalCount) * 100) : 0;
+
+  const selectedRegular = records.filter((record) => monthKey(record.attendance_date) === selectedMonth);
+  const selectedExtra = extraRecords.filter((record) => monthKey(record.extra_class_date) === selectedMonth);
+  const selectedPresent = selectedRegular.filter((record) => statusPresent(record.status)).length;
+  const selectedTotal = selectedRegular.length;
+  const selectedPercentage = selectedTotal ? Math.round((selectedPresent / selectedTotal) * 100) : 0;
+
+  const monthSummaries = monthKeys.map((key) => {
+    const regular = records.filter((record) => monthKey(record.attendance_date) === key);
+    const extra = extraRecords.filter((record) => monthKey(record.extra_class_date) === key);
+    const present = regular.filter((record) => statusPresent(record.status)).length;
+    return {
+      key,
+      total: regular.length,
+      present,
+      extra: extra.length,
+      percentage: regular.length ? Math.round((present / regular.length) * 100) : 0,
+    };
+  });
+
+  const selectedDays = selectedRegular.map((record) => ({
+    id: `regular-${record.id ?? record.attendance_date}`,
+    date: record.attendance_date,
+    status: record.status,
+    extra: false,
+  })).concat(
+    selectedExtra.map((record) => ({
+      id: `extra-${record.id}`,
+      date: record.extra_class_date,
+      status: record.status,
+      extra: true,
+      subject: record.subject,
+    }))
+  ).sort((a, b) => String(b.date).localeCompare(String(a.date)));
+
+  return (
+    <main className="rah-vip-page">
+      <div className="rah-vip-wrap">
+        <section className="rah-vip-title-row">
+          <div className="rah-vip-title-icon">◉</div>
+          <div className="rah-vip-title-copy">
+            <div className="rah-vip-eyebrow">ATTENDANCE</div>
+            <h1>Attendance History</h1>
+            <p>View your complete attendance record</p>
+          </div>
+          <button className="rah-vip-refresh" type="button" onClick={() => window.location.reload()} aria-label="Refresh">↻</button>
+        </section>
+
+        <section className="rah-vip-student-strip">
+          <div className="rah-vip-avatar">{(studentName || "S").trim().charAt(0).toUpperCase()}</div>
+          <div className="rah-vip-student-copy">
+            <strong>{studentName || "Student"}</strong>
+            <span>@{username || "student"}</span>
+          </div>
+          <div className="rah-vip-active-pill"><i /> ACTIVE</div>
+        </section>
+
+        {errorMessage && <div className="rah-vip-error">{errorMessage}</div>}
+
+        <section className="rah-vip-stat-grid">
+          <div className="rah-vip-stat rah-blue"><div className="rah-vip-stat-icon">▣</div><span>Total Days</span><strong>{totalCount}</strong></div>
+          <div className="rah-vip-stat rah-green"><div className="rah-vip-stat-icon">✓</div><span>Present</span><strong>{presentCount}</strong></div>
+          <div className="rah-vip-stat rah-red"><div className="rah-vip-stat-icon">×</div><span>Absent</span><strong>{absentCount}</strong></div>
+          <div className="rah-vip-stat rah-purple"><div className="rah-vip-stat-icon">%</div><span>Percentage</span><strong>{percentage}%</strong></div>
+        </section>
+
+        <section className="rah-vip-filter-row">
+          <select value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} aria-label="Select attendance month">
+            {monthKeys.length === 0 ? <option value="">No attendance months</option> : monthKeys.map((key) => <option key={key} value={key}>{monthLabel(key)}</option>)}
+          </select>
+          <div className="rah-vip-filter-static">◫ &nbsp; All Attendance</div>
+        </section>
+
+        <section className="rah-vip-month-focus">
+          <div className="rah-vip-month-focus-icon">◫</div>
+          <div className="rah-vip-month-focus-copy">
+            <strong>{selectedMonth ? monthLabel(selectedMonth) : "Attendance"}</strong>
+            <span>{selectedTotal} Days • {selectedPercentage}% &nbsp; {selectedExtra ? `• ${selectedExtra.length} Extra` : ""}</span>
+          </div>
+          <span className="rah-vip-chevron">›</span>
+        </section>
+
+        {monthSummaries.length > 0 && (
+          <section className="rah-vip-month-list">
+            {monthSummaries.map((item) => (
+              <button type="button" key={item.key} className={`rah-vip-month-card${item.key === selectedMonth ? " active" : ""}`} onClick={() => setSelectedMonth(item.key)}>
+                <div className="rah-vip-month-icon">◫</div>
+                <div className="rah-vip-month-copy">
+                  <strong>{monthLabel(item.key)}</strong>
+                  <span>{item.total} Days • {item.percentage}%{item.extra ? ` • ${item.extra} Extra` : ""}</span>
+                </div>
+                <span className="rah-vip-month-arrow">›</span>
+              </button>
+            ))}
+          </section>
+        )}
+
+        <section className="rah-vip-selected-days">
+          <div className="rah-vip-section-head">
+            <div>
+              <h2>{selectedMonth ? monthLabel(selectedMonth) : "Attendance"}</h2>
+              <p>{loading ? "Loading records..." : `${selectedDays.length} attendance entries in this month`}</p>
+            </div>
+            <span>{selectedPercentage}%</span>
+          </div>
+
+          {loading ? (
+            <div className="rah-vip-empty">Loading your attendance...</div>
+          ) : selectedDays.length === 0 ? (
+            <div className="rah-vip-empty">No attendance records for this month.</div>
+          ) : (
+            <div className="rah-vip-day-list">
+              {selectedDays.map((item) => (
+                <article className="rah-vip-day-row" key={item.id}>
+                  <div className="rah-vip-day-date">
+                    <strong>{safeDate(item.date)?.getDate() ?? "—"}</strong>
+                    <small>{safeDate(item.date)?.toLocaleDateString("en-IN", { month: "short" }).toUpperCase() ?? ""}</small>
+                  </div>
+                  <div className="rah-vip-day-copy">
+                    <strong>{safeDate(item.date)?.toLocaleDateString("en-IN", { weekday: "long" }) ?? "Attendance"}</strong>
+                    <span>{item.extra ? `${(item as { subject?: string }).subject || "Extra Class"} • Extra Class` : "Regular Class"}</span>
+                  </div>
+                  <div className={`rah-vip-day-status ${statusPresent(item.status) ? "present" : "absent"}`}>
+                    {item.extra && <b>★</b>}
+                    <span>{statusPresent(item.status) ? "P" : "A"}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <footer className="rah-vip-footer">RACER ACADEMY • Student Attendance History</footer>
+      </div>
+
+      <style jsx global>{`
+        .rah-vip-page{min-height:calc(100vh - 72px);background:linear-gradient(180deg,#f7fbff 0%,#eef5ff 100%);padding:14px 10px 90px;color:#10255d;overflow-x:hidden}
+        .rah-vip-wrap{width:100%;max-width:720px;margin:0 auto}
+        .rah-vip-title-row{display:flex;align-items:center;gap:10px;margin:4px 2px 12px;padding:4px 2px}.rah-vip-title-icon{width:40px;height:40px;border-radius:14px;background:#e8f1ff;color:#1d5eea;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:21px;flex:none}.rah-vip-title-copy{min-width:0;flex:1}.rah-vip-eyebrow{font-size:9px;font-weight:900;letter-spacing:.9px;color:#4165ad}.rah-vip-title-copy h1{margin:1px 0 1px;font-size:23px;line-height:1.08;color:#10245e;font-weight:900;letter-spacing:-.3px}.rah-vip-title-copy p{margin:0;font-size:10px;color:#6d7fa7;font-weight:700}.rah-vip-refresh{width:36px;height:36px;border:0;border-radius:12px;background:#fff;color:#1457cf;font-size:20px;font-weight:900;box-shadow:0 4px 12px rgba(22,75,163,.08)}
+        .rah-vip-student-strip{display:flex;align-items:center;gap:10px;background:linear-gradient(110deg,#1056c7,#4659e9);border-radius:18px;padding:11px 12px;margin-bottom:10px;color:#fff;box-shadow:0 10px 22px rgba(31,90,196,.18)}.rah-vip-avatar{width:44px;height:44px;border-radius:50%;background:#fff;color:#1960d5;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:900;flex:none}.rah-vip-student-copy{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px}.rah-vip-student-copy strong{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rah-vip-student-copy span{font-size:9px;opacity:.85}.rah-vip-active-pill{font-size:8px;font-weight:900;padding:7px 8px;border:1px solid rgba(255,255,255,.25);border-radius:10px;background:rgba(255,255,255,.08)}.rah-vip-active-pill i{display:inline-block;width:6px;height:6px;border-radius:50%;background:#25df8c;margin-right:4px}
+        .rah-vip-error{background:#fff0f0;border:1px solid #ffcaca;color:#a61b1b;border-radius:12px;padding:10px 11px;font-size:10px;font-weight:800;margin-bottom:10px;overflow-wrap:anywhere}
+        .rah-vip-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-bottom:10px}.rah-vip-stat{min-width:0;background:#fff;border:1px solid #dce8fb;border-radius:16px;padding:10px 7px;box-shadow:0 5px 14px rgba(24,69,141,.06);text-align:center}.rah-vip-stat-icon{width:27px;height:27px;border-radius:50%;margin:0 auto 6px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900}.rah-vip-stat span{display:block;font-size:7px;font-weight:900;color:#6c7da4;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rah-vip-stat strong{display:block;margin-top:2px;font-size:18px;line-height:1.05}.rah-blue .rah-vip-stat-icon{background:#e8f1ff;color:#1762d7}.rah-blue strong{color:#174eb7}.rah-green .rah-vip-stat-icon{background:#dcfbed;color:#0ca66c}.rah-green strong{color:#0d9a62}.rah-red .rah-vip-stat-icon{background:#ffe5ea;color:#f13a57}.rah-red strong{color:#de3150}.rah-purple .rah-vip-stat-icon{background:#eeebff;color:#6e56e9}.rah-purple strong{color:#5f4bd4}
+        .rah-vip-filter-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}.rah-vip-filter-row select,.rah-vip-filter-static{height:42px;border:1px solid #bdd5f8;border-radius:12px;background:#fff;color:#173d8b;font-size:10px;font-weight:900;padding:0 12px;box-sizing:border-box}.rah-vip-filter-row select{appearance:auto}.rah-vip-filter-static{display:flex;align-items:center;justify-content:center;color:#315083}
+        .rah-vip-month-focus{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #dbe7f8;border-radius:16px;padding:11px;margin-bottom:9px;box-shadow:0 6px 18px rgba(22,67,135,.06)}.rah-vip-month-focus-icon{width:40px;height:40px;border-radius:50%;background:#dff7ee;color:#14996c;display:flex;align-items:center;justify-content:center;font-size:18px}.rah-vip-month-focus-copy{min-width:0;flex:1}.rah-vip-month-focus-copy strong{display:block;font-size:14px;color:#10285f}.rah-vip-month-focus-copy span{display:block;font-size:9px;color:#536b98;font-weight:800;margin-top:2px}.rah-vip-chevron{font-size:28px;line-height:1;color:#1662cf}
+        .rah-vip-month-list{display:flex;flex-direction:column;gap:7px;margin-bottom:10px}.rah-vip-month-card{width:100%;display:flex;align-items:center;gap:10px;text-align:left;border:1px solid #d9e6f8;background:#fff;border-radius:15px;padding:10px 11px;color:#10285f;box-shadow:0 4px 14px rgba(22,67,135,.045)}.rah-vip-month-card.active{border-color:#7ca7f7;box-shadow:0 6px 18px rgba(31,88,194,.10);background:#fbfdff}.rah-vip-month-icon{width:36px;height:36px;border-radius:50%;background:#e2f6ef;color:#15976b;display:flex;align-items:center;justify-content:center;font-weight:900;flex:none}.rah-vip-month-copy{flex:1;min-width:0}.rah-vip-month-copy strong{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rah-vip-month-copy span{display:block;font-size:8px;color:#61739a;font-weight:800;margin-top:2px}.rah-vip-month-arrow{font-size:24px;color:#155ec9}
+        .rah-vip-selected-days{background:#fff;border:1px solid #dbe7f8;border-radius:18px;padding:12px;box-shadow:0 6px 18px rgba(22,67,135,.06)}.rah-vip-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.rah-vip-section-head h2{margin:0;font-size:17px;line-height:1.1;color:#11285f}.rah-vip-section-head p{margin:3px 0 0;color:#6b7da3;font-size:9px;font-weight:700}.rah-vip-section-head>span{color:#1063d1;font-size:18px;font-weight:900}.rah-vip-day-list{display:flex;flex-direction:column;gap:7px}.rah-vip-day-row{display:flex;align-items:center;gap:9px;border:1px solid #e0e9f7;border-radius:13px;padding:8px 9px;min-height:54px}.rah-vip-day-date{width:48px;flex:none;border-radius:11px;background:#eff5ff;text-align:center;padding:5px 2px;color:#1b50b3}.rah-vip-day-date strong{display:block;font-size:17px;line-height:1}.rah-vip-day-date small{display:block;margin-top:2px;font-size:7px;font-weight:900}.rah-vip-day-copy{flex:1;min-width:0}.rah-vip-day-copy strong{display:block;font-size:11px;color:#173274;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rah-vip-day-copy span{display:block;margin-top:2px;font-size:8px;color:#7383a5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rah-vip-day-status{position:relative;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;flex:none}.rah-vip-day-status.present{background:#20ce92;color:#fff}.rah-vip-day-status.absent{background:#ff4c68;color:#fff}.rah-vip-day-status b{position:absolute;top:-8px;right:-2px;color:#f2a600;font-size:11px;text-shadow:0 1px 2px rgba(0,0,0,.1)}.rah-vip-empty{padding:30px 12px;text-align:center;color:#7284a6;font-size:10px;font-weight:800}.rah-vip-footer{text-align:center;color:#8391ab;font-size:8px;font-weight:800;padding:14px 0 4px}
+        @media (min-width:701px){.rah-vip-page{padding:18px 16px 70px}.rah-vip-wrap{max-width:980px}.rah-vip-title-row{margin-top:10px}.rah-vip-stat-grid{gap:12px}.rah-vip-stat{padding:14px}.rah-vip-month-list{display:grid;grid-template-columns:1fr 1fr}.rah-vip-selected-days{padding:16px}.rah-vip-day-list{display:grid;grid-template-columns:1fr 1fr}.rah-vip-filter-row{max-width:620px}}
+      `}</style>
+    </main>
+  );
+}
+
+export default function StudentAttendanceHistoryPage() {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [extraRecords, setExtraRecords] = useState<ExtraAttendanceRecord[]>([]);
   const [studentName, setStudentName] = useState("Student");
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState("");
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    function checkScreenSize() {
-      setIsMobile(window.innerWidth <= 700);
-    }
-
-    checkScreenSize();
-
-    window.addEventListener("resize", checkScreenSize);
-
-    return () => {
-      window.removeEventListener("resize", checkScreenSize);
-    };
+    function check() { setIsMobile(window.innerWidth <= 700); }
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
   }, []);
 
-  useEffect(() => {
-    loadStudentAttendance();
-  }, []);
+  useEffect(() => { loadStudentAttendance(); }, []);
 
   async function loadStudentAttendance() {
     setLoading(true);
     setErrorMessage("");
-
     try {
-      const savedUsername =
-        localStorage.getItem("student_username") ||
-        localStorage.getItem("studentUsername") ||
-        "";
-
-      const savedName =
-        localStorage.getItem("studentName") ||
-        localStorage.getItem("student_name") ||
-        "Student";
-
+      const savedUsername = localStorage.getItem("student_username") || localStorage.getItem("studentUsername") || "";
+      const savedName = localStorage.getItem("studentName") || localStorage.getItem("student_name") || "Student";
       setUsername(savedUsername);
       setStudentName(savedName);
+      if (!savedUsername) throw new Error("Student login information nahi mili. Please dobara login karein.");
 
-      if (!savedUsername) {
-        setErrorMessage(
-          "Student login information nahi mili. Please dobara login karein."
-        );
-        setLoading(false);
-        return;
-      }
-
-      const { data: student, error: studentError } =
-        await supabase
-          .from("students")
-          .select("id, student_name, student_username")
-          .eq("student_username", savedUsername)
-          .maybeSingle();
-
-      if (studentError) {
-        throw new Error(
-          "Student information load nahi ho paayi: " +
-            studentError.message
-        );
-      }
-
-      if (!student) {
-        setErrorMessage("Logged-in student account nahi mila.");
-        setLoading(false);
-        return;
-      }
+      const { data: student, error: studentError } = await supabase
+        .from("students")
+        .select("id, student_name, student_username")
+        .eq("student_username", savedUsername)
+        .maybeSingle();
+      if (studentError) throw new Error("Student information load nahi ho paayi: " + studentError.message);
+      if (!student) throw new Error("Logged-in student account nahi mila.");
 
       setStudentName(student.student_name || savedName);
 
-      const {
-        data: attendance,
-        error: attendanceError,
-      } = await supabase
+      const { data: attendance, error: attendanceError } = await supabase
         .from("attendance")
-        .select("student_id, attendance_date, status")
+        .select("id, student_id, attendance_date, status")
         .eq("student_id", student.id)
-        .order("attendance_date", {
-          ascending: false,
-        });
+        .order("attendance_date", { ascending: false })
+        .order("id", { ascending: false });
+      if (attendanceError) throw new Error("Attendance load nahi ho paayi: " + attendanceError.message);
+      setRecords((attendance || []) as AttendanceRecord[]);
 
-      if (attendanceError) {
-        throw new Error(
-          "Attendance load nahi ho paayi: " +
-            attendanceError.message
-        );
-      }
-
-      setRecords(
-        (attendance || []) as AttendanceRecord[]
-      );
+      // Extra-class data is additive and never blocks the regular history if unavailable.
+      const { data: extra, error: extraError } = await supabase
+        .from("extra_class_attendance")
+        .select("id, student_id, extra_class_date, class_time, subject, topic, status, remarks")
+        .eq("student_id", student.id)
+        .order("extra_class_date", { ascending: false })
+        .order("id", { ascending: false });
+      if (!extraError) setExtraRecords((extra || []) as ExtraAttendanceRecord[]);
+      else setExtraRecords([]);
     } catch (error) {
-      console.error(
-        "Student attendance history error:",
-        error
-      );
-
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Attendance history load nahi ho paayi."
-      );
+      console.error("Student attendance history error:", error);
+      setErrorMessage(error instanceof Error ? error.message : "Attendance history load nahi ho paayi.");
     } finally {
       setLoading(false);
     }
   }
 
-  function formatDate(date: string) {
-    return new Date(`${date}T00:00:00`).toLocaleDateString(
-      "en-IN",
-      {
-        weekday: "short",
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }
-    );
-  }
+  const mobile = (
+    <MobileAttendanceHistoryVIP
+      studentName={studentName}
+      username={username}
+      loading={loading}
+      errorMessage={errorMessage}
+      records={records}
+      extraRecords={extraRecords}
+      selectedMonth={selectedMonth}
+      setSelectedMonth={setSelectedMonth}
+    />
+  );
 
-  const presentCount = records.filter(
-    (record) =>
-      record.status.toLowerCase() === "present"
-  ).length;
+  if (isMobile) return mobile;
 
-  const absentCount = records.filter(
-    (record) =>
-      record.status.toLowerCase() === "absent"
-  ).length;
-
+  // Desktop keeps the module functional and compact; the approved VIP redesign is focused on the phone app view.
+  const presentCount = records.filter((record) => statusPresent(record.status)).length;
+  const absentCount = records.filter((record) => !statusPresent(record.status)).length;
   const totalCount = records.length;
-
-  const percentage =
-    totalCount > 0
-      ? Math.round((presentCount / totalCount) * 100)
-      : 0;
+  const percentage = totalCount ? Math.round((presentCount / totalCount) * 100) : 0;
 
   return (
-    <main
-      style={{
-        ...styles.page,
-        padding: isMobile ? "8px" : "16px",
-      }}
-    >
-      <div style={styles.container}>
-
-        {/* HEADER */}
-
-        <header
-          style={{
-            ...styles.header,
-            padding: isMobile ? "15px" : "22px",
-            borderRadius: isMobile ? "16px" : "20px",
-          }}
-        >
-          <div
-            style={{
-              ...styles.headerContent,
-              flexDirection: isMobile ? "column" : "row",
-              alignItems: isMobile ? "stretch" : "center",
-            }}
-          >
-            <div
-              style={{
-                minWidth: 0,
-                width: isMobile ? "100%" : "auto",
-              }}
-            >
-              <div style={styles.badge}>
-                STUDENT PORTAL
-              </div>
-
-              <h1
-                style={{
-                  ...styles.title,
-                  fontSize: isMobile ? "21px" : "28px",
-                }}
-              >
-                My Attendance History
-              </h1>
-
-              <p
-                style={{
-                  ...styles.subtitle,
-                  fontSize: isMobile ? "11px" : "13px",
-                }}
-              >
-                Your personal attendance records
-              </p>
-            </div>
-
-            <button
-              onClick={() =>
-                router.push("/student/dashboard")
-              }
-              style={{
-                ...styles.backButton,
-                width: isMobile ? "100%" : "auto",
-                padding: isMobile
-                  ? "12px"
-                  : "11px 16px",
-              }}
-            >
-              Back to Dashboard
-            </button>
-          </div>
-        </header>
-
-        {/* STUDENT INFORMATION */}
-
-        <section
-          style={{
-            ...styles.studentCard,
-            padding: isMobile ? "14px" : "22px",
-            borderRadius: isMobile ? "16px" : "20px",
-            gap: isMobile ? "11px" : "15px",
-          }}
-        >
-          <div
-            style={{
-              ...styles.avatar,
-              width: isMobile ? "50px" : "62px",
-              height: isMobile ? "50px" : "62px",
-              minWidth: isMobile ? "50px" : "62px",
-              borderRadius: isMobile ? "14px" : "18px",
-              fontSize: isMobile ? "22px" : "27px",
-            }}
-          >
-            {studentName.charAt(0).toUpperCase()}
-          </div>
-
-          <div style={styles.studentInfo}>
-            <div
-              style={{
-                ...styles.studentLabel,
-                fontSize: isMobile ? "8px" : "9px",
-              }}
-            >
-              LOGGED-IN STUDENT
-            </div>
-
-            <div
-              style={{
-                ...styles.studentName,
-                fontSize: isMobile ? "16px" : "22px",
-              }}
-            >
-              {studentName}
-            </div>
-
-            <div
-              style={{
-                ...styles.username,
-                fontSize: isMobile ? "10px" : "11px",
-              }}
-            >
-              @{username || "student"}
-            </div>
+    <main style={desktopStyles.page}>
+      <div style={desktopStyles.container}>
+        <section style={desktopStyles.header}>
+          <div>
+            <div style={desktopStyles.eyebrow}>STUDENT PORTAL</div>
+            <h1 style={desktopStyles.title}>My Attendance History</h1>
+            <p style={desktopStyles.subtitle}>Your personal attendance records</p>
           </div>
         </section>
-
-        {/* ERROR */}
-
-        {errorMessage && (
-          <div style={styles.errorBox}>
-            Error: {errorMessage}
-          </div>
-        )}
-
-        {/* ATTENDANCE SUMMARY */}
-
-        <section
-          style={{
-            ...styles.statsGrid,
-            gridTemplateColumns: isMobile
-              ? "repeat(2, minmax(0, 1fr))"
-              : "repeat(4, minmax(0, 1fr))",
-            gap: isMobile ? "8px" : "13px",
-          }}
-        >
-          {/* TOTAL */}
-
-          <div
-            style={{
-              ...styles.statCard,
-              padding: isMobile
-                ? "11px 9px"
-                : "17px",
-              gap: isMobile ? "7px" : "12px",
-            }}
-          >
-            <div
-              style={{
-                ...styles.statIcon,
-                width: isMobile ? "34px" : "48px",
-                height: isMobile ? "34px" : "48px",
-                minWidth: isMobile ? "34px" : "48px",
-                borderRadius: isMobile ? "10px" : "13px",
-                fontSize: isMobile ? "8px" : "11px",
-                background: "#dbeafe",
-              }}
-            >
-              TOTAL
-            </div>
-
-            <div style={styles.statContent}>
-              <div
-                style={{
-                  ...styles.statLabel,
-                  fontSize: isMobile ? "8px" : "9px",
-                }}
-              >
-                TOTAL
-              </div>
-
-              <div
-                style={{
-                  ...styles.statValue,
-                  fontSize: isMobile ? "18px" : "22px",
-                }}
-              >
-                {totalCount}
-              </div>
-
-              <div
-                style={{
-                  ...styles.statText,
-                  fontSize: isMobile ? "7px" : "9px",
-                }}
-              >
-                Attendance records
-              </div>
-            </div>
-          </div>
-
-          {/* PRESENT */}
-
-          <div
-            style={{
-              ...styles.statCard,
-              padding: isMobile
-                ? "11px 9px"
-                : "17px",
-              gap: isMobile ? "7px" : "12px",
-            }}
-          >
-            <div
-              style={{
-                ...styles.statIcon,
-                width: isMobile ? "34px" : "48px",
-                height: isMobile ? "34px" : "48px",
-                minWidth: isMobile ? "34px" : "48px",
-                borderRadius: isMobile ? "10px" : "13px",
-                fontSize: isMobile ? "8px" : "11px",
-                background: "#dcfce7",
-              }}
-            >
-              P
-            </div>
-
-            <div style={styles.statContent}>
-              <div
-                style={{
-                  ...styles.statLabel,
-                  fontSize: isMobile ? "8px" : "9px",
-                }}
-              >
-                PRESENT
-              </div>
-
-              <div
-                style={{
-                  ...styles.statValue,
-                  fontSize: isMobile ? "18px" : "22px",
-                  color: "#15803d",
-                }}
-              >
-                {presentCount}
-              </div>
-
-              <div
-                style={{
-                  ...styles.statText,
-                  fontSize: isMobile ? "7px" : "9px",
-                }}
-              >
-                Classes attended
-              </div>
-            </div>
-          </div>
-
-          {/* ABSENT */}
-
-          <div
-            style={{
-              ...styles.statCard,
-              padding: isMobile
-                ? "11px 9px"
-                : "17px",
-              gap: isMobile ? "7px" : "12px",
-            }}
-          >
-            <div
-              style={{
-                ...styles.statIcon,
-                width: isMobile ? "34px" : "48px",
-                height: isMobile ? "34px" : "48px",
-                minWidth: isMobile ? "34px" : "48px",
-                borderRadius: isMobile ? "10px" : "13px",
-                fontSize: isMobile ? "8px" : "11px",
-                background: "#fee2e2",
-              }}
-            >
-              A
-            </div>
-
-            <div style={styles.statContent}>
-              <div
-                style={{
-                  ...styles.statLabel,
-                  fontSize: isMobile ? "8px" : "9px",
-                }}
-              >
-                ABSENT
-              </div>
-
-              <div
-                style={{
-                  ...styles.statValue,
-                  fontSize: isMobile ? "18px" : "22px",
-                  color: "#dc2626",
-                }}
-              >
-                {absentCount}
-              </div>
-
-              <div
-                style={{
-                  ...styles.statText,
-                  fontSize: isMobile ? "7px" : "9px",
-                }}
-              >
-                Classes missed
-              </div>
-            </div>
-          </div>
-
-          {/* ATTENDANCE */}
-
-          <div
-            style={{
-              ...styles.statCard,
-              padding: isMobile
-                ? "11px 9px"
-                : "17px",
-              gap: isMobile ? "7px" : "12px",
-            }}
-          >
-            <div
-              style={{
-                ...styles.statIcon,
-                width: isMobile ? "34px" : "48px",
-                height: isMobile ? "34px" : "48px",
-                minWidth: isMobile ? "34px" : "48px",
-                borderRadius: isMobile ? "10px" : "13px",
-                fontSize: isMobile ? "12px" : "15px",
-                background: "#fef3c7",
-              }}
-            >
-              %
-            </div>
-
-            <div style={styles.statContent}>
-              <div
-                style={{
-                  ...styles.statLabel,
-                  fontSize: isMobile ? "8px" : "9px",
-                }}
-              >
-                ATTENDANCE
-              </div>
-
-              <div
-                style={{
-                  ...styles.statValue,
-                  fontSize: isMobile ? "18px" : "22px",
-                  color: "#b45309",
-                }}
-              >
-                {percentage}%
-              </div>
-
-              <div
-                style={{
-                  ...styles.statText,
-                  fontSize: isMobile ? "7px" : "9px",
-                }}
-              >
-                Overall attendance
-              </div>
-            </div>
-          </div>
+        <section style={desktopStyles.studentCard}>
+          <div style={desktopStyles.avatar}>{(studentName || "S").trim().charAt(0).toUpperCase()}</div>
+          <div><strong style={desktopStyles.studentName}>{studentName}</strong><div style={desktopStyles.username}>@{username || "student"}</div></div>
         </section>
-
-        {/* HISTORY */}
-
-        <section
-          style={{
-            ...styles.historyCard,
-            padding: isMobile ? "12px" : "20px",
-            borderRadius: isMobile ? "16px" : "20px",
-          }}
-        >
-          <div style={styles.historyHeader}>
-            <div style={styles.historyHeaderContent}>
-              <h2
-                style={{
-                  ...styles.historyTitle,
-                  fontSize: isMobile ? "17px" : "20px",
-                }}
-              >
-                My Attendance Records
-              </h2>
-
-              <p
-                style={{
-                  ...styles.historySubtitle,
-                  fontSize: isMobile ? "10px" : "11px",
-                }}
-              >
-                Only your attendance records are shown here.
-              </p>
-            </div>
-          </div>
-
-          {loading ? (
-            <div
-              style={{
-                ...styles.loadingBox,
-                padding: isMobile
-                  ? "40px 15px"
-                  : "55px 20px",
-              }}
-            >
-              <div style={styles.loadingIcon}>
-                Loading...
-              </div>
-
-              <h3
-                style={{
-                  ...styles.loadingTitle,
-                  fontSize: isMobile ? "15px" : "17px",
-                }}
-              >
-                Loading your attendance...
-              </h3>
-
-              <p style={styles.loadingText}>
-                Please wait.
-              </p>
-            </div>
-          ) : records.length === 0 ? (
-            <div
-              style={{
-                ...styles.emptyBox,
-                padding: isMobile
-                  ? "40px 15px"
-                  : "50px 20px",
-              }}
-            >
-              <div style={styles.emptyIcon}>
-                No Records
-              </div>
-
-              <h3
-                style={{
-                  ...styles.emptyTitle,
-                  fontSize: isMobile ? "16px" : "18px",
-                }}
-              >
-                No Attendance Records
-              </h3>
-
-              <p style={styles.emptyText}>
-                Abhi aapki koi attendance record
-                available nahi hai.
-              </p>
-            </div>
-          ) : isMobile ? (
-            /* MOBILE ATTENDANCE CARDS */
-
-            <div style={styles.mobileRecords}>
-              {records.map((record, index) => {
-                const isPresent =
-                  record.status.toLowerCase() ===
-                  "present";
-
-                return (
-                  <div
-                    key={`${record.student_id}-${record.attendance_date}`}
-                    style={styles.mobileRecordCard}
-                  >
-                    <div
-                      style={
-                        styles.mobileRecordNumber
-                      }
-                    >
-                      #{index + 1}
-                    </div>
-
-                    <div
-                      style={
-                        styles.mobileRecordInfo
-                      }
-                    >
-                      <div
-                        style={
-                          styles.mobileRecordLabel
-                        }
-                      >
-                        DATE
-                      </div>
-
-                      <div
-                        style={
-                          styles.mobileRecordDate
-                        }
-                      >
-                        {formatDate(
-                          record.attendance_date
-                        )}
-                      </div>
-                    </div>
-
-                    <div
-                      style={
-                        styles.mobileRecordStatus
-                      }
-                    >
-                      {isPresent ? (
-                        <span
-                          style={
-                            styles.presentBadge
-                          }
-                        >
-                          Present
-                        </span>
-                      ) : (
-                        <span
-                          style={
-                            styles.absentBadge
-                          }
-                        >
-                          Absent
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            /* DESKTOP TABLE */
-
-            <div style={styles.tableWrapper}>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.th}>
-                      #
-                    </th>
-
-                    <th style={styles.th}>
-                      Date
-                    </th>
-
-                    <th style={styles.th}>
-                      Status
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {records.map(
-                    (record, index) => {
-                      const isPresent =
-                        record.status
-                          .toLowerCase() ===
-                        "present";
-
-                      return (
-                        <tr
-                          key={`${record.student_id}-${record.attendance_date}`}
-                        >
-                          <td style={styles.td}>
-                            {index + 1}
-                          </td>
-
-                          <td style={styles.td}>
-                            <strong
-                              style={
-                                styles.dateText
-                              }
-                            >
-                              {formatDate(
-                                record.attendance_date
-                              )}
-                            </strong>
-                          </td>
-
-                          <td style={styles.td}>
-                            {isPresent ? (
-                              <span
-                                style={
-                                  styles.presentBadge
-                                }
-                              >
-                                Present
-                              </span>
-                            ) : (
-                              <span
-                                style={
-                                  styles.absentBadge
-                                }
-                              >
-                                Absent
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    }
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
+        {errorMessage && <div style={desktopStyles.error}>{errorMessage}</div>}
+        <section style={desktopStyles.stats}>
+          <div style={desktopStyles.stat}><span>Total Days</span><strong>{totalCount}</strong></div>
+          <div style={desktopStyles.stat}><span>Present</span><strong style={{color:"#15803d"}}>{presentCount}</strong></div>
+          <div style={desktopStyles.stat}><span>Absent</span><strong style={{color:"#dc2626"}}>{absentCount}</strong></div>
+          <div style={desktopStyles.stat}><span>Percentage</span><strong>{percentage}%</strong></div>
         </section>
-
-        {/* FOOTER */}
-
-        <footer
-          style={{
-            ...styles.footer,
-            padding: isMobile
-              ? "18px 8px"
-              : "22px 10px",
-          }}
-        >
-          Attendance Portal - My Attendance - 2026
-        </footer>
+        <section style={desktopStyles.card}>
+          <h2 style={desktopStyles.sectionTitle}>Attendance History</h2>
+          <div style={{overflowX:"auto"}}><table style={desktopStyles.table}><thead><tr><th>Date</th><th>Status</th></tr></thead><tbody>
+            {loading ? <tr><td colSpan={2} style={desktopStyles.td}>Loading...</td></tr> : records.map((record) => <tr key={`${record.student_id}-${record.id ?? record.attendance_date}`}><td style={desktopStyles.td}>{safeDate(record.attendance_date)?.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"})}</td><td style={desktopStyles.td}><span style={{...desktopStyles.badge,background:statusPresent(record.status)?"#dcfce7":"#fee2e2",color:statusPresent(record.status)?"#166534":"#991b1b"}}>{statusPresent(record.status)?"Present":"Absent"}</span></td></tr>)}</tbody></table></div>
+        </section>
       </div>
     </main>
   );
 }
 
-const styles: {
-  [key: string]: React.CSSProperties;
-} = {
-  page: {
-    minHeight: "100vh",
-    width: "100%",
-    background:
-      "linear-gradient(135deg,#eef2ff,#f8fafc,#eff6ff)",
-    padding: "16px",
-    boxSizing: "border-box",
-    fontFamily:
-      "Arial, Helvetica, sans-serif",
-    color: "#0f172a",
-    overflowX: "hidden",
-  },
-
-  container: {
-    width: "100%",
-    maxWidth: "1100px",
-    margin: "0 auto",
-    boxSizing: "border-box",
-  },
-
-  header: {
-    width: "100%",
-    background: "#ffffff",
-    borderRadius: "20px",
-    padding: "22px",
-    boxSizing: "border-box",
-    marginBottom: "18px",
-    boxShadow:
-      "0 8px 25px rgba(15,23,42,0.07)",
-  },
-
-  headerContent: {
-    width: "100%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "16px",
-    flexWrap: "wrap",
-  },
-
-  badge: {
-    display: "inline-block",
-    background: "#dbeafe",
-    color: "#1d4ed8",
-    padding: "6px 11px",
-    borderRadius: "999px",
-    fontSize: "10px",
-    fontWeight: "900",
-    letterSpacing: "1.5px",
-    marginBottom: "8px",
-  },
-
-  title: {
-    margin: 0,
-    fontSize: "28px",
-    lineHeight: 1.2,
-    fontWeight: "900",
-    color: "#0f172a",
-    wordBreak: "break-word",
-  },
-
-  subtitle: {
-    margin: "7px 0 0",
-    color: "#64748b",
-    fontSize: "13px",
-    fontWeight: "600",
-    lineHeight: 1.4,
-  },
-
-  backButton: {
-    border: "none",
-    background: "#1d4ed8",
-    color: "#ffffff",
-    padding: "11px 16px",
-    borderRadius: "10px",
-    fontWeight: "800",
-    cursor: "pointer",
-    fontSize: "13px",
-    whiteSpace: "nowrap",
-    flexShrink: 0,
-    boxSizing: "border-box",
-  },
-
-  studentCard: {
-    width: "100%",
-    background:
-      "linear-gradient(135deg,#172554,#2563eb,#4f46e5)",
-    borderRadius: "20px",
-    padding: "22px",
-    boxSizing: "border-box",
-    display: "flex",
-    alignItems: "center",
-    gap: "15px",
-    marginBottom: "18px",
-    boxShadow:
-      "0 12px 30px rgba(37,99,235,0.18)",
-  },
-
-  avatar: {
-    width: "62px",
-    height: "62px",
-    minWidth: "62px",
-    borderRadius: "18px",
-    background: "#ffffff",
-    color: "#2563eb",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "27px",
-    fontWeight: "900",
-    flexShrink: 0,
-  },
-
-  studentInfo: {
-    minWidth: 0,
-    flex: 1,
-  },
-
-  studentLabel: {
-    color: "#bfdbfe",
-    fontSize: "9px",
-    fontWeight: "900",
-    letterSpacing: "1.5px",
-  },
-
-  studentName: {
-    color: "#ffffff",
-    fontSize: "22px",
-    fontWeight: "900",
-    marginTop: "4px",
-    wordBreak: "break-word",
-    overflowWrap: "anywhere",
-  },
-
-  username: {
-    color: "#dbeafe",
-    fontSize: "11px",
-    fontWeight: "700",
-    marginTop: "3px",
-    wordBreak: "break-word",
-    overflowWrap: "anywhere",
-  },
-
-  errorBox: {
-    width: "100%",
-    boxSizing: "border-box",
-    background: "#fee2e2",
-    color: "#991b1b",
-    border: "1px solid #fecaca",
-    borderRadius: "12px",
-    padding: "14px",
-    marginBottom: "18px",
-    fontWeight: "700",
-    fontSize: "13px",
-    overflowWrap: "anywhere",
-    lineHeight: 1.5,
-  },
-
-  statsGrid: {
-    width: "100%",
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(4,minmax(0,1fr))",
-    gap: "13px",
-    marginBottom: "18px",
-  },
-
-  statCard: {
-    width: "100%",
-    minWidth: 0,
-    boxSizing: "border-box",
-    background: "#ffffff",
-    borderRadius: "17px",
-    padding: "17px",
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    boxShadow:
-      "0 7px 22px rgba(15,23,42,0.06)",
-  },
-
-  statIcon: {
-    width: "48px",
-    height: "48px",
-    minWidth: "48px",
-    borderRadius: "13px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "11px",
-    fontWeight: "900",
-    color: "#1e3a8a",
-    flexShrink: 0,
-    boxSizing: "border-box",
-  },
-
-  statContent: {
-    minWidth: 0,
-    flex: 1,
-  },
-
-  statLabel: {
-    color: "#64748b",
-    fontSize: "9px",
-    fontWeight: "900",
-    letterSpacing: "1px",
-    overflowWrap: "anywhere",
-  },
-
-  statValue: {
-    color: "#172554",
-    fontSize: "22px",
-    fontWeight: "900",
-    marginTop: "2px",
-  },
-
-  statText: {
-    color: "#94a3b8",
-    fontSize: "9px",
-    marginTop: "2px",
-    fontWeight: "600",
-    lineHeight: 1.3,
-    overflowWrap: "anywhere",
-  },
-
-  historyCard: {
-    width: "100%",
-    background: "#ffffff",
-    borderRadius: "20px",
-    padding: "20px",
-    boxSizing: "border-box",
-    boxShadow:
-      "0 9px 28px rgba(15,23,42,0.07)",
-    overflow: "hidden",
-  },
-
-  historyHeader: {
-    width: "100%",
-    marginBottom: "17px",
-  },
-
-  historyHeaderContent: {
-    minWidth: 0,
-    width: "100%",
-  },
-
-  historyTitle: {
-    margin: 0,
-    fontSize: "20px",
-    lineHeight: 1.3,
-    color: "#172554",
-    fontWeight: "900",
-    wordBreak: "break-word",
-  },
-
-  historySubtitle: {
-    margin: "5px 0 0",
-    color: "#64748b",
-    fontSize: "11px",
-    fontWeight: "600",
-    lineHeight: 1.5,
-    overflowWrap: "anywhere",
-  },
-
-  tableWrapper: {
-    width: "100%",
-    maxWidth: "100%",
-    overflow: "hidden",
-    border: "1px solid #e2e8f0",
-    borderRadius: "13px",
-    boxSizing: "border-box",
-  },
-
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-    background: "#ffffff",
-    tableLayout: "fixed",
-  },
-
-  th: {
-    background: "#172554",
-    color: "#ffffff",
-    padding: "13px 12px",
-    textAlign: "left",
-    fontSize: "11px",
-    fontWeight: "900",
-  },
-
-  td: {
-    padding: "13px 12px",
-    borderBottom:
-      "1px solid #e2e8f0",
-    color: "#334155",
-    fontSize: "12px",
-    fontWeight: "600",
-    overflowWrap: "anywhere",
-  },
-
-  dateText: {
-    color: "#172554",
-    fontSize: "13px",
-  },
-
-  presentBadge: {
-    display: "inline-block",
-    background: "#dcfce7",
-    color: "#166534",
-    padding: "7px 11px",
-    borderRadius: "999px",
-    fontSize: "10px",
-    fontWeight: "900",
-    whiteSpace: "nowrap",
-  },
-
-  absentBadge: {
-    display: "inline-block",
-    background: "#fee2e2",
-    color: "#991b1b",
-    padding: "7px 11px",
-    borderRadius: "999px",
-    fontSize: "10px",
-    fontWeight: "900",
-    whiteSpace: "nowrap",
-  },
-
-  mobileRecords: {
-    width: "100%",
-    display: "flex",
-    flexDirection: "column",
-    gap: "9px",
-  },
-
-  mobileRecordCard: {
-    width: "100%",
-    boxSizing: "border-box",
-    display: "flex",
-    alignItems: "center",
-    gap: "9px",
-    padding: "11px",
-    border: "1px solid #e2e8f0",
-    borderRadius: "12px",
-    background: "#f8fafc",
-  },
-
-  mobileRecordNumber: {
-    width: "32px",
-    minWidth: "32px",
-    height: "32px",
-    borderRadius: "9px",
-    background: "#dbeafe",
-    color: "#1d4ed8",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "9px",
-    fontWeight: "900",
-    flexShrink: 0,
-  },
-
-  mobileRecordInfo: {
-    minWidth: 0,
-    flex: 1,
-  },
-
-  mobileRecordLabel: {
-    color: "#94a3b8",
-    fontSize: "7px",
-    fontWeight: "900",
-    letterSpacing: "1px",
-    marginBottom: "2px",
-  },
-
-  mobileRecordDate: {
-    color: "#172554",
-    fontSize: "11px",
-    fontWeight: "800",
-    lineHeight: 1.35,
-    overflowWrap: "anywhere",
-  },
-
-  mobileRecordStatus: {
-    flexShrink: 0,
-  },
-
-  loadingBox: {
-    width: "100%",
-    boxSizing: "border-box",
-    textAlign: "center",
-    padding: "55px 20px",
-    background: "#f8fafc",
-    borderRadius: "13px",
-  },
-
-  loadingIcon: {
-    fontSize: "20px",
-    fontWeight: "800",
-    color: "#2563eb",
-  },
-
-  loadingTitle: {
-    margin: "10px 0 5px",
-    color: "#172554",
-    fontSize: "17px",
-    fontWeight: "900",
-  },
-
-  loadingText: {
-    margin: 0,
-    color: "#64748b",
-    fontSize: "12px",
-  },
-
-  emptyBox: {
-    width: "100%",
-    boxSizing: "border-box",
-    textAlign: "center",
-    padding: "50px 20px",
-    background: "#f8fafc",
-    borderRadius: "13px",
-  },
-
-  emptyIcon: {
-    fontSize: "18px",
-    fontWeight: "900",
-    color: "#64748b",
-  },
-
-  emptyTitle: {
-    margin: "10px 0 5px",
-    color: "#172554",
-    fontSize: "18px",
-    fontWeight: "900",
-  },
-
-  emptyText: {
-    margin: 0,
-    color: "#64748b",
-    fontSize: "12px",
-    lineHeight: 1.6,
-    overflowWrap: "anywhere",
-  },
-
-  footer: {
-    textAlign: "center",
-    padding: "22px 10px",
-    color: "#94a3b8",
-    fontSize: "10px",
-    fontWeight: "700",
-    overflowWrap: "anywhere",
-    lineHeight: 1.5,
-  },
+const desktopStyles: Record<string, React.CSSProperties> = {
+  page:{minHeight:"100vh",background:"linear-gradient(180deg,#f7fbff,#eef5ff)",padding:"18px",boxSizing:"border-box"},
+  container:{maxWidth:"980px",margin:"0 auto"},
+  header:{background:"#fff",borderRadius:"20px",padding:"22px",boxShadow:"0 8px 24px rgba(15,23,42,.06)",marginBottom:"14px"},
+  eyebrow:{fontSize:"10px",fontWeight:900,letterSpacing:"1.4px",color:"#4165ad"},
+  title:{margin:"3px 0",fontSize:"28px",color:"#10245e",fontWeight:900},
+  subtitle:{margin:0,fontSize:"13px",color:"#6d7fa7",fontWeight:700},
+  studentCard:{display:"flex",alignItems:"center",gap:"14px",padding:"18px",background:"linear-gradient(110deg,#1056c7,#4659e9)",borderRadius:"18px",color:"#fff",marginBottom:"14px"},
+  avatar:{width:"56px",height:"56px",borderRadius:"50%",background:"#fff",color:"#1d5ed0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"24px",fontWeight:900},
+  studentName:{fontSize:"20px"},username:{fontSize:"11px",opacity:.85},
+  error:{background:"#fff0f0",color:"#9b1c1c",padding:"12px",borderRadius:"12px",marginBottom:"14px"},
+  stats:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"12px",marginBottom:"14px"},
+  stat:{background:"#fff",borderRadius:"15px",padding:"16px",boxShadow:"0 5px 16px rgba(15,23,42,.06)"},
+  card:{background:"#fff",borderRadius:"18px",padding:"18px",boxShadow:"0 7px 20px rgba(15,23,42,.06)"},
+  sectionTitle:{margin:"0 0 12px",color:"#10245e"},
+  table:{width:"100%",borderCollapse:"collapse"},
+  td:{padding:"12px",borderTop:"1px solid #e2e8f0"},
+  badge:{display:"inline-block",padding:"6px 10px",borderRadius:"999px",fontWeight:900,fontSize:"10px"},
 };

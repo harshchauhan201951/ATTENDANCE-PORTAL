@@ -23,114 +23,6 @@ type Homework = {
 
 type HomeworkTab = "all" | "today";
 
-
-type HomeworkReferenceVipProps = { student: Student | null; homework: Homework[]; todayHomework: Homework[]; activeTab: HomeworkTab; setActiveTab: (value: HomeworkTab) => void; loading: boolean; error: string; formatDate: (value: string) => string; formatPostedDate: (value: string | null) => string; formatPostedTime: (value: string | null) => string; isOverdue: (value: string) => boolean; };
-
-function HomeworkReferenceVip({
-  student,
-  homework,
-  todayHomework,
-  activeTab,
-  setActiveTab,
-  loading,
-  error,
-  formatDate,
-  formatPostedDate,
-  formatPostedTime,
-  isOverdue,
-}: HomeworkReferenceVipProps) {
-  const overdueCount = homework.filter((item) => isOverdue(item.due_date)).length;
-  const todayCount = todayHomework.length;
-
-  return (
-    <main style={{ minHeight: '100vh', padding: '8px 8px 96px', background: 'linear-gradient(180deg,#f5f9ff 0%,#edf4ff 100%)', boxSizing: 'border-box' }}>
-      <div style={{ width: '100%', maxWidth: 430, margin: '0 auto' }}>
-        <header style={{ background: 'linear-gradient(112deg,#3151db,#5a49e9)', color: '#fff', borderRadius: 20, padding: 15, margin: '2px 0 9px', boxShadow: '0 10px 24px rgba(49,74,211,.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <button type="button" onClick={() => window.history.back()} aria-label="Back" style={{ width: 34, height: 34, border: 0, borderRadius: 11, background: 'rgba(255,255,255,.14)', color: '#fff', fontSize: 22, lineHeight: 1 }}>‹</button>
-          <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
-            <div style={{ fontSize: 7, letterSpacing: 1, fontWeight: 900, opacity: .78 }}>STUDENT</div>
-            <h1 style={{ margin: '3px 0', fontSize: 21, lineHeight: 1.05 }}>My Homework</h1>
-            <p style={{ margin: 0, fontSize: 8, opacity: .84 }}>Stay on track with your assignments</p>
-          </div>
-          <div style={{ width: 34, height: 34, borderRadius: 11, background: 'rgba(255,255,255,.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17 }}>⌕</div>
-        </header>
-
-        <section style={{ background: '#fff', border: '1px solid #dbe6f8', borderRadius: 16, padding: 11, marginBottom: 9, boxShadow: '0 5px 15px rgba(17,56,120,.05)', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 42, height: 42, borderRadius: 13, background: '#eef1ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 21 }}>📚</div>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <strong style={{ display: 'block', fontSize: 12, color: '#17316c' }}>Stay Consistent!</strong>
-            <span style={{ display: 'block', marginTop: 3, fontSize: 8, lineHeight: 1.35, color: '#6e809f' }}>Small steps every day lead to great results. Keep going!</span>
-          </div>
-        </section>
-
-        {error && <div style={{ background: '#fff0f0', border: '1px solid #ffcaca', color: '#9e2424', borderRadius: 12, padding: 9, marginBottom: 9, fontSize: 8, fontWeight: 800 }}>{error}</div>}
-
-        <section style={{ background: '#fff', border: '1px solid #dbe6f8', borderRadius: 16, padding: 8, marginBottom: 9, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-          <button type="button" onClick={() => setActiveTab('today')} style={{ border: 0, borderRadius: 11, padding: 9, background: activeTab === 'today' ? '#4d3fe5' : '#f5f7fb', color: activeTab === 'today' ? '#fff' : '#5c6f94', fontSize: 8, fontWeight: 900 }}>Today's Homework <span style={{ opacity: .75 }}>({todayCount})</span></button>
-          <button type="button" onClick={() => setActiveTab('all')} style={{ border: 0, borderRadius: 11, padding: 9, background: activeTab === 'all' ? '#4d3fe5' : '#f5f7fb', color: activeTab === 'all' ? '#fff' : '#5c6f94', fontSize: 8, fontWeight: 900 }}>All Homework <span style={{ opacity: .75 }}>({homework.length})</span></button>
-        </section>
-
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 6, marginBottom: 9 }}>
-          {[
-            ['TOTAL', homework.length, '#1b61d4', '#eaf2ff'],
-            ['TODAY', todayCount, '#0b9a66', '#e3fbef'],
-            ['OVERDUE', overdueCount, '#db3450', '#ffe9ee'],
-          ].map((item) => {
-            const label = String(item[0]);
-            const value = item[1];
-            const color = String(item[2]);
-            const bg = String(item[3]);
-            return (
-            <div key={label} style={{ background: '#fff', border: '1px solid #dce7f7', borderRadius: 14, padding: 9, textAlign: 'center', boxShadow: '0 5px 14px rgba(20,67,136,.045)' }}>
-              <div style={{ width: 26, height: 26, borderRadius: 9, background: bg, color, margin: '0 auto 5px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 900 }}>{label === 'TOTAL' ? '▣' : label === 'TODAY' ? '✓' : '!'}</div>
-              <span style={{ display: 'block', fontSize: 6, color: '#7081a2', fontWeight: 900 }}>{label}</span>
-              <strong style={{ display: 'block', marginTop: 2, fontSize: 17, color }}>{value}</strong>
-            </div>
-          );
-          })}
-        </section>
-
-        {loading ? (
-          <section style={{ background: '#fff', border: '1px solid #dbe7f8', borderRadius: 16, padding: 26, textAlign: 'center', color: '#7082a4', fontSize: 9 }}>Loading your homework...</section>
-        ) : (activeTab === 'today' ? todayHomework : homework).length === 0 ? (
-          <section style={{ background: '#fff', border: '1px dashed #bfd1ec', borderRadius: 16, padding: 26, textAlign: 'center', color: '#6f81a3' }}>
-            <div style={{ fontSize: 27, marginBottom: 6 }}>📚</div>
-            <strong style={{ display: 'block', fontSize: 11, color: '#1a346e' }}>No Homework Available</strong>
-            <p style={{ fontSize: 8, lineHeight: 1.4, margin: '5px 0 0' }}>Your teacher&apos;s homework will appear here.</p>
-          </section>
-        ) : (
-          <section style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-            {(activeTab === 'today' ? todayHomework : homework).map((item) => {
-              const overdue = isOverdue(item.due_date);
-              const postedToday = todayHomework.some((x) => x.id === item.id);
-              return (
-                <article key={item.id} style={{ background: '#fff', border: '1px solid #dbe6f7', borderRadius: 16, padding: 10, boxShadow: '0 5px 14px rgba(17,56,120,.045)' }}>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                    <div style={{ width: 34, height: 34, minWidth: 34, borderRadius: 11, background: '#eaf0ff', color: '#4f40da', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900 }}>{(item.subject || 'H').charAt(0).toUpperCase()}</div>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, alignItems: 'flex-start' }}>
-                        <div style={{ minWidth: 0 }}><span style={{ display: 'inline-block', padding: '4px 6px', borderRadius: 999, background: '#eef3ff', color: '#3154d4', fontSize: 6, fontWeight: 900 }}>{item.subject || 'Subject'}</span><strong style={{ display: 'block', marginTop: 4, fontSize: 11, color: '#18336d', lineHeight: 1.2 }}>{item.title}</strong></div>
-                        <span style={{ flex: 'none', padding: '4px 6px', borderRadius: 999, background: overdue ? '#ffe8ed' : '#e6faf1', color: overdue ? '#db3150' : '#0a9762', fontSize: 6, fontWeight: 900 }}>{overdue ? 'Overdue' : postedToday ? 'Today' : 'Upcoming'}</span>
-                      </div>
-                      <p style={{ margin: '5px 0 0', fontSize: 8, lineHeight: 1.45, color: '#65799b' }}>{item.description || 'No description provided.'}</p>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 7 }}>
-                        <span style={{ padding: '5px 6px', borderRadius: 8, background: '#f7f9fd', color: '#63769a', fontSize: 6, fontWeight: 800 }}>Due: {formatDate(item.due_date)}</span>
-                        <span style={{ padding: '5px 6px', borderRadius: 8, background: '#f7f9fd', color: '#63769a', fontSize: 6, fontWeight: 800 }}>Posted: {formatPostedDate(item.created_at)}{formatPostedTime(item.created_at) ? ' • ' + formatPostedTime(item.created_at) : ''}</span>
-                      </div>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </section>
-        )}
-
-        <footer style={{ textAlign: 'center', color: '#8794ab', fontSize: 7, fontWeight: 800, padding: '11px 0 4px' }}>RACER ACADEMY • Homework</footer>
-      </div>
-    </main>
-  );
-}
-
 export default function StudentHomeworkPage() {
   const router = useRouter();
 
@@ -139,8 +31,6 @@ export default function StudentHomeworkPage() {
   const [activeTab, setActiveTab] =
     useState<HomeworkTab>("today");
   const [loading, setLoading] = useState(true);
-  const [isMobileVip, setIsMobileVip] = useState(false);
-  useEffect(() => { const check = () => setIsMobileVip(window.innerWidth <= 700); check(); window.addEventListener('resize', check); return () => window.removeEventListener('resize', check); }, []);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -389,10 +279,6 @@ export default function StudentHomeworkPage() {
     sessionStorage.clear();
 
     router.push("/");
-  }
-
-  if (isMobileVip && !loading) {
-    return <HomeworkReferenceVip student={student} homework={homework} todayHomework={todayHomework} activeTab={activeTab} setActiveTab={setActiveTab} loading={loading} error={error} formatDate={formatDate} formatPostedDate={formatPostedDate} formatPostedTime={formatPostedTime} isOverdue={isOverdue} />;
   }
 
   return (
@@ -1414,126 +1300,7 @@ export default function StudentHomeworkPage() {
             font-size: 9px !important;
           }
         }
-      \n
-/* RACER ACADEMY VIP MOBILE HOMEWORK • ZIP DATA / FUNCTIONS PRESERVED */
-@media (max-width:700px){
-  .student-homework-page{
-    min-height:100vh!important;
-    padding:8px 8px 92px!important;
-    background:linear-gradient(180deg,#f5f9ff 0%,#edf4ff 100%)!important;
-    overflow-x:hidden!important;
-  }
-  .student-homework-container{
-    width:100%!important;
-    max-width:720px!important;
-    margin:0 auto!important;
-  }
-  .homework-header{
-    background:linear-gradient(115deg,#0b57c9,#4b59e7)!important;
-    color:#fff!important;
-    border-radius:20px!important;
-    padding:15px!important;
-    margin:2px 0 9px!important;
-    box-shadow:0 10px 22px rgba(28,83,190,.18)!important;
-    display:flex!important;
-    align-items:center!important;
-    justify-content:space-between!important;
-    gap:9px!important;
-  }
-  .homework-heading-content{min-width:0!important}
-  .homework-header-left{min-width:0!important;flex:1!important;display:flex!important;align-items:center!important;gap:9px!important}
-  .homework-header-left>div:first-child{width:40px!important;height:40px!important;min-width:40px!important;border-radius:13px!important;background:rgba(255,255,255,.14)!important;display:flex!important;align-items:center!important;justify-content:center!important;font-size:19px!important}
-  .homework-header .homework-header-actions{display:flex!important;gap:5px!important;flex:none!important}
-  .homework-header .homework-header-actions button{
-    padding:7px 8px!important;border-radius:9px!important;border:1px solid rgba(255,255,255,.24)!important;
-    background:rgba(255,255,255,.09)!important;color:#fff!important;font-size:7px!important;font-weight:900!important;
-  }
-  .homework-header .homework-heading-content>div{font-size:7px!important;letter-spacing:1px!important;color:rgba(255,255,255,.8)!important}
-  .homework-header h1{font-size:22px!important;line-height:1.05!important;margin:2px 0!important;color:#fff!important}
-  .homework-header p{font-size:9px!important;margin:0!important;color:rgba(255,255,255,.82)!important}
-  .homework-student-card{
-    display:grid!important;grid-template-columns:44px minmax(0,1fr) auto auto!important;
-    align-items:center!important;gap:8px!important;
-    padding:10px!important;border-radius:16px!important;background:#fff!important;
-    border:1px solid #dce8f8!important;box-shadow:0 5px 15px rgba(22,67,136,.06)!important;
-    margin-bottom:9px!important;
-  }
-  .homework-student-card>div:first-child{
-    width:40px!important;height:40px!important;border-radius:50%!important;background:#e8f1ff!important;color:#155bc9!important;
-    display:flex!important;align-items:center!important;justify-content:center!important;font-weight:900!important;font-size:16px!important;
-  }
-  .homework-student-info{min-width:0!important}
-  .homework-student-info>div:nth-child(2){font-size:12px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;color:#17316c!important;font-weight:900!important}
-  .homework-student-info>div:nth-child(3){font-size:7px!important;color:#7383a2!important;margin-top:2px!important}
-  .homework-class-box,.homework-count-box{padding:7px!important;border-radius:10px!important;background:#f5f8fd!important;text-align:center!important}
-  .homework-class-box .infoLabel,.homework-count-box .infoLabel{font-size:6px!important}
-  .homework-class-box .className{font-size:9px!important;font-weight:900!important;color:#1a376d!important}
-  .homework-count-box .homeworkCount{font-size:15px!important;color:#145dcc!important;font-weight:900!important}
-  .homework-tabs-card{
-    margin:0 0 9px!important;padding:10px!important;border-radius:17px!important;background:#fff!important;
-    border:1px solid #dce7f8!important;box-shadow:0 6px 17px rgba(22,67,136,.05)!important;
-  }
-  .homework-tabs-card .tabsHeader{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important}
-  .homework-tabs-card .tabsTitle{font-size:13px!important;color:#16316d!important;margin:0!important}
-  .homework-tabs-card .tabsSubtitle{font-size:8px!important;color:#7383a2!important;margin:2px 0 0!important}
-  .homework-tabs-card .istBadge{font-size:7px!important;padding:6px 7px!important;border-radius:8px!important;background:#edf4ff!important;color:#1c5dc9!important;font-weight:900!important}
-  .homework-tabs{
-    display:grid!important;grid-template-columns:1fr 1fr!important;gap:6px!important;margin-top:9px!important;
-  }
-  .homework-tab{
-    min-width:0!important;border:1px solid #dce7f7!important;border-radius:11px!important;background:#fff!important;
-    padding:8px 7px!important;font-size:8px!important;font-weight:900!important;color:#5b7098!important;
-    display:flex!important;align-items:center!important;justify-content:center!important;gap:5px!important;
-  }
-  .homework-tab.active{background:#1861d1!important;color:#fff!important;border-color:#1861d1!important;box-shadow:0 5px 12px rgba(24,97,209,.18)!important}
-  .homework-tab .tabCount{font-size:7px!important;padding:2px 5px!important;border-radius:99px!important;background:#eef3fb!important;color:#315183!important}
-  .homework-tab.active .tabCount{background:rgba(255,255,255,.18)!important;color:#fff!important}
-  .homework-list{display:flex!important;flex-direction:column!important;gap:7px!important}
-  .homework-card{
-    border-radius:15px!important;background:#fff!important;border:1px solid #dce7f7!important;
-    padding:10px!important;box-shadow:0 5px 14px rgba(20,67,136,.045)!important;
-  }
-  .homework-card-header{gap:8px!important;display:flex!important;align-items:flex-start!important}
-  .homework-card-header>div:first-child{min-width:0!important}
-  .homework-title{font-size:12px!important;line-height:1.18!important;color:#17316c!important}
-  .homework-card .homework-badges{display:flex!important;flex-wrap:wrap!important;gap:5px!important;margin-top:5px!important}
-  .homework-card .homework-badges>*{font-size:6px!important;padding:4px 6px!important;border-radius:999px!important;font-weight:900!important}
-  .homework-description-box{margin-top:7px!important;padding:8px!important;border-radius:10px!important;background:#f7f9fd!important}
-  .homework-description{font-size:8px!important;line-height:1.45!important;color:#536a91!important}
-  .homework-due-box,.homework-posted-box,.homework-class-visibility{font-size:7px!important}
-  .homework-section-header{margin:8px 1px 7px!important}
-  .homework-section-heading h2{font-size:14px!important}
-  .homework-section-heading p{font-size:8px!important}
-  .homework-info-card{display:flex!important;gap:8px!important;padding:9px!important;border-radius:13px!important;margin-top:9px!important}
-  .homework-info-card .homework-info-content{min-width:0!important}
-  .homework-info-content .infoCardTitle{font-size:9px!important}
-  .homework-info-content p{font-size:7px!important;line-height:1.4!important;margin:3px 0 0!important}
-  .homework-footer-page{font-size:7px!important;padding:10px 0 4px!important}
-}
-\n
-
-/* RACER VIP REFERENCE LOCKED • HOMEWORK • MOBILE ONLY */
-@media (max-width:700px){
-  .student-homework-page{min-height:100vh!important;padding:0 8px 92px!important;background:linear-gradient(180deg,#f6f9ff 0%,#edf3ff 100%)!important;color:#19356f!important;overflow-x:hidden!important}
-  .student-homework-container{width:100%!important;max-width:720px!important;margin:0 auto!important}
-  .homework-header{background:linear-gradient(112deg,#304bdc 0%,#6247e8 100%)!important;border:0!important;border-radius:0 0 20px 20px!important;padding:14px 13px!important;margin:0 -8px 9px!important;box-shadow:0 10px 24px rgba(53,70,206,.20)!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important;color:#fff!important}
-  .homework-header-left{display:flex!important;align-items:center!important;gap:8px!important;min-width:0!important;flex:1!important}
-  .homework-header-left>div:first-child{width:38px!important;height:38px!important;min-width:38px!important;border-radius:12px!important;background:rgba(255,255,255,.15)!important;display:flex!important;align-items:center!important;justify-content:center!important}
-  .homework-heading-content{min-width:0!important}.homework-heading-content>div{font-size:7px!important;letter-spacing:1px!important;color:rgba(255,255,255,.76)!important}.homework-header h1{font-size:20px!important;line-height:1.04!important;margin:2px 0!important;color:#fff!important;font-weight:900!important}.homework-header p{font-size:8px!important;line-height:1.3!important;margin:0!important;color:rgba(255,255,255,.84)!important}
-  .homework-header-actions{display:flex!important;gap:4px!important;flex:none!important}.homework-header-actions button{border:1px solid rgba(255,255,255,.26)!important;background:rgba(255,255,255,.10)!important;color:#fff!important;border-radius:8px!important;padding:6px 7px!important;font-size:7px!important;font-weight:900!important}
-  .homework-student-card{display:grid!important;grid-template-columns:40px minmax(0,1fr) auto auto!important;align-items:center!important;gap:7px!important;padding:9px!important;background:#fff!important;border:1px solid #dbe6f8!important;border-radius:15px!important;margin-bottom:8px!important;box-shadow:0 5px 14px rgba(20,67,136,.05)!important}
-  .homework-student-card>div:first-child{width:40px!important;height:40px!important;border-radius:50%!important;background:#edf1ff!important;color:#3f43d3!important;display:flex!important;align-items:center!important;justify-content:center!important;font-weight:900!important;font-size:16px!important}
-  .homework-student-info{min-width:0!important}.homework-student-info>div:nth-child(2){font-size:10px!important;font-weight:900!important;color:#19356f!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}.homework-student-info>div:nth-child(3){font-size:7px!important;color:#7384a5!important;margin-top:2px!important}
-  .homework-class-box,.homework-count-box{min-width:46px!important;padding:6px 5px!important;border-radius:9px!important;background:#f5f8ff!important;text-align:center!important}.homework-class-box .infoLabel,.homework-count-box .infoLabel{font-size:5px!important}.homework-class-box .className{font-size:8px!important;font-weight:900!important;color:#29447a!important}.homework-count-box .homeworkCount{font-size:15px!important;font-weight:900!important;color:#3e42d5!important}
-  .homework-tabs-card{position:relative!important;background:#fff!important;border:1px solid #dce6f7!important;border-radius:17px!important;padding:62px 9px 9px!important;margin-bottom:8px!important;box-shadow:0 6px 17px rgba(20,67,136,.055)!important}
-  .homework-tabs-card .tabsHeader{display:none!important}
-  .homework-tabs-card:before{content:"Stay Consistent!";position:absolute!important;left:9px!important;right:9px!important;top:9px!important;min-height:42px!important;border-radius:13px!important;background:linear-gradient(90deg,#f8fbff,#eef3ff)!important;border:1px solid #e3ebf8!important;display:flex!important;align-items:center!important;padding:8px 11px!important;font-size:11px!important;font-weight:900!important;color:#243d76!important}
-  .homework-tabs-card:after{content:"Small steps every day lead to great results. Keep going!";position:absolute!important;left:47px!important;right:15px!important;top:33px!important;font-size:7px!important;color:#7082a5!important;line-height:1.2!important}
-  .homework-tabs{display:grid!important;grid-template-columns:1fr 1fr!important;gap:5px!important;margin:0!important}.homework-tab{border:1px solid #dce6f7!important;background:#f6f8fc!important;color:#60729b!important;border-radius:10px!important;padding:8px 5px!important;font-size:7px!important;font-weight:900!important}.homework-tab.active{background:#4d3be4!important;color:#fff!important;border-color:#4d3be4!important;box-shadow:0 5px 11px rgba(77,59,228,.18)!important}.homework-tab .tabCount{font-size:6px!important;padding:2px 4px!important}
-  .homework-list{display:flex!important;flex-direction:column!important;gap:6px!important}.homework-card{background:#fff!important;border:1px solid #dbe6f7!important;border-radius:15px!important;padding:9px!important;box-shadow:0 5px 13px rgba(20,67,136,.04)!important}.homework-card-header{gap:6px!important}.homework-title{font-size:10px!important;line-height:1.2!important;color:#19356f!important}.homework-badges{display:flex!important;flex-wrap:wrap!important;gap:4px!important}.homework-badges>*{font-size:5px!important;padding:3px 5px!important;border-radius:999px!important;font-weight:900!important}.homework-description-box{background:#f8faff!important;border:1px solid #edf1f8!important;border-radius:9px!important;padding:7px!important;margin-top:6px!important}.homework-description{font-size:7px!important;line-height:1.4!important;color:#596e91!important}.homework-due-box,.homework-posted-box,.homework-class-visibility,.visibility-text{font-size:6px!important;color:#70819f!important}.homework-section-header{margin:7px 1px 6px!important}.homework-section-heading h2{font-size:13px!important}.homework-section-heading p{font-size:7px!important}.homework-info-card{background:#fff!important;border:1px solid #dce6f7!important;border-radius:12px!important;padding:8px!important}.homework-info-content .infoCardTitle{font-size:8px!important}.homework-info-content p{font-size:7px!important;line-height:1.35!important}.homework-footer-page{font-size:6px!important;padding:8px 0 2px!important;color:#8793a9!important}
-}
-
-`}</style>
+      `}</style>
     </>
   );
 }

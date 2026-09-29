@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -1534,7 +1534,7 @@ export default function StudentDashboardPage() {
                 className="student-clock"
                 style={styles.clock}
               >
-                {time}
+                WATCH TIME {time}
               </div>
 
               <button
