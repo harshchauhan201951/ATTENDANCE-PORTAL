@@ -1,0 +1,167 @@
+'use client';
+
+import { useEffect, useState, type ReactNode } from 'react';
+
+const SPLASH_DURATION = 5000;
+const EXIT_START = 4550;
+
+export default function RacerStartupSplash({ children }: { children: ReactNode }) {
+  const [show, setShow] = useState(true);
+  const [progress, setProgress] = useState(0);
+  const [leaving, setLeaving] = useState(false);
+
+  useEffect(() => {
+    const start = performance.now();
+    let frame = 0;
+
+    const tick = (now: number) => {
+      const elapsed = now - start;
+      const ratio = Math.min(1, elapsed / SPLASH_DURATION);
+      setProgress(Math.round(ratio * 100));
+
+      if (elapsed >= EXIT_START && !leaving) {
+        setLeaving(true);
+      }
+
+      if (elapsed < SPLASH_DURATION) {
+        frame = requestAnimationFrame(tick);
+      } else {
+        setProgress(100);
+        setLeaving(true);
+        setShow(false);
+      }
+    };
+
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [leaving]);
+
+  if (!show) return <>{children}</>;
+
+  return (
+    <div className={leaving ? 'racer-human-splash leaving' : 'racer-human-splash'} aria-label="RACER ACADEMY loading">
+      <img
+        className="racer-human-splash-image"
+        src="/racer-splash-real-human.png"
+        alt="RACER ACADEMY student walking toward a bright academy entrance"
+      />
+
+      <div className="racer-human-splash-vignette" />
+      <div className="racer-human-splash-journey-glow" />
+      <div className="racer-human-splash-content">
+        <div className="racer-human-splash-bottom">
+          <div className="racer-human-splash-progress-track">
+            <div className="racer-human-splash-progress-fill" style={{ width: progress + '%' }} />
+          </div>
+          <div className="racer-human-splash-loading">Loading...</div>
+        </div>
+      </div>
+
+      <style jsx>{`
+        .racer-human-splash {
+          position: fixed;
+          inset: 0;
+          z-index: 2147483647;
+          overflow: hidden;
+          background: #020b17;
+          isolation: isolate;
+          animation: splashIn .35s ease-out both;
+        }
+        .racer-human-splash.leaving {
+          animation: splashOut .45s ease-in both;
+        }
+        .racer-human-splash-image {
+          position: absolute;
+          inset: -3%;
+          width: 106%;
+          height: 106%;
+          object-fit: cover;
+          object-position: center center;
+          transform: scale(1);
+          animation: studentJourney 5000ms cubic-bezier(.25,.65,.2,1) both;
+          filter: saturate(1.04) contrast(1.04) brightness(.94);
+        }
+        .racer-human-splash-vignette {
+          position: absolute;
+          inset: 0;
+          z-index: 1;
+          background:
+            linear-gradient(180deg, rgba(0,6,18,.32) 0%, rgba(0,9,21,.04) 36%, rgba(0,6,16,.35) 100%),
+            radial-gradient(circle at 50% 58%, transparent 10%, rgba(0,4,12,.28) 72%, rgba(0,0,0,.72) 100%);
+          pointer-events: none;
+        }
+        .racer-human-splash-journey-glow {
+          position: absolute;
+          left: 50%;
+          bottom: 18%;
+          width: 62vw;
+          height: 34vh;
+          max-width: 420px;
+          max-height: 360px;
+          transform: translateX(-50%);
+          z-index: 1;
+          background: radial-gradient(ellipse, rgba(255,214,92,.24), rgba(255,175,31,.08) 40%, transparent 72%);
+          filter: blur(16px);
+          animation: doorGlow 5000ms ease-in-out both;
+          pointer-events: none;
+        }
+        .racer-human-splash-content {
+          position: absolute;
+          inset: 0;
+          z-index: 2;
+          pointer-events: none;
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+        }
+        .racer-human-splash-bottom {
+          width: min(62%, 300px);
+          margin-bottom: max(4.5vh, 28px);
+          text-align: center;
+        }
+        .racer-human-splash-progress-track {
+          height: 8px;
+          width: 100%;
+          border-radius: 999px;
+          background: rgba(9,22,39,.78);
+          box-shadow: inset 0 1px 3px rgba(0,0,0,.35), 0 0 12px rgba(255,214,92,.09);
+          overflow: hidden;
+          backdrop-filter: blur(4px);
+        }
+        .racer-human-splash-progress-fill {
+          height: 100%;
+          border-radius: inherit;
+          background: linear-gradient(90deg, #ffe58b 0%, #ffd34d 45%, #fff1aa 100%);
+          box-shadow: 0 0 14px rgba(255,217,105,.62);
+          transition: width .08s linear;
+        }
+        .racer-human-splash-loading {
+          margin-top: 8px;
+          color: #fff;
+          font-size: 12px;
+          line-height: 1;
+          letter-spacing: .2px;
+          text-shadow: 0 2px 8px rgba(0,0,0,.7);
+          font-weight: 700;
+        }
+        @keyframes studentJourney {
+          0% { transform: scale(1); filter: saturate(1.02) contrast(1.03) brightness(.90); }
+          35% { transform: scale(1.035) translate3d(0,-.6%,0); filter: saturate(1.04) contrast(1.04) brightness(.94); }
+          70% { transform: scale(1.075) translate3d(0,-1.4%,0); filter: saturate(1.07) contrast(1.05) brightness(1); }
+          100% { transform: scale(1.12) translate3d(0,-2.1%,0); filter: saturate(1.08) contrast(1.05) brightness(1.08); }
+        }
+        @keyframes doorGlow {
+          0% { opacity: .18; transform: translateX(-50%) scale(.78); }
+          48% { opacity: .34; transform: translateX(-50%) scale(.96); }
+          82% { opacity: .62; transform: translateX(-50%) scale(1.12); }
+          100% { opacity: .9; transform: translateX(-50%) scale(1.3); }
+        }
+        @keyframes splashIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes splashOut { from { opacity: 1; } to { opacity: 0; } }
+        @media (prefers-reduced-motion: reduce) {
+          .racer-human-splash-image, .racer-human-splash-journey-glow { animation: none; }
+        }
+      `}</style>
+    </div>
+  );
+}

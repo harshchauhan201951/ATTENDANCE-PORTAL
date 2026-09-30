@@ -1,4 +1,181 @@
-﻿"use client";import { useEffect,useState,type ReactNode } from "react";export default function RacerStartupSplash({children}:{children:ReactNode}){const [show,setShow]=useState(true);useEffect(()=>{const t=setTimeout(()=>setShow(false),6500);return()=>clearTimeout(t)},[]);if(!show)return <>{children}</>;return <><div className="racer-startup"><div className="racer-om">{String.fromCodePoint(0x0950)}</div><div className="racer-avatar"><div className="racer-face"><span/><span/><i/><i/><b/></div><div className="racer-shirt"><strong>RA</strong></div><div className="racer-arm racer-arm-left"/><div className="racer-arm racer-arm-right"/></div><div className="racer-name">RACER ACADEMY</div><div className="racer-tagline">LEARN - GROW - ACHIEVE</div></div><style jsx>{`.racer-startup{position:fixed;inset:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 25%,#eef2ff,transparent 34%),#f8fafc;overflow:hidden}.racer-om{font-size:76px;font-weight:900;color:#312e81;text-shadow:0 4px 0 #c7d2fe,0 12px 22px #312e8148;animation:om 2s ease-in-out infinite}.racer-avatar{position:relative;width:280px;height:275px;animation:float 2.2s ease-in-out infinite}.racer-face{position:absolute;left:85px;top:20px;width:110px;height:105px;border:4px solid white;border-radius:50%;background:linear-gradient(145deg,#fff1dc,#ffc99d);box-shadow:0 12px 24px #0f172a22}.racer-face span{position:absolute;top:43px;width:11px;height:14px;border-radius:50%;background:#0f172a}.racer-face span:first-child{left:23px}.racer-face span:nth-child(2){right:23px}.racer-face i{position:absolute;top:68px;width:18px;height:8px;border-radius:50%;background:#f472b650}.racer-face i:nth-child(3){left:10px}.racer-face i:nth-child(4){right:10px}.racer-face b{position:absolute;left:39px;top:75px;width:31px;height:16px;border-bottom:4px solid #a8550a;border-radius:0 0 25px 25px}.racer-shirt{position:absolute;left:86px;top:128px;width:108px;height:84px;border:4px solid white;border-radius:30px;background:linear-gradient(145deg,#818cf8,#4f46e5,#312e81);display:grid;place-items:center;box-shadow:0 12px 20px #0f172a20}.racer-shirt strong{background:white;color:#312e81;padding:10px 12px;border-radius:13px}.racer-arm{position:absolute;top:138px;width:115px;height:27px;border-radius:999px;background:linear-gradient(145deg,#818cf8,#312e81)}.racer-arm-left{left:0;transform:rotate(150deg)}.racer-arm-right{right:0;transform:rotate(30deg)}.racer-name{font-size:42px;font-weight:1000;letter-spacing:2.5px;color:#312e81;text-shadow:0 3px 0 #c7d2fe}.racer-tagline{margin-top:8px;font-size:10px;font-weight:900;letter-spacing:4px;color:#64748b}@keyframes float{50%{transform:translateY(-9px) rotateY(6deg)}}@keyframes om{50%{transform:perspective(700px) rotateX(-6deg) rotateY(10deg) scale(1.07)}}@media(max-width:520px){.racer-avatar{transform:scale(.85)}.racer-name{font-size:32px}}`}</style></>;}
+"use client";
 
+import { useEffect, useState, type ReactNode } from "react";
 
+const SPLASH_DURATION = 5000;
+const EXIT_FADE_START = 4550;
 
+export default function RacerStartupSplash({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const [visible, setVisible] = useState(true);
+  const [progress, setProgress] = useState(0);
+  const [leaving, setLeaving] = useState(false);
+
+  useEffect(() => {
+    let frame = 0;
+    const startedAt = performance.now();
+
+    const tick = (now: number) => {
+      const elapsed = now - startedAt;
+      const ratio = Math.min(1, elapsed / SPLASH_DURATION);
+      setProgress(Math.round(ratio * 100));
+
+      if (elapsed >= EXIT_FADE_START) {
+        setLeaving(true);
+      }
+
+      if (elapsed >= SPLASH_DURATION) {
+        setProgress(100);
+        setLeaving(true);
+        window.setTimeout(() => setVisible(false), 450);
+        return;
+      }
+
+      frame = window.requestAnimationFrame(tick);
+    };
+
+    frame = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  if (!visible) return <>{children}</>;
+
+  return (
+    <div
+      className={leaving ? "racer-simple-splash leaving" : "racer-simple-splash"}
+      aria-label="RACER ACADEMY loading"
+    >
+      <img
+        className="racer-simple-splash-image"
+        src="/racer-simple-splash.png"
+        alt="RACER ACADEMY educational splash"
+      />
+
+      <div className="racer-simple-splash-om" aria-hidden="true">
+        ॐ
+      </div>
+
+      <div className="racer-simple-splash-loading-zone" aria-hidden="true">
+        <div className="racer-simple-splash-track">
+          <div
+            className="racer-simple-splash-fill"
+            style={{ width: progress + "%" }}
+          />
+        </div>
+        <div className="racer-simple-splash-label">Loading...</div>
+      </div>
+
+      <style jsx>{`
+        .racer-simple-splash {
+          position: fixed;
+          inset: 0;
+          z-index: 2147483647;
+          width: 100vw;
+          height: 100svh;
+          min-height: 100vh;
+          overflow: hidden;
+          background: #eef8ff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          isolation: isolate;
+          animation: racerSplashIn 240ms ease-out both;
+        }
+
+        .racer-simple-splash.leaving {
+          animation: racerSplashOut 450ms ease-in both;
+        }
+
+        .racer-simple-splash-image {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          object-position: center;
+          display: block;
+          user-select: none;
+          -webkit-user-drag: none;
+        }
+
+        .racer-simple-splash-om {
+          position: absolute;
+          z-index: 3;
+          left: 50%;
+          top: 60.7%;
+          transform: translate(-50%, -50%);
+          color: #153b89;
+          font-family: "Noto Sans Devanagari", "Mangal", sans-serif;
+          font-size: clamp(19px, 5.2vw, 30px);
+          line-height: 1;
+          font-weight: 500;
+          text-shadow: 0 1px 3px rgba(21, 59, 137, .14);
+          pointer-events: none;
+        }
+
+        .racer-simple-splash-loading-zone {
+          position: absolute;
+          z-index: 4;
+          left: 50%;
+          bottom: 5.6%;
+          transform: translateX(-50%);
+          width: min(42vw, 190px);
+          min-width: 125px;
+          text-align: center;
+          pointer-events: none;
+        }
+
+        .racer-simple-splash-track {
+          height: 7px;
+          width: 100%;
+          border-radius: 999px;
+          background: rgba(217, 235, 250, .96);
+          box-shadow: 0 1px 4px rgba(62, 130, 190, .1);
+          overflow: hidden;
+        }
+
+        .racer-simple-splash-fill {
+          height: 100%;
+          border-radius: inherit;
+          background: linear-gradient(90deg, #11aeea 0%, #2196ff 100%);
+          box-shadow: 0 0 8px rgba(25, 156, 242, .35);
+          transition: width 80ms linear;
+        }
+
+        .racer-simple-splash-label {
+          margin-top: 6px;
+          color: #21437e;
+          font-size: clamp(9px, 2.8vw, 13px);
+          line-height: 1;
+          font-weight: 600;
+          letter-spacing: .15px;
+        }
+
+        @keyframes racerSplashIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        @keyframes racerSplashOut {
+          from { opacity: 1; }
+          to { opacity: 0; }
+        }
+
+        @media (max-width: 390px) {
+          .racer-simple-splash-om { top: 60.9%; }
+          .racer-simple-splash-loading-zone { bottom: 5.2%; width: 45vw; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .racer-simple-splash,
+          .racer-simple-splash.leaving {
+            animation: none;
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
