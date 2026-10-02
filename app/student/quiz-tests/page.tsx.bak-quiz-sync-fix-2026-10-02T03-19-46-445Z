@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   CSSProperties,
@@ -318,46 +318,18 @@ export default function StudentQuizTestsPage() {
             )
         );
 
-
-      let visibleQuizzes = filteredQuizzes;
-
-      const reattemptResponse = await fetch(
-        `/api/quiz-tests/reattempt?studentId=${currentStudentId}`,
-        { cache: "no-store" }
-      );
-
+            const reattemptResponse = await fetch(`/api/quiz-tests/reattempt?studentId=${currentStudentId}`, { cache: "no-store" });
       if (reattemptResponse.ok) {
         const reattemptData = await reattemptResponse.json();
-        const ids = Array.isArray(reattemptData?.quizIds)
-          ? reattemptData.quizIds
-              .map((id: unknown) => Number(id))
-              .filter((id: number) => Number.isInteger(id) && id > 0)
-          : [];
-
+        const ids = Array.isArray(reattemptData?.quizIds) ? reattemptData.quizIds.map((id: unknown) => Number(id)).filter((id: number) => Number.isInteger(id) && id > 0) : [];
         setReattemptQuizIds(new Set(ids));
-
-        if (ids.length > 0) {
-          const { data: authorizedQuizRows, error: authorizedQuizError } =
-            await supabase
-              .from("quiz_tests")
-              .select(
-                "id,title,description,class_name,target_classes,subject,scheduled_date,scheduled_time,duration_minutes,marks_per_question,negative_marks,pass_percentage,is_published"
-              )
-              .in("id", ids);
-
-          if (!authorizedQuizError && authorizedQuizRows) {
-            const byId = new Map<number, Quiz>();
-            visibleQuizzes.forEach((quiz) => byId.set(Number(quiz.id), quiz));
-            (authorizedQuizRows as Quiz[]).forEach((quiz) => byId.set(Number(quiz.id), quiz));
-            visibleQuizzes = Array.from(byId.values());
-          }
-        }
       } else {
         setReattemptQuizIds(new Set());
       }
 
-      setQuizzes(visibleQuizzes);
-
+      setQuizzes(
+        filteredQuizzes
+      );
 
       const {
         data: resultData,

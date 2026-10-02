@@ -169,7 +169,7 @@ function getQuizStatus(quiz: Quiz) {
     return "LIVE";
   }
 
-  const scheduledStart = new Date(`${quiz.scheduled_date}T${String(quiz.scheduled_time || "00:00").slice(0, 5)}:00+05:30`);
+  const scheduledStart = new Date(`T:00+05:30`);
   const durationMs = Number(quiz.duration_minutes || 0) * 60 * 1000;
   const scheduledEnd = new Date(scheduledStart.getTime() + durationMs);
 
@@ -485,12 +485,9 @@ export default function StudentAvailableQuizzesPage() {
               )
           );
 
-
-        let visibleQuizzes = matchingQuizzes;
-
-        setQuizzes(visibleQuizzes);
-
-
+        setQuizzes(
+          matchingQuizzes
+        );
 
         /*
          * -----------------------------------------------------
@@ -592,24 +589,9 @@ export default function StudentAvailableQuizzesPage() {
                       )
                   : [];
 
-              const permissionIds = new Set<number>(ids);
-              setReattemptQuizIds(permissionIds);
-
-              if (ids.length > 0) {
-                const { data: authorizedQuizRows, error: authorizedQuizError } =
-                  await supabase
-                    .from("quiz_tests")
-                    .select("*")
-                    .in("id", ids);
-
-                if (!authorizedQuizError && authorizedQuizRows) {
-                  const byId = new Map<number, Quiz>();
-                  visibleQuizzes.forEach((quiz) => byId.set(Number(quiz.id), quiz));
-                  (authorizedQuizRows as Quiz[]).forEach((quiz) => byId.set(Number(quiz.id), quiz));
-                  visibleQuizzes = Array.from(byId.values());
-                  setQuizzes(visibleQuizzes);
-                }
-              }
+              setReattemptQuizIds(
+                new Set(ids)
+              );
             } else {
               console.error(
                 "Unable to load re-attempt permissions."
@@ -997,8 +979,5 @@ export default function StudentAvailableQuizzesPage() {
     </main>
   );
 }
-
-
-
 
 

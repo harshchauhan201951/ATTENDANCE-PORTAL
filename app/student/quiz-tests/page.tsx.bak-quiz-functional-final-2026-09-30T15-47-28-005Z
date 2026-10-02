@@ -38,6 +38,109 @@ type Student = {
   class_name: string | null;
 };
 
+
+type QuizReferenceVipProps = { student: Student | null; quizzes: Quiz[]; results: QuizResult[]; loading: boolean; now: Date; reattemptQuizIds: Set<number>; errorMessage: string; liveQuizzes: Quiz[]; upcomingQuizzes: Quiz[]; availableQuizzes: Quiz[]; passedResults: QuizResult[]; failedResults: QuizResult[]; averagePercentage: number; getStatus: (quiz: Quiz) => 'LIVE' | 'UPCOMING' | 'ENDED'; getResult: (quizId: number) => QuizResult | undefined; hasAttempted: (quizId: number) => boolean; getClassDisplay: () => string; router: any; };
+
+function QuizReferenceVip({
+  student,
+  quizzes,
+  results,
+  loading,
+  now,
+  reattemptQuizIds,
+  errorMessage,
+  liveQuizzes,
+  upcomingQuizzes,
+  availableQuizzes,
+  passedResults,
+  failedResults,
+  averagePercentage,
+  getStatus,
+  getResult,
+  hasAttempted,
+  getClassDisplay,
+  router,
+}: QuizReferenceVipProps) {
+  const [tab, setTab] = useState('available');
+  const attemptedCount = results.length;
+  const totalCount = quizzes.length;
+
+  function remaining(quiz: Quiz) {
+    const end = new Date(new Date(String(quiz.scheduled_date) + 'T' + String(quiz.scheduled_time || '00:00').slice(0,5) + ':00+05:30').getTime() + quiz.duration_minutes * 60 * 1000);
+    const ms = Math.max(0, end.getTime() - now.getTime());
+    const totalSeconds = Math.floor(ms / 1000);
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    return h > 0 ? String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0') : String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  }
+
+  const resultQuizzes = quizzes.filter((q) => hasAttempted(q.id));
+  const currentList = tab === 'available' ? availableQuizzes : tab === 'history' ? resultQuizzes : tab === 'results' ? resultQuizzes : liveQuizzes;
+
+  return (
+    <main style={{ minHeight: '100vh', padding: '8px 8px 96px', background: 'linear-gradient(180deg,#f5f9ff 0%,#edf4ff 100%)', boxSizing: 'border-box' }}>
+      <div style={{ width: '100%', maxWidth: 430, margin: '0 auto' }}>
+        <header style={{ background: 'linear-gradient(112deg,#2f58d9,#6545e7)', color: '#fff', borderRadius: 20, padding: 15, margin: '2px 0 9px', boxShadow: '0 10px 24px rgba(54,67,210,.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <button type="button" onClick={() => window.history.back()} style={{ width: 34, height: 34, border: 0, borderRadius: 11, background: 'rgba(255,255,255,.14)', color: '#fff', fontSize: 22 }}>‹</button>
+          <div style={{ flex: 1, textAlign: 'center' }}><div style={{ fontSize: 7, letterSpacing: 1, opacity: .78, fontWeight: 900 }}>RACER ACADEMY</div><h1 style={{ margin: '3px 0', fontSize: 21 }}>Quiz Tests</h1><p style={{ margin: 0, fontSize: 8, opacity: .84 }}>{student?.class_name || getClassDisplay()} • Practice. Improve. Excel.</p></div>
+          <div style={{ width: 34, height: 34, borderRadius: 11, background: 'rgba(255,255,255,.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>◔</div>
+        </header>
+
+        {errorMessage && <div style={{ background: '#fff0f0', border: '1px solid #ffcaca', color: '#9e2424', borderRadius: 12, padding: 9, marginBottom: 9, fontSize: 8, fontWeight: 800 }}>{errorMessage}</div>}
+
+        <section style={{ background: '#fff', border: '1px solid #dbe6f8', borderRadius: 17, padding: 11, marginBottom: 9, boxShadow: '0 6px 18px rgba(20,67,136,.055)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}><div style={{ width: 35, height: 35, borderRadius: 11, background: '#fff2da', color: '#df930a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>★</div><div><strong style={{ display: 'block', fontSize: 12, color: '#18336d' }}>Your Performance</strong><span style={{ display: 'block', fontSize: 7, color: '#7586a4', marginTop: 2 }}>Keep it up!</span></div></div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,minmax(0,1fr))', gap: 5 }}>
+            <div style={{ background: '#eaf2ff', borderRadius: 12, padding: 7, textAlign: 'center' }}><span style={{ display: 'block', fontSize: 5.5, fontWeight: 900, color: '#6e809f' }}>Total</span><strong style={{ display: 'block', marginTop: 2, fontSize: 14, color: '#1b61d4' }}>{totalCount}</strong></div>
+            <div style={{ background: '#e3fbef', borderRadius: 12, padding: 7, textAlign: 'center' }}><span style={{ display: 'block', fontSize: 5.5, fontWeight: 900, color: '#6e809f' }}>Attempted</span><strong style={{ display: 'block', marginTop: 2, fontSize: 14, color: '#0b9a66' }}>{attemptedCount}</strong></div>
+            <div style={{ background: '#e8fbf1', borderRadius: 12, padding: 7, textAlign: 'center' }}><span style={{ display: 'block', fontSize: 5.5, fontWeight: 900, color: '#6e809f' }}>Passed</span><strong style={{ display: 'block', marginTop: 2, fontSize: 14, color: '#0b9a66' }}>{passedResults.length}</strong></div>
+            <div style={{ background: '#ffe9ee', borderRadius: 12, padding: 7, textAlign: 'center' }}><span style={{ display: 'block', fontSize: 5.5, fontWeight: 900, color: '#6e809f' }}>Failed</span><strong style={{ display: 'block', marginTop: 2, fontSize: 14, color: '#db3450' }}>{failedResults.length}</strong></div>
+            <div style={{ background: '#f0ebff', borderRadius: 12, padding: 7, textAlign: 'center' }}><span style={{ display: 'block', fontSize: 5.5, fontWeight: 900, color: '#6e809f' }}>Average</span><strong style={{ display: 'block', marginTop: 2, fontSize: 14, color: '#6c50df' }}>{averagePercentage.toFixed(0)}%</strong></div>
+          </div>
+        </section>
+
+        <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 9 }}>
+          <button type="button" onClick={() => setTab('available')} style={{ border: '1px solid #dce7f7', borderRadius: 14, background: '#fff', padding: 10, textAlign: 'left', boxShadow: '0 5px 14px rgba(20,67,136,.045)' }}><strong style={{ display: 'block', fontSize: 9, color: '#18336d' }}>Available Quizzes</strong><span style={{ display: 'block', marginTop: 3, fontSize: 16, fontWeight: 900, color: '#6c4fe1' }}>{availableQuizzes.length}</span></button>
+          <button type="button" onClick={() => setTab('history')} style={{ border: '1px solid #dce7f7', borderRadius: 14, background: '#fff', padding: 10, textAlign: 'left', boxShadow: '0 5px 14px rgba(20,67,136,.045)' }}><strong style={{ display: 'block', fontSize: 9, color: '#18336d' }}>Quiz History</strong><span style={{ display: 'block', marginTop: 3, fontSize: 16, fontWeight: 900, color: '#1767d8' }}>{resultQuizzes.length}</span></button>
+          <button type="button" onClick={() => setTab('results')} style={{ border: '1px solid #dce7f7', borderRadius: 14, background: '#fff', padding: 10, textAlign: 'left', boxShadow: '0 5px 14px rgba(20,67,136,.045)' }}><strong style={{ display: 'block', fontSize: 9, color: '#18336d' }}>My Results</strong><span style={{ display: 'block', marginTop: 3, fontSize: 16, fontWeight: 900, color: '#0c9a68' }}>{results.length}</span></button>
+          <button type="button" onClick={() => setTab('live')} style={{ border: '1px solid #dce7f7', borderRadius: 14, background: '#fff', padding: 10, textAlign: 'left', boxShadow: '0 5px 14px rgba(20,67,136,.045)' }}><strong style={{ display: 'block', fontSize: 9, color: '#18336d' }}>Live Now</strong><span style={{ display: 'block', marginTop: 3, fontSize: 16, fontWeight: 900, color: '#df3d56' }}>{liveQuizzes.length}</span></button>
+        </section>
+
+        <section style={{ background: '#fff', border: '1px solid #dce7f8', borderRadius: 17, padding: 11, marginBottom: 9, boxShadow: '0 6px 18px rgba(20,67,136,.045)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 }}><strong style={{ fontSize: 12, color: '#18336d' }}>Upcoming Quizzes</strong><span style={{ fontSize: 7, color: '#2461d2', fontWeight: 900 }}>View All ›</span></div>
+          {upcomingQuizzes.length === 0 ? <div style={{ padding: 11, borderRadius: 11, background: '#f8fbff', color: '#7586a4', fontSize: 8 }}>No upcoming quizzes.</div> : <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>{upcomingQuizzes.slice(0,3).map((quiz) => <div key={quiz.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 8, borderRadius: 11, background: '#fafcff', border: '1px solid #e2e9f5' }}><div style={{ width: 31, height: 31, borderRadius: 10, background: '#ece8ff', color: '#6549dc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900 }}>Q</div><div style={{ minWidth: 0, flex: 1 }}><strong style={{ display: 'block', fontSize: 9, color: '#18336d', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{quiz.title}</strong><span style={{ display: 'block', marginTop: 2, fontSize: 6.5, color: '#7485a4' }}>{quiz.subject || 'Subject'} • {formatQuizDate(quiz.scheduled_date)} • {formatQuizTime(quiz.scheduled_time)}</span></div><span style={{ padding: '4px 5px', borderRadius: 999, background: '#eaf2ff', color: '#155fcf', fontSize: 5.5, fontWeight: 900 }}>UPCOMING</span></div>)}</div>}
+        </section>
+
+        <section style={{ background: '#fff', border: '1px solid #dce7f8', borderRadius: 17, padding: 9, marginBottom: 9, display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 4 }}>
+          {[["available","Available"],["history","History"],["results","My Results"],["live","Live Now"]].map(([key,label]) => <button type="button" key={key} onClick={() => setTab(key)} style={{ border: 0, borderRadius: 10, padding: 8, background: tab === key ? '#4d40dc' : '#f5f7fb', color: tab === key ? '#fff' : '#64779a', fontSize: 7, fontWeight: 900 }}>{label}</button>)}
+        </section>
+
+        <section style={{ background: '#fff', border: '1px solid #dce7f8', borderRadius: 17, padding: 11, boxShadow: '0 6px 18px rgba(20,67,136,.055)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 7, marginBottom: 8 }}><div><div style={{ fontSize: 7, color: '#6277aa', fontWeight: 900, letterSpacing: '.7px' }}>{tab === 'live' ? 'LIVE NOW' : tab === 'upcoming' ? 'UPCOMING' : 'QUIZZES'}</div><h2 style={{ margin: '2px 0 0', fontSize: 14, color: '#18336d' }}>{tab === 'available' ? 'Available Quizzes' : tab === 'history' ? 'Quiz History' : tab === 'results' ? 'My Results' : 'Live Now'}</h2></div><span style={{ width: 29, height: 29, borderRadius: '50%', background: '#ece8ff', color: '#6b51de', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 900 }}>{currentList.length}</span></div>
+          {loading ? <div style={{ padding: 24, textAlign: 'center', fontSize: 8, color: '#7385a6' }}>Loading quizzes...</div> : currentList.length === 0 ? <div style={{ padding: 22, textAlign: 'center', border: '1px dashed #cbdaf0', borderRadius: 12, fontSize: 8, color: '#7385a6' }}>No quizzes available in this section.</div> : <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+            {currentList.map((quiz) => {
+              const result = getResult(quiz.id);
+              const status = getStatus(quiz);
+              const attempted = hasAttempted(quiz.id) && !reattemptQuizIds.has(quiz.id);
+              const canStart = status === 'LIVE' && (!attempted || reattemptQuizIds.has(quiz.id));
+              return <article key={quiz.id} style={{ border: '1px solid #dce7f7', borderRadius: 14, padding: 9, background: '#fff' }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><div style={{ width: 35, height: 35, borderRadius: 11, background: '#eee9ff', color: '#6b4de0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900 }}>Q</div><div style={{ minWidth: 0, flex: 1 }}><strong style={{ display: 'block', fontSize: 10, color: '#18336d', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{quiz.title}</strong><span style={{ display: 'block', fontSize: 7, color: '#7586a4', marginTop: 2 }}>{quiz.subject || 'Subject'} • {quiz.class_name || getClassDisplay()} • {quiz.marks_per_question} marks/question</span></div><span style={{ padding: '4px 6px', borderRadius: 999, background: status === 'LIVE' ? '#e4fbef' : status === 'UPCOMING' ? '#eaf2ff' : '#f3f5f8', color: status === 'LIVE' ? '#0b9862' : status === 'UPCOMING' ? '#175fcf' : '#76859e', fontSize: 6, fontWeight: 900 }}>{status}</span></div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 7 }}><span style={{ padding: '5px 6px', borderRadius: 8, background: '#f7f9fd', fontSize: 6, color: '#687ba0' }}>{formatQuizDate(quiz.scheduled_date)} • {formatQuizTime(quiz.scheduled_time)}</span><span style={{ padding: '5px 6px', borderRadius: 8, background: '#f7f9fd', fontSize: 6, color: '#687ba0' }}>{quiz.duration_minutes} min</span><span style={{ padding: '5px 6px', borderRadius: 8, background: '#f7f9fd', fontSize: 6, color: '#687ba0' }}>{quiz.pass_percentage}% pass</span></div>
+                {status === 'LIVE' && <div style={{ marginTop: 7, padding: 7, borderRadius: 9, background: '#f7f2ff', color: '#6943cf', fontSize: 7, fontWeight: 900 }}>Time {remaining(quiz)}</div>}
+                {result && <div style={{ marginTop: 7, padding: 7, borderRadius: 9, background: String(result.result_status || '').toUpperCase() === 'PASS' ? '#e8fbf1' : '#ffecee', color: String(result.result_status || '').toUpperCase() === 'PASS' ? '#0a9761' : '#d93751', fontSize: 7, fontWeight: 900 }}>Result: {String(result.result_status || '—').toUpperCase()} • {Number(result.percentage || 0).toFixed(1)}%</div>}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>{canStart ? <button type="button" onClick={() => router.push('/student/quiz-tests/attempt?quizId=' + quiz.id + (reattemptQuizIds.has(quiz.id) ? '&reattempt=true' : ''))} style={{ border: 0, borderRadius: 9, padding: '8px 10px', background: '#4e43dc', color: '#fff', fontSize: 7, fontWeight: 900 }}>Start Quiz ›</button> : attempted ? <span style={{ padding: '7px 9px', borderRadius: 9, background: '#f1f4f8', color: '#71819d', fontSize: 7, fontWeight: 900 }}>Attempted</span> : null}</div>
+              </article>;
+            })}
+          </div>}
+        </section>
+
+        <footer style={{ textAlign: 'center', color: '#8794ab', fontSize: 7, fontWeight: 800, padding: '11px 0 4px' }}>RACER ACADEMY • Quiz Tests</footer>
+      </div>
+    </main>
+  );
+}
+
 export default function StudentQuizTestsPage() {
   const router = useRouter();
 
@@ -51,6 +154,9 @@ export default function StudentQuizTestsPage() {
     useState<QuizResult[]>([]);
 
   const [loading, setLoading] = useState(true);
+  const [isMobileVip, setIsMobileVip] = useState(false);
+  const [mobileTab, setMobileTab] = useState<'available' | 'history' | 'results' | 'live'>('available');
+  useEffect(() => { const check = () => setIsMobileVip(window.innerWidth <= 700); check(); window.addEventListener('resize', check); return () => window.removeEventListener('resize', check); }, []);
 
   const [now, setNow] = useState(() => new Date());
 
@@ -318,46 +424,18 @@ export default function StudentQuizTestsPage() {
             )
         );
 
-
-      let visibleQuizzes = filteredQuizzes;
-
-      const reattemptResponse = await fetch(
-        `/api/quiz-tests/reattempt?studentId=${currentStudentId}`,
-        { cache: "no-store" }
-      );
-
+            const reattemptResponse = await fetch(`/api/quiz-tests/reattempt?studentId=${currentStudentId}`, { cache: "no-store" });
       if (reattemptResponse.ok) {
         const reattemptData = await reattemptResponse.json();
-        const ids = Array.isArray(reattemptData?.quizIds)
-          ? reattemptData.quizIds
-              .map((id: unknown) => Number(id))
-              .filter((id: number) => Number.isInteger(id) && id > 0)
-          : [];
-
+        const ids = Array.isArray(reattemptData?.quizIds) ? reattemptData.quizIds.map((id: unknown) => Number(id)).filter((id: number) => Number.isInteger(id) && id > 0) : [];
         setReattemptQuizIds(new Set(ids));
-
-        if (ids.length > 0) {
-          const { data: authorizedQuizRows, error: authorizedQuizError } =
-            await supabase
-              .from("quiz_tests")
-              .select(
-                "id,title,description,class_name,target_classes,subject,scheduled_date,scheduled_time,duration_minutes,marks_per_question,negative_marks,pass_percentage,is_published"
-              )
-              .in("id", ids);
-
-          if (!authorizedQuizError && authorizedQuizRows) {
-            const byId = new Map<number, Quiz>();
-            visibleQuizzes.forEach((quiz) => byId.set(Number(quiz.id), quiz));
-            (authorizedQuizRows as Quiz[]).forEach((quiz) => byId.set(Number(quiz.id), quiz));
-            visibleQuizzes = Array.from(byId.values());
-          }
-        }
       } else {
         setReattemptQuizIds(new Set());
       }
 
-      setQuizzes(visibleQuizzes);
-
+      setQuizzes(
+        filteredQuizzes
+      );
 
       const {
         data: resultData,
@@ -640,6 +718,10 @@ const start =
         </div>
       </main>
     );
+  }
+
+  if (isMobileVip) {
+    return <QuizReferenceVip student={student} quizzes={quizzes} results={results} loading={loading} now={now} reattemptQuizIds={reattemptQuizIds} errorMessage={errorMessage} liveQuizzes={liveQuizzes} upcomingQuizzes={upcomingQuizzes} availableQuizzes={availableQuizzes} passedResults={passedResults} failedResults={failedResults} averagePercentage={averagePercentage} getStatus={getStatus} getResult={getResult} hasAttempted={hasAttempted} getClassDisplay={getClassDisplay} router={router} />;
   }
 
   return (
@@ -1071,20 +1153,47 @@ const start =
               </h2>
             </div>
 
-            <button
-              type="button"
-              onClick={() =>
-                router.push(
-                  "/student/quiz-tests/available"
-                )
-              }
-              style={
-                styles.viewAllButton
-              }
-              className="quiz-view-all-button"
-            >
-              View All 
-            </button>
+            {upcomingQuizzes.length > 1 ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  flexShrink: 0,
+                }}
+              >
+                <span
+                  style={{
+                    minWidth: "34px",
+                    height: "30px",
+                    padding: "0 9px",
+                    borderRadius: "999px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: "#eef2ff",
+                    color: "#4338ca",
+                    fontSize: "11px",
+                    fontWeight: 900,
+                  }}
+                >
+                  +{upcomingQuizzes.length - 1}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push(
+                      "/student/quiz-tests/available"
+                    )
+                  }
+                  style={styles.viewAllButton}
+                  className="quiz-view-all-button"
+                >
+                  View All
+                </button>
+              </div>
+            ) : null}
           </div>
 
           {upcomingQuizzes.length ===
@@ -1131,17 +1240,16 @@ const start =
               className="quiz-grid"
             >
               {upcomingQuizzes
-                .slice(0, 4)
+                .slice(0, 1)
                 .map(
                   (quiz) => (
                     <QuizCard
                       key={quiz.id}
                       quiz={quiz}
-                      status={reattemptQuizIds.has(quiz.id) ? "LIVE" : "UPCOMING"}
-                      attempted={
-                        !reattemptQuizIds.has(quiz.id) &&
-                        hasAttempted(quiz.id)
-                      }
+                      status="UPCOMING"
+                      attempted={hasAttempted(
+                        quiz.id
+                      )}
                       result={getResult(
                         quiz.id
                       )}
@@ -1196,20 +1304,47 @@ const start =
               </h2>
             </div>
 
-            <button
-              type="button"
-              onClick={() =>
-                router.push(
-                  "/student/quiz-tests/available"
-                )
-              }
-              style={
-                styles.viewAllButton
-              }
-              className="quiz-view-all-button"
-            >
-              View All 
-            </button>
+            {availableQuizzes.length > 1 ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  flexShrink: 0,
+                }}
+              >
+                <span
+                  style={{
+                    minWidth: "34px",
+                    height: "30px",
+                    padding: "0 9px",
+                    borderRadius: "999px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: "#eef2ff",
+                    color: "#4338ca",
+                    fontSize: "11px",
+                    fontWeight: 900,
+                  }}
+                >
+                  +{availableQuizzes.length - 1}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push(
+                      "/student/quiz-tests/available"
+                    )
+                  }
+                  style={styles.viewAllButton}
+                  className="quiz-view-all-button"
+                >
+                  View All
+                </button>
+              </div>
+            ) : null}
           </div>
 
           {availableQuizzes.length ===
@@ -1256,17 +1391,16 @@ const start =
               className="quiz-grid"
             >
               {availableQuizzes
-                .slice(0, 6)
+                .slice(0, 1)
                 .map(
                   (quiz) => (
                     <QuizCard
                       key={quiz.id}
                       quiz={quiz}
                       status={reattemptQuizIds.has(quiz.id) ? "LIVE" : getStatus(quiz)}
-                      attempted={
-                        !reattemptQuizIds.has(quiz.id) &&
-                        hasAttempted(quiz.id)
-                      }
+                      attempted={hasAttempted(
+                        quiz.id
+                      )}
                       result={getResult(
                         quiz.id
                       )}
@@ -2038,7 +2172,78 @@ const start =
             font-size: 8px !important;
           }
         }
-      `}</style>
+      \n
+/* RACER ACADEMY VIP MOBILE QUIZ DASHBOARD • LIVE / UPCOMING / RESULTS */
+@media (max-width:700px){
+  .student-quiz-page{
+    min-height:100vh!important;padding:8px 8px 92px!important;
+    background:linear-gradient(180deg,#f5f9ff 0%,#edf4ff 100%)!important;overflow-x:hidden!important;
+  }
+  .student-quiz-container{width:100%!important;max-width:720px!important;margin:0 auto!important}
+  .quiz-dashboard-header{
+    background:linear-gradient(115deg,#0b57c9,#4b59e7)!important;color:#fff!important;
+    border-radius:20px!important;padding:15px!important;margin:2px 0 9px!important;
+    box-shadow:0 10px 22px rgba(28,83,190,.18)!important;
+    display:flex!important;align-items:flex-start!important;justify-content:space-between!important;gap:8px!important;
+  }
+  .quiz-header-content{min-width:0!important;flex:1!important}
+  .quiz-header-content>div:first-child{font-size:7px!important;letter-spacing:1px!important;color:rgba(255,255,255,.78)!important}
+  .quiz-header-content h1{font-size:22px!important;line-height:1.05!important;margin:3px 0!important;color:#fff!important}
+  .quiz-header-content p{font-size:8px!important;line-height:1.35!important;color:rgba(255,255,255,.82)!important;margin:0!important}
+  .quiz-class-badge{min-width:73px!important;padding:8px!important;border-radius:11px!important;background:rgba(255,255,255,.10)!important;border:1px solid rgba(255,255,255,.22)!important;text-align:center!important}
+  .quiz-class-badge .quiz-class-badge-small{font-size:6px!important;color:rgba(255,255,255,.7)!important}
+  .quiz-class-badge .quiz-class-badge-value{font-size:10px!important;font-weight:900!important;color:#fff!important;margin-top:2px!important}
+  .quiz-stats-grid{
+    display:flex!important;gap:6px!important;overflow-x:auto!important;scrollbar-width:none!important;
+    -ms-overflow-style:none!important;padding:1px 1px 4px!important;margin-bottom:8px!important;
+  }
+  .quiz-stats-grid::-webkit-scrollbar{display:none!important}
+  .quiz-stats-grid>*{min-width:84px!important;flex:0 0 84px!important}
+  .quiz-stats-grid>div{
+    border-radius:14px!important;padding:9px 7px!important;background:#fff!important;border:1px solid #dce7f8!important;
+    box-shadow:0 5px 14px rgba(20,67,136,.05)!important;text-align:center!important;
+  }
+  .quiz-quick-grid{display:grid!important;grid-template-columns:1fr 1fr 1fr!important;gap:6px!important;margin-bottom:9px!important}
+  .quiz-quick-card{
+    min-width:0!important;border:1px solid #dce7f8!important;border-radius:14px!important;background:#fff!important;
+    padding:9px 7px!important;display:flex!important;flex-direction:column!important;align-items:flex-start!important;
+    box-shadow:0 5px 14px rgba(20,67,136,.045)!important;text-align:left!important;
+  }
+  .quiz-quick-card .quiz-quick-content{min-width:0!important}
+  .quiz-quick-card .quiz-quick-content h2{font-size:9px!important;line-height:1.15!important;color:#17316c!important;margin:6px 0 2px!important}
+  .quiz-quick-card .quiz-quick-content p{font-size:6px!important;line-height:1.3!important;color:#7485a3!important;margin:0!important}
+  .quiz-quick-card>div:first-child{width:27px!important;height:27px!important;border-radius:9px!important;background:#eaf2ff!important;color:#195ed0!important;display:flex!important;align-items:center!important;justify-content:center!important;font-size:9px!important;font-weight:900!important}
+  .quiz-section{
+    border-radius:17px!important;background:#fff!important;border:1px solid #dce7f8!important;box-shadow:0 6px 18px rgba(20,67,136,.055)!important;
+    padding:11px!important;margin-bottom:9px!important;
+  }
+  .quiz-section-header{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:7px!important;margin-bottom:9px!important}
+  .quiz-section-heading{min-width:0!important}
+  .quiz-section-heading>div:first-child{font-size:7px!important;letter-spacing:.7px!important;color:#6077aa!important;font-weight:900!important}
+  .quiz-section-heading h2{font-size:13px!important;line-height:1.1!important;color:#17316c!important;margin:2px 0 0!important}
+  .quiz-count-badge{min-width:29px!important;height:29px!important;border-radius:50%!important;background:#eaf2ff!important;color:#175dc9!important;display:flex!important;align-items:center!important;justify-content:center!important;font-size:9px!important;font-weight:900!important}
+  .quiz-grid{display:flex!important;flex-direction:column!important;gap:7px!important}
+  .quiz-result-card,.quiz-card-inner{
+    border-radius:13px!important;border:1px solid #dce7f7!important;background:#fff!important;box-shadow:none!important;
+  }
+  .quiz-result-card{padding:9px!important}
+  .quiz-view-all-button{border:0!important;border-radius:9px!important;background:#eaf2ff!important;color:#155ecf!important;padding:7px 9px!important;font-size:7px!important;font-weight:900!important}
+  .quiz-empty-box{padding:18px 11px!important;border-radius:13px!important;background:#f8fbff!important;border:1px dashed #cadbf3!important}
+  .quiz-footer{font-size:7px!important;padding:10px 0 4px!important}
+}
+\n
+
+/* RACER VIP REFERENCE LOCKED • QUIZ TESTS • MOBILE ONLY */
+@media (max-width:700px){
+  .student-quiz-page{min-height:100vh!important;padding:0 8px 92px!important;background:linear-gradient(180deg,#f6f9ff 0%,#edf3ff 100%)!important;overflow-x:hidden!important}
+  .student-quiz-container{width:100%!important;max-width:720px!important;margin:0 auto!important}
+  .quiz-dashboard-header{background:linear-gradient(112deg,#2a61d7 0%,#6b46e7 100%)!important;border:0!important;border-radius:0 0 20px 20px!important;padding:14px 13px!important;margin:0 -8px 9px!important;color:#fff!important;box-shadow:0 10px 24px rgba(54,67,210,.20)!important;display:flex!important;align-items:flex-start!important;justify-content:space-between!important;gap:8px!important}.quiz-header-content{min-width:0!important;flex:1!important}.quiz-header-content>div:first-child{font-size:7px!important;letter-spacing:1px!important;color:rgba(255,255,255,.77)!important}.quiz-header-content h1{font-size:20px!important;line-height:1.05!important;margin:2px 0!important;color:#fff!important;font-weight:900!important}.quiz-header-content p{font-size:8px!important;line-height:1.3!important;margin:0!important;color:rgba(255,255,255,.84)!important}.quiz-class-badge{min-width:68px!important;padding:7px!important;border-radius:10px!important;background:rgba(255,255,255,.10)!important;border:1px solid rgba(255,255,255,.22)!important}.quiz-class-badge-small{font-size:6px!important;color:rgba(255,255,255,.70)!important}.quiz-class-badge-value{font-size:9px!important;color:#fff!important;font-weight:900!important}
+  .quiz-stats-grid{display:flex!important;gap:6px!important;overflow-x:auto!important;scrollbar-width:none!important;-ms-overflow-style:none!important;padding:1px 1px 4px!important;margin-bottom:8px!important}.quiz-stats-grid::-webkit-scrollbar{display:none!important}.quiz-stats-grid>*{min-width:82px!important;flex:0 0 82px!important}
+  .quiz-quick-grid{display:grid!important;grid-template-columns:1fr 1fr 1fr!important;gap:6px!important;margin-bottom:8px!important}.quiz-quick-card{background:#fff!important;border:1px solid #dce6f7!important;border-radius:13px!important;padding:8px 6px!important;box-shadow:0 5px 13px rgba(20,67,136,.045)!important;display:flex!important;flex-direction:column!important;align-items:flex-start!important;text-align:left!important}.quiz-quick-card>div:first-child{width:27px!important;height:27px!important;border-radius:9px!important;background:#eee9ff!important;color:#6d50df!important;display:flex!important;align-items:center!important;justify-content:center!important;font-size:9px!important;font-weight:900!important}.quiz-quick-content{min-width:0!important}.quiz-quick-content h2{font-size:8px!important;line-height:1.15!important;color:#19356f!important;margin:5px 0 2px!important}.quiz-quick-content p{font-size:6px!important;line-height:1.3!important;color:#7586a4!important;margin:0!important}
+  .quiz-section{background:#fff!important;border:1px solid #dce6f7!important;border-radius:17px!important;padding:10px!important;box-shadow:0 5px 15px rgba(20,67,136,.055)!important;margin-bottom:8px!important}.quiz-section-header{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:6px!important;margin-bottom:8px!important}.quiz-section-heading{min-width:0!important}.quiz-section-heading>div:first-child{font-size:7px!important;letter-spacing:.7px!important;color:#6076a9!important;font-weight:900!important}.quiz-section-heading h2{font-size:12px!important;line-height:1.1!important;color:#19356f!important;margin:2px 0 0!important}.quiz-count-badge{width:27px!important;height:27px!important;border-radius:50%!important;background:#ede9ff!important;color:#6b50dd!important;display:flex!important;align-items:center!important;justify-content:center!important;font-size:8px!important;font-weight:900!important}.quiz-view-all-button{border:0!important;border-radius:9px!important;background:#eaf2ff!important;color:#155ecf!important;padding:6px 8px!important;font-size:7px!important;font-weight:900!important}.quiz-grid{display:flex!important;flex-direction:column!important;gap:6px!important}.quiz-card-inner,.quiz-result-card{background:#fff!important;border:1px solid #dce6f7!important;border-radius:12px!important;box-shadow:none!important}.quiz-empty-box{padding:16px 10px!important;border-radius:12px!important;background:#f8fbff!important;border:1px dashed #cedcf2!important}.quiz-footer{font-size:6px!important;color:#8994aa!important;padding:8px 0 2px!important}
+}
+
+`}</style>
     </main>
   );
 }

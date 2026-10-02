@@ -933,15 +933,43 @@ function ResultsContent() {
         null) as QuizResult | null;
 
     if (!result) {
-      // Database is the source of truth. Do not resurrect a result
-      // that a teacher has deleted from quiz_results.
       try {
-        const staleStorageKey = resultId
-          ? `quiz-result-${quizId}-${resultId}`
-          : `quiz-result-${quizId}`;
-        sessionStorage.removeItem(staleStorageKey);
-      } catch {
-        // ignore storage cleanup errors
+        const storageKey =
+          resultId
+            ? `quiz-result-${quizId}-${resultId}`
+            : `quiz-result-${quizId}`;
+
+        const stored =
+          sessionStorage.getItem(
+            storageKey
+          );
+
+        if (stored) {
+          const parsed =
+            JSON.parse(
+              stored
+            ) as QuizResult;
+
+          if (
+            Number(
+              parsed.quiz_id
+            ) === quizId &&
+            Number(
+              parsed.student_id
+            ) === studentId &&
+            (!resultId ||
+              Number(
+                parsed.id
+              ) === resultId)
+          ) {
+            result = parsed;
+          }
+        }
+      } catch (storageError) {
+        console.error(
+          "Session result error:",
+          storageError
+        );
       }
     }
 

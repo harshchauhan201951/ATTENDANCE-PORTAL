@@ -2,8 +2,7 @@
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.SUPABASE_SERVICE_KEY;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const supabaseAdmin =
   supabaseUrl && serviceRoleKey
@@ -234,12 +233,6 @@ export async function POST(request: NextRequest) {
         },
         { status: 403 }
       );
-    }
-
-    if (action === "reset_all") {
-      const { error } = await supabaseAdmin.from("quiz_reattempt_permissions").update({ allowed: false, used_at: null }).not("id", "is", null);
-      if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-      return NextResponse.json({ success: true, reset: true, message: "All previous re-attempt permissions have been reset. New re-attempts can now be granted fresh." });
     }
 
     if (action === "allow") {
@@ -587,6 +580,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
-
-

@@ -582,41 +582,17 @@ export default function TeacherStudentsPage() {
     setError("");
     setSuccess("");
 
-    const storedTeacherId =
-      localStorage.getItem("attendance_teacher_id") ||
-      localStorage.getItem("teacher_id") ||
-      "";
+    const { error } = await supabase
+      .from("students")
+      .delete()
+      .eq("id", student.id);
 
-    const teacherId = Number(storedTeacherId);
-
-    if (!Number.isInteger(teacherId) || teacherId <= 0) {
-      setError("Teacher ID was not found. Please login again as a teacher.");
-      setDeletingId(null);
-      return;
-    }
-
-    try {
-      const response = await fetch("/api/teacher/students/delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        cache: "no-store",
-        body: JSON.stringify({ teacherId, studentId: student.id }),
-      });
-
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok || data?.success === false) {
-        throw new Error(
-          data?.error || data?.message || "Unable to delete student."
-        );
-      }
-    } catch (deleteError) {
-      console.error("Student delete error:", deleteError);
-      setError(
-        deleteError instanceof Error
-          ? deleteError.message
-          : "Unable to delete student."
+    if (error) {
+      console.error(
+        "Student delete error:",
+        error
       );
+      setError(error.message);
       setDeletingId(null);
       return;
     }

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   useEffect,
@@ -592,7 +592,7 @@ export default function StudentAvailableQuizzesPage() {
                       )
                   : [];
 
-              const permissionIds = new Set<number>(ids);
+              const permissionIds = new Set(ids);
               setReattemptQuizIds(permissionIds);
 
               if (ids.length > 0) {
@@ -997,8 +997,5 @@ export default function StudentAvailableQuizzesPage() {
     </main>
   );
 }
-
-
-
 
 

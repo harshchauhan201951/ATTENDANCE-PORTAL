@@ -1,0 +1,347 @@
+﻿
+===== STUDENT AVAILABLE: lines 540-670 =====
+
+          /*
+           * ---------------------------------------------------
+           * LOAD TEACHER-AUTHORIZED RE-ATTEMPTS
+           * ---------------------------------------------------
+           *
+           * Active unused permissions returned by the API
+           * are stored in reattemptQuizIds.
+           *
+           * These permissions intentionally override the
+           * normal quiz date/time availability on this page.
+           */
+
+          try {
+            const response =
+              await fetch(
+                `/api/quiz-tests/reattempt?studentId=${studentId}`,
+                {
+                  method:
+                    "GET",
+                  cache:
+                    "no-store",
+                }
+              );
+
+            if (
+              response.ok
+            ) {
+              const data =
+                await response.json();
+
+              const ids =
+                Array.isArray(
+                  data?.quizIds
+                )
+                  ? data.quizIds
+                      .map(
+                        (
+                          id: unknown
+                        ) =>
+                          Number(
+                            id
+                          )
+                      )
+                      .filter(
+                        (
+                          id: number
+                        ) =>
+                          Number.isInteger(
+                            id
+                          ) &&
+                          id > 0
+                      )
+                  : [];
+
+              const permissionIds = new Set<number>(ids);
+              setReattemptQuizIds(permissionIds);
+
+              if (ids.length > 0) {
+                const { data: authorizedQuizRows, error: authorizedQuizError } =
+                  await supabase
+                    .from("quiz_tests")
+                    .select("*")
+                    .in("id", ids);
+
+                if (!authorizedQuizError && authorizedQuizRows) {
+                  const byId = new Map<number, Quiz>();
+                  visibleQuizzes.forEach((quiz) => byId.set(Number(quiz.id), quiz));
+                  (authorizedQuizRows as Quiz[]).forEach((quiz) => byId.set(Number(quiz.id), quiz));
+                  visibleQuizzes = Array.from(byId.values());
+                  setQuizzes(visibleQuizzes);
+                }
+              }
+            } else {
+              console.error(
+                "Unable to load re-attempt permissions."
+              );
+
+              setReattemptQuizIds(
+                new Set()
+              );
+            }
+          } catch (
+            permissionError
+          ) {
+            console.error(
+              "Unable to load re-attempt permissions:",
+              permissionError
+            );
+
+            setReattemptQuizIds(
+              new Set()
+            );
+          }
+        }
+      } catch (
+        loadError
+      ) {
+        console.error(
+          loadError
+        );
+
+        setError(
+          loadError instanceof
+            Error
+            ? loadError.message
+            : "Unable to load quizzes."
+        );
+      } finally {
+        setLoading(
+          false
+        );
+      }
+    }
+
+    load();
+  }, []);
+
+  const pendingQuizzes = quizzes.filter((quiz) => {
+    const status = getQuizStatus(quiz);
+    const attempted = attemptedQuizIds.has(quiz.id);
+    const reattempt = reattemptQuizIds.has(quiz.id);
+    return reattempt || (!attempted && status === "LIVE");
+  });
+
+  /*
+   * ---------------------------------------------------------
+   * LOADING
+   * ---------------------------------------------------------
+   */
+
+===== REATTEMPT API: lines 120-220 =====
+    );
+
+    const quizIdValue =
+      searchParams.get("quizId");
+
+    const quizId = quizIdValue
+      ? positiveInt(quizIdValue)
+      : null;
+
+    if (!studentId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Student ID is missing or invalid.",
+        },
+        { status: 400 }
+      );
+    }
+
+    let query = supabaseAdmin
+      .from("quiz_reattempt_permissions")
+      .select(
+        "id,quiz_id,student_id,allowed,used_at,created_at"
+      )
+      .eq("student_id", studentId)
+      .eq("allowed", true)
+      .is("used_at", null)
+      .order("created_at", {
+        ascending: false,
+      });
+
+    if (quizId) {
+      query = query.eq("quiz_id", quizId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    const permissions = data || [];
+
+    const quizIds = Array.from(
+      new Set(
+        permissions
+          .map((row) => Number(row.quiz_id))
+          .filter(
+            (id) =>
+              Number.isInteger(id) && id > 0
+          )
+      )
+    );
+
+    if (quizId) {
+      return NextResponse.json({
+        success: true,
+        allowed: quizIds.includes(quizId),
+        permission:
+          permissions.length > 0
+            ? permissions[0]
+            : null,
+        quizIds,
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      quizIds,
+      permissions,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to load re-attempt permissions.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Supabase service configuration is missing.",
+        },
+        { status: 500 }
+      );
+===== TEACHER RESULTS: lines 1340-1450 =====
+    }
+  };
+  const resetAllReattempts = async () => {
+    setReattemptMessage("");
+    try {
+      const response = await fetch("/api/quiz-tests/reattempt", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "reset_all" }) });
+      const data = await response.json();
+      if (!response.ok || !data?.success) throw new Error(data?.error || "Unable to reset re-attempts.");
+      setReattemptQuizIds(new Set());
+      setReattemptMessage("All previous re-attempts have been reset. You can now give new re-attempts.");
+      await loadData();
+    } catch (err: any) {
+      setReattemptMessage(err?.message || "Unable to reset re-attempts.");
+    }
+  };
+  const allowReattempt = async (
+    targetQuizId: number,
+    studentId: number
+  ) => {
+    const actionKey = `${targetQuizId}__${studentId}`;
+
+    setReattemptLoading(actionKey);
+    setReattemptMessage("");
+
+    try {
+      let teacherId: number | null = null;
+
+      try {
+        const storedTeacherId =
+          localStorage.getItem("attendance_teacher_id") ||
+          localStorage.getItem("teacher_id");
+
+        if (storedTeacherId) {
+          const parsedTeacherId = Number(
+            storedTeacherId
+          );
+
+          if (
+            Number.isInteger(parsedTeacherId) &&
+            parsedTeacherId > 0
+          ) {
+            teacherId = parsedTeacherId;
+          }
+        }
+      } catch {
+        teacherId = null;
+      }
+
+      if (!teacherId) {
+        throw new Error(
+          "Teacher ID was not found. Please login again as a teacher."
+        );
+      }
+
+      const response = await fetch(
+        "/api/quiz-tests/reattempt",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+          body: JSON.stringify({
+            action: "allow",
+            quizId: Number(targetQuizId),
+            studentId: Number(studentId),
+            teacherId,
+          }),
+        }
+      );
+
+      let data: any = null;
+
+      try {
+        data = await response.json();
+      } catch {
+        data = null;
+      }
+
+      if (!response.ok || data?.success === false) {
+        throw new Error(
+          data?.error ||
+            data?.message ||
+            "Unable to allow re-attempt."
+        );
+      }
+
+      setReattemptQuizIds((previous) => {
+        const next = new Set(previous);
+        next.add(actionKey);
+        return next;
+      });
+
+      setReattemptMessage(
+        data?.alreadyAllowed
+          ? "Re-attempt access is already allowed for this student."
+          : "Re-attempt access allowed successfully."
+      );
+    } catch (err: any) {
+      setReattemptMessage(
+        err?.message ||
+          "Unable to allow re-attempt. Please try again."
+      );
+    } finally {
+      setReattemptLoading(null);
+    }
+  };
+
+  const allowAllReattemptForDate = async (
+    date: string
+  ) => {
