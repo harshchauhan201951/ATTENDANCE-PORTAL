@@ -1,0 +1,456 @@
+﻿
+
+===== app\teacher\students\page.tsx =====
+
+
+  app\teacher\students\page.tsx:119:  const [addCity, setAddCity] = useState("");
+  app\teacher\students\page.tsx:120:  const [addAddress, setAddAddress] = useState("");
+  app\teacher\students\page.tsx:121:  const [addNotes, setAddNotes] = useState("");
+  app\teacher\students\page.tsx:122:  const [addProfileImageUrl, setAddProfileImageUrl] =
+  app\teacher\students\page.tsx:123:    useState("");
+  app\teacher\students\page.tsx:124:
+> app\teacher\students\page.tsx:125:  useEffect(() => {
+  app\teacher\students\page.tsx:126:    loadStudents();
+  app\teacher\students\page.tsx:127:  }, []);
+  app\teacher\students\page.tsx:128:
+  app\teacher\students\page.tsx:129:  async function loadStudents() {
+  app\teacher\students\page.tsx:130:    setLoading(true);
+  app\teacher\students\page.tsx:131:    setError("");
+  app\teacher\students\page.tsx:132:
+  app\teacher\students\page.tsx:133:    const { data, error } = await supabase
+> app\teacher\students\page.tsx:134:      .from("students")
+  app\teacher\students\page.tsx:135:      .select(`
+  app\teacher\students\page.tsx:136:        id,
+  app\teacher\students\page.tsx:137:        student_username,
+  app\teacher\students\page.tsx:138:        password_hash,
+  app\teacher\students\page.tsx:139:        created_at,
+  app\teacher\students\page.tsx:140:        student_name,
+  app\teacher\students\page.tsx:141:        admission_date,
+  app\teacher\students\page.tsx:142:        date_of_birth,
+  app\teacher\students\page.tsx:143:        father_name,
+  app\teacher\students\page.tsx:144:        mother_name,
+  app\teacher\students\page.tsx:159:      `)
+  app\teacher\students\page.tsx:160:      .order("id", { ascending: true });
+  app\teacher\students\page.tsx:161:
+  app\teacher\students\page.tsx:162:    if (error) {
+  app\teacher\students\page.tsx:163:      console.error("Students loading error:", error);
+  app\teacher\students\page.tsx:164:      setError(error.message);
+> app\teacher\students\page.tsx:165:      setStudents([]);
+  app\teacher\students\page.tsx:166:    } else {
+> app\teacher\students\page.tsx:167:      setStudents((data || []) as Student[]);
+  app\teacher\students\page.tsx:168:    }
+  app\teacher\students\page.tsx:169:
+  app\teacher\students\page.tsx:170:    setLoading(false);
+  app\teacher\students\page.tsx:171:  }
+  app\teacher\students\page.tsx:172:
+  app\teacher\students\page.tsx:173:  function resetAddForm() {
+  app\teacher\students\page.tsx:174:    setAddName("");
+  app\teacher\students\page.tsx:175:    setAddUsername("");
+  app\teacher\students\page.tsx:176:    setAddPassword("");
+  app\teacher\students\page.tsx:177:    setAddAdmissionDate("");
+  app\teacher\students\page.tsx:266:    setSuccess("");
+  app\teacher\students\page.tsx:267:
+  app\teacher\students\page.tsx:268:    const username = addUsername.trim();
+  app\teacher\students\page.tsx:269:
+  app\teacher\students\page.tsx:270:    const { data: existingStudent, error: checkError } =
+  app\teacher\students\page.tsx:271:      await supabase
+> app\teacher\students\page.tsx:272:        .from("students")
+  app\teacher\students\page.tsx:273:        .select("id")
+  app\teacher\students\page.tsx:274:        .eq("student_username", username)
+  app\teacher\students\page.tsx:275:        .maybeSingle();
+  app\teacher\students\page.tsx:276:
+  app\teacher\students\page.tsx:277:    if (checkError) {
+  app\teacher\students\page.tsx:278:      console.error(
+  app\teacher\students\page.tsx:279:        "Username check error:",
+  app\teacher\students\page.tsx:280:        checkError
+  app\teacher\students\page.tsx:281:      );
+  app\teacher\students\page.tsx:282:      setError(checkError.message);
+  app\teacher\students\page.tsx:290:      );
+  app\teacher\students\page.tsx:291:      setSaving(false);
+  app\teacher\students\page.tsx:292:      return;
+  app\teacher\students\page.tsx:293:    }
+  app\teacher\students\page.tsx:294:
+  app\teacher\students\page.tsx:295:    const { error: insertError } = await supabase
+> app\teacher\students\page.tsx:296:      .from("students")
+  app\teacher\students\page.tsx:297:      .insert({
+  app\teacher\students\page.tsx:298:        student_username: username,
+  app\teacher\students\page.tsx:299:        password_hash: addPassword.trim(),
+  app\teacher\students\page.tsx:300:        student_name: addName.trim(),
+  app\teacher\students\page.tsx:301:        admission_date:
+  app\teacher\students\page.tsx:302:          addAdmissionDate.trim() || null,
+  app\teacher\students\page.tsx:303:        date_of_birth:
+  app\teacher\students\page.tsx:304:          addDateOfBirth.trim() || null,
+  app\teacher\students\page.tsx:305:        father_name:
+  app\teacher\students\page.tsx:306:          addFatherName.trim() || null,
+  app\teacher\students\page.tsx:511:    if (editPassword.trim()) {
+  app\teacher\students\page.tsx:512:      updateData.password_hash =
+  app\teacher\students\page.tsx:513:        editPassword.trim();
+  app\teacher\students\page.tsx:514:    }
+  app\teacher\students\page.tsx:515:
+  app\teacher\students\page.tsx:516:    const { error } = await supabase
+> app\teacher\students\page.tsx:517:      .from("students")
+  app\teacher\students\page.tsx:518:      .update(updateData)
+  app\teacher\students\page.tsx:519:      .eq("id", editingStudent.id);
+  app\teacher\students\page.tsx:520:
+  app\teacher\students\page.tsx:521:    if (error) {
+  app\teacher\students\page.tsx:522:      console.error(
+  app\teacher\students\page.tsx:523:        "Student update error:",
+  app\teacher\students\page.tsx:524:        error
+  app\teacher\students\page.tsx:525:      );
+  app\teacher\students\page.tsx:526:      setError(error.message);
+  app\teacher\students\page.tsx:527:      setSaving(false);
+  app\teacher\students\page.tsx:618:          : "Unable to delete student."
+  app\teacher\students\page.tsx:619:      );
+  app\teacher\students\page.tsx:620:      setDeletingId(null);
+  app\teacher\students\page.tsx:621:      return;
+  app\teacher\students\page.tsx:622:    }
+  app\teacher\students\page.tsx:623:
+> app\teacher\students\page.tsx:624:    setStudents((current) =>
+  app\teacher\students\page.tsx:625:      current.filter(
+  app\teacher\students\page.tsx:626:        (item) => item.id !== student.id
+  app\teacher\students\page.tsx:627:      )
+  app\teacher\students\page.tsx:628:    );
+  app\teacher\students\page.tsx:629:
+  app\teacher\students\page.tsx:630:    setDeletingId(null);
+  app\teacher\students\page.tsx:631:
+  app\teacher\students\page.tsx:632:    setSuccess(
+  app\teacher\students\page.tsx:633:      `${studentName} has been deleted successfully.`
+  app\teacher\students\page.tsx:634:    );
+
+
+
+
+===== app\teacher\fees\page.tsx =====
+
+
+  app\teacher\fees\page.tsx:690:  /*
+  app\teacher\fees\page.tsx:691:   * Prevent duplicate initial loads.
+  app\teacher\fees\page.tsx:692:   */
+  app\teacher\fees\page.tsx:693:  const initialLoadDone =
+  app\teacher\fees\page.tsx:694:    useRef(false);
+  app\teacher\fees\page.tsx:695:
+> app\teacher\fees\page.tsx:696:  useEffect(() => {
+  app\teacher\fees\page.tsx:697:    if (
+  app\teacher\fees\page.tsx:698:      initialLoadDone.current
+  app\teacher\fees\page.tsx:699:    ) {
+  app\teacher\fees\page.tsx:700:      return;
+  app\teacher\fees\page.tsx:701:    }
+  app\teacher\fees\page.tsx:702:
+  app\teacher\fees\page.tsx:703:    initialLoadDone.current = true;
+  app\teacher\fees\page.tsx:704:
+  app\teacher\fees\page.tsx:705:    loadData(true);
+  app\teacher\fees\page.tsx:706:  }, []);
+  app\teacher\fees\page.tsx:913:    }
+  app\teacher\fees\page.tsx:914:
+  app\teacher\fees\page.tsx:915:    const {
+  app\teacher\fees\page.tsx:916:      error: cleanupError,
+  app\teacher\fees\page.tsx:917:    } =
+  app\teacher\fees\page.tsx:918:      await supabase
+> app\teacher\fees\page.tsx:919:        .from("fees")
+  app\teacher\fees\page.tsx:920:        .delete()
+  app\teacher\fees\page.tsx:921:        .in(
+  app\teacher\fees\page.tsx:922:          "id",
+  app\teacher\fees\page.tsx:923:          uniqueIds
+  app\teacher\fees\page.tsx:924:        );
+  app\teacher\fees\page.tsx:925:
+  app\teacher\fees\page.tsx:926:    if (cleanupError) {
+  app\teacher\fees\page.tsx:927:      console.error(
+  app\teacher\fees\page.tsx:928:        "Automatic fee cleanup error:",
+  app\teacher\fees\page.tsx:929:        cleanupError
+  app\teacher\fees\page.tsx:1087:    }
+  app\teacher\fees\page.tsx:1088:
+  app\teacher\fees\page.tsx:1089:    const {
+  app\teacher\fees\page.tsx:1090:      error: insertError,
+  app\teacher\fees\page.tsx:1091:    } =
+  app\teacher\fees\page.tsx:1092:      await supabase
+> app\teacher\fees\page.tsx:1093:        .from("fees")
+  app\teacher\fees\page.tsx:1094:        .insert(
+  app\teacher\fees\page.tsx:1095:          inserts
+  app\teacher\fees\page.tsx:1096:        );
+  app\teacher\fees\page.tsx:1097:
+  app\teacher\fees\page.tsx:1098:    if (insertError) {
+  app\teacher\fees\page.tsx:1099:      console.error(
+  app\teacher\fees\page.tsx:1100:        "Automatic fee creation error:",
+  app\teacher\fees\page.tsx:1101:        insertError
+  app\teacher\fees\page.tsx:1102:      );
+  app\teacher\fees\page.tsx:1103:    }
+  app\teacher\fees\page.tsx:1104:  }
+  app\teacher\fees\page.tsx:1105:
+> app\teacher\fees\page.tsx:1106:  async function loadData(
+  app\teacher\fees\page.tsx:1107:    generateAutomatic = true
+  app\teacher\fees\page.tsx:1108:  ) {
+  app\teacher\fees\page.tsx:1109:    try {
+  app\teacher\fees\page.tsx:1110:      setLoading(true);
+  app\teacher\fees\page.tsx:1111:      setError("");
+  app\teacher\fees\page.tsx:1112:
+  app\teacher\fees\page.tsx:1113:      /*
+  app\teacher\fees\page.tsx:1114:       * Get all students.
+  app\teacher\fees\page.tsx:1115:       */
+  app\teacher\fees\page.tsx:1116:      const {
+  app\teacher\fees\page.tsx:1117:        data: studentsData,
+  app\teacher\fees\page.tsx:1118:        error: studentsError,
+  app\teacher\fees\page.tsx:1119:      } =
+  app\teacher\fees\page.tsx:1120:        await supabase
+> app\teacher\fees\page.tsx:1121:          .from("students")
+  app\teacher\fees\page.tsx:1122:          .select("*")
+  app\teacher\fees\page.tsx:1123:          .order(
+  app\teacher\fees\page.tsx:1124:            "student_name",
+  app\teacher\fees\page.tsx:1125:            {
+  app\teacher\fees\page.tsx:1126:              ascending: true,
+  app\teacher\fees\page.tsx:1127:            }
+  app\teacher\fees\page.tsx:1128:          );
+  app\teacher\fees\page.tsx:1129:
+  app\teacher\fees\page.tsx:1130:      if (studentsError) {
+  app\teacher\fees\page.tsx:1131:        setError(
+  app\teacher\fees\page.tsx:1143:       */
+  app\teacher\fees\page.tsx:1144:      const {
+  app\teacher\fees\page.tsx:1145:        data: feesData,
+  app\teacher\fees\page.tsx:1146:        error: feesError,
+  app\teacher\fees\page.tsx:1147:      } =
+  app\teacher\fees\page.tsx:1148:        await supabase
+> app\teacher\fees\page.tsx:1149:          .from("fees")
+  app\teacher\fees\page.tsx:1150:          .select("*")
+  app\teacher\fees\page.tsx:1151:          .order(
+  app\teacher\fees\page.tsx:1152:            "year",
+  app\teacher\fees\page.tsx:1153:            {
+  app\teacher\fees\page.tsx:1154:              ascending: false,
+  app\teacher\fees\page.tsx:1155:            }
+  app\teacher\fees\page.tsx:1156:          )
+  app\teacher\fees\page.tsx:1157:          .order(
+  app\teacher\fees\page.tsx:1158:            "month",
+  app\teacher\fees\page.tsx:1159:            {
+  app\teacher\fees\page.tsx:1189:        const {
+  app\teacher\fees\page.tsx:1190:          data: refreshedFees,
+  app\teacher\fees\page.tsx:1191:          error:
+  app\teacher\fees\page.tsx:1192:            refreshedFeesError,
+  app\teacher\fees\page.tsx:1193:        } =
+  app\teacher\fees\page.tsx:1194:          await supabase
+> app\teacher\fees\page.tsx:1195:            .from("fees")
+  app\teacher\fees\page.tsx:1196:            .select("*")
+  app\teacher\fees\page.tsx:1197:            .order(
+  app\teacher\fees\page.tsx:1198:              "year",
+  app\teacher\fees\page.tsx:1199:              {
+  app\teacher\fees\page.tsx:1200:                ascending: false,
+  app\teacher\fees\page.tsx:1201:              }
+  app\teacher\fees\page.tsx:1202:            )
+  app\teacher\fees\page.tsx:1203:            .order(
+  app\teacher\fees\page.tsx:1204:              "month",
+  app\teacher\fees\page.tsx:1205:              {
+  app\teacher\fees\page.tsx:1218:
+  app\teacher\fees\page.tsx:1219:        existingFees =
+  app\teacher\fees\page.tsx:1220:          (refreshedFees ||
+  app\teacher\fees\page.tsx:1221:            []) as Fee[];
+  app\teacher\fees\page.tsx:1222:      }
+  app\teacher\fees\page.tsx:1223:
+> app\teacher\fees\page.tsx:1224:      setStudents(
+  app\teacher\fees\page.tsx:1225:        studentList
+  app\teacher\fees\page.tsx:1226:      );
+  app\teacher\fees\page.tsx:1227:
+> app\teacher\fees\page.tsx:1228:      setFees(
+  app\teacher\fees\page.tsx:1229:        existingFees
+  app\teacher\fees\page.tsx:1230:      );
+  app\teacher\fees\page.tsx:1231:    } catch (err) {
+  app\teacher\fees\page.tsx:1232:      console.error(err);
+  app\teacher\fees\page.tsx:1233:
+  app\teacher\fees\page.tsx:1234:      setError(
+  app\teacher\fees\page.tsx:1235:        err instanceof Error
+  app\teacher\fees\page.tsx:1236:          ? err.message
+  app\teacher\fees\page.tsx:1237:          : "Unable to load fee management data."
+  app\teacher\fees\page.tsx:1238:      );
+  app\teacher\fees\page.tsx:1286:      const {
+  app\teacher\fees\page.tsx:1287:        data: existingFees,
+  app\teacher\fees\page.tsx:1288:        error:
+  app\teacher\fees\page.tsx:1289:          existingError,
+  app\teacher\fees\page.tsx:1290:      } =
+  app\teacher\fees\page.tsx:1291:        await supabase
+> app\teacher\fees\page.tsx:1292:          .from("fees")
+  app\teacher\fees\page.tsx:1293:          .select("id")
+  app\teacher\fees\page.tsx:1294:          .eq(
+  app\teacher\fees\page.tsx:1295:            "student_id",
+  app\teacher\fees\page.tsx:1296:            Number(studentId)
+  app\teacher\fees\page.tsx:1297:          )
+  app\teacher\fees\page.tsx:1298:          .eq(
+  app\teacher\fees\page.tsx:1299:            "month",
+  app\teacher\fees\page.tsx:1300:            Number(month)
+  app\teacher\fees\page.tsx:1301:          )
+  app\teacher\fees\page.tsx:1302:          .eq(
+  app\teacher\fees\page.tsx:1372:      ) {
+  app\teacher\fees\page.tsx:1373:        const {
+  app\teacher\fees\page.tsx:1374:          error:
+  app\teacher\fees\page.tsx:1375:            updateError,
+  app\teacher\fees\page.tsx:1376:        } =
+  app\teacher\fees\page.tsx:1377:          await supabase
+> app\teacher\fees\page.tsx:1378:            .from("fees")
+  app\teacher\fees\page.tsx:1379:            .update(
+  app\teacher\fees\page.tsx:1380:              feeData
+  app\teacher\fees\page.tsx:1381:            )
+  app\teacher\fees\page.tsx:1382:            .eq(
+  app\teacher\fees\page.tsx:1383:              "id",
+  app\teacher\fees\page.tsx:1384:              existingFee.id
+  app\teacher\fees\page.tsx:1385:            );
+  app\teacher\fees\page.tsx:1386:
+  app\teacher\fees\page.tsx:1387:        if (
+  app\teacher\fees\page.tsx:1388:          updateError
+  app\teacher\fees\page.tsx:1402:      } else {
+  app\teacher\fees\page.tsx:1403:        const {
+  app\teacher\fees\page.tsx:1404:          error:
+  app\teacher\fees\page.tsx:1405:            insertError,
+  app\teacher\fees\page.tsx:1406:        } =
+  app\teacher\fees\page.tsx:1407:          await supabase
+> app\teacher\fees\page.tsx:1408:            .from("fees")
+  app\teacher\fees\page.tsx:1409:            .insert(
+  app\teacher\fees\page.tsx:1410:              feeData
+  app\teacher\fees\page.tsx:1411:            );
+  app\teacher\fees\page.tsx:1412:
+  app\teacher\fees\page.tsx:1413:        if (
+  app\teacher\fees\page.tsx:1414:          insertError
+  app\teacher\fees\page.tsx:1415:        ) {
+  app\teacher\fees\page.tsx:1416:          setError(
+  app\teacher\fees\page.tsx:1417:            insertError.message
+  app\teacher\fees\page.tsx:1418:          );
+  app\teacher\fees\page.tsx:1505:
+  app\teacher\fees\page.tsx:1506:    const {
+  app\teacher\fees\page.tsx:1507:      error:
+  app\teacher\fees\page.tsx:1508:        deleteError,
+  app\teacher\fees\page.tsx:1509:    } =
+  app\teacher\fees\page.tsx:1510:      await supabase
+> app\teacher\fees\page.tsx:1511:        .from("fees")
+  app\teacher\fees\page.tsx:1512:        .delete()
+  app\teacher\fees\page.tsx:1513:        .eq(
+  app\teacher\fees\page.tsx:1514:          "id",
+  app\teacher\fees\page.tsx:1515:          id
+  app\teacher\fees\page.tsx:1516:        );
+  app\teacher\fees\page.tsx:1517:
+  app\teacher\fees\page.tsx:1518:    if (
+  app\teacher\fees\page.tsx:1519:      deleteError
+  app\teacher\fees\page.tsx:1520:    ) {
+  app\teacher\fees\page.tsx:1521:      /*
+  app\teacher\fees\page.tsx:1568:      return;
+  app\teacher\fees\page.tsx:1569:    }
+  app\teacher\fees\page.tsx:1570:
+  app\teacher\fees\page.tsx:1571:    /*
+  app\teacher\fees\page.tsx:1572:     * Remove immediately from UI.
+  app\teacher\fees\page.tsx:1573:     */
+> app\teacher\fees\page.tsx:1574:    setFees(
+  app\teacher\fees\page.tsx:1575:      (current) =>
+  app\teacher\fees\page.tsx:1576:        current.filter(
+  app\teacher\fees\page.tsx:1577:          (fee) =>
+  app\teacher\fees\page.tsx:1578:            Number(
+  app\teacher\fees\page.tsx:1579:              fee.id
+  app\teacher\fees\page.tsx:1580:            ) !==
+  app\teacher\fees\page.tsx:1581:            Number(id)
+  app\teacher\fees\page.tsx:1582:        )
+  app\teacher\fees\page.tsx:1583:    );
+  app\teacher\fees\page.tsx:1584:
+
+
+
+
+===== app\teacher\quiz-tests\results\page.tsx =====
+
+
+  app\teacher\quiz-tests\results\page.tsx:236:  const router = useRouter();
+  app\teacher\quiz-tests\results\page.tsx:237:  const searchParams = useSearchParams();
+  app\teacher\quiz-tests\results\page.tsx:238:
+  app\teacher\quiz-tests\results\page.tsx:239:  const [quizId, setQuizId] = useState<number | null>(null);
+  app\teacher\quiz-tests\results\page.tsx:240:  const [quizIdReady, setQuizIdReady] = useState(false);
+  app\teacher\quiz-tests\results\page.tsx:241:
+> app\teacher\quiz-tests\results\page.tsx:242:  useEffect(() => {
+  app\teacher\quiz-tests\results\page.tsx:243:    const rawQuizId =
+  app\teacher\quiz-tests\results\page.tsx:244:      searchParams.get("quizId") ||
+  app\teacher\quiz-tests\results\page.tsx:245:      (typeof window !== "undefined"
+  app\teacher\quiz-tests\results\page.tsx:246:        ? new URLSearchParams(window.location.search).get("quizId")
+  app\teacher\quiz-tests\results\page.tsx:247:        : null);
+  app\teacher\quiz-tests\results\page.tsx:248:    const parsedQuizId = Number(rawQuizId);
+  app\teacher\quiz-tests\results\page.tsx:249:    setQuizId(
+  app\teacher\quiz-tests\results\page.tsx:250:      Number.isInteger(parsedQuizId) && parsedQuizId > 0
+  app\teacher\quiz-tests\results\page.tsx:251:        ? parsedQuizId
+  app\teacher\quiz-tests\results\page.tsx:252:        : null
+  app\teacher\quiz-tests\results\page.tsx:511:            `
+  app\teacher\quiz-tests\results\page.tsx:512:          )
+  app\teacher\quiz-tests\results\page.tsx:513:          .eq("id", activeQuizId)
+  app\teacher\quiz-tests\results\page.tsx:514:          .single(),
+  app\teacher\quiz-tests\results\page.tsx:515:
+  app\teacher\quiz-tests\results\page.tsx:516:        supabase
+> app\teacher\quiz-tests\results\page.tsx:517:          .from("quiz_results")
+  app\teacher\quiz-tests\results\page.tsx:518:          .select(
+  app\teacher\quiz-tests\results\page.tsx:519:            `
+  app\teacher\quiz-tests\results\page.tsx:520:              id,
+  app\teacher\quiz-tests\results\page.tsx:521:              quiz_id,
+  app\teacher\quiz-tests\results\page.tsx:522:              student_id,
+  app\teacher\quiz-tests\results\page.tsx:523:              attempt_number,
+  app\teacher\quiz-tests\results\page.tsx:524:              total_questions,
+  app\teacher\quiz-tests\results\page.tsx:525:              correct_answers,
+  app\teacher\quiz-tests\results\page.tsx:526:              wrong_answers,
+  app\teacher\quiz-tests\results\page.tsx:527:              unanswered,
+  app\teacher\quiz-tests\results\page.tsx:538:          .eq("quiz_id", activeQuizId)
+  app\teacher\quiz-tests\results\page.tsx:539:          .order("created_at", {
+  app\teacher\quiz-tests\results\page.tsx:540:            ascending: true,
+  app\teacher\quiz-tests\results\page.tsx:541:          }),
+  app\teacher\quiz-tests\results\page.tsx:542:
+  app\teacher\quiz-tests\results\page.tsx:543:        supabase
+> app\teacher\quiz-tests\results\page.tsx:544:          .from("students")
+  app\teacher\quiz-tests\results\page.tsx:545:          .select(
+  app\teacher\quiz-tests\results\page.tsx:546:            `
+  app\teacher\quiz-tests\results\page.tsx:547:              id,
+  app\teacher\quiz-tests\results\page.tsx:548:              student_name,
+  app\teacher\quiz-tests\results\page.tsx:549:              student_username,
+  app\teacher\quiz-tests\results\page.tsx:550:              class_name
+  app\teacher\quiz-tests\results\page.tsx:551:            `
+  app\teacher\quiz-tests\results\page.tsx:552:          )
+  app\teacher\quiz-tests\results\page.tsx:553:          .order("class_name", {
+  app\teacher\quiz-tests\results\page.tsx:554:            ascending: true,
+  app\teacher\quiz-tests\results\page.tsx:591:        ...student,
+  app\teacher\quiz-tests\results\page.tsx:592:        id: Number(student.id),
+  app\teacher\quiz-tests\results\page.tsx:593:      }));
+  app\teacher\quiz-tests\results\page.tsx:594:
+  app\teacher\quiz-tests\results\page.tsx:595:      setCurrentQuiz(quiz);
+  app\teacher\quiz-tests\results\page.tsx:596:      setCurrentResults(normalizedCurrentResults);
+> app\teacher\quiz-tests\results\page.tsx:597:      setCurrentStudents(normalizedStudents);
+  app\teacher\quiz-tests\results\page.tsx:598:
+  app\teacher\quiz-tests\results\page.tsx:599:      setAllQuizzes([quiz]);
+  app\teacher\quiz-tests\results\page.tsx:600:      setAllResults(normalizedCurrentResults);
+  app\teacher\quiz-tests\results\page.tsx:601:      setAllStudents(normalizedStudents);
+  app\teacher\quiz-tests\results\page.tsx:602:
+  app\teacher\quiz-tests\results\page.tsx:603:      setSelectedDate("ALL");
+  app\teacher\quiz-tests\results\page.tsx:604:      setSelectedSubject("ALL");
+  app\teacher\quiz-tests\results\page.tsx:605:      setSelectedClass("ALL");
+  app\teacher\quiz-tests\results\page.tsx:606:      setSelectedStatus("ALL");
+  app\teacher\quiz-tests\results\page.tsx:607:
+  app\teacher\quiz-tests\results\page.tsx:647:              .order("scheduled_date", {
+  app\teacher\quiz-tests\results\page.tsx:648:                ascending: false,
+  app\teacher\quiz-tests\results\page.tsx:649:                nullsFirst: false,
+  app\teacher\quiz-tests\results\page.tsx:650:              }),
+  app\teacher\quiz-tests\results\page.tsx:651:
+  app\teacher\quiz-tests\results\page.tsx:652:            supabase
+> app\teacher\quiz-tests\results\page.tsx:653:              .from("quiz_results")
+  app\teacher\quiz-tests\results\page.tsx:654:              .select(
+  app\teacher\quiz-tests\results\page.tsx:655:                `
+  app\teacher\quiz-tests\results\page.tsx:656:                  id,
+  app\teacher\quiz-tests\results\page.tsx:657:                  quiz_id,
+  app\teacher\quiz-tests\results\page.tsx:658:                  student_id,
+  app\teacher\quiz-tests\results\page.tsx:659:                  attempt_number,
+  app\teacher\quiz-tests\results\page.tsx:660:                  total_questions,
+  app\teacher\quiz-tests\results\page.tsx:661:                  correct_answers,
+  app\teacher\quiz-tests\results\page.tsx:662:                  wrong_answers,
+  app\teacher\quiz-tests\results\page.tsx:663:                  unanswered,
+  app\teacher\quiz-tests\results\page.tsx:736:  }, [
+  app\teacher\quiz-tests\results\page.tsx:737:    quizId,
+  app\teacher\quiz-tests\results\page.tsx:738:    quizIdReady,
+  app\teacher\quiz-tests\results\page.tsx:739:    loadReattemptPermissions,
+  app\teacher\quiz-tests\results\page.tsx:740:  ]);
+  app\teacher\quiz-tests\results\page.tsx:741:
+> app\teacher\quiz-tests\results\page.tsx:742:  useEffect(() => {
+  app\teacher\quiz-tests\results\page.tsx:743:    loadData();
+  app\teacher\quiz-tests\results\page.tsx:744:  }, [loadData]);
+  app\teacher\quiz-tests\results\page.tsx:745:
+  app\teacher\quiz-tests\results\page.tsx:746:  const availableDates = useMemo(() => {
+  app\teacher\quiz-tests\results\page.tsx:747:    const dates = new Set<string>();
+  app\teacher\quiz-tests\results\page.tsx:748:
+  app\teacher\quiz-tests\results\page.tsx:749:    allQuizzes.forEach((quiz) => {
+  app\teacher\quiz-tests\results\page.tsx:750:      if (quiz.scheduled_date) {
+  app\teacher\quiz-tests\results\page.tsx:751:        dates.add(quiz.scheduled_date);
+  app\teacher\quiz-tests\results\page.tsx:752:      }
+
+
+

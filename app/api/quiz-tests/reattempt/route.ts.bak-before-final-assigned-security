@@ -77,14 +77,6 @@ async function verifyTeacher(
   } as const;
 }
 
-async function getAssignedStudentIds(teacherId: number): Promise<Set<number> | null> {
-  if (teacherId === 1) return null;
-  if (!supabaseAdmin) throw new Error("Supabase service configuration is missing.");
-  const { data, error } = await supabaseAdmin.rpc("get_teacher_assigned_student_ids", { p_teacher_id: teacherId });
-  if (error) throw new Error(error.message);
-  return new Set((data || []).map((row: { student_id: number }) => Number(row.student_id)));
-}
-
 async function nextAttemptNumber(
   quizId: number,
   studentId: number
@@ -245,9 +237,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === "reset_all") {
-      if (teacherCheck.teacherId !== 1) {
-        return NextResponse.json({ success: false, error: "Only the Main Teacher can reset all re-attempt permissions." }, { status: 403 });
-      }
       const { error } = await supabaseAdmin.from("quiz_reattempt_permissions").update({ allowed: false, used_at: null }).not("id", "is", null);
       if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 });
       return NextResponse.json({ success: true, reset: true, message: "All previous re-attempt permissions have been reset. New re-attempts can now be granted fresh." });
@@ -265,11 +254,6 @@ export async function POST(request: NextRequest) {
           },
           { status: 400 }
         );
-      }
-
-      const assignedIdsForAllow = await getAssignedStudentIds(teacherCheck.teacherId);
-      if (assignedIdsForAllow && !assignedIdsForAllow.has(studentId)) {
-        return NextResponse.json({ success: false, error: "You can only allow re-attempts for students assigned to you." }, { status: 403 });
       }
 
       const { data: existing, error: existingError } =
@@ -417,14 +401,6 @@ export async function POST(request: NextRequest) {
         ).values()
       );
 
-      const assignedIdsForAllowAll = await getAssignedStudentIds(teacherCheck.teacherId);
-      if (assignedIdsForAllowAll) {
-        const unauthorizedItem = uniqueItems.find((item) => !assignedIdsForAllowAll.has(item.studentId));
-        if (unauthorizedItem) {
-          return NextResponse.json({ success: false, error: "You can only allow all re-attempts for students assigned to you." }, { status: 403 });
-        }
-      }
-
       const allowedPairs: string[] = [];
       const alreadyAllowedPairs: string[] = [];
       const skippedUsedPairs: string[] = [];
@@ -525,11 +501,6 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const assignedIdsForRevoke = await getAssignedStudentIds(teacherCheck.teacherId);
-      if (assignedIdsForRevoke && !assignedIdsForRevoke.has(studentId)) {
-        return NextResponse.json({ success: false, error: "You can only revoke re-attempts for students assigned to you." }, { status: 403 });
-      }
-
       const { data: existing, error: existingError } =
         await supabaseAdmin
           .from("quiz_reattempt_permissions")
@@ -616,9 +587,6 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
-
-
 
 
 

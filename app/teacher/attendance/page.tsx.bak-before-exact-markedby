@@ -123,7 +123,7 @@ export default function TeacherAttendancePage() {
           .from("attendance")
           .update({
             status,
-          marked_by_teacher_id: Number(localStorage.getItem("attendance_teacher_id") || "0"),})
+          })
           .eq("id", existing.id)
           .select()
           .single();
@@ -144,7 +144,6 @@ export default function TeacherAttendancePage() {
             student_id: studentId,
             attendance_date: selectedDate,
             status,
-            marked_by_teacher_id: Number(localStorage.getItem("attendance_teacher_id") || "0"),
           })
           .select()
           .single();
@@ -229,7 +228,7 @@ export default function TeacherAttendancePage() {
           .from("attendance")
           .update({
             status,
-          marked_by_teacher_id: Number(localStorage.getItem("attendance_teacher_id") || "0"),})
+          })
           .eq("id", existing.id)
           .select()
           .single();
@@ -252,7 +251,6 @@ export default function TeacherAttendancePage() {
             student_id: student.id,
             attendance_date: selectedDate,
             status,
-            marked_by_teacher_id: Number(localStorage.getItem("attendance_teacher_id") || "0"),
           })
         );
 
@@ -333,7 +331,7 @@ export default function TeacherAttendancePage() {
       const { error } = await supabase
         .from("attendance")
         .delete()
-        .eq("attendance_date", selectedDate).in("student_id", students.map((student) => student.id));
+        .eq("attendance_date", selectedDate);
 
       if (error) {
         throw new Error(error.message);
@@ -1576,8 +1574,6 @@ const styles: {
     fontWeight: "600",
   },
 };
-
-
 
 
 

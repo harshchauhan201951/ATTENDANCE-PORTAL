@@ -42,14 +42,6 @@ async function verifyTeacher(teacherIdValue: unknown) {
   return !error && Boolean(data);
 }
 
-async function getAssignedStudentIds(teacherId: number): Promise<Set<number> | null> {
-  if (teacherId === 1) return null;
-  if (!supabaseAdmin) throw new Error('Supabase service configuration is missing.');
-  const { data, error } = await supabaseAdmin.rpc('get_teacher_assigned_student_ids', { p_teacher_id: teacherId });
-  if (error) throw new Error(error.message);
-  return new Set((data || []).map((row: { student_id: number }) => Number(row.student_id)));
-}
-
 export async function POST(request: NextRequest) {
   try {
     if (!supabaseAdmin) {
@@ -197,4 +189,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

@@ -1,0 +1,1054 @@
+﻿
+
+  app\teacher\layout.tsx:17:  const [headerName, setHeaderName] = useState("Teacher");
+  app\teacher\layout.tsx:18:  const [headerTime, setHeaderTime] = useState(""); const [profileImage, setProfileImage] = useState<string | null>(null);
+  app\teacher\layout.tsx:19:
+  app\teacher\layout.tsx:20:  useEffect(() => {
+> app\teacher\layout.tsx:21:    const savedName = localStorage.getItem("teacherName") || localStorage.getItem("teacher_name") || localStorage.getItem("teacherUsername") || localStorage.getItem("teacher_username") || "Teacher";
+  app\teacher\layout.tsx:22:    const firstName = savedName.trim().split(/\s+/)[0] || "Teacher";
+> app\teacher\layout.tsx:23:    setHeaderName(firstName); setProfileImage(localStorage.getItem("teacherProfileImage"));
+  app\teacher\layout.tsx:24:    const updateHeaderTime = () => setHeaderTime(new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }));
+  app\teacher\layout.tsx:25:    updateHeaderTime();
+  app\teacher\layout.tsx:26:    const timer = setInterval(updateHeaderTime, 1000);
+  app\teacher\layout.tsx:27:    return () => clearInterval(timer);
+  app\teacher\layout.tsx:28:  }, []);
+  app\teacher\layout.tsx:29:  const pathname = usePathname();
+  app\teacher\layout.tsx:30:  const isDashboard = pathname === "/teacher/dashboard";
+  app\teacher\layout.tsx:31:
+  app\teacher\layout.tsx:48:
+  app\teacher\layout.tsx:49:      {!isDashboard && (
+  app\teacher\layout.tsx:50:        <RacerPageActions
+  app\teacher\layout.tsx:51:          dashboardPath="/teacher/dashboard"
+> app\teacher\layout.tsx:52:          logoutKeys={["teacher_username","teacherUsername","teacherLoggedIn","attendance_role","attendance_username","attendance_teacher_id","teacher_id"]}
+  app\teacher\layout.tsx:53:        />
+  app\teacher\layout.tsx:54:      )}
+  app\teacher\layout.tsx:55:
+  app\teacher\layout.tsx:56:      <div className="racer-portal-content" style={{paddingTop:isDashboard ? "0px" : "72px"}}>{children}</div>
+  app\teacher\layout.tsx:57:
+  app\teacher\layout.tsx:58:      <nav className="racer-bottom-nav" aria-label="Teacher navigation">
+  app\teacher\layout.tsx:59:        {items.map((item) => {
+  app\teacher\layout.tsx:60:          const active =
+
+
+
+
+
+  app\teacher\academy-profile\page.tsx:60:};
+  app\teacher\academy-profile\page.tsx:61:
+  app\teacher\academy-profile\page.tsx:62:type Faculty = {
+  app\teacher\academy-profile\page.tsx:63:  id: number;
+> app\teacher\academy-profile\page.tsx:64:  teacher_name: string;
+  app\teacher\academy-profile\page.tsx:65:  subject: string;
+  app\teacher\academy-profile\page.tsx:66:  qualification: string;
+  app\teacher\academy-profile\page.tsx:67:  experience: string;
+  app\teacher\academy-profile\page.tsx:68:  photo_url: string;
+  app\teacher\academy-profile\page.tsx:69:  description: string;
+  app\teacher\academy-profile\page.tsx:70:  display_order: number;
+  app\teacher\academy-profile\page.tsx:71:  is_active: boolean;
+  app\teacher\academy-profile\page.tsx:72:};
+  app\teacher\academy-profile\page.tsx:1037:                          src={
+  app\teacher\academy-profile\page.tsx:1038:                            teacher.photo_url
+  app\teacher\academy-profile\page.tsx:1039:                          }
+  app\teacher\academy-profile\page.tsx:1040:                          alt={
+> app\teacher\academy-profile\page.tsx:1041:                            teacher.teacher_name
+  app\teacher\academy-profile\page.tsx:1042:                          }
+  app\teacher\academy-profile\page.tsx:1043:                          style={
+  app\teacher\academy-profile\page.tsx:1044:                            styles.avatarImage
+  app\teacher\academy-profile\page.tsx:1045:                          }
+  app\teacher\academy-profile\page.tsx:1046:                        />
+  app\teacher\academy-profile\page.tsx:1047:                      ) : (
+  app\teacher\academy-profile\page.tsx:1048:                        "👨‍🏫"
+  app\teacher\academy-profile\page.tsx:1049:                      )}
+  app\teacher\academy-profile\page.tsx:1054:                        styles.cardTitle
+  app\teacher\academy-profile\page.tsx:1055:                      }
+  app\teacher\academy-profile\page.tsx:1056:                    >
+  app\teacher\academy-profile\page.tsx:1057:                      {
+> app\teacher\academy-profile\page.tsx:1058:                        teacher.teacher_name
+  app\teacher\academy-profile\page.tsx:1059:                      }
+  app\teacher\academy-profile\page.tsx:1060:                    </h3>
+  app\teacher\academy-profile\page.tsx:1061:
+  app\teacher\academy-profile\page.tsx:1062:                    {teacher.subject && (
+  app\teacher\academy-profile\page.tsx:1063:                      <div
+  app\teacher\academy-profile\page.tsx:1064:                        style={
+  app\teacher\academy-profile\page.tsx:1065:                          styles.subject
+  app\teacher\academy-profile\page.tsx:1066:                        }
+
+
+
+
+  app\teacher\academy-profile\edit\page.tsx:60:};
+  app\teacher\academy-profile\edit\page.tsx:61:
+  app\teacher\academy-profile\edit\page.tsx:62:type Faculty = {
+  app\teacher\academy-profile\edit\page.tsx:63:  id: number;
+> app\teacher\academy-profile\edit\page.tsx:64:  teacher_name: string;
+  app\teacher\academy-profile\edit\page.tsx:65:  subject: string;
+  app\teacher\academy-profile\edit\page.tsx:66:  qualification: string;
+  app\teacher\academy-profile\edit\page.tsx:67:  experience: string;
+  app\teacher\academy-profile\edit\page.tsx:68:  photo_url: string;
+  app\teacher\academy-profile\edit\page.tsx:69:  description: string;
+  app\teacher\academy-profile\edit\page.tsx:70:  display_order: number;
+  app\teacher\academy-profile\edit\page.tsx:71:  is_active: boolean;
+  app\teacher\academy-profile\edit\page.tsx:72:};
+  app\teacher\academy-profile\edit\page.tsx:193:    const stored =
+  app\teacher\academy-profile\edit\page.tsx:194:      localStorage.getItem(
+  app\teacher\academy-profile\edit\page.tsx:195:        "racer_academy_teacher"
+  app\teacher\academy-profile\edit\page.tsx:196:      ) ||
+> app\teacher\academy-profile\edit\page.tsx:197:      localStorage.getItem("teacher");
+  app\teacher\academy-profile\edit\page.tsx:198:
+  app\teacher\academy-profile\edit\page.tsx:199:    if (!stored) return 0;
+  app\teacher\academy-profile\edit\page.tsx:200:
+  app\teacher\academy-profile\edit\page.tsx:201:    const teacher = JSON.parse(stored);
+  app\teacher\academy-profile\edit\page.tsx:202:
+  app\teacher\academy-profile\edit\page.tsx:203:    return Number(
+  app\teacher\academy-profile\edit\page.tsx:204:      teacher?.id || 0
+  app\teacher\academy-profile\edit\page.tsx:205:    );
+  app\teacher\academy-profile\edit\page.tsx:270:    });
+  app\teacher\academy-profile\edit\page.tsx:271:
+  app\teacher\academy-profile\edit\page.tsx:272:  const [newFaculty, setNewFaculty] =
+  app\teacher\academy-profile\edit\page.tsx:273:    useState({
+> app\teacher\academy-profile\edit\page.tsx:274:      teacher_name: "",
+  app\teacher\academy-profile\edit\page.tsx:275:      subject: "",
+  app\teacher\academy-profile\edit\page.tsx:276:      qualification: "",
+  app\teacher\academy-profile\edit\page.tsx:277:      experience: "",
+  app\teacher\academy-profile\edit\page.tsx:278:      photo_url: "",
+  app\teacher\academy-profile\edit\page.tsx:279:      description: "",
+  app\teacher\academy-profile\edit\page.tsx:280:    });
+  app\teacher\academy-profile\edit\page.tsx:281:
+  app\teacher\academy-profile\edit\page.tsx:282:  const [newAnnouncement, setNewAnnouncement] =
+  app\teacher\academy-profile\edit\page.tsx:938:  async function addFaculty() {
+  app\teacher\academy-profile\edit\page.tsx:939:    const teacherId =
+  app\teacher\academy-profile\edit\page.tsx:940:      getTeacherId();
+  app\teacher\academy-profile\edit\page.tsx:941:
+> app\teacher\academy-profile\edit\page.tsx:942:    if (!newFaculty.teacher_name.trim()) {
+  app\teacher\academy-profile\edit\page.tsx:943:      setError(
+  app\teacher\academy-profile\edit\page.tsx:944:        "Teacher name is required."
+  app\teacher\academy-profile\edit\page.tsx:945:      );
+  app\teacher\academy-profile\edit\page.tsx:946:      return;
+  app\teacher\academy-profile\edit\page.tsx:947:    }
+  app\teacher\academy-profile\edit\page.tsx:948:
+  app\teacher\academy-profile\edit\page.tsx:949:    const {
+  app\teacher\academy-profile\edit\page.tsx:950:      data,
+  app\teacher\academy-profile\edit\page.tsx:953:      "academy_add_faculty",
+  app\teacher\academy-profile\edit\page.tsx:954:      {
+  app\teacher\academy-profile\edit\page.tsx:955:        p_teacher_id:
+  app\teacher\academy-profile\edit\page.tsx:956:          teacherId,
+> app\teacher\academy-profile\edit\page.tsx:957:        p_teacher_name:
+> app\teacher\academy-profile\edit\page.tsx:958:          newFaculty.teacher_name.trim(),
+  app\teacher\academy-profile\edit\page.tsx:959:        p_subject:
+  app\teacher\academy-profile\edit\page.tsx:960:          newFaculty.subject,
+  app\teacher\academy-profile\edit\page.tsx:961:        p_qualification:
+  app\teacher\academy-profile\edit\page.tsx:962:          newFaculty.qualification,
+  app\teacher\academy-profile\edit\page.tsx:963:        p_experience:
+  app\teacher\academy-profile\edit\page.tsx:964:          newFaculty.experience,
+  app\teacher\academy-profile\edit\page.tsx:965:        p_photo_url:
+  app\teacher\academy-profile\edit\page.tsx:966:          newFaculty.photo_url,
+  app\teacher\academy-profile\edit\page.tsx:984:      data as Faculty,
+  app\teacher\academy-profile\edit\page.tsx:985:    ]);
+  app\teacher\academy-profile\edit\page.tsx:986:
+  app\teacher\academy-profile\edit\page.tsx:987:    setNewFaculty({
+> app\teacher\academy-profile\edit\page.tsx:988:      teacher_name: "",
+  app\teacher\academy-profile\edit\page.tsx:989:      subject: "",
+  app\teacher\academy-profile\edit\page.tsx:990:      qualification: "",
+  app\teacher\academy-profile\edit\page.tsx:991:      experience: "",
+  app\teacher\academy-profile\edit\page.tsx:992:      photo_url: "",
+  app\teacher\academy-profile\edit\page.tsx:993:      description: "",
+  app\teacher\academy-profile\edit\page.tsx:994:    });
+  app\teacher\academy-profile\edit\page.tsx:995:
+  app\teacher\academy-profile\edit\page.tsx:996:    setMessage(
+  app\teacher\academy-profile\edit\page.tsx:1985:            <div style={styles.formGrid}>
+  app\teacher\academy-profile\edit\page.tsx:1986:              <Field
+  app\teacher\academy-profile\edit\page.tsx:1987:                label="Teacher Name"
+  app\teacher\academy-profile\edit\page.tsx:1988:                value={
+> app\teacher\academy-profile\edit\page.tsx:1989:                  newFaculty.teacher_name
+  app\teacher\academy-profile\edit\page.tsx:1990:                }
+  app\teacher\academy-profile\edit\page.tsx:1991:                onChange={(value) =>
+  app\teacher\academy-profile\edit\page.tsx:1992:                  setNewFaculty({
+  app\teacher\academy-profile\edit\page.tsx:1993:                    ...newFaculty,
+> app\teacher\academy-profile\edit\page.tsx:1994:                    teacher_name:
+  app\teacher\academy-profile\edit\page.tsx:1995:                      value,
+  app\teacher\academy-profile\edit\page.tsx:1996:                  })
+  app\teacher\academy-profile\edit\page.tsx:1997:                }
+  app\teacher\academy-profile\edit\page.tsx:1998:              />
+  app\teacher\academy-profile\edit\page.tsx:1999:
+  app\teacher\academy-profile\edit\page.tsx:2000:              <Field
+  app\teacher\academy-profile\edit\page.tsx:2001:                label="Subject"
+  app\teacher\academy-profile\edit\page.tsx:2002:                value={
+  app\teacher\academy-profile\edit\page.tsx:2090:                >
+  app\teacher\academy-profile\edit\page.tsx:2091:                  <div>
+  app\teacher\academy-profile\edit\page.tsx:2092:                    <strong>
+  app\teacher\academy-profile\edit\page.tsx:2093:                      {
+> app\teacher\academy-profile\edit\page.tsx:2094:                        teacher.teacher_name
+  app\teacher\academy-profile\edit\page.tsx:2095:                      }
+  app\teacher\academy-profile\edit\page.tsx:2096:                    </strong>
+  app\teacher\academy-profile\edit\page.tsx:2097:
+  app\teacher\academy-profile\edit\page.tsx:2098:                    <div
+  app\teacher\academy-profile\edit\page.tsx:2099:                      style={
+  app\teacher\academy-profile\edit\page.tsx:2100:                        styles.smallText
+  app\teacher\academy-profile\edit\page.tsx:2101:                      }
+  app\teacher\academy-profile\edit\page.tsx:2102:                    >
+
+
+
+
+
+  app\teacher\attendance\page.tsx:44:    setLoading(true);
+  app\teacher\attendance\page.tsx:45:    setMessage("");
+  app\teacher\attendance\page.tsx:46:
+  app\teacher\attendance\page.tsx:47:    try {
+> app\teacher\attendance\page.tsx:48:      const savedTeacherId = Number(localStorage.getItem("attendance_teacher_id") || "0"); if (!savedTeacherId) { throw new Error("Teacher session not found."); } let assignedStudentIds: number[] = []; 
+if (savedTeacherId !== 1) { const { data: assignedData, error: assignedError } = await supabase.rpc("get_teacher_assigned_student_ids", { p_teacher_id: savedTeacherId }); if (assignedError) throw new Error(assignedError.message); 
+assignedStudentIds = (assignedData || []).map((item: { student_id: number }) => Number(item.student_id)); } let studentQuery = supabase.from("students").select("id, student_name, student_username").order("id", { ascending: true }); if 
+(savedTeacherId !== 1) { if (assignedStudentIds.length === 0) { setStudents([]); setAttendance([]); setLoading(false); return; } studentQuery = studentQuery.in("id", assignedStudentIds); } const { data: studentData, error: studentError } = 
+await studentQuery;
+  app\teacher\attendance\page.tsx:49:
+  app\teacher\attendance\page.tsx:50:      if (studentError) {
+  app\teacher\attendance\page.tsx:51:        throw new Error(studentError.message);
+  app\teacher\attendance\page.tsx:52:      }
+  app\teacher\attendance\page.tsx:53:
+  app\teacher\attendance\page.tsx:54:      let attendanceQuery = supabase.from("attendance").select("id, student_id, attendance_date, status").order("attendance_date", { ascending: false }); if (savedTeacherId !== 1 && 
+assignedStudentIds.length > 0) { attendanceQuery = attendanceQuery.in("student_id", assignedStudentIds); } const { data: attendanceData, error: attendanceError } = await attendanceQuery;
+  app\teacher\attendance\page.tsx:55:
+  app\teacher\attendance\page.tsx:56:      if (attendanceError) {
+
+
+
+
+  app\teacher\attendance-history\page.tsx:46:    setLoading(true);
+  app\teacher\attendance-history\page.tsx:47:    setErrorMessage("");
+  app\teacher\attendance-history\page.tsx:48:
+  app\teacher\attendance-history\page.tsx:49:    try {
+> app\teacher\attendance-history\page.tsx:50:      const savedTeacherId = Number(localStorage.getItem("attendance_teacher_id") || "0");
+  app\teacher\attendance-history\page.tsx:51:      if (!savedTeacherId) { throw new Error("Teacher session not found."); }
+  app\teacher\attendance-history\page.tsx:52:
+  app\teacher\attendance-history\page.tsx:53:      let assignedStudentIds: number[] = [];
+  app\teacher\attendance-history\page.tsx:54:      if (savedTeacherId !== 1) {
+  app\teacher\attendance-history\page.tsx:55:        const { data: assignedData, error: assignedError } = await supabase.rpc("get_teacher_assigned_student_ids", { p_teacher_id: savedTeacherId });
+  app\teacher\attendance-history\page.tsx:56:        if (assignedError) throw new Error(assignedError.message);
+  app\teacher\attendance-history\page.tsx:57:        assignedStudentIds = (assignedData || []).map((item: { student_id: number }) => Number(item.student_id));
+  app\teacher\attendance-history\page.tsx:58:      }
+  app\teacher\attendance-history\page.tsx:82:  async function deleteAttendance(
+  app\teacher\attendance-history\page.tsx:83:    studentId: number,
+  app\teacher\attendance-history\page.tsx:84:    attendanceDate: string
+  app\teacher\attendance-history\page.tsx:85:  ) {
+> app\teacher\attendance-history\page.tsx:86:    const savedTeacherId = Number(localStorage.getItem("attendance_teacher_id") || "0");
+  app\teacher\attendance-history\page.tsx:87:
+  app\teacher\attendance-history\page.tsx:88:    if (!savedTeacherId) {
+  app\teacher\attendance-history\page.tsx:89:      setErrorMessage("Teacher session not found.");
+  app\teacher\attendance-history\page.tsx:90:      return;
+  app\teacher\attendance-history\page.tsx:91:    }
+  app\teacher\attendance-history\page.tsx:92:
+  app\teacher\attendance-history\page.tsx:93:    if (savedTeacherId !== 1) {
+  app\teacher\attendance-history\page.tsx:94:      const { data: assignedData, error: assignedError } =
+
+
+
+
+
+  app\teacher\dashboard\page.tsx:4:import { useRouter } from "next/navigation";
+  app\teacher\dashboard\page.tsx:5:
+  app\teacher\dashboard\page.tsx:6:export default function TeacherDashboard() {
+  app\teacher\dashboard\page.tsx:7:  const router = useRouter();
+> app\teacher\dashboard\page.tsx:8:  const [teacherName, setTeacherName] = useState("Teacher");
+  app\teacher\dashboard\page.tsx:9:  const [profileImage, setProfileImage] = useState<string | null>(null);
+  app\teacher\dashboard\page.tsx:10:  const [loggingOut, setLoggingOut] = useState(false);
+  app\teacher\dashboard\page.tsx:11:
+  app\teacher\dashboard\page.tsx:12:  useEffect(() => {
+> app\teacher\dashboard\page.tsx:13:    const savedTeacherName =
+> app\teacher\dashboard\page.tsx:14:      localStorage.getItem("teacherName") ||
+> app\teacher\dashboard\page.tsx:15:      localStorage.getItem("teacher_name") ||
+> app\teacher\dashboard\page.tsx:16:      localStorage.getItem("teacherUsername") ||
+> app\teacher\dashboard\page.tsx:17:      localStorage.getItem("teacher_username") ||
+  app\teacher\dashboard\page.tsx:18:      "Teacher";
+> app\teacher\dashboard\page.tsx:19:    setTeacherName(savedTeacherName);
+> app\teacher\dashboard\page.tsx:20:    setProfileImage(localStorage.getItem("teacherProfileImage"));
+  app\teacher\dashboard\page.tsx:21:  }, []);
+  app\teacher\dashboard\page.tsx:22:
+> app\teacher\dashboard\page.tsx:23:  const firstName = teacherName.trim().split(/\s+/)[0] || "Teacher";
+  app\teacher\dashboard\page.tsx:24:
+  app\teacher\dashboard\page.tsx:25:  async function handleLogout() {
+  app\teacher\dashboard\page.tsx:26:    if (loggingOut) return;
+  app\teacher\dashboard\page.tsx:27:    setLoggingOut(true);
+  app\teacher\dashboard\page.tsx:28:    const authKeys = [
+  app\teacher\dashboard\page.tsx:29:      "attendance_role","attendance_username","attendance_teacher_id","teacherLoggedIn","teacher",
+> app\teacher\dashboard\page.tsx:30:      "teacherUsername","teacher_username","teacherName","teacher_name","studentLoggedIn","studentId",
+  app\teacher\dashboard\page.tsx:31:      "studentUsername","student_username","studentName","student_name",
+  app\teacher\dashboard\page.tsx:32:    ];
+  app\teacher\dashboard\page.tsx:33:    authKeys.forEach((key) => localStorage.removeItem(key));
+  app\teacher\dashboard\page.tsx:34:    authKeys.forEach((key) => sessionStorage.removeItem(key));
+  app\teacher\dashboard\page.tsx:35:    await new Promise((resolve) => setTimeout(resolve, 100));
+  app\teacher\dashboard\page.tsx:36:    router.replace("/");
+  app\teacher\dashboard\page.tsx:37:    router.refresh();
+  app\teacher\dashboard\page.tsx:38:  }
+
+
+
+
+
+
+
+
+
+  app\teacher\profile\page.tsx:9:import { useRouter } from "next/navigation";
+  app\teacher\profile\page.tsx:10:
+  app\teacher\profile\page.tsx:11:type TeacherData = {
+  app\teacher\profile\page.tsx:12:  id?: number | string;
+> app\teacher\profile\page.tsx:13:  teacher_username?: string;
+> app\teacher\profile\page.tsx:14:  teacher_name?: string;
+  app\teacher\profile\page.tsx:15:  username?: string;
+  app\teacher\profile\page.tsx:16:  name?: string;
+  app\teacher\profile\page.tsx:17:};
+  app\teacher\profile\page.tsx:18:
+  app\teacher\profile\page.tsx:19:type PasswordForm = {
+  app\teacher\profile\page.tsx:20:  currentPassword: string;
+  app\teacher\profile\page.tsx:21:  newPassword: string;
+  app\teacher\profile\page.tsx:22:  confirmPassword: string;
+  app\teacher\profile\page.tsx:25:export default function TeacherProfilePage() {
+  app\teacher\profile\page.tsx:26:  const router = useRouter();
+  app\teacher\profile\page.tsx:27:
+  app\teacher\profile\page.tsx:28:  const [teacherId, setTeacherId] = useState("");
+> app\teacher\profile\page.tsx:29:  const [teacherName, setTeacherName] = useState("Teacher");
+> app\teacher\profile\page.tsx:30:  const [teacherUsername, setTeacherUsername] =
+  app\teacher\profile\page.tsx:31:    useState("");
+  app\teacher\profile\page.tsx:32:  const [profileImage, setProfileImage] =
+  app\teacher\profile\page.tsx:33:    useState<string | null>(null);
+  app\teacher\profile\page.tsx:34:
+  app\teacher\profile\page.tsx:35:  const [usernameInput, setUsernameInput] =
+  app\teacher\profile\page.tsx:36:    useState("");
+  app\teacher\profile\page.tsx:37:  const [usernameSaved, setUsernameSaved] =
+  app\teacher\profile\page.tsx:38:    useState(false);
+  app\teacher\profile\page.tsx:78:
+  app\teacher\profile\page.tsx:79:  useEffect(() => {
+  app\teacher\profile\page.tsx:80:    try {
+  app\teacher\profile\page.tsx:81:      const savedName =
+> app\teacher\profile\page.tsx:82:        localStorage.getItem("teacherName") ||
+> app\teacher\profile\page.tsx:83:        localStorage.getItem("teacher_name") ||
+  app\teacher\profile\page.tsx:84:        "";
+  app\teacher\profile\page.tsx:85:
+  app\teacher\profile\page.tsx:86:      const savedTeacher =
+> app\teacher\profile\page.tsx:87:        localStorage.getItem("teacher");
+  app\teacher\profile\page.tsx:88:
+  app\teacher\profile\page.tsx:89:      let username = "";
+  app\teacher\profile\page.tsx:90:      let id = "";
+  app\teacher\profile\page.tsx:91:
+  app\teacher\profile\page.tsx:92:      if (savedTeacher) {
+  app\teacher\profile\page.tsx:93:        try {
+  app\teacher\profile\page.tsx:94:          const parsed: TeacherData =
+  app\teacher\profile\page.tsx:95:            JSON.parse(savedTeacher);
+  app\teacher\profile\page.tsx:96:
+  app\teacher\profile\page.tsx:97:          username =
+> app\teacher\profile\page.tsx:98:            parsed.teacher_username ||
+  app\teacher\profile\page.tsx:99:            parsed.username ||
+  app\teacher\profile\page.tsx:100:            "";
+  app\teacher\profile\page.tsx:101:
+  app\teacher\profile\page.tsx:102:          if (
+  app\teacher\profile\page.tsx:103:            parsed.id !== undefined &&
+  app\teacher\profile\page.tsx:104:            parsed.id !== null
+  app\teacher\profile\page.tsx:105:          ) {
+  app\teacher\profile\page.tsx:106:            id = String(parsed.id);
+  app\teacher\profile\page.tsx:107:          }
+  app\teacher\profile\page.tsx:108:
+  app\teacher\profile\page.tsx:109:          const possibleName =
+> app\teacher\profile\page.tsx:110:            parsed.teacher_name ||
+  app\teacher\profile\page.tsx:111:            parsed.name ||
+  app\teacher\profile\page.tsx:112:            "";
+  app\teacher\profile\page.tsx:113:
+  app\teacher\profile\page.tsx:114:          if (possibleName && !savedName) {
+> app\teacher\profile\page.tsx:115:            setTeacherName(possibleName);
+  app\teacher\profile\page.tsx:116:          }
+  app\teacher\profile\page.tsx:117:        } catch {
+  app\teacher\profile\page.tsx:118:          username = savedTeacher;
+  app\teacher\profile\page.tsx:119:        }
+  app\teacher\profile\page.tsx:120:      }
+  app\teacher\profile\page.tsx:121:
+  app\teacher\profile\page.tsx:122:      username =
+  app\teacher\profile\page.tsx:123:        username ||
+> app\teacher\profile\page.tsx:124:        localStorage.getItem("teacherUsername") ||
+> app\teacher\profile\page.tsx:125:        localStorage.getItem("teacher_username") ||
+  app\teacher\profile\page.tsx:126:        localStorage.getItem("username") ||
+  app\teacher\profile\page.tsx:127:        "";
+  app\teacher\profile\page.tsx:128:
+  app\teacher\profile\page.tsx:129:      id =
+  app\teacher\profile\page.tsx:130:        id ||
+> app\teacher\profile\page.tsx:131:        localStorage.getItem("teacher_id") ||
+> app\teacher\profile\page.tsx:132:        localStorage.getItem("teacherId") ||
+  app\teacher\profile\page.tsx:133:        "";
+  app\teacher\profile\page.tsx:134:
+  app\teacher\profile\page.tsx:135:      /*
+  app\teacher\profile\page.tsx:136:       * The custom saved profile username always gets
+  app\teacher\profile\page.tsx:137:       * priority over the original login username.
+  app\teacher\profile\page.tsx:138:       */
+  app\teacher\profile\page.tsx:139:      const savedProfileUsername =
+  app\teacher\profile\page.tsx:140:        localStorage.getItem(
+  app\teacher\profile\page.tsx:152:          const parsed: TeacherData =
+  app\teacher\profile\page.tsx:153:            JSON.parse(cleanName);
+  app\teacher\profile\page.tsx:154:
+  app\teacher\profile\page.tsx:155:          cleanName =
+> app\teacher\profile\page.tsx:156:            parsed.teacher_name ||
+  app\teacher\profile\page.tsx:157:            parsed.name ||
+  app\teacher\profile\page.tsx:158:            "";
+  app\teacher\profile\page.tsx:159:
+  app\teacher\profile\page.tsx:160:          username =
+  app\teacher\profile\page.tsx:161:            username ||
+> app\teacher\profile\page.tsx:162:            parsed.teacher_username ||
+  app\teacher\profile\page.tsx:163:            parsed.username ||
+  app\teacher\profile\page.tsx:164:            "";
+  app\teacher\profile\page.tsx:165:
+  app\teacher\profile\page.tsx:166:          if (
+  app\teacher\profile\page.tsx:167:            !id &&
+  app\teacher\profile\page.tsx:168:            parsed.id !== undefined &&
+  app\teacher\profile\page.tsx:169:            parsed.id !== null
+  app\teacher\profile\page.tsx:170:          ) {
+  app\teacher\profile\page.tsx:179:        username || "Teacher Account";
+  app\teacher\profile\page.tsx:180:
+  app\teacher\profile\page.tsx:181:      setTeacherId(id);
+  app\teacher\profile\page.tsx:182:
+> app\teacher\profile\page.tsx:183:      setTeacherName(
+  app\teacher\profile\page.tsx:184:        cleanName ||
+  app\teacher\profile\page.tsx:185:          finalUsername ||
+  app\teacher\profile\page.tsx:186:          "Teacher"
+  app\teacher\profile\page.tsx:187:      );
+  app\teacher\profile\page.tsx:188:
+> app\teacher\profile\page.tsx:189:      setTeacherUsername(finalUsername);
+  app\teacher\profile\page.tsx:190:      setUsernameInput(
+  app\teacher\profile\page.tsx:191:        finalUsername === "Teacher Account"
+  app\teacher\profile\page.tsx:192:          ? ""
+  app\teacher\profile\page.tsx:193:          : finalUsername
+  app\teacher\profile\page.tsx:194:      );
+  app\teacher\profile\page.tsx:195:
+  app\teacher\profile\page.tsx:196:      const savedImage =
+  app\teacher\profile\page.tsx:197:        localStorage.getItem(
+  app\teacher\profile\page.tsx:223:          savedCompactMode === "true"
+  app\teacher\profile\page.tsx:224:        );
+  app\teacher\profile\page.tsx:225:      }
+  app\teacher\profile\page.tsx:226:    } catch {
+> app\teacher\profile\page.tsx:227:      setTeacherName("Teacher");
+> app\teacher\profile\page.tsx:228:      setTeacherUsername("Teacher Account");
+  app\teacher\profile\page.tsx:229:      setUsernameInput("");
+  app\teacher\profile\page.tsx:230:    }
+  app\teacher\profile\page.tsx:231:  }, []);
+  app\teacher\profile\page.tsx:232:
+  app\teacher\profile\page.tsx:233:  const showSavedMessage = () => {
+  app\teacher\profile\page.tsx:234:    setProfileSaved(true);
+  app\teacher\profile\page.tsx:235:
+  app\teacher\profile\page.tsx:236:    window.setTimeout(() => {
+  app\teacher\profile\page.tsx:270:      );
+  app\teacher\profile\page.tsx:271:
+  app\teacher\profile\page.tsx:272:      /*
+  app\teacher\profile\page.tsx:273:       * Also update the existing local teacher display keys
+> app\teacher\profile\page.tsx:274:       * so older pages that read teacherName/teacherUsername
+  app\teacher\profile\page.tsx:275:       * continue to work.
+  app\teacher\profile\page.tsx:276:       */
+  app\teacher\profile\page.tsx:277:      localStorage.setItem(
+> app\teacher\profile\page.tsx:278:        "teacherName",
+  app\teacher\profile\page.tsx:279:        cleanedUsername
+  app\teacher\profile\page.tsx:280:      );
+  app\teacher\profile\page.tsx:281:
+  app\teacher\profile\page.tsx:282:      localStorage.setItem(
+> app\teacher\profile\page.tsx:283:        "teacher_name",
+  app\teacher\profile\page.tsx:284:        cleanedUsername
+  app\teacher\profile\page.tsx:285:      );
+  app\teacher\profile\page.tsx:286:
+  app\teacher\profile\page.tsx:287:      localStorage.setItem(
+> app\teacher\profile\page.tsx:288:        "teacherUsername",
+  app\teacher\profile\page.tsx:289:        cleanedUsername
+  app\teacher\profile\page.tsx:290:      );
+  app\teacher\profile\page.tsx:291:
+  app\teacher\profile\page.tsx:292:      localStorage.setItem(
+> app\teacher\profile\page.tsx:293:        "teacher_username",
+  app\teacher\profile\page.tsx:294:        cleanedUsername
+  app\teacher\profile\page.tsx:295:      );
+  app\teacher\profile\page.tsx:296:
+> app\teacher\profile\page.tsx:297:      setTeacherUsername(cleanedUsername);
+> app\teacher\profile\page.tsx:298:      setTeacherName(cleanedUsername);
+  app\teacher\profile\page.tsx:299:      setUsernameInput(cleanedUsername);
+  app\teacher\profile\page.tsx:300:
+  app\teacher\profile\page.tsx:301:      setUsernameSaved(true);
+  app\teacher\profile\page.tsx:302:      showSavedMessage();
+  app\teacher\profile\page.tsx:303:
+  app\teacher\profile\page.tsx:304:      window.setTimeout(() => {
+  app\teacher\profile\page.tsx:305:        setUsernameSaved(false);
+  app\teacher\profile\page.tsx:306:      }, 2500);
+  app\teacher\profile\page.tsx:501:    }
+  app\teacher\profile\page.tsx:502:  };
+  app\teacher\profile\page.tsx:503:
+  app\teacher\profile\page.tsx:504:  const displayName =
+> app\teacher\profile\page.tsx:505:    teacherUsername &&
+> app\teacher\profile\page.tsx:506:    teacherUsername !== "Teacher Account"
+> app\teacher\profile\page.tsx:507:      ? teacherUsername
+> app\teacher\profile\page.tsx:508:      : teacherName &&
+> app\teacher\profile\page.tsx:509:        teacherName !== "Teacher"
+> app\teacher\profile\page.tsx:510:      ? teacherName
+  app\teacher\profile\page.tsx:511:      : "Teacher";
+  app\teacher\profile\page.tsx:512:
+  app\teacher\profile\page.tsx:513:  const avatarLetter =
+  app\teacher\profile\page.tsx:514:    displayName.charAt(0).toUpperCase();
+  app\teacher\profile\page.tsx:515:
+  app\teacher\profile\page.tsx:516:  const accountInitials =
+  app\teacher\profile\page.tsx:517:    displayName
+  app\teacher\profile\page.tsx:518:      .split(" ")
+  app\teacher\profile\page.tsx:587:
+  app\teacher\profile\page.tsx:588:            <div className="hero-meta">
+  app\teacher\profile\page.tsx:589:              <span>
+  app\teacher\profile\page.tsx:590:                <b>USERNAME</b>
+> app\teacher\profile\page.tsx:591:                {teacherUsername}
+  app\teacher\profile\page.tsx:592:              </span>
+  app\teacher\profile\page.tsx:593:
+  app\teacher\profile\page.tsx:594:              <span>
+  app\teacher\profile\page.tsx:595:                <b>TEACHER ID</b>
+  app\teacher\profile\page.tsx:596:                {teacherId || "Not available"}
+  app\teacher\profile\page.tsx:597:              </span>
+  app\teacher\profile\page.tsx:598:            </div>
+  app\teacher\profile\page.tsx:599:          </div>
+  app\teacher\profile\page.tsx:844:                      Username
+  app\teacher\profile\page.tsx:845:                    </span>
+  app\teacher\profile\page.tsx:846:
+  app\teacher\profile\page.tsx:847:                    <strong>
+> app\teacher\profile\page.tsx:848:                      {teacherUsername}
+  app\teacher\profile\page.tsx:849:                    </strong>
+  app\teacher\profile\page.tsx:850:                  </div>
+  app\teacher\profile\page.tsx:851:
+  app\teacher\profile\page.tsx:852:                  <div className="detail-row">
+  app\teacher\profile\page.tsx:853:                    <span>
+  app\teacher\profile\page.tsx:854:                      <i>🆔</i>
+  app\teacher\profile\page.tsx:855:                      Teacher ID
+  app\teacher\profile\page.tsx:856:                    </span>
+
+
+
+
+  app\teacher\quiz-tests\page.tsx:22:  const router = useRouter();
+  app\teacher\quiz-tests\page.tsx:23:
+  app\teacher\quiz-tests\page.tsx:24:  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  app\teacher\quiz-tests\page.tsx:25:  const [loading, setLoading] = useState(true);
+> app\teacher\quiz-tests\page.tsx:26:  const [teacherName, setTeacherName] = useState("Teacher");
+  app\teacher\quiz-tests\page.tsx:27:
+  app\teacher\quiz-tests\page.tsx:28:  useEffect(() => {
+  app\teacher\quiz-tests\page.tsx:29:    const storedName =
+> app\teacher\quiz-tests\page.tsx:30:      localStorage.getItem("teacherName") ||
+> app\teacher\quiz-tests\page.tsx:31:      localStorage.getItem("teacher_name") ||
+> app\teacher\quiz-tests\page.tsx:32:      localStorage.getItem("teacherProfileUsername") ||
+> app\teacher\quiz-tests\page.tsx:33:      localStorage.getItem("teacherUsername") ||
+> app\teacher\quiz-tests\page.tsx:34:      localStorage.getItem("teacher_username");
+  app\teacher\quiz-tests\page.tsx:35:
+  app\teacher\quiz-tests\page.tsx:36:    if (storedName) {
+> app\teacher\quiz-tests\page.tsx:37:      setTeacherName(storedName);
+  app\teacher\quiz-tests\page.tsx:38:    }
+  app\teacher\quiz-tests\page.tsx:39:
+  app\teacher\quiz-tests\page.tsx:40:    loadQuizzes();
+  app\teacher\quiz-tests\page.tsx:41:  }, []);
+  app\teacher\quiz-tests\page.tsx:42:
+  app\teacher\quiz-tests\page.tsx:43:  async function loadQuizzes() {
+  app\teacher\quiz-tests\page.tsx:44:    setLoading(true);
+  app\teacher\quiz-tests\page.tsx:45:
+  app\teacher\quiz-tests\page.tsx:158:                Welcome back
+  app\teacher\quiz-tests\page.tsx:159:              </p>
+  app\teacher\quiz-tests\page.tsx:160:
+  app\teacher\quiz-tests\page.tsx:161:              <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+> app\teacher\quiz-tests\page.tsx:162:                {teacherName}
+  app\teacher\quiz-tests\page.tsx:163:              </h2>
+  app\teacher\quiz-tests\page.tsx:164:
+  app\teacher\quiz-tests\page.tsx:165:              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+  app\teacher\quiz-tests\page.tsx:166:                Create, schedule, publish and manage your student quizzes from
+  app\teacher\quiz-tests\page.tsx:167:                one clean workspace.
+  app\teacher\quiz-tests\page.tsx:168:              </p>
+  app\teacher\quiz-tests\page.tsx:169:            </div>
+  app\teacher\quiz-tests\page.tsx:170:          </section>
+
+
+
+
+  app\teacher\quiz-tests\create\page.tsx:40:  const [message, setMessage] = useState("");
+  app\teacher\quiz-tests\create\page.tsx:41:
+  app\teacher\quiz-tests\create\page.tsx:42:  useEffect(() => {
+  app\teacher\quiz-tests\create\page.tsx:43:    const rawId =
+> app\teacher\quiz-tests\create\page.tsx:44:      localStorage.getItem("attendance_teacher_id") ||
+> app\teacher\quiz-tests\create\page.tsx:45:      localStorage.getItem("teacherId") ||
+> app\teacher\quiz-tests\create\page.tsx:46:      localStorage.getItem("teacher_id");
+  app\teacher\quiz-tests\create\page.tsx:47:
+  app\teacher\quiz-tests\create\page.tsx:48:    const id = Number(rawId);
+  app\teacher\quiz-tests\create\page.tsx:49:
+  app\teacher\quiz-tests\create\page.tsx:50:    if (Number.isFinite(id) && id > 0) {
+  app\teacher\quiz-tests\create\page.tsx:51:      setTeacherId(id);
+  app\teacher\quiz-tests\create\page.tsx:52:    }
+  app\teacher\quiz-tests\create\page.tsx:53:  }, []);
+  app\teacher\quiz-tests\create\page.tsx:54:
+
+
+
+
+
+
+  app\teacher\quiz-tests\results\page.tsx:313:  };
+  app\teacher\quiz-tests\results\page.tsx:314:
+  app\teacher\quiz-tests\results\page.tsx:315:  const logout = () => {
+  app\teacher\quiz-tests\results\page.tsx:316:    try {
+> app\teacher\quiz-tests\results\page.tsx:317:      localStorage.removeItem("teacher_username");
+> app\teacher\quiz-tests\results\page.tsx:318:      localStorage.removeItem("teacherUsername");
+> app\teacher\quiz-tests\results\page.tsx:319:      localStorage.removeItem("teacherLoggedIn");
+  app\teacher\quiz-tests\results\page.tsx:320:      localStorage.removeItem("attendance_role");
+  app\teacher\quiz-tests\results\page.tsx:321:      localStorage.removeItem("attendance_username");
+> app\teacher\quiz-tests\results\page.tsx:322:      localStorage.removeItem("attendance_teacher_id");
+> app\teacher\quiz-tests\results\page.tsx:323:      localStorage.removeItem("teacher_id");
+  app\teacher\quiz-tests\results\page.tsx:324:    } catch {
+  app\teacher\quiz-tests\results\page.tsx:325:      // ignore
+  app\teacher\quiz-tests\results\page.tsx:326:    }
+  app\teacher\quiz-tests\results\page.tsx:327:
+  app\teacher\quiz-tests\results\page.tsx:328:    router.replace("/");
+  app\teacher\quiz-tests\results\page.tsx:329:  };
+  app\teacher\quiz-tests\results\page.tsx:330:
+  app\teacher\quiz-tests\results\page.tsx:331:  const loadReattemptPermissions = useCallback(
+  app\teacher\quiz-tests\results\page.tsx:1286:    setReattemptMessage("");
+  app\teacher\quiz-tests\results\page.tsx:1287:
+  app\teacher\quiz-tests\results\page.tsx:1288:    try {
+  app\teacher\quiz-tests\results\page.tsx:1289:      const storedTeacherId =
+> app\teacher\quiz-tests\results\page.tsx:1290:        localStorage.getItem("attendance_teacher_id") ||
+> app\teacher\quiz-tests\results\page.tsx:1291:        localStorage.getItem("teacher_id");
+  app\teacher\quiz-tests\results\page.tsx:1292:
+  app\teacher\quiz-tests\results\page.tsx:1293:      const teacherId = Number(storedTeacherId);
+  app\teacher\quiz-tests\results\page.tsx:1294:
+  app\teacher\quiz-tests\results\page.tsx:1295:      if (!Number.isInteger(teacherId) || teacherId <= 0) {
+  app\teacher\quiz-tests\results\page.tsx:1296:        throw new Error(
+  app\teacher\quiz-tests\results\page.tsx:1297:          "Teacher ID was not found. Please login again as a teacher."
+  app\teacher\quiz-tests\results\page.tsx:1298:        );
+  app\teacher\quiz-tests\results\page.tsx:1299:      }
+  app\teacher\quiz-tests\results\page.tsx:1365:      let teacherId: number | null = null;
+  app\teacher\quiz-tests\results\page.tsx:1366:
+  app\teacher\quiz-tests\results\page.tsx:1367:      try {
+  app\teacher\quiz-tests\results\page.tsx:1368:        const storedTeacherId =
+> app\teacher\quiz-tests\results\page.tsx:1369:          localStorage.getItem("attendance_teacher_id") ||
+> app\teacher\quiz-tests\results\page.tsx:1370:          localStorage.getItem("teacher_id");
+  app\teacher\quiz-tests\results\page.tsx:1371:
+  app\teacher\quiz-tests\results\page.tsx:1372:        if (storedTeacherId) {
+  app\teacher\quiz-tests\results\page.tsx:1373:          const parsedTeacherId = Number(
+  app\teacher\quiz-tests\results\page.tsx:1374:            storedTeacherId
+  app\teacher\quiz-tests\results\page.tsx:1375:          );
+  app\teacher\quiz-tests\results\page.tsx:1376:
+  app\teacher\quiz-tests\results\page.tsx:1377:          if (
+  app\teacher\quiz-tests\results\page.tsx:1378:            Number.isInteger(parsedTeacherId) &&
+  app\teacher\quiz-tests\results\page.tsx:1463:      let teacherId: number | null = null;
+  app\teacher\quiz-tests\results\page.tsx:1464:
+  app\teacher\quiz-tests\results\page.tsx:1465:      try {
+  app\teacher\quiz-tests\results\page.tsx:1466:        const storedTeacherId =
+> app\teacher\quiz-tests\results\page.tsx:1467:          localStorage.getItem("attendance_teacher_id") ||
+> app\teacher\quiz-tests\results\page.tsx:1468:          localStorage.getItem("teacher_id");
+  app\teacher\quiz-tests\results\page.tsx:1469:
+  app\teacher\quiz-tests\results\page.tsx:1470:        if (storedTeacherId) {
+  app\teacher\quiz-tests\results\page.tsx:1471:          const parsedTeacherId = Number(
+  app\teacher\quiz-tests\results\page.tsx:1472:            storedTeacherId
+  app\teacher\quiz-tests\results\page.tsx:1473:          );
+  app\teacher\quiz-tests\results\page.tsx:1474:
+  app\teacher\quiz-tests\results\page.tsx:1475:          if (
+  app\teacher\quiz-tests\results\page.tsx:1476:            Number.isInteger(parsedTeacherId) &&
+
+
+
+
+
+
+  app\teacher\settings\page.tsx:5:
+  app\teacher\settings\page.tsx:6:export default function TeacherSettingsPage() {
+  app\teacher\settings\page.tsx:7:  const router = useRouter();
+  app\teacher\settings\page.tsx:8:
+> app\teacher\settings\page.tsx:9:  const [teacherName, setTeacherName] = useState("");
+> app\teacher\settings\page.tsx:10:  const [teacherUsername, setTeacherUsername] = useState("");
+  app\teacher\settings\page.tsx:11:
+  app\teacher\settings\page.tsx:12:  const [portalName, setPortalName] = useState("Attendance Portal");
+  app\teacher\settings\page.tsx:13:  const [monthlyFee, setMonthlyFee] = useState("200");
+  app\teacher\settings\page.tsx:14:  const [className, setClassName] = useState("");
+  app\teacher\settings\page.tsx:15:  const [academicYear, setAcademicYear] = useState("2026-27");
+  app\teacher\settings\page.tsx:16:
+  app\teacher\settings\page.tsx:17:  const [saved, setSaved] = useState(false);
+  app\teacher\settings\page.tsx:18:
+  app\teacher\settings\page.tsx:19:  useEffect(() => {
+> app\teacher\settings\page.tsx:20:    const savedTeacherName =
+> app\teacher\settings\page.tsx:21:      localStorage.getItem("teacherName") ||
+> app\teacher\settings\page.tsx:22:      localStorage.getItem("teacher_name") ||
+  app\teacher\settings\page.tsx:23:      "Teacher";
+  app\teacher\settings\page.tsx:24:
+  app\teacher\settings\page.tsx:25:    const savedUsername =
+> app\teacher\settings\page.tsx:26:      localStorage.getItem("teacher_username") || "";
+  app\teacher\settings\page.tsx:27:
+  app\teacher\settings\page.tsx:28:    const savedPortalName =
+  app\teacher\settings\page.tsx:29:      localStorage.getItem("portalName") ||
+  app\teacher\settings\page.tsx:30:      "Attendance Portal";
+  app\teacher\settings\page.tsx:31:
+  app\teacher\settings\page.tsx:32:    const savedMonthlyFee =
+  app\teacher\settings\page.tsx:33:      localStorage.getItem("monthlyFee") ||
+  app\teacher\settings\page.tsx:34:      "200";
+  app\teacher\settings\page.tsx:39:    const savedAcademicYear =
+  app\teacher\settings\page.tsx:40:      localStorage.getItem("academicYear") ||
+  app\teacher\settings\page.tsx:41:      "2026-27";
+  app\teacher\settings\page.tsx:42:
+> app\teacher\settings\page.tsx:43:    setTeacherName(savedTeacherName);
+> app\teacher\settings\page.tsx:44:    setTeacherUsername(savedUsername);
+  app\teacher\settings\page.tsx:45:    setPortalName(savedPortalName);
+  app\teacher\settings\page.tsx:46:    setMonthlyFee(savedMonthlyFee);
+  app\teacher\settings\page.tsx:47:    setClassName(savedClassName);
+  app\teacher\settings\page.tsx:48:    setAcademicYear(savedAcademicYear);
+  app\teacher\settings\page.tsx:49:  }, []);
+  app\teacher\settings\page.tsx:50:
+  app\teacher\settings\page.tsx:51:  function saveSettings(e: React.FormEvent) {
+  app\teacher\settings\page.tsx:52:    e.preventDefault();
+  app\teacher\settings\page.tsx:53:
+> app\teacher\settings\page.tsx:54:    localStorage.setItem("teacherName", teacherName);
+> app\teacher\settings\page.tsx:55:    localStorage.setItem("teacher_name", teacherName);
+  app\teacher\settings\page.tsx:56:
+  app\teacher\settings\page.tsx:57:    localStorage.setItem("portalName", portalName);
+  app\teacher\settings\page.tsx:58:    localStorage.setItem("monthlyFee", monthlyFee);
+  app\teacher\settings\page.tsx:59:    localStorage.setItem("className", className);
+  app\teacher\settings\page.tsx:60:    localStorage.setItem("academicYear", academicYear);
+  app\teacher\settings\page.tsx:61:
+  app\teacher\settings\page.tsx:62:    setSaved(true);
+  app\teacher\settings\page.tsx:63:
+  app\teacher\settings\page.tsx:90:    }, 3000);
+  app\teacher\settings\page.tsx:91:  }
+  app\teacher\settings\page.tsx:92:
+  app\teacher\settings\page.tsx:93:  function logout() {
+> app\teacher\settings\page.tsx:94:    localStorage.removeItem("teacherLoggedIn");
+> app\teacher\settings\page.tsx:95:    localStorage.removeItem("teacherName");
+> app\teacher\settings\page.tsx:96:    localStorage.removeItem("teacher_name");
+> app\teacher\settings\page.tsx:97:    localStorage.removeItem("teacher_username");
+  app\teacher\settings\page.tsx:98:
+  app\teacher\settings\page.tsx:99:    sessionStorage.clear();
+  app\teacher\settings\page.tsx:100:
+  app\teacher\settings\page.tsx:101:    router.push("/");
+  app\teacher\settings\page.tsx:102:  }
+  app\teacher\settings\page.tsx:103:
+  app\teacher\settings\page.tsx:104:  return (
+  app\teacher\settings\page.tsx:105:    <main className="racer-module-page racer-settings-page" style={styles.page}>
+  app\teacher\settings\page.tsx:177:              </label>
+  app\teacher\settings\page.tsx:178:
+  app\teacher\settings\page.tsx:179:              <input
+  app\teacher\settings\page.tsx:180:                type="text"
+> app\teacher\settings\page.tsx:181:                value={teacherName}
+  app\teacher\settings\page.tsx:182:                onChange={(e) =>
+> app\teacher\settings\page.tsx:183:                  setTeacherName(e.target.value)
+  app\teacher\settings\page.tsx:184:                }
+  app\teacher\settings\page.tsx:185:                placeholder="Enter teacher name"
+  app\teacher\settings\page.tsx:186:                style={styles.input}
+  app\teacher\settings\page.tsx:187:              />
+  app\teacher\settings\page.tsx:188:            </div>
+  app\teacher\settings\page.tsx:189:
+  app\teacher\settings\page.tsx:190:            <div>
+  app\teacher\settings\page.tsx:191:              <label style={styles.label}>
+  app\teacher\settings\page.tsx:193:              </label>
+  app\teacher\settings\page.tsx:194:
+  app\teacher\settings\page.tsx:195:              <input
+  app\teacher\settings\page.tsx:196:                type="text"
+> app\teacher\settings\page.tsx:197:                value={teacherUsername}
+  app\teacher\settings\page.tsx:198:                readOnly
+  app\teacher\settings\page.tsx:199:                style={{
+  app\teacher\settings\page.tsx:200:                  ...styles.input,
+  app\teacher\settings\page.tsx:201:                  background: "#f1f5f9",
+  app\teacher\settings\page.tsx:202:                  color: "#64748b",
+  app\teacher\settings\page.tsx:203:                }}
+  app\teacher\settings\page.tsx:204:              />
+  app\teacher\settings\page.tsx:205:
+
+
+
+
+
+  app\teacher\students\page.tsx:582:    setError("");
+  app\teacher\students\page.tsx:583:    setSuccess("");
+  app\teacher\students\page.tsx:584:
+  app\teacher\students\page.tsx:585:    const storedTeacherId =
+> app\teacher\students\page.tsx:586:      localStorage.getItem("attendance_teacher_id") ||
+> app\teacher\students\page.tsx:587:      localStorage.getItem("teacher_id") ||
+  app\teacher\students\page.tsx:588:      "";
+  app\teacher\students\page.tsx:589:
+  app\teacher\students\page.tsx:590:    const teacherId = Number(storedTeacherId);
+  app\teacher\students\page.tsx:591:
+  app\teacher\students\page.tsx:592:    if (!Number.isInteger(teacherId) || teacherId <= 0) {
+  app\teacher\students\page.tsx:593:      setError("Teacher ID was not found. Please login again as a teacher.");
+  app\teacher\students\page.tsx:594:      setDeletingId(null);
+  app\teacher\students\page.tsx:595:      return;
+  app\teacher\students\page.tsx:642:    localStorage.removeItem(
+  app\teacher\students\page.tsx:643:      "teacherLoggedIn"
+  app\teacher\students\page.tsx:644:    );
+  app\teacher\students\page.tsx:645:    localStorage.removeItem(
+> app\teacher\students\page.tsx:646:      "teacherName"
+  app\teacher\students\page.tsx:647:    );
+  app\teacher\students\page.tsx:648:    localStorage.removeItem(
+> app\teacher\students\page.tsx:649:      "teacher_name"
+  app\teacher\students\page.tsx:650:    );
+  app\teacher\students\page.tsx:651:    localStorage.removeItem(
+> app\teacher\students\page.tsx:652:      "teacher_username"
+  app\teacher\students\page.tsx:653:    );
+  app\teacher\students\page.tsx:654:
+  app\teacher\students\page.tsx:655:    sessionStorage.clear();
+  app\teacher\students\page.tsx:656:
+  app\teacher\students\page.tsx:657:    router.push("/");
+  app\teacher\students\page.tsx:658:  }
+  app\teacher\students\page.tsx:659:
+  app\teacher\students\page.tsx:660:  return (
+
+
+
+
+  app\teacher\teachers\page.backup.tsx:10:);
+  app\teacher\teachers\page.backup.tsx:11:
+  app\teacher\teachers\page.backup.tsx:12:type Teacher = {
+  app\teacher\teachers\page.backup.tsx:13:  id: number;
+> app\teacher\teachers\page.backup.tsx:14:  teacher_username: string;
+  app\teacher\teachers\page.backup.tsx:15:  created_at: string;
+  app\teacher\teachers\page.backup.tsx:16:};
+  app\teacher\teachers\page.backup.tsx:17:
+  app\teacher\teachers\page.backup.tsx:18:export default function TeacherManagementPage() {
+  app\teacher\teachers\page.backup.tsx:19:  const router = useRouter();
+  app\teacher\teachers\page.backup.tsx:20:
+  app\teacher\teachers\page.backup.tsx:21:  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  app\teacher\teachers\page.backup.tsx:22:  const [username, setUsername] = useState("");
+  app\teacher\teachers\page.backup.tsx:39:
+  app\teacher\teachers\page.backup.tsx:40:    const { data, error } = await supabase
+  app\teacher\teachers\page.backup.tsx:41:      .from("teachers")
+  app\teacher\teachers\page.backup.tsx:42:      .select(
+> app\teacher\teachers\page.backup.tsx:43:        "id, teacher_username, created_at"
+  app\teacher\teachers\page.backup.tsx:44:      )
+  app\teacher\teachers\page.backup.tsx:45:      .order("id", {
+  app\teacher\teachers\page.backup.tsx:46:        ascending: true,
+  app\teacher\teachers\page.backup.tsx:47:      });
+  app\teacher\teachers\page.backup.tsx:48:
+  app\teacher\teachers\page.backup.tsx:49:    if (error) {
+  app\teacher\teachers\page.backup.tsx:50:      setError(error.message);
+  app\teacher\teachers\page.backup.tsx:51:      setTeachers([]);
+  app\teacher\teachers\page.backup.tsx:124:      return;
+  app\teacher\teachers\page.backup.tsx:125:    }
+  app\teacher\teachers\page.backup.tsx:126:
+  app\teacher\teachers\page.backup.tsx:127:    const confirmed = window.confirm(
+> app\teacher\teachers\page.backup.tsx:128:      `Delete teacher "${teacher.teacher_username}"?`
+  app\teacher\teachers\page.backup.tsx:129:    );
+  app\teacher\teachers\page.backup.tsx:130:
+  app\teacher\teachers\page.backup.tsx:131:    if (!confirmed) {
+  app\teacher\teachers\page.backup.tsx:132:      return;
+  app\teacher\teachers\page.backup.tsx:133:    }
+  app\teacher\teachers\page.backup.tsx:134:
+  app\teacher\teachers\page.backup.tsx:135:    setMessage("");
+  app\teacher\teachers\page.backup.tsx:136:    setError("");
+  app\teacher\teachers\page.backup.tsx:621:                          fontWeight:
+  app\teacher\teachers\page.backup.tsx:622:                            900,
+  app\teacher\teachers\page.backup.tsx:623:                        }}
+  app\teacher\teachers\page.backup.tsx:624:                      >
+> app\teacher\teachers\page.backup.tsx:625:                        {teacher.teacher_username
+  app\teacher\teachers\page.backup.tsx:626:                          .charAt(
+  app\teacher\teachers\page.backup.tsx:627:                            0
+  app\teacher\teachers\page.backup.tsx:628:                          )
+  app\teacher\teachers\page.backup.tsx:629:                          .toUpperCase()}
+  app\teacher\teachers\page.backup.tsx:630:                      </div>
+  app\teacher\teachers\page.backup.tsx:631:
+  app\teacher\teachers\page.backup.tsx:632:                      <div>
+  app\teacher\teachers\page.backup.tsx:633:                        <div
+  app\teacher\teachers\page.backup.tsx:640:                              900,
+  app\teacher\teachers\page.backup.tsx:641:                          }}
+  app\teacher\teachers\page.backup.tsx:642:                        >
+  app\teacher\teachers\page.backup.tsx:643:                          {
+> app\teacher\teachers\page.backup.tsx:644:                            teacher.teacher_username
+  app\teacher\teachers\page.backup.tsx:645:                          }
+  app\teacher\teachers\page.backup.tsx:646:                        </div>
+  app\teacher\teachers\page.backup.tsx:647:
+  app\teacher\teachers\page.backup.tsx:648:                        <div
+  app\teacher\teachers\page.backup.tsx:649:                          style={{
+  app\teacher\teachers\page.backup.tsx:650:                            marginTop:
+  app\teacher\teachers\page.backup.tsx:651:                              "4px",
+  app\teacher\teachers\page.backup.tsx:652:                            color:
+
+
+
+
+  app\teacher\teachers\page.tsx:10:);
+  app\teacher\teachers\page.tsx:11:
+  app\teacher\teachers\page.tsx:12:type Teacher = {
+  app\teacher\teachers\page.tsx:13:  id: number;
+> app\teacher\teachers\page.tsx:14:  teacher_username: string;
+  app\teacher\teachers\page.tsx:15:  created_at: string;
+  app\teacher\teachers\page.tsx:16:};
+  app\teacher\teachers\page.tsx:17:
+  app\teacher\teachers\page.tsx:18:export default function TeacherManagementPage() {
+  app\teacher\teachers\page.tsx:19:  const router = useRouter();
+  app\teacher\teachers\page.tsx:20:
+  app\teacher\teachers\page.tsx:21:  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  app\teacher\teachers\page.tsx:22:  const [username, setUsername] = useState("");
+  app\teacher\teachers\page.tsx:39:
+  app\teacher\teachers\page.tsx:40:    const { data, error } = await supabase
+  app\teacher\teachers\page.tsx:41:      .from("teachers")
+  app\teacher\teachers\page.tsx:42:      .select(
+> app\teacher\teachers\page.tsx:43:        "id, teacher_username, created_at"
+  app\teacher\teachers\page.tsx:44:      )
+  app\teacher\teachers\page.tsx:45:      .order("id", {
+  app\teacher\teachers\page.tsx:46:        ascending: true,
+  app\teacher\teachers\page.tsx:47:      });
+  app\teacher\teachers\page.tsx:48:
+  app\teacher\teachers\page.tsx:49:    if (error) {
+  app\teacher\teachers\page.tsx:50:      setError(error.message);
+  app\teacher\teachers\page.tsx:51:      setTeachers([]);
+  app\teacher\teachers\page.tsx:124:      return;
+  app\teacher\teachers\page.tsx:125:    }
+  app\teacher\teachers\page.tsx:126:
+  app\teacher\teachers\page.tsx:127:    const confirmed = window.confirm(
+> app\teacher\teachers\page.tsx:128:      `Delete teacher "${teacher.teacher_username}"?`
+  app\teacher\teachers\page.tsx:129:    );
+  app\teacher\teachers\page.tsx:130:
+  app\teacher\teachers\page.tsx:131:    if (!confirmed) {
+  app\teacher\teachers\page.tsx:132:      return;
+  app\teacher\teachers\page.tsx:133:    }
+  app\teacher\teachers\page.tsx:134:
+  app\teacher\teachers\page.tsx:135:    setMessage("");
+  app\teacher\teachers\page.tsx:136:    setError("");
+  app\teacher\teachers\page.tsx:621:                          fontWeight:
+  app\teacher\teachers\page.tsx:622:                            900,
+  app\teacher\teachers\page.tsx:623:                        }}
+  app\teacher\teachers\page.tsx:624:                      >
+> app\teacher\teachers\page.tsx:625:                        {teacher.teacher_username
+  app\teacher\teachers\page.tsx:626:                          .charAt(
+  app\teacher\teachers\page.tsx:627:                            0
+  app\teacher\teachers\page.tsx:628:                          )
+  app\teacher\teachers\page.tsx:629:                          .toUpperCase()}
+  app\teacher\teachers\page.tsx:630:                      </div>
+  app\teacher\teachers\page.tsx:631:
+  app\teacher\teachers\page.tsx:632:                      <div>
+  app\teacher\teachers\page.tsx:633:                        <div
+  app\teacher\teachers\page.tsx:640:                              900,
+  app\teacher\teachers\page.tsx:641:                          }}
+  app\teacher\teachers\page.tsx:642:                        >
+  app\teacher\teachers\page.tsx:643:                          {
+> app\teacher\teachers\page.tsx:644:                            teacher.teacher_username
+  app\teacher\teachers\page.tsx:645:                          }
+  app\teacher\teachers\page.tsx:646:                        </div>
+  app\teacher\teachers\page.tsx:647:
+  app\teacher\teachers\page.tsx:648:                        <div
+  app\teacher\teachers\page.tsx:649:                          style={{
+  app\teacher\teachers\page.tsx:650:                            marginTop:
+  app\teacher\teachers\page.tsx:651:                              "4px",
+  app\teacher\teachers\page.tsx:652:                            color:
+
+
+
+
+  app\teacher\timetable\page.tsx:6:
+  app\teacher\timetable\page.tsx:7:type Timetable = {
+  app\teacher\timetable\page.tsx:8:  id: number;
+  app\teacher\timetable\page.tsx:9:  teacher_id: string;
+> app\teacher\timetable\page.tsx:10:  teacher_name: string;
+  app\teacher\timetable\page.tsx:11:  class_names: string[];
+  app\teacher\timetable\page.tsx:12:  day_of_week: string;
+  app\teacher\timetable\page.tsx:13:  subject: string | null;
+  app\teacher\timetable\page.tsx:14:  start_time: string | null;
+  app\teacher\timetable\page.tsx:15:  end_time: string | null;
+  app\teacher\timetable\page.tsx:16:  is_holiday: boolean;
+  app\teacher\timetable\page.tsx:17:  created_at: string;
+  app\teacher\timetable\page.tsx:18:  updated_at: string;
+  app\teacher\timetable\page.tsx:68:    setLoading(true);
+  app\teacher\timetable\page.tsx:69:
+  app\teacher\timetable\page.tsx:70:    try {
+  app\teacher\timetable\page.tsx:71:      const teacherId =
+> app\teacher\timetable\page.tsx:72:        localStorage.getItem("attendance_teacher_id") ||
+> app\teacher\timetable\page.tsx:73:        localStorage.getItem("teacher_username") ||
+> app\teacher\timetable\page.tsx:74:        localStorage.getItem("teacherUsername");
+  app\teacher\timetable\page.tsx:75:
+  app\teacher\timetable\page.tsx:76:      if (!teacherId) {
+  app\teacher\timetable\page.tsx:77:        router.replace("/");
+  app\teacher\timetable\page.tsx:78:        return;
+  app\teacher\timetable\page.tsx:79:      }
+  app\teacher\timetable\page.tsx:80:
+  app\teacher\timetable\page.tsx:81:      const { data, error } = await supabase
+  app\teacher\timetable\page.tsx:82:        .from("timetables")
+  app\teacher\timetable\page.tsx:299:
+  app\teacher\timetable\page.tsx:300:                    <p className="mt-2 text-sm text-slate-400">
+  app\teacher\timetable\page.tsx:301:                      Teacher:{" "}
+  app\teacher\timetable\page.tsx:302:                      <span className="font-semibold text-slate-200">
+> app\teacher\timetable\page.tsx:303:                        {entry.teacher_name}
+  app\teacher\timetable\page.tsx:304:                      </span>
+  app\teacher\timetable\page.tsx:305:                    </p>
+  app\teacher\timetable\page.tsx:306:
+  app\teacher\timetable\page.tsx:307:                    <div className="mt-4 flex flex-wrap gap-2">
+  app\teacher\timetable\page.tsx:308:                      {entry.class_names.map((className) => (
+  app\teacher\timetable\page.tsx:309:                        <span
+  app\teacher\timetable\page.tsx:310:                          key={className}
+  app\teacher\timetable\page.tsx:311:                          className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200"
+
+
+
+
+  app\teacher\timetable\create\page.tsx:6:
+  app\teacher\timetable\create\page.tsx:7:type Timetable = {
+  app\teacher\timetable\create\page.tsx:8:  id: number;
+  app\teacher\timetable\create\page.tsx:9:  teacher_id: string;
+> app\teacher\timetable\create\page.tsx:10:  teacher_name: string;
+  app\teacher\timetable\create\page.tsx:11:  class_names: string[];
+  app\teacher\timetable\create\page.tsx:12:  day_of_week: string;
+  app\teacher\timetable\create\page.tsx:13:  subject: string | null;
+  app\teacher\timetable\create\page.tsx:14:  start_time: string | null;
+  app\teacher\timetable\create\page.tsx:15:  end_time: string | null;
+  app\teacher\timetable\create\page.tsx:16:  is_holiday: boolean;
+  app\teacher\timetable\create\page.tsx:17:};
+  app\teacher\timetable\create\page.tsx:18:
+  app\teacher\timetable\create\page.tsx:42:
+  app\teacher\timetable\create\page.tsx:43:  const editId = searchParams.get("id");
+  app\teacher\timetable\create\page.tsx:44:
+  app\teacher\timetable\create\page.tsx:45:  const [teacherId, setTeacherId] = useState("");
+> app\teacher\timetable\create\page.tsx:46:  const [teacherName, setTeacherName] = useState("");
+  app\teacher\timetable\create\page.tsx:47:
+  app\teacher\timetable\create\page.tsx:48:  const [classes, setClasses] = useState<string[]>([]);
+  app\teacher\timetable\create\page.tsx:49:  const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
+  app\teacher\timetable\create\page.tsx:50:
+  app\teacher\timetable\create\page.tsx:51:  const [dayOfWeek, setDayOfWeek] = useState("Monday");
+  app\teacher\timetable\create\page.tsx:52:  const [isHoliday, setIsHoliday] = useState(false);
+  app\teacher\timetable\create\page.tsx:53:
+  app\teacher\timetable\create\page.tsx:54:  const [subject, setSubject] = useState("");
+  app\teacher\timetable\create\page.tsx:59:  const [saving, setSaving] = useState(false);
+  app\teacher\timetable\create\page.tsx:60:
+  app\teacher\timetable\create\page.tsx:61:  useEffect(() => {
+  app\teacher\timetable\create\page.tsx:62:    const storedTeacherId =
+> app\teacher\timetable\create\page.tsx:63:      localStorage.getItem("attendance_teacher_id") ||
+> app\teacher\timetable\create\page.tsx:64:      localStorage.getItem("teacher_username") ||
+> app\teacher\timetable\create\page.tsx:65:      localStorage.getItem("teacherUsername") ||
+  app\teacher\timetable\create\page.tsx:66:      "";
+  app\teacher\timetable\create\page.tsx:67:
+> app\teacher\timetable\create\page.tsx:68:    const storedTeacherName =
+> app\teacher\timetable\create\page.tsx:69:      localStorage.getItem("teacher_name") ||
+> app\teacher\timetable\create\page.tsx:70:      localStorage.getItem("teacherName") ||
+> app\teacher\timetable\create\page.tsx:71:      localStorage.getItem("attendance_teacher_name") ||
+> app\teacher\timetable\create\page.tsx:72:      localStorage.getItem("teacher_username") ||
+> app\teacher\timetable\create\page.tsx:73:      localStorage.getItem("teacherUsername") ||
+  app\teacher\timetable\create\page.tsx:74:      "";
+  app\teacher\timetable\create\page.tsx:75:
+  app\teacher\timetable\create\page.tsx:76:    setTeacherId(storedTeacherId);
+> app\teacher\timetable\create\page.tsx:77:    setTeacherName(storedTeacherName);
+  app\teacher\timetable\create\page.tsx:78:
+  app\teacher\timetable\create\page.tsx:79:    loadData(storedTeacherId);
+  app\teacher\timetable\create\page.tsx:80:  }, [editId]);
+  app\teacher\timetable\create\page.tsx:81:
+  app\teacher\timetable\create\page.tsx:82:  const loadData = async (currentTeacherId: string) => {
+  app\teacher\timetable\create\page.tsx:83:    try {
+  app\teacher\timetable\create\page.tsx:84:      setLoading(true);
+  app\teacher\timetable\create\page.tsx:85:
+  app\teacher\timetable\create\page.tsx:107:      if (editId) {
+  app\teacher\timetable\create\page.tsx:108:        const { data, error } = await supabase
+  app\teacher\timetable\create\page.tsx:109:          .from("timetables")
+  app\teacher\timetable\create\page.tsx:110:          .select(
+> app\teacher\timetable\create\page.tsx:111:            "id, teacher_id, teacher_name, class_names, day_of_week, subject, start_time, end_time, is_holiday"
+  app\teacher\timetable\create\page.tsx:112:          )
+  app\teacher\timetable\create\page.tsx:113:          .eq("id", editId)
+  app\teacher\timetable\create\page.tsx:114:          .single();
+  app\teacher\timetable\create\page.tsx:115:
+  app\teacher\timetable\create\page.tsx:116:        if (error) {
+  app\teacher\timetable\create\page.tsx:117:          console.error("Error loading timetable:", error);
+  app\teacher\timetable\create\page.tsx:118:          alert(`Unable to load timetable.\n\n${error.message}`);
+  app\teacher\timetable\create\page.tsx:119:          return;
+  app\teacher\timetable\create\page.tsx:226:
+  app\teacher\timetable\create\page.tsx:227:    try {
+  app\teacher\timetable\create\page.tsx:228:      const payload = {
+  app\teacher\timetable\create\page.tsx:229:        teacher_id: teacherId,
+> app\teacher\timetable\create\page.tsx:230:        teacher_name: teacherName,
+  app\teacher\timetable\create\page.tsx:231:        class_names: selectedClasses,
+  app\teacher\timetable\create\page.tsx:232:        day_of_week: dayOfWeek,
+  app\teacher\timetable\create\page.tsx:233:        is_holiday: isHoliday,
+  app\teacher\timetable\create\page.tsx:234:
+  app\teacher\timetable\create\page.tsx:235:        // Holiday = NULL
+  app\teacher\timetable\create\page.tsx:236:        // Normal class = actual values
+  app\teacher\timetable\create\page.tsx:237:        subject: isHoliday ? null : subject.trim(),
+  app\teacher\timetable\create\page.tsx:238:        start_time: isHoliday ? null : startTime,
+
+
+
+

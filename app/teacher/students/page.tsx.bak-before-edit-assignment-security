@@ -491,28 +491,6 @@ export default function TeacherStudentsPage() {
     setError("");
     setSuccess("");
 
-    const currentTeacherId = Number(localStorage.getItem("attendance_teacher_id") || "0");
-    if (!Number.isInteger(currentTeacherId) || currentTeacherId <= 0) {
-      setError("Teacher ID was not found. Please login again as a teacher.");
-      setSaving(false);
-      return;
-    }
-
-    if (currentTeacherId !== 1) {
-      const { data: assignedData, error: assignedError } = await supabase.rpc("get_teacher_assigned_student_ids", { p_teacher_id: currentTeacherId });
-      if (assignedError) {
-        setError(assignedError.message);
-        setSaving(false);
-        return;
-      }
-      const isAssigned = (assignedData || []).some((row: { student_id: number }) => Number(row.student_id) === Number(editingStudent.id));
-      if (!isAssigned) {
-        setError("You can only edit students assigned to you.");
-        setSaving(false);
-        return;
-      }
-    }
-
     const updateData: Partial<Student> = {
       student_name: editName.trim(),
       student_username: editUsername.trim(),
@@ -4234,4 +4212,3 @@ const styles: {
     whiteSpace: "normal",
   },
 };
-

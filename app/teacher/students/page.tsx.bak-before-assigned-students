@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -130,21 +130,9 @@ export default function TeacherStudentsPage() {
     setLoading(true);
     setError("");
 
-    try {
-      const savedTeacherId = Number(localStorage.getItem("attendance_teacher_id") || "0");
-      if (!Number.isInteger(savedTeacherId) || savedTeacherId <= 0) {
-        throw new Error("Teacher ID was not found. Please login again as a teacher.");
-      }
-
-      let assignedStudentIds: number[] = [];
-
-      if (savedTeacherId !== 1) {
-        const { data: assignedData, error: assignedError } = await supabase.rpc("get_teacher_assigned_student_ids", { p_teacher_id: savedTeacherId });
-        if (assignedError) throw new Error(assignedError.message);
-        assignedStudentIds = (assignedData || []).map((item: { student_id: number }) => Number(item.student_id));
-      }
-
-      let studentQuery = supabase.from("students").select(`
+    const { data, error } = await supabase
+      .from("students")
+      .select(`
         id,
         student_username,
         password_hash,
@@ -168,27 +156,20 @@ export default function TeacherStudentsPage() {
         mother_phone,
         city,
         profile_image_url
-      `).order("id", { ascending: true });
+      `)
+      .order("id", { ascending: true });
 
-      if (savedTeacherId !== 1) {
-        if (assignedStudentIds.length === 0) {
-          setStudents([]);
-          return;
-        }
-        studentQuery = studentQuery.in("id", assignedStudentIds);
-      }
-
-      const { data, error } = await studentQuery;
-      if (error) throw new Error(error.message);
-      setStudents((data || []) as Student[]);
-    } catch (error) {
+    if (error) {
       console.error("Students loading error:", error);
-      setError(error instanceof Error ? error.message : "Unable to load students.");
+      setError(error.message);
       setStudents([]);
-    } finally {
-      setLoading(false);
+    } else {
+      setStudents((data || []) as Student[]);
     }
+
+    setLoading(false);
   }
+
   function resetAddForm() {
     setAddName("");
     setAddUsername("");
@@ -245,11 +226,6 @@ export default function TeacherStudentsPage() {
   }
 
   function openAddStudent() {
-    const teacherId = Number(localStorage.getItem("attendance_teacher_id") || "0");
-    if (teacherId !== 1) {
-      setError("Only the Main Teacher can add new students.");
-      return;
-    }
     setEditingStudent(null);
     setError("");
     setSuccess("");
@@ -491,28 +467,6 @@ export default function TeacherStudentsPage() {
     setError("");
     setSuccess("");
 
-    const currentTeacherId = Number(localStorage.getItem("attendance_teacher_id") || "0");
-    if (!Number.isInteger(currentTeacherId) || currentTeacherId <= 0) {
-      setError("Teacher ID was not found. Please login again as a teacher.");
-      setSaving(false);
-      return;
-    }
-
-    if (currentTeacherId !== 1) {
-      const { data: assignedData, error: assignedError } = await supabase.rpc("get_teacher_assigned_student_ids", { p_teacher_id: currentTeacherId });
-      if (assignedError) {
-        setError(assignedError.message);
-        setSaving(false);
-        return;
-      }
-      const isAssigned = (assignedData || []).some((row: { student_id: number }) => Number(row.student_id) === Number(editingStudent.id));
-      if (!isAssigned) {
-        setError("You can only edit students assigned to you.");
-        setSaving(false);
-        return;
-      }
-    }
-
     const updateData: Partial<Student> = {
       student_name: editName.trim(),
       student_username: editUsername.trim(),
@@ -718,7 +672,7 @@ export default function TeacherStudentsPage() {
         >
           <div style={styles.headerLeft}>
             <div style={styles.iconBox}>
-              ðŸ‘¨â€ðŸŽ“
+              👨‍🎓
             </div>
 
             <div style={styles.headerText}>
@@ -745,7 +699,7 @@ export default function TeacherStudentsPage() {
                 styles.dashboardButton
               }
             >
-              â† Teacher Dashboard
+              ← Teacher Dashboard
             </button>
 
             <button
@@ -759,7 +713,7 @@ export default function TeacherStudentsPage() {
                 styles.settingsButton
               }
             >
-              âš™ï¸ Settings
+              ⚙️ Settings
             </button>
 
             <button
@@ -767,26 +721,26 @@ export default function TeacherStudentsPage() {
               onClick={logout}
               style={styles.logoutButton}
             >
-              ðŸšª Logout
+              🚪 Logout
             </button>
           </div>
         </header>
 
         {error && (
           <div style={styles.error}>
-            âŒ {error}
+            ❌ {error}
           </div>
         )}
 
         {success && (
           <div style={styles.success}>
-            âœ… {success}
+            ✅ {success}
           </div>
         )}
 
         <section style={styles.summaryCard}>
           <div style={styles.summaryIcon}>
-            ðŸ‘¨â€ðŸŽ“
+            👨‍🎓
           </div>
 
           <div style={styles.summaryText}>
@@ -806,7 +760,7 @@ export default function TeacherStudentsPage() {
             style={styles.cardHeader}
           >
             <div style={styles.cardIcon}>
-              ðŸ‘¥
+              👥
             </div>
 
             <div style={styles.cardHeaderText}>
@@ -829,20 +783,20 @@ export default function TeacherStudentsPage() {
               onClick={openAddStudent}
               style={styles.addButton}
             >
-              âž• Add Students
+              ➕ Add Students
             </button>
           </div>
 
           {loading ? (
             <div style={styles.loading}>
-              â³ Loading students...
+              ⏳ Loading students...
             </div>
           ) : students.length === 0 ? (
             <div style={styles.empty}>
               <div
                 style={styles.emptyIcon}
               >
-                ðŸ‘¨â€ðŸŽ“
+                👨‍🎓
               </div>
 
               <h3
@@ -863,7 +817,7 @@ export default function TeacherStudentsPage() {
                 onClick={openAddStudent}
                 style={styles.emptyAddButton}
               >
-                âž• Add First Student
+                ➕ Add First Student
               </button>
             </div>
           ) : (
@@ -975,7 +929,7 @@ export default function TeacherStudentsPage() {
                                 styles.editButton
                               }
                             >
-                              âœï¸ Edit
+                              ✏️ Edit
                             </button>
 
                             <button
@@ -1001,7 +955,7 @@ export default function TeacherStudentsPage() {
                               {deletingId ===
                               student.id
                                 ? "Deleting..."
-                                : "ðŸ—‘ï¸ Delete"}
+                                : "🗑️ Delete"}
                             </button>
                           </div>
                         </td>
@@ -1040,7 +994,7 @@ export default function TeacherStudentsPage() {
                       styles.modalTitle
                     }
                   >
-                    âž• Add Student
+                    ➕ Add Student
                   </h2>
 
                   <p
@@ -1064,7 +1018,7 @@ export default function TeacherStudentsPage() {
                     styles.closeButton
                   }
                 >
-                  âœ•
+                  ✕
                 </button>
               </div>
 
@@ -1084,7 +1038,7 @@ export default function TeacherStudentsPage() {
                   >
                     <div>
                       <strong>
-                        ðŸ†” Login ID
+                        🆔 Login ID
                       </strong>
 
                       <span>
@@ -1109,7 +1063,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      ðŸ” Account Details
+                      🔐 Account Details
                     </h3>
 
                     <div
@@ -1190,7 +1144,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      ðŸ‘¤ Basic Details
+                      👤 Basic Details
                     </h3>
 
                     <div
@@ -1342,7 +1296,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      ðŸ‘¨â€ðŸ‘©â€ðŸ‘§ Parent Details
+                      👨‍👩‍👧 Parent Details
                     </h3>
 
                     <div
@@ -1536,7 +1490,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      ðŸ“± Contact Details
+                      📱 Contact Details
                     </h3>
 
                     <div
@@ -1614,7 +1568,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      ðŸŽ“ Academic Details
+                      🎓 Academic Details
                     </h3>
 
                     <div
@@ -1757,7 +1711,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      ðŸ“ Address Details
+                      📍 Address Details
                     </h3>
 
                     <div
@@ -1836,7 +1790,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      ðŸ“ Other Information
+                      📝 Other Information
                     </h3>
 
                     <div
@@ -1929,8 +1883,8 @@ export default function TeacherStudentsPage() {
                     }}
                   >
                     {saving
-                      ? "â³ Adding..."
-                      : "âž• Add Student & Create Login"}
+                      ? "⏳ Adding..."
+                      : "➕ Add Student & Create Login"}
                   </button>
                 </div>
               </form>
@@ -1964,7 +1918,7 @@ export default function TeacherStudentsPage() {
                       styles.modalTitle
                     }
                   >
-                    âœï¸ Edit Student Profile
+                    ✏️ Edit Student Profile
                   </h2>
 
                   <p
@@ -1985,7 +1939,7 @@ export default function TeacherStudentsPage() {
                     styles.closeButton
                   }
                 >
-                  âœ•
+                  ✕
                 </button>
               </div>
 
@@ -2008,7 +1962,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      ðŸ” Account Details
+                      🔐 Account Details
                     </h3>
 
                     <div
@@ -2097,7 +2051,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      ðŸ‘¤ Basic Details
+                      👤 Basic Details
                     </h3>
 
                     <div
@@ -2249,7 +2203,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      ðŸ‘¨â€ðŸ‘©â€ðŸ‘§ Parent Details
+                      👨‍👩‍👧 Parent Details
                     </h3>
 
                     <div
@@ -2443,7 +2397,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      ðŸ“± Contact Details
+                      📱 Contact Details
                     </h3>
 
                     <div
@@ -2521,7 +2475,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      ðŸŽ“ Academic Details
+                      🎓 Academic Details
                     </h3>
 
                     <div
@@ -2664,7 +2618,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      ðŸ“ Address Details
+                      📍 Address Details
                     </h3>
 
                     <div
@@ -2743,7 +2697,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      ðŸ“ Other Information
+                      📝 Other Information
                     </h3>
 
                     <div
@@ -2836,8 +2790,8 @@ export default function TeacherStudentsPage() {
                     }}
                   >
                     {saving
-                      ? "â³ Saving..."
-                      : "ðŸ’¾ Save Complete Profile"}
+                      ? "⏳ Saving..."
+                      : "💾 Save Complete Profile"}
                   </button>
                 </div>
               </form>
@@ -2851,7 +2805,7 @@ export default function TeacherStudentsPage() {
           </strong>
 
           <span>
-            Students Management â€¢ 2026
+            Students Management • 2026
           </span>
         </footer>
       </div>
@@ -4234,4 +4188,3 @@ const styles: {
     whiteSpace: "normal",
   },
 };
-

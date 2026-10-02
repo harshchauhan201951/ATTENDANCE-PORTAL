@@ -1230,25 +1230,6 @@ export default function TeacherFeesPage() {
       return;
     }
 
-    const currentTeacherId = Number(localStorage.getItem("attendance_teacher_id") || "0");
-    if (!Number.isInteger(currentTeacherId) || currentTeacherId <= 0) {
-      setError("Teacher ID was not found. Please login again as a teacher.");
-      return;
-    }
-
-    if (currentTeacherId !== 1) {
-      const { data: assignedData, error: assignedError } = await supabase.rpc("get_teacher_assigned_student_ids", { p_teacher_id: currentTeacherId });
-      if (assignedError) {
-        setError(assignedError.message);
-        return;
-      }
-      const isAssigned = (assignedData || []).some((row: { student_id: number }) => Number(row.student_id) === Number(studentId));
-      if (!isAssigned) {
-        setError("You can only manage fees for students assigned to you.");
-        return;
-      }
-    }
-
     setSaving(true);
 
     try {
@@ -1439,25 +1420,6 @@ export default function TeacherFeesPage() {
         "Fee record not found."
       );
       return;
-    }
-
-    const currentTeacherId = Number(localStorage.getItem("attendance_teacher_id") || "0");
-    if (!Number.isInteger(currentTeacherId) || currentTeacherId <= 0) {
-      setError("Teacher ID was not found. Please login again as a teacher.");
-      return;
-    }
-
-    if (currentTeacherId !== 1) {
-      const { data: assignedData, error: assignedError } = await supabase.rpc("get_teacher_assigned_student_ids", { p_teacher_id: currentTeacherId });
-      if (assignedError) {
-        setError(assignedError.message);
-        return;
-      }
-      const isAssigned = (assignedData || []).some((row: { student_id: number }) => Number(row.student_id) === Number(feeToDelete.student_id));
-      if (!isAssigned) {
-        setError("You can only delete fees for students assigned to you.");
-        return;
-      }
     }
 
     /*
@@ -3554,7 +3516,6 @@ const styles: Record<
       700,
   },
 };
-
 
 
 

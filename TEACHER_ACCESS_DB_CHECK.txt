@@ -1,0 +1,700 @@
+﻿
+  app\student\timetable\page.tsx:5:import { supabase } from "../../lib/supabase";
+  app\student\timetable\page.tsx:6:
+  app\student\timetable\page.tsx:7:type TimetableRow = {
+  app\student\timetable\page.tsx:8:  id: number;
+> app\student\timetable\page.tsx:9:  teacher_id: string;
+  app\student\timetable\page.tsx:10:  teacher_name: string;
+  app\student\timetable\page.tsx:11:  class_names: string[] | null;
+  app\student\timetable\page.tsx:12:  day_of_week: string;
+  app\student\timetable\page.tsx:13:  subject: string | null;
+  app\student\timetable\page.tsx:14:  start_time: string | null;
+  app\student\timetable\page.tsx:15:  end_time: string | null;
+  app\student\timetable\page.tsx:16:  is_holiday: boolean;
+  app\student\timetable\page.tsx:17:};
+  app\student\timetable\page.tsx:18:
+  app\student\timetable\page.tsx:19:type StudentInfo = {
+  app\student\timetable\page.tsx:20:  id: number;
+  app\student\timetable\page.tsx:21:  student_username: string | null;
+  app\student\timetable\page.tsx:147:
+  app\student\timetable\page.tsx:148:      const { data, error: timetableError } = await supabase
+  app\student\timetable\page.tsx:149:        .from("timetables")
+  app\student\timetable\page.tsx:150:        .select(
+> app\student\timetable\page.tsx:151:          "id, teacher_id, teacher_name, class_names, day_of_week, subject, start_time, end_time, is_holiday"
+  app\student\timetable\page.tsx:152:        )
+  app\student\timetable\page.tsx:153:        .contains("class_names", [studentClass]);
+  app\student\timetable\page.tsx:154:
+  app\student\timetable\page.tsx:155:      if (timetableError) {
+  app\student\timetable\page.tsx:156:        throw timetableError;
+  app\student\timetable\page.tsx:157:      }
+  app\student\timetable\page.tsx:158:
+  app\student\timetable\page.tsx:159:      const rows = ((data || []) as TimetableRow[]).sort(
+  app\student\timetable\page.tsx:160:        (a, b) => {
+  app\student\timetable\page.tsx:161:          const dayDifference =
+  app\student\timetable\page.tsx:162:            (DAY_ORDER[a.day_of_week] || 99) -
+  app\student\timetable\page.tsx:163:            (DAY_ORDER[b.day_of_week] || 99);
+  app\teacher\academy-profile\edit\page.tsx:430:      const { error: rpcError } =
+  app\teacher\academy-profile\edit\page.tsx:431:        await supabase.rpc(
+  app\teacher\academy-profile\edit\page.tsx:432:          "academy_update_profile",
+  app\teacher\academy-profile\edit\page.tsx:433:          {
+> app\teacher\academy-profile\edit\page.tsx:434:            p_teacher_id: teacherId,
+  app\teacher\academy-profile\edit\page.tsx:435:            p_academy_name:
+  app\teacher\academy-profile\edit\page.tsx:436:              profile.academy_name,
+  app\teacher\academy-profile\edit\page.tsx:437:            p_tagline:
+  app\teacher\academy-profile\edit\page.tsx:438:              profile.tagline,
+  app\teacher\academy-profile\edit\page.tsx:439:            p_about_text:
+  app\teacher\academy-profile\edit\page.tsx:440:              profile.about_text,
+  app\teacher\academy-profile\edit\page.tsx:441:            p_classes_text:
+  app\teacher\academy-profile\edit\page.tsx:442:              profile.classes_text,
+  app\teacher\academy-profile\edit\page.tsx:443:            p_facilities_text:
+  app\teacher\academy-profile\edit\page.tsx:444:              profile.facilities_text,
+  app\teacher\academy-profile\edit\page.tsx:445:            p_timings_text:
+  app\teacher\academy-profile\edit\page.tsx:446:              profile.timings_text,
+  app\teacher\academy-profile\edit\page.tsx:559:        const { data, error: rpcError } =
+  app\teacher\academy-profile\edit\page.tsx:560:          await supabase.rpc(
+  app\teacher\academy-profile\edit\page.tsx:561:            "academy_add_fee",
+  app\teacher\academy-profile\edit\page.tsx:562:            {
+> app\teacher\academy-profile\edit\page.tsx:563:              p_teacher_id:
+  app\teacher\academy-profile\edit\page.tsx:564:                teacherId,
+  app\teacher\academy-profile\edit\page.tsx:565:              p_class_name:
+  app\teacher\academy-profile\edit\page.tsx:566:                item.class_name,
+  app\teacher\academy-profile\edit\page.tsx:567:              p_subject_name:
+  app\teacher\academy-profile\edit\page.tsx:568:                item.subject,
+  app\teacher\academy-profile\edit\page.tsx:569:              p_fee_amount:
+  app\teacher\academy-profile\edit\page.tsx:570:                oneHour,
+  app\teacher\academy-profile\edit\page.tsx:571:              p_fee_period:
+  app\teacher\academy-profile\edit\page.tsx:572:                "Monthly",
+  app\teacher\academy-profile\edit\page.tsx:573:              p_description:
+  app\teacher\academy-profile\edit\page.tsx:574:                description,
+  app\teacher\academy-profile\edit\page.tsx:575:              p_display_order:
+  app\teacher\academy-profile\edit\page.tsx:647:      error: rpcError,
+  app\teacher\academy-profile\edit\page.tsx:648:    } = await supabase.rpc(
+  app\teacher\academy-profile\edit\page.tsx:649:      "academy_add_fee",
+  app\teacher\academy-profile\edit\page.tsx:650:      {
+> app\teacher\academy-profile\edit\page.tsx:651:        p_teacher_id:
+  app\teacher\academy-profile\edit\page.tsx:652:          teacherId,
+  app\teacher\academy-profile\edit\page.tsx:653:        p_class_name:
+  app\teacher\academy-profile\edit\page.tsx:654:          newFee.class_name.trim(),
+  app\teacher\academy-profile\edit\page.tsx:655:        p_subject_name:
+  app\teacher\academy-profile\edit\page.tsx:656:          newFee.subject_name.trim(),
+  app\teacher\academy-profile\edit\page.tsx:657:        p_fee_amount: amount,
+  app\teacher\academy-profile\edit\page.tsx:658:        p_fee_period:
+  app\teacher\academy-profile\edit\page.tsx:659:          "Monthly",
+  app\teacher\academy-profile\edit\page.tsx:660:        p_description:
+  app\teacher\academy-profile\edit\page.tsx:661:          description,
+  app\teacher\academy-profile\edit\page.tsx:662:        p_display_order:
+  app\teacher\academy-profile\edit\page.tsx:663:          fees.length,
+  app\teacher\academy-profile\edit\page.tsx:707:      error: rpcError,
+  app\teacher\academy-profile\edit\page.tsx:708:    } = await supabase.rpc(
+  app\teacher\academy-profile\edit\page.tsx:709:      "academy_delete_fee",
+  app\teacher\academy-profile\edit\page.tsx:710:      {
+> app\teacher\academy-profile\edit\page.tsx:711:        p_teacher_id:
+  app\teacher\academy-profile\edit\page.tsx:712:          teacherId,
+  app\teacher\academy-profile\edit\page.tsx:713:        p_id: id,
+  app\teacher\academy-profile\edit\page.tsx:714:      }
+  app\teacher\academy-profile\edit\page.tsx:715:    );
+  app\teacher\academy-profile\edit\page.tsx:716:
+  app\teacher\academy-profile\edit\page.tsx:717:    if (rpcError) {
+  app\teacher\academy-profile\edit\page.tsx:718:      setError(
+  app\teacher\academy-profile\edit\page.tsx:719:        rpcError.message
+  app\teacher\academy-profile\edit\page.tsx:720:      );
+  app\teacher\academy-profile\edit\page.tsx:721:      return;
+  app\teacher\academy-profile\edit\page.tsx:722:    }
+  app\teacher\academy-profile\edit\page.tsx:723:
+  app\teacher\academy-profile\edit\page.tsx:749:      error: rpcError,
+  app\teacher\academy-profile\edit\page.tsx:750:    } = await supabase.rpc(
+  app\teacher\academy-profile\edit\page.tsx:751:      "academy_add_facility",
+  app\teacher\academy-profile\edit\page.tsx:752:      {
+> app\teacher\academy-profile\edit\page.tsx:753:        p_teacher_id:
+  app\teacher\academy-profile\edit\page.tsx:754:          teacherId,
+  app\teacher\academy-profile\edit\page.tsx:755:        p_title:
+  app\teacher\academy-profile\edit\page.tsx:756:          newFacility.title.trim(),
+  app\teacher\academy-profile\edit\page.tsx:757:        p_description:
+  app\teacher\academy-profile\edit\page.tsx:758:          newFacility.description,
+  app\teacher\academy-profile\edit\page.tsx:759:        p_icon:
+  app\teacher\academy-profile\edit\page.tsx:760:          newFacility.icon,
+  app\teacher\academy-profile\edit\page.tsx:761:        p_display_order:
+  app\teacher\academy-profile\edit\page.tsx:762:          facilities.length,
+  app\teacher\academy-profile\edit\page.tsx:763:        p_is_active: true,
+  app\teacher\academy-profile\edit\page.tsx:764:      }
+  app\teacher\academy-profile\edit\page.tsx:765:    );
+  app\teacher\academy-profile\edit\page.tsx:805:      error: rpcError,
+  app\teacher\academy-profile\edit\page.tsx:806:    } = await supabase.rpc(
+  app\teacher\academy-profile\edit\page.tsx:807:      "academy_delete_facility",
+  app\teacher\academy-profile\edit\page.tsx:808:      {
+> app\teacher\academy-profile\edit\page.tsx:809:        p_teacher_id:
+  app\teacher\academy-profile\edit\page.tsx:810:          teacherId,
+  app\teacher\academy-profile\edit\page.tsx:811:        p_id: id,
+  app\teacher\academy-profile\edit\page.tsx:812:      }
+  app\teacher\academy-profile\edit\page.tsx:813:    );
+  app\teacher\academy-profile\edit\page.tsx:814:
+  app\teacher\academy-profile\edit\page.tsx:815:    if (rpcError) {
+  app\teacher\academy-profile\edit\page.tsx:816:      setError(
+  app\teacher\academy-profile\edit\page.tsx:817:        rpcError.message
+  app\teacher\academy-profile\edit\page.tsx:818:      );
+  app\teacher\academy-profile\edit\page.tsx:819:      return;
+  app\teacher\academy-profile\edit\page.tsx:820:    }
+  app\teacher\academy-profile\edit\page.tsx:821:
+  app\teacher\academy-profile\edit\page.tsx:847:      error: rpcError,
+  app\teacher\academy-profile\edit\page.tsx:848:    } = await supabase.rpc(
+  app\teacher\academy-profile\edit\page.tsx:849:      "academy_add_timing",
+  app\teacher\academy-profile\edit\page.tsx:850:      {
+> app\teacher\academy-profile\edit\page.tsx:851:        p_teacher_id:
+  app\teacher\academy-profile\edit\page.tsx:852:          teacherId,
+  app\teacher\academy-profile\edit\page.tsx:853:        p_title:
+  app\teacher\academy-profile\edit\page.tsx:854:          newTiming.title.trim(),
+  app\teacher\academy-profile\edit\page.tsx:855:        p_days:
+  app\teacher\academy-profile\edit\page.tsx:856:          newTiming.days,
+  app\teacher\academy-profile\edit\page.tsx:857:        p_start_time:
+  app\teacher\academy-profile\edit\page.tsx:858:          newTiming.start_time,
+  app\teacher\academy-profile\edit\page.tsx:859:        p_end_time:
+  app\teacher\academy-profile\edit\page.tsx:860:          newTiming.end_time,
+  app\teacher\academy-profile\edit\page.tsx:861:        p_description:
+  app\teacher\academy-profile\edit\page.tsx:862:          newTiming.description,
+  app\teacher\academy-profile\edit\page.tsx:863:        p_display_order:
+  app\teacher\academy-profile\edit\page.tsx:909:      error: rpcError,
+  app\teacher\academy-profile\edit\page.tsx:910:    } = await supabase.rpc(
+  app\teacher\academy-profile\edit\page.tsx:911:      "academy_delete_timing",
+  app\teacher\academy-profile\edit\page.tsx:912:      {
+> app\teacher\academy-profile\edit\page.tsx:913:        p_teacher_id:
+  app\teacher\academy-profile\edit\page.tsx:914:          teacherId,
+  app\teacher\academy-profile\edit\page.tsx:915:        p_id: id,
+  app\teacher\academy-profile\edit\page.tsx:916:      }
+  app\teacher\academy-profile\edit\page.tsx:917:    );
+  app\teacher\academy-profile\edit\page.tsx:918:
+  app\teacher\academy-profile\edit\page.tsx:919:    if (rpcError) {
+  app\teacher\academy-profile\edit\page.tsx:920:      setError(
+  app\teacher\academy-profile\edit\page.tsx:921:        rpcError.message
+  app\teacher\academy-profile\edit\page.tsx:922:      );
+  app\teacher\academy-profile\edit\page.tsx:923:      return;
+  app\teacher\academy-profile\edit\page.tsx:924:    }
+  app\teacher\academy-profile\edit\page.tsx:925:
+  app\teacher\academy-profile\edit\page.tsx:951:      error: rpcError,
+  app\teacher\academy-profile\edit\page.tsx:952:    } = await supabase.rpc(
+  app\teacher\academy-profile\edit\page.tsx:953:      "academy_add_faculty",
+  app\teacher\academy-profile\edit\page.tsx:954:      {
+> app\teacher\academy-profile\edit\page.tsx:955:        p_teacher_id:
+  app\teacher\academy-profile\edit\page.tsx:956:          teacherId,
+  app\teacher\academy-profile\edit\page.tsx:957:        p_teacher_name:
+  app\teacher\academy-profile\edit\page.tsx:958:          newFaculty.teacher_name.trim(),
+  app\teacher\academy-profile\edit\page.tsx:959:        p_subject:
+  app\teacher\academy-profile\edit\page.tsx:960:          newFaculty.subject,
+  app\teacher\academy-profile\edit\page.tsx:961:        p_qualification:
+  app\teacher\academy-profile\edit\page.tsx:962:          newFaculty.qualification,
+  app\teacher\academy-profile\edit\page.tsx:963:        p_experience:
+  app\teacher\academy-profile\edit\page.tsx:964:          newFaculty.experience,
+  app\teacher\academy-profile\edit\page.tsx:965:        p_photo_url:
+  app\teacher\academy-profile\edit\page.tsx:966:          newFaculty.photo_url,
+  app\teacher\academy-profile\edit\page.tsx:967:        p_description:
+  app\teacher\academy-profile\edit\page.tsx:1016:      error: rpcError,
+  app\teacher\academy-profile\edit\page.tsx:1017:    } = await supabase.rpc(
+  app\teacher\academy-profile\edit\page.tsx:1018:      "academy_delete_faculty",
+  app\teacher\academy-profile\edit\page.tsx:1019:      {
+> app\teacher\academy-profile\edit\page.tsx:1020:        p_teacher_id:
+  app\teacher\academy-profile\edit\page.tsx:1021:          teacherId,
+  app\teacher\academy-profile\edit\page.tsx:1022:        p_id: id,
+  app\teacher\academy-profile\edit\page.tsx:1023:      }
+  app\teacher\academy-profile\edit\page.tsx:1024:    );
+  app\teacher\academy-profile\edit\page.tsx:1025:
+  app\teacher\academy-profile\edit\page.tsx:1026:    if (rpcError) {
+  app\teacher\academy-profile\edit\page.tsx:1027:      setError(
+  app\teacher\academy-profile\edit\page.tsx:1028:        rpcError.message
+  app\teacher\academy-profile\edit\page.tsx:1029:      );
+  app\teacher\academy-profile\edit\page.tsx:1030:      return;
+  app\teacher\academy-profile\edit\page.tsx:1031:    }
+  app\teacher\academy-profile\edit\page.tsx:1032:
+  app\teacher\academy-profile\edit\page.tsx:1060:      error: rpcError,
+  app\teacher\academy-profile\edit\page.tsx:1061:    } = await supabase.rpc(
+  app\teacher\academy-profile\edit\page.tsx:1062:      "academy_add_announcement",
+  app\teacher\academy-profile\edit\page.tsx:1063:      {
+> app\teacher\academy-profile\edit\page.tsx:1064:        p_teacher_id:
+  app\teacher\academy-profile\edit\page.tsx:1065:          teacherId,
+  app\teacher\academy-profile\edit\page.tsx:1066:        p_title:
+  app\teacher\academy-profile\edit\page.tsx:1067:          newAnnouncement.title.trim(),
+  app\teacher\academy-profile\edit\page.tsx:1068:        p_content:
+  app\teacher\academy-profile\edit\page.tsx:1069:          newAnnouncement.content,
+  app\teacher\academy-profile\edit\page.tsx:1070:        p_announcement_date:
+  app\teacher\academy-profile\edit\page.tsx:1071:          newAnnouncement.announcement_date,
+  app\teacher\academy-profile\edit\page.tsx:1072:        p_is_active: true,
+  app\teacher\academy-profile\edit\page.tsx:1073:        p_display_order:
+  app\teacher\academy-profile\edit\page.tsx:1074:          announcements.length,
+  app\teacher\academy-profile\edit\page.tsx:1075:      }
+  app\teacher\academy-profile\edit\page.tsx:1076:    );
+  app\teacher\academy-profile\edit\page.tsx:1121:      error: rpcError,
+  app\teacher\academy-profile\edit\page.tsx:1122:    } = await supabase.rpc(
+  app\teacher\academy-profile\edit\page.tsx:1123:      "academy_delete_announcement",
+  app\teacher\academy-profile\edit\page.tsx:1124:      {
+> app\teacher\academy-profile\edit\page.tsx:1125:        p_teacher_id:
+  app\teacher\academy-profile\edit\page.tsx:1126:          teacherId,
+  app\teacher\academy-profile\edit\page.tsx:1127:        p_id: id,
+  app\teacher\academy-profile\edit\page.tsx:1128:      }
+  app\teacher\academy-profile\edit\page.tsx:1129:    );
+  app\teacher\academy-profile\edit\page.tsx:1130:
+  app\teacher\academy-profile\edit\page.tsx:1131:    if (rpcError) {
+  app\teacher\academy-profile\edit\page.tsx:1132:      setError(
+  app\teacher\academy-profile\edit\page.tsx:1133:        rpcError.message
+  app\teacher\academy-profile\edit\page.tsx:1134:      );
+  app\teacher\academy-profile\edit\page.tsx:1135:      return;
+  app\teacher\academy-profile\edit\page.tsx:1136:    }
+  app\teacher\academy-profile\edit\page.tsx:1137:
+  app\teacher\attendance\page.tsx:44:    setLoading(true);
+  app\teacher\attendance\page.tsx:45:    setMessage("");
+  app\teacher\attendance\page.tsx:46:
+  app\teacher\attendance\page.tsx:47:    try {
+> app\teacher\attendance\page.tsx:48:      const savedTeacherId = Number(localStorage.getItem("attendance_teacher_id") || "0"); if (!savedTeacherId) { throw new Error("Teacher session not found."); } let assignedStudentIds: number[] = []; if (savedTeacherId 
+!== 1) { const { data: assignedData, error: assignedError } = await supabase.rpc("get_teacher_assigned_student_ids", { p_teacher_id: savedTeacherId }); if (assignedError) throw new Error(assignedError.message); assignedStudentIds = (assignedData || 
+[]).map((item: { student_id: number }) => Number(item.student_id)); } let studentQuery = supabase.from("students").select("id, student_name, student_username").order("id", { ascending: true }); if (savedTeacherId !== 1) { if (assignedStudentIds.length === 0) 
+{ setStudents([]); setAttendance([]); setLoading(false); return; } studentQuery = studentQuery.in("id", assignedStudentIds); } const { data: studentData, error: studentError } = await studentQuery;
+  app\teacher\attendance\page.tsx:49:
+  app\teacher\attendance\page.tsx:50:      if (studentError) {
+  app\teacher\attendance\page.tsx:51:        throw new Error(studentError.message);
+  app\teacher\attendance\page.tsx:52:      }
+  app\teacher\attendance\page.tsx:53:
+  app\teacher\attendance\page.tsx:54:      let attendanceQuery = supabase.from("attendance").select("id, student_id, attendance_date, status").order("attendance_date", { ascending: false }); if (savedTeacherId !== 1 && assignedStudentIds.length > 0) { 
+attendanceQuery = attendanceQuery.in("student_id", assignedStudentIds); } const { data: attendanceData, error: attendanceError } = await attendanceQuery;
+  app\teacher\attendance\page.tsx:55:
+  app\teacher\attendance\page.tsx:56:      if (attendanceError) {
+  app\teacher\attendance\page.tsx:57:        throw new Error(attendanceError.message);
+  app\teacher\attendance\page.tsx:58:      }
+  app\teacher\attendance\page.tsx:59:
+  app\teacher\attendance\page.tsx:60:      setStudents(studentData || []);
+  app\teacher\attendance-history\page.tsx:46:    setLoading(true);
+  app\teacher\attendance-history\page.tsx:47:    setErrorMessage("");
+  app\teacher\attendance-history\page.tsx:48:
+  app\teacher\attendance-history\page.tsx:49:    try {
+> app\teacher\attendance-history\page.tsx:50:      const savedTeacherId = Number(localStorage.getItem("attendance_teacher_id") || "0");
+  app\teacher\attendance-history\page.tsx:51:      if (!savedTeacherId) { throw new Error("Teacher session not found."); }
+  app\teacher\attendance-history\page.tsx:52:
+  app\teacher\attendance-history\page.tsx:53:      let assignedStudentIds: number[] = [];
+  app\teacher\attendance-history\page.tsx:54:      if (savedTeacherId !== 1) {
+> app\teacher\attendance-history\page.tsx:55:        const { data: assignedData, error: assignedError } = await supabase.rpc("get_teacher_assigned_student_ids", { p_teacher_id: savedTeacherId });
+  app\teacher\attendance-history\page.tsx:56:        if (assignedError) throw new Error(assignedError.message);
+  app\teacher\attendance-history\page.tsx:57:        assignedStudentIds = (assignedData || []).map((item: { student_id: number }) => Number(item.student_id));
+  app\teacher\attendance-history\page.tsx:58:      }
+  app\teacher\attendance-history\page.tsx:59:
+  app\teacher\attendance-history\page.tsx:60:      let studentQuery = supabase.from("students").select("id, student_name, student_username").order("id", { ascending: true });
+  app\teacher\attendance-history\page.tsx:61:      if (savedTeacherId !== 1) {
+  app\teacher\attendance-history\page.tsx:62:        if (assignedStudentIds.length === 0) { setStudents([]); setRecords([]); setLoading(false); return; }
+  app\teacher\attendance-history\page.tsx:63:        studentQuery = studentQuery.in("id", assignedStudentIds);
+  app\teacher\attendance-history\page.tsx:64:      }
+  app\teacher\attendance-history\page.tsx:65:
+  app\teacher\attendance-history\page.tsx:66:      let attendanceQuery = supabase.from("attendance").select("student_id, attendance_date, status").order("attendance_date", { ascending: false });
+  app\teacher\attendance-history\page.tsx:67:      if (savedTeacherId !== 1 && assignedStudentIds.length > 0) { attendanceQuery = attendanceQuery.in("student_id", assignedStudentIds); }
+  app\teacher\attendance-history\page.tsx:82:  async function deleteAttendance(
+  app\teacher\attendance-history\page.tsx:83:    studentId: number,
+  app\teacher\attendance-history\page.tsx:84:    attendanceDate: string
+  app\teacher\attendance-history\page.tsx:85:  ) {
+> app\teacher\attendance-history\page.tsx:86:    const savedTeacherId = Number(localStorage.getItem("attendance_teacher_id") || "0");
+  app\teacher\attendance-history\page.tsx:87:
+  app\teacher\attendance-history\page.tsx:88:    if (!savedTeacherId) {
+  app\teacher\attendance-history\page.tsx:89:      setErrorMessage("Teacher session not found.");
+  app\teacher\attendance-history\page.tsx:90:      return;
+  app\teacher\attendance-history\page.tsx:91:    }
+  app\teacher\attendance-history\page.tsx:92:
+  app\teacher\attendance-history\page.tsx:93:    if (savedTeacherId !== 1) {
+  app\teacher\attendance-history\page.tsx:94:      const { data: assignedData, error: assignedError } =
+> app\teacher\attendance-history\page.tsx:95:        await supabase.rpc("get_teacher_assigned_student_ids", {
+> app\teacher\attendance-history\page.tsx:96:          p_teacher_id: savedTeacherId,
+  app\teacher\attendance-history\page.tsx:97:        });
+  app\teacher\attendance-history\page.tsx:98:
+  app\teacher\attendance-history\page.tsx:99:      if (assignedError) {
+  app\teacher\attendance-history\page.tsx:100:        setErrorMessage(assignedError.message);
+  app\teacher\attendance-history\page.tsx:101:        return;
+  app\teacher\attendance-history\page.tsx:102:      }
+  app\teacher\attendance-history\page.tsx:103:
+  app\teacher\attendance-history\page.tsx:104:      const assignedStudentIds = (assignedData || []).map(
+  app\teacher\attendance-history\page.tsx:105:        (item: { student_id: number }) => Number(item.student_id)
+  app\teacher\attendance-history\page.tsx:106:      );
+  app\teacher\attendance-history\page.tsx:107:
+  app\teacher\attendance-history\page.tsx:108:      if (!assignedStudentIds.includes(studentId)) {
+  app\teacher\dashboard\page.tsx:25:  async function handleLogout() {
+  app\teacher\dashboard\page.tsx:26:    if (loggingOut) return;
+  app\teacher\dashboard\page.tsx:27:    setLoggingOut(true);
+  app\teacher\dashboard\page.tsx:28:    const authKeys = [
+> app\teacher\dashboard\page.tsx:29:      "attendance_role","attendance_username","attendance_teacher_id","teacherLoggedIn","teacher",
+  app\teacher\dashboard\page.tsx:30:      "teacherUsername","teacher_username","teacherName","teacher_name","studentLoggedIn","studentId",
+  app\teacher\dashboard\page.tsx:31:      "studentUsername","student_username","studentName","student_name",
+  app\teacher\dashboard\page.tsx:32:    ];
+  app\teacher\dashboard\page.tsx:33:    authKeys.forEach((key) => localStorage.removeItem(key));
+  app\teacher\dashboard\page.tsx:34:    authKeys.forEach((key) => sessionStorage.removeItem(key));
+  app\teacher\dashboard\page.tsx:35:    await new Promise((resolve) => setTimeout(resolve, 100));
+  app\teacher\dashboard\page.tsx:36:    router.replace("/");
+  app\teacher\dashboard\page.tsx:37:    router.refresh();
+  app\teacher\dashboard\page.tsx:38:  }
+  app\teacher\dashboard\page.tsx:39:
+  app\teacher\dashboard\page.tsx:40:  const menuItems = [
+  app\teacher\dashboard\page.tsx:41:    ["Mark Attendance", "/teacher/attendance", "✓", "academic"],
+  app\teacher\profile\page.tsx:127:        "";
+  app\teacher\profile\page.tsx:128:
+  app\teacher\profile\page.tsx:129:      id =
+  app\teacher\profile\page.tsx:130:        id ||
+> app\teacher\profile\page.tsx:131:        localStorage.getItem("teacher_id") ||
+  app\teacher\profile\page.tsx:132:        localStorage.getItem("teacherId") ||
+  app\teacher\profile\page.tsx:133:        "";
+  app\teacher\profile\page.tsx:134:
+  app\teacher\profile\page.tsx:135:      /*
+  app\teacher\profile\page.tsx:136:       * The custom saved profile username always gets
+  app\teacher\profile\page.tsx:137:       * priority over the original login username.
+  app\teacher\profile\page.tsx:138:       */
+  app\teacher\profile\page.tsx:139:      const savedProfileUsername =
+  app\teacher\profile\page.tsx:140:        localStorage.getItem(
+  app\teacher\profile\page.tsx:141:          "teacherProfileUsername"
+  app\teacher\profile\page.tsx:142:        );
+  app\teacher\profile\page.tsx:143:
+  app\teacher\quiz-tests\create\page.tsx:40:  const [message, setMessage] = useState("");
+  app\teacher\quiz-tests\create\page.tsx:41:
+  app\teacher\quiz-tests\create\page.tsx:42:  useEffect(() => {
+  app\teacher\quiz-tests\create\page.tsx:43:    const rawId =
+> app\teacher\quiz-tests\create\page.tsx:44:      localStorage.getItem("attendance_teacher_id") ||
+  app\teacher\quiz-tests\create\page.tsx:45:      localStorage.getItem("teacherId") ||
+> app\teacher\quiz-tests\create\page.tsx:46:      localStorage.getItem("teacher_id");
+  app\teacher\quiz-tests\create\page.tsx:47:
+  app\teacher\quiz-tests\create\page.tsx:48:    const id = Number(rawId);
+  app\teacher\quiz-tests\create\page.tsx:49:
+  app\teacher\quiz-tests\create\page.tsx:50:    if (Number.isFinite(id) && id > 0) {
+  app\teacher\quiz-tests\create\page.tsx:51:      setTeacherId(id);
+  app\teacher\quiz-tests\create\page.tsx:52:    }
+  app\teacher\quiz-tests\create\page.tsx:53:  }, []);
+  app\teacher\quiz-tests\create\page.tsx:54:
+  app\teacher\quiz-tests\create\page.tsx:55:  useEffect(() => {
+  app\teacher\quiz-tests\create\page.tsx:56:    async function loadClasses() {
+  app\teacher\quiz-tests\create\page.tsx:57:      setLoadingClasses(true);
+  app\teacher\quiz-tests\create\page.tsx:58:      setMessage("");
+  app\teacher\quiz-tests\results\page.tsx:318:      localStorage.removeItem("teacherUsername");
+  app\teacher\quiz-tests\results\page.tsx:319:      localStorage.removeItem("teacherLoggedIn");
+  app\teacher\quiz-tests\results\page.tsx:320:      localStorage.removeItem("attendance_role");
+  app\teacher\quiz-tests\results\page.tsx:321:      localStorage.removeItem("attendance_username");
+> app\teacher\quiz-tests\results\page.tsx:322:      localStorage.removeItem("attendance_teacher_id");
+> app\teacher\quiz-tests\results\page.tsx:323:      localStorage.removeItem("teacher_id");
+  app\teacher\quiz-tests\results\page.tsx:324:    } catch {
+  app\teacher\quiz-tests\results\page.tsx:325:      // ignore
+  app\teacher\quiz-tests\results\page.tsx:326:    }
+  app\teacher\quiz-tests\results\page.tsx:327:
+  app\teacher\quiz-tests\results\page.tsx:328:    router.replace("/");
+  app\teacher\quiz-tests\results\page.tsx:329:  };
+  app\teacher\quiz-tests\results\page.tsx:330:
+  app\teacher\quiz-tests\results\page.tsx:331:  const loadReattemptPermissions = useCallback(
+  app\teacher\quiz-tests\results\page.tsx:332:    async (quizRows: QuizTest[], studentRows: Student[]) => {
+  app\teacher\quiz-tests\results\page.tsx:333:      try {
+  app\teacher\quiz-tests\results\page.tsx:334:        const pairs: Array<{
+  app\teacher\quiz-tests\results\page.tsx:335:          quiz: QuizTest;
+  app\teacher\quiz-tests\results\page.tsx:1286:    setReattemptMessage("");
+  app\teacher\quiz-tests\results\page.tsx:1287:
+  app\teacher\quiz-tests\results\page.tsx:1288:    try {
+  app\teacher\quiz-tests\results\page.tsx:1289:      const storedTeacherId =
+> app\teacher\quiz-tests\results\page.tsx:1290:        localStorage.getItem("attendance_teacher_id") ||
+> app\teacher\quiz-tests\results\page.tsx:1291:        localStorage.getItem("teacher_id");
+  app\teacher\quiz-tests\results\page.tsx:1292:
+  app\teacher\quiz-tests\results\page.tsx:1293:      const teacherId = Number(storedTeacherId);
+  app\teacher\quiz-tests\results\page.tsx:1294:
+  app\teacher\quiz-tests\results\page.tsx:1295:      if (!Number.isInteger(teacherId) || teacherId <= 0) {
+  app\teacher\quiz-tests\results\page.tsx:1296:        throw new Error(
+  app\teacher\quiz-tests\results\page.tsx:1297:          "Teacher ID was not found. Please login again as a teacher."
+  app\teacher\quiz-tests\results\page.tsx:1298:        );
+  app\teacher\quiz-tests\results\page.tsx:1299:      }
+  app\teacher\quiz-tests\results\page.tsx:1300:
+  app\teacher\quiz-tests\results\page.tsx:1301:      const response = await fetch(
+  app\teacher\quiz-tests\results\page.tsx:1302:        "/api/quiz-tests/results/delete",
+  app\teacher\quiz-tests\results\page.tsx:1303:        {
+  app\teacher\quiz-tests\results\page.tsx:1365:      let teacherId: number | null = null;
+  app\teacher\quiz-tests\results\page.tsx:1366:
+  app\teacher\quiz-tests\results\page.tsx:1367:      try {
+  app\teacher\quiz-tests\results\page.tsx:1368:        const storedTeacherId =
+> app\teacher\quiz-tests\results\page.tsx:1369:          localStorage.getItem("attendance_teacher_id") ||
+> app\teacher\quiz-tests\results\page.tsx:1370:          localStorage.getItem("teacher_id");
+  app\teacher\quiz-tests\results\page.tsx:1371:
+  app\teacher\quiz-tests\results\page.tsx:1372:        if (storedTeacherId) {
+  app\teacher\quiz-tests\results\page.tsx:1373:          const parsedTeacherId = Number(
+  app\teacher\quiz-tests\results\page.tsx:1374:            storedTeacherId
+  app\teacher\quiz-tests\results\page.tsx:1375:          );
+  app\teacher\quiz-tests\results\page.tsx:1376:
+  app\teacher\quiz-tests\results\page.tsx:1377:          if (
+  app\teacher\quiz-tests\results\page.tsx:1378:            Number.isInteger(parsedTeacherId) &&
+  app\teacher\quiz-tests\results\page.tsx:1379:            parsedTeacherId > 0
+  app\teacher\quiz-tests\results\page.tsx:1380:          ) {
+  app\teacher\quiz-tests\results\page.tsx:1381:            teacherId = parsedTeacherId;
+  app\teacher\quiz-tests\results\page.tsx:1382:          }
+  app\teacher\quiz-tests\results\page.tsx:1463:      let teacherId: number | null = null;
+  app\teacher\quiz-tests\results\page.tsx:1464:
+  app\teacher\quiz-tests\results\page.tsx:1465:      try {
+  app\teacher\quiz-tests\results\page.tsx:1466:        const storedTeacherId =
+> app\teacher\quiz-tests\results\page.tsx:1467:          localStorage.getItem("attendance_teacher_id") ||
+> app\teacher\quiz-tests\results\page.tsx:1468:          localStorage.getItem("teacher_id");
+  app\teacher\quiz-tests\results\page.tsx:1469:
+  app\teacher\quiz-tests\results\page.tsx:1470:        if (storedTeacherId) {
+  app\teacher\quiz-tests\results\page.tsx:1471:          const parsedTeacherId = Number(
+  app\teacher\quiz-tests\results\page.tsx:1472:            storedTeacherId
+  app\teacher\quiz-tests\results\page.tsx:1473:          );
+  app\teacher\quiz-tests\results\page.tsx:1474:
+  app\teacher\quiz-tests\results\page.tsx:1475:          if (
+  app\teacher\quiz-tests\results\page.tsx:1476:            Number.isInteger(parsedTeacherId) &&
+  app\teacher\quiz-tests\results\page.tsx:1477:            parsedTeacherId > 0
+  app\teacher\quiz-tests\results\page.tsx:1478:          ) {
+  app\teacher\quiz-tests\results\page.tsx:1479:            teacherId = parsedTeacherId;
+  app\teacher\quiz-tests\results\page.tsx:1480:          }
+  app\teacher\students\page.tsx:582:    setError("");
+  app\teacher\students\page.tsx:583:    setSuccess("");
+  app\teacher\students\page.tsx:584:
+  app\teacher\students\page.tsx:585:    const storedTeacherId =
+> app\teacher\students\page.tsx:586:      localStorage.getItem("attendance_teacher_id") ||
+> app\teacher\students\page.tsx:587:      localStorage.getItem("teacher_id") ||
+  app\teacher\students\page.tsx:588:      "";
+  app\teacher\students\page.tsx:589:
+  app\teacher\students\page.tsx:590:    const teacherId = Number(storedTeacherId);
+  app\teacher\students\page.tsx:591:
+  app\teacher\students\page.tsx:592:    if (!Number.isInteger(teacherId) || teacherId <= 0) {
+  app\teacher\students\page.tsx:593:      setError("Teacher ID was not found. Please login again as a teacher.");
+  app\teacher\students\page.tsx:594:      setDeletingId(null);
+  app\teacher\students\page.tsx:595:      return;
+  app\teacher\students\page.tsx:596:    }
+  app\teacher\students\page.tsx:597:
+  app\teacher\students\page.tsx:598:    try {
+  app\teacher\students\page.tsx:599:      const response = await fetch("/api/teacher/students/delete", {
+  app\teacher\teachers\page.backup.tsx:138:
+  app\teacher\teachers\page.backup.tsx:139:    const { error } = await supabase.rpc(
+  app\teacher\teachers\page.backup.tsx:140:      "delete_teacher",
+  app\teacher\teachers\page.backup.tsx:141:      {
+> app\teacher\teachers\page.backup.tsx:142:        p_teacher_id: teacher.id,
+  app\teacher\teachers\page.backup.tsx:143:      }
+  app\teacher\teachers\page.backup.tsx:144:    );
+  app\teacher\teachers\page.backup.tsx:145:
+  app\teacher\teachers\page.backup.tsx:146:    if (error) {
+  app\teacher\teachers\page.backup.tsx:147:      setError(error.message);
+  app\teacher\teachers\page.backup.tsx:148:      setDeletingId(null);
+  app\teacher\teachers\page.backup.tsx:149:      return;
+  app\teacher\teachers\page.backup.tsx:150:    }
+  app\teacher\teachers\page.backup.tsx:151:
+  app\teacher\teachers\page.backup.tsx:152:    setMessage(
+  app\teacher\teachers\page.backup.tsx:153:      "Teacher deleted successfully."
+  app\teacher\teachers\page.backup.tsx:154:    );
+  app\teacher\teachers\page.tsx:138:
+  app\teacher\teachers\page.tsx:139:    const { error } = await supabase.rpc(
+  app\teacher\teachers\page.tsx:140:      "delete_teacher",
+  app\teacher\teachers\page.tsx:141:      {
+> app\teacher\teachers\page.tsx:142:        p_teacher_id: teacher.id,
+  app\teacher\teachers\page.tsx:143:      }
+  app\teacher\teachers\page.tsx:144:    );
+  app\teacher\teachers\page.tsx:145:
+  app\teacher\teachers\page.tsx:146:    if (error) {
+  app\teacher\teachers\page.tsx:147:      setError(error.message);
+  app\teacher\teachers\page.tsx:148:      setDeletingId(null);
+  app\teacher\teachers\page.tsx:149:      return;
+  app\teacher\teachers\page.tsx:150:    }
+  app\teacher\teachers\page.tsx:151:
+  app\teacher\teachers\page.tsx:152:    setMessage(
+  app\teacher\teachers\page.tsx:153:      "Teacher deleted successfully."
+  app\teacher\teachers\page.tsx:154:    );
+  app\teacher\timetable\create\page.tsx:5:import { supabase } from "../../../../lib/supabase";
+  app\teacher\timetable\create\page.tsx:6:
+  app\teacher\timetable\create\page.tsx:7:type Timetable = {
+  app\teacher\timetable\create\page.tsx:8:  id: number;
+> app\teacher\timetable\create\page.tsx:9:  teacher_id: string;
+  app\teacher\timetable\create\page.tsx:10:  teacher_name: string;
+  app\teacher\timetable\create\page.tsx:11:  class_names: string[];
+  app\teacher\timetable\create\page.tsx:12:  day_of_week: string;
+  app\teacher\timetable\create\page.tsx:13:  subject: string | null;
+  app\teacher\timetable\create\page.tsx:14:  start_time: string | null;
+  app\teacher\timetable\create\page.tsx:15:  end_time: string | null;
+  app\teacher\timetable\create\page.tsx:16:  is_holiday: boolean;
+  app\teacher\timetable\create\page.tsx:17:};
+  app\teacher\timetable\create\page.tsx:18:
+  app\teacher\timetable\create\page.tsx:19:const DAYS = [
+  app\teacher\timetable\create\page.tsx:20:  "Monday",
+  app\teacher\timetable\create\page.tsx:21:  "Tuesday",
+  app\teacher\timetable\create\page.tsx:59:  const [saving, setSaving] = useState(false);
+  app\teacher\timetable\create\page.tsx:60:
+  app\teacher\timetable\create\page.tsx:61:  useEffect(() => {
+  app\teacher\timetable\create\page.tsx:62:    const storedTeacherId =
+> app\teacher\timetable\create\page.tsx:63:      localStorage.getItem("attendance_teacher_id") ||
+  app\teacher\timetable\create\page.tsx:64:      localStorage.getItem("teacher_username") ||
+  app\teacher\timetable\create\page.tsx:65:      localStorage.getItem("teacherUsername") ||
+  app\teacher\timetable\create\page.tsx:66:      "";
+  app\teacher\timetable\create\page.tsx:67:
+  app\teacher\timetable\create\page.tsx:68:    const storedTeacherName =
+  app\teacher\timetable\create\page.tsx:69:      localStorage.getItem("teacher_name") ||
+  app\teacher\timetable\create\page.tsx:70:      localStorage.getItem("teacherName") ||
+  app\teacher\timetable\create\page.tsx:71:      localStorage.getItem("attendance_teacher_name") ||
+  app\teacher\timetable\create\page.tsx:72:      localStorage.getItem("teacher_username") ||
+  app\teacher\timetable\create\page.tsx:73:      localStorage.getItem("teacherUsername") ||
+  app\teacher\timetable\create\page.tsx:74:      "";
+  app\teacher\timetable\create\page.tsx:75:
+  app\teacher\timetable\create\page.tsx:107:      if (editId) {
+  app\teacher\timetable\create\page.tsx:108:        const { data, error } = await supabase
+  app\teacher\timetable\create\page.tsx:109:          .from("timetables")
+  app\teacher\timetable\create\page.tsx:110:          .select(
+> app\teacher\timetable\create\page.tsx:111:            "id, teacher_id, teacher_name, class_names, day_of_week, subject, start_time, end_time, is_holiday"
+  app\teacher\timetable\create\page.tsx:112:          )
+  app\teacher\timetable\create\page.tsx:113:          .eq("id", editId)
+  app\teacher\timetable\create\page.tsx:114:          .single();
+  app\teacher\timetable\create\page.tsx:115:
+  app\teacher\timetable\create\page.tsx:116:        if (error) {
+  app\teacher\timetable\create\page.tsx:117:          console.error("Error loading timetable:", error);
+  app\teacher\timetable\create\page.tsx:118:          alert(`Unable to load timetable.\n\n${error.message}`);
+  app\teacher\timetable\create\page.tsx:119:          return;
+  app\teacher\timetable\create\page.tsx:120:        }
+  app\teacher\timetable\create\page.tsx:121:
+  app\teacher\timetable\create\page.tsx:122:        const timetable = data as Timetable;
+  app\teacher\timetable\create\page.tsx:123:
+  app\teacher\timetable\create\page.tsx:124:        if (
+  app\teacher\timetable\create\page.tsx:125:          currentTeacherId &&
+> app\teacher\timetable\create\page.tsx:126:          timetable.teacher_id &&
+> app\teacher\timetable\create\page.tsx:127:          timetable.teacher_id !== currentTeacherId
+  app\teacher\timetable\create\page.tsx:128:        ) {
+  app\teacher\timetable\create\page.tsx:129:          alert("You are not allowed to edit this timetable.");
+  app\teacher\timetable\create\page.tsx:130:          router.push("/teacher/timetable");
+  app\teacher\timetable\create\page.tsx:131:          return;
+  app\teacher\timetable\create\page.tsx:132:        }
+  app\teacher\timetable\create\page.tsx:133:
+  app\teacher\timetable\create\page.tsx:134:        const holiday = Boolean(timetable.is_holiday);
+  app\teacher\timetable\create\page.tsx:135:
+  app\teacher\timetable\create\page.tsx:136:        setDayOfWeek(timetable.day_of_week || "Monday");
+  app\teacher\timetable\create\page.tsx:137:        setIsHoliday(holiday);
+  app\teacher\timetable\create\page.tsx:138:        setSelectedClasses(timetable.class_names || []);
+  app\teacher\timetable\create\page.tsx:139:
+  app\teacher\timetable\create\page.tsx:225:    setSaving(true);
+  app\teacher\timetable\create\page.tsx:226:
+  app\teacher\timetable\create\page.tsx:227:    try {
+  app\teacher\timetable\create\page.tsx:228:      const payload = {
+> app\teacher\timetable\create\page.tsx:229:        teacher_id: teacherId,
+  app\teacher\timetable\create\page.tsx:230:        teacher_name: teacherName,
+  app\teacher\timetable\create\page.tsx:231:        class_names: selectedClasses,
+  app\teacher\timetable\create\page.tsx:232:        day_of_week: dayOfWeek,
+  app\teacher\timetable\create\page.tsx:233:        is_holiday: isHoliday,
+  app\teacher\timetable\create\page.tsx:234:
+  app\teacher\timetable\create\page.tsx:235:        // Holiday = NULL
+  app\teacher\timetable\create\page.tsx:236:        // Normal class = actual values
+  app\teacher\timetable\create\page.tsx:237:        subject: isHoliday ? null : subject.trim(),
+  app\teacher\timetable\create\page.tsx:238:        start_time: isHoliday ? null : startTime,
+  app\teacher\timetable\create\page.tsx:239:        end_time: isHoliday ? null : endTime,
+  app\teacher\timetable\create\page.tsx:240:      };
+  app\teacher\timetable\create\page.tsx:241:
+  app\teacher\timetable\page.tsx:5:import { supabase } from "../../../lib/supabase";
+  app\teacher\timetable\page.tsx:6:
+  app\teacher\timetable\page.tsx:7:type Timetable = {
+  app\teacher\timetable\page.tsx:8:  id: number;
+> app\teacher\timetable\page.tsx:9:  teacher_id: string;
+  app\teacher\timetable\page.tsx:10:  teacher_name: string;
+  app\teacher\timetable\page.tsx:11:  class_names: string[];
+  app\teacher\timetable\page.tsx:12:  day_of_week: string;
+  app\teacher\timetable\page.tsx:13:  subject: string | null;
+  app\teacher\timetable\page.tsx:14:  start_time: string | null;
+  app\teacher\timetable\page.tsx:15:  end_time: string | null;
+  app\teacher\timetable\page.tsx:16:  is_holiday: boolean;
+  app\teacher\timetable\page.tsx:17:  created_at: string;
+  app\teacher\timetable\page.tsx:18:  updated_at: string;
+  app\teacher\timetable\page.tsx:19:};
+  app\teacher\timetable\page.tsx:20:
+  app\teacher\timetable\page.tsx:21:const DAYS = [
+  app\teacher\timetable\page.tsx:68:    setLoading(true);
+  app\teacher\timetable\page.tsx:69:
+  app\teacher\timetable\page.tsx:70:    try {
+  app\teacher\timetable\page.tsx:71:      const teacherId =
+> app\teacher\timetable\page.tsx:72:        localStorage.getItem("attendance_teacher_id") ||
+  app\teacher\timetable\page.tsx:73:        localStorage.getItem("teacher_username") ||
+  app\teacher\timetable\page.tsx:74:        localStorage.getItem("teacherUsername");
+  app\teacher\timetable\page.tsx:75:
+  app\teacher\timetable\page.tsx:76:      if (!teacherId) {
+  app\teacher\timetable\page.tsx:77:        router.replace("/");
+  app\teacher\timetable\page.tsx:78:        return;
+  app\teacher\timetable\page.tsx:79:      }
+  app\teacher\timetable\page.tsx:80:
+  app\teacher\timetable\page.tsx:81:      const { data, error } = await supabase
+  app\teacher\timetable\page.tsx:82:        .from("timetables")
+  app\teacher\timetable\page.tsx:83:        .select("*")
+> app\teacher\timetable\page.tsx:84:        .eq("teacher_id", teacherId);
+  app\teacher\timetable\page.tsx:85:
+  app\teacher\timetable\page.tsx:86:      if (error) {
+  app\teacher\timetable\page.tsx:87:        console.error("Timetable load error:", error);
+  app\teacher\timetable\page.tsx:88:        alert("Unable to load timetable.");
+  app\teacher\timetable\page.tsx:89:        return;
+  app\teacher\timetable\page.tsx:90:      }
+  app\teacher\timetable\page.tsx:91:
+  app\teacher\timetable\page.tsx:92:      const sortedEntries = ((data || []) as Timetable[]).sort(
+  app\teacher\timetable\page.tsx:93:        (a, b) => {
+  app\teacher\timetable\page.tsx:94:          const dayDifference =
+  app\teacher\timetable\page.tsx:95:            (DAY_ORDER[a.day_of_week] || 99) -
+  app\teacher\timetable\page.tsx:96:            (DAY_ORDER[b.day_of_week] || 99);
+  app\teacher\layout.tsx:48:
+  app\teacher\layout.tsx:49:      {!isDashboard && (
+  app\teacher\layout.tsx:50:        <RacerPageActions
+  app\teacher\layout.tsx:51:          dashboardPath="/teacher/dashboard"
+> app\teacher\layout.tsx:52:          logoutKeys={["teacher_username","teacherUsername","teacherLoggedIn","attendance_role","attendance_username","attendance_teacher_id","teacher_id"]}
+  app\teacher\layout.tsx:53:        />
+  app\teacher\layout.tsx:54:      )}
+  app\teacher\layout.tsx:55:
+  app\teacher\layout.tsx:56:      <div className="racer-portal-content" style={{paddingTop:isDashboard ? "0px" : "72px"}}>{children}</div>
+  app\teacher\layout.tsx:57:
+  app\teacher\layout.tsx:58:      <nav className="racer-bottom-nav" aria-label="Teacher navigation">
+  app\teacher\layout.tsx:59:        {items.map((item) => {
+  app\teacher\layout.tsx:60:          const active =
+  app\teacher\layout.tsx:61:            pathname === item.href ||
+  app\teacher\layout.tsx:62:            (item.href !== "/teacher/dashboard" && pathname.startsWith(item.href));
+  app\teacher\layout.tsx:63:
+  app\teacher\layout.tsx:64:          return (
+  app\page.tsx:873:        teacherId
+  app\page.tsx:874:      );
+  app\page.tsx:875:
+  app\page.tsx:876:      localStorage.setItem(
+> app\page.tsx:877:        "teacher_id",
+  app\page.tsx:878:        teacherId
+  app\page.tsx:879:      );
+  app\page.tsx:880:
+  app\page.tsx:881:      localStorage.setItem(
+  app\page.tsx:882:        "attendance_role",
+  app\page.tsx:883:        "teacher"
+  app\page.tsx:884:      );
+  app\page.tsx:885:
+  app\page.tsx:886:      localStorage.setItem(
+  app\page.tsx:887:        "attendance_username",
+  app\page.tsx:888:        teacherUsername
+  app\page.tsx:889:      );
+  app\page.tsx:890:
+  app\page.tsx:891:      localStorage.setItem(
+> app\page.tsx:892:        "attendance_teacher_id",
+  app\page.tsx:893:        teacherId
+  app\page.tsx:894:      );
+  app\page.tsx:895:
+  app\page.tsx:896:      // =========================================================
+  app\page.tsx:897:      // ALSO SAVE TEACHER SESSION DATA
+  app\page.tsx:898:      // Some teacher pages may read sessionStorage instead
+  app\page.tsx:899:      // of localStorage.
+  app\page.tsx:900:      // =========================================================
+  app\page.tsx:901:
+  app\page.tsx:902:      sessionStorage.setItem(
+  app\page.tsx:903:        "teacherLoggedIn",
+  app\page.tsx:904:        "true"
+  app\page.tsx:929:        teacherId
+  app\page.tsx:930:      );
+  app\page.tsx:931:
+  app\page.tsx:932:      sessionStorage.setItem(
+> app\page.tsx:933:        "teacher_id",
+  app\page.tsx:934:        teacherId
+  app\page.tsx:935:      );
+  app\page.tsx:936:
+  app\page.tsx:937:      sessionStorage.setItem(
+  app\page.tsx:938:        "attendance_role",
+  app\page.tsx:939:        "teacher"
+  app\page.tsx:940:      );
+  app\page.tsx:941:
+  app\page.tsx:942:      sessionStorage.setItem(
+  app\page.tsx:943:        "attendance_username",
+  app\page.tsx:944:        teacherUsername
+  app\page.tsx:945:      );
+  app\page.tsx:946:
+  app\page.tsx:947:      sessionStorage.setItem(
+> app\page.tsx:948:        "attendance_teacher_id",
+  app\page.tsx:949:        teacherId
+  app\page.tsx:950:      );
+  app\page.tsx:951:
+  app\page.tsx:952:      console.log(
+  app\page.tsx:953:        "Teacher login data saved:",
+  app\page.tsx:954:        {
+  app\page.tsx:955:          teacherId,
+  app\page.tsx:956:          teacherUsername,
+  app\page.tsx:957:          teacherLoggedIn:
+  app\page.tsx:958:            localStorage.getItem(
+  app\page.tsx:959:              "teacherLoggedIn"
+  app\page.tsx:960:            ),
+
+
+

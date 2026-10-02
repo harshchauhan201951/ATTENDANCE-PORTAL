@@ -1,0 +1,852 @@
+﻿
+
+================ app\teacher\students\page.tsx ================
+
+
+  
+    const [addEmail, setAddEmail] = useState("");
+    const [addCity, setAddCity] = useState("");
+    const [addAddress, setAddAddress] = useState("");
+    const [addNotes, setAddNotes] = useState("");
+    const [addProfileImageUrl, setAddProfileImageUrl] =
+      useState("");
+  
+    useEffect(() => {
+      loadStudents();
+    }, []);
+  
+>   async function loadStudents() {
+      setLoading(true);
+      setError("");
+  
+      const { data, error } = await supabase
+>       .from("students")
+        .select(`
+          id,
+          student_username,
+          password_hash,
+          created_at,
+          student_name,
+          admission_date,
+          date_of_birth,
+          father_name,
+          mother_name,
+          address,
+          student_mobile,
+          father_mobile,
+          mother_mobile,
+          class_name,
+          section,
+          gender,
+          blood_group,
+        setError("Password cannot be empty.");
+        return;
+      }
+  
+      setSaving(true);
+      setError("");
+      setSuccess("");
+  
+      const username = addUsername.trim();
+  
+      const { data: existingStudent, error: checkError } =
+        await supabase
+>         .from("students")
+          .select("id")
+          .eq("student_username", username)
+          .maybeSingle();
+  
+      if (checkError) {
+        console.error(
+          "Username check error:",
+          checkError
+        );
+        setError(checkError.message);
+        setSaving(false);
+        return;
+      }
+  
+      if (existingStudent) {
+        setError(
+          `Username ${username} already exists. Please use another username.`
+        );
+        setSaving(false);
+        return;
+      }
+  
+      const { error: insertError } = await supabase
+>       .from("students")
+        .insert({
+          student_username: username,
+          password_hash: addPassword.trim(),
+          student_name: addName.trim(),
+          admission_date:
+            addAdmissionDate.trim() || null,
+          date_of_birth:
+            addDateOfBirth.trim() || null,
+          father_name:
+            addFatherName.trim() || null,
+          mother_name:
+            addMotherName.trim() || null,
+          student_mobile:
+            addStudentMobile.trim() || null,
+          father_mobile:
+            addFatherMobile.trim() || null,
+          mother_mobile:
+            addMotherMobile.trim() || null,
+        notes:
+          editNotes.trim() || null,
+        profile_image_url:
+          editProfileImageUrl.trim() || null,
+      };
+  
+      if (editPassword.trim()) {
+        updateData.password_hash =
+          editPassword.trim();
+      }
+  
+      const { error } = await supabase
+>       .from("students")
+        .update(updateData)
+        .eq("id", editingStudent.id);
+  
+      if (error) {
+        console.error(
+          "Student update error:",
+          error
+        );
+        setError(error.message);
+        setSaving(false);
+        return;
+      }
+  
+      const updatedName = editName.trim();
+  
+      await loadStudents();
+  
+      setEditingStudent(null);
+
+
+
+
+================ app\teacher\fees\page.tsx ================
+
+
+        );
+  
+      if (
+        uniqueIds.length === 0
+      ) {
+        return existingFees;
+      }
+  
+      const {
+        error: cleanupError,
+      } =
+        await supabase
+>         .from("fees")
+          .delete()
+          .in(
+            "id",
+            uniqueIds
+          );
+  
+      if (cleanupError) {
+        console.error(
+          "Automatic fee cleanup error:",
+          cleanupError
+        );
+  
+        return existingFees;
+      }
+  
+      return existingFees.filter(
+        (fee) =>
+          !uniqueIds.includes(
+      }
+  
+      if (
+        inserts.length === 0
+      ) {
+        return;
+      }
+  
+      const {
+        error: insertError,
+      } =
+        await supabase
+>         .from("fees")
+          .insert(
+            inserts
+          );
+  
+      if (insertError) {
+        console.error(
+          "Automatic fee creation error:",
+          insertError
+        );
+      }
+    }
+  
+>   async function loadData(
+      generateAutomatic = true
+    ) {
+      try {
+        setLoading(true);
+        setError("");
+  
+        /*
+         * Get all students.
+         */
+        const {
+          data: studentsData,
+          error: studentsError,
+        } =
+          await supabase
+>           .from("students")
+            .select("*")
+            .order(
+              "student_name",
+              {
+                ascending: true,
+              }
+            );
+  
+        if (studentsError) {
+          setError(
+            studentsError.message
+          );
+          return;
+        }
+  
+        const studentList =
+          (studentsData ||
+            []) as Student[];
+  
+        /*
+         * Get all fees.
+         */
+        const {
+          data: feesData,
+          error: feesError,
+        } =
+          await supabase
+>           .from("fees")
+            .select("*")
+            .order(
+              "year",
+              {
+                ascending: false,
+              }
+            )
+            .order(
+              "month",
+              {
+                ascending: false,
+              }
+            );
+  
+        if (feesError) {
+          setError(
+            feesError.message
+          );
+            existingFees
+          );
+  
+          /*
+           * Reload final DB state.
+           */
+          const {
+            data: refreshedFees,
+            error:
+              refreshedFeesError,
+          } =
+            await supabase
+>             .from("fees")
+              .select("*")
+              .order(
+                "year",
+                {
+                  ascending: false,
+                }
+              )
+              .order(
+                "month",
+                {
+                  ascending: false,
+                }
+              );
+  
+          if (
+            refreshedFeesError
+          ) {
+            setError(
+        return;
+      }
+  
+      setSaving(true);
+  
+      try {
+        const {
+          data: existingFees,
+          error:
+            existingError,
+        } =
+          await supabase
+>           .from("fees")
+            .select("id")
+            .eq(
+              "student_id",
+              Number(studentId)
+            )
+            .eq(
+              "month",
+              Number(month)
+            )
+            .eq(
+              "year",
+              Number(year)
+            )
+            .order(
+              "id",
+              {
+                ascending:
+                  false,
+          existingFees.length > 0
+            ? existingFees[0]
+            : null;
+  
+        if (
+          existingFee
+        ) {
+          const {
+            error:
+              updateError,
+          } =
+            await supabase
+>             .from("fees")
+              .update(
+                feeData
+              )
+              .eq(
+                "id",
+                existingFee.id
+              );
+  
+          if (
+            updateError
+          ) {
+            setError(
+              updateError.message
+            );
+            return;
+          }
+  
+          setMessage(
+            status ===
+              "SUBMITTED"
+              ? "Cash payment saved successfully. Receipt is ready."
+              : "Fee record updated successfully."
+          );
+        } else {
+          const {
+            error:
+              insertError,
+          } =
+            await supabase
+>             .from("fees")
+              .insert(
+                feeData
+              );
+  
+          if (
+            insertError
+          ) {
+            setError(
+              insertError.message
+            );
+            return;
+          }
+  
+          setMessage(
+            status ===
+              "SUBMITTED"
+              ? "Cash payment saved successfully. Receipt is ready."
+              : "Fee record added successfully."
+          );
+  
+        rememberDeletedAutomaticFee(
+          key
+        );
+      }
+  
+      const {
+        error:
+          deleteError,
+      } =
+        await supabase
+>         .from("fees")
+          .delete()
+          .eq(
+            "id",
+            id
+          );
+  
+      if (
+        deleteError
+      ) {
+        /*
+         * If DB deletion fails,
+         * do not keep the block.
+         */
+        if (
+          isAutomaticFee(
+            feeToDelete
+          )
+        ) {
+
+
+
+
+================ app\teacher\quiz-tests\results\page.tsx ================
+
+
+                duration_minutes,
+                marks_per_question,
+                negative_marks,
+                pass_percentage,
+                is_published,
+                created_at
+              `
+            )
+            .eq("id", activeQuizId)
+            .single(),
+  
+          supabase
+>           .from("quiz_results")
+            .select(
+              `
+                id,
+                quiz_id,
+                student_id,
+                attempt_number,
+                total_questions,
+                correct_answers,
+                wrong_answers,
+                unanswered,
+                total_marks,
+                obtained_marks,
+                percentage,
+                result_status,
+                started_at,
+                submitted_at,
+                submission_type,
+                created_at
+              `
+            )
+            .eq("quiz_id", activeQuizId)
+            .order("created_at", {
+              ascending: true,
+            }),
+  
+          supabase
+>           .from("students")
+            .select(
+              `
+                id,
+                student_name,
+                student_username,
+                class_name
+              `
+            )
+            .order("class_name", {
+              ascending: true,
+            })
+            .order("student_name", {
+              ascending: true,
+            }),
+        ]);
+  
+        if (currentQuizResponse.error) {
+          throw currentQuizResponse.error;
+                    negative_marks,
+                    pass_percentage,
+                    is_published,
+                    created_at
+                  `
+                )
+                .order("scheduled_date", {
+                  ascending: false,
+                  nullsFirst: false,
+                }),
+  
+              supabase
+>               .from("quiz_results")
+                .select(
+                  `
+                    id,
+                    quiz_id,
+                    student_id,
+                    attempt_number,
+                    total_questions,
+                    correct_answers,
+                    wrong_answers,
+                    unanswered,
+                    total_marks,
+                    obtained_marks,
+                    percentage,
+                    result_status,
+                    started_at,
+                    submitted_at,
+                    submission_type,
+                    created_at
+
+
+
+
+================ app\teacher\attendance\page.tsx ================
+
+
+  
+    const [search, setSearch] = useState("");
+    const [month, setMonth] = useState("");
+  
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [message, setMessage] = useState("");
+  
+    useEffect(() => {
+      loadData();
+    }, []);
+  
+>   async function loadData() {
+      setLoading(true);
+      setMessage("");
+  
+      try {
+>       const savedTeacherId = Number(localStorage.getItem("attendance_teacher_id") || "0"); if (!savedTeacherId) { throw new Error("Teacher session not found."); } let assignedStudentIds: number[] = []; if (savedTeacherId !== 1) { const { data: assignedData, 
+error: assignedError } = await supabase.rpc("get_teacher_assigned_student_ids", { p_teacher_id: savedTeacherId }); if (assignedError) throw new Error(assignedError.message); assignedStudentIds = (assignedData || []).map((item: { student_id: number }) => 
+Number(item.student_id)); } let studentQuery = supabase.from("students").select("id, student_name, student_username").order("id", { ascending: true }); if (savedTeacherId !== 1) { if (assignedStudentIds.length === 0) { setStudents([]); setAttendance([]); 
+setLoading(false); return; } studentQuery = studentQuery.in("id", assignedStudentIds); } const { data: studentData, error: studentError } = await studentQuery;
+  
+        if (studentError) {
+          throw new Error(studentError.message);
+        }
+  
+>       let attendanceQuery = supabase.from("attendance").select("id, student_id, attendance_date, status").order("attendance_date", { ascending: false }); if (savedTeacherId !== 1 && assignedStudentIds.length > 0) { attendanceQuery = 
+attendanceQuery.in("student_id", assignedStudentIds); } const { data: attendanceData, error: attendanceError } = await attendanceQuery;
+  
+        if (attendanceError) {
+          throw new Error(attendanceError.message);
+        }
+  
+        setStudents(studentData || []);
+        setAttendance(attendanceData || []);
+      } catch (error) {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Unable to load attendance data."
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+  
+          record.attendance_date === selectedDate
+      );
+    }, [attendance, selectedDate]);
+  
+    function getStatus(studentId: number) {
+      const record = selectedDateRecords.find(
+        (item) => item.student_id === studentId
+      );
+  
+      return record?.status?.toLowerCase() || "";
+    }
+  
+>   async function markAttendance(
+      studentId: number,
+      status: "Present" | "Absent"
+    ) {
+      setSaving(true);
+      setMessage("");
+  
+      try {
+        const existing = attendance.find(
+          (record) =>
+            record.student_id === studentId &&
+            record.attendance_date === selectedDate
+        );
+  
+        if (existing) {
+          const { data, error } = await supabase
+>           .from("attendance")
+            .update({
+              status,
+            })
+            .eq("id", existing.id)
+            .select()
+            .single();
+  
+          if (error) {
+            throw new Error(error.message);
+          }
+  
+          setAttendance((current) =>
+            current.map((item) =>
+              item.id === existing.id ? data : item
+            )
+          );
+        } else {
+          const { data, error } = await supabase
+>           .from("attendance")
+            .insert({
+              student_id: studentId,
+              attendance_date: selectedDate,
+              status,
+            })
+            .select()
+            .single();
+  
+          if (error) {
+            throw new Error(error.message);
+          }
+  
+          setAttendance((current) => [
+            data,
+            ...current,
+          ]);
+        }
+  
+        );
+      } catch (error) {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Unable to save attendance."
+        );
+      } finally {
+        setSaving(false);
+      }
+    }
+  
+>   async function markAll(status: "Present" | "Absent") {
+      if (students.length === 0) {
+        setMessage("No students found.");
+        return;
+      }
+  
+      const confirmed = window.confirm(
+        `Are you sure you want to mark ALL ${students.length} students as ${status} for ${formatDate(
+          selectedDate
+        )}?`
+      );
+  
+      if (!confirmed) {
+        return;
+      }
+  
+      setSaving(true);
+      setMessage("");
+  
+  
+        const updatedRecords: AttendanceRecord[] = [];
+        const insertedRecords: AttendanceRecord[] = [];
+  
+        for (const student of studentsToUpdate) {
+          const existing = existingByStudent.get(
+            student.id
+          );
+  
+          if (!existing) continue;
+  
+          const { data, error } = await supabase
+>           .from("attendance")
+            .update({
+              status,
+            })
+            .eq("id", existing.id)
+            .select()
+            .single();
+  
+          if (error) {
+            throw new Error(
+              `Failed for ${
+                student.student_name ||
+                student.student_username
+              }: ${error.message}`
+            );
+          }
+  
+          updatedRecords.push(data);
+        }
+  
+        if (studentsToInsert.length > 0) {
+          const rows = studentsToInsert.map(
+            (student) => ({
+              student_id: student.id,
+              attendance_date: selectedDate,
+              status,
+            })
+          );
+  
+          const { data, error } = await supabase
+>           .from("attendance")
+            .insert(rows)
+            .select();
+  
+          if (error) {
+            throw new Error(error.message);
+          }
+  
+          insertedRecords.push(
+            ...(data || [])
+          );
+        }
+  
+        const newRecords = [
+          ...updatedRecords,
+          ...insertedRecords,
+        ];
+  
+        setAttendance((current) => {
+        )}?\n\n${dateRecords.length} attendance records will be permanently deleted.`
+      );
+  
+      if (!confirmed) {
+        return;
+      }
+  
+      setSaving(true);
+      setMessage("");
+  
+      try {
+        const { error } = await supabase
+>         .from("attendance")
+          .delete()
+          .eq("attendance_date", selectedDate);
+  
+        if (error) {
+          throw new Error(error.message);
+        }
+  
+        setAttendance((current) =>
+          current.filter(
+            (record) =>
+              record.attendance_date !== selectedDate
+          )
+        );
+  
+        setMessage(
+          ` All attendance for ${formatDate(
+            selectedDate
+          )} deleted successfully.`
+                date:
+                <strong>
+                  {" "}
+                  {formatDate(selectedDate)}
+                </strong>
+              </p>
+            </div>
+  
+            <div style={styles.actionButtons}>
+              <button
+                disabled={saving || students.length === 0}
+                onClick={() =>
+>                 markAll("Present")
+                }
+                style={{
+                  ...styles.bulkPresentButton,
+                  opacity:
+                    saving || students.length === 0
+                      ? 0.6
+                      : 1,
+                }}
+              >
+                 Mark All Present
+              </button>
+  
+              <button
+                disabled={saving || students.length === 0}
+                onClick={() =>
+>                 markAll("Absent")
+                }
+                style={{
+                  ...styles.bulkAbsentButton,
+                  opacity:
+                    saving || students.length === 0
+                      ? 0.6
+                      : 1,
+                }}
+              >
+                 Mark All Absent
+              </button>
+  
+              <button
+                disabled={
+                  saving ||
+                  selectedDateRecords.length === 0
+                }
+                onClick={deleteAttendance}
+                              "present"
+                                ? " PRESENT"
+                                : " ABSENT"}
+                            </div>
+                          )}
+  
+                          <div
+                            style={styles.buttons}
+                          >
+                            <button
+                              disabled={saving}
+                              onClick={() =>
+>                               markAttendance(
+                                  student.id,
+                                  "Present"
+                                )
+                              }
+                              style={{
+                                ...styles.presentButton,
+                                background:
+                                  status ===
+                                  "present"
+                                    ? "#15803d"
+                                    : "#ffffff",
+                                color:
+                                  status ===
+                                  "present"
+                                    ? "#ffffff"
+                                    : "#15803d",
+                                border:
+                                  "2px solid #15803d",
+                              }}
+                            >
+                               Present
+                            </button>
+  
+                            <button
+                              disabled={saving}
+                              onClick={() =>
+>                               markAttendance(
+                                  student.id,
+                                  "Absent"
+                                )
+                              }
+                              style={{
+                                ...styles.absentButton,
+                                background:
+                                  status ===
+                                  "absent"
+                                    ? "#b91c1c"
+                                    : "#ffffff",
+                                color:
+                                  status ===
+                                  "absent"
+                                    ? "#ffffff"
+                                    : "#b91c1c",
+                                border:
+                                  "2px solid #b91c1c",
+
+
+
