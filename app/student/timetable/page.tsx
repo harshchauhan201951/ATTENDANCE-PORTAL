@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -147,33 +147,31 @@ export default function StudentTimetablePage() {
 
       const { data, error: timetableError } = await supabase
         .from("timetables")
-        .select(
-          "id, teacher_id, teacher_name, class_names, day_of_week, subject, start_time, end_time, is_holiday"
-        )
-        .contains("class_names", [studentClass]);
+        .select("id, teacher_id, teacher_name, class_names, day_of_week, subject, start_time, end_time, is_holiday");
 
       if (timetableError) {
         throw timetableError;
       }
 
-      const rows = ((data || []) as TimetableRow[]).sort(
-        (a, b) => {
-          const dayDifference =
-            (DAY_ORDER[a.day_of_week] || 99) -
-            (DAY_ORDER[b.day_of_week] || 99);
+      const normalizedStudentClass = studentClass.trim().toLowerCase();
 
-          if (dayDifference !== 0) {
-            return dayDifference;
-          }
-
-          if (a.is_holiday && !b.is_holiday) return -1;
-          if (!a.is_holiday && b.is_holiday) return 1;
-
-          return (a.start_time || "").localeCompare(
-            b.start_time || ""
-          );
-        }
+      const matchedTimetables = ((data || []) as TimetableRow[]).filter((item) =>
+        Array.isArray(item.class_names) &&
+        item.class_names.some((className) =>
+          String(className).trim().toLowerCase() === normalizedStudentClass
+        )
       );
+
+      const rows = matchedTimetables.sort((a, b) => {
+        const dayDifference =
+          (DAY_ORDER[a.day_of_week] || 99) -
+          (DAY_ORDER[b.day_of_week] || 99);
+
+        if (dayDifference !== 0) return dayDifference;
+        if (a.is_holiday && !b.is_holiday) return -1;
+        if (!a.is_holiday && b.is_holiday) return 1;
+        return (a.start_time || "").localeCompare(b.start_time || "");
+      });
 
       setTimetables(rows);
     } catch (err: any) {
@@ -234,7 +232,7 @@ export default function StudentTimetablePage() {
     return (
       <main style={styles.page}>
         <div style={styles.loadingCard}>
-          <div style={styles.loadingIcon}>🗓️</div>
+          <div style={styles.loadingIcon}></div>
 
           <h2 style={styles.loadingTitle}>
             Loading Timetable...
@@ -255,7 +253,7 @@ export default function StudentTimetablePage() {
           <div>
             <div style={styles.badge}>RACER ACADEMY</div>
 
-            <h1 style={styles.title}>🗓️ My Timetable</h1>
+            <h1 style={styles.title}> My Timetable</h1>
 
             <p style={styles.subtitle}>
               View your class-wise daily timetable and teacher schedule.
@@ -269,7 +267,7 @@ export default function StudentTimetablePage() {
               disabled={refreshing}
               style={styles.refreshButton}
             >
-              {refreshing ? "Refreshing..." : "↻ Refresh"}
+              {refreshing ? "Refreshing..." : " Refresh"}
             </button>
 
             <button
@@ -277,7 +275,7 @@ export default function StudentTimetablePage() {
               onClick={() => router.back()}
               style={styles.secondaryButton}
             >
-              ← Back
+               Back
             </button>
 
             <button
@@ -299,7 +297,7 @@ export default function StudentTimetablePage() {
         </header>
 
         <section style={styles.studentCard}>
-          <div style={styles.studentIcon}>👨‍🎓</div>
+          <div style={styles.studentIcon}></div>
 
           <div style={styles.studentInfo}>
             <div style={styles.studentLabel}>STUDENT</div>
@@ -345,121 +343,62 @@ export default function StudentTimetablePage() {
               </div>
             </div>
 
-            <div style={styles.daysGrid}>
-              {DAYS.map((day) => {
-                const classes = timetableByDay[day] || [];
-                const holidayEntry = classes.find(
-                  (item) => item.is_holiday
-                );
-                const normalClasses = classes.filter(
-                  (item) => !item.is_holiday
-                );
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: "10px", width: "100%" }}>
+  {(() => {
+    const teacherGroups = new Map<string, TimetableRow[]>();
 
-                return (
-                  <div key={day} style={styles.dayCard}>
-                    <div style={styles.dayHeader}>
-                      <h3 style={styles.dayTitle}>{day}</h3>
+    DAYS.forEach((day) => {
+      const dayItems = timetableByDay[day] || [];
+      dayItems.forEach((item) => {
+        if (item.is_holiday) return;
+        const teacher = item.teacher_name || "Teacher";
+        if (!teacherGroups.has(teacher)) teacherGroups.set(teacher, []);
+        teacherGroups.get(teacher)!.push(item);
+      });
+    });
 
-                      {holidayEntry ? (
-                        <span style={styles.holidayBadge}>
-                          Holiday
-                        </span>
-                      ) : (
-                        <span style={styles.classCount}>
-                          {normalClasses.length}{" "}
-                          {normalClasses.length === 1
-                            ? "Class"
-                            : "Classes"}
-                        </span>
-                      )}
-                    </div>
+    return Array.from(teacherGroups.entries()).map(([teacher, items]) => (
+      <div key={teacher} style={styles.teacherTimetableBox}>
+        <div style={styles.teacherTimetableTitle}>
+          TIMETABLE ASSIGNED BY : {teacher}
+        </div>
 
-                    <div style={styles.dayContent}>
-                      {holidayEntry ? (
-                        <div style={styles.holidayBox}>
-                          <div style={styles.holidayIcon}>🏖️</div>
+        {DAYS.map((day) => {
+          const dayItems = items.filter((item) => item.day_of_week === day);
+          const holiday = (timetableByDay[day] || []).some((item) => item.is_holiday);
 
-                          <div style={styles.holidayTitle}>
-                            Holiday
-                          </div>
+          if (holiday) {
+            return (
+              <div key={`${teacher}-${day}`} style={styles.teacherDayRow}>
+                <span style={styles.teacherDayLabel}>{day.toUpperCase()}</span>
+                <span style={styles.teacherDayValue}>HOLIDAY</span>
+              </div>
+            );
+          }
 
-                          <div style={styles.holidayText}>
-                            No classes scheduled for this day.
-                          </div>
-                        </div>
-                      ) : normalClasses.length === 0 ? (
-                        <div style={styles.emptyDay}>
-                          <div style={styles.emptyIcon}>📭</div>
-
-                          <div style={styles.emptyTitle}>
-                            No classes scheduled
-                          </div>
-
-                          <div style={styles.emptyText}>
-                            No timetable entry for this day.
-                          </div>
-                        </div>
-                      ) : (
-                        normalClasses.map((item) => (
-                          <div
-                            key={item.id}
-                            style={styles.classItem}
-                          >
-                            <div style={styles.timeBox}>
-                              <div style={styles.timeLabel}>
-                                TIME
-                              </div>
-
-                              <div style={styles.timeText}>
-                                {formatTime(item.start_time)}
-                              </div>
-
-                              <div style={styles.toText}>
-                                to
-                              </div>
-
-                              <div style={styles.timeText}>
-                                {formatTime(item.end_time)}
-                              </div>
-                            </div>
-
-                            <div style={styles.classDetails}>
-                              <div style={styles.subjectLabel}>
-                                SUBJECT
-                              </div>
-
-                              <div style={styles.subject}>
-                                {item.subject || "Subject"}
-                              </div>
-
-                              <div style={styles.teacherRow}>
-                                <span style={styles.teacherIcon}>
-                                  👨‍🏫
-                                </span>
-
-                                <div>
-                                  <div style={styles.teacherLabel}>
-                                    TEACHER
-                                  </div>
-
-                                  <div style={styles.teacherName}>
-                                    {item.teacher_name || "Teacher"}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+          return dayItems.map((item) => (
+            <div key={item.id} style={styles.teacherScheduleItem}>
+              <div style={styles.teacherDayRow}>
+                <span style={styles.teacherDayLabel}>{day.toUpperCase()}</span>
+                <span style={styles.teacherDayValue}>
+                  {formatTime(item.start_time)} <span style={styles.scheduleArrow}>→</span> {formatTime(item.end_time)}
+                </span>
+              </div>
+              <div style={styles.teacherDayRow}>
+                <span style={styles.teacherDayLabel}>SUBJECT</span>
+                <span style={styles.teacherDayValue}>{item.subject || "Subject"}</span>
+              </div>
             </div>
+          ));
+        })}
+      </div>
+    ));
+  })()}
+</div>
 
             {timetables.length === 0 && (
               <div style={styles.noTimetableBox}>
-                <div style={styles.noTimetableIcon}>🗓️</div>
+                <div style={styles.noTimetableIcon}></div>
 
                 <h3 style={styles.noTimetableTitle}>
                   No Timetable Available
@@ -477,7 +416,7 @@ export default function StudentTimetablePage() {
           <div>RACER ACADEMY</div>
 
           <div style={styles.footerText}>
-            Student Timetable • Monday to Sunday
+            Student Timetable - Monday to Sunday
           </div>
         </footer>
       </div>
@@ -703,11 +642,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "10px",
   },
 
-  dayTitle: {
-    margin: 0,
-    fontSize: "17px",
-    fontWeight: 800,
-  },
+  dayTitle: { margin: 0, fontSize: "14px", fontWeight: 850, whiteSpace: "nowrap", flexShrink: 0 },
 
   classCount: {
     background: "#ffffff",
@@ -735,87 +670,11 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "12px",
   },
 
-  classItem: {
-    display: "grid",
-    gridTemplateColumns: "125px minmax(0, 1fr)",
-    gap: "12px",
-    background: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: "13px",
-    padding: "13px",
-    marginBottom: "10px",
-  },
-
-  timeBox: {
-    background: "#f1f5f9",
-    borderRadius: "10px",
-    padding: "10px",
-    textAlign: "center",
-  },
-
-  timeLabel: {
-    color: "#64748b",
-    fontSize: "9px",
-    fontWeight: 800,
-    letterSpacing: "0.8px",
-    marginBottom: "4px",
-  },
-
-  timeText: {
-    fontSize: "14px",
-    fontWeight: 800,
-    color: "#0f172a",
-  },
-
-  toText: {
-    color: "#94a3b8",
-    fontSize: "10px",
-    margin: "2px 0",
-  },
-
-  classDetails: {
-    minWidth: 0,
-  },
-
-  subjectLabel: {
-    color: "#64748b",
-    fontSize: "9px",
-    fontWeight: 800,
-    letterSpacing: "0.8px",
-  },
-
-  subject: {
-    fontSize: "18px",
-    fontWeight: 800,
-    marginTop: "3px",
-    wordBreak: "break-word",
-  },
-
-  teacherRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    marginTop: "10px",
-  },
-
-  teacherIcon: {
-    fontSize: "20px",
-  },
-
-  teacherLabel: {
-    color: "#64748b",
-    fontSize: "8px",
-    fontWeight: 800,
-    letterSpacing: "0.7px",
-  },
-
-  teacherName: {
-    color: "#334155",
-    fontSize: "13px",
-    fontWeight: 700,
-    marginTop: "2px",
-    wordBreak: "break-word",
-  },
+  classItem: { background: "#fff", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "5px 8px", marginBottom: "5px", minWidth: 0 },
+  infoRow: { display: "grid", gridTemplateColumns: "132px minmax(0,1fr)", alignItems: "center", gap: "5px", minWidth: 0, padding: "2px 0", lineHeight: "1.15" },
+  rowLabel: { color: "#64748b", fontSize: "8px", fontWeight: 800, letterSpacing: "0.25px", whiteSpace: "nowrap" },
+  rowValue: { color: "#0f172a", fontSize: "11px", fontWeight: 700, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
+  arrow: { color: "#2563eb", fontWeight: 900, margin: "0 2px" },
 
   holidayBox: {
     textAlign: "center",
@@ -830,11 +689,7 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: "7px",
   },
 
-  holidayTitle: {
-    fontSize: "17px",
-    fontWeight: 800,
-    color: "#c2410c",
-  },
+  holidayTitle: { margin: 0, fontSize: "14px", fontWeight: 850, whiteSpace: "nowrap", flexShrink: 0 },
 
   holidayText: {
     marginTop: "5px",
@@ -862,6 +717,58 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: "4px",
     color: "#94a3b8",
     fontSize: "11px",
+  },  teacherTimetableBox: {
+    background: "#ffffff",
+    border: "1px solid #dbe3ee",
+    borderRadius: "10px",
+    padding: "8px 10px",
+    width: "100%",
+    boxSizing: "border-box",
+    overflow: "hidden",
+  },
+  teacherTimetableTitle: {
+    fontSize: "10px",
+    fontWeight: 850,
+    color: "#2563eb",
+    letterSpacing: "0.3px",
+    paddingBottom: "6px",
+    marginBottom: "3px",
+    borderBottom: "1px solid #e5e7eb",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+  teacherScheduleItem: {
+    padding: "4px 0",
+    borderBottom: "1px solid #f1f5f9",
+  },
+  teacherDayRow: {
+    display: "grid",
+    gridTemplateColumns: "72px minmax(0,1fr)",
+    gap: "5px",
+    alignItems: "center",
+    lineHeight: "1.15",
+    padding: "2px 0",
+  },
+  teacherDayLabel: {
+    fontSize: "9px",
+    fontWeight: 850,
+    color: "#64748b",
+    whiteSpace: "nowrap",
+  },
+  teacherDayValue: {
+    fontSize: "11px",
+    fontWeight: 700,
+    color: "#0f172a",
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  scheduleArrow: {
+    color: "#2563eb",
+    fontWeight: 900,
+    margin: "0 2px",
   },
 
   noTimetableBox: {
@@ -928,3 +835,11 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "11px",
   },
 };
+
+
+
+
+
+
+
+
