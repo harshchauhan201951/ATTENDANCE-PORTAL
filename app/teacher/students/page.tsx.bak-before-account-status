@@ -33,7 +33,6 @@ type Student = {
   mother_phone: string | null;
   city: string | null;
   profile_image_url: string | null;
-  is_active: boolean;
 };
 
 export default function TeacherStudentsPage() {
@@ -54,8 +53,6 @@ export default function TeacherStudentsPage() {
   const [deletingId, setDeletingId] = useState<number | null>(
     null
   );
-
-  const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
 
   const [editName, setEditName] = useState("");
   const [editUsername, setEditUsername] = useState("");
@@ -170,8 +167,7 @@ export default function TeacherStudentsPage() {
         father_phone,
         mother_phone,
         city,
-        profile_image_url,
-        is_active
+        profile_image_url
       `).order("id", { ascending: true });
 
       if (savedTeacherId !== 1) {
@@ -617,39 +613,6 @@ export default function TeacherStudentsPage() {
     }, 4000);
   }
 
-  async function toggleStudentStatus(student: Student) {
-    setError("");
-    setSuccess("");
-    const teacherId = Number(localStorage.getItem("attendance_teacher_id") || "0");
-    if (!Number.isInteger(teacherId) || teacherId <= 0) {
-      setError("Teacher session not found. Please login again.");
-      return;
-    }
-    try {
-      if (teacherId !== 1) {
-        const { data: assignedData, error: assignedError } = await supabase.rpc("get_teacher_assigned_student_ids", { p_teacher_id: teacherId });
-        if (assignedError) throw new Error(assignedError.message);
-        const assigned = (assignedData || []).some((row: { student_id: number }) => Number(row.student_id) === Number(student.id));
-        if (!assigned) { setError("You can only change status for students assigned to you."); return; }
-      }
-      setStatusUpdatingId(student.id);
-      const nextStatus = !Boolean(student.is_active);
-      const response = await fetch("/api/teacher/students/status", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ teacherId, studentId: student.id, isActive: nextStatus }),
-      });
-      const result = await response.json();
-      if (!response.ok || !result?.success) throw new Error(result?.error || "Unable to update account status.");
-      setStudents((current) => current.map((item) => item.id === student.id ? { ...item, is_active: nextStatus } : item));
-      setSuccess(`${student.student_name || "Student"} account ${nextStatus ? "activated" : "deactivated"} successfully.`);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Unable to update account status.");
-    } finally {
-      setStatusUpdatingId(null);
-    }
-  }
-
   async function deleteStudent(student: Student) {
     const studentName =
       student.student_name ||
@@ -754,7 +717,9 @@ export default function TeacherStudentsPage() {
           style={styles.header}
         >
           <div style={styles.headerLeft}>
-            <div style={styles.iconBox}></div>
+            <div style={styles.iconBox}>
+              ðŸ‘¨â€ðŸŽ“
+            </div>
 
             <div style={styles.headerText}>
               <h1 style={styles.title}>
@@ -780,7 +745,7 @@ export default function TeacherStudentsPage() {
                 styles.dashboardButton
               }
             >
-               Teacher Dashboard
+              â† Teacher Dashboard
             </button>
 
             <button
@@ -794,7 +759,7 @@ export default function TeacherStudentsPage() {
                 styles.settingsButton
               }
             >
-              Settings
+              âš™ï¸ Settings
             </button>
 
             <button
@@ -802,26 +767,26 @@ export default function TeacherStudentsPage() {
               onClick={logout}
               style={styles.logoutButton}
             >
-              Logout
+              ðŸšª Logout
             </button>
           </div>
         </header>
 
         {error && (
           <div style={styles.error}>
-             {error}
+            âŒ {error}
           </div>
         )}
 
         {success && (
           <div style={styles.success}>
-            {success}
+            âœ… {success}
           </div>
         )}
 
         <section style={styles.summaryCard}>
           <div style={styles.summaryIcon}>
-            
+            ðŸ‘¨â€ðŸŽ“
           </div>
 
           <div style={styles.summaryText}>
@@ -840,7 +805,9 @@ export default function TeacherStudentsPage() {
             className="students-card-header"
             style={styles.cardHeader}
           >
-            <div style={styles.cardIcon}></div>
+            <div style={styles.cardIcon}>
+              ðŸ‘¥
+            </div>
 
             <div style={styles.cardHeaderText}>
               <h2 style={styles.sectionTitle}>
@@ -862,20 +829,20 @@ export default function TeacherStudentsPage() {
               onClick={openAddStudent}
               style={styles.addButton}
             >
-              Add Students
+              âž• Add Students
             </button>
           </div>
 
           {loading ? (
             <div style={styles.loading}>
-              Loading students...
+              â³ Loading students...
             </div>
           ) : students.length === 0 ? (
             <div style={styles.empty}>
               <div
                 style={styles.emptyIcon}
               >
-                
+                ðŸ‘¨â€ðŸŽ“
               </div>
 
               <h3
@@ -896,7 +863,7 @@ export default function TeacherStudentsPage() {
                 onClick={openAddStudent}
                 style={styles.emptyAddButton}
               >
-                Add First Student
+                âž• Add First Student
               </button>
             </div>
           ) : (
@@ -923,9 +890,6 @@ export default function TeacherStudentsPage() {
                       Admission Date
                     </th>
 
-                    <th style={styles.th}>
-                      Account Status
-                    </th>
                     <th style={styles.th}>
                       Actions
                     </th>
@@ -991,17 +955,6 @@ export default function TeacherStudentsPage() {
                         </td>
 
                         <td
-                          style={styles.td}
-                        >
-                          <div style={{ display: "flex", flexDirection: "column", gap: "6px", alignItems: "center" }}>
-                            <span style={{ padding: "4px 8px", borderRadius: "999px", fontSize: "10px", fontWeight: 800, background: student.is_active ? "#dcfce7" : "#fee2e2", color: student.is_active ? "#166534" : "#991b1b" }}>
-                              {student.is_active ? "ACTIVE" : "INACTIVE"}
-                            </span>
-                            <button type="button" onClick={() => toggleStudentStatus(student)} disabled={statusUpdatingId === student.id} style={{ border: 0, borderRadius: "7px", padding: "5px 8px", fontSize: "9px", fontWeight: 800, cursor: statusUpdatingId === student.id ? "not-allowed" : "pointer", opacity: statusUpdatingId === student.id ? 0.6 : 1, background: student.is_active ? "#fee2e2" : "#dcfce7", color: student.is_active ? "#991b1b" : "#166534" }}>{statusUpdatingId === student.id ? "Saving..." : student.is_active ? "DEACTIVATE" : "ACTIVATE"}</button>
-                          </div>
-                        </td>
-
-                        <td
                           style={
                             styles.td
                           }
@@ -1022,7 +975,7 @@ export default function TeacherStudentsPage() {
                                 styles.editButton
                               }
                             >
-                              Edit
+                              âœï¸ Edit
                             </button>
 
                             <button
@@ -1048,7 +1001,7 @@ export default function TeacherStudentsPage() {
                               {deletingId ===
                               student.id
                                 ? "Deleting..."
-                                : "Delete"}
+                                : "ðŸ—‘ï¸ Delete"}
                             </button>
                           </div>
                         </td>
@@ -1087,7 +1040,7 @@ export default function TeacherStudentsPage() {
                       styles.modalTitle
                     }
                   >
-                    Add Student
+                    âž• Add Student
                   </h2>
 
                   <p
@@ -1111,7 +1064,7 @@ export default function TeacherStudentsPage() {
                     styles.closeButton
                   }
                 >
-                  
+                  âœ•
                 </button>
               </div>
 
@@ -1131,7 +1084,7 @@ export default function TeacherStudentsPage() {
                   >
                     <div>
                       <strong>
-                        Login ID
+                        ðŸ†” Login ID
                       </strong>
 
                       <span>
@@ -1156,7 +1109,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                       Account Details
+                      ðŸ” Account Details
                     </h3>
 
                     <div
@@ -1237,7 +1190,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                       Basic Details
+                      ðŸ‘¤ Basic Details
                     </h3>
 
                     <div
@@ -1389,7 +1342,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      Parent Details
+                      ðŸ‘¨â€ðŸ‘©â€ðŸ‘§ Parent Details
                     </h3>
 
                     <div
@@ -1583,7 +1536,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      Contact Details
+                      ðŸ“± Contact Details
                     </h3>
 
                     <div
@@ -1661,7 +1614,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      Academic Details
+                      ðŸŽ“ Academic Details
                     </h3>
 
                     <div
@@ -1804,7 +1757,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      Address Details
+                      ðŸ“ Address Details
                     </h3>
 
                     <div
@@ -1883,7 +1836,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                       Other Information
+                      ðŸ“ Other Information
                     </h3>
 
                     <div
@@ -1976,8 +1929,8 @@ export default function TeacherStudentsPage() {
                     }}
                   >
                     {saving
-                      ? " Adding..."
-                      : " Add Student & Create Login"}
+                      ? "â³ Adding..."
+                      : "âž• Add Student & Create Login"}
                   </button>
                 </div>
               </form>
@@ -2011,7 +1964,7 @@ export default function TeacherStudentsPage() {
                       styles.modalTitle
                     }
                   >
-                    Edit Student Profile
+                    âœï¸ Edit Student Profile
                   </h2>
 
                   <p
@@ -2032,7 +1985,7 @@ export default function TeacherStudentsPage() {
                     styles.closeButton
                   }
                 >
-                  
+                  âœ•
                 </button>
               </div>
 
@@ -2055,7 +2008,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                       Account Details
+                      ðŸ” Account Details
                     </h3>
 
                     <div
@@ -2144,7 +2097,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                       Basic Details
+                      ðŸ‘¤ Basic Details
                     </h3>
 
                     <div
@@ -2296,7 +2249,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      Parent Details
+                      ðŸ‘¨â€ðŸ‘©â€ðŸ‘§ Parent Details
                     </h3>
 
                     <div
@@ -2490,7 +2443,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      Contact Details
+                      ðŸ“± Contact Details
                     </h3>
 
                     <div
@@ -2568,7 +2521,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      Academic Details
+                      ðŸŽ“ Academic Details
                     </h3>
 
                     <div
@@ -2711,7 +2664,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      Address Details
+                      ðŸ“ Address Details
                     </h3>
 
                     <div
@@ -2790,7 +2743,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                       Other Information
+                      ðŸ“ Other Information
                     </h3>
 
                     <div
@@ -2883,8 +2836,8 @@ export default function TeacherStudentsPage() {
                     }}
                   >
                     {saving
-                      ? " Saving..."
-                      : "Save Complete Profile"}
+                      ? "â³ Saving..."
+                      : "ðŸ’¾ Save Complete Profile"}
                   </button>
                 </div>
               </form>
@@ -2898,7 +2851,7 @@ export default function TeacherStudentsPage() {
           </strong>
 
           <span>
-            Students Management - 2026
+            Students Management â€¢ 2026
           </span>
         </footer>
       </div>
@@ -4281,11 +4234,4 @@ const styles: {
     whiteSpace: "normal",
   },
 };
-
-
-
-
-
-
-
 

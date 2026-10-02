@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -57,7 +57,7 @@ export default function AttendanceHistoryPage() {
         assignedStudentIds = (assignedData || []).map((item: { student_id: number }) => Number(item.student_id));
       }
 
-      let studentQuery = supabase.from("students").select("id, student_name, student_username, is_active").eq("is_active", true).order("id", { ascending: true });
+      let studentQuery = supabase.from("students").select("id, student_name, student_username").order("id", { ascending: true });
       if (savedTeacherId !== 1) {
         if (assignedStudentIds.length === 0) { setStudents([]); setRecords([]); setLoading(false); return; }
         studentQuery = studentQuery.in("id", assignedStudentIds);
@@ -70,7 +70,7 @@ export default function AttendanceHistoryPage() {
       if (studentsResult.error) throw new Error(studentsResult.error.message);
       if (attendanceResult.error) throw new Error(attendanceResult.error.message);
       setStudents(studentsResult.data || []);
-      const activeStudentIds = new Set((studentsResult.data || []).map((student) => Number(student.id))); setRecords((attendanceResult.data || []).filter((record) => activeStudentIds.has(Number(record.student_id))));
+      setRecords(attendanceResult.data || []);
     } catch (error) {
       console.error("Load attendance history error:", error);
       setErrorMessage(error instanceof Error ? error.message : "Failed to load attendance history.");
@@ -1262,7 +1262,6 @@ const styles: {
     fontWeight: "700",
   },
 };
-
 
 
 

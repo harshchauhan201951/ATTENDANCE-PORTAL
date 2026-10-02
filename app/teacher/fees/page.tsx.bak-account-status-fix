@@ -1122,7 +1122,7 @@ export default function TeacherFeesPage() {
         assignedStudentIds = (assignedData || []).map((item: { student_id: number }) => Number(item.student_id));
       }
 
-      let studentsQuery = supabase.from("students").select("*").eq("is_active", true).order("student_name", { ascending: true });
+      let studentsQuery = supabase.from("students").select("*").order("student_name", { ascending: true });
       if (savedTeacherId !== 1) {
         if (assignedStudentIds.length === 0) {
           setStudents([]);
@@ -3554,7 +3554,6 @@ const styles: Record<
       700,
   },
 };
-
 
 
 

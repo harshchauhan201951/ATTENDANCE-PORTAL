@@ -754,7 +754,9 @@ export default function TeacherStudentsPage() {
           style={styles.header}
         >
           <div style={styles.headerLeft}>
-            <div style={styles.iconBox}></div>
+            <div style={styles.iconBox}>
+              ðŸ‘¨â€ðŸŽ“
+            </div>
 
             <div style={styles.headerText}>
               <h1 style={styles.title}>
@@ -780,7 +782,7 @@ export default function TeacherStudentsPage() {
                 styles.dashboardButton
               }
             >
-               Teacher Dashboard
+              â† Teacher Dashboard
             </button>
 
             <button
@@ -794,7 +796,7 @@ export default function TeacherStudentsPage() {
                 styles.settingsButton
               }
             >
-              Settings
+              âš™ï¸ Settings
             </button>
 
             <button
@@ -802,26 +804,26 @@ export default function TeacherStudentsPage() {
               onClick={logout}
               style={styles.logoutButton}
             >
-              Logout
+              ðŸšª Logout
             </button>
           </div>
         </header>
 
         {error && (
           <div style={styles.error}>
-             {error}
+            âŒ {error}
           </div>
         )}
 
         {success && (
           <div style={styles.success}>
-            {success}
+            âœ… {success}
           </div>
         )}
 
         <section style={styles.summaryCard}>
           <div style={styles.summaryIcon}>
-            
+            ðŸ‘¨â€ðŸŽ“
           </div>
 
           <div style={styles.summaryText}>
@@ -840,7 +842,9 @@ export default function TeacherStudentsPage() {
             className="students-card-header"
             style={styles.cardHeader}
           >
-            <div style={styles.cardIcon}></div>
+            <div style={styles.cardIcon}>
+              ðŸ‘¥
+            </div>
 
             <div style={styles.cardHeaderText}>
               <h2 style={styles.sectionTitle}>
@@ -862,20 +866,20 @@ export default function TeacherStudentsPage() {
               onClick={openAddStudent}
               style={styles.addButton}
             >
-              Add Students
+              âž• Add Students
             </button>
           </div>
 
           {loading ? (
             <div style={styles.loading}>
-              Loading students...
+              â³ Loading students...
             </div>
           ) : students.length === 0 ? (
             <div style={styles.empty}>
               <div
                 style={styles.emptyIcon}
               >
-                
+                ðŸ‘¨â€ðŸŽ“
               </div>
 
               <h3
@@ -896,7 +900,7 @@ export default function TeacherStudentsPage() {
                 onClick={openAddStudent}
                 style={styles.emptyAddButton}
               >
-                Add First Student
+                âž• Add First Student
               </button>
             </div>
           ) : (
@@ -1022,7 +1026,7 @@ export default function TeacherStudentsPage() {
                                 styles.editButton
                               }
                             >
-                              Edit
+                              âœï¸ Edit
                             </button>
 
                             <button
@@ -1048,7 +1052,7 @@ export default function TeacherStudentsPage() {
                               {deletingId ===
                               student.id
                                 ? "Deleting..."
-                                : "Delete"}
+                                : "ðŸ—‘ï¸ Delete"}
                             </button>
                           </div>
                         </td>
@@ -1087,7 +1091,7 @@ export default function TeacherStudentsPage() {
                       styles.modalTitle
                     }
                   >
-                    Add Student
+                    âž• Add Student
                   </h2>
 
                   <p
@@ -1111,7 +1115,7 @@ export default function TeacherStudentsPage() {
                     styles.closeButton
                   }
                 >
-                  
+                  âœ•
                 </button>
               </div>
 
@@ -1131,7 +1135,7 @@ export default function TeacherStudentsPage() {
                   >
                     <div>
                       <strong>
-                        Login ID
+                        ðŸ†” Login ID
                       </strong>
 
                       <span>
@@ -1156,7 +1160,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                       Account Details
+                      ðŸ” Account Details
                     </h3>
 
                     <div
@@ -1237,7 +1241,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                       Basic Details
+                      ðŸ‘¤ Basic Details
                     </h3>
 
                     <div
@@ -1389,7 +1393,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      Parent Details
+                      ðŸ‘¨â€ðŸ‘©â€ðŸ‘§ Parent Details
                     </h3>
 
                     <div
@@ -1583,7 +1587,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      Contact Details
+                      ðŸ“± Contact Details
                     </h3>
 
                     <div
@@ -1661,7 +1665,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      Academic Details
+                      ðŸŽ“ Academic Details
                     </h3>
 
                     <div
@@ -1804,7 +1808,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      Address Details
+                      ðŸ“ Address Details
                     </h3>
 
                     <div
@@ -1883,7 +1887,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                       Other Information
+                      ðŸ“ Other Information
                     </h3>
 
                     <div
@@ -1976,8 +1980,8 @@ export default function TeacherStudentsPage() {
                     }}
                   >
                     {saving
-                      ? " Adding..."
-                      : " Add Student & Create Login"}
+                      ? "â³ Adding..."
+                      : "âž• Add Student & Create Login"}
                   </button>
                 </div>
               </form>
@@ -2011,7 +2015,7 @@ export default function TeacherStudentsPage() {
                       styles.modalTitle
                     }
                   >
-                    Edit Student Profile
+                    âœï¸ Edit Student Profile
                   </h2>
 
                   <p
@@ -2032,7 +2036,7 @@ export default function TeacherStudentsPage() {
                     styles.closeButton
                   }
                 >
-                  
+                  âœ•
                 </button>
               </div>
 
@@ -2055,7 +2059,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                       Account Details
+                      ðŸ” Account Details
                     </h3>
 
                     <div
@@ -2144,7 +2148,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                       Basic Details
+                      ðŸ‘¤ Basic Details
                     </h3>
 
                     <div
@@ -2296,7 +2300,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      Parent Details
+                      ðŸ‘¨â€ðŸ‘©â€ðŸ‘§ Parent Details
                     </h3>
 
                     <div
@@ -2490,7 +2494,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      Contact Details
+                      ðŸ“± Contact Details
                     </h3>
 
                     <div
@@ -2568,7 +2572,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      Academic Details
+                      ðŸŽ“ Academic Details
                     </h3>
 
                     <div
@@ -2711,7 +2715,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                      Address Details
+                      ðŸ“ Address Details
                     </h3>
 
                     <div
@@ -2790,7 +2794,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                       Other Information
+                      ðŸ“ Other Information
                     </h3>
 
                     <div
@@ -2883,8 +2887,8 @@ export default function TeacherStudentsPage() {
                     }}
                   >
                     {saving
-                      ? " Saving..."
-                      : "Save Complete Profile"}
+                      ? "â³ Saving..."
+                      : "ðŸ’¾ Save Complete Profile"}
                   </button>
                 </div>
               </form>
@@ -2898,7 +2902,7 @@ export default function TeacherStudentsPage() {
           </strong>
 
           <span>
-            Students Management - 2026
+            Students Management â€¢ 2026
           </span>
         </footer>
       </div>
@@ -4281,9 +4285,6 @@ const styles: {
     whiteSpace: "normal",
   },
 };
-
-
-
 
 
 

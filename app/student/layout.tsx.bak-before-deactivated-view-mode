@@ -15,7 +15,6 @@ const items = [
 
 export default function StudentLayout({ children }: { children: ReactNode }) {
   const [studentAccountChecking, setStudentAccountChecking] = useState(true);
-  const [studentAccountActive, setStudentAccountActive] = useState(true);
   const [headerName, setHeaderName] = useState("Student");
   const [headerTime, setHeaderTime] = useState(""); const [profileImage, setProfileImage] = useState<string | null>(null);
 
@@ -50,15 +49,17 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
           }
           query = query.eq("id", numericId);
         }
-        const { data } = await query.maybeSingle();
-        const active = data ? data.is_active !== false : true;
-        if (!cancelled) {
-          setStudentAccountActive(active);
-          localStorage.setItem("studentAccountActive", String(active));
+        const { data, error } = await query.maybeSingle();
+        if (!error && data && data.is_active !== false) {
+          if (!cancelled) setStudentAccountChecking(false);
+          return;
         }
+        ["student_username","studentUsername","studentLoggedIn","attendance_student_id","studentId","student_id","attendance_student_name","studentName","student_name"].forEach((key) => {
+          localStorage.removeItem(key);
+          sessionStorage.removeItem(key);
+        });
+        if (!cancelled) window.location.replace("/");
       } catch {
-        if (!cancelled) setStudentAccountActive(true);
-      } finally {
         if (!cancelled) setStudentAccountChecking(false);
       }
     })();
@@ -109,7 +110,6 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
-
 
 
 

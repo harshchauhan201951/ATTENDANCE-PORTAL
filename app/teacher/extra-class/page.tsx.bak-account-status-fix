@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../lib/supabase";
@@ -721,7 +721,7 @@ export default function ExtraClassPage() {
               href="/teacher"
               className="back-button"
             >
-              â† Teacher Dashboard
+              ← Teacher Dashboard
             </a>
 
             <button
@@ -729,7 +729,7 @@ export default function ExtraClassPage() {
               className="new-class-button"
               onClick={startNewClass}
             >
-              ï¼‹ New Extra Class
+              ＋ New Extra Class
             </button>
           </div>
         </header>
@@ -739,7 +739,7 @@ export default function ExtraClassPage() {
           <div className={`message ${messageType}`}>
             <span>
               {messageType === "success"
-                ? "âœ“"
+                ? "✓"
                 : messageType === "error"
                 ? "!"
                 : "i"}
@@ -752,7 +752,7 @@ export default function ExtraClassPage() {
               onClick={() => setMessage("")}
               aria-label="Close message"
             >
-              Ã—
+              ×
             </button>
           </div>
         )}
@@ -861,7 +861,7 @@ export default function ExtraClassPage() {
         <section className="summary-grid">
           <div className="summary-card">
             <div className="summary-icon blue">
-              ðŸ‘¨â€ðŸŽ“
+              👨‍🎓
             </div>
 
             <div>
@@ -872,7 +872,7 @@ export default function ExtraClassPage() {
 
           <div className="summary-card">
             <div className="summary-icon green">
-              âœ“
+              ✓
             </div>
 
             <div>
@@ -883,7 +883,7 @@ export default function ExtraClassPage() {
 
           <div className="summary-card">
             <div className="summary-icon red">
-              Ã—
+              ×
             </div>
 
             <div>
@@ -952,7 +952,7 @@ export default function ExtraClassPage() {
                 onClick={markAllPresent}
                 disabled={selectedTotal === 0}
               >
-                âœ“ All Present
+                ✓ All Present
               </button>
 
               <button
@@ -961,14 +961,14 @@ export default function ExtraClassPage() {
                 onClick={markAllAbsent}
                 disabled={selectedTotal === 0}
               >
-                Ã— All Absent
+                × All Absent
               </button>
             </div>
           </div>
 
           <div className="student-toolbar">
             <div className="search-box">
-              <span>âŒ•</span>
+              <span>⌕</span>
 
               <input
                 type="text"
@@ -986,7 +986,7 @@ export default function ExtraClassPage() {
                     setStudentSearch("")
                   }
                 >
-                  Ã—
+                  ×
                 </button>
               )}
             </div>
@@ -1042,7 +1042,7 @@ export default function ExtraClassPage() {
             </div>
           ) : filteredStudents.length === 0 ? (
             <div className="empty-box">
-              <div>ðŸ‘¨â€ðŸŽ“</div>
+              <div>👨‍🎓</div>
 
               <h3>No students found</h3>
 
@@ -1088,7 +1088,7 @@ export default function ExtraClassPage() {
                         }
                       >
                         <div className="student-checkbox">
-                          {selected ? "âœ“" : ""}
+                          {selected ? "✓" : ""}
                         </div>
 
                         <div className="student-avatar">
@@ -1138,7 +1138,7 @@ export default function ExtraClassPage() {
                               )
                             }
                           >
-                            âœ“ Present
+                            ✓ Present
                           </button>
 
                           <button
@@ -1155,7 +1155,7 @@ export default function ExtraClassPage() {
                               )
                             }
                           >
-                            Ã— Absent
+                            × Absent
                           </button>
                         </div>
                       )}
@@ -1176,8 +1176,8 @@ export default function ExtraClassPage() {
               </strong>
 
               <span>
-                {selectedTotal} students Â·{" "}
-                {selectedPresent} present Â·{" "}
+                {selectedTotal} students ·{" "}
+                {selectedPresent} present ·{" "}
                 {selectedAbsent} absent
               </span>
             </div>
@@ -1191,8 +1191,8 @@ export default function ExtraClassPage() {
               {saving
                 ? "Saving..."
                 : isEditing
-                ? "âœ“ Update Extra Class"
-                : "âœ“ Save Extra Class"}
+                ? "✓ Update Extra Class"
+                : "✓ Save Extra Class"}
             </button>
           </div>
         </section>
@@ -1244,7 +1244,7 @@ export default function ExtraClassPage() {
             </select>
 
             <div className="history-search">
-              <span>âŒ•</span>
+              <span>⌕</span>
 
               <input
                 type="text"
@@ -1260,7 +1260,7 @@ export default function ExtraClassPage() {
           {historyClasses.length === 0 ? (
             <div className="empty-history">
               <div className="empty-history-icon">
-                ðŸ“š
+                📚
               </div>
 
               <h3>No Extra Classes Found</h3>
@@ -1336,22 +1336,22 @@ export default function ExtraClassPage() {
 
                         <div className="history-meta">
                           <span>
-                            ðŸ•{" "}
+                            🕐{" "}
                             {formatTime(
                               extraClass.class_time
                             )}
                           </span>
 
                           <span>
-                            ðŸ‘¨â€ðŸŽ“ {stats.total} Students
+                            👨‍🎓 {stats.total} Students
                           </span>
 
                           <span className="meta-present">
-                            âœ“ {stats.present} Present
+                            ✓ {stats.present} Present
                           </span>
 
                           <span className="meta-absent">
-                            Ã— {stats.absent} Absent
+                            × {stats.absent} Absent
                           </span>
                         </div>
 
@@ -1404,7 +1404,7 @@ export default function ExtraClassPage() {
                               }
                               disabled={deleting}
                             >
-                              ðŸ—‘ Delete
+                              🗑 Delete
                             </button>
                           </div>
                         </div>

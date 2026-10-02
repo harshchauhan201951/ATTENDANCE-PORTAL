@@ -1650,7 +1650,7 @@ export default function StudentDashboardPage() {
 
             <div
               className="student-hero-side"
-              style={{...styles.heroSide,...(!accountActive?{background:"#fef2f2",border:"1px solid #fecaca",boxShadow:"0 8px 24px rgba(239,68,68,0.10)"}:{})}}
+              style={styles.heroSide}
             >
               <div
                 className="student-status-dot"
@@ -1661,7 +1661,9 @@ export default function StudentDashboardPage() {
                 <div
                   className="student-online-text"
                   style={styles.onlineText}
-                >{accountActive ? "ACCOUNT ACTIVE" : "DEACTIVATED ACCOUNT"}</div>
+                >
+                  ACCOUNT ACTIVE
+                </div>
 
                 <div
                   className="student-online-sub"
@@ -2038,7 +2040,7 @@ export default function StudentDashboardPage() {
                           styles.cardIcon
                         }
                       >
-                        {null}
+                        {card.icon}
                       </div>
 
                       <div
@@ -2942,10 +2944,6 @@ const styles: {
     fontWeight: 900,
   },
 };
-
-
-
-
 
 
 

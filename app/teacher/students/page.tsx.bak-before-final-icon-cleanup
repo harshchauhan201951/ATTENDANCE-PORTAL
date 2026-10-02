@@ -780,7 +780,7 @@ export default function TeacherStudentsPage() {
                 styles.dashboardButton
               }
             >
-               Teacher Dashboard
+              â† Teacher Dashboard
             </button>
 
             <button
@@ -809,7 +809,7 @@ export default function TeacherStudentsPage() {
 
         {error && (
           <div style={styles.error}>
-             {error}
+            âŒ {error}
           </div>
         )}
 
@@ -821,7 +821,7 @@ export default function TeacherStudentsPage() {
 
         <section style={styles.summaryCard}>
           <div style={styles.summaryIcon}>
-            
+            ðŸ‘¨â€ðŸŽ“
           </div>
 
           <div style={styles.summaryText}>
@@ -875,7 +875,7 @@ export default function TeacherStudentsPage() {
               <div
                 style={styles.emptyIcon}
               >
-                
+                ðŸ‘¨â€ðŸŽ“
               </div>
 
               <h3
@@ -1111,7 +1111,7 @@ export default function TeacherStudentsPage() {
                     styles.closeButton
                   }
                 >
-                  
+                  âœ•
                 </button>
               </div>
 
@@ -1156,7 +1156,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                       Account Details
+                      ðŸ” Account Details
                     </h3>
 
                     <div
@@ -1237,7 +1237,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                       Basic Details
+                      ðŸ‘¤ Basic Details
                     </h3>
 
                     <div
@@ -1883,7 +1883,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                       Other Information
+                      ðŸ“ Other Information
                     </h3>
 
                     <div
@@ -1976,8 +1976,8 @@ export default function TeacherStudentsPage() {
                     }}
                   >
                     {saving
-                      ? " Adding..."
-                      : " Add Student & Create Login"}
+                      ? "â³ Adding..."
+                      : "âž• Add Student & Create Login"}
                   </button>
                 </div>
               </form>
@@ -2032,7 +2032,7 @@ export default function TeacherStudentsPage() {
                     styles.closeButton
                   }
                 >
-                  
+                  âœ•
                 </button>
               </div>
 
@@ -2055,7 +2055,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                       Account Details
+                      ðŸ” Account Details
                     </h3>
 
                     <div
@@ -2144,7 +2144,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                       Basic Details
+                      ðŸ‘¤ Basic Details
                     </h3>
 
                     <div
@@ -2790,7 +2790,7 @@ export default function TeacherStudentsPage() {
                         styles.formSectionTitle
                       }
                     >
-                       Other Information
+                      ðŸ“ Other Information
                     </h3>
 
                     <div
@@ -2883,7 +2883,7 @@ export default function TeacherStudentsPage() {
                     }}
                   >
                     {saving
-                      ? " Saving..."
+                      ? "â³ Saving..."
                       : "Save Complete Profile"}
                   </button>
                 </div>
@@ -4281,7 +4281,6 @@ const styles: {
     whiteSpace: "normal",
   },
 };
-
 
 
 

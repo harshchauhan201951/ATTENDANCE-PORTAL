@@ -2038,7 +2038,7 @@ export default function StudentDashboardPage() {
                           styles.cardIcon
                         }
                       >
-                        {null}
+                        {card.icon}
                       </div>
 
                       <div
@@ -2942,7 +2942,6 @@ const styles: {
     fontWeight: 900,
   },
 };
-
 
 
 

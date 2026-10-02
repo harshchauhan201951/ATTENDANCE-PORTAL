@@ -1363,7 +1363,7 @@ export default function StudentDashboardPage() {
                         styles.cardIcon
                       }
                     >
-                      {card.title === "My Attendance" ? String.fromCodePoint(0x1F4CA) : card.title === "Attendance History" ? String.fromCodePoint(0x1F4DC) : card.title === "Academic Calendar" ? String.fromCodePoint(0x1F4C5) : card.title === "Reports" ? String.fromCodePoint(0x1F4C8) : card.title === "Fees" ? String.fromCodePoint(0x1F4B0) : card.title === "Homework" ? String.fromCodePoint(0x1F4DA) : card.title === "Settings" ? String.fromCodePoint(0x2699,0xFE0F) : String.fromCodePoint(0x1F9EA)}
+                      {card.icon}
                     </div>
 
                     <div
@@ -1371,7 +1371,7 @@ export default function StudentDashboardPage() {
                         styles.arrow
                       }
                     >
-                      {String.fromCodePoint(0x2192)}
+                      â†’
                     </div>
                   </div>
 
@@ -1408,7 +1408,7 @@ export default function StudentDashboardPage() {
                       </span>
 
                       <span>
-                        {String.fromCodePoint(0x2192)}
+                        â†’
                       </span>
                     </div>
                   </div>
@@ -1426,7 +1426,7 @@ export default function StudentDashboardPage() {
           }
         >
           <div style={styles.bottomIcon}>
-            {String.fromCodePoint(0x1F464)}
+            ðŸ‘¤
           </div>
 
           <div style={styles.bottomText}>
@@ -1460,7 +1460,7 @@ export default function StudentDashboardPage() {
               styles.profileButton
             }
           >
-             View Profile {String.fromCodePoint(0x2192)}
+            View Profile â†’
           </button>
         </section>
 
@@ -2428,11 +2428,6 @@ const styles: {
     fontWeight: "900",
   },
 };
-
-
-
-
-
 
 
 

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -281,7 +281,7 @@ export default function CreateQuizPage() {
               }
               className="rounded-xl bg-white/5 px-4 py-2 text-sm font-bold transition hover:bg-white/10"
             >
-              â† Back
+              ← Back
             </button>
           </div>
         </header>
@@ -362,7 +362,7 @@ export default function CreateQuizPage() {
                                 : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
                             }`}
                           >
-                            {selected ? "âœ“ " : ""}
+                            {selected ? "✓ " : ""}
                             Class {classItem}
                           </button>
                         );

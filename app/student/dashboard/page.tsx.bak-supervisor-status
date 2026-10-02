@@ -24,6 +24,28 @@ type Announcement = {
 export default function StudentDashboardPage() {
   const [accountActive, setAccountActive] = useState(true);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const username = localStorage.getItem("studentUsername") || localStorage.getItem("student_username") || "";
+        const rawId = localStorage.getItem("attendance_student_id") || localStorage.getItem("studentId") || localStorage.getItem("student_id") || "";
+        let query = supabase.from("students").select("is_active");
+        if (username) {
+          query = query.eq("student_username", username);
+        } else if (rawId) {
+          const id = Number(rawId);
+          if (Number.isInteger(id) && id > 0) query = query.eq("id", id);
+        }
+        const { data, error } = await query.maybeSingle();
+        if (!cancelled && !error && data) {
+          setAccountActive(data.is_active !== false);
+          localStorage.setItem("studentAccountActive", String(data.is_active !== false));
+        }
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, []);
   // DIRECT ACCOUNT STATUS CHECK
   useEffect(() => {
     let cancelled = false;
@@ -1650,7 +1672,7 @@ export default function StudentDashboardPage() {
 
             <div
               className="student-hero-side"
-              style={{...styles.heroSide,...(!accountActive?{background:"#fef2f2",border:"1px solid #fecaca",boxShadow:"0 8px 24px rgba(239,68,68,0.10)"}:{})}}
+              style={styles.heroSide}
             >
               <div
                 className="student-status-dot"
@@ -1661,7 +1683,9 @@ export default function StudentDashboardPage() {
                 <div
                   className="student-online-text"
                   style={styles.onlineText}
-                >{accountActive ? "ACCOUNT ACTIVE" : "DEACTIVATED ACCOUNT"}</div>
+                >
+                  ACCOUNT ACTIVE
+                </div>
 
                 <div
                   className="student-online-sub"
@@ -2038,7 +2062,7 @@ export default function StudentDashboardPage() {
                           styles.cardIcon
                         }
                       >
-                        {null}
+                        {card.icon}
                       </div>
 
                       <div
@@ -2942,11 +2966,6 @@ const styles: {
     fontWeight: 900,
   },
 };
-
-
-
-
-
 
 
 

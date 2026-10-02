@@ -720,7 +720,7 @@ export default function StudentDashboardPage() {
 
   const cards: DashboardCard[] = [
     {
-      icon: String.fromCodePoint(0x1F4CA),
+      icon: "\u{1F4CA}",
       title: "My Attendance",
       description:
         "View your current attendance and attendance percentage.",
@@ -728,7 +728,7 @@ export default function StudentDashboardPage() {
       className: "blue",
     },
     {
-      icon: String.fromCodePoint(0x1F4DC),
+      icon: "\u{1F4DC}",
       title: "Attendance History",
       description:
         "Check your previous attendance records and details.",
@@ -736,7 +736,7 @@ export default function StudentDashboardPage() {
       className: "purple",
     },
     {
-      icon: String.fromCodePoint(0x1F4C5),
+      icon: "\u{1F4C5}",
       title: "Academic Calendar",
       description:
         "View important academic dates and calendar information.",
@@ -744,7 +744,7 @@ export default function StudentDashboardPage() {
       className: "green",
     },
     {
-      icon: String.fromCodePoint(0x1F4C8),
+      icon: "\u{1F4C8}",
       title: "Reports",
       description:
         "View your attendance reports and performance details.",
@@ -752,7 +752,7 @@ export default function StudentDashboardPage() {
       className: "orange",
     },
     {
-      icon: String.fromCodePoint(0x1F4B0),
+      icon: "\u{1F4B0}",
       title: "Fees",
       description:
         "Check your student fee information and payment details.",
@@ -760,7 +760,7 @@ export default function StudentDashboardPage() {
       className: "pink",
     },
     {
-      icon: String.fromCodePoint(0x1F4DA),
+      icon: "\u{1F4DA}",
       title: "Homework",
       description:
         "View homework assigned to your class by your teacher.",
@@ -768,7 +768,7 @@ export default function StudentDashboardPage() {
       className: "indigo",
     },
     {
-      icon: String.fromCodePoint(0x2699,0xFE0F),
+      icon: "\u{2699}\u{FE0F}",
       title: "Settings",
       description:
         "Manage your account, name and password.",
@@ -778,7 +778,7 @@ export default function StudentDashboardPage() {
 
     // NEW QUIZ TESTS OPTION
     {
-      icon: String.fromCodePoint(0x1F9EA),
+      icon: "\u{1F9EA}",
       title: "QUIZ TESTS",
       description:
         "Attempt scheduled quizzes, view your scores and quiz history.",
@@ -1363,7 +1363,7 @@ export default function StudentDashboardPage() {
                         styles.cardIcon
                       }
                     >
-                      {card.title === "My Attendance" ? String.fromCodePoint(0x1F4CA) : card.title === "Attendance History" ? String.fromCodePoint(0x1F4DC) : card.title === "Academic Calendar" ? String.fromCodePoint(0x1F4C5) : card.title === "Reports" ? String.fromCodePoint(0x1F4C8) : card.title === "Fees" ? String.fromCodePoint(0x1F4B0) : card.title === "Homework" ? String.fromCodePoint(0x1F4DA) : card.title === "Settings" ? String.fromCodePoint(0x2699,0xFE0F) : String.fromCodePoint(0x1F9EA)}
+                      {card.icon}
                     </div>
 
                     <div
@@ -1371,7 +1371,7 @@ export default function StudentDashboardPage() {
                         styles.arrow
                       }
                     >
-                      {String.fromCodePoint(0x2192)}
+                      â†’
                     </div>
                   </div>
 
@@ -1408,7 +1408,7 @@ export default function StudentDashboardPage() {
                       </span>
 
                       <span>
-                        {String.fromCodePoint(0x2192)}
+                        â†’
                       </span>
                     </div>
                   </div>
@@ -1426,7 +1426,7 @@ export default function StudentDashboardPage() {
           }
         >
           <div style={styles.bottomIcon}>
-            {String.fromCodePoint(0x1F464)}
+            ðŸ‘¤
           </div>
 
           <div style={styles.bottomText}>
@@ -1460,7 +1460,7 @@ export default function StudentDashboardPage() {
               styles.profileButton
             }
           >
-             View Profile {String.fromCodePoint(0x2192)}
+            View Profile â†’
           </button>
         </section>
 
@@ -2428,11 +2428,6 @@ const styles: {
     fontWeight: "900",
   },
 };
-
-
-
-
-
 
 
 

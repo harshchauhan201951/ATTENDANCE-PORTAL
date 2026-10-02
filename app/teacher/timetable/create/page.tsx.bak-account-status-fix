@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -86,7 +86,6 @@ function CreateTimetableContent() {
       const { data: studentData, error: studentError } = await supabase
         .from("students")
         .select("class_name")
-        .eq("is_active", true)
         .not("class_name", "is", null);
 
       if (studentError) {
