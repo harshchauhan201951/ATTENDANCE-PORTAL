@@ -225,7 +225,7 @@ export default function MonthlyResultsPage() {
     if (Number.isFinite(n) && n >= 6 && n <= 10) return "CLASS 6–10";
     return "OTHER";
   };
-  const result = list.map(s => ({ ...s, position: undefined, award: "", awardGroup: group(s.student.className) }));
+  const result = list.map(s => ({ ...s, position: 0 as number | undefined, award: "", awardGroup: group(s.student.className) }));
   for (const g of ["NURSERY–UKG","CLASS 1–5","CLASS 6–10"]) {
     const eligible = result.filter(s => s.awardGroup === g && s.totals.grandTotal > 0).sort((a,b) => b.totals.percentage - a.totals.percentage || b.totals.grandObtained - a.totals.grandObtained || a.student.name.localeCompare(b.student.name));
     eligible.slice(0, 3).forEach((s, index) => { const pos = index + 1; s.position = pos; s.award = pos === 1 ? "1st Position — GIFT / SURPRISE AWARD" : pos === 2 ? "2nd Position — GIFT / SURPRISE AWARD" : "3rd Position — GIFT / SURPRISE AWARD"; });
@@ -293,5 +293,6 @@ const th: React.CSSProperties={textAlign:"left",padding:9,borderBottom:"2px soli
 const td: React.CSSProperties={padding:9,borderBottom:"1px solid #edf2f7",verticalAlign:"top"};
 const buttonStyle: React.CSSProperties={border:0,borderRadius:9,padding:"10px 14px",background:"#0b57a3",color:"#fff",fontWeight:800,cursor:"pointer"};
 const smallButton: React.CSSProperties={border:0,borderRadius:7,padding:"6px 9px",background:"#1d4ed8",color:"#fff",fontWeight:800,cursor:"pointer"};
+
 
 

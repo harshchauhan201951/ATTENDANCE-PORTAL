@@ -52,6 +52,7 @@ export default function TeacherDashboard() {
     ["Student Directory", "/teacher/student-directory", "◉", "academic"],
     ["Extra Classes", "/teacher/extra-class", "+", "academic"],
     ["Quiz Tests", "/teacher/quiz-tests", "Q", "academic"],
+    ["Monthly Result", "/teacher/monthly-results", "MR", "academic"],
     ["Voice & Call Center", "/teacher/voice-call", "☎", "management"],
     ["Teachers", "/teacher/teachers", "T", "management"],
     ["Timetable", "/teacher/timetable", "▦", "academic"],

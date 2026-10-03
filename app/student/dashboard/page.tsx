@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -58,6 +58,30 @@ export default function StudentDashboardPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [announcementLoading, setAnnouncementLoading] = useState(true);
   const [likingId, setLikingId] = useState<number | null>(null);
+  const [monthlyResultNotice, setMonthlyResultNotice] = useState("🔔 मासिक परिणाम सुबह 9:00 बजे घोषित किया जाएगा।");
+
+  useEffect(() => {
+    async function loadMonthlyResultNotice() {
+      try {
+        const { data } = await supabase
+          .from("monthly_result_periods")
+          .select("month_key,is_released,scheduled_release_at")
+          .order("month_key", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (data?.is_released) {
+          setMonthlyResultNotice("🎉 आपका मासिक परिणाम जारी हो गया है।");
+        } else {
+          setMonthlyResultNotice("🔔 मासिक परिणाम सुबह 9:00 बजे घोषित किया जाएगा।");
+        }
+      } catch {
+        setMonthlyResultNotice("🔔 मासिक परिणाम सुबह 9:00 बजे घोषित किया जाएगा।");
+      }
+    }
+    void loadMonthlyResultNotice();
+    const timer = setInterval(() => { void loadMonthlyResultNotice(); }, 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const savedStatus = localStorage.getItem("studentAccountActive");
@@ -880,6 +904,20 @@ export default function StudentDashboardPage() {
         path: "/student/quiz-tests",
         className: "quiz",
       },
+      {
+        icon: "MR",
+        title: "Monthly Final Result",
+        description: "View your official monthly academic result and PDF.",
+        path: "/student/monthly-result",
+        className: "orange",
+      },
+      {
+        icon: "CAL",
+        title: "Timetable",
+        description: "View your class timetable.",
+        path: "/student/timetable",
+        className: "blue",
+      },
     ];
 
   return (
@@ -1581,6 +1619,22 @@ export default function StudentDashboardPage() {
               </button>
             </div>
           </nav>
+
+          <div
+            style={{
+              margin: "0 0 10px",
+              padding: "10px 12px",
+              borderRadius: 10,
+              background: "#fff7ed",
+              border: "1px solid #fed7aa",
+              color: "#9a3412",
+              fontSize: 12,
+              fontWeight: 800,
+              textAlign: "center",
+            }}
+          >
+            {monthlyResultNotice}
+          </div>
 
           <section
             className="student-hero"
@@ -2942,6 +2996,8 @@ const styles: {
     fontWeight: 900,
   },
 };
+
+
 
 
 
