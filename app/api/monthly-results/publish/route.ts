@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
-export async function GET(request: Request) {
+export async function POST(request: Request) { try { const body=await request.json(); const {period,mahatest,marks,results}=body; if(!period||!period.month_key) return NextResponse.json({success:false,error:"Invalid monthly result data"},{status:400}); const now=new Date().toISOString(); const {error:pErr}=await supabaseAdmin.from("monthly_result_periods").upsert({...period,updated_at:now},{onConflict:"month_key"}); if(pErr) throw new Error(`monthly_result_periods save failed: ${pErr.message}`); if(mahatest){const {error:e}=await supabaseAdmin.from("monthly_mahatests").upsert({...mahatest,updated_at:now},{onConflict:"month_key"});if(e)throw new Error(`monthly_mahatests save failed: ${e.message}`);} if(Array.isArray(marks)&&marks.length){const {error:e}=await supabaseAdmin.from("monthly_mahatest_marks").upsert(marks,{onConflict:"month_key,student_id"});if(e)throw new Error(`monthly_mahatest_marks save failed: ${e.message}`);} if(Array.isArray(results)&&results.length){const {error:e}=await supabaseAdmin.from("monthly_results").upsert(results,{onConflict:"month_key,student_id"});if(e)throw new Error(`monthly_results save failed: ${e.message}`);} return NextResponse.json({success:true,saved:true,monthKey:period.month_key}); } catch(error) { console.error("Monthly result save error:",error); return NextResponse.json({success:false,error:error instanceof Error?error.message:"Monthly result save failed"},{status:500}); } }\n\nexport async function GET(request: Request) {
   try {
     const expected = process.env.CRON_SECRET || process.env.MONTHLY_RESULT_CRON_SECRET;
     const auth = request.headers.get("authorization") || "";
@@ -41,3 +41,4 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: false, error: error instanceof Error ? error.message : "Publish failed" }, { status: 500 });
   }
 }
+

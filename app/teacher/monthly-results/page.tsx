@@ -162,7 +162,7 @@ export default function MonthlyResultsPage() {
       let assigned: number[] | null = null;
       if (teacherId !== 1) {
         const { data, error } = await supabase.rpc("get_teacher_assigned_student_ids", { p_teacher_id: teacherId });
-        if (error) throw error;
+        if (error) throw new Error(`monthly_mahatest_marks save failed: ${error.message}`);
         assigned = (data || []).map((x: any) => Number(x.student_id));
       }
       const [studentsRes, quizzesRes, resultsRes, testsRes, periodRes, marksRes] = await Promise.all([
@@ -243,14 +243,14 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
       if (!releaseIso) throw new Error("Please select a valid 9:00 AM release date/time.");
       const teacherId = Number(localStorage.getItem("attendance_teacher_id") || localStorage.getItem("teacher_id") || "0");
       const { error: pErr } = await supabase.from("monthly_result_periods").upsert({ month_key: monthKey, month_label: monthLabelFromKey(monthKey), scheduled_release_at: releaseIso, pass_percentage: Number(passPercentage) || 40, created_by: teacherId || null, updated_at: new Date().toISOString() }, { onConflict: "month_key" });
-      if (pErr) throw pErr;
+      if (pErr) throw new Error(`monthly_result_periods save failed: ${pErr.message}`);
       const { error: mErr } = await supabase.from("monthly_mahatests").upsert({ month_key: monthKey, test_date: mahaDate, duration_minutes: 120, total_marks: 100, created_by: teacherId || null, updated_at: new Date().toISOString() }, { onConflict: "month_key" });
-      if (mErr) throw mErr;
+      if (mErr) throw new Error(`monthly_mahatests save failed: ${mErr.message}`);
       const markRows = students.map((s) => ({ month_key: monthKey, student_id: Number(s.id), obtained_marks: mahaMarks[Number(s.id)] === undefined || mahaMarks[Number(s.id)] === "" ? null : Math.max(0, Math.min(100, Number(mahaMarks[Number(s.id)]))), remarks: mahaRemarks[Number(s.id)] || null, updated_at: new Date().toISOString() }));
-      if (markRows.length) { const { error } = await supabase.from("monthly_mahatest_marks").upsert(markRows, { onConflict: "month_key,student_id" }); if (error) throw error; }
+      if (markRows.length) { const { error } = await supabase.from("monthly_mahatest_marks").upsert(markRows, { onConflict: "month_key,student_id" }); if (error) throw new Error(`monthly_mahatest_marks save failed: ${error.message}`); }
       const finalSnapshots = applyMonthlyAwards(students.map(buildSnapshot));
       const rows = finalSnapshots.map((s) => ({ month_key: monthKey, student_id: s.student.id, grand_obtained: s.totals.grandObtained, grand_total: s.totals.grandTotal, percentage: s.totals.percentage, result_status: s.totals.status, snapshot: s, generated_at: new Date().toISOString(), updated_at: new Date().toISOString() }));
-      if (rows.length) { const { error } = await supabase.from("monthly_results").upsert(rows, { onConflict: "month_key,student_id" }); if (error) throw error; }
+      if (rows.length) { const { error } = await supabase.from("monthly_results").upsert(rows, { onConflict: "month_key,student_id" }); if (error) throw new Error(`monthly_results save failed: ${error.message}`); }
       setSnapshots(finalSnapshots); setMessage(`Monthly result calculated for ${finalSnapshots.length} students. Release is scheduled for 9:00 AM on ${new Date(releaseIso).toLocaleString("en-IN")}.`);
     } catch (e) { setError(e instanceof Error ? e.message : "Could not save monthly result."); }
     finally { setSaving(false); }
@@ -293,6 +293,8 @@ const th: React.CSSProperties={textAlign:"left",padding:9,borderBottom:"2px soli
 const td: React.CSSProperties={padding:9,borderBottom:"1px solid #edf2f7",verticalAlign:"top"};
 const buttonStyle: React.CSSProperties={border:0,borderRadius:9,padding:"10px 14px",background:"#0b57a3",color:"#fff",fontWeight:800,cursor:"pointer"};
 const smallButton: React.CSSProperties={border:0,borderRadius:7,padding:"6px 9px",background:"#1d4ed8",color:"#fff",fontWeight:800,cursor:"pointer"};
+
+
 
 
 
