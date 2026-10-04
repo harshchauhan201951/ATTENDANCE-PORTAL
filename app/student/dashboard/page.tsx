@@ -22,6 +22,9 @@ type Announcement = {
 };
 
 export default function StudentDashboardPage() {
+      const [monthlyResultPeriod,setMonthlyResultPeriod]=useState<any>(null);
+      useEffect(()=>{let active=true; const loadMonthlyResultAnnouncement=async()=>{try{const r=await fetch("/api/monthly-results/publish?list=1",{cache:"no-store"}); const d=await r.json(); const periods=Array.isArray(d?.periods)?d.periods:[]; periods.sort((a:any,b:any)=>String(b?.month_key||"").localeCompare(String(a?.month_key||""))); if(active)setMonthlyResultPeriod(periods[0]||null);}catch{}}; loadMonthlyResultAnnouncement(); const timer=setInterval(loadMonthlyResultAnnouncement,30000); return()=>{active=false;clearInterval(timer)};},[]);
+      
   const [accountActive, setAccountActive] = useState(true);
 
   // DIRECT ACCOUNT STATUS CHECK
@@ -898,7 +901,7 @@ export default function StudentDashboardPage() {
 
   return (
     <>
-      <style jsx global>{`
+      <div style={{margin:"0 0 14px",padding:"14px 16px",borderRadius:14,border:"1px solid #bfdbfe",background:monthlyResultPeriod?.is_released?"#ecfdf5":"#eff6ff",boxShadow:"0 2px 8px rgba(0,0,0,.05)"}}>{monthlyResultPeriod?.is_released?<><div style={{fontWeight:800,fontSize:17,color:"#047857"}}>RESULT DECLARED</div><div style={{marginTop:4,color:"#166534",fontWeight:700}}>Your monthly result has been declared.</div><a href="/student/monthly-result" style={{display:"inline-block",marginTop:10,padding:"9px 14px",borderRadius:9,background:"#047857",color:"#fff",textDecoration:"none",fontWeight:800}}>CLICK TO SEE RESULT</a></>:monthlyResultPeriod?.scheduled_release_at?<><div style={{fontWeight:800,fontSize:17,color:"#0b57a3"}}>MONTHLY RESULT ANNOUNCEMENT</div><div style={{marginTop:4,color:"#124d83",fontWeight:700}}>Your result will be declared at {new Date(monthlyResultPeriod.scheduled_release_at).toLocaleTimeString("en-IN",{timeZone:"Asia/Kolkata",hour:"2-digit",minute:"2-digit",hour12:true})}.</div></>:null}</div>`r`n          <style jsx global>{`
         * {
           box-sizing: border-box;
         }
@@ -2954,6 +2957,9 @@ const styles: {
     fontWeight: 900,
   },
 };
+
+
+
 
 
 

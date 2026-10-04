@@ -313,7 +313,7 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
     <section style={{background:"#fff",border:"1px solid #dbe7f5",borderRadius:14,padding:14,marginBottom:14}}>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:10}}>
         <label>Result Month<input type="month" value={monthKey} onChange={e=>setMonthKey(e.target.value)} style={inputStyle}/></label>
-        <label>Release Date & Time (IST)<input type="datetime-local" value={releaseInput} onChange={e=>setReleaseInput(e.target.value)} style={inputStyle}/></label>
+        <label>Result Announcement / Release Date & Time (IST)<input type="datetime-local" value={releaseInput} onChange={e=>setReleaseInput(e.target.value)} style={inputStyle}/></label>
         <label>Pass Percentage<input type="number" min="0" max="100" value={passPercentage} onChange={e=>setPassPercentage(e.target.value)} style={inputStyle}/></label>
         <label>MahaTest Saturday<input type="date" value={mahaDate} onChange={e=>setMahaDate(e.target.value)} style={inputStyle}/></label>
       </div>
@@ -335,6 +335,7 @@ const th: React.CSSProperties={textAlign:"left",padding:9,borderBottom:"2px soli
 const td: React.CSSProperties={padding:9,borderBottom:"1px solid #edf2f7",verticalAlign:"top"};
 const buttonStyle: React.CSSProperties={border:0,borderRadius:9,padding:"10px 14px",background:"#0b57a3",color:"#fff",fontWeight:800,cursor:"pointer"};
 const smallButton: React.CSSProperties={border:0,borderRadius:7,padding:"6px 9px",background:"#1d4ed8",color:"#fff",fontWeight:800,cursor:"pointer"};
+
 
 
 
