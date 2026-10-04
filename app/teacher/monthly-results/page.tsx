@@ -71,6 +71,7 @@ function drawHeader(doc: jsPDF, title: string) {
   doc.text(title, 105, 38, { align: "center" });
 }
 function pdfSnapshot(snapshot: MonthlyResultSnapshot) {
+  const pdfText = (value: unknown) => value === null || value === undefined ? "" : String(value);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   drawHeader(doc, `${snapshot.monthLabel} - ${snapshot.student.name}`);
   doc.setFontSize(11);
@@ -85,9 +86,9 @@ function pdfSnapshot(snapshot: MonthlyResultSnapshot) {
   ];
   let y = 58;
   for (const row of details) {
-    doc.setFont("helvetica", "bold"); doc.text(row[0], 15, y);
+    doc.setFont("helvetica", "bold"); doc.text(pdfText(row[0]), 15, y);
     doc.setFont("helvetica", "normal"); doc.text(String(row[1]), 55, y);
-    doc.setFont("helvetica", "bold"); doc.text(row[2], 110, y);
+    doc.setFont("helvetica", "bold"); doc.text(pdfText(row[2]), 110, y);
     doc.setFont("helvetica", "normal"); doc.text(String(row[3]), 150, y);
     y += 7;
   }
@@ -123,9 +124,9 @@ function pdfSnapshot(snapshot: MonthlyResultSnapshot) {
     ["PERCENTAGE", `${snapshot.totals.percentage.toFixed(2)}%`],
     ["FINAL STATUS", snapshot.totals.status],
   ];
-  for (const [a,b] of calc) { doc.setFont("helvetica", "bold"); doc.text(a, 25, y); doc.setFont("helvetica", "normal"); doc.text(b, 105, y); y += 8; }
+  for (const [a,b] of calc) { doc.setFont("helvetica", "bold"); doc.text(pdfText(a), 25, y); doc.setFont("helvetica", "normal"); doc.text(pdfText(b), 105, y); y += 8; }
   y += 8; doc.setFontSize(12); doc.setFont("helvetica", "bold"); doc.text("OFFICIAL RESULT", 105, y, { align: "center" }); y += 9;
-  doc.setFontSize(16); doc.text(snapshot.totals.status, 105, y, { align: "center" }); y += 9;
+  doc.setFontSize(16); doc.text(pdfText(snapshot.totals.status), 105, y, { align: "center" }); y += 9;
   doc.setFontSize(9); doc.setFont("helvetica", "normal"); doc.text(`Result declared: ${new Date().toLocaleString("en-IN")}`, 105, y, { align: "center" });
   doc.setFontSize(8); doc.text("Teacher Remarks: Monthly performance calculated only from eligible, recorded and submitted academic work.", 15, 285);
   doc.text("RACER ACADEMY", 195, 292, { align: "right" });
@@ -334,6 +335,7 @@ const th: React.CSSProperties={textAlign:"left",padding:9,borderBottom:"2px soli
 const td: React.CSSProperties={padding:9,borderBottom:"1px solid #edf2f7",verticalAlign:"top"};
 const buttonStyle: React.CSSProperties={border:0,borderRadius:9,padding:"10px 14px",background:"#0b57a3",color:"#fff",fontWeight:800,cursor:"pointer"};
 const smallButton: React.CSSProperties={border:0,borderRadius:7,padding:"6px 9px",background:"#1d4ed8",color:"#fff",fontWeight:800,cursor:"pointer"};
+
 
 
 
