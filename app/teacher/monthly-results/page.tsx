@@ -289,13 +289,14 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `RACER_ACADEMY_${snapshot.student.name.replace(/[^a-z0-9]+/gi,"_")}_${snapshot.monthKey}_MONTHLY_RESULT.pdf`;
+      a.download = "RACER_ACADEMY_" + snapshot.student.name.replace(/[^a-z0-9]+/gi,"_") + "_" + snapshot.monthKey + "_MONTHLY_RESULT.pdf";
+      a.style.display = "none";
       document.body.appendChild(a);
       a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
     } catch (e) {
-      setError(e instanceof Error ? `PDF download failed: ${e.message}` : "PDF download failed.");
+      setError(e instanceof Error ? "PDF download failed: " + e.message : "PDF download failed.");
     }
   }
   function downloadExcel() {
@@ -333,6 +334,7 @@ const th: React.CSSProperties={textAlign:"left",padding:9,borderBottom:"2px soli
 const td: React.CSSProperties={padding:9,borderBottom:"1px solid #edf2f7",verticalAlign:"top"};
 const buttonStyle: React.CSSProperties={border:0,borderRadius:9,padding:"10px 14px",background:"#0b57a3",color:"#fff",fontWeight:800,cursor:"pointer"};
 const smallButton: React.CSSProperties={border:0,borderRadius:7,padding:"6px 9px",background:"#1d4ed8",color:"#fff",fontWeight:800,cursor:"pointer"};
+
 
 
 
