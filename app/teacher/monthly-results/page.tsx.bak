@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -29,7 +29,7 @@ function monthEnd(key: string) {
   return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
 }
 function formatDate(value: string) {
-  if (!value) return "---";
+  if (!value) return "â€”";
   const d = new Date(`${String(value).slice(0, 10)}T00:00:00`);
   return Number.isNaN(d.getTime()) ? value : d.toLocaleDateString("en-IN");
 }
@@ -72,16 +72,16 @@ function drawHeader(doc: jsPDF, title: string) {
 }
 function pdfSnapshot(snapshot: MonthlyResultSnapshot) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
-  drawHeader(doc, `${snapshot.monthLabel} - ${snapshot.student.name}`);
+  drawHeader(doc, `${snapshot.monthLabel} â€” FINAL RESULT`);
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.text("STUDENT DETAILS", 15, 50);
   doc.setFont("helvetica", "normal");
   const details = [
-    ["Student Name", snapshot.student.name, "Father / Guardian", snapshot.student.fatherName || "---"],
-    ["Class", snapshot.student.className || "---"],
-    ["Student ID", String(snapshot.student.id), "Medium", snapshot.student.medium || "---"],
-    ["Academic Session", snapshot.student.academicSession || "---"],
+    ["Student Name", snapshot.student.name, "Father / Guardian", snapshot.student.fatherName || "â€”"],
+    ["Class", snapshot.student.className || "â€”", "Roll No.", snapshot.student.rollNo || "â€”"],
+    ["Student ID", String(snapshot.student.id), "Medium", snapshot.student.medium || "â€”"],
+    ["Academic Session", snapshot.student.academicSession || "â€”", "Result Month", snapshot.monthLabel],
   ];
   let y = 58;
   for (const row of details) {
@@ -133,10 +133,10 @@ function pdfSnapshot(snapshot: MonthlyResultSnapshot) {
 }
 
 export default function MonthlyResultsPage() {
-  const [monthKey, setMonthKey] = useState("");
-  const [releaseInput, setReleaseInput] = useState("");
-  const [passPercentage, setPassPercentage] = useState("");
-  const [mahaDate, setMahaDate] = useState("");
+  const [monthKey, setMonthKey] = useState(currentMonth());
+  const [releaseInput, setReleaseInput] = useState(defaultReleaseInput(currentMonth()));
+  const [passPercentage, setPassPercentage] = useState("40");
+  const [mahaDate, setMahaDate] = useState(getLastSaturday(currentMonth()));
   const [mahaMarks, setMahaMarks] = useState<Record<number, string>>({});
   const [mahaRemarks, setMahaRemarks] = useState<Record<number, string>>({});
   const [students, setStudents] = useState<any[]>([]);
@@ -151,8 +151,8 @@ export default function MonthlyResultsPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    setReleaseInput("");
-    setMahaDate("");
+    setReleaseInput(defaultReleaseInput(monthKey));
+    setMahaDate(getLastSaturday(monthKey));
     void loadMonth();
   }, [monthKey]);
 
@@ -226,16 +226,16 @@ export default function MonthlyResultsPage() {
   function applyMonthlyAwards(list: MonthlyResultSnapshot[]) {
   const group = (value: string) => {
     const c = String(value || "").trim().toUpperCase();
-    if (c === "NURSERY" || c === "LKG" || c === "UKG") return "NURSERY-UKG";
+    if (c === "NURSERY" || c === "LKG" || c === "UKG") return "NURSERY–UKG";
     const n = parseInt(c.replace(/[^0-9]/g, ""), 10);
-    if (Number.isFinite(n) && n >= 1 && n <= 5) return "CLASS 1-5";
-    if (Number.isFinite(n) && n >= 6 && n <= 10) return "CLASS 6-10";
+    if (Number.isFinite(n) && n >= 1 && n <= 5) return "CLASS 1–5";
+    if (Number.isFinite(n) && n >= 6 && n <= 10) return "CLASS 6–10";
     return "OTHER";
   };
   const result = list.map(s => ({ ...s, position: 0 as number | undefined, award: "", awardGroup: group(s.student.className) }));
-  for (const g of ["NURSERY-UKG","CLASS 1-5","CLASS 6-10"]) {
+  for (const g of ["NURSERY–UKG","CLASS 1–5","CLASS 6–10"]) {
     const eligible = result.filter(s => s.awardGroup === g && s.totals.grandTotal > 0).sort((a,b) => b.totals.percentage - a.totals.percentage || b.totals.grandObtained - a.totals.grandObtained || a.student.name.localeCompare(b.student.name));
-    eligible.slice(0, 3).forEach((s, index) => { const pos = index + 1; s.position = pos; s.award = pos === 1 ? "1st Position -Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬-ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â GIFT / SURPRISE AWARD" : pos === 2 ? "2nd Position --ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬-ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â GIFT / SURPRISE AWARD" : "3rd Position --ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬-ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â GIFT / SURPRISE AWARD"; });
+    eligible.slice(0, 3).forEach((s, index) => { const pos = index + 1; s.position = pos; s.award = pos === 1 ? "1st Position — GIFT / SURPRISE AWARD" : pos === 2 ? "2nd Position — GIFT / SURPRISE AWARD" : "3rd Position — GIFT / SURPRISE AWARD"; });
   }
   return result;
 }
@@ -251,8 +251,8 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
     setSaving(true); setError(""); setMessage("");
     try {
       if (!isSaturday(mahaDate)) throw new Error("MahaTest date must be a Saturday.");
-      const releaseIso = releaseInput ? isoForISTDateTime(releaseInput) : null;
-      if ((action === "schedule" || action === "publish") && !releaseIso) throw new Error("Please select a valid release date/time.");
+      const releaseIso = isoForISTDateTime(releaseInput);
+      if (!releaseIso) throw new Error("Please select a valid release date/time.");
       const teacherId = Number(localStorage.getItem("attendance_teacher_id") || localStorage.getItem("teacher_id") || "0");
       const finalSnapshots = calculatedSnapshots();
       if (!finalSnapshots.length) throw new Error("No student result data is available. Click Calculate first.");
@@ -264,7 +264,7 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
       if(!response.ok||!result.success) throw new Error(result.error||"Monthly result save failed.");
       setSnapshots(finalSnapshots);
       const label=monthLabelFromKey(monthKey);
-      setMessage(action==="publish"?`${label} monthly result is published now.`:action==="schedule"?`${label} monthly result is scheduled for ${new Date(releaseIso || "").toLocaleString("en-IN")}.`:`${label} monthly result data saved successfully.`);
+      setMessage(action==="publish"?`${label} monthly result is published now.`:action==="schedule"?`${label} monthly result is scheduled for ${new Date(releaseIso).toLocaleString("en-IN")}.`:`${label} monthly result data saved successfully.`);
       const listRes=await fetch("/api/monthly-results/publish?list=1"); const listData=await listRes.json(); if(listRes.ok&&listData.success)setSavedPeriods(listData.periods||[]);
     } catch (e) { setError(e instanceof Error ? e.message : "Could not save monthly result."); }
     finally { setSaving(false); }
@@ -302,17 +302,16 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
         <label>Pass Percentage<input type="number" min="0" max="100" value={passPercentage} onChange={e=>setPassPercentage(e.target.value)} style={inputStyle}/></label>
         <label>MahaTest Saturday<input type="date" value={mahaDate} onChange={e=>setMahaDate(e.target.value)} style={inputStyle}/></label>
       </div>
-      <div style={{marginTop:10,padding:10,borderRadius:10,background:"#eef7ff",color:"#124d83",fontWeight:700}}>MahaTest: 2 Hours - 100 Marks - Only one monthly Saturday test</div>
+      <div style={{marginTop:10,padding:10,borderRadius:10,background:"#eef7ff",color:"#124d83",fontWeight:700}}>MahaTest: 2 Hours • 100 Marks • Only one monthly Saturday test</div>
       {error && <div style={{marginTop:10,padding:10,borderRadius:8,background:"#fff1f2",color:"#b91c1c"}}>{error}</div>}
       {message && <div style={{marginTop:10,padding:10,borderRadius:8,background:"#ecfdf5",color:"#047857"}}>{message}</div>}
-      <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:12}}><button type="button" onClick={calculateOnly} style={buttonStyle}>CALCULATE</button><button type="button" onClick={saveOnly} style={buttonStyle}>SAVE</button><button type="button" onClick={scheduleOnly} style={buttonStyle}>SCHEDULE RESULT</button><button type="button" onClick={publishNow} style={{...buttonStyle,background:"#047857"}}>POST / PUBLISH RESULT</button></div>
     </section>
     <section style={{background:"#fff",border:"1px solid #dbe7f5",borderRadius:14,padding:14,marginBottom:14}}>
       <h2 style={{margin:"0 0 8px",fontSize:18}}>MahaTest Marks Entry</h2><p style={{margin:"0 0 10px",fontSize:12,color:"#64748b"}}>Blank marks are not counted as zero. They remain pending until entered.</p>
-      <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}><thead><tr><th style={th}>Student</th><th style={th}>Class</th><th style={th}>Marks /100</th><th style={th}>Remarks</th></tr></thead><tbody>{students.map(s=><tr key={s.id}><td style={td}><b>{s.student_name||s.student_username}</b><br/><small>{s.student_username}</small></td><td style={td}>{s.class_name||"---"}</td><td style={td}><input type="number" min="0" max="100" value={mahaMarks[s.id]??""} onChange={e=>setMahaMarks(x=>({...x,[s.id]:e.target.value}))} style={{...inputStyle,width:110}}/></td><td style={td}><input value={mahaRemarks[s.id]??""} onChange={e=>setMahaRemarks(x=>({...x,[s.id]:e.target.value}))} style={{...inputStyle,minWidth:220}}/></td></tr>)}</tbody></table></div>
+      <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}><thead><tr><th style={th}>Student</th><th style={th}>Class</th><th style={th}>Marks /100</th><th style={th}>Remarks</th></tr></thead><tbody>{students.map(s=><tr key={s.id}><td style={td}><b>{s.student_name||s.student_username}</b><br/><small>{s.student_username}</small></td><td style={td}>{s.class_name||"â€”"}</td><td style={td}><input type="number" min="0" max="100" value={mahaMarks[s.id]??""} onChange={e=>setMahaMarks(x=>({...x,[s.id]:e.target.value}))} style={{...inputStyle,width:110}}/></td><td style={td}><input value={mahaRemarks[s.id]??""} onChange={e=>setMahaRemarks(x=>({...x,[s.id]:e.target.value}))} style={{...inputStyle,minWidth:220}}/></td></tr>)}</tbody></table></div>
     </section>
     
-    <section style={{background:"#fff",border:"1px solid #dbe7f5",borderRadius:14,padding:14}}><h2 style={{margin:"0 0 10px",fontSize:18}}>Complete Monthly Results ({displaySnapshots.length})</h2>{loading?<p>Loading...</p>:<div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}><thead><tr><th style={th}>Student</th><th style={th}>Quizzes</th><th style={th}>Weekly Tests</th><th style={th}>MahaTest</th><th style={th}>Grand Total</th><th style={th}>%</th><th style={th}>Status</th><th style={th}>PDF</th></tr></thead><tbody>{displaySnapshots.map(s=><tr key={s.student.id}><td style={td}><b>{s.student.name}</b><br/>{s.student.className}</td><td style={td}>{s.quizzes.length} - {s.totals.quizObtained}/{s.totals.quizTotal}</td><td style={td}>{s.weeklyTests.length} - {s.totals.weeklyObtained}/{s.totals.weeklyTotal}</td><td style={td}>{s.mahaTest.obtained===null?"Pending":`${s.mahaTest.obtained}/100`}</td><td style={td}><b>{s.totals.grandObtained}/{s.totals.grandTotal}</b></td><td style={td}>{s.totals.percentage.toFixed(2)}%</td><td style={{...td,fontWeight:800,color:s.totals.status==="PASS"?"#047857":"#b91c1c"}}>{s.totals.status}</td><td style={td}><button onClick={()=>downloadPdf(s)} style={{...smallButton}}>PDF</button></td></tr>)}</tbody></table></div>}</section>
+    <section style={{background:"#fff",border:"1px solid #dbe7f5",borderRadius:14,padding:14}}><h2 style={{margin:"0 0 10px",fontSize:18}}>Complete Monthly Results ({displaySnapshots.length})</h2>{loading?<p>Loading...</p>:<div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}><thead><tr><th style={th}>Student</th><th style={th}>Quizzes</th><th style={th}>Weekly Tests</th><th style={th}>MahaTest</th><th style={th}>Grand Total</th><th style={th}>%</th><th style={th}>Status</th><th style={th}>PDF</th></tr></thead><tbody>{displaySnapshots.map(s=><tr key={s.student.id}><td style={td}><b>{s.student.name}</b><br/>{s.student.className}</td><td style={td}>{s.quizzes.length} • {s.totals.quizObtained}/{s.totals.quizTotal}</td><td style={td}>{s.weeklyTests.length} • {s.totals.weeklyObtained}/{s.totals.weeklyTotal}</td><td style={td}>{s.mahaTest.obtained===null?"Pending":`${s.mahaTest.obtained}/100`}</td><td style={td}><b>{s.totals.grandObtained}/{s.totals.grandTotal}</b></td><td style={td}>{s.totals.percentage.toFixed(2)}%</td><td style={{...td,fontWeight:800,color:s.totals.status==="PASS"?"#047857":"#b91c1c"}}>{s.totals.status}</td><td style={td}><button onClick={()=>downloadPdf(s)} style={{...smallButton}}>PDF</button></td></tr>)}</tbody></table></div>}</section>
   </main>;
 }
 const inputStyle: React.CSSProperties={width:"100%",marginTop:5,padding:"9px 10px",border:"1px solid #cbd5e1",borderRadius:8,boxSizing:"border-box"};

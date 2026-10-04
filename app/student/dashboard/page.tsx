@@ -58,10 +58,6 @@ export default function StudentDashboardPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [announcementLoading, setAnnouncementLoading] = useState(true);
   const [likingId, setLikingId] = useState<number | null>(null);
-  const [monthlyResultNotice, setMonthlyResultNotice] = useState("ðŸ”” à¤®à¤¾à¤¸à¤¿à¤• à¤ªà¤°à¤¿à¤£à¤¾à¤® à¤¸à¥à¤¬à¤¹ 9:00 à¤¬à¤œà¥‡ à¤˜à¥‹à¤·à¤¿à¤¤ à¤•à¤¿à¤¯à¤¾ à¤œà¤¾à¤à¤—à¤¾à¥¤");
- const [monthlyResultReleased, setMonthlyResultReleased] = useState(false);
-
-  useEffect(() => { const loadMonthlyResultNotice = async () => { try { const { data } = await supabase.from("monthly_result_periods").select("month_key,is_released,scheduled_release_at").order("month_key",{ascending:false}).limit(1).maybeSingle(); const scheduledAt=data?.scheduled_release_at ? new Date(data.scheduled_release_at).getTime() : 0; const released=Boolean(data?.is_released) || (scheduledAt > 0 && Date.now() >= scheduledAt); setMonthlyResultReleased(released); setMonthlyResultNotice(released ? "🎉 आपका मासिक परिणाम जारी हो गया है।" : "🔔 मासिक परिणाम सुबह 9:00 बजे घोषित किया जाएगा।"); } catch { setMonthlyResultReleased(false); setMonthlyResultNotice("🔔 मासिक परिणाम सुबह 9:00 बजे घोषित किया जाएगा।"); } }; void loadMonthlyResultNotice(); const timer=setInterval(() => { void loadMonthlyResultNotice(); },30000); return () => clearInterval(timer); }, []);
 
   useEffect(() => {
     const savedStatus = localStorage.getItem("studentAccountActive");
@@ -1598,13 +1594,7 @@ export default function StudentDashboardPage() {
                 Logout
               </button>
             </div>
-          </nav>
-          <button type="button" onClick={() => router.push("/student/monthly-result")} style={{ width: "100%", margin: "0 0 12px", padding: "13px 14px", borderRadius: 14, background: monthlyResultReleased ? "#ecfdf5" : "#fff7ed", border: monthlyResultReleased ? "1px solid #86efac" : "1px solid #fed7aa", color: monthlyResultReleased ? "#166534" : "#9a3412", fontSize: 13, fontWeight: 800, textAlign: "center", cursor: "pointer", boxShadow: "0 3px 10px rgba(0,0,0,0.06)" }}>
-            <div>{monthlyResultNotice}</div>
-            <div style={{ marginTop: 5, fontSize: 11, fontWeight: 900 }}>{monthlyResultReleased ? "VIEW MONTHLY RESULT →" : "CHECK RELEASE STATUS →"}</div>
-          </button>
-
-          <section
+          </nav>`r`n<section
             className="student-hero"
             style={styles.hero}
           >
@@ -2964,6 +2954,8 @@ const styles: {
     fontWeight: 900,
   },
 };
+
+
 
 
 
