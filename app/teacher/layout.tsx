@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -47,13 +47,11 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
       )}
 
       {!isDashboard && (
-        <RacerPageActions
-          dashboardPath="/teacher/dashboard"
-          logoutKeys={["teacher_username","teacherUsername","teacherLoggedIn","attendance_role","attendance_username","attendance_teacher_id","teacher_id"]}
-        />
+        <div style={{position:"fixed",top:"72px",left:0,right:0,zIndex:9998,width:"100%",background:"#fff"}}><RacerPageActions`n          dashboardPath="/teacher/dashboard"
+          logoutKeys={["teacher_username","teacherUsername","teacherLoggedIn","attendance_role","attendance_username","attendance_teacher_id","teacher_id"]}`n        /></div>
       )}
 
-      <div className="racer-portal-content" style={{paddingTop:isDashboard ? "0px" : "72px"}}>{children}</div>
+      <div className="racer-portal-content" style={{paddingTop:isDashboard ? "0px" : "122px"}}>{children}</div>
 
       <nav className="racer-bottom-nav" aria-label="Teacher navigation">
         {items.map((item) => {
@@ -72,6 +70,8 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+
 
 
 
