@@ -901,7 +901,7 @@ export default function StudentDashboardPage() {
 
   return (
     <>
-      <div style={{margin:"0 0 14px",padding:"14px 16px",borderRadius:14,border:"1px solid #bfdbfe",background:monthlyResultPeriod?.is_released?"#ecfdf5":"#eff6ff",boxShadow:"0 2px 8px rgba(0,0,0,.05)"}}>{monthlyResultPeriod?.is_released?<><div style={{fontWeight:800,fontSize:17,color:"#047857"}}>RESULT DECLARED</div><div style={{marginTop:4,color:"#166534",fontWeight:700}}>Your monthly result has been declared.</div><a href="/student/monthly-result" style={{display:"inline-block",marginTop:10,padding:"9px 14px",borderRadius:9,background:"#047857",color:"#fff",textDecoration:"none",fontWeight:800}}>CLICK TO SEE RESULT</a></>:monthlyResultPeriod?.scheduled_release_at?<><div style={{fontWeight:800,fontSize:17,color:"#0b57a3"}}>MONTHLY RESULT ANNOUNCEMENT</div><div style={{marginTop:4,color:"#124d83",fontWeight:700}}>Your result will be declared at {new Date(monthlyResultPeriod.scheduled_release_at).toLocaleTimeString("en-IN",{timeZone:"Asia/Kolkata",hour:"2-digit",minute:"2-digit",hour12:true})}.</div></>:null}</div>`r`n          <style jsx global>{`
+      <>{monthlyResultPeriod && ((!monthlyResultPeriod.is_released && monthlyResultPeriod.scheduled_release_at) || (monthlyResultPeriod.is_released && monthlyResultPeriod.released_at && (Date.now()-new Date(monthlyResultPeriod.released_at).getTime())<86400000)) && <div style={{margin:"0 0 14px",padding:"14px 16px",borderRadius:14,border:"1px solid #bfdbfe",background:monthlyResultPeriod.is_released?"#ecfdf5":"#eff6ff",boxShadow:"0 2px 8px rgba(0,0,0,.05)"}}>{monthlyResultPeriod.is_released?<><div style={{fontWeight:800,fontSize:17,color:"#047857"}}>RESULT ANNOUNCED</div><div style={{marginTop:4,color:"#166534",fontWeight:700}}>Your monthly result has been announced. Click below to check your final result.</div><a href="/student/monthly-result" style={{display:"inline-block",marginTop:10,padding:"9px 14px",borderRadius:9,background:"#047857",color:"#fff",textDecoration:"none",fontWeight:800}}>CLICK TO CHECK RESULT</a></>:<><div style={{fontWeight:800,fontSize:17,color:"#0b57a3"}}>RESULT ANNOUNCEMENT</div><div style={{marginTop:4,color:"#124d83",fontWeight:700}}>Your result will be announced at {new Date(monthlyResultPeriod.scheduled_release_at).toLocaleTimeString("en-IN",{timeZone:"Asia/Kolkata",hour:"2-digit",minute:"2-digit",hour12:true})}.</div></>}</div>}</>          <style jsx global>{`
         * {
           box-sizing: border-box;
         }
@@ -1597,7 +1597,7 @@ export default function StudentDashboardPage() {
                 Logout
               </button>
             </div>
-          </nav>`r`n<section
+          </nav><section
             className="student-hero"
             style={styles.hero}
           >
@@ -2957,6 +2957,7 @@ const styles: {
     fontWeight: 900,
   },
 };
+
 
 
 
