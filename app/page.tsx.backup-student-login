@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -380,13 +380,6 @@ function getComboFee(
   );
 }
 
-type SavedStudent = {
-  id: string;
-  username: string;
-  name: string;
-  data: any;
-};
-
 export default function HomePage() {
   const router = useRouter();
 
@@ -399,8 +392,6 @@ export default function HomePage() {
     useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [savedStudents, setSavedStudents] =
-    useState<SavedStudent[]>([]);
 
   const [academy, setAcademy] =
     useState<AcademyProfile>(
@@ -450,117 +441,6 @@ export default function HomePage() {
     [fees, selectedMedium]
   );
 
-  useEffect(() => {
-    const teacherLoggedIn =
-      localStorage.getItem("teacherLoggedIn") === "true";
-    const teacherId =
-      localStorage.getItem("teacherId") ||
-      localStorage.getItem("teacher_id");
-
-    if (teacherLoggedIn && teacherId) {
-      router.replace("/teacher");
-      return;
-    }
-
-    const studentLoggedIn =
-      localStorage.getItem("studentLoggedIn") === "true";
-    const studentId =
-      localStorage.getItem("studentId") ||
-      localStorage.getItem("attendance_student_id");
-
-    if (studentLoggedIn && studentId) {
-      router.replace("/student/dashboard");
-      return;
-    }
-
-    try {
-      const saved = JSON.parse(
-        localStorage.getItem("racer_saved_students") || "[]"
-      );
-
-      if (Array.isArray(saved)) {
-        setSavedStudents(
-          saved.filter((item) => item?.id && item?.username).slice(0, 6)
-        );
-      }
-    } catch {
-      setSavedStudents([]);
-    }
-  }, [router]);
-
-  const saveStudentAccount = (userData: any) => {
-    const id = String(userData?.id || "").trim();
-    const studentUsername = String(
-      userData?.student_username || ""
-    ).trim();
-
-    if (!id || !studentUsername) {
-      return;
-    }
-
-    const safeData = Object.fromEntries(
-      Object.entries(userData).filter(
-        ([key]) => !key.toLowerCase().includes("password")
-      )
-    );
-
-    const account: SavedStudent = {
-      id,
-      username: studentUsername,
-      name: String(userData?.student_name || "Student"),
-      data: safeData,
-    };
-
-    try {
-      const saved = JSON.parse(
-        localStorage.getItem("racer_saved_students") || "[]"
-      );
-
-      const list = Array.isArray(saved) ? saved : [];
-      const next = [
-        account,
-        ...list.filter(
-          (item) =>
-            String(item?.id || "") !== id &&
-            String(item?.username || "").toLowerCase() !==
-              studentUsername.toLowerCase()
-        ),
-      ].slice(0, 6);
-
-      localStorage.setItem(
-        "racer_saved_students",
-        JSON.stringify(next)
-      );
-
-      setSavedStudents(next);
-    } catch {}
-  };
-
-  const quickLoginSavedStudent = (account: SavedStudent) => {
-    if (loading) return;
-
-    const userData = account.data || {};
-
-    localStorage.setItem(
-      "racer_academy_student",
-      JSON.stringify(userData)
-    );
-    localStorage.setItem("student", JSON.stringify(userData));
-    localStorage.setItem("studentLoggedIn", "true");
-    localStorage.setItem("studentId", account.id);
-    localStorage.setItem(
-      "studentName",
-      account.name || "Student"
-    );
-    localStorage.setItem(
-      "student_name",
-      account.name || "Student"
-    );
-    localStorage.setItem("student_username", account.username);
-    localStorage.setItem("studentUsername", account.username);
-
-    router.replace("/student/dashboard");
-  };
   useEffect(() => {
     async function loadAcademyData() {
       try {
@@ -853,8 +733,6 @@ export default function HomePage() {
           userData.student_username ||
             ""
         );
-
-        saveStudentAccount(userData);
 
         router.push(
           "/student/dashboard"
@@ -2571,43 +2449,6 @@ export default function HomePage() {
                   </p>
                 </div>
 
-                {loginType === "student" && savedStudents.length > 0 && (
-                  <div className="saved-students">
-                    <div className="saved-students-heading">
-                      <span>⚡</span>
-                      <strong>Saved Student Accounts</strong>
-                    </div>
-
-                    <div className="saved-student-list">
-                      {savedStudents.map((student) => (
-                        <button
-                          type="button"
-                          className="saved-student-button"
-                          key={`${student.id}-${student.username}`}
-                          onClick={() =>
-                            quickLoginSavedStudent(student)
-                          }
-                          disabled={loading}
-                        >
-                          <span className="saved-student-avatar">
-                            🎓
-                          </span>
-
-                          <span className="saved-student-text">
-                            <strong>
-                              {student.name || "Student"}
-                            </strong>
-                            <small>{student.username}</small>
-                          </span>
-
-                          <span className="saved-student-arrow">
-                            →
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
                 <form
                   onSubmit={handleLogin}
                   className="racer-form"
