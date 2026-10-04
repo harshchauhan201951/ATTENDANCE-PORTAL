@@ -128,7 +128,8 @@ export function calculateMonthlyTotals(args: {
     quizObtained, quizTotal, weeklyObtained, weeklyTotal, mahaObtained, mahaTotal,
     grandObtained, grandTotal, percentage,
     passPercentage: safeNumber(args.passPercentage) || 40,
-    status: grandTotal > 0 && percentage >= (safeNumber(args.passPercentage) || 40) ? 'PASS' : 'FAIL',
+    status: args.mahaObtained === null || args.mahaObtained === undefined || grandTotal <= 0 ? 'PENDING' : percentage >= (safeNumber(args.passPercentage) || 40) ? 'PASS' : 'FAIL',
   };
 }
+
 
