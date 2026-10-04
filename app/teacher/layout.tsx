@@ -47,8 +47,8 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
       )}
 
       {!isDashboard && (
-        <div style={{position:"fixed",top:"72px",left:0,right:0,zIndex:9998,width:"100%",background:"#fff"}}><RacerPageActions`n          dashboardPath="/teacher/dashboard"
-          logoutKeys={["teacher_username","teacherUsername","teacherLoggedIn","attendance_role","attendance_username","attendance_teacher_id","teacher_id"]}`n        /></div>
+        <div style={{position:"fixed",top:"72px",left:0,right:0,zIndex:9998,width:"100%",background:"#fff"}}><RacerPageActions dashboardPath="/teacher/dashboard"
+          logoutKeys={["teacher_username","teacherUsername","teacherLoggedIn","attendance_role","attendance_username","attendance_teacher_id","teacher_id"]}/></div>
       )}
 
       <div className="racer-portal-content" style={{paddingTop:isDashboard ? "0px" : "122px"}}>{children}</div>
@@ -70,6 +70,7 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
 
 
 
