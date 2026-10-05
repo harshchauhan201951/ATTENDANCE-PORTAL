@@ -504,13 +504,13 @@ export default function TeacherHomeworkPage() {
             }
             style={styles.backButton}
           >
-            â† Dashboard
+            ← Dashboard
           </button>
         </header>
 
         {error && (
           <div style={styles.errorBox}>
-            âš ï¸ {error}
+            ⚠️ {error}
           </div>
         )}
 
@@ -518,7 +518,7 @@ export default function TeacherHomeworkPage() {
 
           <div style={styles.cardHeader}>
             <div style={styles.cardIcon}>
-              âœï¸
+              ✏️
             </div>
 
             <div>
@@ -610,7 +610,7 @@ export default function TeacherHomeworkPage() {
                         }}
                       >
                         {selected
-                          ? "âœ“"
+                          ? "✓"
                           : ""}
                       </span>
 
@@ -626,7 +626,7 @@ export default function TeacherHomeworkPage() {
               <div style={styles.noClasses}>
                 No classes found in student
                 records. Add class names from
-                Teacher â†’ Students first.
+                Teacher → Students first.
               </div>
             )}
 
@@ -638,7 +638,7 @@ export default function TeacherHomeworkPage() {
                     styles.selectedLabel
                   }
                 >
-                  ðŸŽ¯ Selected Classes
+                  🎯 Selected Classes
                 </span>
               </div>
 
@@ -762,7 +762,7 @@ export default function TeacherHomeworkPage() {
             <div style={styles.scheduleHeader}>
 
               <div style={styles.scheduleIcon}>
-                ðŸ•
+                🕐
               </div>
 
               <div>
@@ -806,7 +806,7 @@ export default function TeacherHomeworkPage() {
                     styles.modeButtonIcon
                   }
                 >
-                  âš¡
+                  ⚡
                 </span>
 
                 <span>
@@ -841,7 +841,7 @@ export default function TeacherHomeworkPage() {
                     styles.modeButtonIcon
                   }
                 >
-                  ðŸ—“ï¸
+                  🗓️
                 </span>
 
                 <span>
@@ -900,7 +900,7 @@ export default function TeacherHomeworkPage() {
                     styles.scheduleHelp
                   }
                 >
-                  ðŸ“Œ Students will see this
+                  📌 Students will see this
                   homework automatically
                   when this scheduled IST
                   time arrives.
@@ -918,7 +918,7 @@ export default function TeacherHomeworkPage() {
                 styles.assignmentIcon
               }
             >
-              ðŸŽ¯
+              🎯
             </div>
 
             <div>
@@ -940,7 +940,7 @@ export default function TeacherHomeworkPage() {
                 {selectedClasses.length >
                 0
                   ? selectedClasses.join(
-                      " â€¢ "
+                      " • "
                     )
                   : "Select one or more classes"}
               </div>
@@ -992,8 +992,8 @@ export default function TeacherHomeworkPage() {
                   : "Adding Homework..."
                 : postingMode ===
                   "schedule"
-                ? "ðŸ—“ï¸ Schedule Homework"
-                : "âž• Add Homework"}
+                ? "🗓️ Schedule Homework"
+                : "➕ Add Homework"}
             </button>
 
           </div>
@@ -1005,7 +1005,7 @@ export default function TeacherHomeworkPage() {
           <div style={styles.cardHeader}>
 
             <div style={styles.cardIcon}>
-              ðŸ“‹
+              📋
             </div>
 
             <div>
@@ -1034,7 +1034,7 @@ export default function TeacherHomeworkPage() {
                   styles.emptyIcon
                 }
               >
-                â³
+                ⏳
               </div>
 
               <h3
@@ -1055,7 +1055,7 @@ export default function TeacherHomeworkPage() {
                   styles.emptyIcon
                 }
               >
-                ðŸ“š
+                📚
               </div>
 
               <h3
@@ -1171,8 +1171,8 @@ export default function TeacherHomeworkPage() {
                                 }
                               >
                                 {future
-                                  ? "ðŸ• Scheduled"
-                                  : "âœ“ Published"}
+                                  ? "🕐 Scheduled"
+                                  : "✓ Published"}
                               </span>
                             )}
 
@@ -1199,7 +1199,7 @@ export default function TeacherHomeworkPage() {
                           styles.deleteButton
                         }
                       >
-                        ðŸ—‘ï¸ Delete
+                        🗑️ Delete
                       </button>
 
                     </div>
@@ -1237,13 +1237,13 @@ export default function TeacherHomeworkPage() {
                               styles.bookIcon
                             }
                           >
-                            ðŸ“–
+                            📖
                           </span>
 
                           <span>
                             {isOpen
-                              ? "à¤—à¥ƒà¤¹ à¤•à¤¾à¤°à¥à¤¯ à¤¬à¤‚à¤¦ à¤•à¤°à¥‡à¤‚"
-                              : "à¤—à¥ƒà¤¹ à¤•à¤¾à¤°à¥à¤¯ à¤–à¥‹à¤²à¥‡à¤‚"}
+                              ? "गृह कार्य बंद करें"
+                              : "गृह कार्य खोलें"}
                           </span>
                         </span>
 
@@ -1253,8 +1253,8 @@ export default function TeacherHomeworkPage() {
                           }
                         >
                           {isOpen
-                            ? "â–²"
-                            : "â–¼"}
+                            ? "▲"
+                            : "▼"}
                         </span>
 
                       </button>
@@ -1277,7 +1277,7 @@ export default function TeacherHomeworkPage() {
                                   styles.documentLabel
                                 }
                               >
-                                ðŸ“„ à¤—à¥ƒà¤¹ à¤•à¤¾à¤°à¥à¤¯
+                                📄 गृह कार्य
                               </div>
 
                               <div
@@ -1330,8 +1330,8 @@ export default function TeacherHomeworkPage() {
                         >
                           <span>
                             {future
-                              ? "ðŸ—“ï¸ Scheduled for:"
-                              : "âœ“ Published at:"}
+                              ? "🗓️ Scheduled for:"
+                              : "✓ Published at:"}
                           </span>
 
                           <strong>
@@ -1354,7 +1354,7 @@ export default function TeacherHomeworkPage() {
                           styles.dueDate
                         }
                       >
-                        ðŸ“… Due:{" "}
+                        📅 Due:{" "}
                         {formatDate(
                           item.due_date
                         )}
@@ -1365,7 +1365,7 @@ export default function TeacherHomeworkPage() {
                           styles.studentCount
                         }
                       >
-                        ðŸ‘¨â€ðŸŽ“{" "}
+                        👨‍🎓{" "}
                         {getStudentCount(
                           item.class_name
                         )}{" "}
@@ -1384,8 +1384,8 @@ export default function TeacherHomeworkPage() {
         </section>
 
         <footer style={styles.footer}>
-          Attendance Portal â€¢ Teacher
-          Homework â€¢ 2026
+          Attendance Portal • Teacher
+          Homework • 2026
         </footer>
 
       </div>
@@ -1966,7 +1966,7 @@ const styles: {
   },
 
   /*
-   * New à¤—à¥ƒà¤¹ à¤•à¤¾à¤°à¥à¤¯ accordion section
+   * New गृह कार्य accordion section
    */
 
   homeworkContentBox: {

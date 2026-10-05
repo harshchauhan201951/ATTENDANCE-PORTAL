@@ -485,7 +485,7 @@ export default function StudentSettingsPage() {
   }
 
   function logout() {
-    localStorage.removeItem("studentLoggedIn");
+    sessionStorage.removeItem("studentLoggedIn");
     localStorage.removeItem("student_username");
     localStorage.removeItem("studentUsername");
     localStorage.removeItem("studentName");

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   useEffect,
@@ -1204,22 +1204,22 @@ export default function TeacherReportsPage() {
             }</td>
             <td>${
               isAbsentStudent || isNoTestStudent
-                ? "Ã¢â‚¬â€"
+                ? "—"
                 : escapeHtml(item.total_marks)
             }</td>
             <td>${
               isAbsentStudent || isNoTestStudent
-                ? "Ã¢â‚¬â€"
+                ? "—"
                 : escapeHtml(item.obtained_marks)
             }</td>
             <td>${
               isAbsentStudent || isNoTestStudent
-                ? "Ã¢â‚¬â€"
+                ? "—"
                 : `${percentage.toFixed(1)}%`
             }</td>
             <td>${
               isAbsentStudent || isNoTestStudent
-                ? "Ã¢â‚¬â€"
+                ? "—"
                 : getGrade(percentage)
             }</td>
             <td>${
@@ -1725,7 +1725,7 @@ export default function TeacherReportsPage() {
             href="/teacher"
             style={styles.backButton}
           >
-            Ã¢â€ Â Teacher Dashboard
+            ← Teacher Dashboard
           </a>
         </header>
 
@@ -2304,7 +2304,7 @@ export default function TeacherReportsPage() {
                                   }
                                 >
                                   {student.admission_date ||
-                                    "Ã¢â‚¬â€"}
+                                    "—"}
                                 </span>
                               </td>
 
@@ -2354,9 +2354,9 @@ export default function TeacherReportsPage() {
                               <td style={styles.td}>
                                 {isAbsentStudent ||
                                 isNoTestStudent
-                                  ? "Ã¢â‚¬â€"
+                                  ? "—"
                                   : totalMarks ||
-                                    "Ã¢â‚¬â€"}
+                                    "—"}
                               </td>
 
                               <td style={styles.td}>
@@ -2405,7 +2405,7 @@ export default function TeacherReportsPage() {
                                     ? `${percentage.toFixed(
                                         1
                                       )}%`
-                                    : "Ã¢â‚¬â€"}
+                                    : "—"}
                                 </strong>
                               </td>
 
@@ -2439,7 +2439,7 @@ export default function TeacherReportsPage() {
                                     ? "NO TEST"
                                     : total > 0
                                     ? grade
-                                    : "Ã¢â‚¬â€"}
+                                    : "—"}
                                 </span>
                               </td>
 
@@ -2481,7 +2481,7 @@ export default function TeacherReportsPage() {
                                       )
                                       ? "PASS"
                                       : "FAIL"
-                                    : "Ã¢â‚¬â€"}
+                                    : "—"}
                                 </span>
                               </td>
 
@@ -2589,7 +2589,7 @@ export default function TeacherReportsPage() {
                                                   styles.removeImageButton
                                                 }
                                               >
-                                                Ãƒâ€”
+                                                ×
                                               </button>
                                             </div>
                                           )
@@ -2760,13 +2760,13 @@ export default function TeacherReportsPage() {
                             }
                           >
                             {first.test_date}
-                            {" Ã¢â‚¬Â¢ "}
+                            {" • "}
                             Total Marks:{" "}
                             {total}
-                            {" Ã¢â‚¬Â¢ "}
+                            {" • "}
                             Students:{" "}
                             {group.length}
-                            {" Ã¢â‚¬Â¢ "}
+                            {" • "}
                             Average:{" "}
                             {average.toFixed(
                               1
@@ -2898,12 +2898,12 @@ export default function TeacherReportsPage() {
 
             <div style={styles.gradeGrid}>
               {[
-                ["90Ã¢â‚¬â€œ100%", "A+", "PASS"],
-                ["80Ã¢â‚¬â€œ89%", "A", "PASS"],
-                ["70Ã¢â‚¬â€œ79%", "B+", "PASS"],
-                ["60Ã¢â‚¬â€œ69%", "B", "PASS"],
-                ["50Ã¢â‚¬â€œ59%", "C", "PASS"],
-                ["40Ã¢â‚¬â€œ49%", "D", "PASS"],
+                ["90–100%", "A+", "PASS"],
+                ["80–89%", "A", "PASS"],
+                ["70–79%", "B+", "PASS"],
+                ["60–69%", "B", "PASS"],
+                ["50–59%", "C", "PASS"],
+                ["40–49%", "D", "PASS"],
                 ["Below 40%", "F", "FAIL"],
               ].map((item) => (
                 <div
@@ -3007,7 +3007,7 @@ export default function TeacherReportsPage() {
         </section>
 
         <footer style={styles.footer}>
-          RACER ACADEMY Ã¢â‚¬Â¢ Teacher Reports Ã¢â‚¬Â¢{" "}
+          RACER ACADEMY • Teacher Reports •{" "}
           {year}
         </footer>
       </div>

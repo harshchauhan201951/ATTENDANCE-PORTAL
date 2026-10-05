@@ -668,7 +668,7 @@ export default function TeacherAttendancePage() {
                 <div>
                   <h2><Icon name="history" /> ATTENDANCE HISTORY</h2>
                 </div>
-                <button type="button" onClick={() => { setAttendanceView("history"); window.scrollTo({ top: 0, behavior: "smooth" }); }}>View All <span>›</span></button>
+                <button type="button" onClick={() => { setAttendanceView("history"); window.scrollTo({ top: 0, behavior: "smooth" }); }}>View All <span>â€º</span></button>
               </div>
               <div className="racer-vip-history-grid header">
                 <span>#</span><span>Date</span><span>Student</span><span>Username</span><span>Status</span>
@@ -761,7 +761,7 @@ export default function TeacherAttendancePage() {
               <div className="racer-vip-pagination">
                 <button type="button" disabled={safeHistoryPage <= 1} onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}><Icon name="back" /></button>
                 <span>Showing {visibleHistory.length === 0 ? 0 : (safeHistoryPage - 1) * historyPageSize + 1}-{Math.min(safeHistoryPage * historyPageSize, visibleHistory.length)} of {visibleHistory.length} records</span>
-                <button type="button" disabled={safeHistoryPage >= historyTotalPages} onClick={() => setHistoryPage((p) => Math.min(historyTotalPages, p + 1))}><span className="right-arrow">›</span></button>
+                <button type="button" disabled={safeHistoryPage >= historyTotalPages} onClick={() => setHistoryPage((p) => Math.min(historyTotalPages, p + 1))}><span className="right-arrow">â€º</span></button>
               </div>
             </section>
           </>
@@ -876,8 +876,7 @@ export default function TeacherAttendancePage() {
           .racer-vip-filter-group button{padding:0 11px;}.racer-vip-history-toolbar{align-items:stretch;}.racer-vip-filter-group{flex:1;}.racer-vip-filter-group button{flex:1;}.racer-vip-export-btn{padding:0 10px;}
           .racer-vip-history-grid.detailed{grid-template-columns:20px 52px minmax(86px,1fr) 58px 26px 54px;font-size:8px;}.racer-vip-row-actions{gap:4px;}.racer-vip-row-actions button{width:23px;height:23px;}
         }
-      `}</style>
-    </main>
+      @media (min-width:1025px){.racer-vip-attendance-shell{padding:0;}.racer-vip-phone{max-width:none;width:100%;margin:0;box-shadow:none;}.racer-vip-header{padding:0 28px;grid-template-columns:56px minmax(0,1fr) auto;}.racer-vip-brand{justify-content:flex-start;gap:12px;}.racer-vip-page-heading{padding:20px 28px 18px;grid-template-columns:54px minmax(0,1fr) auto;}.racer-vip-card{margin-left:28px;margin-right:28px;}.racer-vip-mark-card{padding:16px 16px 18px;}.racer-vip-mark-top{grid-template-columns:minmax(280px,.8fr) minmax(520px,1.2fr);}.racer-vip-stat-grid{grid-template-columns:repeat(4,minmax(0,1fr));}.racer-vip-mark-table-head{grid-template-columns:40px minmax(220px,2fr) minmax(160px,1fr) minmax(250px,1.15fr);padding:11px 12px;font-size:11px;}.racer-vip-student-row{grid-template-columns:40px 42px minmax(220px,2fr) minmax(160px,1fr) minmax(250px,1.15fr);gap:10px;min-height:60px;padding:10px 12px;}.racer-vip-student-avatar{width:40px;height:40px;font-size:14px;}.racer-vip-student-name strong{font-size:13px;}.racer-vip-student-id{font-size:11px;}.racer-vip-attendance-buttons{gap:8px;}.racer-vip-attendance-buttons button{height:35px;padding:0 14px;font-size:11px;}.racer-vip-search-wrap{width:100%;}.racer-vip-history-preview{margin-left:28px;margin-right:28px;padding:12px 14px;}.racer-vip-bottom-nav{width:100%;box-sizing:border-box;padding-left:28px;padding-right:28px;}}@media (max-width:700px){.racer-vip-mark-table-head{grid-template-columns:20px minmax(0,1fr) 52px 118px;gap:4px;padding:8px 5px;font-size:8px;}.racer-vip-student-row{grid-template-columns:20px 28px minmax(60px,1fr) 52px 118px;gap:4px;padding:7px 5px;min-height:50px;}.racer-vip-student-avatar{width:28px;height:28px;font-size:10px;}.racer-vip-student-name strong{font-size:9px;}.racer-vip-student-id{font-size:8px;}.racer-vip-attendance-buttons{display:grid;grid-template-columns:1fr 1fr;gap:4px;width:118px;}.racer-vip-attendance-buttons button{width:57px;height:29px;padding:0 4px;font-size:8px;gap:2px;}}`}</style>`n    </main>
   );
 }
 

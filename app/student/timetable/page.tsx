@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -75,7 +75,7 @@ export default function StudentTimetablePage() {
 
       if (typeof window === "undefined") return;
 
-      const loggedIn = localStorage.getItem("studentLoggedIn");
+      const loggedIn = sessionStorage.getItem("studentLoggedIn");
 
       if (loggedIn !== "true") {
         router.replace("/");

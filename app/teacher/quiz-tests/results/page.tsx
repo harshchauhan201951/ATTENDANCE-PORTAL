@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   Suspense,
@@ -316,7 +316,7 @@ function TeacherQuizResultsContent() {
     try {
       localStorage.removeItem("teacher_username");
       localStorage.removeItem("teacherUsername");
-      localStorage.removeItem("teacherLoggedIn");
+      sessionStorage.removeItem("teacherLoggedIn");
       localStorage.removeItem("attendance_role");
       localStorage.removeItem("attendance_username");
       localStorage.removeItem("attendance_teacher_id");

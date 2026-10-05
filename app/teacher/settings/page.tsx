@@ -91,7 +91,7 @@ export default function TeacherSettingsPage() {
   }
 
   function logout() {
-    localStorage.removeItem("teacherLoggedIn");
+    sessionStorage.removeItem("teacherLoggedIn");
     localStorage.removeItem("teacherName");
     localStorage.removeItem("teacher_name");
     localStorage.removeItem("teacher_username");
