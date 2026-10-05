@@ -60,56 +60,16 @@ export default function TeacherDashboard() {
 
   const iconClass = (index: number) => `racer-ref-icon racer-ref-icon-${index + 1}`;
 
-  
-  
-/* RACER_UNIQUE_DASHBOARD_EFFECT */
-  useEffect(() => {
-    const root = document.querySelector("main.racer-unique-dashboard");
-    if (!root) return;
-
-    // Remove the non-functional All / Academic / Management filter row.
-    const exactNodes = ["All","Academic","Management"].map((label) => {
-      return Array.from(root.querySelectorAll<HTMLElement>("*")).find((el) => {
-        return !el.children.length && (el.textContent || "").trim() === label;
-      }) || null;
-    });
-    if (exactNodes.every(Boolean)) {
-      let box: HTMLElement | null = exactNodes[0]?.parentElement || null;
-      for (let i = 0; i < 6 && box; i++, box = box.parentElement) {
-        const txt = (box.textContent || "").replace(/\s+/g, " ").trim();
-        if (txt.includes("All") && txt.includes("Academic") && txt.includes("Management") && txt.length < 140) {
-          box.setAttribute("data-racer-dashboard-filter-row","hidden");
-          box.style.display = "none";
-          break;
-        }
-      }
-    }
-
-    // Find the module-card container and give it the VIP grid class.
-    const candidates = Array.from(root.querySelectorAll<HTMLElement>("section,nav,article,div"));
-    let best: HTMLElement | null = null;
-    let bestCount = 0;
-    for (const el of candidates) {
-      if (el.getAttribute("data-racer-dashboard-modules") === "1") continue;
-      const count = el.querySelectorAll("a[href^='/teacher/']").length;
-      if (count >= 8 && count > bestCount && count <= 30) {
-        best = el;
-        bestCount = count;
-      }
-    }
-    if (best) best.setAttribute("data-racer-dashboard-modules","1");
-  }, []);
-
   return (
-    <main data-racer-unique-dashboard="1"  data-racer-teacher-dashboard="1"  data-racer-vip-module="extra-classes"  className="racer-vip-dashboard racer-dashboard-v2 racer-reference-dashboard">
+    <main data-racer-teacher-dashboard="1"  data-racer-vip-module="extra-classes"  className="racer-vip-dashboard racer-dashboard-v2 racer-reference-dashboard">
       <div className="racer-dashboard-v2-shell">
         {/* Existing desktop dashboard remains available; reference dashboard is mobile-only. */}
-        <section className="racer-reference-mobile-dashboard" aria-label="RACER ACADEMY">
+        <section className="racer-reference-mobile-dashboard" aria-label="Teacher Services">
           <header data-racer-vip-header="1"  className="racer-reference-mobile-topbar">
             <div className="racer-reference-mobile-brand">
               <div className="racer-reference-mobile-logo">RA</div>
               <div>
-                <strong>RACER ACADEMY</strong>
+                <strong>Teacher Services</strong>
                 <span>Modules&nbsp; | &nbsp;Teacher</span>
               </div>
             </div>
