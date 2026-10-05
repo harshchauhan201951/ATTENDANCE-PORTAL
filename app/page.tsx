@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -89,16 +89,16 @@ type InfoModal =
 
 const defaultAcademyProfile: AcademyProfile = {
   academy_name: "RACER ACADEMY",
-  tagline: "Learn • Grow • Achieve",
+  tagline: "Learn  �  Grow  �  Achieve",
 
   about_text:
     "Welcome to RACER ACADEMY. We provide focused academic support and tuition for students from Nursery to Class 10. We focus on concept clarity, regular practice, doubt solving, discipline and individual attention so every child can learn with confidence.",
 
   classes_text:
-    "Nursery to Class 10\nHindi Medium • English Medium\nSubjects: Hindi, English, Mathematics, Science, Social Science and General Knowledge.\nRegular practice, doubt solving, revision and tests.",
+    "Nursery to Class 10\nHindi Medium  �  English Medium\nSubjects: Hindi, English, Mathematics, Science, Social Science and General Knowledge.\nRegular practice, doubt solving, revision and tests.",
 
   facilities_text:
-    "• Child-friendly learning environment\n• Individual attention\n• Regular tests and revision\n• Doubt-solving support\n• Homework and practice guidance\n• Progress monitoring\n• Parent-friendly academic communication",
+    " �  Child-friendly learning environment\n �  Individual attention\n �  Regular tests and revision\n �  Doubt-solving support\n �  Homework and practice guidance\n �  Progress monitoring\n �  Parent-friendly academic communication",
 
   timings_text:
     "Monday-Saturday\nHindi: 04:00 PM - 05:00 PM\nEnglish: 05:00 PM - 06:00 PM\nMathematics: 06:00 PM - 07:00 PM\nAdditional 1.5-hour subject sessions can be arranged at 50% additional fee.",
@@ -228,7 +228,7 @@ const defaultAcademyFees: AcademyFee[] = defaultClassNames.flatMap(
             fee_period: "Monthly",
 
             description:
-              "Per subject • 1 hour session • 1.5 hour session available at 50% additional fee • No admission fee • No yearly charge",
+              "Per subject  �  1 hour session  �  1.5 hour session available at 50% additional fee  �  No admission fee  �  No yearly charge",
           })
         )
     )
@@ -240,14 +240,14 @@ const defaultFacilities: AcademyFacility[] = [
     title: "Child-Friendly Learning Environment",
     description:
       "Safe, positive and comfortable atmosphere for students.",
-    icon: "🏫",
+    icon: "",
   },
   {
     id: 2,
     title: "Individual Attention",
     description:
       "Focused support according to each student's learning needs.",
-    icon: "👨‍🏫",
+    icon: "Teacher ",
   },
   {
     id: 3,
@@ -287,7 +287,7 @@ const defaultTimings: AcademyTiming[] = [
     start_time: "04:00 PM",
     end_time: "05:00 PM",
     description:
-      "1 hour session • Monthly • 1.5 hour session available at 50% additional fee.",
+      "1 hour session  �  Monthly  �  1.5 hour session available at 50% additional fee.",
   },
   {
     id: 2,
@@ -296,7 +296,7 @@ const defaultTimings: AcademyTiming[] = [
     start_time: "05:00 PM",
     end_time: "06:00 PM",
     description:
-      "1 hour session • Monthly • 1.5 hour session available at 50% additional fee.",
+      "1 hour session  �  Monthly  �  1.5 hour session available at 50% additional fee.",
   },
   {
     id: 3,
@@ -305,7 +305,7 @@ const defaultTimings: AcademyTiming[] = [
     start_time: "06:00 PM",
     end_time: "07:00 PM",
     description:
-      "1 hour session • Monthly • 1.5 hour session available at 50% additional fee.",
+      "1 hour session  �  Monthly  �  1.5 hour session available at 50% additional fee.",
   },
 ];
 
@@ -435,6 +435,8 @@ export default function HomePage() {
 
   const [showAcademyInfo, setShowAcademyInfo] = useState(false);
 
+  const [savedTeachers, setSavedTeachers] = useState<SavedStudent[]>([]);
+
 
 
   const [selectedMedium, setSelectedMedium] =
@@ -452,7 +454,7 @@ export default function HomePage() {
 
   useEffect(() => {
     const teacherLoggedIn =
-      localStorage.getItem("teacherLoggedIn") === "true";
+      sessionStorage.getItem("teacherLoggedIn") === "true";
     const teacherId =
       localStorage.getItem("teacherId") ||
       localStorage.getItem("teacher_id");
@@ -463,7 +465,7 @@ export default function HomePage() {
     }
 
     const studentLoggedIn =
-      localStorage.getItem("studentLoggedIn") === "true";
+      sessionStorage.getItem("studentLoggedIn") === "true";
     const studentId =
       localStorage.getItem("studentId") ||
       localStorage.getItem("attendance_student_id");
@@ -485,6 +487,22 @@ export default function HomePage() {
       }
     } catch {
       setSavedStudents([]);
+    }
+
+    try {
+      const savedTeachers = JSON.parse(
+        localStorage.getItem("racer_saved_teachers") || "[]"
+      );
+
+      if (Array.isArray(savedTeachers)) {
+        setSavedTeachers(
+          savedTeachers
+            .filter((item) => item?.id && item?.username)
+            .slice(0, 6)
+        );
+      }
+    } catch {
+      setSavedTeachers([]);
     }
   }, [router]);
 
@@ -536,30 +554,79 @@ export default function HomePage() {
     } catch {}
   };
 
+  const saveTeacherAccount = (userData: any) => {
+    const id = String(userData?.id || "").trim();
+    const teacherUsername = String(userData?.teacher_username || "").trim();
+
+    if (!id || !teacherUsername) {
+      return;
+    }
+
+    const safeData = Object.fromEntries(
+      Object.entries(userData).filter(
+        ([key]) => !key.toLowerCase().includes("password")
+      )
+    );
+
+    const account: SavedStudent = {
+      id,
+      username: teacherUsername,
+      name: String(
+        userData?.teacher_name || userData?.teacherName || userData?.name || "Teacher"
+      ),
+      data: safeData,
+    };
+
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem("racer_saved_teachers") || "[]"
+      );
+
+      const list = Array.isArray(saved) ? saved : [];
+      const next = [
+        account,
+        ...list.filter(
+          (item) =>
+            String(item?.id || "") !== id &&
+            String(item?.username || "").toLowerCase() !==
+              teacherUsername.toLowerCase()
+        ),
+      ].slice(0, 6);
+
+      localStorage.setItem(
+        "racer_saved_teachers",
+        JSON.stringify(next)
+      );
+
+      setSavedTeachers(next);
+    } catch {}
+  };
+
+  const quickLoginSavedTeacher = (account: SavedStudent) => {
+    if (loading) return;
+
+    setLoginType("teacher");
+    setUsername(account.username || "");
+    setPassword("");
+    setError("");
+    setShowPassword(false);
+
+    window.setTimeout(() => {
+      document.getElementById("password")?.focus();
+    }, 0);
+  };
   const quickLoginSavedStudent = (account: SavedStudent) => {
     if (loading) return;
 
-    const userData = account.data || {};
+    setLoginType("student");
+    setUsername(account.username || "");
+    setPassword("");
+    setError("");
+    setShowPassword(false);
 
-    localStorage.setItem(
-      "racer_academy_student",
-      JSON.stringify(userData)
-    );
-    localStorage.setItem("student", JSON.stringify(userData));
-    localStorage.setItem("studentLoggedIn", "true");
-    localStorage.setItem("studentId", account.id);
-    localStorage.setItem(
-      "studentName",
-      account.name || "Student"
-    );
-    localStorage.setItem(
-      "student_name",
-      account.name || "Student"
-    );
-    localStorage.setItem("student_username", account.username);
-    localStorage.setItem("studentUsername", account.username);
-
-    router.replace("/student/dashboard");
+    window.setTimeout(() => {
+      document.getElementById("password")?.focus();
+    }, 0);
   };
   useEffect(() => {
     async function loadAcademyData() {
@@ -818,7 +885,7 @@ export default function HomePage() {
           JSON.stringify(userData)
         );
 
-        localStorage.setItem(
+        sessionStorage.setItem(
           "studentLoggedIn",
           "true"
         );
@@ -965,7 +1032,7 @@ export default function HomePage() {
         JSON.stringify(userData)
       );
 
-      localStorage.setItem(
+      sessionStorage.setItem(
         "teacherLoggedIn",
         "true"
       );
@@ -1093,7 +1160,8 @@ export default function HomePage() {
       // reloads after all login data has been saved.
       // =========================================================
 
-      window.location.replace(
+      saveTeacherAccount(userData);
+window.location.replace(
         "/teacher"
       );
 
@@ -1233,7 +1301,7 @@ export default function HomePage() {
                 {selectedMedium ===
                 "Hindi Medium"
                   ? "✓"
-                  : "→"}
+                  : ""}
               </b>
             </button>
 
@@ -1269,7 +1337,7 @@ export default function HomePage() {
                 {selectedMedium ===
                 "English Medium"
                   ? "✓"
-                  : "→"}
+                  : ""}
               </b>
             </button>
           </div>
@@ -1289,8 +1357,8 @@ export default function HomePage() {
                 </strong>
 
                 <small>
-                  Nursery to Class 10 •
-                  Monthly • Per Subject
+                  Nursery to Class 10  � 
+                  Monthly  �  Per Subject
                 </small>
               </div>
             </div>
@@ -1327,7 +1395,7 @@ export default function HomePage() {
               </strong>
 
               <span>
-                Any 2 subjects • 2 hours
+                Any 2 subjects  �  2 hours
               </span>
             </div>
           </div>
@@ -1461,7 +1529,7 @@ export default function HomePage() {
                       <div className="fee-session-card one-hour">
                         <div className="fee-session-heading">
                           <span>
-                            ⏱️
+                            ⏱
                           </span>
 
                           <div>
@@ -1470,7 +1538,7 @@ export default function HomePage() {
                             </strong>
 
                             <small>
-                              Monthly • per
+                              Monthly  �  per
                               subject
                             </small>
                           </div>
@@ -1582,8 +1650,8 @@ export default function HomePage() {
                       </span>
 
                       <span>
-                        No admission fee • No
-                        yearly charge •
+                        No admission fee  �  No
+                        yearly charge  � 
                         Monthly fee
                       </span>
                     </div>
@@ -1606,7 +1674,7 @@ export default function HomePage() {
                   </small>
 
                   <h3>
-                    Any 2 Subjects • 2 Hours
+                    Any 2 Subjects  �  2 Hours
                   </h3>
 
                   <p>
@@ -1669,7 +1737,7 @@ export default function HomePage() {
                       </div>
 
                       <div className="combo-detail">
-                        Any 2 subjects •
+                        Any 2 subjects  � 
                         2 total hours
                       </div>
                     </div>
@@ -1691,8 +1759,8 @@ export default function HomePage() {
               </strong>
 
               <span>
-                Any 2 subjects • 2 hours
-                total • Monthly
+                Any 2 subjects  �  2 hours
+                total  �  Monthly
               </span>
             </div>
           </div>
@@ -1827,7 +1895,7 @@ export default function HomePage() {
                   />
                 ) : (
                   <div className="faculty-placeholder">
-                    👨‍🏫
+                    Teacher 
                   </div>
                 )}
 
@@ -2050,7 +2118,7 @@ export default function HomePage() {
           </div>
 
           <div className="contact-detail-card">
-            <span>✉️</span>
+            <span>✉</span>
 
             <h3>
               Email
@@ -2069,7 +2137,7 @@ export default function HomePage() {
 
           <div className="contact-admission-box">
             <strong>
-              🎓 Admissions
+               Admissions
             </strong>
 
             <p>
@@ -2228,7 +2296,7 @@ export default function HomePage() {
                     className="option-card option-blue"
                   >
                     <span className="option-icon">
-                      🏫
+                      
                     </span>
 
                     <span>
@@ -2242,7 +2310,7 @@ export default function HomePage() {
                     </span>
 
                     <b>
-                      →
+                      
                     </b>
                   </button>
 
@@ -2268,7 +2336,7 @@ export default function HomePage() {
                     </span>
 
                     <b>
-                      →
+                      
                     </b>
                   </button>
 
@@ -2289,13 +2357,13 @@ export default function HomePage() {
                       </strong>
 
                       <small>
-                        Hindi / English •
+                        Hindi / English  � 
                         Class-wise
                       </small>
                     </span>
 
                     <b>
-                      →
+                      
                     </b>
                   </button>
 
@@ -2321,7 +2389,7 @@ export default function HomePage() {
                     </span>
 
                     <b>
-                      →
+                      
                     </b>
                   </button>
 
@@ -2348,7 +2416,7 @@ export default function HomePage() {
                     </span>
 
                     <b>
-                      →
+                      
                     </b>
                   </button>
 
@@ -2360,7 +2428,7 @@ export default function HomePage() {
                     className="option-card option-indigo"
                   >
                     <span className="option-icon">
-                      👨‍🏫
+                      Teacher 
                     </span>
 
                     <span>
@@ -2375,7 +2443,7 @@ export default function HomePage() {
                     </span>
 
                     <b>
-                      →
+                      
                     </b>
                   </button>
 
@@ -2403,7 +2471,7 @@ export default function HomePage() {
                     </span>
 
                     <b>
-                      →
+                      
                     </b>
                   </button>
 
@@ -2429,7 +2497,7 @@ export default function HomePage() {
                     </span>
 
                     <b>
-                      →
+                      
                     </b>
                   </button>
                 </div>
@@ -2437,7 +2505,7 @@ export default function HomePage() {
 
               <div className="highlight-strip">
                 <div>
-                  <span>🎓</span>
+                  <span></span>
 
                   <strong>
                     Nursery – Class 10
@@ -2445,7 +2513,7 @@ export default function HomePage() {
                 </div>
 
                 <div>
-                  <span>🗣️</span>
+                  <span>🗣</span>
 
                   <strong>
                     Free to Ask
@@ -2488,7 +2556,7 @@ export default function HomePage() {
 
                 <div className="login-logo">
                   <div className="login-logo-icon">
-                    🎓
+                    
                   </div>
 
                   <div>
@@ -2522,10 +2590,10 @@ export default function HomePage() {
                     disabled={loading}
                   >
                     <span>
-                      🎓
+                      
                     </span>
 
-                    Student
+                    STUDENT
                   </button>
 
                   <button
@@ -2543,11 +2611,7 @@ export default function HomePage() {
                     }
                     disabled={loading}
                   >
-                    <span>
-                      👨‍🏫
-                    </span>
-
-                    Teacher
+                    <span>TEACHER</span>
                   </button>
                 </div>
 
@@ -2560,7 +2624,7 @@ export default function HomePage() {
                   </div>
 
                   <h2>
-                    Welcome Back 👋
+                    Welcome Back 
                   </h2>
 
                   <p>
@@ -2574,7 +2638,7 @@ export default function HomePage() {
                 {loginType === "student" && savedStudents.length > 0 && (
                   <div className="saved-students">
                     <div className="saved-students-heading">
-                      <span>⚡</span>
+                      <span></span>
                       <strong>Saved Student Accounts</strong>
                     </div>
 
@@ -2590,7 +2654,7 @@ export default function HomePage() {
                           disabled={loading}
                         >
                           <span className="saved-student-avatar">
-                            🎓
+                            
                           </span>
 
                           <span className="saved-student-text">
@@ -2601,7 +2665,42 @@ export default function HomePage() {
                           </span>
 
                           <span className="saved-student-arrow">
-                            →
+                            
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {loginType === "teacher" && savedTeachers.length > 0 && (
+                  <div className="saved-students">
+                    <div className="saved-students-heading">
+                      <span></span>
+                      <strong>Saved Teacher Accounts</strong>
+                    </div>
+
+                    <div className="saved-student-list">
+                      {savedTeachers.map((teacher) => (
+                        <button
+                          type="button"
+                          className="saved-student-button"
+                          key={`${teacher.id}-${teacher.username}`}
+                          onClick={() => quickLoginSavedTeacher(teacher)}
+                          disabled={loading}
+                        >
+                          <span className="saved-student-avatar">
+                            T
+                          </span>
+
+                          <span className="saved-student-text">
+                            <strong>
+                              {teacher.name || "Teacher"}
+                            </strong>
+                            <small>{teacher.username}</small>
+                          </span>
+
+                          <span className="saved-student-arrow">
+                            &gt;
                           </span>
                         </button>
                       ))}
@@ -2611,7 +2710,7 @@ export default function HomePage() {
                 <form
                   onSubmit={handleLogin}
                   className="racer-form"
-                >
+                 name="racer-login" autoComplete="on">
                   <div className="input-group">
                     <label htmlFor="username">
                       Username
@@ -2619,11 +2718,12 @@ export default function HomePage() {
 
                     <div className="input-box">
                       <span>
-                        👤
+                        
                       </span>
 
                       <input
                         id="username"
+                        name="username"
                         type="text"
                         value={username}
                         onChange={(e) =>
@@ -2652,11 +2752,12 @@ export default function HomePage() {
 
                     <div className="input-box">
                       <span>
-                        🔒
+                        
                       </span>
 
                       <input
                         id="password"
+                        name="password"
                         type={
                           showPassword
                             ? "text"
@@ -2697,7 +2798,7 @@ export default function HomePage() {
                       >
                         {showPassword
                           ? "🙈"
-                          : "👁️"}
+                          : ""}
                       </button>
                     </div>
                   </div>
@@ -2705,7 +2806,7 @@ export default function HomePage() {
                   {error && (
                     <div className="login-error">
                       <span>
-                        ⚠️
+                        ⚠
                       </span>
 
                       <span>
@@ -2733,7 +2834,7 @@ export default function HomePage() {
                           : "Teacher"}
 
                         <span>
-                          →
+                          
                         </span>
                       </>
                     )}
@@ -2742,15 +2843,15 @@ export default function HomePage() {
 
                 <div className="secure-footer">
                   <span>
-                    🔒 Secure Login
+                     Secure Login
                   </span>
 
                   <span className="footer-separator">
-                    •
+                     � 
                   </span>
 
                   <span>
-                    ⚡ Fast & Reliable
+                     Fast & Reliable
                   </span>
                 </div>
 
@@ -2791,7 +2892,7 @@ export default function HomePage() {
                       )
                     }
                   >
-                    →
+                    
                   </button>
                 </div>
               )}
@@ -2806,7 +2907,7 @@ export default function HomePage() {
             </span>
 
             <span>
-              Learn • Grow • Achieve
+              Learn  �  Grow  �  Achieve
             </span>
           </footer>
         </div>
@@ -5223,6 +5324,14 @@ export default function HomePage() {
     </>
   );
 }
+
+
+
+
+
+
+
+
 
 
 
