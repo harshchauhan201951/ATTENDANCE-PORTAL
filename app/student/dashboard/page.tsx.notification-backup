@@ -117,7 +117,7 @@ export default function StudentDashboardPage() {
 
         await loadStudentProfile(resolvedId, savedUsername);
         await loadAnnouncements(resolvedId);
-        void registerPushNotifications(resolvedId);
+        await registerPushNotifications(resolvedId);
 
         return;
       }
@@ -131,7 +131,7 @@ export default function StudentDashboardPage() {
 
         await loadStudentProfile(parsedId, savedUsername);
         await loadAnnouncements(parsedId);
-        void registerPushNotifications(parsedId);
+        await registerPushNotifications(parsedId);
 
         return;
       }
@@ -278,7 +278,10 @@ export default function StudentDashboardPage() {
       let permission =
         Notification.permission;
 
-      if (permission === "default") return;
+      if (permission === "default") {
+        permission =
+          await Notification.requestPermission();
+      }
 
       if (permission !== "granted") {
         console.warn(
@@ -2954,7 +2957,6 @@ const styles: {
     fontWeight: 900,
   },
 };
-
 
 
 
