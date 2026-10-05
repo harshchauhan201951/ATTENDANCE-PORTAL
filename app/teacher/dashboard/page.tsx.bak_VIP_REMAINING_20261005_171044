@@ -61,11 +61,11 @@ export default function TeacherDashboard() {
   const iconClass = (index: number) => `racer-ref-icon racer-ref-icon-${index + 1}`;
 
   return (
-    <main data-racer-teacher-dashboard="1"  data-racer-vip-module="extra-classes"  className="racer-vip-dashboard racer-dashboard-v2 racer-reference-dashboard">
+    <main className="racer-dashboard-v2 racer-reference-dashboard">
       <div className="racer-dashboard-v2-shell">
         {/* Existing desktop dashboard remains available; reference dashboard is mobile-only. */}
         <section className="racer-reference-mobile-dashboard" aria-label="Teacher Services">
-          <header data-racer-vip-header="1"  className="racer-reference-mobile-topbar">
+          <header className="racer-reference-mobile-topbar">
             <div className="racer-reference-mobile-brand">
               <div className="racer-reference-mobile-logo">RA</div>
               <div>
@@ -107,7 +107,7 @@ export default function TeacherDashboard() {
         </section>
 
         <section className="racer-reference-desktop-dashboard">
-          <header data-racer-vip-header="1"  className="racer-dashboard-v2-header">
+          <header className="racer-dashboard-v2-header">
             <div className="racer-dashboard-v2-brand">
               <div className="racer-dashboard-v2-logo">RA</div>
               <div className="racer-dashboard-v2-brand-text">

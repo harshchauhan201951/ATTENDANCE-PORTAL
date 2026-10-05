@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -308,7 +308,7 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
     const ws = XLSX.utils.json_to_sheet(rows); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Monthly Result"); XLSX.writeFile(wb, `RACER_ACADEMY_${monthKey}_MONTHLY_RESULT.xlsx`);
   }
 
-  return <main data-racer-vip-module="monthly-results"  style={{padding:"16px",maxWidth:1200,margin:"0 auto",fontFamily:"Arial,sans-serif"}}>
+  return <main style={{padding:"16px",maxWidth:1200,margin:"0 auto",fontFamily:"Arial,sans-serif"}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:16}}><div><h1 style={{margin:0,color:"#0b3d7a"}}>Monthly Result</h1><p style={{margin:"5px 0",color:"#64748b"}}>Quiz + Saturday Weekly Tests + 100-Mark MahaTest</p></div><a href="/teacher/dashboard" style={{padding:"9px 13px",borderRadius:9,background:"#0b57a3",color:"#fff",textDecoration:"none",fontWeight:700}}>Dashboard</a></div>
     <section style={{background:"#fff",border:"1px solid #dbe7f5",borderRadius:14,padding:14,marginBottom:14}}>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:10}}>

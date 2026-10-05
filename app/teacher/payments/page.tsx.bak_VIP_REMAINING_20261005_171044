@@ -202,7 +202,7 @@ export default function TeacherPaymentsPage() {
 
   if (loading) {
     return (
-      <main data-racer-vip-module="payments"  className="loading-page racer-module-page racer-payments-page">
+      <main className="loading-page racer-module-page racer-payments-page">
         <div className="loader" />
         <p>Loading payment details...</p>
 
@@ -248,18 +248,21 @@ export default function TeacherPaymentsPage() {
   }
 
   return (
-    <main data-racer-vip-module="payments"  className="payments-page">
+    <main className="payments-page">
       <div className="background-grid" />
       <div className="glow glow-one" />
       <div className="glow glow-two" />
 
       <div className="page-container">
         {/* HEADER */}
-        <header data-racer-vip-header="1"  className="header">
+        <header className="header">
           <div>
             <div className="kicker">RACER ACADEMY</div>
-            <h1>RACER ACADEMY</h1>
-            <p>TEACHER CONTROL CENTER</p>
+            <h1>Payment Details</h1>
+            <p>
+              Manage the bank account, UPI and QR code that students
+              will use for fee payments.
+            </p>
           </div>
 
           <button

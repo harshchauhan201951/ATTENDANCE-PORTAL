@@ -524,7 +524,7 @@ export default function TeacherProfilePage() {
       .join("") || "T";
 
   return (
-    <main data-racer-vip-module="profile"  className="profile-page racer-module-page racer-profile-page">
+    <main className="profile-page racer-module-page racer-profile-page">
       <div className="background-grid" />
 
       <div className="ambient ambient-one" />
@@ -533,7 +533,7 @@ export default function TeacherProfilePage() {
       <div className="profile-shell">
         {/* TOP BAR */}
 
-        <header data-racer-vip-header="1"  className="topbar">
+        <header className="topbar">
           <button
             type="button"
             className="back-button"

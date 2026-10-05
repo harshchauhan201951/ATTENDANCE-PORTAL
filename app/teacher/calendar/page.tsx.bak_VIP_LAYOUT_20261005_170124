@@ -857,166 +857,513 @@ export default function TeacherCalendarPage() {
     return null;
   }
 
-  const vipCalendarDates = calendarDays.filter((date): date is Date => Boolean(date));
-  const vipHolidayCount = holidays.filter((holiday) => holiday.date.startsWith(`${year}-${String(month + 1).padStart(2, "0")}-`)).length;
-  const vipTestCount = vipCalendarDates.filter((date) => getDayInfo(date)?.type === "test").length;
-  const vipWorkingDays = vipCalendarDates.filter((date) => getDayInfo(date)?.type !== "holiday").length;
-
   return (
-    <main className="racer-vip-module-page racer-vip-calendar-page">
-      <div className="racer-vip-phone">
-        <header className="racer-vip-header">
-          <button className="racer-vip-icon-btn" type="button" aria-label="Menu"><Icon name="menu" /></button>
-          <div className="racer-vip-brand">
-            <img src="/racer-academy-icon.png" alt="RACER ACADEMY" />
-            <div>
-              <div className="racer-vip-brand-title">RACER ACADEMY</div>
-              <div className="racer-vip-brand-subtitle">TEACHER CONTROL CENTER</div>
+    <main className="racer-module-page racer-calendar-page" style={styles.page}>
+      <div style={styles.container}>
+        <header style={styles.header}>
+          <div>
+            <div style={styles.badge}>
+              TEACHER PORTAL
             </div>
+
+            <h1 style={styles.title}>
+               Academic Calendar
+            </h1>
+
+            <p style={styles.subtitle}>
+              Classes  Weekly Tests  Sundays 
+              Holidays
+            </p>
           </div>
-          <div className="racer-vip-header-right">
-            <div className="racer-vip-avatar">TC</div>
-            <button className="racer-vip-icon-btn" type="button" aria-label="Notifications"><Icon name="bell" /></button>
-          </div>
+
+          <a
+            href="/teacher"
+            style={styles.backButton}
+          >
+             Teacher Dashboard
+          </a>
         </header>
 
-        <section className="racer-vip-page-heading">
-          <div className="racer-vip-heading-icon"><Icon name="calendar" /></div>
-          <div className="racer-vip-heading-copy">
-            <h1>ACADEMY CALENDAR</h1>
-            <p>View holidays, tests and academy schedule</p>
+        <section style={styles.legendCard}>
+          <Legend
+            icon={"\u{1F4DA}"}
+            title="Regular Class"
+            color="#2563eb"
+            background="#eff6ff"
+          />
+
+          <Legend
+            icon={"\u{1F4DD}"}
+            title="Every Saturday - Weekly Test"
+            color="#7c3aed"
+            background="#f5f3ff"
+          />
+
+          <Legend
+            icon={"\u{1F465}"}
+            title="Sunday - CLASS"
+            color="#2563eb"
+            background="#eff6ff"
+          />
+
+          <Legend
+            icon={"\u{1F534}"}
+            title="Monday - OFF"
+            color="#dc2626"
+            background="#fef2f2"
+          />
+
+          <Legend
+            icon={"\u{1F389}"}
+            title="Holiday"
+            color="#ea580c"
+            background="#fff7ed"
+          />
+        </section>
+
+        <section style={styles.calendarCard}>
+          <div style={styles.calendarTop}>
+            <button
+              type="button"
+              onClick={previousMonth}
+              style={styles.navButton}
+            >
+              {"\u2190"}
+            </button>
+
+            <div style={styles.monthTitle}>
+              {monthNames[month]} {year}
+            </div>
+
+            <button
+              type="button"
+              onClick={nextMonth}
+              style={styles.navButton}
+            >
+              {"\u2192"}
+            </button>
           </div>
-          <div className="racer-vip-date-tile">
-            <span><Icon name="calendar" /></span>
-            <span>
-              <small>Date Range</small>
-              <strong>{formatDate(new Date(year, month, 1))} - {formatDate(new Date(year, month, daysInMonth))}</strong>
-            </span>
+
+          <button
+            type="button"
+            onClick={goToday}
+            style={styles.todayButton}
+          >
+            Today
+          </button>
+
+          <div style={styles.weekGrid}>
+            {[
+              "Sun",
+              "Mon",
+              "Tue",
+              "Wed",
+              "Thu",
+              "Fri",
+              "Sat",
+            ].map((day) => (
+              <div
+                key={day}
+                style={{
+                  ...styles.weekDay,
+                  ...(day === "Sun"
+                    ? styles.sundayHeader
+                    : {}),
+                  ...(day === "Mon"
+                    ? styles.mondayHeader
+                    : {}),
+                  ...(day === "Sat"
+                    ? styles.saturdayHeader
+                    : {}),
+                }}
+              >
+                {day}
+              </div>
+            ))}
+          </div>
+
+          <div style={styles.calendarGrid}>
+            {calendarDays.map(
+              (date, index) => {
+                if (!date) {
+                  return (
+                    <div
+                      key={`empty-${index}`}
+                      style={styles.emptyDay}
+                    />
+                  );
+                }
+
+                const info =
+                  getDayInfo(date);
+
+                const sunday =
+                  isSunday(date);
+
+                const monday =
+                  isMonday(date);
+
+                const saturday =
+                  isSaturday(date);
+
+                const sundayClass =
+                  isSundayClassDate(date);
+
+                const mondayOff =
+                  isMondayOffDate(date);
+
+                const holiday =
+                  getHoliday(date);
+
+                const todayDate =
+                  dateKey(date) ===
+                  dateKey(today);
+
+                return (
+                  <button
+                    type="button"
+                    key={dateKey(date)}
+                    onClick={() => {
+                      if (info) {
+                        setSelectedEvent(
+                          info
+                        );
+                      }
+                    }}
+                    style={{
+                      ...styles.day,
+                      ...(todayDate
+                        ? styles.today
+                        : {}),
+                      ...(sunday &&
+                      !sundayClass &&
+                      !holiday
+                        ? styles.sunday
+                        : {}),
+                      ...(sundayClass &&
+                      !holiday
+                        ? styles.sundayClass
+                        : {}),
+                      ...(monday &&
+                      mondayOff &&
+                      !holiday
+                        ? styles.mondayOff
+                        : {}),
+                      ...(saturday
+                        ? styles.saturday
+                        : {}),
+                      ...(holiday
+                        ? styles.holiday
+                        : {}),
+                    }}
+                  >
+                    <div
+                      style={{
+                        ...styles.dayNumber,
+                        ...(todayDate
+                          ? styles.todayNumber
+                          : {}),
+                      }}
+                    >
+                      {date.getDate()}
+                    </div>
+
+                    {holiday ? (
+                      <>
+                        <div
+                          style={
+                            styles.holidayLabel
+                          }
+                        >
+                           HOLIDAY
+                        </div>
+
+                        <div
+                          style={
+                            styles.eventName
+                          }
+                        >
+                          {holiday.title}
+                        </div>
+                      </>
+                    ) : sundayClass ? (
+                      <>
+                        <div
+                          style={
+                            styles.classLabel
+                          }
+                        >
+                           CLASS
+                        </div>
+
+                        <div
+                          style={styles.smallText}
+                        >
+                          Sunday Class
+                        </div>
+                      </>
+                    ) : mondayOff ? (
+                      <>
+                        <div
+                          style={styles.offLabel}
+                        >
+                           OFF
+                        </div>
+
+                        <div
+                          style={styles.smallText}
+                        >
+                          Monday
+                        </div>
+                      </>
+                    ) : sunday ? (
+                      <>
+                        <div
+                          style={styles.offLabel}
+                        >
+                           OFF
+                        </div>
+
+                        <div
+                          style={styles.smallText}
+                        >
+                          Sunday
+                        </div>
+                      </>
+                    ) : saturday ? (
+                      <>
+                        <div
+                          style={
+                            styles.testLabel
+                          }
+                        >
+                           TEST
+                        </div>
+
+                        <div
+                          style={styles.smallText}
+                        >
+                          Weekly Test
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div
+                          style={
+                            styles.classLabel
+                          }
+                        >
+                           CLASS
+                        </div>
+
+                        <div
+                          style={styles.smallText}
+                        >
+                          Tuition
+                        </div>
+                      </>
+                    )}
+                  </button>
+                );
+              }
+            )}
           </div>
         </section>
 
-        <section className="racer-vip-calendar-card racer-vip-card">
-          <div className="racer-vip-calendar-top">
-            <button className="racer-vip-calendar-nav" type="button" onClick={previousMonth} aria-label="Previous month"><Icon name="chevron-left" /></button>
-            <div className="racer-vip-month-title"><Icon name="calendar" /><span>{monthNames[month]} {year}</span></div>
-            <button className="racer-vip-calendar-nav" type="button" onClick={nextMonth} aria-label="Next month"><Icon name="chevron-right" /></button>
-          </div>
-          <button className="racer-vip-today" type="button" onClick={goToday}>Today</button>
+        <section style={styles.infoCard}>
+          <h2 style={styles.sectionTitle}>
+             {monthNames[month]} Schedule
+          </h2>
 
-          <div className="racer-vip-calendar-grid-head">
-            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <div key={day} className={`racer-vip-cal-head ${day === "Sun" ? "sun" : day === "Mon" ? "mon" : day === "Sat" ? "sat" : ""}`}>{day}</div>)}
-          </div>
+          <div style={styles.infoGrid}>
+            <div style={styles.infoItem}>
+              <div style={styles.infoIcon}>{"\u{1F4DA}"}</div>
 
-          <div className="racer-vip-calendar-grid">
-            {calendarDays.map((date, index) => {
-              if (!date) return <div key={`empty-${index}`} className="racer-vip-cal-day empty" />;
-              const info = getDayInfo(date);
-              const holiday = getHoliday(date);
-              const sundayClass = isSundayClassDate(date);
-              const mondayOff = isMondayOffDate(date);
-              const saturday = isSaturday(date);
-              const todayDate = dateKey(date) === dateKey(today);
-              return (
+              <div>
+                <strong>
+                  Tuesday - Friday
+                </strong>
+
+                <p>
+                  Regular Tuition Classes
+                </p>
+              </div>
+            </div>
+
+            <div style={styles.infoItem}>
+              <div style={styles.infoIcon}>{"\u{1F465}"}</div>
+
+              <div>
+                <strong>
+                  Every Sunday
+                </strong>
+
+                <p>
+                  Regular Tuition Classes
+                </p>
+              </div>
+            </div>
+
+            <div style={styles.infoItem}>
+              <div style={styles.infoIcon}>{"\u{1F4DD}"}</div>
+
+              <div>
+                <strong>
+                  Every Saturday
+                </strong>
+
+                <p>
+                  Weekly Test
+                </p>
+              </div>
+            </div>
+
+            <div style={styles.infoItem}>
+              <div style={styles.infoIcon}>{"\u{1F534}"}</div>
+
+              <div>
+                <strong>
+                  Every Monday
+                </strong>
+
+                <p>
+                  Tuition Closed
+                </p>
+              </div>
+            </div>
+
+            <div style={styles.infoItem}>
+              <div style={styles.infoIcon}>{"\u{1F389}"}</div>
+
+              <div>
+                <strong>
+                  Holidays
+                </strong>
+
+                <p>
+                  Tuition Closed
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section style={styles.holidayCard}>
+          <h2 style={styles.sectionTitle}>
+             Tuition Holidays
+          </h2>
+
+          <div style={styles.holidayList}>
+            {holidays
+              .filter((holiday) =>
+                holiday.date.startsWith(
+                  String(year)
+                )
+              )
+              .map((holiday) => (
                 <button
                   type="button"
-                  key={dateKey(date)}
-                  className={`racer-vip-cal-day ${todayDate ? "today" : ""} ${holiday ? "holiday" : ""} ${sundayClass ? "sunday-class" : ""} ${mondayOff && !holiday ? "monday-off" : ""} ${saturday && !holiday ? "test" : ""}`}
-                  onClick={() => info && setSelectedEvent(info)}
+                  key={holiday.date}
+                  onClick={() =>
+                    setSelectedEvent(
+                      holiday
+                    )
+                  }
+                  style={styles.holidayRow}
                 >
-                  <span className="racer-vip-cal-number">{date.getDate()}</span>
-                  {holiday ? <span className="racer-vip-cal-pill holiday-pill">{holiday.title}</span> : sundayClass ? <span className="racer-vip-cal-pill class-pill">CLASS</span> : mondayOff ? <span className="racer-vip-cal-pill off-pill">OFF</span> : saturday ? <span className="racer-vip-cal-pill test-pill">TEST</span> : <span className="racer-vip-cal-small">Tuition</span>}
-                </button>
-              );
-            })}
-          </div>
+                  <strong>
+                    {formatDate(
+                      new Date(
+                        `${holiday.date}T00:00:00`
+                      )
+                    )}
+                  </strong>
 
-          <div className="racer-vip-calendar-legend">
-            <span><i className="holiday-dot" />Holiday</span>
-            <span><i className="test-dot" />Weekly Test</span>
-            <span><i className="class-dot" />Sunday Class</span>
-            <span><i className="off-dot" />Monday Off</span>
-          </div>
-        </section>
-
-        <section className="racer-vip-month-summary">
-          <div className="racer-vip-summary-title"><Icon name="calendar" /><span>This Month</span></div>
-          <div className="racer-vip-summary-grid">
-            <div><span className="summary-icon holiday"><Icon name="calendar" /></span><small>Holidays</small><b>{vipHolidayCount}</b></div>
-            <div><span className="summary-icon test"><Icon name="check" /></span><small>Tests</small><b>{vipTestCount}</b></div>
-            <div><span className="summary-icon working"><Icon name="users" /></span><small>Working Days</small><b>{vipWorkingDays}</b></div>
-          </div>
-        </section>
-
-        <section className="racer-vip-calendar-info">
-          <div className="racer-vip-info-title">{monthNames[month]} Schedule</div>
-          <div className="racer-vip-info-grid">
-            <div><strong>Tuesday - Friday</strong><span>Regular Tuition Classes</span></div>
-            <div><strong>Saturday</strong><span>Weekly Test</span></div>
-            <div><strong>Sunday</strong><span>Regular Tuition Classes</span></div>
-            <div><strong>Monday</strong><span>Tuition Closed</span></div>
-          </div>
-        </section>
-
-        <section className="racer-vip-holiday-list">
-          <div className="racer-vip-info-title">Tuition Holidays</div>
-          {holidays.filter((holiday) => holiday.date.startsWith(String(year))).length === 0 ? (
-            <div className="racer-vip-empty">No special holidays added for this year.</div>
-          ) : (
-            <div className="racer-vip-holiday-rows">
-              {holidays.filter((holiday) => holiday.date.startsWith(String(year))).map((holiday) => (
-                <button type="button" key={holiday.date} onClick={() => setSelectedEvent(holiday)}>
-                  <span>{formatDate(new Date(`${holiday.date}T00:00:00`))}</span>
-                  <strong>{holiday.title}</strong>
+                  <span>
+                     {holiday.title}
+                  </span>
                 </button>
               ))}
-            </div>
-          )}
+
+            {holidays.filter(
+              (holiday) =>
+                holiday.date.startsWith(
+                  String(year)
+                )
+            ).length === 0 && (
+              <div style={styles.noHoliday}>
+                No special holidays added for
+                this year.
+              </div>
+            )}
+          </div>
         </section>
 
         {selectedEvent && (
-          <div className="racer-vip-modal-overlay" onClick={() => setSelectedEvent(null)}>
-            <div className="racer-vip-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="racer-vip-modal-icon"><Icon name={selectedEvent.type === "test" ? "check" : "calendar"} /></div>
-              <h2>{selectedEvent.title}</h2>
-              <p className="date">{formatDate(new Date(`${selectedEvent.date}T00:00:00`))}</p>
-              <p>{selectedEvent.description}</p>
-              <button type="button" onClick={() => setSelectedEvent(null)}>Close</button>
+          <div
+            style={styles.modalOverlay}
+            onClick={() =>
+              setSelectedEvent(null)
+            }
+          >
+            <div
+              style={styles.modal}
+              onClick={(e) =>
+                e.stopPropagation()
+              }
+            >
+              <div style={styles.modalIcon}>
+                {selectedEvent.type ===
+                "test"
+                  ? ""
+                  : selectedEvent.type ===
+                    "class"
+                  ? ""
+                  : ""}
+              </div>
+
+              <h2 style={styles.modalTitle}>
+                {selectedEvent.title}
+              </h2>
+
+              <p style={styles.modalDate}>
+                {" "}
+                {formatDate(
+                  new Date(
+                    `${selectedEvent.date}T00:00:00`
+                  )
+                )}
+              </p>
+
+              <p
+                style={
+                  styles.modalDescription
+                }
+              >
+                {selectedEvent.description}
+              </p>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setSelectedEvent(null)
+                }
+                style={styles.closeButton}
+              >
+                Close
+              </button>
             </div>
           </div>
         )}
 
-        <div className="racer-vip-bottom-nav">
-          <button type="button" onClick={() => window.history.back()}><Icon name="back" />Back</button>
-          <div className="racer-vip-footer-brand"><strong>RACER ACADEMY</strong><small>TEACHER CONTROL CENTER</small></div>
-          <button type="button" onClick={() => { window.location.href = "/teacher"; }}><Icon name="home" />Dashboard</button>
-        </div>
+        <footer style={styles.footer}>
+          Attendance Portal - Teacher Calendar - 2025-2030
+        </footer>
       </div>
     </main>
   );
 }
 
-function Icon({ name }: { name: string }) {
-  const common = { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true };
-  switch (name) {
-    case "menu": return <svg {...common}><path d="M4 6h16M4 12h16M4 18h16" /></svg>;
-    case "bell": return <svg {...common}><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M10 21h4" /></svg>;
-    case "calendar": return <svg {...common}><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M16 2v4M8 2v4M3 9h18" /></svg>;
-    case "coins": return <svg {...common}><circle cx="8" cy="8" r="4" /><path d="M8 4h8a4 4 0 0 1 0 8h-1M8 12v4a4 4 0 0 0 4 4h4a4 4 0 0 0 0-8h-4" /></svg>;
-    case "users": return <svg {...common}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></svg>;
-    case "search": return <svg {...common}><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>;
-    case "download": return <svg {...common}><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>;
-    case "eye": return <svg {...common}><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" /><circle cx="12" cy="12" r="2.5" /></svg>;
-    case "edit": return <svg {...common}><path d="m4 20 4.2-1 9.7-9.7a2 2 0 0 0-2.8-2.8L5.4 16.2 4 20Z" /><path d="m13.5 7.5 3 3" /></svg>;
-    case "trash": return <svg {...common}><path d="M4 7h16M10 11v6M14 11v6" /><path d="M6 7l1 14h10l1-14M9 7l1-3h4l1 3" /></svg>;
-    case "receipt": return <svg {...common}><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z" /><path d="M9 8h6M9 12h6M9 16h4" /></svg>;
-    case "back": return <svg {...common}><path d="M19 12H5" /><path d="m12 19-7-7 7-7" /></svg>;
-    case "home": return <svg {...common}><path d="m3 11 9-8 9 8" /><path d="M5 10v10h14V10M9 20v-6h6v6" /></svg>;
-    case "chevron-left": return <svg {...common}><path d="m14 6-6 6 6 6" /></svg>;
-    case "chevron-right": return <svg {...common}><path d="m10 6 6 6-6 6" /></svg>;
-    case "check": return <svg {...common}><path d="m5 12 4 4L19 6" /></svg>;
-    default: return <svg {...common}><circle cx="12" cy="12" r="9" /></svg>;
-  }
-}
 function Legend({
   icon,
   title,

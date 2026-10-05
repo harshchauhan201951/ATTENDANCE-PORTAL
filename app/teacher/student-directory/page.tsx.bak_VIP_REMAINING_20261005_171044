@@ -176,18 +176,20 @@ export default function StudentDirectoryPage() {
   }
 
   return (
-    <main data-racer-vip-module="student-directory"  className="directory-page racer-module-page racer-student-directory-page">
+    <main className="directory-page racer-module-page racer-student-directory-page">
       <div className="page-container">
         {/* HEADER */}
-        <header data-racer-vip-header="1"  className="page-header">
+        <header className="page-header">
           <div>
             <div className="breadcrumb">
               Teacher Dashboard / Student Directory
             </div>
 
-            <h1>RACER ACADEMY</h1>
+            <h1>👨‍🎓 Student Directory</h1>
 
-            <p>TEACHER CONTROL CENTER</p>
+            <p>
+              Complete basic details of all registered students
+            </p>
           </div>
 
           <div className="header-actions">

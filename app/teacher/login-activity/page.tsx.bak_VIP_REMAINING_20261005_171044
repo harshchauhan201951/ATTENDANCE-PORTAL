@@ -381,21 +381,24 @@ export default function StudentLoginActivityPage() {
   };
 
   return (
-    <main data-racer-vip-module="login-activity"  className="login-activity-page racer-module-page racer-login-activity-page">
+    <main className="login-activity-page racer-module-page racer-login-activity-page">
       <div className="page-background" />
 
       <section className="page-container">
         {/* HEADER */}
-        <header data-racer-vip-header="1"  className="page-header">
+        <header className="page-header">
           <div className="header-left">
             <div className="header-icon">🔐</div>
 
             <div>
               <div className="eyebrow">RACER ACADEMY</div>
 
-              <h1>RACER ACADEMY</h1>
+              <h1>Student Login Activity</h1>
 
-              <p>TEACHER CONTROL CENTER</p>
+              <p>
+                Track every student&apos;s portal login activity,
+                history and login statistics.
+              </p>
             </div>
           </div>
 

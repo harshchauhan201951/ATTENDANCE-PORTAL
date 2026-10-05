@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -31,7 +31,7 @@ export default function TeacherAttendancePage() {
 
   const [search, setSearch] = useState("");
   const [month, setMonth] = useState("");
-
+  const [month, setMonth] = useState("");
   const [attendanceView, setAttendanceView] = useState<"mark" | "history">("mark");
   const [historyFilter, setHistoryFilter] = useState<"all" | "present" | "absent">("all");
   const [historyPage, setHistoryPage] = useState(1);

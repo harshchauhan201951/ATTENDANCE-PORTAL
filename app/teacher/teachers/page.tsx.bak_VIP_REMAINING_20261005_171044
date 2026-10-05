@@ -159,7 +159,7 @@ export default function TeacherManagementPage() {
   }
 
   return (
-    <main data-racer-vip-module="teachers"  className="racer-module-page racer-teachers-page"
+    <main className="racer-module-page racer-teachers-page"
       style={{
         minHeight: "100vh",
         background:
@@ -178,7 +178,7 @@ export default function TeacherManagementPage() {
       >
         {/* HEADER */}
 
-        <header data-racer-vip-header="1" 
+        <header
           style={{
             background: "#ffffff",
             borderRadius: "20px",
@@ -214,7 +214,9 @@ export default function TeacherManagementPage() {
                 fontSize: "28px",
                 fontWeight: 900,
               }}
-            >RACER ACADEMY</h1>
+            >
+              Teacher Management
+            </h1>
 
             <p
               style={{
@@ -223,7 +225,10 @@ export default function TeacherManagementPage() {
                 color: "#64748b",
                 fontSize: "14px",
               }}
-            >TEACHER CONTROL CENTER</p>
+            >
+              Add and manage academy
+              teachers.
+            </p>
           </div>
 
           <button

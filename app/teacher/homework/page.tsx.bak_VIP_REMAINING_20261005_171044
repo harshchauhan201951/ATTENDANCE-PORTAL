@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -481,18 +481,23 @@ export default function TeacherHomeworkPage() {
   }
 
   return (
-    <main data-racer-vip-module="homework"  className="racer-module-page racer-homework-page" style={styles.page}>
+    <main className="racer-module-page racer-homework-page" style={styles.page}>
       <div style={styles.container}>
 
-        <header data-racer-vip-header="1"  style={styles.header}>
+        <header style={styles.header}>
           <div>
             <div style={styles.badge}>
               TEACHER PORTAL
             </div>
 
-            <h1 style={styles.title}>RACER ACADEMY</h1>
+            <h1 style={styles.title}>
+              ðŸ“š Homework
+            </h1>
 
-            <p style={styles.subtitle}>TEACHER CONTROL CENTER</p>
+            <p style={styles.subtitle}>
+              Create and manage homework for
+              one or multiple classes
+            </p>
           </div>
 
           <button

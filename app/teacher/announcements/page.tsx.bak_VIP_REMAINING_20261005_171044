@@ -465,10 +465,10 @@ export default function TeacherAnnouncementsPage() {
   );
 
   return (
-    <main data-racer-vip-module="announcements"  className="racer-module-page racer-announcements-page" style={styles.page}>
+    <main className="racer-module-page racer-announcements-page" style={styles.page}>
       <div style={styles.container}>
 
-        <header data-racer-vip-header="1"  style={styles.header}>
+        <header style={styles.header}>
 
           <div style={styles.headerLeft}>
 
@@ -488,13 +488,18 @@ export default function TeacherAnnouncementsPage() {
                 TEACHER PORTAL
               </div>
 
-              <h1 style={styles.heading}>RACER ACADEMY</h1>
+              <h1 style={styles.heading}>
+                Announcements
+              </h1>
 
               <p
                 style={
                   styles.headerSubtitle
                 }
-              >TEACHER CONTROL CENTER</p>
+              >
+                Create announcements and see which
+                students have liked them.
+              </p>
 
             </div>
 

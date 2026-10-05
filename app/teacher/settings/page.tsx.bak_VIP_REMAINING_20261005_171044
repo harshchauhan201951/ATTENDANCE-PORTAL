@@ -102,21 +102,25 @@ export default function TeacherSettingsPage() {
   }
 
   return (
-    <main data-racer-vip-module="settings"  className="racer-module-page racer-settings-page" style={styles.page}>
+    <main className="racer-module-page racer-settings-page" style={styles.page}>
       <div style={styles.container}>
 
         {/* HEADER */}
 
-        <header data-racer-vip-header="1"  style={styles.header}>
+        <header style={styles.header}>
           <div style={styles.headerLeft}>
             <div style={styles.iconBox}>
               ⚙️
             </div>
 
             <div>
-              <h1 style={styles.title}>RACER ACADEMY</h1>
+              <h1 style={styles.title}>
+                Teacher Settings
+              </h1>
 
-              <p style={styles.subtitle}>TEACHER CONTROL CENTER</p>
+              <p style={styles.subtitle}>
+                Manage your teacher dashboard settings
+              </p>
             </div>
           </div>
 
