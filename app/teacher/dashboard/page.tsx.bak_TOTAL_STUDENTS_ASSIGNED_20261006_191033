@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../lib/supabase";
 
 type IconName =
   | "attendance" | "history" | "calendar" | "reports" | "fees" | "payments"
@@ -114,8 +113,6 @@ export default function TeacherDashboard() {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const [watchTime, setWatchTime] = useState(currentTimeLabel());
-  // RACER_ASSIGNED_TOTAL_STUDENTS_PATCH
-  const [assignedStudentCount, setAssignedStudentCount] = useState<number | null>(null);
 
   useEffect(() => {
     const savedTeacherName =
@@ -129,75 +126,6 @@ export default function TeacherDashboard() {
 
     const timer = window.setInterval(() => setWatchTime(currentTimeLabel()), 60000);
     return () => window.clearInterval(timer);
-  }, []);
-
-  // RACER_ASSIGNED_TOTAL_STUDENTS_PATCH
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadAssignedStudentCount() {
-      try {
-        const rawTeacherId =
-          sessionStorage.getItem("attendance_teacher_id") ||
-          localStorage.getItem("attendance_teacher_id") ||
-          sessionStorage.getItem("teacher_id") ||
-          localStorage.getItem("teacher_id") ||
-          "";
-
-        const teacherId = Number(rawTeacherId);
-        if (!Number.isInteger(teacherId) || teacherId <= 0) {
-          if (!cancelled) setAssignedStudentCount(0);
-          return;
-        }
-
-        const assignedResult =
-          teacherId === 1
-            ? null
-            : await supabase.rpc("get_teacher_assigned_student_ids", {
-                p_teacher_id: teacherId,
-              });
-
-        if (assignedResult && assignedResult.error) {
-          throw assignedResult.error;
-        }
-
-        const assignedIds =
-          teacherId === 1
-            ? null
-            : (assignedResult?.data || [])
-                .map((row: { student_id?: number }) => Number(row.student_id))
-                .filter((id: number) => Number.isInteger(id) && id > 0);
-
-        if (assignedIds !== null && assignedIds.length === 0) {
-          if (!cancelled) setAssignedStudentCount(0);
-          return;
-        }
-
-        let query = supabase
-          .from("students")
-          .select("id", { count: "exact", head: true });
-
-        if (assignedIds !== null) {
-          query = query.in("id", assignedIds);
-        }
-
-        const { count, error } = await query;
-        if (error) throw error;
-
-        if (!cancelled) {
-          setAssignedStudentCount(typeof count === "number" ? count : 0);
-        }
-      } catch (error) {
-        console.error("Teacher dashboard student count error:", error);
-        if (!cancelled) setAssignedStudentCount(0);
-      }
-    }
-
-    loadAssignedStudentCount();
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   const displayName = teacherName.trim() || "Teacher";
@@ -255,7 +183,7 @@ export default function TeacherDashboard() {
           <div className="racer-reference-total-students">
             <div className="racer-reference-blue-icon"><Icon name="directory" size={19} /></div>
             <small>Total Students</small>
-            <strong>{assignedStudentCount === null ? "--" : assignedStudentCount}</strong>
+            <strong>245</strong>
           </div>
         </section>
 

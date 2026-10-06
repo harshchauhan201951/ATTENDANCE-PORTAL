@@ -1,0 +1,378 @@
+﻿"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
+export default function TeacherDashboard() {
+  const router = useRouter();
+  const [teacherName, setTeacherName] = useState("Teacher");
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  useEffect(() => {
+    const savedTeacherName =
+      localStorage.getItem("teacherName") ||
+      localStorage.getItem("teacher_name") ||
+      localStorage.getItem("teacherUsername") ||
+      localStorage.getItem("teacher_username") ||
+      "Teacher";
+    setTeacherName(savedTeacherName);
+    setProfileImage(localStorage.getItem("teacherProfileImage"));
+  }, []);
+
+  const firstName = teacherName.trim().split(/\s+/)[0] || "Teacher";
+
+  async function handleLogout() {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    const authKeys = [
+      "attendance_role","attendance_username","attendance_teacher_id","teacherLoggedIn","teacher",
+      "teacherUsername","teacher_username","teacherName","teacher_name","studentLoggedIn","studentId",
+      "studentUsername","student_username","studentName","student_name",
+    ];
+    authKeys.forEach((key) => localStorage.removeItem(key));
+    authKeys.forEach((key) => sessionStorage.removeItem(key));
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    router.replace("/");
+    router.refresh();
+  }
+
+  const menuItems = [
+    ["Mark Attendance", "/teacher/attendance", "", "academic"],
+    ["Attendance History", "/teacher/attendance-history", "", "academic"],
+    ["Calendar", "/teacher/calendar", "", "academic"],
+    ["Reports", "/teacher/reports", "", "academic"],
+    ["Fees", "/teacher/fees", "", "management"],
+    ["Payments", "/teacher/payments", "", "management"],
+    ["Homework", "/teacher/homework", "", "academic"],
+    ["Announcements", "/teacher/announcements", "", "management"],
+    ["Student Login Activity", "/teacher/login-activity", "", "management"],
+    ["Profile", "/teacher/profile", "", "management"],
+    ["Settings", "/teacher/settings", "", "management"],
+    ["Student Directory", "/teacher/student-directory", "", "academic"],
+    ["Extra Classes", "/teacher/extra-class", "", "academic"],
+    ["Quiz Tests", "/teacher/quiz-tests", "", "academic"],
+    ["Monthly Result", "/teacher/monthly-results", "", "academic"],
+    ["Voice & Call Center", "/teacher/voice-call", "", "management"],
+    ["Teachers", "/teacher/teachers", "", "management"],
+    ["Timetable", "/teacher/timetable", "", "academic"],
+  ] as const;
+
+  const iconClass = (index: number) => `racer-ref-icon racer-ref-icon-${index + 1}`;
+
+  
+  
+/* RACER_UNIQUE_DASHBOARD_EFFECT */
+  useEffect(() => {
+    const root = document.querySelector("main.racer-unique-dashboard");
+    if (!root) return;
+
+    // Remove the non-functional All / Academic / Management filter row.
+    const exactNodes = ["All","Academic","Management"].map((label) => {
+      return Array.from(root.querySelectorAll<HTMLElement>("*")).find((el) => {
+        return !el.children.length && (el.textContent || "").trim() === label;
+      }) || null;
+    });
+    if (exactNodes.every(Boolean)) {
+      let box: HTMLElement | null = exactNodes[0]?.parentElement || null;
+      for (let i = 0; i < 6 && box; i++, box = box.parentElement) {
+        const txt = (box.textContent || "").replace(/\s+/g, " ").trim();
+        if (txt.includes("All") && txt.includes("Academic") && txt.includes("Management") && txt.length < 140) {
+          box.setAttribute("data-racer-dashboard-filter-row","hidden");
+          box.style.display = "none";
+          break;
+        }
+      }
+    }
+
+    // Find the module-card container and give it the VIP grid class.
+    const candidates = Array.from(root.querySelectorAll<HTMLElement>("section,nav,article,div"));
+    let best: HTMLElement | null = null;
+    let bestCount = 0;
+    for (const el of candidates) {
+      if (el.getAttribute("data-racer-dashboard-modules") === "1") continue;
+      const count = el.querySelectorAll("a[href^='/teacher/']").length;
+      if (count >= 8 && count > bestCount && count <= 30) {
+        best = el;
+        bestCount = count;
+      }
+    }
+    if (best) best.setAttribute("data-racer-dashboard-modules","1");
+  }, []);
+
+    /* RACER_MOBILE_EXACT_DASHBOARD_EFFECT */
+  useEffect(() => {
+    const root = document.querySelector("main.racer-mobile-exact-dashboard");
+    if (!root) return;
+
+    // Hide the old non-functional category row without touching its underlying logic.
+    const labels = ["All", "Academic", "Management"];
+    const nodes = labels.map((label) =>
+      Array.from(root.querySelectorAll<HTMLElement>("*")).find(
+        (el) => !el.children.length && (el.textContent || "").trim() === label
+      ) || null
+    );
+
+    if (nodes.every(Boolean)) {
+      let box: HTMLElement | null = nodes[0]?.parentElement || null;
+      for (let i = 0; i < 7 && box; i++, box = box.parentElement) {
+        const text = (box.textContent || "").replace(/\s+/g, " ").trim();
+        if (text.includes("All") && text.includes("Academic") && text.includes("Management") && text.length < 160) {
+          box.setAttribute("data-racer-mobile-category-row", "hidden");
+          break;
+        }
+      }
+    }
+
+    // Locate the existing 18 dashboard module links and style only those links.
+    const moduleLinks = Array.from(
+      root.querySelectorAll<HTMLAnchorElement>('a[href^="/teacher/"]')
+    ).filter((a) => {
+      const href = a.getAttribute("href") || "";
+      const text = (a.textContent || "").replace(/\s+/g, " ").trim();
+      const excluded =
+        href === "/teacher/dashboard" ||
+        href === "/teacher/dashboard#modules" ||
+        href === "/teacher/announcements" ||
+        href === "/teacher/profile" ||
+        text === "Home" ||
+        text === "Modules" ||
+        text === "Notifications" ||
+        text === "Profile";
+      return !excluded;
+    });
+
+    if (moduleLinks.length >= 8) {
+      moduleLinks.forEach((link, index) => {
+        link.setAttribute("data-racer-mobile-module", "1");
+        link.setAttribute("data-racer-module-index", String(index + 1));
+      });
+
+      let best: HTMLElement | null = null;
+      let bestCount = 0;
+      Array.from(root.querySelectorAll<HTMLElement>("section, nav, article, div")).forEach((el) => {
+        const count = el.querySelectorAll('a[data-racer-mobile-module="1"]').length;
+        if (count >= 8 && count > bestCount && count <= 24) {
+          best = el;
+          bestCount = count;
+        }
+      });
+
+      if (best) { (best as HTMLElement).setAttribute("data-racer-mobile-module-grid", "1"); }
+    }
+
+    // Mark common existing dashboard sections so the CSS can match the supplied mobile composition.
+    const findByText = (words: string[]) => {
+      return Array.from(root.querySelectorAll<HTMLElement>("h1,h2,h3,p,div,span")).find((el) => {
+        const t = (el.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
+        return words.some((w) => t.includes(w));
+      }) || null;
+    };
+
+    const greeting = findByText(["hello,", "good morning", "welcome"]);
+    greeting?.closest("section,div")?.setAttribute("data-racer-mobile-greeting", "1");
+
+    const control = findByText(["teacher control center"]);
+    control?.closest("section,div")?.setAttribute("data-racer-mobile-control", "1");
+
+    const quick = findByText(["quick access"]);
+    quick?.closest("section,div")?.setAttribute("data-racer-mobile-quick", "1");
+  }, []);
+  /* RACER_MOBILE_REFERENCE_V2_EFFECT */
+  useEffect(() => {
+    const root = document.querySelector("main.racer-mobile-exact-dashboard");
+    if (!root) return;
+
+    // Remove the old category selector from the visual layout only.
+    const categoryText = ["All", "Academic", "Management"];
+    const categoryNodes = categoryText.map((label) =>
+      Array.from(root.querySelectorAll<HTMLElement>("*")).find(
+        (el) => !el.children.length && (el.textContent || "").trim() === label
+      ) || null
+    );
+    if (categoryNodes.every(Boolean)) {
+      let box: HTMLElement | null = categoryNodes[0]?.parentElement || null;
+      for (let i = 0; i < 8 && box; i++, box = box.parentElement) {
+        const t = (box.textContent || "").replace(/\s+/g, " ").trim();
+        if (t.includes("All") && t.includes("Academic") && t.includes("Management") && t.length < 180) {
+          box.setAttribute("data-racer-mobile-category-row", "hidden");
+          break;
+        }
+      }
+    }
+
+    const links = Array.from(
+      root.querySelectorAll<HTMLAnchorElement>('a[href^="/teacher/"]')
+    ).filter((a) => {
+      const href = a.getAttribute("href") || "";
+      const text = (a.textContent || "").replace(/\s+/g, " ").trim();
+      return ![
+        "/teacher/dashboard",
+        "/teacher/dashboard#modules",
+        "/teacher/announcements",
+        "/teacher/profile"
+      ].includes(href) &&
+      !["Home","Modules","Notifications","Profile"].includes(text);
+    }).slice(0,18);
+
+    const moduleNames = [
+      "Mark Attendance","Attendance History","Calendar","Reports","Fees","Payments",
+      "Homework","Announcements","Student Login Activity","Profile","Settings",
+      "Student Directory","Extra Classes","Quiz Tests","Monthly Result",
+      "Voice & Call Center","Teachers","Timetable"
+    ];
+
+    const iconPaths = [
+      '<path d="M5 12l4 4L19 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
+      '<rect x="5" y="4" width="14" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+      '<rect x="4" y="5" width="16" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 3v4M16 3v4M4 9h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+      '<path d="M5 19V9M10 19V5M15 19v-7M20 19V3" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>',
+      '<path d="M12 3v18M6 7h12M6 12h12M6 17h12M4 4h16v16H4z" fill="none" stroke="currentColor" stroke-width="1.8"/>',
+      '<rect x="4" y="5" width="16" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 9h10M7 13h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+      '<path d="M5 5h14v14H5z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 9h8M8 13h6M8 17h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+      '<path d="M4 8l8-4 8 4v9l-8 4-8-4z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 8l8 4 8-4" fill="none" stroke="currentColor" stroke-width="2"/>',
+      '<circle cx="12" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 20c1-4 3-6 7-6s6 2 7 6" fill="none" stroke="currentColor" stroke-width="2"/>',
+      '<circle cx="12" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 20c1-4 3-6 7-6s6 2 7 6" fill="none" stroke="currentColor" stroke-width="2"/>',
+      '<circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+      '<circle cx="8" cy="9" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="9" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 20c1-4 3-6 5-6s4 2 5 6M11 20c1-4 3-6 5-6s4 2 5 6" fill="none" stroke="currentColor" stroke-width="2"/>',
+      '<path d="M12 4v16M4 12h16" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>',
+      '<path d="M7 4h10v16H7z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 8h4M10 12h4M10 16h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+      '<text x="12" y="16" text-anchor="middle" font-size="10" font-family="Arial" font-weight="700" fill="currentColor">MR</text>',
+      '<path d="M5 8v8M8 5v14M11 9c5-2 7 1 7 4s-2 6-6 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+      '<circle cx="8" cy="9" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="9" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 20c1-4 3-6 5-6s4 2 5 6M11 20c1-4 3-6 5-6s4 2 5 6" fill="none" stroke="currentColor" stroke-width="2"/>',
+      '<rect x="4" y="5" width="16" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 3v4M16 3v4M4 9h16" stroke="currentColor" stroke-width="2"/>'
+    ];
+
+    // Replace only the visual contents of the existing 18 anchors.
+    links.forEach((link, index) => {
+      link.setAttribute("data-racer-mobile-module","1");
+      link.setAttribute("data-racer-module-index", String(index + 1));
+      const icon = iconPaths[index] || iconPaths[0];
+      link.innerHTML =
+        '<span class="racer-reference-icon" aria-hidden="true"><svg viewBox="0 0 24 24" role="img">' +
+        icon +
+        '</svg></span>' +
+        '<span class="racer-reference-label">' +
+        moduleNames[index] +
+        '</span>' +
+        '<span class="racer-reference-number">' +
+        String(index + 1).padStart(2,"0") +
+        '</span>';
+    });
+
+    // Find the smallest existing ancestor containing all 18 module anchors.
+    if (links.length === 18) {
+      let grid: HTMLElement | null = links[0]?.parentElement || null;
+      while (grid && grid !== root) {
+        const count = grid.querySelectorAll('a[data-racer-mobile-module="1"]').length;
+        if (count === 18) break;
+        grid = grid.parentElement;
+      }
+      if (grid && grid !== root) {
+        grid.setAttribute("data-racer-mobile-reference-grid","1");
+      }
+    }
+
+    // Add the reference-style greeting/stats panel once, using current logged-in teacher identity.
+    if (!root.querySelector('[data-racer-mobile-reference-hero="1"]')) {
+      const username =
+        sessionStorage.getItem("teacher_username") ||
+        localStorage.getItem("teacher_username") ||
+        localStorage.getItem("teacherUsername") ||
+        "Teacher";
+
+      const hero = document.createElement("section");
+      hero.setAttribute("data-racer-mobile-reference-hero","1");
+      hero.innerHTML =
+        '<div class="racer-reference-greeting">' +
+          '<div class="racer-reference-avatar">RA</div>' +
+          '<div><div class="racer-reference-hello">Hello, ' + username.replace(/[<>&"]/g,"") + '</div>' +
+          '<div class="racer-reference-role">Teacher</div><div class="racer-reference-small">Small steps. Make big progress.</div></div>' +
+        '</div>' +
+        '<div class="racer-reference-stats">' +
+          '<div><strong>18</strong><span>Total Modules</span></div>' +
+          '<div><strong>--</strong><span>Total Students</span></div>' +
+          '<div><strong>--</strong><span>Today Attendance</span></div>' +
+        '</div>';
+      root.insertBefore(hero, root.firstElementChild);
+    }
+  }, []);
+return (
+    <main data-racer-mobile-exact-dashboard="1"  data-racer-unique-dashboard="1"  data-racer-teacher-dashboard="1"  data-racer-vip-module="extra-classes"  className="racer-vip-dashboard racer-dashboard-v2 racer-reference-dashboard">
+      <div className="racer-dashboard-v2-shell">
+        {/* Existing desktop dashboard remains available; reference dashboard is mobile-only. */}
+        <section className="racer-reference-mobile-dashboard" aria-label="RACER ACADEMY">
+          <header data-racer-vip-header="1"  className="racer-reference-mobile-topbar">
+            <div className="racer-reference-mobile-brand">
+              <div className="racer-reference-mobile-logo">RA</div>
+              <div>
+                <strong>RACER ACADEMY</strong>
+                <span>Modules&nbsp; | &nbsp;Teacher</span>
+              </div>
+            </div>
+            <button type="button" className="racer-reference-mobile-profile" onClick={() => router.push("/teacher/profile")} aria-label="Profile">
+              {profileImage ? <img src={profileImage} alt="Profile" onError={() => setProfileImage(null)} /> : firstName.slice(0, 1).toUpperCase()}
+            </button>
+          </header>
+
+          <div className="racer-reference-mobile-tabs" aria-hidden="true">
+            <span className="active">All</span>
+            <span>Academic</span>
+            <span>Management</span>
+          </div>
+
+          <section className="racer-reference-mobile-grid">
+            {menuItems.slice(0, 16).map(([title, path, glyph], index) => (
+              <button key={path} type="button" onClick={() => router.push(path)} className="racer-reference-module-card">
+                <span className={iconClass(index)}>{glyph}</span>
+                <span className="racer-reference-module-copy">
+                  <strong>{title}</strong>
+                  <small>{String(index + 1).padStart(2, "0")}</small>
+                </span>
+                <span className="racer-reference-chevron"></span>
+              </button>
+            ))}
+          </section>
+
+          <button type="button" onClick={() => router.push("/teacher/timetable")} className="racer-reference-timetable-card">
+            <span className="racer-ref-icon racer-ref-icon-17"></span>
+            <span><strong>Timetable</strong><small>17</small></span>
+            <span className="racer-reference-chevron"></span>
+          </button>
+
+          <div className="racer-reference-mobile-footer-space" />
+        </section>
+
+        <section className="racer-reference-desktop-dashboard">
+          <header data-racer-vip-header="1"  className="racer-dashboard-v2-header">
+            <div className="racer-dashboard-v2-brand">
+              <div className="racer-dashboard-v2-logo">RA</div>
+              <div className="racer-dashboard-v2-brand-text">
+                <strong>RACER ACADEMY</strong>
+                <span>LEARN&nbsp; | &nbsp;PRACTICE&nbsp; | &nbsp;GROW</span>
+              </div>
+            </div>
+            <div className="racer-dashboard-v2-header-actions">
+              <button type="button" onClick={() => router.push("/teacher/announcements")} aria-label="Announcements"></button>
+              <button type="button" onClick={handleLogout} disabled={loggingOut} className="racer-dashboard-v2-logout">{loggingOut ? "..." : "Logout"}</button>
+            </div>
+          </header>
+          <section className="racer-dashboard-v2-welcome">
+            <div><span className="racer-dashboard-v2-eyebrow">TEACHER CONTROL CENTER</span><h1>Hello, {firstName}</h1><p>Small steps. Make big progress.</p></div>
+            <div className="racer-dashboard-v2-welcome-art">RA</div>
+          </section>
+          <section className="racer-dashboard-v2-grid">
+            {menuItems.map(([title, path, glyph], index) => (
+              <button key={path} type="button" onClick={() => router.push(path)} className="racer-dashboard-v2-module">
+                <span className="dash-icon">{glyph}</span><span className="dash-module-number">{String(index + 1).padStart(2, "0")}</span><strong>{title}</strong>
+              </button>
+            ))}
+          </section>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+
+
