@@ -3431,34 +3431,3 @@ main.racer-unique-dashboard [data-racer-dashboard-modules="1"] a[href^="/teacher
     top:128px!important;
   }
 }
-
-
-/* RACER REMOVE GOLD DIVIDERS */
-.racer-shared-fixed-module-header,.racer-shared-teacher-module-content main[data-racer-vip-module] header[data-racer-vip-header],.racer-shared-teacher-module-content main.racer-attendance-page .racer-premium-header{border-bottom:0!important;}
-
-/* RACER MODULE HEADER CSS ONLY FIX V4 */
-
-/* Hide the repeated module-level RACER brand header. */
-.racer-shared-teacher-module-content header[data-racer-vip-header],
-.racer-shared-teacher-module-content header.racer-dashboard-v2-header,
-.racer-shared-teacher-module-content header.racer-reference-mobile-topbar,
-.racer-shared-teacher-module-content header.racer-mobile-appbar,
-.racer-shared-teacher-module-content .racer-premium-header{
-  display:none!important;
-}
-
-/* Keep the actual module title fixed directly below the shared app header. */
-.racer-shared-teacher-module-content .racer-vip-page-heading{
-  position:sticky!important;
-  top:128px!important;
-  z-index:10010!important;
-  box-sizing:border-box!important;
-  scroll-margin-top:210px!important;
-}
-
-@media (max-width:680px){
-  .racer-shared-teacher-module-content .racer-vip-page-heading{
-    top:128px!important;
-    scroll-margin-top:215px!important;
-  }
-}

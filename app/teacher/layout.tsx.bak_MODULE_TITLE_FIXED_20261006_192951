@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -39,7 +39,7 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
     });
     window.location.href = "/";
   }
-return () => clearInterval(timer);
+  return () => clearInterval(timer);
   }, []);
   const pathname = usePathname();
   const isDashboard = pathname === "/teacher/dashboard";

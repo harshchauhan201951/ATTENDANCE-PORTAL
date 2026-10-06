@@ -39,7 +39,56 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
     });
     window.location.href = "/";
   }
-return () => clearInterval(timer);
+  // RACER_MODULE_TITLE_FIXED_V3
+  useEffect(() => {
+    const cleanAndPinModuleHeader = () => {
+      const root = document.querySelector(".racer-shared-teacher-module-content");
+      if (!root) return;
+
+      const main = root.querySelector("main");
+      if (!main) return;
+
+      const duplicateHeaders = Array.from(
+        main.querySelectorAll(
+          'header[data-racer-vip-header], header.racer-premium-header, header.racer-dashboard-v2-header, header.racer-reference-mobile-topbar, header.racer-mobile-appbar'
+        )
+      );
+
+      duplicateHeaders.forEach((el) => {
+        (el as HTMLElement).setAttribute("data-racer-hide-old-module-header", "1");
+      });
+
+      let titleNode = main.querySelector(".racer-vip-page-heading") as HTMLElement | null;
+
+      if (!titleNode) {
+        const firstHeading = main.querySelector("h1,h2");
+        if (firstHeading) {
+          titleNode =
+            firstHeading.closest("section") as HTMLElement | null ||
+            firstHeading.closest("article") as HTMLElement | null ||
+            firstHeading.parentElement as HTMLElement | null;
+        }
+      }
+
+      if (titleNode) {
+        titleNode.setAttribute("data-racer-sticky-module-title", "1");
+      }
+    };
+
+    cleanAndPinModuleHeader();
+
+    const observer = new MutationObserver(() => {
+      cleanAndPinModuleHeader();
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
+
+    return () => observer.disconnect();
+  }, [pathname]);
+  return () => clearInterval(timer);
   }, []);
   const pathname = usePathname();
   const isDashboard = pathname === "/teacher/dashboard";
