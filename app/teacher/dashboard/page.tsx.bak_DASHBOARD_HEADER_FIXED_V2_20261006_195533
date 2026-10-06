@@ -1,4 +1,3 @@
-/* RACER_DASHBOARD_MAIN_HEADER_LOGOUT_DIRECT_V1 */
 "use client";
 
 import { useEffect, useState } from "react";
@@ -241,7 +240,6 @@ export default function TeacherDashboard() {
               {profileImage ? <img src={profileImage} alt="Profile" onError={() => setProfileImage(null)} /> : initial}
               <i />
             </button>
-            <button type="button" className="racer-reference-top-logout" onClick={handleLogout} disabled={loggingOut}>{loggingOut ? "..." : "Logout"}</button>
           </div>
         </header>
 
