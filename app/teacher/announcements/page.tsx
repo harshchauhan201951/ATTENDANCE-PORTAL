@@ -480,7 +480,7 @@ export default function TeacherAnnouncementsPage() {
               }
               style={styles.backButton}
             >
-              â†
+              
             </button>
 
             <div>
@@ -530,7 +530,7 @@ export default function TeacherAnnouncementsPage() {
                   styles.createEyebrow
                 }
               >
-                ðŸ“¢ NEW ANNOUNCEMENT
+                NEW ANNOUNCEMENT
               </div>
 
               <h2
@@ -612,7 +612,7 @@ export default function TeacherAnnouncementsPage() {
                   styles.formHint
                 }
               >
-                ðŸ‘¥ All students with notifications
+                All students with notifications
                 enabled will receive a push notification.
               </div>
 
@@ -633,7 +633,7 @@ export default function TeacherAnnouncementsPage() {
               >
                 {creating
                   ? "Publishing..."
-                  : "ðŸ“¢ Publish Announcement"}
+                  : "Publish Announcement"}
               </button>
 
             </div>
@@ -657,7 +657,7 @@ export default function TeacherAnnouncementsPage() {
                   "#dbeafe",
               }}
             >
-              ðŸ“¢
+              
             </div>
 
             <div>
@@ -691,7 +691,7 @@ export default function TeacherAnnouncementsPage() {
                   "#ffe4e6",
               }}
             >
-              â¤ï¸
+              
             </div>
 
             <div>
@@ -752,7 +752,7 @@ export default function TeacherAnnouncementsPage() {
             >
               {loading
                 ? "Loading..."
-                : "â†» Refresh"}
+                : "Refresh"}
             </button>
 
           </div>
@@ -769,7 +769,7 @@ export default function TeacherAnnouncementsPage() {
                   styles.emptyIcon
                 }
               >
-                â³
+                
               </div>
 
               <h3
@@ -803,7 +803,7 @@ export default function TeacherAnnouncementsPage() {
                   styles.emptyIcon
                 }
               >
-                ðŸ“­
+                
               </div>
 
               <h3
@@ -859,7 +859,7 @@ export default function TeacherAnnouncementsPage() {
                             styles.cardIcon
                           }
                         >
-                          ðŸ“¢
+                          
                         </div>
 
                         <div
@@ -929,7 +929,7 @@ export default function TeacherAnnouncementsPage() {
                             styles.audience
                           }
                         >
-                          ðŸ‘¥ For all students
+                          For all students
                         </div>
 
                         <div
@@ -952,7 +952,7 @@ export default function TeacherAnnouncementsPage() {
                                 : {}),
                             }}
                           >
-                            â¤ï¸{" "}
+                            
                             {
                               announcement.likeCount
                             }{" "}
@@ -969,8 +969,8 @@ export default function TeacherAnnouncementsPage() {
                               }
                             >
                               {isExpanded
-                                ? "â–²"
-                                : "â–¼"}
+                                ? "UP"
+                                : "DOWN"}
                             </span>
 
                           </button>
@@ -993,7 +993,7 @@ export default function TeacherAnnouncementsPage() {
                             {deletingId ===
                             announcement.id
                               ? "Deleting..."
-                              : "ðŸ—‘ Delete"}
+                              : "Delete"}
                           </button>
 
                         </div>
@@ -1038,7 +1038,7 @@ export default function TeacherAnnouncementsPage() {
                                 styles.likeNumber
                               }
                             >
-                              â¤ï¸{" "}
+                              
                               {
                                 announcement.likeCount
                               }
@@ -1060,7 +1060,7 @@ export default function TeacherAnnouncementsPage() {
                                   styles.noLikesIcon
                                 }
                               >
-                                ðŸ¤
+                                      
                               </span>
 
                               <div>
@@ -1171,7 +1171,7 @@ export default function TeacherAnnouncementsPage() {
                                         styles.heart
                                       }
                                     >
-                                      â¤ï¸
+                                      
                                     </div>
 
                                   </div>
@@ -1201,11 +1201,11 @@ export default function TeacherAnnouncementsPage() {
           <div
             style={styles.footerBrand}
           >
-            ðŸŽ“ Attendance Portal
+            Attendance Portal
           </div>
 
           <div>
-            Teacher Portal â€¢ Announcements â€¢ 2026
+            Teacher Portal - Announcements - 2026
           </div>
 
         </footer>
