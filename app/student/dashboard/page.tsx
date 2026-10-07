@@ -243,6 +243,10 @@ export default function StudentDashboardPage() {
         if (permission.receive === "prompt") permission = await PushNotifications.requestPermissions();
         if (permission.receive !== "granted") return;
         await PushNotifications.removeAllListeners();
+        await PushNotifications.addListener("pushNotificationActionPerformed", (event) => {
+          const targetUrl = String(event.notification?.data?.url || "/student/dashboard");
+          router.push(targetUrl);
+        });
         await PushNotifications.addListener("registration", async (token) => {
           try { const response = await fetch("/api/push/subscribe", {
               method: "POST",
@@ -2979,6 +2983,7 @@ const styles: {
     fontWeight: 900,
   },
 };
+
 
 
 

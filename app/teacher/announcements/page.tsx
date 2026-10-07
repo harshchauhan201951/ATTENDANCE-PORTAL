@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -276,7 +276,8 @@ export default function TeacherAnnouncementsPage() {
             body: JSON.stringify({
               title: cleanTitle,
               message: cleanMessage,
-              url: "/student",
+              category: "announcement",
+              url: "/student/announcements",
               announcementId:
                 createdAnnouncement?.id ||
                 null,
@@ -479,7 +480,7 @@ export default function TeacherAnnouncementsPage() {
               }
               style={styles.backButton}
             >
-              ←
+              â†
             </button>
 
             <div>
@@ -529,7 +530,7 @@ export default function TeacherAnnouncementsPage() {
                   styles.createEyebrow
                 }
               >
-                📢 NEW ANNOUNCEMENT
+                ðŸ“¢ NEW ANNOUNCEMENT
               </div>
 
               <h2
@@ -611,7 +612,7 @@ export default function TeacherAnnouncementsPage() {
                   styles.formHint
                 }
               >
-                👥 All students with notifications
+                ðŸ‘¥ All students with notifications
                 enabled will receive a push notification.
               </div>
 
@@ -632,7 +633,7 @@ export default function TeacherAnnouncementsPage() {
               >
                 {creating
                   ? "Publishing..."
-                  : "📢 Publish Announcement"}
+                  : "ðŸ“¢ Publish Announcement"}
               </button>
 
             </div>
@@ -656,7 +657,7 @@ export default function TeacherAnnouncementsPage() {
                   "#dbeafe",
               }}
             >
-              📢
+              ðŸ“¢
             </div>
 
             <div>
@@ -690,7 +691,7 @@ export default function TeacherAnnouncementsPage() {
                   "#ffe4e6",
               }}
             >
-              ❤️
+              â¤ï¸
             </div>
 
             <div>
@@ -751,7 +752,7 @@ export default function TeacherAnnouncementsPage() {
             >
               {loading
                 ? "Loading..."
-                : "↻ Refresh"}
+                : "â†» Refresh"}
             </button>
 
           </div>
@@ -768,7 +769,7 @@ export default function TeacherAnnouncementsPage() {
                   styles.emptyIcon
                 }
               >
-                ⏳
+                â³
               </div>
 
               <h3
@@ -802,7 +803,7 @@ export default function TeacherAnnouncementsPage() {
                   styles.emptyIcon
                 }
               >
-                📭
+                ðŸ“­
               </div>
 
               <h3
@@ -858,7 +859,7 @@ export default function TeacherAnnouncementsPage() {
                             styles.cardIcon
                           }
                         >
-                          📢
+                          ðŸ“¢
                         </div>
 
                         <div
@@ -928,7 +929,7 @@ export default function TeacherAnnouncementsPage() {
                             styles.audience
                           }
                         >
-                          👥 For all students
+                          ðŸ‘¥ For all students
                         </div>
 
                         <div
@@ -951,7 +952,7 @@ export default function TeacherAnnouncementsPage() {
                                 : {}),
                             }}
                           >
-                            ❤️{" "}
+                            â¤ï¸{" "}
                             {
                               announcement.likeCount
                             }{" "}
@@ -968,8 +969,8 @@ export default function TeacherAnnouncementsPage() {
                               }
                             >
                               {isExpanded
-                                ? "▲"
-                                : "▼"}
+                                ? "â–²"
+                                : "â–¼"}
                             </span>
 
                           </button>
@@ -992,7 +993,7 @@ export default function TeacherAnnouncementsPage() {
                             {deletingId ===
                             announcement.id
                               ? "Deleting..."
-                              : "🗑 Delete"}
+                              : "ðŸ—‘ Delete"}
                           </button>
 
                         </div>
@@ -1037,7 +1038,7 @@ export default function TeacherAnnouncementsPage() {
                                 styles.likeNumber
                               }
                             >
-                              ❤️{" "}
+                              â¤ï¸{" "}
                               {
                                 announcement.likeCount
                               }
@@ -1059,7 +1060,7 @@ export default function TeacherAnnouncementsPage() {
                                   styles.noLikesIcon
                                 }
                               >
-                                🤍
+                                ðŸ¤
                               </span>
 
                               <div>
@@ -1170,7 +1171,7 @@ export default function TeacherAnnouncementsPage() {
                                         styles.heart
                                       }
                                     >
-                                      ❤️
+                                      â¤ï¸
                                     </div>
 
                                   </div>
@@ -1200,11 +1201,11 @@ export default function TeacherAnnouncementsPage() {
           <div
             style={styles.footerBrand}
           >
-            🎓 Attendance Portal
+            ðŸŽ“ Attendance Portal
           </div>
 
           <div>
-            Teacher Portal • Announcements • 2026
+            Teacher Portal â€¢ Announcements â€¢ 2026
           </div>
 
         </footer>
