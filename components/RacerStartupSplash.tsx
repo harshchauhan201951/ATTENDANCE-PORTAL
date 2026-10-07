@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -10,10 +10,14 @@ export default function RacerStartupSplash({
 }: {
   children: ReactNode;
 }) {
-  const [visible, setVisible] = useState(true);
+  const [visible, setVisible] = useState(false);
   const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
+    const splashShown = sessionStorage.getItem("racer_startup_splash_shown");
+    if (splashShown === "1") return;
+    sessionStorage.setItem("racer_startup_splash_shown", "1");
+    setVisible(true);
     const fadeTimer = window.setTimeout(() => setLeaving(true), EXIT_FADE_START);
     const hideTimer = window.setTimeout(() => setVisible(false), SPLASH_DURATION);
     return () => {
@@ -57,3 +61,6 @@ export default function RacerStartupSplash({
     </div>
   );
 }
+
+
+
