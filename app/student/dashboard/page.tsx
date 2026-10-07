@@ -238,25 +238,24 @@ export default function StudentDashboardPage() {
     currentStudentId: number
   ) {
     try {
-      if (Capacitor.isNativePlatform()) {
+      if (Capacitor.isNativePlatform()) { alert("RACER FCM: Native Android detected");
         let permission = await PushNotifications.checkPermissions();
         if (permission.receive === "prompt") permission = await PushNotifications.requestPermissions();
-        if (permission.receive !== "granted") return;
+        if (permission.receive !== "granted") { alert("RACER FCM: Notification permission not granted"); return; }
         await PushNotifications.removeAllListeners();
         await PushNotifications.addListener("registration", async (token) => {
-          try {
-            const response = await fetch("/api/push/subscribe", {
+          try { alert("RACER FCM: Registration successful, saving device token"); const response = await fetch("/api/push/subscribe", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ studentId: currentStudentId, subscription: { type: "fcm", token: token.value } })
             });
-            if (!response.ok) console.error("FCM subscription API error:", await response.text());
+            if (!response.ok) { alert("RACER FCM: Server rejected token"); console.error("FCM subscription API error:", await response.text()); } else { alert("RACER FCM: Token saved successfully"); }
           } catch (error) {
             console.error("FCM subscription save error:", error);
           }
         });
         await PushNotifications.addListener("registrationError", (error) => {
-          console.error("FCM registration error:", error);
+          alert("RACER FCM: REGISTRATION ERROR"); console.error("FCM registration error:", error);
         });
         await PushNotifications.register();
         return;
@@ -2980,6 +2979,7 @@ const styles: {
     fontWeight: 900,
   },
 };
+
 
 
 
