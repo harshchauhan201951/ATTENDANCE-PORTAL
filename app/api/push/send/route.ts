@@ -90,8 +90,10 @@ export async function POST(
     const studentId =
       body?.studentId ?? null;
 
+    const announcementId = body?.announcementId ?? null;
+
     const category = body?.category || "general";
-    const url = body?.url || (category === "announcement" ? "/student/announcements" : category === "fees" ? "/student/fees" : category === "homework" ? "/student/homework" : category === "quiz" ? "/student/quiz-tests" : category === "timetable" ? "/student/timetable" : category === "result" ? "/student/monthly-result" : "/student/dashboard");
+    const url = body?.url || (category === "announcement" ? "/student/notifications" : category === "fees" ? "/student/fees" : category === "homework" ? "/student/homework" : category === "quiz" ? "/student/quiz-tests" : category === "timetable" ? "/student/timetable" : category === "result" ? "/student/monthly-result" : "/student/dashboard");
 
     let query = supabaseAdmin
       .from("push_subscriptions")
@@ -184,6 +186,7 @@ export async function POST(
       icon: "/icon-192.png",
       badge: "/icon-192.png",
       url,
+      announcementId: announcementId ? String(announcementId) : "",
 
       /*
        * Keep notification non-silent.
@@ -216,7 +219,7 @@ export async function POST(
           continue;
         }
         try {
-          await getMessaging(firebaseAdminApp).send({token,notification:{title,body:message},data:{url,category},android:{priority:"high",notification:{channelId:"racer_academy_v2",sound:"racer_notification"}}});
+          await getMessaging(firebaseAdminApp).send({token,notification:{title,body:message},data:{url,category,announcementId:announcementId ? String(announcementId) : ""},android:{priority:"high",notification:{channelId:"racer_academy_v2",sound:"racer_notification"}}});
           sent++;
           console.log("Native FCM notification sent successfully:", row.id);
         } catch (pushError:any) {
@@ -339,6 +342,7 @@ export async function POST(
     );
   }
 }
+
 
 
 

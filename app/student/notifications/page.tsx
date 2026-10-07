@@ -1,6 +1,6 @@
 ﻿"use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 type NotificationItem={id:number;student_id:number;category:string;title:string;message:string;url:string;is_read:boolean;audio_url:string|null;metadata:Record<string,unknown>;authorized_at:string;read_at?:string};
 const categoryInfo:Record<string,{icon:string;label:string}>={
   fee_pending:{icon:"📪",label:"Fee Pending"},
@@ -12,7 +12,7 @@ const categoryInfo:Record<string,{icon:string;label:string}>={
   general:{icon:"🔔",label:"General Update"}
 };
 export default function StudentNotificationsPage(){
-  const router=useRouter();
+  const router=useRouter(); const searchParams=useSearchParams(); const requestedAnnouncementId=searchParams.get("announcementId");
   const[items,setItems]=useState<NotificationItem[]>([]);
   const[loading,setLoading]=useState(true);
   const[error,setError]=useState("");
@@ -34,7 +34,7 @@ export default function StudentNotificationsPage(){
       const response=await fetch("/api/student/notifications?studentId="+encodeURIComponent(String(id)),{cache:"no-store"});
       const result=await response.json();
       if(!response.ok||!result.success)throw new Error(result.error||"Unable to load notifications.");
-      setItems(result.notifications||[]);
+      const loadedItems=result.notifications||[]; const targetId=requestedAnnouncementId?Number(requestedAnnouncementId):null; if(targetId&&!Number.isNaN(targetId)){const targetIndex=loadedItems.findIndex((item:NotificationItem)=>{const metadataId=Number(item.metadata?.announcementId||item.metadata?.announcement_id||0); return metadataId===targetId;}); if(targetIndex>0){const[target]=loadedItems.splice(targetIndex,1); loadedItems.unshift(target);}} setItems(loadedItems);
       setError("");
     }catch(err){
       setError(err instanceof Error?err.message:"Unable to load notifications.");
@@ -110,3 +110,4 @@ export default function StudentNotificationsPage(){
     </div>
   </main>;
 }
+

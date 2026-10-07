@@ -277,7 +277,7 @@ export default function TeacherAnnouncementsPage() {
               title: cleanTitle,
               message: cleanMessage,
               category: "announcement",
-              url: "/student/announcements",
+              url: "/student/notifications",
               announcementId:
                 createdAnnouncement?.id ||
                 null,
@@ -2197,3 +2197,4 @@ const styles: {
       "900",
   },
 };
+

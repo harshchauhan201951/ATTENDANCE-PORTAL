@@ -244,7 +244,7 @@ export default function StudentDashboardPage() {
         if (permission.receive !== "granted") return;
         await PushNotifications.removeAllListeners();
         await PushNotifications.addListener("pushNotificationActionPerformed", (event) => {
-          const targetUrl = String(event.notification?.data?.url || "/student/dashboard");
+          const notificationData = event.notification?.data || {}; const targetUrl = "/student/notifications" + (notificationData.announcementId ? "?announcementId=" + encodeURIComponent(String(notificationData.announcementId)) : "");
           router.push(targetUrl);
         });
         await PushNotifications.addListener("registration", async (token) => {
@@ -2983,6 +2983,8 @@ const styles: {
     fontWeight: 900,
   },
 };
+
+
 
 
 
