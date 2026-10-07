@@ -128,8 +128,7 @@ export async function POST(
       .upsert(
         {
           student_id: studentId,
-          endpoint:
-            subscription.endpoint,
+          endpoint: subscription.endpoint || ("fcm:" + subscription.token),
           subscription:
             subscription,
         },
@@ -184,3 +183,4 @@ export async function POST(
     );
   }
 }
+

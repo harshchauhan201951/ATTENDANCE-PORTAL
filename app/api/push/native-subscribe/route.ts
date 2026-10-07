@@ -1,0 +1,1 @@
+﻿export async function POST(request: Request) { try { const body = await request.json(); return Response.json({ success: true, received: !!body }); } catch { return Response.json({ success: false, error: "Invalid request" }, { status: 400 }); } }

@@ -1,6 +1,8 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import webpush from "web-push";
 import { createClient } from "@supabase/supabase-js";
+import { cert, getApps, initializeApp } from "firebase-admin/app";
+import { getMessaging } from "firebase-admin/messaging";
 
 const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -40,6 +42,16 @@ const supabaseAdmin = createClient(
   }
 );
 
+
+const firebaseProjectId = process.env.FIREBASE_PROJECT_ID;
+const firebaseClientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+const firebasePrivateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+const firebaseAdminApp = firebaseProjectId && firebaseClientEmail && firebasePrivateKey
+  ? (getApps()[0] ?? initializeApp({
+      credential: cert({projectId: firebaseProjectId, clientEmail: firebaseClientEmail, privateKey: firebasePrivateKey. replace(/\\n/g, "\n")}),
+    })): null;
+
 webpush.setVapidDetails(
   vapidSubject,
   vapidPublicKey,
@@ -52,6 +64,8 @@ type PushSubscriptionRow = {
   endpoint: string;
   subscription: {
     endpoint?: string;
+    type?: string;
+    token?: string;
     expirationTime?: number | null;
     keys?: {
       p256dh?: string;
@@ -191,6 +205,27 @@ export async function POST(
       const storedSubscription =
         row.subscription;
 
+       if (storedSubscription?.type === "fcm") {
+        const token = storedSubscription?.token;
+        if (!firebaseAdminApp || !token) {
+          failed++;
+          console.error("Invalid native FCM subscription record:", row.id);
+          continue;
+        }
+        try {
+          await getMessaging(firebaseAdminApp).send({token,notification:{title,body:message},data:{url:"/student",category:"general"},android:{priority:"high",notification:{channelId:"racer_academy_v2",sound:"racer_notification"}}});
+          sent++;
+          console.log("Native FCM notification sent successfully:", row.id);
+        } catch (pushError:any) {
+          failed++;
+          console.error("Native FCM notification error:",pushError);
+          if (pushError?.code === "messaging/registration-token-not-registered" || pushError?.code === "messaging/invalid-registration-token") {
+            await supabaseAdmin.from("push_subscriptions").delete().eq("id", row.id);
+          }
+        }
+        continue;
+      }
+
       const endpoint =
         row.endpoint ||
         storedSubscription?.endpoint;
@@ -301,3 +336,6 @@ export async function POST(
     );
   }
 }
+
+
+

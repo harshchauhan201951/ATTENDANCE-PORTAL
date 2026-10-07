@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "740736069209",
+    "project_id": "raceracademy",
+    "storage_bucket": "raceracademy.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:740736069209:android:6defa42780692c2afc0b48",
+        "android_client_info": {
+          "package_name": "com.raceracademy.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyANWYDErCwp49uACQMWTg65rck8PqvdFEA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
