@@ -249,7 +249,7 @@ export default function StudentDashboardPage() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ studentId: currentStudentId, subscription: { type: "fcm", token: token.value } })
             });
-            if (!response.ok) { alert("RACER FCM: Server rejected token"); console.error("FCM subscription API error:", await response.text()); } else { alert("RACER FCM: Token saved successfully"); }
+            if (!response.ok) { const errorText = await response.text(); alert("RACER FCM: Server rejected token\n\n" + errorText); console.error("FCM subscription API error:", errorText); } else { alert("RACER FCM: Token saved successfully"); }
           } catch (error) {
             console.error("FCM subscription save error:", error);
           }
@@ -2979,6 +2979,7 @@ const styles: {
     fontWeight: 900,
   },
 };
+
 
 
 
