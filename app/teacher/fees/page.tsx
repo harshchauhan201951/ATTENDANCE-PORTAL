@@ -2082,11 +2082,6 @@ onclick="window.print()"
     return (
       <main className="racer-vip-module-page racer-vip-fees-page">
         <div className="racer-vip-phone">
-          <header className="racer-vip-header">
-            <button className="racer-vip-icon-btn" type="button" aria-label="Menu"><Icon name="menu" /></button>
-            <div className="racer-vip-brand"><img src="/racer-academy-icon.png" alt="RACER ACADEMY" /><div><div className="racer-vip-brand-title">RACER ACADEMY</div><div className="racer-vip-brand-subtitle">TEACHER CONTROL CENTER</div></div></div>
-            <div className="racer-vip-header-right"><div className="racer-vip-avatar">TC</div><button className="racer-vip-icon-btn" type="button" aria-label="Notifications"><Icon name="bell" /></button></div>
-          </header>
           <div className="racer-vip-loading-card"><div className="racer-vip-spinner" /><h2>Loading Fees Management...</h2><p>Please wait while fee records are loaded.</p></div>
         </div>
       </main>
@@ -2096,11 +2091,6 @@ onclick="window.print()"
   return (
     <main className="racer-vip-module-page racer-vip-fees-page">
       <div className="racer-vip-phone">
-        <header className="racer-vip-header">
-          <button className="racer-vip-icon-btn" type="button" aria-label="Menu"><Icon name="menu" /></button>
-          <div className="racer-vip-brand"><img src="/racer-academy-icon.png" alt="RACER ACADEMY" /><div><div className="racer-vip-brand-title">RACER ACADEMY</div><div className="racer-vip-brand-subtitle">TEACHER CONTROL CENTER</div></div></div>
-          <div className="racer-vip-header-right"><div className="racer-vip-avatar">TC</div><button className="racer-vip-icon-btn" type="button" aria-label="Notifications"><Icon name="bell" /></button></div>
-        </header>
 
         {message && <div className={`racer-vip-message ${message.toLowerCase().includes("unable") || message.toLowerCase().includes("error") ? "is-error" : "is-success"}`}>{message}</div>}
         {error && <div className="racer-vip-message is-error">{error}</div>}
@@ -2115,11 +2105,11 @@ onclick="window.print()"
           <div className="fee-summary-card students"><span><Icon name="users" /></span><small>Total Students</small><b>{students.length}</b></div>
           <div className="fee-summary-card paid"><span><Icon name="check" /></span><small>Paid</small><b>{paidVipFees.length}</b></div>
           <div className="fee-summary-card pending"><span><Icon name="calendar" /></span><small>Pending</small><b>{pendingVipFees.length}</b></div>
-          <div className="fee-summary-card collection"><span className="rupee-icon">₹</span><small>Collection</small><b>₹ {vipCollectionTotal.toLocaleString("en-IN")}</b></div>
+          <div className="fee-summary-card collection"><span className="rupee-icon">Rs.</span><small>Collection</small><b>Rs. {vipCollectionTotal.toLocaleString("en-IN")}</b></div>
         </section>
 
         <details id="racer-fee-entry" className="racer-vip-fee-entry">
-          <summary><span>Add / Update Fee</span><span>＋</span></summary>
+          <summary><span>Add / Update Fee</span><span>+</span></summary>
           <form onSubmit={saveFee} className="racer-vip-fee-form">
             <div className="racer-vip-fee-form-grid">
               <label><span>Student</span><select value={studentId} onChange={(e) => { const selectedId = e.target.value; setStudentId(selectedId); const selectedStudent = students.find((student) => String(student.id) === selectedId); if (selectedStudent) setAmount(String(getFeeAmount(selectedStudent))); }}><option value="">Select Student</option>{students.map((student) => <option key={student.id} value={student.id}>{student.student_name || student.student_username} ({student.student_username})</option>)}</select></label>
@@ -2159,11 +2149,11 @@ onclick="window.print()"
                 return (
                   <div className="racer-vip-fee-grid" key={fee.id}>
                     <span>{(safeFeePage - 1) * feePageSize + index + 1}</span>
-                    <span className="fee-student"><strong>{getStudentName(fee.student_id)}</strong><small>{getStudentUsername(fee.student_id)} · {getMonthName(fee.month)} {fee.year}</small></span>
+                    <span className="fee-student"><strong>{getStudentName(fee.student_id)}</strong><small>{getStudentUsername(fee.student_id)} - {getMonthName(fee.month)} {fee.year}</small></span>
                     <span>{getStudentClass(students.find((student) => student.id === fee.student_id) || ({} as Student)) || "-"}</span>
-                    <span>₹{amountValue.toLocaleString("en-IN")}</span>
-                    <span className="money paid">₹{paidValue.toLocaleString("en-IN")}</span>
-                    <span className="money due">₹{dueValue.toLocaleString("en-IN")}</span>
+                    <span>Rs. {amountValue.toLocaleString("en-IN")}</span>
+                    <span className="money paid">Rs. {paidValue.toLocaleString("en-IN")}</span>
+                    <span className="money due">Rs. {dueValue.toLocaleString("en-IN")}</span>
                     <span><StatusBadge status={fee.status} /></span>
                     <span className="fee-actions">
                       <button type="button" title="View" onClick={() => viewFeeRecord(fee)}><Icon name="eye" /></button>
@@ -2803,6 +2793,7 @@ const styles: Record<
       700,
   },
 };
+
 
 
 
