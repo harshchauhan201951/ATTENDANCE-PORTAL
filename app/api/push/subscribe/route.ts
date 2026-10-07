@@ -38,6 +38,7 @@ export async function POST(
     const studentId = Number(body?.studentId);
 
     const subscription = body?.subscription;
+    const isNativeFcm = subscription?.type === "fcm" && typeof subscription?.token === "string" && subscription.token.length > 0;
 
     if (
       !studentId ||
@@ -53,10 +54,7 @@ export async function POST(
       );
     }
 
-    if (
-      !subscription ||
-      !subscription.endpoint
-    ) {
+    if (!subscription || (!isNativeFcm && !subscription.endpoint)) {
       return NextResponse.json(
         {
           success: false,
@@ -183,6 +181,12 @@ export async function POST(
     );
   }
 }
+
+
+
+
+
+
 
 
 
