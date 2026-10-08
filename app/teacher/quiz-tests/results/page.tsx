@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   Suspense,
@@ -158,6 +158,12 @@ function normalizeClassName(value: string | null): string {
 
 function normalizeSubject(value: string | null): string {
   return String(value || "").trim() || "Other";
+}
+
+function isQuizDeadlinePassed(quiz: { scheduled_date: string | null }): boolean {
+  if (!quiz.scheduled_date) return false;
+  const deadline = new Date(`${quiz.scheduled_date}T21:00:00+05:30`);
+  return Date.now() >= deadline.getTime();
 }
 
 function resultStatus(
@@ -972,7 +978,9 @@ function TeacherQuizResultsContent() {
 
     return allStudentQuizRows.filter((row) => {
       if (row.results.length === 0) {
-        return selectedStatus === "NOT_SUBMITTED";
+        return isQuizDeadlinePassed(row.quiz)
+          ? selectedStatus === "FAIL"
+          : selectedStatus === "NOT_SUBMITTED";
       }
 
       const latest =
@@ -1006,10 +1014,9 @@ function TeacherQuizResultsContent() {
 
     const submitted = allStudentQuizRows.filter((row) => hasSubmittedResult(row.results)).length;
 
-    const notSubmitted = Math.max(
-      0,
-      totalAssigned - submitted
-    );
+    const notSubmitted = allStudentQuizRows.filter((row) => !hasSubmittedResult(row.results) && !isQuizDeadlinePassed(row.quiz)).length;
+
+    const missedDeadline = allStudentQuizRows.filter((row) => !hasSubmittedResult(row.results) && isQuizDeadlinePassed(row.quiz)).length;
 
     const latestRows = allStudentQuizRows
       .filter((row) => row.results.length > 0)
@@ -1022,7 +1029,7 @@ function TeacherQuizResultsContent() {
 
     const fail = latestRows.filter((result) =>
       resultStatus(result).includes("FAIL")
-    ).length;
+    ).length + missedDeadline;
 
     const attempts = filteredResultRows.length;
 
@@ -1241,7 +1248,10 @@ function TeacherQuizResultsContent() {
     return {
       total,
       submitted,
-      notSubmitted: Math.max(0, total - submitted),
+      notSubmitted: currentQuizStudents.filter((student) => {
+        const results = currentQuizResultsByStudent.get(student.id) || [];
+        return !hasSubmittedResult(results) && !isQuizDeadlinePassed(currentQuiz as any);
+      }).length,
       pass,
       fail,
       attempts,
@@ -2209,7 +2219,7 @@ function TeacherQuizResultsContent() {
         const latest = getLatestResult(row.results);
         const submitted = Boolean(latest && (latest.submitted_at || ["manual","left_quiz","time_expired","auto_submit"].includes(String(latest.submission_type || "").trim().toLowerCase())));
         return {
-          "Student Name": row.student.student_name || "Unnamed", "Class": normalizeClassName(row.student.class_name), "Username": row.student.student_username || "", "Quiz": row.quiz.title || "", "Quiz Date": row.quiz.scheduled_date || "", "Subject": row.quiz.subject || "", "Total Questions": latest ? safeNumber(latest.total_questions) : 0, "Correct Answers": latest ? safeNumber(latest.correct_answers) : 0, "Wrong Answers": latest ? safeNumber(latest.wrong_answers) : 0, "Marks": latest ? safeNumber(latest.obtained_marks) : 0, "Percentage": latest ? (safeNumber(latest.percentage).toFixed(2) + "%") : "0.00%", "Result Status": latest ? resultStatus(latest) : "NOT SUBMITTED", "Submission Type": latest?.submission_type || "", "Submitted": submitted ? "YES" : "NO", "Submitted At": latest?.submitted_at ? formatDateTime(latest.submitted_at) : ""
+          "Student Name": row.student.student_name || "Unnamed", "Class": normalizeClassName(row.student.class_name), "Username": row.student.student_username || "", "Quiz": row.quiz.title || "", "Quiz Date": row.quiz.scheduled_date || "", "Subject": row.quiz.subject || "", "Total Questions": latest ? safeNumber(latest.total_questions) : 0, "Correct Answers": latest ? safeNumber(latest.correct_answers) : 0, "Wrong Answers": latest ? safeNumber(latest.wrong_answers) : 0, "Marks": latest ? safeNumber(latest.obtained_marks) : 0, "Percentage": latest ? (safeNumber(latest.percentage).toFixed(2) + "%") : "0.00%", "Result Status": latest ? resultStatus(latest) : "FAILED", "Submission Type": latest?.submission_type || "", "Submitted": submitted ? "YES" : "NO", "Submitted At": latest?.submitted_at ? formatDateTime(latest.submitted_at) : ""
         };
       });
       const worksheet = XLSX.utils.json_to_sheet(excelRows);
@@ -2416,7 +2426,7 @@ function TeacherQuizResultsContent() {
               : "0%",
             latest
               ? resultStatus(latest)
-              : "NOT SUBMITTED",
+              : "FAILED",
           ],
           widths,
           14,
@@ -3607,7 +3617,7 @@ function TeacherQuizResultsContent() {
               </div>
 
               <div style={styles.currentQuizInfo}>
-                <span>Not Submitted</span>
+                <span>Failed</span>
 
                 <strong>
                   {currentQuizStats.notSubmitted}
@@ -4664,6 +4674,10 @@ const styles: Record<
     fontSize: "12px",
   },
 };
+
+
+
+
 
 
 
