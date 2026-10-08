@@ -180,14 +180,21 @@ export default function MonthlyResultsPage() {
       const listRes = await fetch("/api/monthly-results/publish?list=1");
       const listData = await listRes.json();
       if (listRes.ok && listData.success) setSavedPeriods(listData.periods || []);
-      const [studentsRes, quizzesRes, resultsRes, testsRes, mahaHistoryRes] = await Promise.all([
+      const [studentsRes, quizzesRes, testsRes, mahaHistoryRes] = await Promise.all([
         supabase.from("students").select("id,student_name,student_username,class_name,father_name,admission_date").order("class_name").order("student_name"),
         supabase.from("quiz_tests").select("id,title,subject,class_name,target_classes,scheduled_date,created_at").order("scheduled_date"),
-        supabase.from("quiz_results").select("id,quiz_id,student_id,attempt_number,total_marks,obtained_marks,percentage,submitted_at,submission_type,created_at").order("created_at"),
         supabase.from("academy_assessments").select("id,test_name,test_date,total_marks,student_id,obtained_marks,subject,attendance_status,remarks").order("test_date"),
         supabase.from("monthly_mahatests").select("month_key,test_date").order("test_date"),
       ]);
-      for (const r of [studentsRes, quizzesRes, resultsRes, testsRes, mahaHistoryRes]) if (r.error) throw r.error;
+      const allQuizResults: any[] = [];
+      const quizPageSize = 1000;
+      for (let from = 0; ; from += quizPageSize) {
+        const { data: batch, error: batchError } = await supabase.from("quiz_results").select("id,quiz_id,student_id,attempt_number,total_marks,obtained_marks,percentage,submitted_at,submission_type,created_at").order("created_at").range(from, from + quizPageSize - 1);
+        if (batchError) throw batchError;
+        allQuizResults.push(...(batch || []));
+        if (!batch || batch.length < quizPageSize) break;
+      }
+      for (const r of [studentsRes, quizzesRes, testsRes, mahaHistoryRes]) if (r.error) throw r.error;
       const ss = (studentsRes.data || []).filter((s: any) => !assigned || assigned.includes(Number(s.id)));
 
       const savedMahaDate = String(savedData.mahatest?.test_date || "").slice(0, 10);
@@ -199,7 +206,7 @@ export default function MonthlyResultsPage() {
       const previousMahaDate = previousMahaDates.length ? previousMahaDates[previousMahaDates.length - 1] : "";
       const effectivePeriodStart = effectiveMahaDate === "2026-10-03" ? "2026-08-01" : (previousMahaDate ? addOneDay(previousMahaDate) : "2026-08-01");
 
-      setStudents(ss); setQuizzes(quizzesRes.data || []); setQuizResults(resultsRes.data || []); setTests(testsRes.data || []);
+      setStudents(ss); setQuizzes(quizzesRes.data || []); setQuizResults(allQuizResults); setTests(testsRes.data || []);
       setMahaDate(effectiveMahaDate);
       setPeriodStart(effectivePeriodStart);
       const period = savedData.period as any;
@@ -220,32 +227,39 @@ export default function MonthlyResultsPage() {
   function buildSnapshot(student: any): MonthlyResultSnapshot {
     const cutoff = cutoffDate(mahaDate);
     const start = cutoffDate(periodStart);
-    const relevantQuizzes = quizzes.filter((q) => {
-      const quizDate = String(q.scheduled_date || q.created_at || "").slice(0, 10);
-      if (!quizDate || !cutoff || quizDate > cutoff || (start && quizDate < start)) return false;
-      if (!quizTargetsStudent(q, student.class_name || "")) return false;
-
-      const rows = quizResults
-        .filter((r) => Number(r.quiz_id) === Number(q.id) && Number(r.student_id) === Number(student.id))
-        .filter((r) => {
-          const completedDate = String(r.submitted_at || r.created_at || "").slice(0, 10);
-          return isSubmittedQuizResult(r) && completedDate && completedDate <= cutoff;
-        });
-
-      return Boolean(latestSubmittedQuizResult(rows));
-    });
-    const qEntries = relevantQuizzes.map((q) => {
-      const latest = latestSubmittedQuizResult(
-        quizResults
-          .filter((r) => Number(r.quiz_id) === Number(q.id) && Number(r.student_id) === Number(student.id))
-          .filter((r) => {
-            const completedDate = String(r.submitted_at || r.created_at || "").slice(0, 10);
-            return isSubmittedQuizResult(r) && completedDate && completedDate <= cutoff;
-          })
-      )!;
-      const obtained = safeNumber(latest.obtained_marks), total = safeNumber(latest.total_marks);
-      return { quizId: Number(q.id), title: q.title || "Quiz", subject: q.subject || "", date: q.scheduled_date || String(latest.submitted_at || latest.created_at).slice(0,10), obtained, total, percentage: total > 0 ? (obtained/total)*100 : 0 };
-    });
+    const quizMap = new Map(quizzes.map((q: any) => [Number(q.id), q]));
+    const qEntries = quizResults
+      .filter((r) => Number(r.student_id) === Number(student.id))
+      .filter((r) => {
+        const completedDate = String(r.submitted_at || r.created_at || "").slice(0, 10);
+        if (!isSubmittedQuizResult(r) || !completedDate || (cutoff && completedDate > cutoff)) return false;
+        const q = quizMap.get(Number(r.quiz_id));
+        if (!q) return false;
+        const quizDate = String(q.scheduled_date || q.created_at || "").slice(0, 10);
+        if (!quizDate || !cutoff || quizDate > cutoff || (start && quizDate < start)) return false;
+        return quizTargetsStudent(q, student.class_name || "");
+      })
+      .sort((a, b) => {
+        const ad = String(a.submitted_at || a.created_at || "");
+        const bd = String(b.submitted_at || b.created_at || "");
+        return ad.localeCompare(bd) || Number(a.quiz_id) - Number(b.quiz_id) || Number(a.attempt_number || 1) - Number(b.attempt_number || 1);
+      })
+      .map((r) => {
+        const q = quizMap.get(Number(r.quiz_id));
+        const obtained = safeNumber(r.obtained_marks);
+        const total = safeNumber(r.total_marks);
+        const attemptNumber = Number(r.attempt_number || 1);
+        const baseTitle = q?.title || "Quiz";
+        return {
+          quizId: Number(r.quiz_id),
+          title: attemptNumber > 1 ? `${baseTitle} (Attempt #${attemptNumber})` : baseTitle,
+          subject: q?.subject || "",
+          date: String(r.submitted_at || r.created_at || q?.scheduled_date || "").slice(0, 10),
+          obtained,
+          total,
+          percentage: total > 0 ? (obtained / total) * 100 : 0,
+        };
+      });
     const tEntries = tests.filter((t) => {
       const testDate = String(t.test_date || "").slice(0, 10);
       return Number(t.student_id) === Number(student.id)
