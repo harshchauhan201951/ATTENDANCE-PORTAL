@@ -197,7 +197,7 @@ export default function MonthlyResultsPage() {
         .filter((d: string) => d && d < effectiveMahaDate)
         .sort();
       const previousMahaDate = previousMahaDates.length ? previousMahaDates[previousMahaDates.length - 1] : "";
-      const effectivePeriodStart = previousMahaDate ? addOneDay(previousMahaDate) : "2026-08-01";
+      const effectivePeriodStart = effectiveMahaDate === "2026-10-03" ? "2026-08-01" : (previousMahaDate ? addOneDay(previousMahaDate) : "2026-08-01");
 
       setStudents(ss); setQuizzes(quizzesRes.data || []); setQuizResults(resultsRes.data || []); setTests(testsRes.data || []);
       setMahaDate(effectiveMahaDate);
@@ -287,7 +287,7 @@ export default function MonthlyResultsPage() {
   return result;
 }
 
-const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [students, quizzes, quizResults, tests, mahaMarks, mahaRemarks, mahaDate, periodStart, passPercentage, monthKey]); const displaySnapshots = snapshots.length ? snapshots : preview;
+const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [students, quizzes, quizResults, tests, mahaMarks, mahaRemarks, mahaDate, periodStart, passPercentage, monthKey]); const displaySnapshots = preview;
 
   function calculatedSnapshots() {
     if (!students.length) return [];
