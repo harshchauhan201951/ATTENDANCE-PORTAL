@@ -23,11 +23,6 @@ const supabase = createClient(
 function currentMonth() {
   return new Date().toISOString().slice(0, 7);
 }
-function monthStart(key: string) { return `${key}-01`; }
-function monthEnd(key: string) {
-  const [y, m] = key.split("-").map(Number);
-  return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
-}
 function formatDate(value: string) {
   if (!value) return "---";
   const d = new Date(`${String(value).slice(0, 10)}T00:00:00`);
@@ -56,6 +51,16 @@ function getLastSaturday(key: string) {
   const d = new Date(y, m, 0);
   while (d.getDay() !== 6) d.setDate(d.getDate() - 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function addOneDay(value: string) {
+  if (!value) return "";
+  const d = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return "";
+  d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function cutoffDate(value: string) {
+  return String(value || "").slice(0, 10);
 }
 
 function drawHeader(doc: jsPDF, title: string) {
@@ -138,6 +143,7 @@ export default function MonthlyResultsPage() {
   const [releaseInput, setReleaseInput] = useState("");
   const [passPercentage, setPassPercentage] = useState("");
   const [mahaDate, setMahaDate] = useState("");
+  const [periodStart, setPeriodStart] = useState("");
   const [mahaMarks, setMahaMarks] = useState<Record<number, string>>({});
   const [mahaRemarks, setMahaRemarks] = useState<Record<number, string>>({});
   const [students, setStudents] = useState<any[]>([]);
@@ -154,6 +160,7 @@ export default function MonthlyResultsPage() {
   useEffect(() => {
     setReleaseInput("");
     setMahaDate("");
+    setPeriodStart("");
     void loadMonth();
   }, [monthKey]);
 
@@ -173,15 +180,28 @@ export default function MonthlyResultsPage() {
       const listRes = await fetch("/api/monthly-results/publish?list=1");
       const listData = await listRes.json();
       if (listRes.ok && listData.success) setSavedPeriods(listData.periods || []);
-      const [studentsRes, quizzesRes, resultsRes, testsRes] = await Promise.all([
+      const [studentsRes, quizzesRes, resultsRes, testsRes, mahaHistoryRes] = await Promise.all([
         supabase.from("students").select("id,student_name,student_username,class_name,father_name,admission_date").order("class_name").order("student_name"),
-        supabase.from("quiz_tests").select("id,title,subject,class_name,target_classes,scheduled_date,created_at").gte("scheduled_date", monthStart(monthKey)).lte("scheduled_date", monthEnd(monthKey)),
-        supabase.from("quiz_results").select("id,quiz_id,student_id,attempt_number,total_marks,obtained_marks,percentage,submitted_at,submission_type,created_at"),
-        supabase.from("academy_assessments").select("id,test_name,test_date,total_marks,student_id,obtained_marks,subject,attendance_status,remarks").gte("test_date", monthStart(monthKey)).lte("test_date", monthEnd(monthKey)).order("test_date"),
+        supabase.from("quiz_tests").select("id,title,subject,class_name,target_classes,scheduled_date,created_at").order("scheduled_date"),
+        supabase.from("quiz_results").select("id,quiz_id,student_id,attempt_number,total_marks,obtained_marks,percentage,submitted_at,submission_type,created_at").order("created_at"),
+        supabase.from("academy_assessments").select("id,test_name,test_date,total_marks,student_id,obtained_marks,subject,attendance_status,remarks").order("test_date"),
+        supabase.from("monthly_mahatests").select("month_key,test_date").order("test_date"),
       ]);
-      for (const r of [studentsRes, quizzesRes, resultsRes, testsRes]) if (r.error) throw r.error;
+      for (const r of [studentsRes, quizzesRes, resultsRes, testsRes, mahaHistoryRes]) if (r.error) throw r.error;
       const ss = (studentsRes.data || []).filter((s: any) => !assigned || assigned.includes(Number(s.id)));
+
+      const savedMahaDate = String(savedData.mahatest?.test_date || "").slice(0, 10);
+      const effectiveMahaDate = savedMahaDate || (monthKey ? getLastSaturday(monthKey) : "");
+      const previousMahaDates = (mahaHistoryRes.data || [])
+        .map((r: any) => String(r.test_date || "").slice(0, 10))
+        .filter((d: string) => d && d < effectiveMahaDate)
+        .sort();
+      const previousMahaDate = previousMahaDates.length ? previousMahaDates[previousMahaDates.length - 1] : "";
+      const effectivePeriodStart = previousMahaDate ? addOneDay(previousMahaDate) : "2026-08-01";
+
       setStudents(ss); setQuizzes(quizzesRes.data || []); setQuizResults(resultsRes.data || []); setTests(testsRes.data || []);
+      setMahaDate(effectiveMahaDate);
+      setPeriodStart(effectivePeriodStart);
       const period = savedData.period as any;
       if (period) {
         setPassPercentage(String(period.pass_percentage ?? 40));
@@ -198,18 +218,44 @@ export default function MonthlyResultsPage() {
   }
 
   function buildSnapshot(student: any): MonthlyResultSnapshot {
+    const cutoff = cutoffDate(mahaDate);
+    const start = cutoffDate(periodStart);
     const relevantQuizzes = quizzes.filter((q) => {
-      const rows = quizResults.filter((r) => Number(r.quiz_id) === Number(q.id) && Number(r.student_id) === Number(student.id));
-      const latest = latestSubmittedQuizResult(rows);
-      const completedDate = latest?.submitted_at || latest?.created_at || "";
-      return latest && isSubmittedQuizResult(latest) && String(completedDate).slice(0,7) === monthKey && quizTargetsStudent(q, student.class_name || "");
+      const quizDate = String(q.scheduled_date || q.created_at || "").slice(0, 10);
+      if (!quizDate || !cutoff || quizDate > cutoff || (start && quizDate < start)) return false;
+      if (!quizTargetsStudent(q, student.class_name || "")) return false;
+
+      const rows = quizResults
+        .filter((r) => Number(r.quiz_id) === Number(q.id) && Number(r.student_id) === Number(student.id))
+        .filter((r) => {
+          const completedDate = String(r.submitted_at || r.created_at || "").slice(0, 10);
+          return isSubmittedQuizResult(r) && completedDate && completedDate <= cutoff;
+        });
+
+      return Boolean(latestSubmittedQuizResult(rows));
     });
     const qEntries = relevantQuizzes.map((q) => {
-      const latest = latestSubmittedQuizResult(quizResults.filter((r) => Number(r.quiz_id) === Number(q.id) && Number(r.student_id) === Number(student.id)))!;
+      const latest = latestSubmittedQuizResult(
+        quizResults
+          .filter((r) => Number(r.quiz_id) === Number(q.id) && Number(r.student_id) === Number(student.id))
+          .filter((r) => {
+            const completedDate = String(r.submitted_at || r.created_at || "").slice(0, 10);
+            return isSubmittedQuizResult(r) && completedDate && completedDate <= cutoff;
+          })
+      )!;
       const obtained = safeNumber(latest.obtained_marks), total = safeNumber(latest.total_marks);
       return { quizId: Number(q.id), title: q.title || "Quiz", subject: q.subject || "", date: q.scheduled_date || String(latest.submitted_at || latest.created_at).slice(0,10), obtained, total, percentage: total > 0 ? (obtained/total)*100 : 0 };
     });
-    const tEntries = tests.filter((t) => Number(t.student_id) === Number(student.id) && isSaturday(t.test_date) && !/maha\s*test/i.test(String(t.test_name || "")) && String(t.attendance_status || "PRESENT").toUpperCase() === "PRESENT").map((t) => {
+    const tEntries = tests.filter((t) => {
+      const testDate = String(t.test_date || "").slice(0, 10);
+      return Number(t.student_id) === Number(student.id)
+        && testDate
+        && (!start || testDate >= start)
+        && (!cutoff || testDate <= cutoff)
+        && isSaturday(t.test_date)
+        && !/maha\s*test/i.test(String(t.test_name || ""))
+        && String(t.attendance_status || "PRESENT").toUpperCase() === "PRESENT";
+    }).map((t) => {
       const obtained = safeNumber(t.obtained_marks), total = safeNumber(t.total_marks);
       return { id: Number(t.id), name: t.test_name || "Saturday Test", subject: t.subject || "", date: t.test_date, obtained, total, percentage: total > 0 ? (obtained/total)*100 : 0 };
     });
@@ -241,7 +287,7 @@ export default function MonthlyResultsPage() {
   return result;
 }
 
-const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [students, quizzes, quizResults, tests, mahaMarks, mahaRemarks, mahaDate, passPercentage, monthKey]); const displaySnapshots = snapshots.length ? snapshots : preview;
+const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [students, quizzes, quizResults, tests, mahaMarks, mahaRemarks, mahaDate, periodStart, passPercentage, monthKey]); const displaySnapshots = snapshots.length ? snapshots : preview;
 
   function calculatedSnapshots() {
     if (!students.length) return [];
@@ -318,6 +364,7 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
         <label>MahaTest Saturday<input type="date" value={mahaDate} onChange={e=>setMahaDate(e.target.value)} style={inputStyle}/></label>
       </div>
       <div style={{marginTop:10,padding:10,borderRadius:10,background:"#eef7ff",color:"#124d83",fontWeight:700}}>MahaTest: 2 Hours - 100 Marks - Only one monthly Saturday test</div>
+      <div style={{marginTop:8,fontSize:12,color:"#475569"}}>Included academic period: {periodStart || "---"} to {mahaDate || "---"} — data after the MahaTest date is excluded from this result.</div>
       {error && <div style={{marginTop:10,padding:10,borderRadius:8,background:"#fff1f2",color:"#b91c1c"}}>{error}</div>}
       {message && <div style={{marginTop:10,padding:10,borderRadius:8,background:"#ecfdf5",color:"#047857"}}>{message}</div>}
       <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:12}}><button type="button" onClick={calculateOnly} style={buttonStyle}>CALCULATE</button><button type="button" onClick={saveOnly} style={buttonStyle}>SAVE</button><button type="button" onClick={scheduleOnly} style={buttonStyle}>SCHEDULE RESULT</button><button type="button" onClick={publishNow} style={{...buttonStyle,background:"#047857"}}>POST / PUBLISH RESULT</button></div>
