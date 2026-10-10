@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import * as XLSX from "xlsx"; // RACER_FEES_EXCEL_EXPORT_V1
 
 type Student = {
   id: number;
@@ -1987,6 +1988,80 @@ onclick="window.print()"
     receiptWindow.document.close();
   }
 
+  // RACER_FEES_EXCEL_EXPORT_V1: export current selected month or complete fee history.
+  function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") {
+    const wantedStatus = kind === "paid"
+      ? ["SUBMITTED", "PAID", "PAID ONLINE"]
+      : ["PENDING"];
+    const rows = fees.filter((fee) => {
+      const normalized = String(fee.status || "").toUpperCase();
+      const statusMatches = wantedStatus.includes(normalized);
+      const monthMatches = scope === "overall" ||
+        (Number(fee.month) === Number(month) && Number(fee.year) === Number(year));
+      return statusMatches && monthMatches;
+    });
+
+    if (rows.length === 0) {
+      setMessage("");
+      setError(`No ${kind} fee records found for ${scope === "month" ? `${getMonthName(Number(month))} ${year}` : "overall history"}.`);
+      return;
+    }
+
+    const exportRows = rows.map((fee, index) => {
+      const normalized = String(fee.status || "").toUpperCase();
+      const isPaid = ["SUBMITTED", "PAID", "PAID ONLINE"].includes(normalized);
+      const student = students.find((item) => Number(item.id) === Number(fee.student_id));
+      return {
+        "S.No.": index + 1,
+        "Student Name": getStudentName(fee.student_id),
+        "Student Username / ID": getStudentUsername(fee.student_id),
+        "Class": student ? getStudentClass(student) : "",
+        "Month": getMonthName(Number(fee.month)),
+        "Year": Number(fee.year),
+        "Fee Amount (INR)": Number(fee.amount || 0),
+        "Paid Amount (INR)": isPaid ? Number(fee.amount || 0) : 0,
+        "Pending Amount (INR)": normalized === "PENDING" ? Number(fee.amount || 0) : 0,
+        "Status": fee.status || "",
+        "Payment Mode": fee.payment_mode || "",
+        "Payment Date": fee.payment_date || "",
+        "Transaction ID": fee.transaction_id || "",
+        "Remarks": fee.remarks || "",
+        "Fee Record ID": fee.id
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(exportRows);
+    worksheet["!cols"] = [
+      { wch: 8 }, { wch: 26 }, { wch: 24 }, { wch: 12 },
+      { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 18 },
+      { wch: 20 }, { wch: 14 }, { wch: 16 }, { wch: 16 },
+      { wch: 24 }, { wch: 32 }, { wch: 14 }
+    ];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, kind === "paid" ? "Paid Fees" : "Pending Fees");
+    const totals = exportRows.reduce((acc, row) => {
+      acc.fee += Number(row["Fee Amount (INR)"] || 0);
+      acc.paid += Number(row["Paid Amount (INR)"] || 0);
+      acc.pending += Number(row["Pending Amount (INR)"] || 0);
+      return acc;
+    }, { fee: 0, paid: 0, pending: 0 });
+    const summary = XLSX.utils.aoa_to_sheet([
+      ["RACER ACADEMY - Fee Export"],
+      ["Report Type", kind === "paid" ? "Paid Fees" : "Pending Fees"],
+      ["Period", scope === "month" ? `${getMonthName(Number(month))} ${year}` : "Overall"],
+      ["Records", exportRows.length],
+      ["Total Fee Amount (INR)", totals.fee],
+      ["Total Paid Amount (INR)", totals.paid],
+      ["Total Pending Amount (INR)", totals.pending],
+      [],
+      ["Generated At", new Date().toLocaleString("en-IN")]
+    ]);
+    XLSX.utils.book_append_sheet(workbook, summary, "Summary");
+    const period = scope === "month" ? `${String(month).padStart(2, "0")}-${year}` : "OVERALL";
+    XLSX.writeFile(workbook, `RACER-ACADEMY-${kind.toUpperCase()}-FEES-${period}.xlsx`);
+    setError("");
+    setMessage(`${kind === "paid" ? "Paid" : "Pending"} fees Excel downloaded (${exportRows.length} records).`);
+  }
   const totalSubmitted =
     fees
       .filter(
@@ -2127,7 +2202,7 @@ onclick="window.print()"
         </details>
 
         <section className="racer-vip-fee-history">
-          <div className="racer-vip-history-toolbar"><div><h2>Fee History</h2><p>Complete student fee records</p></div><button type="button" className="racer-vip-refresh-fee" onClick={() => loadData(true)}>Refresh</button></div>
+          <div className="racer-vip-history-toolbar"><div><h2>Fee History</h2><p>Complete student fee records</p></div><div className="racer-fee-export-actions" style={{ display: "flex", flexWrap: "wrap", gap: "8px", justifyContent: "flex-end" }}><button type="button" className="racer-vip-refresh-fee" onClick={() => downloadFeeExcel("paid", "month")}>Paid Excel (Month)</button><button type="button" className="racer-vip-refresh-fee" onClick={() => downloadFeeExcel("paid", "overall")}>Paid Excel (All)</button><button type="button" className="racer-vip-refresh-fee" onClick={() => downloadFeeExcel("pending", "month")}>Pending Excel (Month)</button><button type="button" className="racer-vip-refresh-fee" onClick={() => downloadFeeExcel("pending", "overall")}>Pending Excel (All)</button><button type="button" className="racer-vip-refresh-fee" onClick={() => loadData(true)}>Refresh</button></div></div>
           <div className="racer-vip-search-wrap"><Icon name="search" /><input value={feeSearch} onChange={(e) => { setFeeSearch(e.target.value); setFeePage(1); }} placeholder="Search student by name or ID..." /></div>
           <div className="racer-vip-fee-filter-row">
             <button type="button" className={feeFilter === "all" ? "active" : ""} onClick={() => { setFeeFilter("all"); setFeePage(1); }}>All</button>
