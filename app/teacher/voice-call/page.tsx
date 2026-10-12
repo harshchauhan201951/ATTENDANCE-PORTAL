@@ -441,98 +441,59 @@ export default function TeacherVoiceCallPage() {
   }
 
   function previewVoice() {
-    if (!message.trim()) {
-      setStatus(
-        "Please enter a voice message first.",
-        "error"
-      );
+    const textToSpeak = message.trim();
+    if (!textToSpeak) {
+      setStatus("Please enter a voice message first.", "error");
       return;
     }
-
-    if (
-      typeof window === "undefined" ||
-      !("speechSynthesis" in window)
-    ) {
-      setStatus(
-        "Voice preview is not supported in this browser.",
-        "error"
-      );
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      setStatus("Voice preview is not supported in this browser.", "error");
       return;
     }
-
-    window.speechSynthesis.cancel();
-
-    const utterance =
-      new SpeechSynthesisUtterance(
-        message.trim()
-      );
-
-    utterance.lang = "en-IN";
-    utterance.rate = 0.9;
+    const synth = window.speechSynthesis;
+    synth.cancel();
+    const utterance = new SpeechSynthesisUtterance(textToSpeak);
+    const isHindi = /[\u0900-\u097F]/.test(textToSpeak);
+    utterance.lang = isHindi ? "hi-IN" : "en-IN";
+    utterance.rate = 0.85;
     utterance.pitch = 1;
-
-    const voices =
-      window.speechSynthesis.getVoices();
-
-    const preferredVoices = voices.filter(
-      (voice) =>
-        voice.lang
-          .toLowerCase()
-          .startsWith("en-in")
-    );
-
-    if (preferredVoices.length > 0) {
-      if (voiceType === "female") {
-        const femaleVoice =
-          preferredVoices.find((voice) =>
-            /female|woman|google/i.test(
-              voice.name
-            )
-          );
-
-        utterance.voice =
-          femaleVoice ||
-          preferredVoices[0];
-      } else {
-        const maleVoice =
-          preferredVoices.find((voice) =>
-            /male|man|google/i.test(
-              voice.name
-            )
-          );
-
-        utterance.voice =
-          maleVoice ||
-          preferredVoices[0];
+    const chooseVoice = () => {
+      const voices = synth.getVoices();
+      const matching = voices.filter(v => v.lang.toLowerCase().startsWith(isHindi ? "hi" : "en-in"));
+      if (matching.length) {
+        const preferred = matching.find(v => voiceType === "female" ? /female|woman|neural2-d/i.test(v.name) : /male|man|neural2-b/i.test(v.name));
+        utterance.voice = preferred || matching[0];
       }
+      utterance.onstart = () => {
+        setIsPreviewPlaying(true);
+        setStatus("Voice preview is playing...", "info");
+      };
+      utterance.onend = () => setIsPreviewPlaying(false);
+      utterance.onerror = (event) => {
+        setIsPreviewPlaying(false);
+        setStatus("Voice preview failed (" + event.error + "). Check browser sound/output and available system voices.", "error");
+      };
+      synth.speak(utterance);
+      window.setTimeout(() => {
+        if (synth.speaking || synth.pending) return;
+        if (isPreviewPlaying) setIsPreviewPlaying(false);
+      }, 1200);
+    };
+    if (synth.getVoices().length) {
+      chooseVoice();
+    } else {
+      synth.onvoiceschanged = () => {
+        synth.onvoiceschanged = null;
+        chooseVoice();
+      };
+      window.setTimeout(() => {
+        if (!synth.getVoices().length) {
+          synth.onvoiceschanged = null;
+          setStatus("No speech voice is available in this browser. Check system speech voices or try Chrome.", "error");
+        }
+      }, 2500);
     }
-
-    utterance.onstart = () => {
-      setIsPreviewPlaying(true);
-      setStatus(
-        "Voice preview is playing...",
-        "info"
-      );
-    };
-
-    utterance.onend = () => {
-      setIsPreviewPlaying(false);
-    };
-
-    utterance.onerror = () => {
-      setIsPreviewPlaying(false);
-      setStatus(
-        "Unable to play voice preview.",
-        "error"
-      );
-    };
-
-    window.speechSynthesis.speak(
-      utterance
-    );
-  }
-
-  function stopPreview() {
+  }  function stopPreview() {
     if (
       typeof window !== "undefined" &&
       "speechSynthesis" in window
@@ -660,12 +621,12 @@ export default function TeacherVoiceCallPage() {
 
         if (failed === 0) {
           setStatus(
-            `✅ ${successful} automated voice call(s) have been successfully sent to Twilio.`,
+            `SUCCESS ${successful} automated voice call(s) have been successfully sent to Twilio.`,
             "success"
           );
         } else {
           setStatus(
-            `📞 ${successful} call(s) sent successfully. ${failed} call(s) failed. Check the result details below.`,
+            `Call ${successful} call(s) sent successfully. ${failed} call(s) failed. Check the result details below.`,
             "info"
           );
         }
@@ -740,7 +701,7 @@ export default function TeacherVoiceCallPage() {
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-indigo-400/30 bg-indigo-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-indigo-300">
-                📞 Teacher Portal
+                Teacher Portal
               </div>
 
               <h1 className="text-2xl font-black tracking-tight sm:text-4xl">
@@ -760,7 +721,7 @@ export default function TeacherVoiceCallPage() {
               }
               className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10"
             >
-              ← Back to Teacher Portal
+                Teacher Portal
             </button>
           </div>
         </div>
@@ -847,7 +808,7 @@ export default function TeacherVoiceCallPage() {
                   }`}
                 >
                   <div className="text-xl">
-                    👥
+                    Students
                   </div>
                   <div className="mt-2 font-bold">
                     All Students
@@ -869,7 +830,7 @@ export default function TeacherVoiceCallPage() {
                   }`}
                 >
                   <div className="text-xl">
-                    🏫
+                    Class
                   </div>
                   <div className="mt-2 font-bold">
                     By Class
@@ -894,7 +855,7 @@ export default function TeacherVoiceCallPage() {
                   }`}
                 >
                   <div className="text-xl">
-                    👤
+                    Student
                   </div>
                   <div className="mt-2 font-bold">
                     Individual
@@ -946,7 +907,7 @@ export default function TeacherVoiceCallPage() {
                   }
                   className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-300 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  ✓ Select Visible
+                  Select Visible
                 </button>
 
                 <button
@@ -1100,14 +1061,14 @@ export default function TeacherVoiceCallPage() {
                                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
                                   {hasPhone ? (
                                     <span className="text-emerald-300">
-                                      📱{" "}
+                                      Phone{" "}
                                       {
                                         student.phone
                                       }
                                     </span>
                                   ) : (
                                     <span className="text-red-300">
-                                      ⚠️ Phone number
+                                      Phone number
                                       missing
                                     </span>
                                   )}
@@ -1125,7 +1086,7 @@ export default function TeacherVoiceCallPage() {
                                   title="Call from this device"
                                   className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-500/20"
                                 >
-                                  ☎
+                                  Call
                                 </button>
                               )}
                             </div>
@@ -1207,7 +1168,7 @@ export default function TeacherVoiceCallPage() {
                   }`}
                 >
                   <div className="text-3xl">
-                    👩
+                    Female
                   </div>
 
                   <div className="mt-3 font-black">
@@ -1231,7 +1192,7 @@ export default function TeacherVoiceCallPage() {
                   }`}
                 >
                   <div className="text-3xl">
-                    👨
+                    Male
                   </div>
 
                   <div className="mt-3 font-black">
@@ -1252,7 +1213,7 @@ export default function TeacherVoiceCallPage() {
                     disabled={!hasMessage}
                     className="flex-1 rounded-2xl border border-indigo-400/30 bg-indigo-500/10 px-4 py-3 text-sm font-black text-indigo-300 transition hover:bg-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    🔊 Preview Voice
+                    Preview Voice
                   </button>
                 ) : (
                   <button
@@ -1260,7 +1221,7 @@ export default function TeacherVoiceCallPage() {
                     onClick={stopPreview}
                     className="flex-1 rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm font-black text-red-300"
                   >
-                    ⏹ Stop Preview
+                    â¹ Stop Preview
                   </button>
                 )}
               </div>
@@ -1319,8 +1280,8 @@ export default function TeacherVoiceCallPage() {
                 className="w-full rounded-2xl bg-emerald-500 px-5 py-4 text-base font-black text-slate-950 shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {isCalling
-                  ? "📞 Starting Calls..."
-                  : "📞 Start Automated Voice Call"}
+                  ? "Call Starting Calls..."
+                  : "Start Automated Voice Call"}
               </button>
 
               <p className="mt-3 text-center text-[11px] leading-5 text-slate-500">
@@ -1370,11 +1331,11 @@ export default function TeacherVoiceCallPage() {
                             }`}
                           >
                             {result.success
-                              ? `✓ ${
+                              ? `SUCCESS ${
                                   result.status ||
                                   "Sent"
                                 }`
-                              : "✕ Failed"}
+                              : "FAILED Failed"}
                           </div>
                         </div>
 
@@ -1400,12 +1361,12 @@ export default function TeacherVoiceCallPage() {
             {/* Information */}
             <div className="rounded-3xl border border-amber-400/20 bg-amber-500/5 p-5 sm:p-6">
               <h3 className="font-black text-amber-300">
-                ⚠️ Important
+                Important
               </h3>
 
               <ul className="mt-3 space-y-2 text-xs leading-5 text-slate-400">
                 <li>
-                  • Student phone numbers are taken
+                  - Student phone numbers are taken
                   from{" "}
                   <span className="font-bold text-slate-300">
                     student_mobile
@@ -1414,25 +1375,25 @@ export default function TeacherVoiceCallPage() {
                 </li>
 
                 <li>
-                  • The configured contact fallback is
+                  - The configured contact fallback is
                   used when the database phone number
                   is empty.
                 </li>
 
                 <li>
-                  • Twilio credentials are used only by
+                  - Twilio credentials are used only by
                   the server API route and should never
                   be placed in client-side code.
                 </li>
 
                 <li>
-                  • Browser preview is only a local
+                  - Browser preview is only a local
                   preview. The automated call uses
                   Twilio.
                 </li>
 
                 <li>
-                  • Actual calling depends on your Twilio
+                  - Actual calling depends on your Twilio
                   account, caller ID, destination-country
                   restrictions and account permissions.
                 </li>
@@ -1443,7 +1404,7 @@ export default function TeacherVoiceCallPage() {
 
         {/* Footer */}
         <div className="mt-8 rounded-2xl border border-white/10 bg-slate-900/70 p-4 text-center text-xs leading-5 text-slate-500">
-          RACER ACADEMY • Teacher Voice & Call •
+          RACER ACADEMY - Teacher Voice & Call -
           Automated calling powered by your secure
           server-side voice integration.
         </div>
