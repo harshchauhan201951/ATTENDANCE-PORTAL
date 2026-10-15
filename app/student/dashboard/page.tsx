@@ -846,7 +846,7 @@ export default function StudentDashboardPage() {
   const cards: DashboardCard[] =
     [
       {
-        icon: "Ã¢Å“â€œ",
+        icon: "ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“",
         title: "My Attendance",
         description:
           "View your current attendance and attendance percentage.",
@@ -854,7 +854,7 @@ export default function StudentDashboardPage() {
         className: "blue",
       },
       {
-        icon: "Ã¢â€ Âº",
+        icon: "ÃƒÂ¢Ã¢â‚¬Â Ã‚Âº",
         title: "Attendance History",
         description:
           "Check your previous attendance records and details.",
@@ -862,7 +862,7 @@ export default function StudentDashboardPage() {
         className: "purple",
       },
       {
-        icon: "Ã¢â€“Â¡",
+        icon: "ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¡",
         title: "Academic Calendar",
         description:
           "View important academic dates and calendar information.",
@@ -870,7 +870,7 @@ export default function StudentDashboardPage() {
         className: "green",
       },
       {
-        icon: "Ã¢â€“Â¤",
+        icon: "ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¤",
         title: "Reports",
         description:
           "View your attendance reports and performance details.",
@@ -878,7 +878,7 @@ export default function StudentDashboardPage() {
         className: "orange",
       },
       {
-        icon: "Ã¢â€šÂ¹",
+        icon: "ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹",
         title: "Fees",
         description:
           "Check your student fee information and payment details.",
@@ -886,7 +886,7 @@ export default function StudentDashboardPage() {
         className: "pink",
       },
       {
-        icon: "Ã¢â€“Â£",
+        icon: "ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â£",
         title: "Homework",
         description:
           "View homework assigned to your class by your teacher.",
@@ -894,7 +894,7 @@ export default function StudentDashboardPage() {
         className: "indigo",
       },
       {
-        icon: "Ã¢Å¡â„¢",
+        icon: "ÃƒÂ¢Ã…Â¡Ã¢â€žÂ¢",
         title: "Settings",
         description:
           "Manage your account, name and password.",
@@ -1405,7 +1405,7 @@ export default function StudentDashboardPage() {
           }
         }
 
-        /* RACER STUDENT REFERENCE DASHBOARD Ã¢â‚¬â€ 2026-09-29 */
+        /* RACER STUDENT REFERENCE DASHBOARD ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 2026-09-29 */
         .student-header-profile-image{width:100%;height:100%;display:block;object-fit:cover;border-radius:50%;}
 
         @media (max-width: 768px){
@@ -2009,9 +2009,9 @@ export default function StudentDashboardPage() {
             </div>
           </section>
 
-          <section>
+          <section id="modules">
             <div
-              className="student-section-heading"
+              className="student-section-heading" data-racer-student-modules-heading="RACER_STUDENT_MODULES_HEADING_V1"
               style={styles.sectionHeading}
             >
               <div>
@@ -2026,7 +2026,7 @@ export default function StudentDashboardPage() {
                   className="student-section-title"
                   style={styles.sectionTitle}
                 >
-                  Your Dashboard
+                  Quick Access
                 </h2>
               </div>
 
@@ -2078,8 +2078,7 @@ export default function StudentDashboardPage() {
                         style={
                           styles.cardIcon
                         }
-                      >
-                        {null}
+                      >{card.title === "My Attendance" ? "✅" : card.title === "Attendance History" ? "🕘" : card.title === "Academic Calendar" ? "📅" : card.title === "Reports" ? "📊" : card.title === "Fees" ? "💰" : card.title === "Homework" ? "📚" : card.title === "Settings" ? "⚙️" : card.title === "QUIZ TESTS" ? "🧩" : card.title === "Monthly Final Result" ? "🏆" : card.title === "Timetable" ? "🗓️" : "⭐"}
                       </div>
 
                       <div
@@ -2122,9 +2121,7 @@ export default function StudentDashboardPage() {
                           styles.openLink
                         }
                       >
-                        <span>
-                          Open
-                        </span>
+                        
 
                         <span>
                           
@@ -2983,6 +2980,10 @@ const styles: {
     fontWeight: 900,
   },
 };
+
+
+
+
 
 
 
