@@ -2,6 +2,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import RacerStartupSplash from "../components/RacerStartupSplash";
 import "./globals.css";
+import "./student-modules.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

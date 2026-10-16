@@ -62,6 +62,35 @@ function isCorrectOption(
   return false;
 }
 
+async function repairFinalStatusIfNeeded(result: any, studentId: number): Promise<any> {
+  if (!result?.submitted_at) return result;
+  const status = String(result.result_status || "").trim().toUpperCase();
+  if (!["", "IN_PROGRESS", "IN PROGRESS", "PENDING"].includes(status)) return result;
+
+  const { data: quiz, error: quizError } = await supabaseAdmin
+    .from("quiz_tests")
+    .select("pass_percentage")
+    .eq("id", Number(result.quiz_id))
+    .maybeSingle();
+  if (quizError) throw quizError;
+
+  const configuredPassPercentage = quiz?.pass_percentage == null || quiz.pass_percentage === "" ? 40 : Number(quiz.pass_percentage);
+  const passPercentage = Number.isFinite(configuredPassPercentage) && configuredPassPercentage >= 0 ? configuredPassPercentage : 40;
+  const percentage = safeNumber(result.percentage, 0);
+  const finalStatus = percentage >= passPercentage ? "PASS" : "FAIL";
+  const { data: repaired, error: repairError } = await supabaseAdmin
+    .from("quiz_results")
+    .update({ result_status: finalStatus, updated_at: new Date().toISOString() })
+    .eq("id", Number(result.id))
+    .eq("student_id", studentId)
+    .not("submitted_at", "is", null)
+    .select("*")
+    .maybeSingle();
+  if (repairError) throw repairError;
+  if (!repaired) throw new Error("Submitted quiz status could not be repaired. Refresh and try again.");
+  return repaired;
+}
+
 export async function POST(
   request: Request
 ) {
@@ -159,13 +188,13 @@ export async function POST(
      * return the exact stored result.
      */
     if (result.submitted_at) {
+      const finalizedResult = await repairFinalStatusIfNeeded(result, studentId);
       return NextResponse.json(
         {
           success: true,
           alreadySubmitted: true,
-          result,
-          resultId:
-            Number(result.id),
+          result: finalizedResult,
+          resultId: Number(finalizedResult.id),
         },
         { status: 200 }
       );
@@ -755,27 +784,31 @@ export async function POST(
     if (!updatedResult) {
       const {
         data: alreadySaved,
+        error: alreadySavedError,
       } = await supabaseAdmin
         .from("quiz_results")
         .select("*")
-        .eq(
-          "id",
-          result.id
-        )
-        .eq(
-          "student_id",
-          studentId
-        )
+        .eq("id", result.id)
+        .eq("student_id", studentId)
         .maybeSingle();
 
+      if (alreadySavedError) {
+        return NextResponse.json({ success: false, error: alreadySavedError.message }, { status: 500 });
+      }
+      if (!alreadySaved?.submitted_at) {
+        return NextResponse.json(
+          { success: false, alreadySubmitted: false, error: "Quiz submission was not finalized. Your attempt is still saved as in progress; please submit again." },
+          { status: 409 }
+        );
+      }
+
+      const finalizedResult = await repairFinalStatusIfNeeded(alreadySaved, studentId);
       return NextResponse.json(
         {
           success: true,
           alreadySubmitted: true,
-          result:
-            alreadySaved,
-          resultId:
-            result.id,
+          result: finalizedResult,
+          resultId: Number(finalizedResult.id),
         },
         { status: 200 }
       );

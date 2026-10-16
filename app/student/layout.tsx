@@ -139,11 +139,11 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
       <header className="racer-mobile-appbar racer-student-fixed-header">
         <Link href="/student/dashboard" className="racer-appbar-brand">
           <span className="racer-appbar-logo racer-student-profile-circle">
-            <span className="racer-om-3d" aria-label="ॐ" role="img">ॐ</span>
+            <span className="racer-om-3d" aria-label="RACER ACADEMY" role="img">RA</span>
           </span>
           <span className="racer-student-header-brand-copy">
             <strong>RACER ACADEMY</strong>
-            <small className="racer-student-header-meta"><span className="racer-header-time-first">{headerTime}</span><span className="racer-header-name-after"> - Hello, {headerName}</span></small>
+            <small className="racer-student-header-meta"><span className="racer-header-name-first">Hello, {headerName}</span><span className="racer-header-time-after"> · {headerTime}</span></small>
           </span>
         </Link>
         <div className="racer-student-header-actions">
@@ -176,12 +176,7 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      {!isDashboard && (
-        <RacerPageActions
-          dashboardPath="/student/dashboard"
-          logoutKeys={["student_username", "studentUsername", "studentLoggedIn", "attendance_student_id", "studentId", "student_id", "attendance_student_name"]}
-        />
-      )}
+      {!isDashboard && <RacerPageActions dashboardPath="/student/dashboard" />}
 
       <div className="racer-student-desktop-workspace">
         <aside className="racer-student-desktop-sidebar" aria-label="Student portal navigation">

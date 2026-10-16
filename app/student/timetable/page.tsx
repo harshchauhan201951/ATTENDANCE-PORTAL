@@ -230,7 +230,7 @@ export default function StudentTimetablePage() {
 
   if (loading) {
     return (
-      <main style={styles.page}>
+      <main className="student-timetable-page" style={styles.page}>
         <div style={styles.loadingCard}>
           <div style={styles.loadingIcon}></div>
 
@@ -247,9 +247,9 @@ export default function StudentTimetablePage() {
   }
 
   return (
-    <main style={styles.page}>
-      <div style={styles.container}>
-        <header style={styles.header}>
+    <main className="student-timetable-page" style={styles.page}>
+      <div className="student-timetable-container" style={styles.container}>
+        <header className="student-timetable-header" style={styles.header}>
           <div>
             <div style={styles.badge}>RACER ACADEMY</div>
 
@@ -296,7 +296,7 @@ export default function StudentTimetablePage() {
           </div>
         </header>
 
-        <section style={styles.studentCard}>
+        <section className="student-timetable-card" style={styles.studentCard}>
           <div style={styles.studentIcon}></div>
 
           <div style={styles.studentInfo}>
@@ -326,7 +326,7 @@ export default function StudentTimetablePage() {
         )}
 
         {!error && (
-          <section style={styles.scheduleSection}>
+          <section className="student-timetable-schedule" style={styles.scheduleSection}>
             <div style={styles.sectionHeader}>
               <div>
                 <h2 style={styles.sectionTitle}>
@@ -343,6 +343,26 @@ export default function StudentTimetablePage() {
               </div>
             </div>
 
+            {(() => {
+              const todayName = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(new Date());
+              const todayRows = (timetableByDay[todayName] || []).filter((item) => !item.is_holiday);
+              const todayHoliday = (timetableByDay[todayName] || []).some((item) => item.is_holiday);
+              return (
+                <div className="student-timetable-today">
+                  <div className="student-timetable-today-heading">
+                    <div><span>TODAY · {todayName.toUpperCase()}</span><strong>{todayHoliday ? "Holiday" : todayRows.length ? `${todayRows.length} class${todayRows.length === 1 ? "" : "es"} scheduled` : "No class scheduled"}</strong></div>
+                    <div className="student-timetable-today-icon">◷</div>
+                  </div>
+                  {todayRows.length ? todayRows.map((item) => (
+                    <div className="student-timetable-today-class" key={`today-${item.id}`}>
+                      <div><strong>{item.subject || "Class"}</strong><span>{item.teacher_name || "Teacher"}</span></div>
+                      <b>{formatTime(item.start_time)} <i>→</i> {formatTime(item.end_time)}</b>
+                    </div>
+                  )) : <p>{todayHoliday ? "There are no classes today." : "Your next classes appear in the weekly schedule below."}</p>}
+                </div>
+              );
+            })()}
+
             <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: "10px", width: "100%" }}>
   {(() => {
     const teacherGroups = new Map<string, TimetableRow[]>();
@@ -358,7 +378,7 @@ export default function StudentTimetablePage() {
     });
 
     return Array.from(teacherGroups.entries()).map(([teacher, items]) => (
-      <div key={teacher} style={styles.teacherTimetableBox}>
+      <div key={teacher} className="student-timetable-teacher-box" style={styles.teacherTimetableBox}>
         <div style={styles.teacherTimetableTitle}>
           TIMETABLE ASSIGNED BY : {teacher}
         </div>

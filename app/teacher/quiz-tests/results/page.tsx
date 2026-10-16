@@ -50,6 +50,7 @@ type QuizResult = {
   total_marks: number | null;
   obtained_marks: number | null;
   percentage: number | null;
+  pass_percentage?: number | null;
 
   result_status: string | null;
 
@@ -166,23 +167,30 @@ function isQuizDeadlinePassed(quiz: { scheduled_date: string | null }): boolean 
   return Date.now() >= deadline.getTime();
 }
 
+function isFinalizedResult(result: QuizResult): boolean {
+  const status = String(result.result_status || "").trim().toUpperCase();
+  return Boolean(result.submitted_at) || ["PASS", "PASSED", "FAIL", "FAILED", "SUBMITTED", "COMPLETED"].includes(status);
+}
+
 function resultStatus(
   result: QuizResult
 ): string {
   const status = String(result.result_status || "").trim().toUpperCase();
 
-  const submissionType = String(result.submission_type || "").trim().toLowerCase();
-  const finalizedSubmission = ["manual","left_quiz","time_expired","auto_submit"].includes(submissionType);
+  // submission_type can be "manual" on a newly started attempt; it does not prove submission.
+  if (result.submitted_at && ["", "IN_PROGRESS", "IN PROGRESS", "PENDING"].includes(status)) {
+    const configured = Number(result.pass_percentage);
+    const threshold = Number.isFinite(configured) && configured >= 0 ? configured : 40;
+    return safeNumber(result.percentage) >= threshold ? "PASS" : "FAIL";
+  }
 
-  if (result.submitted_at || finalizedSubmission) {
+  if (isFinalizedResult(result)) {
     if (status.includes("PASS")) return "PASS";
     if (status.includes("FAIL")) return "FAIL";
     return "SUBMITTED";
   }
 
-  if (status) return status;
-
-  return "IN_PROGRESS";
+  return status || "IN_PROGRESS";
 }
 
 function statusClass(result: QuizResult): string {
@@ -423,7 +431,7 @@ function TeacherQuizResultsContent() {
   const hasSubmittedResult = (
     results: QuizResult[]
   ): boolean => {
-    return results.some((result) => Boolean(result.submitted_at) || ["manual","left_quiz","time_expired","auto_submit"].includes(String(result.submission_type || "").trim().toLowerCase()));
+    return results.some(isFinalizedResult);
   };
 
   const getLatestResult = (
@@ -447,13 +455,8 @@ function TeacherQuizResultsContent() {
       );
     });
 
-    for (let index = sorted.length - 1; index >= 0; index -= 1) {
-      const submissionType = String(sorted[index].submission_type || "").trim().toLowerCase(); if (sorted[index].submitted_at || ["manual","left_quiz","time_expired","auto_submit"].includes(submissionType)) {
-        return sorted[index];
-      }
-    }
-
-    return sorted[sorted.length - 1];
+    const completed = sorted.filter(isFinalizedResult);
+    return completed.length ? completed[completed.length - 1] : sorted[sorted.length - 1];
   };
 
   const loadData = useCallback(async () => {
@@ -608,6 +611,7 @@ function TeacherQuizResultsContent() {
           1,
           safeNumber(row.attempt_number)
         ),
+        pass_percentage: Number(quiz.pass_percentage ?? 40),
       }));
 
       const normalizedStudents = (
@@ -708,6 +712,7 @@ function TeacherQuizResultsContent() {
             const normalizedQuizzes =
               (quizzesResponse.data || []) as QuizTest[];
 
+            const passPercentByQuiz = new Map<number, number>(normalizedQuizzes.map((item) => [Number(item.id), Number(item.pass_percentage ?? 40)] as [number, number]));
             const normalizedAllResults = (
               (resultsResponse.data || []) as QuizResult[]
             ).filter((row) => savedTeacherId === 1 || assignedStudentIds.includes(Number(row.student_id))).map((row) => ({
@@ -719,6 +724,7 @@ function TeacherQuizResultsContent() {
                 1,
                 safeNumber(row.attempt_number)
               ),
+              pass_percentage: passPercentByQuiz.get(Number(row.quiz_id)) ?? 40,
             }));
 
             setAllQuizzes(normalizedQuizzes);
@@ -983,9 +989,7 @@ function TeacherQuizResultsContent() {
           : selectedStatus === "NOT_SUBMITTED";
       }
 
-      const latest =
-        row.results.find((result) => Boolean(result.submitted_at)) ||
-        getLatestResult(row.results);
+      const latest = getLatestResult(row.results);
 
       const status = latest ? resultStatus(latest) : "FAIL";
 
@@ -2217,7 +2221,7 @@ function TeacherQuizResultsContent() {
       const reportRows = reportDate ? filteredStatusRows.filter((row) => String(row.quiz.scheduled_date || "") === reportDate) : filteredStatusRows;
       const excelRows = reportRows.map((row) => {
         const latest = getLatestResult(row.results);
-        const submitted = Boolean(latest && (latest.submitted_at || ["manual","left_quiz","time_expired","auto_submit"].includes(String(latest.submission_type || "").trim().toLowerCase())));
+        const submitted = Boolean(latest && isFinalizedResult(latest));
         return {
           "Student Name": row.student.student_name || "Unnamed", "Class": normalizeClassName(row.student.class_name), "Username": row.student.student_username || "", "Quiz": row.quiz.title || "", "Quiz Date": row.quiz.scheduled_date || "", "Subject": row.quiz.subject || "", "Total Questions": latest ? safeNumber(latest.total_questions) : 0, "Correct Answers": latest ? safeNumber(latest.correct_answers) : 0, "Wrong Answers": latest ? safeNumber(latest.wrong_answers) : 0, "Marks": latest ? safeNumber(latest.obtained_marks) : 0, "Percentage": latest ? (safeNumber(latest.percentage).toFixed(2) + "%") : "0.00%", "Result Status": latest ? resultStatus(latest) : "FAILED", "Submission Type": latest?.submission_type || "", "Submitted": submitted ? "YES" : "NO", "Submitted At": latest?.submitted_at ? formatDateTime(latest.submitted_at) : ""
         };

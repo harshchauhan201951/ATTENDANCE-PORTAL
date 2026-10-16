@@ -201,7 +201,8 @@ function scheduledDateText(
 }
 
 function getResultStatus(
-  result: QuizResult
+  result: QuizResult,
+  passPercentage: number | null = 40
 ): "PASS" | "FAIL" {
   const status =
     typeof result.result_status === "string"
@@ -229,7 +230,9 @@ function getResultStatus(
       ? result.percentage
       : 0;
 
-  return percentage >= 40 ? "PASS" : "FAIL";
+  const configured = Number(passPercentage ?? 40);
+  const threshold = Number.isFinite(configured) && configured >= 0 ? configured : 40;
+  return percentage >= threshold ? "PASS" : "FAIL";
 }
 
 function getStudentIdentity(): {
@@ -637,8 +640,8 @@ export default function StudentQuizHistoryPage() {
     const total = history.length;
 
     const passed = history.filter(
-      ({ result }) =>
-        getResultStatus(result) === "PASS"
+      ({ result, quiz }) =>
+        getResultStatus(result, quiz.pass_percentage) === "PASS"
     ).length;
 
     const failed = total - passed;
@@ -872,7 +875,7 @@ export default function StudentQuizHistoryPage() {
             {history.map(
               ({ result, quiz }, index) => {
                 const status =
-                  getResultStatus(result);
+                  getResultStatus(result, quiz.pass_percentage);
 
                 const percentage =
                   typeof result.percentage ===

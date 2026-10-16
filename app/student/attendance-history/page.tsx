@@ -210,7 +210,7 @@ function MobileAttendanceHistoryVIP({
                 <div className="rah-vip-month-icon">◫</div>
                 <div className="rah-vip-month-copy">
                   <strong>{monthLabel(item.key)}</strong>
-                  <span>{item.total} Days • {item.percentage}%{item.extra ? ` • ${item.extra} Extra` : ""}</span>
+                  <span>{item.present} Present • {item.total - item.present} Absent • {item.percentage}%{item.extra ? ` • ${item.extra} Extra` : ""}</span>
                 </div>
                 <span className="rah-vip-month-arrow">›</span>
               </button>
@@ -268,6 +268,23 @@ function MobileAttendanceHistoryVIP({
         .rah-vip-month-list{display:flex;flex-direction:column;gap:7px;margin-bottom:10px}.rah-vip-month-card{width:100%;display:flex;align-items:center;gap:10px;text-align:left;border:1px solid #d9e6f8;background:#fff;border-radius:15px;padding:10px 11px;color:#10285f;box-shadow:0 4px 14px rgba(22,67,135,.045)}.rah-vip-month-card.active{border-color:#7ca7f7;box-shadow:0 6px 18px rgba(31,88,194,.10);background:#fbfdff}.rah-vip-month-icon{width:36px;height:36px;border-radius:50%;background:#e2f6ef;color:#15976b;display:flex;align-items:center;justify-content:center;font-weight:900;flex:none}.rah-vip-month-copy{flex:1;min-width:0}.rah-vip-month-copy strong{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rah-vip-month-copy span{display:block;font-size:8px;color:#61739a;font-weight:800;margin-top:2px}.rah-vip-month-arrow{font-size:24px;color:#155ec9}
         .rah-vip-selected-days{background:#fff;border:1px solid #dbe7f8;border-radius:18px;padding:12px;box-shadow:0 6px 18px rgba(22,67,135,.06)}.rah-vip-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.rah-vip-section-head h2{margin:0;font-size:17px;line-height:1.1;color:#11285f}.rah-vip-section-head p{margin:3px 0 0;color:#6b7da3;font-size:9px;font-weight:700}.rah-vip-section-head>span{color:#1063d1;font-size:18px;font-weight:900}.rah-vip-day-list{display:flex;flex-direction:column;gap:7px}.rah-vip-day-row{display:flex;align-items:center;gap:9px;border:1px solid #e0e9f7;border-radius:13px;padding:8px 9px;min-height:54px}.rah-vip-day-date{width:48px;flex:none;border-radius:11px;background:#eff5ff;text-align:center;padding:5px 2px;color:#1b50b3}.rah-vip-day-date strong{display:block;font-size:17px;line-height:1}.rah-vip-day-date small{display:block;margin-top:2px;font-size:7px;font-weight:900}.rah-vip-day-copy{flex:1;min-width:0}.rah-vip-day-copy strong{display:block;font-size:11px;color:#173274;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rah-vip-day-copy span{display:block;margin-top:2px;font-size:8px;color:#7383a5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rah-vip-day-status{position:relative;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;flex:none}.rah-vip-day-status.present{background:#20ce92;color:#fff}.rah-vip-day-status.absent{background:#ff4c68;color:#fff}.rah-vip-day-status b{position:absolute;top:-8px;right:-2px;color:#f2a600;font-size:11px;text-shadow:0 1px 2px rgba(0,0,0,.1)}.rah-vip-empty{padding:30px 12px;text-align:center;color:#7284a6;font-size:10px;font-weight:800}.rah-vip-footer{text-align:center;color:#8391ab;font-size:8px;font-weight:800;padding:14px 0 4px}
         @media (min-width:701px){.rah-vip-page{padding:18px 16px 70px}.rah-vip-wrap{max-width:980px}.rah-vip-title-row{margin-top:10px}.rah-vip-stat-grid{gap:12px}.rah-vip-stat{padding:14px}.rah-vip-month-list{display:grid;grid-template-columns:1fr 1fr}.rah-vip-selected-days{padding:16px}.rah-vip-day-list{display:grid;grid-template-columns:1fr 1fr}.rah-vip-filter-row{max-width:620px}}
+        /* History refresh: strengthen month summaries and make daily status easy to scan. */
+        .rah-vip-page{background:#f2f6fb;color:#17324f}
+        .rah-vip-title-icon{background:#e8f3ff;color:#0b58a5;border-radius:13px}
+        .rah-vip-student-strip{background:linear-gradient(120deg,#0b58a5,#1474c8);box-shadow:0 8px 20px rgba(11,88,165,.16)}
+        .rah-vip-active-pill{border-radius:999px}
+        .rah-vip-stat-grid{gap:9px}
+        .rah-vip-stat{border-color:#dce7f2;border-radius:15px;box-shadow:0 4px 12px rgba(18,54,92,.05)}
+        .rah-vip-filter-row select,.rah-vip-filter-static{border-color:#d9e5f2;color:#254363}
+        .rah-vip-month-focus{background:linear-gradient(120deg,#0b58a5,#126ab9);border:0;color:#fff;box-shadow:0 8px 18px rgba(11,88,165,.17)}
+        .rah-vip-month-focus-copy strong,.rah-vip-month-focus-copy span,.rah-vip-chevron{color:#fff}
+        .rah-vip-month-focus-copy span{opacity:.82}
+        .rah-vip-month-card{border-radius:14px;border-color:#e0e8f1;box-shadow:0 3px 10px rgba(18,54,92,.04)}
+        .rah-vip-month-card.active{border-color:#75a9dc;background:#f1f8ff;box-shadow:0 4px 14px rgba(11,88,165,.09)}
+        .rah-vip-selected-days{border-color:#dce7f2;border-radius:17px;box-shadow:0 5px 16px rgba(18,54,92,.05)}
+        .rah-vip-day-row{border-color:#e5ebf2;border-radius:13px;background:#fff}
+        .rah-vip-day-date{background:#edf5fd;color:#155b9e}
+        @media(max-width:700px){.rah-vip-page{padding:8px 12px 102px;background:#f2f6fb}.rah-vip-wrap{max-width:520px}.rah-vip-title-row{margin:2px 1px 10px}.rah-vip-title-copy h1{font-size:21px}.rah-vip-student-strip{margin-bottom:10px}.rah-vip-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:9px}.rah-vip-stat{display:grid;grid-template-columns:31px 1fr;grid-template-rows:auto auto;column-gap:8px;align-items:center;text-align:left;padding:10px 11px}.rah-vip-stat-icon{grid-row:1/3;width:30px;height:30px;margin:0}.rah-vip-stat span{font-size:8px}.rah-vip-stat strong{font-size:19px;margin-top:2px}.rah-vip-filter-row{margin-bottom:8px}.rah-vip-month-focus{margin-bottom:8px}.rah-vip-month-list{gap:6px}.rah-vip-selected-days{padding:12px}.rah-vip-day-list{gap:7px}}
       `}</style>
     </main>
   );

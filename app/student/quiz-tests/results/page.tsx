@@ -26,7 +26,17 @@ type Quiz = {
   pass_percentage: number | null;
 };
 
-function getDisplayedStatus(result: { result_status?: string | null; percentage?: number | null; total_marks?: number | null; obtained_marks?: number | null }): "PASS" | "FAIL" { const status = String(result.result_status ?? "").trim().toUpperCase(); if(status === "PASS" || status === "FAIL") return status; const percentage = Number(result.percentage ?? 0); return percentage >= 0 ? (status === "PASSED" ? "PASS" : "FAIL") : "FAIL"; }
+function getDisplayedStatus(
+  result: { result_status?: string | null; percentage?: number | null },
+  passPercentage: number | null = 40
+): "PASS" | "FAIL" {
+  const status = String(result.result_status ?? "").trim().toUpperCase();
+  if (status === "PASS" || status === "PASSED") return "PASS";
+  if (status === "FAIL" || status === "FAILED") return "FAIL";
+  const configured = Number(passPercentage ?? 40);
+  const threshold = Number.isFinite(configured) && configured >= 0 ? configured : 40;
+  return Number(result.percentage ?? 0) >= threshold ? "PASS" : "FAIL";
+}
 
 type QuizResult = {
   id: number;
@@ -908,6 +918,7 @@ function ResultsContent() {
     } else {
       resultQuery =
         resultQuery
+          .not("submitted_at", "is", null)
           .order(
             "submitted_at",
             {
@@ -1178,10 +1189,10 @@ function ResultsContent() {
 
   if (!isDetail) {
     return (
-      <main className="min-h-screen bg-slate-950 text-white">
-        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
+      <main className="quiz-results-list-page">
+        <div className="quiz-results-canvas">
 
-          <header className="border-b border-white/10 bg-slate-950/90 backdrop-blur-xl">
+          <header className="quiz-results-local-header">
             <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4">
 
               <div>
@@ -1192,7 +1203,7 @@ function ResultsContent() {
                 <p className="text-xs text-slate-400">
                   QUIZ RESULTS
                   {studentClass
-                    ? ` â€¢ CLASS ${studentClass}`
+                    ? ` | CLASS ${studentClass}`
                     : ""}
                 </p>
               </div>
@@ -1269,7 +1280,7 @@ function ResultsContent() {
 
                 {results.map(
                   (item, index) => {
-                    const passed = getDisplayedStatus(item) === "PASS";
+                    const passed = getDisplayedStatus(item, item.quiz?.pass_percentage ?? 40) === "PASS";
 
                     const attemptNumber =
                       Number(
@@ -1278,12 +1289,12 @@ function ResultsContent() {
                       );
 
                     return (
-                      <div
+                              <div
                         key={
                           item.id ||
                           `${item.quiz_id}-${index}`
                         }
-                        className="overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-xl backdrop-blur-xl"
+                        className="quiz-result-list-card overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-xl backdrop-blur-xl"
                       >
 
                         <div
@@ -1301,7 +1312,7 @@ function ResultsContent() {
                                 COMPLETED QUIZ
                               </p>
 
-                              <h3 className="mt-2 text-xl font-black">
+                              <h3 className="quiz-result-title mt-2 text-xl font-black">
                                 {item.quiz?.title ||
                                   `Quiz #${item.quiz_id}`}
                               </h3>
@@ -1445,7 +1456,7 @@ function ResultsContent() {
                 }
                 className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 font-black hover:bg-white/10"
               >
-                View Result
+                View All Attempts
               </button>
             </div>
 
@@ -1465,7 +1476,7 @@ function ResultsContent() {
     return null;
   }
 
-  const passed = getDisplayedStatus(result) === "PASS";
+  const passed = getDisplayedStatus(result, quiz.pass_percentage ?? 40) === "PASS";
 
   const attemptNumber =
     Number(
@@ -1473,10 +1484,10 @@ function ResultsContent() {
     );
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
+    <main className="quiz-result-detail-page">
+      <div className="quiz-results-canvas">
 
-        <header className="border-b border-white/10 bg-slate-950/90 backdrop-blur-xl">
+        <header className="quiz-results-local-header">
           <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4">
 
             <div>
@@ -1486,7 +1497,7 @@ function ResultsContent() {
 
               <p className="text-xs text-slate-400">
                 FULL QUIZ RESULT
-                {" â€¢ "}
+                {" | "}
                 ATTEMPT #{attemptNumber}
               </p>
             </div>
@@ -1508,7 +1519,7 @@ function ResultsContent() {
         <div className="mx-auto max-w-5xl px-4 py-8">
 
           <section
-            className={`rounded-3xl border p-7 text-center ${
+            className={`quiz-result-hero rounded-3xl border p-7 text-center ${
               passed
                 ? "border-emerald-400/20 bg-emerald-500/10"
                 : "border-red-400/20 bg-red-500/10"
@@ -1519,7 +1530,7 @@ function ResultsContent() {
               QUIZ RESULT
             </p>
 
-            <h2 className="mt-3 text-3xl font-black">
+            <h2 className="quiz-detail-title mt-3 text-3xl font-black">
               {quiz.title}
             </h2>
 
@@ -2091,7 +2102,7 @@ function ResultsContent() {
           </div>
 
           <div className="py-8 text-center text-xs text-slate-500">
-            RACER ACADEMY â€¢ Quiz Result
+            RACER ACADEMY | Quiz Result
           </div>
 
         </div>

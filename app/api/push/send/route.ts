@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import webpush from "web-push";
 import { createClient } from "@supabase/supabase-js";
 import { cert, getApps, initializeApp } from "firebase-admin/app";
@@ -91,6 +91,13 @@ export async function POST(
       body?.studentId ?? null;
 
     const announcementId = body?.announcementId ?? null;
+    // RACER_PUSH_TARGETS_V3
+    const requestedStudentIds = Array.isArray(body?.studentIds)
+      ? Array.from(new Set(body.studentIds.map((value: unknown) => Number(value)).filter((value: number) => Number.isInteger(value) && value > 0)))
+      : [];
+    const targetClasses = Array.isArray(body?.targetClasses)
+      ? Array.from(new Set(body.targetClasses.map((value: unknown) => String(value ?? "").trim().replace(/\s+/g, " ").toUpperCase()).filter(Boolean)))
+      : [];
 
     const category = body?.category || "general";
     const url = body?.url || (category === "announcement" ? "/student/notifications" : category === "fees" ? "/student/fees" : category === "homework" ? "/student/homework" : category === "quiz" ? "/student/quiz-tests" : category === "timetable" ? "/student/timetable" : category === "result" ? "/student/monthly-result" : "/student/dashboard");
@@ -123,6 +130,32 @@ export async function POST(
         "student_id",
         numericStudentId
       );
+    }
+
+    if (studentId === null && Array.isArray(body?.studentIds)) {
+      if (requestedStudentIds.length === 0) {
+        return NextResponse.json({ success: true, message: "No valid target students were supplied.", sent: 0, failed: 0 });
+      }
+      query = query.in("student_id", requestedStudentIds);
+    } else if (studentId === null && Array.isArray(body?.targetClasses)) {
+      if (targetClasses.length === 0) {
+        return NextResponse.json({ success: true, message: "No target classes were supplied.", sent: 0, failed: 0 });
+      }
+      const { data: targetStudents, error: targetStudentsError } = await supabaseAdmin
+        .from("students")
+        .select("id,class_name");
+      if (targetStudentsError) {
+        return NextResponse.json({ success: false, error: targetStudentsError.message }, { status: 500 });
+      }
+      const normalizeTargetClass = (value: unknown) => String(value ?? "").trim().replace(/\s+/g, " ").toUpperCase();
+      const targetStudentIds = Array.from(new Set((targetStudents || [])
+        .filter((student: { id: number; class_name: string | null }) => targetClasses.includes(normalizeTargetClass(student.class_name)))
+        .map((student: { id: number }) => Number(student.id))
+        .filter((id: number) => Number.isInteger(id) && id > 0)));
+      if (targetStudentIds.length === 0) {
+        return NextResponse.json({ success: true, message: "No students matched the target classes.", sent: 0, failed: 0 });
+      }
+      query = query.in("student_id", targetStudentIds);
     }
 
     const {

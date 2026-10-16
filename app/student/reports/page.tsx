@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
+import jsPDF from "jspdf";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -279,15 +280,6 @@ function getImageUrls(value: unknown): string[] {
   return [];
 }
 
-function escapeHtml(value: unknown): string {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
 function getFeeStatus(
   status: string
 ): "paid" | "pending" | "refunded" | "other" {
@@ -388,167 +380,134 @@ function createPdfWindow(
   student: Student,
   assessments: AssessmentRecord[],
   selectedSubject: string
-) {
-  const filtered =
-    selectedSubject === "All"
+): boolean {
+  try {
+    const filtered = selectedSubject === 'All'
       ? assessments
-      : assessments.filter(
-          (test) =>
-            String(test.subject || "") === selectedSubject
-        );
-
-  const totalMarks = filtered.reduce(
-    (sum, test) => sum + (Number(test.total_marks) || 0),
-    0
-  );
-
-  const obtainedMarks = filtered.reduce(
-    (sum, test) => sum + (Number(test.obtained_marks) || 0),
-    0
-  );
-
-  const percentage = getPercentage(
-    obtainedMarks,
-    totalMarks
-  );
-
-  const testRows = filtered
-    .map((test, index) => {
-      const testPercentage = getPercentage(
-        Number(test.obtained_marks) || 0,
-        Number(test.total_marks) || 0
-      );
-
-      return (
-        "<tr>" +
-        "<td>" +
-        String(index + 1) +
-        "</td>" +
-        "<td>" +
-        escapeHtml(test.test_name) +
-        "</td>" +
-        "<td>" +
-        escapeHtml(test.subject || "Not Specified") +
-        "</td>" +
-        "<td>" +
-        escapeHtml(formatDate(test.test_date)) +
-        "</td>" +
-        "<td>" +
-        String(test.obtained_marks) +
-        " / " +
-        String(test.total_marks) +
-        "</td>" +
-        "<td>" +
-        testPercentage.toFixed(1) +
-        "%</td>" +
-        "<td>" +
-        getGrade(testPercentage) +
-        "</td>" +
-        "</tr>"
-      );
-    })
-    .join("");
-
-  const html =
-    "<!DOCTYPE html>" +
-    "<html>" +
-    "<head>" +
-    "<title>RACER ACADEMY - Test Report</title>" +
-    "<meta charset='UTF-8' />" +
-    "<style>" +
-    "body{font-family:Arial,Helvetica,sans-serif;padding:30px;color:#172554}" +
-    ".header{text-align:center;border-bottom:3px solid #2563eb;padding-bottom:20px;margin-bottom:25px}" +
-    ".brand{font-size:28px;font-weight:800;color:#1e3a8a}" +
-    ".subtitle{color:#64748b;margin-top:6px}" +
-    ".student{background:#eff6ff;padding:18px;border-radius:12px;margin-bottom:20px}" +
-    ".summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:25px}" +
-    ".box{border:1px solid #dbeafe;padding:15px;border-radius:10px;text-align:center}" +
-    ".box strong{display:block;font-size:22px;margin-top:5px}" +
-    "table{width:100%;border-collapse:collapse}" +
-    "th{background:#1e3a8a;color:white;padding:10px;text-align:left}" +
-    "td{padding:10px;border-bottom:1px solid #e2e8f0}" +
-    ".footer{text-align:center;margin-top:30px;color:#64748b;font-size:12px}" +
-    "@media print{body{padding:10px}.summary{grid-template-columns:repeat(4,1fr)}}" +
-    "</style>" +
-    "</head>" +
-    "<body>" +
-    "<div class='header'>" +
-    "<div class='brand'>RACER ACADEMY</div>" +
-    "<div class='subtitle'>Student Test Performance Report</div>" +
-    "</div>" +
-    "<div class='student'>" +
-    "<strong>Student:</strong> " +
-    escapeHtml(
-      student.student_name || student.student_username
-    ) +
-    "<br/>" +
-    "<strong>Username:</strong> " +
-    escapeHtml(student.student_username) +
-    "<br/>" +
-    "<strong>Subject:</strong> " +
-    escapeHtml(selectedSubject) +
-    "</div>" +
-    "<div class='summary'>" +
-    "<div class='box'>Tests<strong>" +
-    String(filtered.length) +
-    "</strong></div>" +
-    "<div class='box'>Obtained<strong>" +
-    String(obtainedMarks) +
-    "</strong></div>" +
-    "<div class='box'>Total<strong>" +
-    String(totalMarks) +
-    "</strong></div>" +
-    "<div class='box'>Average<strong>" +
-    percentage.toFixed(1) +
-    "%</strong></div>" +
-    "</div>" +
-    "<table>" +
-    "<thead><tr>" +
-    "<th>#</th>" +
-    "<th>Test</th>" +
-    "<th>Subject</th>" +
-    "<th>Date</th>" +
-    "<th>Marks</th>" +
-    "<th>Percentage</th>" +
-    "<th>Grade</th>" +
-    "</tr></thead>" +
-    "<tbody>" +
-    (testRows ||
-      "<tr><td colspan='7'>No test records found.</td></tr>") +
-    "</tbody>" +
-    "</table>" +
-    "<div class='footer'>Generated from RACER ACADEMY Student Portal</div>" +
-    "</body>" +
-    "</html>";
-
-  const printWindow = window.open(
-    "",
-    "_blank",
-    "width=1100,height=800"
-  );
-
-  if (!printWindow) {
-    alert(
-      "Please allow pop-ups to download the PDF report."
-    );
-    return;
+      : assessments.filter((test) => String(test.subject || '') === selectedSubject);
+    const totalMarks = filtered.reduce((sum, test) => sum + (Number(test.total_marks) || 0), 0);
+    const obtainedMarks = filtered.reduce((sum, test) => sum + (Number(test.obtained_marks) || 0), 0);
+    const percentage = getPercentage(obtainedMarks, totalMarks);
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    let y = 0;
+    const header = (continued = false) => {
+      doc.setFillColor(11, 88, 165);
+      doc.rect(0, 0, 210, 34, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(17);
+      doc.text('RACER ACADEMY', 15, 15);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text('STUDENT WEEKLY TEST REPORT', 15, 23);
+      doc.text(`${selectedSubject} · ${continued ? 'CONTINUED' : 'OFFICIAL REPORT'}`, 195, 23, { align: 'right' });
+      doc.setTextColor(23, 50, 79);
+      y = 44;
+    };
+    const section = (title: string) => {
+      if (y + 13 > 278) { doc.addPage(); header(true); }
+      doc.setFillColor(234, 243, 254);
+      doc.roundedRect(15, y - 5, 180, 9, 2, 2, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(11, 88, 165);
+      doc.text(title, 19, y + 1);
+      doc.setTextColor(23, 50, 79);
+      y += 11;
+    };
+    header();
+    section('STUDENT DETAILS');
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Name: ${student.student_name || 'Student'}`, 19, y);
+    doc.text(`Username: ${student.student_username || '—'}`, 110, y);
+    y += 8;
+    section('PERFORMANCE SUMMARY');
+    const summary = [
+      ['TESTS', String(filtered.length)],
+      ['OBTAINED', String(obtainedMarks)],
+      ['TOTAL MARKS', String(totalMarks)],
+      ['AVERAGE', `${percentage.toFixed(1)}%`],
+    ];
+    summary.forEach(([label, value], index) => {
+      const x = 15 + index * 45;
+      doc.setDrawColor(211, 226, 241);
+      doc.setFillColor(248, 251, 255);
+      doc.roundedRect(x, y - 3, 41, 19, 2, 2, 'FD');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(105, 125, 149);
+      doc.text(label, x + 3, y + 3);
+      doc.setFontSize(12);
+      doc.setTextColor(11, 88, 165);
+      doc.text(value, x + 3, y + 11);
+    });
+    y += 25;
+    section('SATURDAY WEEKLY TEST RECORDS');
+    const drawTableHeader = () => {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.text('#', 17, y);
+      doc.text('TEST', 27, y);
+      doc.text('SUBJECT', 105, y);
+      doc.text('DATE', 140, y);
+      doc.text('MARKS', 164, y);
+      doc.text('%', 183, y);
+      doc.text('GRADE', 194, y, { align: 'right' });
+      y += 5;
+      doc.setDrawColor(210, 224, 239);
+      doc.line(16, y, 195, y);
+      y += 5;
+    };
+    drawTableHeader();
+    if (!filtered.length) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text('No weekly test records found for this subject.', 18, y);
+      y += 7;
+    }
+    filtered.forEach((test, index) => {
+      const pct = getPercentage(Number(test.obtained_marks) || 0, Number(test.total_marks) || 0);
+      const nameLines = doc.splitTextToSize(String(test.test_name || '—'), 72);
+      const subjectLines = doc.splitTextToSize(String(test.subject || 'Not specified'), 31);
+      const rowHeight = Math.max(nameLines.length, subjectLines.length) * 4 + 3;
+      if (y + rowHeight > 278) { doc.addPage(); header(true); section('SATURDAY WEEKLY TEST RECORDS · CONTINUED'); drawTableHeader(); }
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(23, 50, 79);
+      doc.text(String(index + 1), 17, y);
+      doc.text(nameLines, 27, y);
+      doc.text(subjectLines, 105, y);
+      doc.text(formatDate(test.test_date), 140, y);
+      doc.text(`${test.obtained_marks}/${test.total_marks}`, 164, y);
+      doc.text(`${pct.toFixed(1)}%`, 183, y);
+      doc.text(getGrade(pct), 194, y, { align: 'right' });
+      y += rowHeight;
+      doc.setDrawColor(230, 237, 245);
+      doc.line(16, y - 1, 195, y - 1);
+    });
+    const pages = doc.getNumberOfPages();
+    for (let page = 1; page <= pages; page += 1) {
+      doc.setPage(page);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(110, 127, 147);
+      doc.text('RACER ACADEMY · Student Portal', 15, 289);
+      doc.text(`Page ${page} of ${pages}`, 195, 289, { align: 'right' });
+    }
+    const safeName = (student.student_name || student.student_username || 'STUDENT').replace(/[^a-z0-9]+/gi, '_');
+    doc.save(`RACER_ACADEMY_${safeName}_WEEKLY_TEST_REPORT.pdf`);
+    return true;
+  } catch (error) {
+    console.error('Unable to generate student report PDF:', error);
+    return false;
   }
-
-  printWindow.document.open();
-  printWindow.document.write(html);
-  printWindow.document.close();
-
-  setTimeout(() => {
-    printWindow.focus();
-    printWindow.print();
-  }, 500);
 }
-
-
 
 type ReportsMobileVIPProps = {
   student: Student | null;
   error: string;
+  pdfMessage: string;
   openSection: SectionName;
   setOpenSection: (section: SectionName) => void;
   overallAttendanceStats: {
@@ -605,6 +564,7 @@ type ReportsMobileVIPProps = {
 function ReportsMobileVIP({
   student,
   error,
+  pdfMessage,
   openSection,
   setOpenSection,
   overallAttendanceStats,
@@ -657,6 +617,7 @@ function ReportsMobileVIP({
         </section>
 
         {error && <div className="rac-reports-vip-error">{error}</div>}
+        {pdfMessage && <div className="rac-reports-vip-pdf-status" role="status">{pdfMessage}</div>}
 
         <section className="rac-reports-vip-stat-grid">
           <div className="rac-reports-vip-stat stat-blue"><span>Attendance</span><strong>{overallAttendanceStats.percentage.toFixed(1)}%</strong></div>
@@ -668,7 +629,7 @@ function ReportsMobileVIP({
         <div className="rac-reports-vip-tabs" role="tablist" aria-label="Report sections">
           {([
             ['attendance', 'Attendance'],
-            ['tests', 'Quiz Results'],
+            ['tests', 'Weekly Tests'],
             ['fees', 'Fees'],
             ['overall', 'Overall'],
           ] as const).map(([key, label]) => (
@@ -748,9 +709,9 @@ function ReportsMobileVIP({
           <section className="rac-reports-vip-panel">
             <div className="rac-reports-vip-panel-head">
               <div>
-                <span className="rac-reports-vip-eyebrow dark">ACADEMIC PERFORMANCE</span>
-                <h2>Quiz Results</h2>
-                <p>Marks, grades, remarks and uploaded test images</p>
+                <span className="rac-reports-vip-eyebrow dark">SATURDAY WEEKLY TEST</span>
+                <h2>My Weekly Tests</h2>
+                <p>Test marks, grades, remarks and teacher uploads</p>
               </div>
               <button type="button" className="rac-reports-vip-download" onClick={downloadAllResults} disabled={filteredAssessments.length === 0}>Download All PDF</button>
             </div>
@@ -912,6 +873,7 @@ function ReportsMobileVIP({
 
 export default function StudentReportsPage() {
   const [student, setStudent] = useState<Student | null>(null);
+  const [pdfMessage, setPdfMessage] = useState("");
   const [attendance, setAttendance] =
     useState<AttendanceRecord[]>([]);
   const [fees, setFees] = useState<FeeRecord[]>([]);
@@ -1726,28 +1688,32 @@ export default function StudentReportsPage() {
 
   function downloadAllResults() {
     if (!student) {
+      setPdfMessage("Student details are not ready yet.");
       return;
     }
 
-    createPdfWindow(
+    const success = createPdfWindow(
       student,
       assessments,
       selectedSubject
     );
+    setPdfMessage(success ? "Your weekly test PDF has been downloaded." : "PDF download could not start. Please try again.");
   }
 
   function downloadSingleResult(
     test: AssessmentRecord
   ) {
     if (!student) {
+      setPdfMessage("Student details are not ready yet.");
       return;
     }
 
-    createPdfWindow(
+    const success = createPdfWindow(
       student,
       [test],
       String(test.subject || "All")
     );
+    setPdfMessage(success ? "This test's PDF has been downloaded." : "PDF download could not start. Please try again.");
   }
 
   if (isMobileReports && !loading) {
@@ -1755,6 +1721,7 @@ export default function StudentReportsPage() {
       <ReportsMobileVIP
         student={student}
         error={error}
+        pdfMessage={pdfMessage}
         openSection={openSection}
         setOpenSection={setOpenSection}
         overallAttendanceStats={overallAttendanceStats}

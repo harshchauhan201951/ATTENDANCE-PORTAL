@@ -4,12 +4,10 @@ import { useRouter } from "next/navigation";
 
 type RacerPageActionsProps = {
   dashboardPath: string;
-  logoutKeys: string[];
 };
 
 export default function RacerPageActions({
   dashboardPath,
-  logoutKeys,
 }: RacerPageActionsProps) {
   const router = useRouter();
 
@@ -30,52 +28,32 @@ export default function RacerPageActions({
     }
   };
 
-  const handleLogout = () => {
-    try {
-      logoutKeys.forEach((key) => {
-        localStorage.removeItem(key);
-        sessionStorage.removeItem(key);
-      });
-    } catch {
-      // ignore
-    }
-
-    router.replace("/");
-  };
-
   return (
-    <div className="racer-page-actions">
+    <div className="racer-page-actions" aria-label="Page controls">
       <div className="racer-page-actions-inner">
         <button
           type="button"
           onClick={handleBack}
-          className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-800 transition hover:bg-slate-50"
+          className="racer-page-action-back"
         >
-          Back
+          ‹ <span>Back</span>
         </button>
 
         <button
           type="button"
           onClick={handleRefresh}
-          className="rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-black text-indigo-700 transition hover:bg-indigo-100"
+          className="racer-page-action-refresh"
+          aria-label="Refresh this dashboard"
         >
-          Refresh
+          ↻ <span>Refresh</span>
         </button>
 
         <button
           type="button"
           onClick={() => router.push(dashboardPath)}
-          className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-black text-white transition hover:bg-slate-800"
+          className="racer-page-action-dashboard"
         >
-          Dashboard
-        </button>
-
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="rounded-xl border-bottom-red-200 bg-red-50 px-3 py-2 text-xs font-black text-red-700"
-        >
-          Logout
+          ⌂ <span>Dashboard</span>
         </button>
       </div>
     </div>

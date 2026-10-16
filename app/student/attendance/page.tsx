@@ -536,15 +536,13 @@ export default function StudentAttendancePage() {
         ? Math.round((monthPresent / monthRecords.length) * 100)
         : 0;
 
-    const monthDays = new Date(year, month + 1, 0).getDate();
-
     return {
       monthName: now.toLocaleDateString("en-IN", { month: "long" }),
       year,
       monthPresent,
       monthAbsent,
+      monthTotal: monthRecords.length,
       monthRate,
-      monthDays,
     };
   }, [unifiedAttendance]);
 
@@ -722,17 +720,16 @@ export default function StudentAttendancePage() {
 
           <div className="vip-mobile-hero">
             <div className="vip-mobile-hero-icon">
-              <span>▣</span>
+              <span>✓</span>
             </div>
             <div className="vip-mobile-hero-copy">
               <span>STUDENT ATTENDANCE</span>
               <h1>My Attendance</h1>
               <p>Track your daily attendance and stay consistent with your goals.</p>
             </div>
-            <div className="vip-mobile-active-pill">
-              <i />
-              <strong>ATTENDANCE<br />ACTIVE</strong>
-              <small>Racer Academy</small>
+            <div className="vip-attendance-score">
+              <strong>{percentage}%</strong>
+              <span>OVERALL</span>
             </div>
           </div>
 
@@ -750,23 +747,23 @@ export default function StudentAttendancePage() {
               <small>This Month</small>
             </article>
             <article className="vip-mobile-stat vip-stat-rate">
-              <div className="vip-stat-icon">▣</div>
+              <div className="vip-stat-icon">%</div>
               <strong>{mobileMonthStats.monthRate}%</strong>
               <span>Attendance Rate</span>
               <small>This Month</small>
             </article>
             <article className="vip-mobile-stat vip-stat-days">
-              <div className="vip-stat-icon">◉</div>
-              <strong>{mobileMonthStats.monthDays}</strong>
-              <span>Month Cycle</span>
-              <small>{mobileMonthStats.monthName} {mobileMonthStats.year}</small>
+              <div className="vip-stat-icon">#</div>
+              <strong>{mobileMonthStats.monthTotal}</strong>
+              <span>Classes</span>
+              <small>Recorded this month</small>
             </article>
           </div>
 
           <section className="vip-mobile-panel vip-mobile-calendar-panel">
             <div className="vip-panel-heading">
               <div>
-                <span className="vip-panel-icon">▣</span>
+                <span className="vip-panel-icon">🗓️</span>
                 <div>
                   <h2>Attendance Calendar</h2>
                   <p>Tap on a date to view details</p>
@@ -862,8 +859,8 @@ export default function StudentAttendancePage() {
             {unifiedAttendance.length === 0 ? (
               <div className="vip-mobile-empty">No attendance records yet.</div>
             ) : (
-              <div className="vip-recent-list vip-recent-scroll">
-                {unifiedAttendance.map((record) => {
+              <div className="vip-recent-list">
+                {unifiedAttendance.slice(0, 5).map((record) => {
                   const recordDate = new Date(
                     record.attendance_date + "T00:00:00"
                   );
@@ -3186,6 +3183,38 @@ export default function StudentAttendancePage() {
 
 
 
+        /* Attendance refresh: compact Racer Academy app styling. */
+        @media (max-width: 640px) {
+          .student-attendance-vip-mobile-shell { padding: 0 12px 104px !important; gap: 10px !important; }
+          .vip-mobile-hero { height: auto !important; min-height: 132px !important; max-height: 148px !important; margin: 4px 0 9px !important; padding: 16px 14px !important; border-radius: 18px !important; background: linear-gradient(125deg,#0b58a5,#0a477f) !important; box-shadow: 0 8px 20px rgba(12,77,145,.16) !important; }
+          .vip-mobile-hero-icon { width: 48px !important; height: 48px !important; min-width: 48px !important; border-radius: 14px !important; font-size: 24px !important; color: #0b58a5 !important; }
+          .vip-mobile-hero-copy { flex: 1 1 auto !important; }
+          .vip-mobile-hero-copy h1 { margin: 4px 0 !important; color: #fff !important; font-size: 19px !important; letter-spacing: -.35px !important; }
+          .vip-mobile-hero-copy > span { color: #d8eaff !important; }
+          .vip-mobile-hero-copy p { max-width: 220px !important; font-size: 9px !important; line-height: 1.35 !important; }
+          .vip-attendance-score { position:relative !important; z-index:2 !important; display:flex !important; width:68px !important; min-width:68px !important; height:68px !important; flex-direction:column !important; align-items:center !important; justify-content:center !important; gap:3px !important; margin-left:auto !important; border:1px solid rgba(255,255,255,.28) !important; border-radius:18px !important; background:rgba(255,255,255,.12) !important; }
+          .vip-attendance-score strong { color:#fff !important; font-size:21px !important; line-height:1 !important; }
+          .vip-attendance-score span { color:#dbeafe !important; font-size:7px !important; font-weight:900 !important; letter-spacing:.6px !important; }
+          .vip-mobile-stats-grid { grid-template-columns: repeat(2,minmax(0,1fr)) !important; gap: 8px !important; margin: 0 0 2px !important; }
+          .vip-mobile-stat { min-height: 84px !important; border: 1px solid #dce8f6 !important; border-radius: 15px !important; padding: 9px 11px !important; text-align: left !important; box-shadow: 0 4px 12px rgba(16,57,103,.05) !important; }
+          .vip-mobile-stat .vip-stat-icon { width: 28px !important; height: 28px !important; margin: 0 0 7px !important; border-radius: 9px !important; }
+          .vip-mobile-stat strong { font-size: 22px !important; line-height: 1 !important; }
+          .vip-mobile-stat span { margin-top: 4px !important; font-size: 9px !important; }
+          .vip-mobile-stat small { margin-top: 3px !important; font-size: 8px !important; }
+          .vip-mobile-calendar-panel, .vip-mobile-recent-panel { margin: 0 !important; padding: 12px !important; border: 1px solid #dce8f6 !important; border-radius: 17px !important; box-shadow: 0 4px 14px rgba(16,57,103,.05) !important; }
+          .vip-recent-list.vip-recent-scroll { max-height:none !important; overflow:visible !important; padding-right:0 !important; }
+          .vip-panel-heading h2, .vip-calendar-title-block h2 { color: #17365e !important; font-size: 14px !important; }
+          .vip-panel-heading p, .vip-calendar-title-block p { color: #75869b !important; font-size: 9px !important; }
+          .vip-week-grid { gap: 5px !important; }
+          .vip-week-day { min-height: 62px !important; border: 1px solid #e2ebf5 !important; border-radius: 12px !important; background: #f9fbfe !important; }
+          .vip-week-day.is-present { border-color: #b9ecd9 !important; background: #effbf6 !important; }
+          .vip-week-day.is-absent { border-color: #f4c9d0 !important; background: #fff5f6 !important; }
+          .vip-recent-list { gap: 7px !important; }
+          .vip-recent-row { min-height: 62px !important; padding: 9px !important; border: 1px solid #e4ebf4 !important; border-radius: 13px !important; background: #fff !important; }
+          .vip-recent-date { border-radius: 10px !important; background: #eef5fd !important; }
+          .vip-recent-status { border-radius: 999px !important; }
+          .vip-view-all-link { padding: 7px 10px !important; border-radius: 10px !important; background: #edf5ff !important; color: #0b58a5 !important; font-weight: 800 !important; }
+        }
       `}</style>
     </main>
   );

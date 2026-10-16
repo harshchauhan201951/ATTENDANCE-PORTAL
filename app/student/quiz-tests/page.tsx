@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   CSSProperties,
@@ -25,11 +25,23 @@ type Quiz = {
 };
 
 type QuizResult = {
+  id?: number;
   quiz_id: number;
+  student_id?: number;
+  attempt_number?: number | null;
   obtained_marks: number | null;
   percentage: number | null;
   result_status: string | null;
+  started_at?: string | null;
+  submitted_at?: string | null;
+  submission_type?: string | null;
+  created_at?: string | null;
 };
+
+function isCompletedQuizResult(result: QuizResult): boolean {
+  const status = String(result.result_status || "").trim().toUpperCase();
+  return Boolean(result.submitted_at) || ["PASS", "PASSED", "FAIL", "FAILED", "SUBMITTED", "COMPLETED"].includes(status);
+}
 
 type Student = {
   id: number;
@@ -58,6 +70,19 @@ export default function StudentQuizTestsPage() {
 
   const [errorMessage, setErrorMessage] =
     useState("");
+
+  const [openQuizSections, setOpenQuizSections] = useState<Set<string>>(
+    () => new Set(["live"])
+  );
+
+  function toggleQuizSection(section: string) {
+    setOpenQuizSections((current) => {
+      const next = new Set(current);
+      if (next.has(section)) next.delete(section);
+      else next.add(section);
+      return next;
+    });
+  }
 
   useEffect(() => {
     loadDashboard();
@@ -365,18 +390,14 @@ export default function StudentQuizTestsPage() {
       } = await supabase
         .from("quiz_results")
         .select(
-          "quiz_id,obtained_marks,percentage,result_status"
+          "id,quiz_id,student_id,attempt_number,obtained_marks,percentage,result_status,started_at,submitted_at,submission_type,created_at"
         )
         .eq(
           "student_id",
           currentStudentId
         )
-        .order(
-          "quiz_id",
-          {
-            ascending: false,
-          }
-        );
+        .order("submitted_at", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false });
 
       if (resultError) {
         console.error(
@@ -471,13 +492,28 @@ const start =
   ):
     | QuizResult
     | undefined {
-    return results.find(
-      (result) =>
-        Number(
-          result.quiz_id
-        ) ===
-        Number(quizId)
-    );
+    const matching = results.filter((result) => Number(result.quiz_id) === Number(quizId));
+    if (!matching.length) return undefined;
+    const completed = matching.filter(isCompletedQuizResult);
+    const candidates = completed.length ? completed : matching;
+    return [...candidates].sort((a, b) => {
+      const attemptDiff = Number(b.attempt_number || 0) - Number(a.attempt_number || 0);
+      if (attemptDiff !== 0) return attemptDiff;
+      return String(b.submitted_at || b.created_at || b.started_at || "").localeCompare(String(a.submitted_at || a.created_at || a.started_at || ""));
+    })[0];
+  }
+
+  function getDisplayedStudentResultStatus(result: QuizResult): string {
+    const status = String(result.result_status || "").trim().toUpperCase();
+    if (status === "PASS" || status === "PASSED") return "PASS";
+    if (status === "FAIL" || status === "FAILED") return "FAIL";
+    if (result.submitted_at && ["", "IN_PROGRESS", "IN PROGRESS", "PENDING"].includes(status)) {
+      const quiz = quizzes.find((item) => Number(item.id) === Number(result.quiz_id));
+      const configured = quiz?.pass_percentage == null ? 40 : Number(quiz.pass_percentage);
+      const passPercentage = Number.isFinite(configured) && configured >= 0 ? configured : 40;
+      return Number(result.percentage || 0) >= passPercentage ? "PASS" : "FAIL";
+    }
+    return status || "IN_PROGRESS";
   }
 
   function getClassDisplay(): string {
@@ -521,27 +557,23 @@ const start =
 
   const availableQuizzes = quizzes.filter((quiz) => reattemptQuizIds.has(quiz.id) || (getStatus(quiz) === "LIVE" && !hasAttempted(quiz.id)));
 
+  const completedResults = results.filter(isCompletedQuizResult);
+
   const passedResults =
-    results.filter(
+    completedResults.filter(
       (result) =>
-        String(
-          result.result_status
-        ).toUpperCase() ===
-        "PASS"
+        getDisplayedStudentResultStatus(result) === "PASS"
     );
 
   const failedResults =
-    results.filter(
+    completedResults.filter(
       (result) =>
-        String(
-          result.result_status
-        ).toUpperCase() ===
-        "FAIL"
+        getDisplayedStudentResultStatus(result) === "FAIL"
     );
 
   const averagePercentage =
-    results.length > 0
-      ? results.reduce(
+    completedResults.length > 0
+      ? completedResults.reduce(
           (
             total,
             result
@@ -553,7 +585,7 @@ const start =
             ),
           0
         ) /
-        results.length
+        completedResults.length
       : 0;
 
   if (loading) {
@@ -724,7 +756,7 @@ const start =
           style={
             styles.statsGrid
           }
-          className="quiz-stats-grid"
+          className="quiz-stats-grid quiz-stats-horizontal"
         >
           <StatCard
             icon="Q"
@@ -929,17 +961,12 @@ const start =
           style={
             styles.section
           }
-          className="quiz-section"
+          className={`quiz-section quiz-accordion ${openQuizSections.has("live") ? "is-open" : ""}`}
         >
-          <div
-            style={
-              styles.sectionHeader
-            }
-            className="quiz-section-header"
-          >
-            <div
-              className="quiz-section-heading"
-            >
+          <div style={styles.sectionHeader} className="quiz-section-header">
+            <button type="button" className="quiz-section-toggle" aria-expanded={openQuizSections.has("live")} onClick={() => toggleQuizSection("live")}>
+              <div className="quiz-section-toggle-copy">
+              <div className="quiz-section-heading">
               <div
                 style={
                   styles.sectionEyebrow
@@ -955,16 +982,18 @@ const start =
               >
                 Quizzes You Can Attempt
               </h2>
-            </div>
-
-            <div
+              </div>
+              </div>
+            <span
               style={
                 styles.countBadge
               }
               className="quiz-count-badge"
             >
               {liveQuizzes.length}
-            </div>
+            </span>
+            <span className="quiz-accordion-chevron" aria-hidden="true">⌄</span>
+            </button>
           </div>
 
           {liveQuizzes.length ===
@@ -1043,17 +1072,12 @@ const start =
           style={
             styles.section
           }
-          className="quiz-section"
+          className={`quiz-section quiz-accordion ${openQuizSections.has("upcoming") ? "is-open" : ""}`}
         >
-          <div
-            style={
-              styles.sectionHeader
-            }
-            className="quiz-section-header"
-          >
-            <div
-              className="quiz-section-heading"
-            >
+          <div style={styles.sectionHeader} className="quiz-section-header">
+            <button type="button" className="quiz-section-toggle" aria-expanded={openQuizSections.has("upcoming")} onClick={() => toggleQuizSection("upcoming")}>
+              <div className="quiz-section-toggle-copy">
+              <div className="quiz-section-heading">
               <div
                 style={
                   styles.sectionEyebrow
@@ -1069,7 +1093,11 @@ const start =
               >
                 Upcoming Quizzes
               </h2>
-            </div>
+              </div>
+              </div>
+              <span className="quiz-accordion-count">{upcomingQuizzes.length}</span>
+              <span className="quiz-accordion-chevron" aria-hidden="true">⌄</span>
+            </button>
 
             <button
               type="button"
@@ -1168,17 +1196,12 @@ const start =
           style={
             styles.section
           }
-          className="quiz-section"
+          className={`quiz-section quiz-accordion ${openQuizSections.has("available") ? "is-open" : ""}`}
         >
-          <div
-            style={
-              styles.sectionHeader
-            }
-            className="quiz-section-header"
-          >
-            <div
-              className="quiz-section-heading"
-            >
+          <div style={styles.sectionHeader} className="quiz-section-header">
+            <button type="button" className="quiz-section-toggle" aria-expanded={openQuizSections.has("available")} onClick={() => toggleQuizSection("available")}>
+              <div className="quiz-section-toggle-copy">
+              <div className="quiz-section-heading">
               <div
                 style={
                   styles.sectionEyebrow
@@ -1194,7 +1217,11 @@ const start =
               >
                 Available Quizzes
               </h2>
-            </div>
+              </div>
+              </div>
+              <span className="quiz-accordion-count">{availableQuizzes.length}</span>
+              <span className="quiz-accordion-chevron" aria-hidden="true">⌄</span>
+            </button>
 
             <button
               type="button"
@@ -1293,17 +1320,12 @@ const start =
           style={
             styles.section
           }
-          className="quiz-section"
+          className={`quiz-section quiz-accordion ${openQuizSections.has("results") ? "is-open" : ""}`}
         >
-          <div
-            style={
-              styles.sectionHeader
-            }
-            className="quiz-section-header"
-          >
-            <div
-              className="quiz-section-heading"
-            >
+          <div style={styles.sectionHeader} className="quiz-section-header">
+            <button type="button" className="quiz-section-toggle" aria-expanded={openQuizSections.has("results")} onClick={() => toggleQuizSection("results")}>
+              <div className="quiz-section-toggle-copy">
+              <div className="quiz-section-heading">
               <div
                 style={
                   styles.sectionEyebrow
@@ -1319,7 +1341,11 @@ const start =
               >
                 Recent Results
               </h2>
-            </div>
+              </div>
+              </div>
+              <span className="quiz-accordion-count">{completedResults.length}</span>
+              <span className="quiz-accordion-chevron" aria-hidden="true">⌄</span>
+            </button>
 
             <button
               type="button"
@@ -1337,7 +1363,7 @@ const start =
             </button>
           </div>
 
-          {results.length ===
+          {completedResults.length ===
           0 ? (
             <div
               style={
@@ -1380,7 +1406,7 @@ const start =
               }
               className="quiz-result-grid"
             >
-              {results
+              {completedResults
                 .slice(0, 4)
                 .map(
                   (
@@ -1443,18 +1469,12 @@ const start =
                       >
                         <span
                           style={
-                            String(
-                              result.result_status
-                            ).toUpperCase() ===
-                            "PASS"
+                            getDisplayedStudentResultStatus(result) === "PASS"
                               ? styles.passBadge
                               : styles.failBadge
                           }
                         >
-                          {String(
-                            result.result_status ||
-                              "RESULT"
-                          ).toUpperCase()}
+                          {getDisplayedStudentResultStatus(result)}
                         </span>
 
                         <button

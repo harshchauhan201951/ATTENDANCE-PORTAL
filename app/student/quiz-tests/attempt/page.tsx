@@ -520,7 +520,7 @@ const [isReattempt, setIsReattempt] =
             if (
               data.alreadySubmitted
             ) {
-              router.replace(`/student/quiz-tests/results?quizId=${quizId}`);
+              router.replace(`/student/quiz-tests/results?quizId=${quizId}&resultId=${resultId}`);
               return;
             }
 
@@ -596,7 +596,7 @@ const [isReattempt, setIsReattempt] =
            * Send the exact resultId so the
            * result page can display this attempt.
            */
-          router.replace(`/student/quiz-tests/results?quizId=${quizId}`);
+          router.replace(`/student/quiz-tests/results?quizId=${quizId}&resultId=${encodeURIComponent(String(data.resultId || resultId))}`);
         } catch (submitError) {
           console.error(
             "Quiz submission error:",

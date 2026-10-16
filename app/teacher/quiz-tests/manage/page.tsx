@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -237,6 +237,31 @@ export default function ManageQuizzesPage() {
           "Database ne koi updated row return nahi ki. Supabase UPDATE/RLS policy check karein."
         );
         return;
+      }
+
+      // RACER_QUIZ_PUSH_NOTIFICATION_V3
+      if (newStatus) {
+        const quizClasses = getQuizClasses(quiz);
+        if (quizClasses.length) {
+          try {
+            const quizPushResponse = await fetch("/api/push/send", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                title: `New Quiz: ${quiz.title}`,
+                message: `${quiz.title} is now available. Open RACER ACADEMY and complete it before the deadline.`,
+                category: "quiz",
+                url: "/student/quiz-tests",
+                targetClasses: quizClasses,
+              }),
+            });
+            if (!quizPushResponse.ok) console.warn("Quiz notification was not sent:", await quizPushResponse.json().catch(() => null));
+          } catch (quizPushError) {
+            console.error("Quiz notification request failed:", quizPushError);
+          }
+        } else {
+          console.warn("Quiz was published without notification because no target classes were assigned.");
+        }
       }
 
       await loadQuizzes();

@@ -23,6 +23,24 @@ type Announcement = {
   likedByMe: boolean;
 };
 
+type DashboardFacts = {
+  attendance: string;
+  fees: string;
+  performance: string;
+  quiz: string;
+  weeklyTest: string;
+  timetable: string;
+};
+
+function dashboardTime(value: string | null | undefined) {
+  if (!value) return "Time not set";
+  const [rawHour, rawMinute] = String(value).split(":");
+  const hour = Number(rawHour);
+  const minute = Number(rawMinute || 0);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return String(value);
+  return `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${hour >= 12 ? "PM" : "AM"}`;
+}
+
 export default function StudentDashboardPage() {
       const [monthlyResultPeriod,setMonthlyResultPeriod]=useState<any>(null);
       useEffect(()=>{let active=true; const loadMonthlyResultAnnouncement=async()=>{try{const r=await fetch("/api/monthly-results/publish?list=1",{cache:"no-store"}); const d=await r.json(); const periods=Array.isArray(d?.periods)?d.periods:[]; periods.sort((a:any,b:any)=>String(b?.month_key||"").localeCompare(String(a?.month_key||""))); if(active)setMonthlyResultPeriod(periods[0]||null);}catch{}}; loadMonthlyResultAnnouncement(); const timer=setInterval(loadMonthlyResultAnnouncement,30000); return()=>{active=false;clearInterval(timer)};},[]);
@@ -63,6 +81,89 @@ export default function StudentDashboardPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [announcementLoading, setAnnouncementLoading] = useState(true);
   const [likingId, setLikingId] = useState<number | null>(null);
+  const [activeUpdateSlide, setActiveUpdateSlide] = useState(0);
+  const [dashboardFacts, setDashboardFacts] = useState<DashboardFacts>({
+    attendance: "Loading today's attendance…",
+    fees: "Loading fee status…",
+    performance: "Loading performance…",
+    quiz: "Loading quiz result…",
+    weeklyTest: "Loading Saturday test…",
+    timetable: "Loading today's class schedule…",
+  });
+
+  useEffect(() => {
+    if (!studentId) return;
+    let cancelled = false;
+    const loadFacts = async () => {
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      const [attendanceResult, feeResult, quizResult] = await Promise.all([
+        supabase.from("attendance").select("attendance_date,status").eq("student_id", studentId).order("attendance_date", { ascending: false }).order("id", { ascending: false }).limit(1),
+        supabase.from("fees").select("month,year,amount,status").eq("student_id", studentId).order("year", { ascending: false }).order("month", { ascending: false }).limit(12),
+        supabase.from("quiz_results").select("obtained_marks,percentage,submitted_at,created_at").eq("student_id", studentId).order("submitted_at", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false }).limit(1),
+      ]);
+
+      let timetableFact = "Open timetable to view this week's classes.";
+      try {
+        const { data: studentRow } = await supabase.from("students").select("class_name").eq("id", studentId).maybeSingle();
+        const className = String(studentRow?.class_name || "").trim().toLowerCase();
+        if (className) {
+          const { data: timetableRows } = await supabase.from("timetables").select("day_of_week,subject,start_time,end_time,class_names,is_holiday");
+          const todayName = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(now);
+          const todayClasses = (timetableRows || []).filter((entry: any) => String(entry.day_of_week).toLowerCase() === todayName.toLowerCase() && !entry.is_holiday && Array.isArray(entry.class_names) && entry.class_names.some((name: string) => String(name).trim().toLowerCase() === className)).sort((a: any,b: any) => String(a.start_time || "").localeCompare(String(b.start_time || "")));
+          if (todayClasses.length) {
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+            const nextClass = todayClasses.find((entry: any) => { const [h,m] = String(entry.start_time || "").split(":").map(Number); return Number.isFinite(h) && h * 60 + (m || 0) >= currentMinutes; }) || todayClasses[0];
+            timetableFact = `${todayName}: ${dashboardTime(nextClass.start_time)}–${dashboardTime(nextClass.end_time)} · ${nextClass.subject || "Class"}${todayClasses.length > 1 ? ` · +${todayClasses.length - 1} more` : ""}.`;
+          } else {
+            const orderedDays = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+            const currentDayIndex = orderedDays.indexOf(todayName);
+            const nextEntry = (timetableRows || []).filter((entry: any) => !entry.is_holiday && Array.isArray(entry.class_names) && entry.class_names.some((name: string) => String(name).trim().toLowerCase() === className)).sort((a: any,b: any) => ((orderedDays.indexOf(a.day_of_week) - currentDayIndex + 7) % 7) - ((orderedDays.indexOf(b.day_of_week) - currentDayIndex + 7) % 7) || String(a.start_time || "").localeCompare(String(b.start_time || "")))[0];
+            if (nextEntry) timetableFact = `${nextEntry.day_of_week}: ${dashboardTime(nextEntry.start_time)}–${dashboardTime(nextEntry.end_time)} · ${nextEntry.subject || "Class"}.`;
+          }
+        }
+      } catch {}
+
+      const attendance = attendanceResult.data?.[0];
+      const attendanceFact = attendance?.attendance_date === today
+        ? `Today: ${String(attendance.status || "Marked").toLowerCase() === "present" ? "Present" : String(attendance.status || "Marked")}.`
+        : "Today's attendance has not been marked yet.";
+
+      const pendingFees = (feeResult.data || []).filter((fee) => String(fee.status || "").toUpperCase() === "PENDING");
+      const pendingTotal = pendingFees.reduce((sum, fee) => sum + Number(fee.amount || 0), 0);
+      const pendingPeriods = pendingFees.slice(0, 3).map((fee) => new Date(Number(fee.year), Number(fee.month) - 1, 1).toLocaleDateString("en-IN", { month: "short", year: "numeric" })).join(", ");
+      const feesFact = pendingFees.length
+        ? `₹${pendingTotal.toLocaleString("en-IN")} pending for ${pendingPeriods}${pendingFees.length > 3 ? ` + ${pendingFees.length - 3} more month(s)` : ""}.`
+        : feeResult.error ? "Fee status is unavailable right now." : "No pending fees recorded.";
+
+      const quiz = quizResult.data?.[0];
+      const quizFact = quiz
+        ? `Latest score: ${Number(quiz.percentage || 0).toFixed(0)}% (${Number(quiz.obtained_marks || 0)} marks).`
+        : "No submitted quiz result yet.";
+
+      let performanceFact = quiz
+        ? `Latest quiz performance: ${Number(quiz.percentage || 0).toFixed(0)}%.`
+        : "Your report is ready to view.";
+      let weeklyTestFact = "No Saturday test result published yet.";
+      try {
+        const periodsResponse = await fetch("/api/monthly-results/publish?list=1", { cache: "no-store" });
+        const periodsData = await periodsResponse.json();
+        const period = (Array.isArray(periodsData?.periods) ? periodsData.periods : []).find((item: any) => Boolean(item.is_released) || (item.scheduled_release_at && Date.now() >= new Date(item.scheduled_release_at).getTime()));
+        if (period) {
+          const resultResponse = await fetch(`/api/monthly-results/publish?monthKey=${encodeURIComponent(period.month_key)}&studentId=${studentId}`, { cache: "no-store" });
+          const resultData = await resultResponse.json();
+          const snapshot = resultData?.results?.[0]?.snapshot;
+          if (snapshot?.totals) performanceFact = `Monthly result: ${Number(snapshot.totals.percentage || 0).toFixed(1)}% • ${snapshot.totals.status || "Published"}.`;
+          const latestWeeklyTest = Array.isArray(snapshot?.weeklyTests) ? snapshot.weeklyTests[0] : null;
+          if (latestWeeklyTest) weeklyTestFact = `${latestWeeklyTest.name}: ${latestWeeklyTest.obtained}/${latestWeeklyTest.total} (${Number(latestWeeklyTest.percentage || 0).toFixed(0)}%).`;
+        }
+      } catch {}
+
+      if (!cancelled) setDashboardFacts({ attendance: attendanceFact, fees: feesFact, performance: performanceFact, quiz: quizFact, weeklyTest: weeklyTestFact, timetable: timetableFact });
+    };
+    void loadFacts();
+    return () => { cancelled = true; };
+  }, [studentId]);
 
   useEffect(() => {
     const savedStatus = localStorage.getItem("studentAccountActive");
@@ -828,6 +929,33 @@ export default function StudentDashboardPage() {
     )
       ? announcements[0]
       : null;
+
+  const dashboardUpdates = [
+    ...(latestAnnouncement ? [{
+      eyebrow: "NEW • LAST 24 HOURS",
+      title: latestAnnouncement.title,
+      detail: latestAnnouncement.message,
+      icon: "📢",
+      metric: "NEW",
+      href: "/student/announcements",
+    }] : []),
+    { eyebrow: "ATTENDANCE • TODAY", title: dashboardFacts.attendance.startsWith("Today: Present") ? "Present today" : "Attendance today", detail: dashboardFacts.attendance, icon: "✓", metric: dashboardFacts.attendance.startsWith("Today: Present") ? "HERE" : dashboardFacts.attendance.includes("Absent") ? "ABSENT" : "—", href: "/student/attendance" },
+    { eyebrow: "FEES", title: dashboardFacts.fees.includes("pending") ? "Fee payment pending" : "Fee status", detail: dashboardFacts.fees, icon: "₹", metric: dashboardFacts.fees.match(/₹[\d,]+/)?.[0] || (dashboardFacts.fees.includes("pending") ? "DUE" : "CLEAR"), href: "/student/fees" },
+    { eyebrow: "OVERALL PERFORMANCE", title: "Your performance", detail: dashboardFacts.performance, icon: "↗", metric: dashboardFacts.performance.match(/[\d.]+%/)?.[0] || "—", href: "/student/reports" },
+    { eyebrow: "QUIZ RESULTS", title: "Latest quiz result", detail: dashboardFacts.quiz, icon: "✎", metric: dashboardFacts.quiz.match(/[\d.]+%/)?.[0] || "—", href: "/student/quiz-tests" },
+    { eyebrow: "SATURDAY WEEK TEST", title: "Weekly test result", detail: dashboardFacts.weeklyTest, icon: "★", metric: dashboardFacts.weeklyTest.match(/[\d.]+%/)?.[0] || "—", href: "/student/monthly-result" },
+    { eyebrow: "CLASS TIMETABLE", title: "Today's class time", detail: dashboardFacts.timetable, icon: "◷", metric: dashboardFacts.timetable.match(/\d{1,2}:\d{2} ?[AP]M/i)?.[0] || "VIEW", href: "/student/timetable" },
+    { eyebrow: "ACADEMIC UPDATE", title: latestAnnouncement?.title || "Academic calendar", detail: latestAnnouncement?.message || "No teacher announcement in the last 24 hours. Open the calendar for upcoming dates.", icon: "▦", metric: latestAnnouncement ? "NEW" : "WEEK", href: latestAnnouncement ? "/student/announcements" : "/student/calendar" },
+  ];
+  const updateCount = dashboardUpdates.length;
+  const currentDashboardUpdate = dashboardUpdates[activeUpdateSlide % dashboardUpdates.length];
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setActiveUpdateSlide((current) => (current + 1) % updateCount);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [updateCount]);
 
 
   const firstName = studentName.trim().split(/\s+/)[0] || "Student";
@@ -1695,7 +1823,7 @@ export default function StudentDashboardPage() {
             >
               <div
                 className="student-status-dot"
-                style={styles.statusDot}
+                style={{ ...styles.statusDot, ...(!accountActive ? { background: "#ef4444", animation: "none" } : {}) }}
               />
 
               <div>
@@ -1924,56 +2052,26 @@ export default function StudentDashboardPage() {
               styles.announcementSection
             }
           >
-            <div
-              className="student-announcement-header"
-              style={
-                styles.announcementHeader
-              }
-            >
-              <div>
-                <div
-                  className="student-announcement-eyebrow"
-                  style={
-                    styles.announcementEyebrow
-                  }
-                >
-                   IMPORTANT
-                </div>
-
-                <h2
-                  className="student-announcement-title"
-                  style={
-                    styles.announcementTitle
-                  }
-                >
-                  Announcements
-                </h2>
-
-                <p
-                  className="student-announcement-subtitle"
-                  style={
-                    styles.announcementSubtitle
-                  }
-                >
-                  All teacher updates are
-                  available here.
-                </p>
+            <div className="student-update-carousel" aria-live="polite">
+              <div className="student-update-copy" key={activeUpdateSlide % dashboardUpdates.length}>
+                <span className="student-update-eyebrow">{currentDashboardUpdate.eyebrow}</span>
+                <strong className="student-update-title">{currentDashboardUpdate.title}</strong>
+                <span className="student-update-detail">{currentDashboardUpdate.detail}</span>
               </div>
-
               <button
                 type="button"
-                onClick={() =>
-                  router.push(
-                    "/student/announcements"
-                  )
-                }
-                className="student-view-announcements"
-                style={
-                  styles.viewAnnouncementsButton
-                }
+                className="student-update-open"
+                aria-label={`Open ${currentDashboardUpdate.title}`}
+                onClick={() => router.push(currentDashboardUpdate.href)}
               >
-                View All 
+                <strong>{currentDashboardUpdate.metric}</strong>
+                <span>OPEN</span>
               </button>
+              <div className="student-update-dots" aria-hidden="true">
+                {dashboardUpdates.map((update, index) => (
+                  <span key={`${update.eyebrow}-${index}`} className={index === activeUpdateSlide % dashboardUpdates.length ? "active" : ""} />
+                ))}
+              </div>
             </div>
           </section>
 

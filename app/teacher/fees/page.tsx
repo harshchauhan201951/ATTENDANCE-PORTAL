@@ -1267,7 +1267,7 @@ export default function TeacherFeesPage() {
       } =
         await supabase
           .from("fees")
-          .select("id")
+          .select("id,status")
           .eq(
             "student_id",
             Number(studentId)
@@ -1343,6 +1343,7 @@ export default function TeacherFeesPage() {
         existingFees.length > 0
           ? existingFees[0]
           : null;
+      const feeStatusChanged = !existingFee || String(existingFee.status || "").trim().toUpperCase() !== String(status || "").trim().toUpperCase();
 
       if (
         existingFee
@@ -1402,6 +1403,26 @@ export default function TeacherFeesPage() {
             ? "Cash payment saved successfully. Receipt is ready."
             : "Fee record added successfully."
         );
+      }
+
+      // RACER_FEE_PUSH_NOTIFICATION_V3
+      if (feeStatusChanged) {
+        try {
+          const feePushResponse = await fetch("/api/push/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: status === "SUBMITTED" ? "Fee Payment Confirmed" : "Fee Status Updated",
+              message: `Your ${getMonthName(Number(month))} ${year} fee status is ${status === "SUBMITTED" ? "PAID" : status}. Amount: â‚¹${Number(amount).toLocaleString("en-IN")}.`,
+              studentId: Number(studentId),
+              category: "fees",
+              url: "/student/fees",
+            }),
+          });
+          if (!feePushResponse.ok) console.warn("Fee notification was not sent:", await feePushResponse.json().catch(() => null));
+        } catch (feePushError) {
+          console.error("Fee notification request failed:", feePushError);
+        }
       }
 
       setPaymentMode("");

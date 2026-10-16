@@ -266,7 +266,7 @@ function CalendarReferenceVip({
   ];
 
   return (
-    <main
+    <main className="student-calendar-mobile-page"
       style={{
         minHeight: "100vh",
         width: "100%",
@@ -276,7 +276,7 @@ function CalendarReferenceVip({
       }}
     >
       <div style={{ width: "100%", maxWidth: 430, margin: "0 auto" }}>
-        <section
+        <section className="student-calendar-mobile-hero"
           style={{
             background: "linear-gradient(112deg,#2d54db,#6645e6)",
             color: "#fff",
@@ -340,29 +340,6 @@ function CalendarReferenceVip({
 
         <section
           style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr",
-            gap: 6,
-            background: "#fff",
-            border: "1px solid #dce7f8",
-            borderRadius: 15,
-            padding: 6,
-            marginBottom: 9,
-          }}
-        >
-          <button type="button" style={{ border: 0, borderRadius: 10, padding: "8px 4px", background: "#4c42df", color: "#fff", fontSize: 8, fontWeight: 900 }}>
-            Month
-          </button>
-          <button type="button" disabled style={{ border: 0, borderRadius: 10, padding: "8px 4px", background: "#f4f7fb", color: "#8a99b1", fontSize: 8, fontWeight: 900 }}>
-            Week
-          </button>
-          <button type="button" disabled style={{ border: 0, borderRadius: 10, padding: "8px 4px", background: "#f4f7fb", color: "#8a99b1", fontSize: 8, fontWeight: 900 }}>
-            Day
-          </button>
-        </section>
-
-        <section
-          style={{
             background: "#fff",
             border: "1px solid #dce7f8",
             borderRadius: 17,
@@ -402,6 +379,7 @@ function CalendarReferenceVip({
                 <button
                   type="button"
                   key={key}
+                  className="student-calendar-mobile-day"
                   onClick={() => info && setSelectedEvent(info)}
                   style={{
                     minHeight: 70,
@@ -438,6 +416,7 @@ function CalendarReferenceVip({
 
           <button
             type="button"
+            className="student-calendar-mobile-today"
             onClick={goToday}
             style={{ width: "100%", marginTop: 8, border: "1px solid #bfd3f5", borderRadius: 10, padding: 8, background: "#eef4ff", color: "#1c5dca", fontSize: 8, fontWeight: 900 }}
           >
@@ -478,7 +457,7 @@ function CalendarReferenceVip({
         <section style={{ background: "#fff", border: "1px solid #dce7f8", borderRadius: 17, padding: 11, marginBottom: 9 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
             <h2 style={{ margin: 0, fontSize: 13, color: "#18336d" }}>Upcoming Events</h2>
-            <span style={{ padding: "6px 7px", borderRadius: 9, background: "#eef3ff", color: "#155fcf", fontSize: 7, fontWeight: 900 }}>View All</span>
+            <span style={{ padding: "6px 7px", borderRadius: 9, background: "#eef3ff", color: "#155fcf", fontSize: 7, fontWeight: 900 }}>{upcomingEvents.length} EVENTS</span>
           </div>
 
           {upcomingEvents.length === 0 ? (

@@ -9,6 +9,36 @@ const supabaseAdmin = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
+// RACER_MONTHLY_RESULT_PUSH_NOTIFICATION_V3
+async function notifyMonthlyResult(request: Request, monthKey: string) {
+  try {
+    const { data: rows, error } = await supabaseAdmin
+      .from("monthly_results")
+      .select("student_id")
+      .eq("month_key", monthKey);
+    if (error) throw error;
+    const studentIds = Array.from(new Set((rows || [])
+      .map((row: { student_id: number }) => Number(row.student_id))
+      .filter((id: number) => Number.isInteger(id) && id > 0)));
+    if (!studentIds.length) return;
+    const response = await fetch(new URL("/api/push/send", request.url), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "Monthly Result Published",
+        message: "Your monthly academic result is now available in RACER ACADEMY. Tap to view your result.",
+        category: "result",
+        url: "/student/monthly-result",
+        studentIds,
+      }),
+    });
+    if (!response.ok) console.error("Monthly result notification was not sent:", await response.json().catch(() => null));
+  } catch (error) {
+    // Never fail a result save/release solely because push delivery failed.
+    console.error("Monthly result notification request failed:", error);
+  }
+}
+
 async function savePayload(body:any) {
   const {period,mahatest,marks,results}=body;
   if(!period?.month_key) throw new Error("Invalid monthly result data");
@@ -41,8 +71,17 @@ async function savePayload(body:any) {
 }
 
 export async function POST(request: Request) {
-  try { return NextResponse.json({success:true,...await savePayload(await request.json())}); }
-  catch(error) { console.error("Monthly result save error:",error); return NextResponse.json({success:false,error:error instanceof Error?error.message:"Monthly result save failed"},{status:500}); }
+  try {
+    const body = await request.json();
+    const saved = await savePayload(body);
+    if (String(body?.action || "save") === "publish" && body?.period?.month_key) {
+      await notifyMonthlyResult(request, String(body.period.month_key));
+    }
+    return NextResponse.json({ success: true, ...saved });
+  } catch (error) {
+    console.error("Monthly result save error:", error);
+    return NextResponse.json({ success: false, error: error instanceof Error ? error.message : "Monthly result save failed" }, { status: 500 });
+  }
 }
 
 export async function GET(request: Request) {
@@ -53,9 +92,9 @@ export async function GET(request: Request) {
     const list=url.searchParams.get("list");
     const now=new Date().toISOString();
     if(list==="1"){
-      const {data:due,error:dueError}=await supabaseAdmin.from("monthly_result_periods").select("id").eq("is_released",false).lte("scheduled_release_at",now);
+      const {data:due,error:dueError}=await supabaseAdmin.from("monthly_result_periods").select("id,month_key").eq("is_released",false).lte("scheduled_release_at",now);
       if(dueError) throw dueError;
-      for(const p of due||[]){const {error}=await supabaseAdmin.from("monthly_result_periods").update({is_released:true,released_at:now,updated_at:now}).eq("id",p.id).eq("is_released",false);if(error)throw error;}
+      for(const p of due||[]){const {data:releasedRow,error}=await supabaseAdmin.from("monthly_result_periods").update({is_released:true,released_at:now,updated_at:now}).eq("id",p.id).eq("is_released",false).select("id").maybeSingle();if(error)throw error;if(releasedRow)await notifyMonthlyResult(request,String(p.month_key));}
       const {data,error}=await supabaseAdmin.from("monthly_result_periods").select("*").order("month_key",{ascending:false});
       if(error) throw error;
       return NextResponse.json({success:true,periods:data||[]});
@@ -77,7 +116,7 @@ export async function GET(request: Request) {
     if(fetchError) throw fetchError;
     if(!due?.length) return NextResponse.json({success:true,released:0,checkedAt:now});
     const releasedKeys:string[]=[];
-    for(const period of due){const {error}=await supabaseAdmin.from("monthly_result_periods").update({is_released:true,released_at:now,updated_at:now}).eq("id",period.id).eq("is_released",false);if(error)throw error;releasedKeys.push(String(period.month_key));}
+    for(const period of due){const {data:releasedRow,error}=await supabaseAdmin.from("monthly_result_periods").update({is_released:true,released_at:now,updated_at:now}).eq("id",period.id).eq("is_released",false).select("id").maybeSingle();if(error)throw error;if(releasedRow){releasedKeys.push(String(period.month_key));await notifyMonthlyResult(request,String(period.month_key));}}
     return NextResponse.json({success:true,released:releasedKeys.length,monthKeys:releasedKeys,releasedAt:now});
   } catch(error) { console.error("Monthly result load/publish error:",error); return NextResponse.json({success:false,error:error instanceof Error?error.message:"Monthly result request failed"},{status:500}); }
 }
