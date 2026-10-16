@@ -281,6 +281,8 @@ export default function TeacherAnnouncementsPage() {
               announcementId:
                 createdAnnouncement?.id ||
                 null,
+              notificationKey: createdAnnouncement?.id ? `announcement:${createdAnnouncement.id}` : undefined,
+              metadata: { source: "teacher_announcement", announcementId: createdAnnouncement?.id || null },
             }),
           }
         );

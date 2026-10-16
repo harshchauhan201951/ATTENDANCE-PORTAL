@@ -828,6 +828,18 @@
   .racer-student-shell .racer-student-content-area { padding-top: 148px !important; }
 }
 
+/* Give the first module card clear air below the fixed Back / Refresh / Dashboard row. */
+@media (max-width: 1024px) {
+  .racer-student-shell .racer-student-content-area:not([data-student-route="dashboard"]) {
+    padding-top: 152px !important;
+  }
+}
+@media (min-width: 641px) and (max-width: 1024px) {
+  .racer-student-shell .racer-student-content-area:not([data-student-route="dashboard"]) {
+    padding-top: 160px !important;
+  }
+}
+
 /* Student profile: compact cards and readable information on phone screens. */
 @media (max-width: 640px) {
   .racer-student-shell .racer-student-content-area[data-student-route="profile"] > main {

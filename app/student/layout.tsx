@@ -67,10 +67,33 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
     const savedName = localStorage.getItem("studentName") || localStorage.getItem("student_name") || "Student";
     const firstName = savedName.trim().split(/\s+/)[0] || "Student";
     setHeaderName(firstName); (async()=>{try{const username=localStorage.getItem("studentUsername")||localStorage.getItem("student_username")||localStorage.getItem("attendance_student_id")||localStorage.getItem("studentId")||""; if(username){const {data}=await supabase.from("students").select("profile_image_url").or(`student_username.eq.${username},id.eq.${username}`).limit(1).maybeSingle(); setProfileImage(typeof data?.profile_image_url==="string"&&data.profile_image_url.trim()?data.profile_image_url.trim():null);}}catch{setProfileImage(null);}})();
+    // Check only the currently signed-in child's fee rows; the server verifies the ID/username pair.
+    const checkCurrentStudentFees = () => {
+      const studentUsername = localStorage.getItem("studentUsername") || localStorage.getItem("student_username") || "";
+      const studentId = Number(localStorage.getItem("studentId") || localStorage.getItem("attendance_student_id") || localStorage.getItem("student_id") || 0);
+      if (!studentUsername && studentId <= 0) return Promise.resolve();
+      return fetch("/api/student/fee-reminders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId: studentId > 0 ? studentId : undefined, studentUsername }),
+      }).catch((error) => console.warn("Pending fee reminder check failed:", error));
+    };
+    void checkCurrentStudentFees();
+    let reminderTimer: number | undefined;
+    const scheduleDailyFeeCheck = () => {
+      const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+      const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+      let target = Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day), 4, 45, 18);
+      if (target <= Date.now()) target += 24 * 60 * 60 * 1000;
+      reminderTimer = window.setTimeout(() => {
+        void checkCurrentStudentFees().finally(scheduleDailyFeeCheck);
+      }, target - Date.now());
+    };
+    scheduleDailyFeeCheck();
     const updateHeaderTime = () => setHeaderTime(new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }));
     updateHeaderTime();
     const timer = setInterval(updateHeaderTime, 1000);
-    return () => clearInterval(timer);
+    return () => { clearInterval(timer); if (reminderTimer) window.clearTimeout(reminderTimer); };
   }, []);
   // STUDENT ACCOUNT STATUS CHECK
   useEffect(() => {

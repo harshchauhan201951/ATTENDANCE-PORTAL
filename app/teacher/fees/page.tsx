@@ -1343,7 +1343,6 @@ export default function TeacherFeesPage() {
         existingFees.length > 0
           ? existingFees[0]
           : null;
-      const feeStatusChanged = !existingFee || String(existingFee.status || "").trim().toUpperCase() !== String(status || "").trim().toUpperCase();
 
       if (
         existingFee
@@ -1406,7 +1405,7 @@ export default function TeacherFeesPage() {
       }
 
       // RACER_FEE_PUSH_NOTIFICATION_V3
-      if (feeStatusChanged) {
+      {
         try {
           const feePushResponse = await fetch("/api/push/send", {
             method: "POST",
@@ -1415,8 +1414,10 @@ export default function TeacherFeesPage() {
               title: status === "SUBMITTED" ? "Fee Payment Confirmed" : "Fee Status Updated",
               message: `Your ${getMonthName(Number(month))} ${year} fee status is ${status === "SUBMITTED" ? "PAID" : status}. Amount: â‚¹${Number(amount).toLocaleString("en-IN")}.`,
               studentId: Number(studentId),
-              category: "fees",
+              category: ["SUBMITTED", "PAID", "PAID ONLINE"].includes(String(status).toUpperCase()) ? "fee_paid" : "fee_pending",
               url: "/student/fees",
+              notificationKey: `fee-status:${studentId}:${month}:${year}:${String(status).toUpperCase()}:${Number(amount)}:${paymentDate || ""}`,
+              metadata: { source: "teacher_fee_update", month: Number(month), year: Number(year), status: String(status).toUpperCase(), amount: Number(amount) },
             }),
           });
           if (!feePushResponse.ok) console.warn("Fee notification was not sent:", await feePushResponse.json().catch(() => null));

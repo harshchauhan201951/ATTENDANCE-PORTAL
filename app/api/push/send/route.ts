@@ -92,7 +92,7 @@ export async function POST(
 
     const announcementId = body?.announcementId ?? null;
     // RACER_PUSH_TARGETS_V3
-    const requestedStudentIds = Array.isArray(body?.studentIds)
+    const requestedStudentIds: number[] = Array.isArray(body?.studentIds)
       ? Array.from(new Set(body.studentIds.map((value: unknown) => Number(value)).filter((value: number) => Number.isInteger(value) && value > 0)))
       : [];
     const targetClasses = Array.isArray(body?.targetClasses)
@@ -100,7 +100,16 @@ export async function POST(
       : [];
 
     const category = body?.category || "general";
-    const url = body?.url || (category === "announcement" ? "/student/notifications" : category === "fees" ? "/student/fees" : category === "homework" ? "/student/homework" : category === "quiz" ? "/student/quiz-tests" : category === "timetable" ? "/student/timetable" : category === "result" ? "/student/monthly-result" : "/student/dashboard");
+    const url = body?.url || (category === "announcement" ? "/student/notifications" : ["fees", "fee_pending", "fee_paid"].includes(category) ? "/student/fees" : category === "homework" ? "/student/homework" : category === "quiz" ? "/student/quiz-tests" : category === "timetable" ? "/student/timetable" : category === "result" ? "/student/monthly-result" : "/student/dashboard");
+    const notificationKey = typeof body?.notificationKey === "string" ? body.notificationKey.trim().slice(0, 180) : "";
+
+    // Fee notifications always belong to one verified student record; never broadcast fee details.
+    if (category === "fees" || category === "fee_pending" || category === "fee_paid") {
+      const numericStudentId = Number(studentId);
+      if (studentId === null || !Number.isInteger(numericStudentId) || numericStudentId <= 0) {
+        return NextResponse.json({ success: false, error: "Fee notifications require one studentId." }, { status: 400 });
+      }
+    }
 
     let query = supabaseAdmin
       .from("push_subscriptions")
@@ -183,19 +192,75 @@ export async function POST(
       );
     }
 
-    const rows =
-      (subscriptions ||
-        []) as PushSubscriptionRow[];
+    // Keep the in-app inbox in sync with push messages. Recipients come only from the
+    // explicit student ID, explicit student IDs, or matching target classes above.
+    let recipientStudentIds: number[] = [];
+    if (studentId !== null) recipientStudentIds = [Number(studentId)];
+    else if (Array.isArray(body?.studentIds)) recipientStudentIds = requestedStudentIds;
+    else if (Array.isArray(body?.targetClasses)) {
+      const normalized = (value: unknown) => String(value ?? "").trim().replace(/\s+/g, " ").toUpperCase();
+      const { data: matchingStudents, error: matchingError } = await supabaseAdmin.from("students").select("id,class_name");
+      if (matchingError) return NextResponse.json({ success: false, error: matchingError.message }, { status: 500 });
+      recipientStudentIds = Array.from(new Set((matchingStudents || []).filter((student: { id: number; class_name: string | null }) => targetClasses.includes(normalized(student.class_name))).map((student: { id: number }) => Number(student.id))));
+    } else if (category === "announcement") {
+      // Announcements are school-wide content; they contain no student-specific data.
+      const { data: allStudents, error: studentsError } = await supabaseAdmin.from("students").select("id");
+      if (studentsError) return NextResponse.json({ success: false, error: studentsError.message }, { status: 500 });
+      recipientStudentIds = (allStudents || []).map((student: { id: number }) => Number(student.id)).filter((id: number) => Number.isInteger(id) && id > 0);
+    }
+
+    if (recipientStudentIds.length) {
+      const { data: existingStudents, error: recipientError } = await supabaseAdmin.from("students").select("id").in("id", recipientStudentIds);
+      if (recipientError) return NextResponse.json({ success: false, error: recipientError.message }, { status: 500 });
+      const validIds = new Set((existingStudents || []).map((student: { id: number }) => Number(student.id)));
+      recipientStudentIds = recipientStudentIds.filter((id) => validIds.has(id));
+      if (["fees", "fee_pending", "fee_paid"].includes(category) && !validIds.has(Number(studentId))) {
+        return NextResponse.json({ success: false, error: "The fee notification student record does not exist." }, { status: 404 });
+      }
+    }
+    if (!recipientStudentIds.length) {
+      return NextResponse.json({ success: true, sent: 0, failed: 0, total: 0, message: "No eligible student recipients were selected; nothing was broadcast." });
+    }
+
+    let alreadyNotified: number[] = [];
+    if (notificationKey && recipientStudentIds.length) {
+      const { data: existingNotices, error: existingNoticeError } = await supabaseAdmin.from("student_notifications")
+        .select("student_id").in("student_id", recipientStudentIds).contains("metadata", { notificationKey });
+      if (existingNoticeError) return NextResponse.json({ success: false, error: existingNoticeError.message }, { status: 500 });
+      alreadyNotified = Array.from(new Set((existingNotices || []).map((notice: { student_id: number }) => Number(notice.student_id))));
+    }
+    const pendingNoticeIds = recipientStudentIds.filter((id) => !alreadyNotified.includes(id));
+    if (pendingNoticeIds.length) {
+      const noticeRows = pendingNoticeIds.map((recipientId) => ({
+        student_id: recipientId,
+        category: category === "quiz" ? "quiz_test" : category === "homework" ? "general" : category === "fees" ? "fee_pending" : category,
+        title: String(title).slice(0, 180),
+        message: String(message).slice(0, 2000),
+        url,
+        is_read: false,
+        metadata: { ...(body?.metadata && typeof body.metadata === "object" ? body.metadata : {}), ...(notificationKey ? { notificationKey } : {}), ...(announcementId ? { announcementId: String(announcementId) } : {}) },
+      }));
+      const { error: noticeInsertError } = await supabaseAdmin.from("student_notifications").insert(noticeRows);
+      if (noticeInsertError) return NextResponse.json({ success: false, error: `Notification saved but push dispatch could not continue: ${noticeInsertError.message}` }, { status: 500 });
+    }
+    if (notificationKey && recipientStudentIds.length && alreadyNotified.length === recipientStudentIds.length) {
+      return NextResponse.json({ success: true, sent: 0, failed: 0, total: 0, duplicate: true, message: "This update was already delivered today." });
+    }
+
+    const rows = ((subscriptions || []) as PushSubscriptionRow[])
+      .filter((row) => pendingNoticeIds.includes(Number(row.student_id)));
 
     if (rows.length === 0) {
       return NextResponse.json(
         {
-          success: false,
+          success: pendingNoticeIds.length > 0 || alreadyNotified.length > 0,
           message:
-            "No push subscriptions found.",
+            "The update is in the student's in-app inbox. No push-enabled device is currently registered.",
           sent: 0,
+          failed: 0,
+          total: 0,
         },
-        { status: 404 }
+        { status: 200 }
       );
     }
 

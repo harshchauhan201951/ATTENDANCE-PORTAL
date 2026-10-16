@@ -5,11 +5,14 @@ type NotificationItem={id:number;student_id:number;category:string;title:string;
 const categoryInfo:Record<string,{icon:string;label:string}>={
   fee_pending:{icon:"📪",label:"Fee Pending"},
   fee_paid:{icon:"✅",label:"Fee Paid"},
+  fees:{icon:"💰",label:"Fee Update"},
   announcement:{icon:"📢",label:"Announcement"},
   quiz_test:{icon:"📝",label:"Quiz / Test"},
+  quiz:{icon:"🧩",label:"Quiz / Test"},
+  homework:{icon:"📚",label:"Assignment"},
+  general:{icon:"🔔",label:"General Update"},
   timetable:{icon:"📅",label:"Timetable"},
-  result:{icon:"🏆",label:"Result"},
-  general:{icon:"🔔",label:"General Update"}
+  result:{icon:"🏆",label:"Result"}
 };
 export default function StudentNotificationsPage(){
   const router=useRouter(); const searchParams=useSearchParams(); const requestedAnnouncementId=searchParams.get("announcementId");
@@ -17,21 +20,24 @@ export default function StudentNotificationsPage(){
   const[loading,setLoading]=useState(true);
   const[error,setError]=useState("");
   const[studentId,setStudentId]=useState<number|null>(null);
+  const[studentUsername,setStudentUsername]=useState("");
   useEffect(()=>{
     const raw=localStorage.getItem("studentId")||sessionStorage.getItem("studentId")||localStorage.getItem("student_id")||sessionStorage.getItem("student_id");
+    const username=localStorage.getItem("studentUsername")||sessionStorage.getItem("studentUsername")||localStorage.getItem("student_username")||sessionStorage.getItem("student_username")||"";
     const id=Number(raw);
-    if(!id||Number.isNaN(id)){
-      setError("Student login session not found.");
+    if(!id||Number.isNaN(id)||!username){
+      setError("Student login session not found. Please sign in again.");
       setLoading(false);
       return;
     }
+    setStudentUsername(username);
     setStudentId(id);
-    void loadNotifications(id);
+    void loadNotifications(id,username);
   },[]);
-  async function loadNotifications(id:number){
+  async function loadNotifications(id:number,username:string){
     try{
       setLoading(true);
-      const response=await fetch("/api/student/notifications?studentId="+encodeURIComponent(String(id)),{cache:"no-store"});
+      const response=await fetch("/api/student/notifications?studentId="+encodeURIComponent(String(id))+"&studentUsername="+encodeURIComponent(username),{cache:"no-store"});
       const result=await response.json();
       if(!response.ok||!result.success)throw new Error(result.error||"Unable to load notifications.");
       const loadedItems=result.notifications||[]; const targetId=requestedAnnouncementId?Number(requestedAnnouncementId):null; if(targetId&&!Number.isNaN(targetId)){const targetIndex=loadedItems.findIndex((item:NotificationItem)=>{const metadataId=Number(item.metadata?.announcementId||item.metadata?.announcement_id||0); return metadataId===targetId;}); if(targetIndex>0){const[target]=loadedItems.splice(targetIndex,1); loadedItems.unshift(target);}} setItems(loadedItems);
@@ -48,7 +54,7 @@ export default function StudentNotificationsPage(){
       await fetch("/api/student/notifications",{
         method:"PATCH",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({studentId,notificationId:id})
+        body:JSON.stringify({studentId,studentUsername,notificationId:id})
       });
       setItems(v=>v.map(item=>item.id===id?{...item,is_read:true,read_at:new Date().toISOString()}:item));
       if(path)router.push(path);
@@ -60,7 +66,7 @@ export default function StudentNotificationsPage(){
       const response=await fetch("/api/student/notifications",{
         method:"PATCH",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({studentId,markAll:true})
+        body:JSON.stringify({studentId,studentUsername,markAll:true})
       });
       if(!response.ok)return;
       setItems(v=>v.map(item=>({...item,is_read:true,read_at:new Date().toISOString()})));
@@ -90,7 +96,7 @@ export default function StudentNotificationsPage(){
       </div>}
       {!loading&&!error&&items.length>0&&<div style={{display:"grid",gap:12}}>
         {items.map(item=>{
-          const info=categoryInfo[item.category]||categoryInfo.general;
+          const info=item.metadata?.source==="teacher_homework_publish"?categoryInfo.homework:categoryInfo[item.category]||categoryInfo.general;
           return <div key={item.id} onClick={()=>void markRead(item.id,item.url||"")} style={{background:"#fff",borderRadius:16,padding:"16px",border:item.is_read?"1px solid #e5e7eb":"2px solid #dbeafe",boxShadow:"0 3px 12px rgba(0,0,0,.05)",cursor:item.url?"pointer":"default"}}>
             <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
               <div style={{width:44,height:44,borderRadius:12,background:"#eff6ff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{info.icon}</div>

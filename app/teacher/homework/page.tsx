@@ -349,6 +349,24 @@ export default function TeacherHomeworkPage() {
           data as Homework,
           ...previous,
         ]);
+        try {
+          const homeworkPush = await fetch("/api/push/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: `New Assignment: ${data.title}`,
+              message: `${data.subject} assignment: ${data.title}. Due ${data.due_date}. Open RACER ACADEMY to read the instructions.`,
+              category: "homework",
+              url: "/student/homework",
+              targetClasses: selectedClasses,
+              notificationKey: `homework-published:${data.id}`,
+              metadata: { source: "teacher_homework_publish", homeworkId: data.id, dueDate: data.due_date, subject: data.subject },
+            }),
+          });
+          if (!homeworkPush.ok) console.warn("Assignment notification was not sent:", await homeworkPush.json().catch(() => null));
+        } catch (homeworkPushError) {
+          console.error("Assignment notification request failed:", homeworkPushError);
+        }
       }
 
       const numberOfClasses =

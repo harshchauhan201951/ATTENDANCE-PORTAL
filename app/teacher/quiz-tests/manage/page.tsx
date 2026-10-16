@@ -249,10 +249,12 @@ export default function ManageQuizzesPage() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 title: `New Quiz: ${quiz.title}`,
-                message: `${quiz.title} is now available. Open RACER ACADEMY and complete it before the deadline.`,
+                message: `${quiz.title} is published for your class. Scheduled: ${quiz.scheduled_date || "See Quiz Tests"}${quiz.scheduled_time ? ` at ${quiz.scheduled_time}` : ""}. Open RACER ACADEMY to check whether it is upcoming or ready to attempt.`,
                 category: "quiz",
                 url: "/student/quiz-tests",
                 targetClasses: quizClasses,
+                notificationKey: `quiz-published:${quiz.id}`,
+                metadata: { source: "teacher_quiz_publish", quizId: quiz.id, scheduledDate: quiz.scheduled_date, scheduledTime: quiz.scheduled_time },
               }),
             });
             if (!quizPushResponse.ok) console.warn("Quiz notification was not sent:", await quizPushResponse.json().catch(() => null));

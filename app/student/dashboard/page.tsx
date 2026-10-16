@@ -345,7 +345,10 @@ export default function StudentDashboardPage() {
         if (permission.receive !== "granted") return;
         await PushNotifications.removeAllListeners();
         await PushNotifications.addListener("pushNotificationActionPerformed", (event) => {
-          const notificationData = event.notification?.data || {}; const targetUrl = "/student/notifications" + (notificationData.announcementId ? "?announcementId=" + encodeURIComponent(String(notificationData.announcementId)) : "");
+          const notificationData = event.notification?.data || {};
+          const targetUrl = typeof notificationData.url === "string" && notificationData.url.startsWith("/")
+            ? notificationData.url
+            : "/student/notifications" + (notificationData.announcementId ? "?announcementId=" + encodeURIComponent(String(notificationData.announcementId)) : "");
           router.push(targetUrl);
         });
         await PushNotifications.addListener("registration", async (token) => {

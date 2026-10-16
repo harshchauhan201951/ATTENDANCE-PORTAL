@@ -12,6 +12,27 @@ const supabaseAdmin = createClient(
   }
 );
 
+async function notifySubmittedQuiz(requestUrl: string, result: any, quiz: any, studentId: number) {
+  try {
+    const response = await fetch(new URL("/api/push/send", requestUrl), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        studentId,
+        category: "quiz",
+        title: "Quiz Result Ready",
+        message: `${quiz?.title || "Your quiz"} is submitted. Score: ${safeNumber(result.percentage).toFixed(1)}% (${safeNumber(result.obtained_marks)} / ${safeNumber(result.total_marks)} marks), ${String(result.result_status || "COMPLETED").toUpperCase()}.`,
+        url: `/student/quiz-tests/results?quizId=${Number(result.quiz_id)}&resultId=${Number(result.id)}`,
+        notificationKey: `quiz-result:${Number(result.id)}`,
+        metadata: { source: "quiz_submission", quizId: Number(result.quiz_id), resultId: Number(result.id), percentage: safeNumber(result.percentage), resultStatus: String(result.result_status || "COMPLETED") },
+      }),
+    });
+    if (!response.ok) console.warn("Quiz result notification was not delivered:", await response.json().catch(() => null));
+  } catch (error) {
+    console.error("Quiz result notification request failed:", error);
+  }
+}
+
 type SubmitBody = {
   resultId: number | string;
   studentId: number | string;
@@ -803,6 +824,7 @@ export async function POST(
       }
 
       const finalizedResult = await repairFinalStatusIfNeeded(alreadySaved, studentId);
+      await notifySubmittedQuiz(request.url, finalizedResult, quiz, studentId);
       return NextResponse.json(
         {
           success: true,
@@ -820,6 +842,7 @@ export async function POST(
      * ---------------------------------------------------------
      */
 
+    await notifySubmittedQuiz(request.url, updatedResult, quiz, studentId);
     return NextResponse.json({
       success: true,
       alreadySubmitted:
