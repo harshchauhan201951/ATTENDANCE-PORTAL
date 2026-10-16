@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -604,6 +604,30 @@ export default function TeacherAttendancePage() {
                 </div>
               </div>
 
+              {/* RACER_BULK_ATTENDANCE_ACTIONS */}
+              <div
+                className="racer-vip-bulk-actions"
+                style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6, margin: "10px 0 8px", width: "100%" }}
+              >
+                <button
+                  type="button"
+                  onClick={() => markAll("Present")}
+                  disabled={saving || students.length === 0}
+                  style={{ minWidth: 0, minHeight: 38, padding: "7px 4px", borderRadius: 9, border: "1px solid #91d7aa", background: "#eafff0", color: "#146c3b", fontSize: 10, fontWeight: 900, lineHeight: 1.15, overflowWrap: "anywhere", cursor: "pointer" }}
+                >Mark All as Present</button>
+                <button
+                  type="button"
+                  onClick={() => markAll("Absent")}
+                  disabled={saving || students.length === 0}
+                  style={{ minWidth: 0, minHeight: 38, padding: "7px 4px", borderRadius: 9, border: "1px solid #f1aaaa", background: "#fff0f0", color: "#b4232d", fontSize: 10, fontWeight: 900, lineHeight: 1.15, overflowWrap: "anywhere", cursor: "pointer" }}
+                >Mark All as Absent</button>
+                <button
+                  type="button"
+                  onClick={deleteAttendance}
+                  disabled={saving || selectedDateRecords.length === 0}
+                  style={{ minWidth: 0, minHeight: 38, padding: "7px 4px", borderRadius: 9, border: "1px solid #e4b2b2", background: "#fff", color: "#a61b29", fontSize: 10, fontWeight: 900, lineHeight: 1.15, overflowWrap: "anywhere", cursor: "pointer" }}
+                >Delete Entry</button>
+              </div>
               <div className="racer-vip-search-wrap">
                 <Icon name="search" />
                 <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search student by name or ID..." />

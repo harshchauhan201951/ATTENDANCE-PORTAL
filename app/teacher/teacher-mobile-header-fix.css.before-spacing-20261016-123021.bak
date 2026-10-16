@@ -1,0 +1,9 @@
+/* RACER ACADEMY mobile module header fix */
+@media (max-width: 767px) {
+:is(div, section, header):has(> .racer-vip-heading-copy):has(> .racer-vip-date-tile),
+header[data-racer-vip-header="1"],
+.page-header,
+header:has(.racer-vip-brand-subtitle) {
+  display: none !important;
+}
+}

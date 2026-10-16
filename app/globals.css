@@ -1135,11 +1135,11 @@ button {
   .racer-teacher-module-icon { width:29px; height:29px; font-size:14px; margin-bottom:5px; }
   .racer-teacher-module-title { font-size:7.5px; }
 }
-.racer-teacher-module-icon::before{display:block;font-family:Arial,Helvetica,sans-serif;font-weight:900;line-height:1}.racer-teacher-module-icon.icon-ok::before{content:"ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ"}.racer-teacher-module-icon.icon-ah::before{content:"ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â¤"}.racer-teacher-module-icon.icon-cal::before{content:"ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â¦"}.racer-teacher-module-icon.icon-rep::before{content:"ÃƒÆ’Ã‚Â¢Ãƒâ€¹Ã…â€œÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦"}.racer-teacher-module-icon.icon-rs::before{content:"ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¹"}.racer-teacher-module-icon.icon-pay::before{content:"ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤"}.racer-teacher-module-icon.icon-hw::before{content:"ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â¡"}.racer-teacher-module-icon.icon-ann::before{content:"ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒâ€šÃ‚Â"}.racer-teacher-module-icon.icon-act::before{content:"ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°"}.racer-teacher-module-icon.icon-pro::before{content:"ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹"}.racer-teacher-module-icon.icon-set::before{content:"ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢"}.racer-teacher-module-icon.icon-dir::before{content:"ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°"}.racer-teacher-module-icon.icon-plus::before{content:"+"}.racer-teacher-module-icon.icon-q::before{content:"Q"}.racer-teacher-module-icon.icon-call::before{content:"ÃƒÆ’Ã‚Â¢Ãƒâ€¹Ã…â€œÃƒâ€¦Ã‚Â½"}.racer-teacher-module-icon.icon-t::before{content:"T"}.racer-teacher-module-icon.icon-tt::before{content:"ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â¦"}
+.racer-teacher-module-icon::before{display:block;font-family:Arial,Helvetica,sans-serif;font-weight:900;line-height:1}.racer-teacher-module-icon.icon-ok::before{content:"ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“"}.racer-teacher-module-icon.icon-ah::before{content:"ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤"}.racer-teacher-module-icon.icon-cal::before{content:"ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦"}.racer-teacher-module-icon.icon-rep::before{content:"ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¹Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦"}.racer-teacher-module-icon.icon-rs::before{content:"ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¹"}.racer-teacher-module-icon.icon-pay::before{content:"ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤"}.racer-teacher-module-icon.icon-hw::before{content:"ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡"}.racer-teacher-module-icon.icon-ann::before{content:"ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â"}.racer-teacher-module-icon.icon-act::before{content:"ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â°"}.racer-teacher-module-icon.icon-pro::before{content:"ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¹"}.racer-teacher-module-icon.icon-set::before{content:"ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢"}.racer-teacher-module-icon.icon-dir::before{content:"ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â°"}.racer-teacher-module-icon.icon-plus::before{content:"+"}.racer-teacher-module-icon.icon-q::before{content:"Q"}.racer-teacher-module-icon.icon-call::before{content:"ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¹Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â½"}.racer-teacher-module-icon.icon-t::before{content:"T"}.racer-teacher-module-icon.icon-tt::before{content:"ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦"}
 .ah-icon{display:inline-block;width:14px;height:14px;margin-right:5px;vertical-align:-2px;position:relative}.ah-records:before{content:"";position:absolute;width:10px;height:12px;border:2px solid currentColor;border-radius:2px}.ah-records:after{content:"";position:absolute;width:6px;height:2px;background:currentColor;left:3px;top:4px;box-shadow:0 4px 0 currentColor}.ah-present:before{content:"";position:absolute;width:11px;height:6px;border-left:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);left:1px;top:2px}.ah-absent:before,.ah-absent:after{content:"";position:absolute;width:12px;height:2px;background:currentColor;left:1px;top:6px}.ah-absent:before{transform:rotate(45deg)}.ah-absent:after{transform:rotate(-45deg)}
 
 /* =========================================================
-   RACER ACADEMY TEACHER SERVICES ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â REFERENCE UI SKIN
+   RACER ACADEMY TEACHER SERVICES ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â REFERENCE UI SKIN
    Layout-only layer. Existing handlers, data, routes, APIs,
    queries, permissions and business logic are untouched.
 ========================================================= */
@@ -1243,7 +1243,7 @@ button {
   border-color: #dce9f6 !important;
 }
 
-/* Mark Attendance ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â reference card layout. */
+/* Mark Attendance ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â reference card layout. */
 .racer-teacher-shell .racer-attendance-page .statsGrid,
 .racer-teacher-shell .racer-attendance-page [style*="grid-template-columns"] {
   gap: 8px !important;
@@ -1331,7 +1331,7 @@ button {
   font-size: 9px !important;
 }
 
-/* Attendance History ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â card rows, never a horizontally clipped table. */
+/* Attendance History ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â card rows, never a horizontally clipped table. */
 .racer-teacher-shell .racer-attendance-history-page .mobile-history-card {
   padding: 13px !important;
   background: #fff !important;
@@ -1699,10 +1699,10 @@ button {
 }
 
 
-/* RACER APPROVED MOBILE REFERENCE UI ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â 2026-09-28 */
+/* RACER APPROVED MOBILE REFERENCE UI ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â 2026-09-28 */
 .racer-approved-mobile-dashboard{min-height:100dvh!important;padding:0 10px 86px!important;background:#f5f9fe!important;color:#17315f!important;font-family:Arial,Helvetica,sans-serif!important}.racer-approved-mobile-dashboard .racer-teacher-inner{max-width:560px!important}.racer-approved-mobile-dashboard .racer-teacher-header{margin:0 -10px 10px!important;min-height:68px!important;padding:10px 13px!important;border-radius:0 0 16px 16px!important;background:linear-gradient(180deg,#0756ad,#0b4f98)!important}.racer-approved-mobile-dashboard .racer-teacher-logo{width:38px!important;height:38px!important;flex:0 0 38px!important;background:#0b3d78!important;color:#fff!important;border:1px solid rgba(255,255,255,.55)!important;font-size:14px!important}.racer-approved-mobile-dashboard .racer-teacher-kicker{font-size:7px!important;color:#dcecff!important}.racer-approved-mobile-dashboard .racer-teacher-header h1{font-size:15px!important;color:#fff!important}.racer-approved-mobile-dashboard .racer-teacher-header p{font-size:8px!important;color:#dcecff!important}.racer-approved-mobile-dashboard .racer-watch-time{display:none!important}.racer-approved-mobile-dashboard .racer-teacher-title{margin:9px 1px 8px!important}.racer-approved-mobile-dashboard .racer-teacher-title h2{font-size:20px!important}.racer-module-tabs{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:6px!important;padding:4px!important;margin:0 0 9px!important;border-radius:14px!important;background:#eaf3fd!important;border:1px solid #dce9f7!important}.racer-module-tabs button{border:0!important;border-radius:11px!important;background:transparent!important;color:#3d6a9e!important;font-size:9px!important;font-weight:800!important;padding:8px 4px!important;min-height:34px!important}.racer-module-tabs button.active{background:linear-gradient(180deg,#1976ed,#0b61d1)!important;color:#fff!important;box-shadow:0 3px 9px rgba(25,118,237,.22)!important}.racer-approved-mobile-dashboard .racer-approved-module-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important}.racer-approved-mobile-dashboard .racer-teacher-module{min-height:86px!important;padding:9px 8px 8px!important;border:1px solid #dce8f5!important;border-radius:13px!important;background:#fff!important;box-shadow:0 2px 9px rgba(21,74,125,.07)!important;text-align:left!important}.racer-approved-mobile-dashboard .racer-teacher-module-icon{width:34px!important;height:34px!important;margin:0 0 7px!important;border-radius:10px!important;font-size:16px!important;box-shadow:none!important}.racer-approved-mobile-dashboard .racer-teacher-module-title{font-size:9px!important;line-height:1.22!important;color:#17315f!important;white-space:normal!important;overflow-wrap:anywhere!important}.racer-approved-mobile-dashboard .racer-module-arrow{position:absolute!important;right:7px!important;bottom:7px!important;color:#78a4d2!important;font-size:17px!important}@media(max-width:640px){.racer-module-page{width:100%!important;max-width:560px!important;margin:0 auto!important;padding:8px 10px 88px!important;overflow-x:hidden!important}.racer-module-page h1,.racer-module-page h2,.racer-module-page h3{overflow-wrap:anywhere!important;line-height:1.2!important}.racer-module-page input,.racer-module-page select,.racer-module-page textarea{max-width:100%!important;min-width:0!important;font-size:13px!important;border-radius:10px!important}.racer-module-page button{max-width:100%!important;min-height:38px!important;border-radius:10px!important}.racer-module-page img{max-width:100%!important;height:auto!important}}@media(max-width:380px){.racer-approved-mobile-dashboard .racer-approved-module-grid{gap:5px!important}.racer-approved-mobile-dashboard .racer-teacher-module{min-height:82px!important;padding:8px 6px!important}.racer-approved-mobile-dashboard .racer-teacher-module-icon{width:31px!important;height:31px!important;font-size:14px!important}.racer-approved-mobile-dashboard .racer-teacher-module-title{font-size:8px!important}}
 
-/* RACER DASHBOARD REFERENCE DESKTOP REPAIR ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â 2026-09-28 START */
+/* RACER DASHBOARD REFERENCE DESKTOP REPAIR ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â 2026-09-28 START */
 /* Same polished visual language on laptop/desktop; mobile reference remains unchanged. */
 .racer-reference-dashboard{min-height:calc(100dvh - 74px);background:#f4f8fd;color:#17315f;font-family:Arial,Helvetica,sans-serif;}
 .racer-dashboard-v2-shell{width:100%;margin:0 auto;}
@@ -1735,7 +1735,7 @@ button {
 @media (max-width:1120px){.racer-reference-desktop-dashboard{padding-left:14px;padding-right:14px}.racer-dashboard-v2-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
 @media (max-width:820px){.racer-dashboard-v2-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.racer-dashboard-v2-welcome h1{font-size:23px}.racer-dashboard-v2-header{border-radius:15px}.racer-reference-desktop-dashboard{padding-top:10px;}}
 @media (max-width:640px){.racer-reference-desktop-dashboard{display:none!important;}}
-/* RACER DASHBOARD REFERENCE DESKTOP REPAIR ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â 2026-09-28 END */
+/* RACER DASHBOARD REFERENCE DESKTOP REPAIR ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â 2026-09-28 END */
 
 /* RACER_TEACHER_ATTENDANCE_MOBILE_UI_2026_09_28 */
 @media (max-width: 640px) {
@@ -2109,7 +2109,7 @@ button {
 /* RACER STUDENT HEADER GAP FINAL 2026-09-29 */
 @media(max-width:640px){.racer-student-shell .racer-student-fixed-header,.racer-student-shell .racer-mobile-appbar{position:fixed!important;top:0!important;left:0!important;right:0!important;width:100%!important;height:70px!important;min-height:70px!important;margin:0!important;border-radius:0!important;z-index:99999!important}.racer-student-shell .racer-portal-content{padding-top:71px!important}.racer-student-shell main.student-dashboard-page{padding-top:1px!important;margin-top:0!important}.racer-student-shell .student-hero{margin-top:1px!important}body:has(.racer-student-fixed-header){padding-top:0!important}}
 
-/* RACER ATTENDANCE VIP UI ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â shared teacher module visual standard */
+/* RACER ATTENDANCE VIP UI ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â shared teacher module visual standard */
 .racer-premium-header{
   position:relative!important;
   overflow:hidden!important;
@@ -2466,7 +2466,7 @@ main.racer-attendance-page .racer-attendance-footer{
 
 
 
-/* RACER ACADEMY Ã¢â‚¬â€ REMAINING TEACHER MODULES VIP UI
+/* RACER ACADEMY ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â REMAINING TEACHER MODULES VIP UI
    UI-only layer. Existing React/Supabase handlers remain untouched. */
 main[data-racer-vip-module]{
   min-height:100vh!important;
@@ -2842,7 +2842,7 @@ main.racer-unique-dashboard [data-racer-dashboard-modules="1"] a[href^="/teacher
   background:linear-gradient(180deg,#1174d4,#f1c74b)!important;
 }
 main.racer-unique-dashboard [data-racer-dashboard-modules="1"] a[href^="/teacher/"]::after{
-  content:"ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âº"!important;
+  content:"ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Âº"!important;
   position:absolute!important;right:11px!important;top:50%!important;transform:translateY(-50%)!important;
   color:#70a1d1!important;font-size:22px!important;font-weight:900!important;
 }
@@ -3816,7 +3816,7 @@ main.racer-unique-dashboard [data-racer-dashboard-modules="1"] a[href^="/teacher
 .racer-vip-fees-page .racer-vip-page-heading:first-child{padding-top:0!important}
 
 /* ============================================================
-   RACER ACADEMY DESKTOP LAYOUT REPAIR — 2026-10
+   RACER ACADEMY DESKTOP LAYOUT REPAIR â€” 2026-10
    Desktop-only overrides. Mobile/tablet rules and page logic
    are intentionally left unchanged.
    ============================================================ */
@@ -4020,7 +4020,7 @@ main.racer-unique-dashboard [data-racer-dashboard-modules="1"] a[href^="/teacher
 
 
 
-/* RACER STUDENT PORTAL — desktop design board implementation.
+/* RACER STUDENT PORTAL â€” desktop design board implementation.
    These styles are intentionally scoped to desktop (>= 1025px). The
    established mobile header, bottom navigation, and per-page mobile CSS stay active. */
 .racer-student-desktop-header,
@@ -4114,7 +4114,7 @@ main.racer-unique-dashboard [data-racer-dashboard-modules="1"] a[href^="/teacher
 }
 
 /* ================================================================
-   RACER STUDENT PORTAL — COMPLETE REFERENCE UI (DESKTOP + MOBILE)
+   RACER STUDENT PORTAL â€” COMPLETE REFERENCE UI (DESKTOP + MOBILE)
    Based on the supplied Student Portal reference image. Visual-only
    overrides: no changes to student data, queries, handlers or routes.
    ================================================================ */
@@ -4323,7 +4323,7 @@ main.racer-unique-dashboard [data-racer-dashboard-modules="1"] a[href^="/teacher
 
 
 /* ============================================================
-   RACER ACADEMY STUDENT DESKTOP REFERENCE UI — DESKTOP ONLY
+   RACER ACADEMY STUDENT DESKTOP REFERENCE UI â€” DESKTOP ONLY
    Uses existing student pages/data/actions; mobile design is untouched.
    ============================================================ */
 @media (min-width: 1025px) {
@@ -5229,7 +5229,7 @@ main.racer-unique-dashboard [data-racer-dashboard-modules="1"] a[href^="/teacher
 }
 
 
-/* RACER STUDENT MOBILE REFERENCE UI V1 â€” MOBILE ONLY */
+/* RACER STUDENT MOBILE REFERENCE UI V1 Ã¢â‚¬â€ MOBILE ONLY */
 @media (max-width: 767px) {
   .racer-student-shell {
     --racer-mobile-navy: #06264b;
@@ -6057,14 +6057,14 @@ main.racer-unique-dashboard [data-racer-dashboard-modules="1"] a[href^="/teacher
   .racer-reference-page .racer-reference-module-card { transition: none !important; }
 }
 
-/* RACER ACADEMY — Reference Mobile Dashboard */
+/* RACER ACADEMY â€” Reference Mobile Dashboard */
 @media (max-width:640px){.racer-reference-page{width:100%!important;min-height:100dvh!important;margin:0!important;padding:0 0 82px!important;overflow-x:hidden!important;background:#f5faff!important;box-sizing:border-box!important}.racer-reference-phone{width:100%!important;max-width:100%!important;min-height:100dvh!important;margin:0!important;border-radius:0!important;box-shadow:none!important}.racer-reference-topbar{position:sticky!important;top:0!important;z-index:100!important;display:flex!important;align-items:center!important;min-height:62px!important;padding:8px 12px!important;background:linear-gradient(110deg,#1742ad,#2458d8)!important;color:#fff!important;box-sizing:border-box!important}.racer-reference-welcome-card{display:flex!important;align-items:center!important;gap:12px!important;margin:12px!important;padding:16px!important;border:1px solid #edf3fb!important;border-radius:24px!important;background:#fff!important;box-shadow:0 5px 20px rgba(31,79,145,.07)!important;box-sizing:border-box!important}.racer-reference-hello{white-space:normal!important;overflow-wrap:anywhere!important}.racer-reference-control-head{margin:20px 14px 12px!important;padding:0!important;color:#15377f!important;font-size:22px!important;font-weight:750!important}.racer-reference-module-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important;padding:0 12px 18px!important;box-sizing:border-box!important}.racer-reference-module-grid>*{min-width:0!important;min-height:108px!important;padding:14px 8px!important;border:1px solid #e0efff!important;border-radius:18px!important;background:#fff!important;box-shadow:0 5px 16px rgba(30,90,160,.08)!important;box-sizing:border-box!important;text-align:center!important}.racer-reference-bottom-nav{display:none!important}.racer-bottom-nav{position:fixed!important;z-index:200!important;right:0!important;bottom:0!important;left:0!important;display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;min-height:68px!important;padding:7px 4px max(7px,env(safe-area-inset-bottom))!important;border-top:1px solid #e3edfa!important;background:#fff!important;box-shadow:0 -4px 16px rgba(25,65,120,.06)!important;box-sizing:border-box!important}}
 
 /* RACER REFERENCE GRID FINAL OVERRIDE */
 @media(max-width:640px){.racer-reference-stats-grid{display:none!important}.racer-reference-module-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:8px!important;padding:0 8px 18px!important}.racer-reference-module-card{min-height:105px!important;padding:12px 3px 8px!important;text-align:center!important;border-radius:16px!important;background:#fff!important;border:1px solid #e0efff!important;box-shadow:0 5px 16px rgba(30,90,160,.08)!important}.racer-reference-number{display:none!important}.racer-reference-module-icon{height:42px!important;padding-top:5px!important}.racer-reference-module-icon svg{width:25px!important;height:25px!important}.racer-reference-module-card>span:last-child{font-size:10px!important;line-height:1.25!important;overflow-wrap:anywhere!important}.racer-reference-control-head h1{font-size:22px!important;line-height:1.3!important}.racer-reference-control-head p{font-size:12px!important}.racer-bottom-nav{grid-template-columns:repeat(4,minmax(0,1fr))!important}}
 /* RACER ACADEMY MOBILE DASHBOARD FINAL */
 @media screen and (max-width:640px){body:has(.racer-reference-page) .racer-reference-page{width:100%!important;max-width:100%!important;margin:0!important;padding:0 0 82px!important;overflow-x:hidden!important}body:has(.racer-reference-page) .racer-reference-stats-grid{display:none!important}body:has(.racer-reference-page) .racer-reference-module-grid,body:has(.racer-reference-page) #teacher-modules.racer-reference-module-grid{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:8px!important;padding:8px!important;width:100%!important;box-sizing:border-box!important}body:has(.racer-reference-page) .racer-reference-module-card{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;min-width:0!important;min-height:104px!important;padding:10px 3px!important;margin:0!important;border:1px solid #dbeafe!important;border-radius:15px!important;background:#fff!important;box-shadow:0 4px 14px #1e40af12!important;text-align:center!important;box-sizing:border-box!important}body:has(.racer-reference-page) .racer-reference-number{display:none!important}body:has(.racer-reference-page) .racer-reference-module-icon{display:flex!important;align-items:center!important;justify-content:center!important;height:40px!important;padding:0!important;margin:0 0 7px!important}body:has(.racer-reference-page) .racer-reference-module-icon svg{width:25px!important;height:25px!important}body:has(.racer-reference-page) .racer-reference-module-card>span:last-child{display:block!important;width:100%!important;font-size:10px!important;line-height:1.25!important;white-space:normal!important;overflow-wrap:anywhere!important;text-align:center!important}body:has(.racer-reference-page) .racer-reference-control-head{padding:12px 14px!important;margin:8px 10px!important}body:has(.racer-reference-page) .racer-reference-control-head h1{font-size:21px!important;line-height:1.3!important}body:has(.racer-reference-page) .racer-reference-control-head p{font-size:12px!important}body:has(.racer-reference-page) .racer-bottom-nav{position:fixed!important;left:0!important;right:0!important;bottom:0!important;z-index:9999!important;display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;width:100%!important;padding:8px 4px calc(8px + env(safe-area-inset-bottom))!important;margin:0!important;background:#fff!important;border-top:1px solid #dbeafe!important;box-shadow:0 -4px 18px #0f172a12!important}body:has(.racer-reference-page) .racer-bottom-nav>*{min-width:0!important;justify-content:center!important;text-align:center!important}}
-/* RACER MOBILE REFERENCE MATCH � MOBILE ONLY */
+/* RACER MOBILE REFERENCE MATCH ï¿½ MOBILE ONLY */
 @media screen and (max-width:640px){
   body:has(.racer-reference-page),body:has(.racer-reference-page) main{background:#f4f9ff!important}
   body:has(.racer-reference-page) .racer-reference-page{width:100%!important;max-width:none!important;min-height:100dvh!important;margin:0!important;padding:0 0 78px!important;background:#f4f9ff!important;overflow-x:hidden!important}
@@ -6147,7 +6147,7 @@ main.racer-unique-dashboard [data-racer-dashboard-modules="1"] a[href^="/teacher
  body:has(.racer-reference-page) .racer-bottom-nav-icon{font-size:23px!important;line-height:27px!important}
 }
 
-/* RACER ACADEMY student reference UI — CSS-only presentation layer; data/actions untouched */
+/* RACER ACADEMY student reference UI â€” CSS-only presentation layer; data/actions untouched */
 @media (max-width: 640px) {
   .racer-student-shell { background:#f3f8ff !important; color:#10284c !important; }
   .racer-student-shell .racer-mobile-appbar,
@@ -6158,7 +6158,7 @@ main.racer-unique-dashboard [data-racer-dashboard-modules="1"] a[href^="/teacher
   .racer-student-shell .racer-student-header-meta { display:block !important; color:#e3efff !important; font-size:10px !important; line-height:1.35 !important; white-space:nowrap !important; }
   .racer-student-shell .racer-student-header-actions { margin-left:auto !important; display:flex !important; align-items:center !important; gap:7px !important; }
   .racer-student-shell .racer-student-bell { width:32px !important; height:32px !important; display:grid !important; place-items:center !important; font-size:0 !important; border:0 !important; background:transparent !important; color:#fff !important; text-decoration:none !important; }
-  .racer-student-shell .racer-student-bell:after { content:'♧' !important; font-size:23px !important; }
+  .racer-student-shell .racer-student-bell:after { content:'â™§' !important; font-size:23px !important; }
   .racer-student-shell .racer-student-header-logout { display:none !important; }
   .racer-student-shell .racer-student-desktop-header,
   .racer-student-shell .racer-student-desktop-sidebar,
@@ -6485,3 +6485,23 @@ body:has(.racer-student-fixed-header) {
 
 /* RACER: single premium 3D notification bell only */
 .racer-student-shell .racer-student-bell{width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;display:flex!important;align-items:center!important;justify-content:center!important;position:relative!important;overflow:hidden!important;background:radial-gradient(circle at 30% 20%,#fff9c4 0%,#facc15 35%,#f59e0b 72%,#b45309 100%)!important;border:1px solid #fef08a!important;border-radius:15px!important;box-shadow:inset 0 3px 5px #ffffffb3,inset 0 -5px 7px #92400e66,0 4px 0 #a16207,0 7px 13px #92400e55!important}.racer-student-shell .racer-student-bell>*:not(svg){display:none!important}.racer-student-shell .racer-student-bell svg{display:block!important;width:25px!important;height:25px!important;min-width:25px!important;min-height:25px!important;stroke:#713f12!important;fill:none!important;stroke-width:2.4!important;filter:drop-shadow(0 2px 1px #78350f77)!important}.racer-student-shell .racer-student-bell svg~svg{display:none!important}.racer-student-shell .racer-student-bell-dot{display:none!important}
+
+/* RACER animated golden 3D Om in student header profile position */
+.racer-student-profile-circle{display:flex!important;align-items:center!important;justify-content:center!important;overflow:visible!important;background:radial-gradient(circle at 30% 20%,#fff8c9 0%,#facc15 32%,#d97706 72%,#78350f 100%)!important;border:1px solid #fde68a!important;box-shadow:inset 0 3px 5px #fff9,inset 0 -4px 6px #78350f99,0 4px 0 #92400e,0 7px 12px #92400e55!important}.racer-om-3d{display:inline-flex!important;align-items:center!important;justify-content:center!important;color:#fff4b0!important;font-family:'Noto Sans Devanagari','Mangal',sans-serif!important;font-size:27px!important;font-weight:900!important;line-height:1!important;text-shadow:1px 1px 0 #b45309,2px 2px 0 #92400e,3px 3px 0 #78350f,0 0 7px #fff4b0,0 0 13px #facc15!important;filter:drop-shadow(0 3px 2px #78350f99)!important;animation:racerOmFloat 2.8s ease-in-out infinite,racerOmTurn 7s ease-in-out infinite;transform-origin:center}@keyframes racerOmFloat{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.05)}}@keyframes racerOmTurn{0%,80%,100%{rotate:0deg}90%{rotate:8deg}}@media(prefers-reduced-motion:reduce){.racer-om-3d{animation:none!important}}
+
+
+
+/* RACER_TEACHER_BOTTOM_NAV_STUDENTS_V1: five evenly sized mobile teacher navigation actions */
+@media (max-width: 1024px) {
+  .racer-bottom-nav {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  }
+  .racer-bottom-nav-item {
+    min-width: 0;
+    white-space: nowrap;
+    font-size: clamp(7px, 2.2vw, 9px);
+  }
+  .racer-bottom-nav-icon {
+    flex-shrink: 0;
+  }
+}

@@ -1,0 +1,8 @@
+﻿/* RACER ACADEMY - Responsive teacher modules */
+:root { --racer-light-bg: #eef3ff; --racer-light-card: #ffffff; --racer-light-text: #172554; }
+@media (max-width: 768px) {
+  main { min-width: 0; max-width: 100%; }
+  img, video { max-width: 100%; }
+  input, select, textarea, button { max-width: 100%; }
+  table { min-width: 600px; }
+}

@@ -1,9 +1,10 @@
-/* RACER_DASHBOARD_MAIN_HEADER_LOGOUT_DIRECT_V1 */
+/* RACER_TEACHER_DASHBOARD_VIP_V1 */
 "use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+import "../../teacher-dashboard-vip.css";
 
 type IconName =
   | "attendance" | "history" | "calendar" | "reports" | "fees" | "payments"
@@ -30,11 +31,6 @@ const menuItems = [
   ["Voice & Call Center", "/teacher/voice-call", "call"],
   ["Teachers", "/teacher/teachers", "teachers"],
   ["Timetable", "/teacher/timetable", "time"],
-] as const;
-
-const moduleColors = [
-  "blue", "violet", "green", "orange", "pink", "blue", "violet", "cyan", "green",
-  "pink", "blue", "violet", "green", "violet", "blue", "orange", "pink", "cyan",
 ] as const;
 
 function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
@@ -106,6 +102,26 @@ function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
   }
 }
 
+
+// ---- VIP dashboard config (theme badalne ke liye sirf ye ek line) ----
+const VIP_THEME: "gold" | "royal" = "gold";
+
+const vipGroups = [
+  { title: "Academics", sub: "Classes & learning", paths: ["/teacher/attendance", "/teacher/attendance-history", "/teacher/calendar", "/teacher/timetable", "/teacher/homework", "/teacher/extra-class", "/teacher/quiz-tests", "/teacher/monthly-results"] },
+  { title: "Students", sub: "People & communication", paths: ["/teacher/student-directory", "/teacher/login-activity", "/teacher/reports", "/teacher/announcements"] },
+  { title: "Finance", sub: "Fees & payments", paths: ["/teacher/fees", "/teacher/payments"] },
+  { title: "Manage", sub: "Account & tools", paths: ["/teacher/voice-call", "/teacher/teachers", "/teacher/profile", "/teacher/settings"] },
+];
+const vipQuick = ["/teacher/attendance", "/teacher/homework", "/teacher/fees", "/teacher/announcements"];
+const vipTones = ["blue", "violet", "green", "orange", "pink", "cyan"];
+const vipModule = (path: string) => menuItems.find((m) => m[1] === path)!;
+const vipTone = (path: string) => vipTones[menuItems.findIndex((m) => m[1] === path) % vipTones.length];
+
+function vipGreeting() {
+  const h = new Date().getHours();
+  return h < 12 ? "Good Morning" : h < 17 ? "Good Afternoon" : "Good Evening";
+}
+
 function currentTimeLabel() {
   const value = new Intl.DateTimeFormat("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }).format(new Date());
   return value.toUpperCase();
@@ -117,6 +133,8 @@ export default function TeacherDashboard() {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const [watchTime, setWatchTime] = useState(currentTimeLabel());
+  const [todayLabel, setTodayLabel] = useState("");
+  const [greeting, setGreeting] = useState("Welcome");
   // RACER_ASSIGNED_TOTAL_STUDENTS_PATCH
   const [assignedStudentCount, setAssignedStudentCount] = useState<number | null>(null);
 
@@ -129,6 +147,8 @@ export default function TeacherDashboard() {
       "Teacher";
     setTeacherName(savedTeacherName);
     setProfileImage(localStorage.getItem("teacherProfileImage"));
+    setTodayLabel(new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short" }).format(new Date()));
+    setGreeting(vipGreeting());
 
     const timer = window.setInterval(() => setWatchTime(currentTimeLabel()), 60000);
     return () => window.clearInterval(timer);
@@ -222,153 +242,95 @@ export default function TeacherDashboard() {
   }
 
   return (
-    <main className="racer-reference-page">
-      <div className="racer-reference-phone">
-        <header className="racer-reference-topbar">
-          <div className="racer-reference-brand">
-            <div className="racer-reference-ra">RA</div>
-            <div className="racer-reference-brand-copy">
-              <strong>RACER ACADEMY</strong>
-              <span>LEARN&nbsp; | &nbsp;PRACTICE&nbsp; | &nbsp;GROW</span>
-            </div>
+    <main className={`vip-td vip-td--${VIP_THEME}`}>
+      <div className="vip-td-wrap">
+        <header className="vip-td-top">
+          <div className="vip-td-brand">
+            <span className="vip-td-logo"><img src="/racer-academy-icon.png" alt="RACER ACADEMY" /></span>
+            <span>
+              <strong>WELCOME RACER ACADEMY</strong>
+              <small>TEACHER CONTROL CENTER</small>
+            </span>
           </div>
-          <div className="racer-reference-top-actions">
-            <button type="button" className="racer-reference-bell" onClick={() => router.push("/teacher/announcements")} aria-label="Announcements">
+          <div className="vip-td-actions">
+            <button type="button" className="vip-td-icon-btn" onClick={() => router.push("/teacher/announcements")} aria-label="Announcements">
               <Icon name="bell" size={19} />
-              <b>12</b>
             </button>
-            <button type="button" className="racer-reference-top-avatar" onClick={() => router.push("/teacher/profile")} aria-label="Profile">
-              {profileImage ? <img src={profileImage} alt="Profile" onError={() => setProfileImage(null)} /> : initial}
-              <i />
+            <button type="button" className="vip-td-icon-btn" onClick={handleLogout} disabled={loggingOut} aria-label="Logout">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10 5H5v14h5M15 8l4 4-4 4M9 12h10" /></svg>
             </button>
-            <button type="button" className="racer-reference-top-logout" onClick={handleLogout} disabled={loggingOut}>{loggingOut ? "..." : "Logout"}</button>
           </div>
         </header>
 
-        <section className="racer-reference-welcome-card">
-          <div className="racer-reference-welcome-main">
-            <div className="racer-reference-welcome-avatar">
-              {profileImage ? <img src={profileImage} alt="Profile" onError={() => setProfileImage(null)} /> : initial}
-              <span />
-            </div>
-            <div className="racer-reference-welcome-copy">
-              <div className="racer-reference-hello">Hello, <strong>{displayName}</strong> <em>Teacher</em></div>
-              <p>Small steps. Make big progress!</p>
-            </div>
-          </div>
-          <div className="racer-reference-total-students">
-            <div className="racer-reference-blue-icon"><Icon name="directory" size={19} /></div>
-            <small>Total Students</small>
-            <strong>{assignedStudentCount === null ? "--" : assignedStudentCount}</strong>
-          </div>
-        </section>
-
-        <section className="racer-reference-stats-grid">
-          <div className="racer-reference-stat-card stat-blue"><div className="stat-icon"><Icon name="directory" size={18} /></div><div><small>Classes</small><strong>12</strong></div></div>
-          <div className="racer-reference-stat-card stat-green"><div className="stat-icon"><Icon name="attendance" size={18} /></div><div><small>Today's<br />Attendance</small><strong>92%</strong></div></div>
-          <div className="racer-reference-stat-card stat-violet"><div className="stat-icon"><Icon name="reports" size={18} /></div><div><small>Reports</small><strong>18</strong></div></div>
-          <div className="racer-reference-stat-card stat-orange"><div className="stat-icon"><Icon name="time" size={18} /></div><div><small>Time</small><strong>{watchTime}</strong></div></div>
-        </section>
-
-        <section className="racer-reference-control-head">
+        <section className="vip-td-hero">
           <div>
-            <h1>Teacher Control Center</h1>
-            <p>Access all modules from here</p>
+            <div className="vip-td-id">
+              <button type="button" className="vip-td-avatar" onClick={() => router.push("/teacher/profile")} aria-label="Profile">
+                {profileImage ? <img src={profileImage} alt="Profile" onError={() => setProfileImage(null)} /> : initial}
+                <i />
+              </button>
+              <div>
+                <small>{greeting}</small>
+                <h1>{displayName}</h1>
+                <span className="vip-td-chip">TEACHER</span>
+              </div>
+            </div>
           </div>
-          <button type="button" onClick={() => document.getElementById("teacher-modules")?.scrollIntoView({ behavior: "smooth", block: "start" })}>View All <Icon name="chevron" size={14} /></button>
+          <div className="vip-td-stats">
+            <div className="vip-td-total">
+              <small>Total Students</small>
+              <strong>{assignedStudentCount === null ? "--" : assignedStudentCount}</strong>
+              <span>Assigned to you</span>
+            </div>
+            <div className="vip-td-mini">
+              <div><Icon name="calendar" size={15} /><small>Today</small><b>{todayLabel || "--"}</b></div>
+              <div><Icon name="time" size={15} /><small>Time</small><b>{watchTime}</b></div>
+              <div><Icon name="modules" size={15} /><small>Modules</small><b>{menuItems.length}</b></div>
+            </div>
+          </div>
         </section>
 
-        <section id="teacher-modules" className="racer-reference-module-grid">
-          {menuItems.map(([title, path, icon], index) => (
-            <button key={path} type="button" className={`racer-reference-module-card ${moduleColors[index]}`} onClick={() => router.push(path)}>
-              <span className="racer-reference-number">{String(index + 1).padStart(2, "0")}</span>
-              <span className="racer-reference-module-icon"><Icon name={icon} size={27} /></span>
-              <span className="racer-reference-module-title">{title}</span>
-              <span className="racer-reference-module-arrow"><Icon name="chevron" size={14} /></span>
-            </button>
+        <section className="vip-td-quick" aria-label="Quick actions">
+          {vipQuick.map((path) => {
+            const m = vipModule(path);
+            return (
+              <button key={path} type="button" className="vip-td-q" data-tone={vipTone(path)} onClick={() => router.push(path)}>
+                <span className="vip-td-q-ico"><Icon name={m[2]} size={21} /></span>
+                <span>{m[0]}</span>
+              </button>
+            );
+          })}
+        </section>
+
+        <div id="teacher-modules">
+          {vipGroups.map((group) => (
+            <section key={group.title} className="vip-td-group">
+              <div className="vip-td-group-head">
+                <h2>{group.title}</h2>
+                <span>{group.sub}</span>
+              </div>
+              <div className="vip-td-grid" data-n={group.paths.length}>
+                {group.paths.map((path) => {
+                  const m = vipModule(path);
+                  return (
+                    <button key={path} type="button" className="vip-td-tile" data-tone={vipTone(path)} onClick={() => router.push(path)}>
+                      <span className="vip-td-tile-ico"><Icon name={m[2]} size={24} /></span>
+                      <span className="vip-td-tile-title">{m[0]}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
           ))}
+        </div>
+
+        <section className="vip-td-banner">
+          <span><Icon name="bulb" size={20} /></span>
+          <div>
+            <strong>Better Students, Brighter Future!</strong>
+            <small>Together we can build a smarter learning platform.</small>
+          </div>
         </section>
-
-        <section className="racer-reference-banner">
-          <div className="racer-reference-banner-bulb"><Icon name="bulb" size={20} /></div>
-          <div><strong>Better Students, Brighter Future!</strong><span>Together we can build a smarter learning platform.</span></div>
-          <Icon name="chevron" size={16} />
-        </section>
-
-        <nav className="racer-reference-bottom-nav" aria-label="Teacher navigation">
-          <button type="button" className="active" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}><Icon name="home" size={20} /><span>Home</span></button>
-          <button type="button" onClick={() => document.getElementById("teacher-modules")?.scrollIntoView({ behavior: "smooth", block: "start" })}><Icon name="modules" size={20} /><span>Modules</span></button>
-          <button type="button" className="has-badge" onClick={() => router.push("/teacher/announcements")}><Icon name="notification" size={20} /><span>Notifications</span><b>12</b></button>
-          <button type="button" onClick={() => router.push("/teacher/profile")}><Icon name="profile" size={20} /><span>Profile</span></button>
-        </nav>
-
-        <style jsx global>{`
-          * { box-sizing: border-box; }
-          html, body { background: #f5f8ff; }
-          body { margin: 0; }
-          .racer-reference-page { min-height: 100vh; background: #f5f8ff; color: #122448; }
-          .racer-reference-phone { width: min(100%, 430px); margin: 0 auto; min-height: 100vh; padding-bottom: 78px; overflow-x: hidden; background: linear-gradient(180deg,#1d3bdf 0 56px,#eef4ff 56px 100%); }
-          .racer-reference-topbar { height: 56px; padding: 8px 12px; display:flex; align-items:center; justify-content:space-between; color:#fff; }
-          .racer-reference-brand { display:flex; align-items:center; gap:8px; min-width:0; }
-          .racer-reference-ra { width:36px; height:36px; border:2px solid rgba(255,255,255,.9); border-radius:50%; display:grid; place-items:center; font-weight:800; font-size:15px; background:rgba(255,255,255,.12); box-shadow:0 4px 12px rgba(0,0,0,.18); }
-          .racer-reference-brand-copy { display:flex; flex-direction:column; min-width:0; }
-          .racer-reference-brand-copy strong { font-size:13px; line-height:15px; letter-spacing:.2px; }
-          .racer-reference-brand-copy span { font-size:5.5px; font-weight:700; letter-spacing:.55px; opacity:.95; margin-top:1px; }
-          .racer-reference-top-actions { display:flex; align-items:center; gap:10px; }
-          .racer-reference-bell,.racer-reference-top-avatar,.racer-reference-control-head button,.racer-reference-bottom-nav button { border:0; background:none; padding:0; font:inherit; cursor:pointer; }
-          .racer-reference-bell { width:30px; height:30px; position:relative; display:grid; place-items:center; color:#fff; }
-          .racer-reference-bell b { position:absolute; right:-3px; top:-3px; min-width:14px; height:14px; border-radius:8px; background:#ff3b44; color:#fff; font-size:8px; line-height:14px; text-align:center; border:1.5px solid #243ddb; }
-          .racer-reference-top-avatar { width:34px; height:34px; border-radius:50%; background:#ffcb9b; border:2px solid #fff; overflow:visible; position:relative; display:grid; place-items:center; color:#193b87; font-weight:800; }
-          .racer-reference-top-avatar img { width:100%; height:100%; object-fit:cover; border-radius:50%; display:block; }
-          .racer-reference-top-avatar i { position:absolute; right:-1px; bottom:-1px; width:9px; height:9px; border-radius:50%; background:#29df68; border:2px solid #fff; }
-          .racer-reference-welcome-card { margin:0 9px; padding:9px 10px; min-height:72px; background:#fff; border-radius:20px; display:flex; align-items:center; justify-content:space-between; box-shadow:0 10px 24px rgba(38,70,160,.14); }
-          .racer-reference-welcome-main { display:flex; align-items:center; min-width:0; gap:8px; }
-          .racer-reference-welcome-avatar { width:49px; height:49px; border-radius:50%; flex:none; background:linear-gradient(180deg,#ffe1c6,#f3ad7b); display:grid; place-items:center; position:relative; overflow:hidden; color:#18336e; font-weight:900; font-size:17px; }
-          .racer-reference-welcome-avatar img { width:100%; height:100%; object-fit:cover; display:block; }
-          .racer-reference-welcome-avatar span { position:absolute; right:0; bottom:1px; width:10px; height:10px; border-radius:50%; background:#27d86a; border:2px solid #fff; }
-          .racer-reference-welcome-copy { min-width:0; }
-          .racer-reference-hello { font-size:10px; line-height:12px; color:#102a67; white-space:nowrap; }
-          .racer-reference-hello strong { font-size:11px; }
-          .racer-reference-hello em { font-style:normal; display:inline-block; margin-left:4px; padding:4px 6px; border-radius:9px; background:#eae9ff; color:#5d49d7; font-size:7px; font-weight:800; vertical-align:1px; }
-          .racer-reference-welcome-copy p { margin:4px 0 0; font-size:8px; color:#6a7899; }
-          .racer-reference-total-students { min-width:88px; min-height:54px; border-radius:13px; background:#eaf6ff; padding:6px 7px; position:relative; display:grid; grid-template-columns:22px 1fr; grid-template-rows:auto 1fr; column-gap:5px; }
-          .racer-reference-blue-icon { grid-row:1 / span 2; width:22px; height:22px; border-radius:6px; display:grid; place-items:center; background:#d9ecff; color:#2775df; }
-          .racer-reference-total-students small { font-size:7px; color:#42608f; align-self:end; }
-          .racer-reference-total-students strong { font-size:19px; line-height:18px; color:#245fd0; align-self:start; }
-          .racer-reference-stats-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; padding:7px 9px 8px; }
-          .racer-reference-stat-card { min-height:53px; border-radius:12px; padding:6px; display:flex; align-items:center; gap:5px; box-shadow:0 5px 14px rgba(39,62,130,.08); }
-          .racer-reference-stat-card .stat-icon { width:25px; height:25px; border-radius:8px; display:grid; place-items:center; flex:none; }
-          .racer-reference-stat-card small { display:block; font-size:6.5px; font-weight:700; line-height:8px; }
-          .racer-reference-stat-card strong { display:block; font-size:11px; line-height:12px; margin-top:1px; }
-          .stat-blue { background:#e9f2ff; color:#2063d5; }.stat-blue .stat-icon { background:#d4e7ff; }
-          .stat-green { background:#e9faef; color:#1f9e59; }.stat-green .stat-icon { background:#cdf2da; }
-          .stat-violet { background:#f0eaff; color:#6950df; }.stat-violet .stat-icon { background:#dfd5ff; }
-          .stat-orange { background:#fff0e8; color:#f05a20; }.stat-orange .stat-icon { background:#ffd9c8; }
-          .racer-reference-control-head { padding:3px 12px 8px; display:flex; justify-content:space-between; align-items:flex-end; }
-          .racer-reference-control-head h1 { margin:0; font-size:12px; line-height:14px; color:#15305f; }
-          .racer-reference-control-head p { margin:2px 0 0; font-size:7px; color:#657695; }
-          .racer-reference-control-head button { display:flex; align-items:center; gap:1px; color:#155add; font-size:8px; font-weight:800; }
-          .racer-reference-module-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; padding:0 9px 9px; }
-          .racer-reference-module-card { position:relative; min-width:0; min-height:70px; border:1px solid rgba(73,94,145,.08); border-radius:12px; padding:7px 7px 6px; text-align:left; overflow:hidden; cursor:pointer; box-shadow:0 5px 12px rgba(42,68,125,.06); }
-          .racer-reference-module-card.blue { background:#e5f0ff; color:#1f64d7; }.racer-reference-module-card.violet { background:#eee5ff; color:#6b42df; }.racer-reference-module-card.green { background:#def8ea; color:#0eab65; }.racer-reference-module-card.orange { background:#ffecd9; color:#f05b1a; }.racer-reference-module-card.pink { background:#ffe6f1; color:#ed3b79; }.racer-reference-module-card.cyan { background:#def6f8; color:#0b9bb6; }
-          .racer-reference-number { position:absolute; left:6px; top:5px; min-width:17px; height:13px; padding:0 4px; border-radius:8px; background:currentColor; color:#fff; font-size:6px; line-height:13px; font-weight:800; text-align:center; opacity:.95; }
-          .racer-reference-module-icon { display:grid; place-items:center; padding-top:9px; height:32px; }
-          .racer-reference-module-icon svg { width:27px; height:27px; }
-          .racer-reference-module-title { display:block; margin-top:7px; padding-right:8px; font-size:8px; line-height:9px; color:#18325f; font-weight:800; min-height:18px; }
-          .racer-reference-module-arrow { position:absolute; right:5px; bottom:5px; color:inherit; opacity:.9; }
-          .racer-reference-module-arrow svg { width:13px; height:13px; }
-          .racer-reference-banner { margin:1px 9px 10px; min-height:33px; padding:5px 8px; border-radius:12px; display:flex; align-items:center; gap:7px; color:#fff; background:linear-gradient(90deg,#2d24ca,#4b64ff); box-shadow:0 8px 15px rgba(52,67,214,.18); }
-          .racer-reference-banner-bulb { width:25px; height:25px; border-radius:8px; background:#ffcc45; color:#fff; display:grid; place-items:center; flex:none; }
-          .racer-reference-banner div:nth-child(2) { min-width:0; flex:1; }
-          .racer-reference-banner strong,.racer-reference-banner span { display:block; }
-          .racer-reference-banner strong { font-size:8px; line-height:10px; }.racer-reference-banner span { font-size:6.5px; line-height:8px; opacity:.9; }
-          .racer-reference-bottom-nav { position:fixed; z-index:30; bottom:0; left:50%; transform:translateX(-50%); width:min(100%,430px); min-height:58px; background:rgba(255,255,255,.98); border-top:1px solid #dfe6f3; box-shadow:0 -5px 18px rgba(26,49,100,.1); display:grid; grid-template-columns:repeat(4,1fr); padding:5px 4px calc(5px + env(safe-area-inset-bottom)); }
-          .racer-reference-bottom-nav button { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; color:#6b7896; font-size:7px; font-weight:700; }
-          .racer-reference-bottom-nav button.active { color:#1c54df; }.racer-reference-bottom-nav button.active svg { stroke-width:2.4; }
-          .racer-reference-bottom-nav .has-badge b { position:absolute; top:1px; right:26%; min-width:13px; height:13px; border-radius:7px; background:#f24a52; color:#fff; border:1.5px solid #fff; font-size:7px; line-height:10px; text-align:center; }
-          .racer-reference-phone button:focus-visible { outline:2px solid #1e64e8; outline-offset:2px; }
-          @media (min-width:681px) { .racer-reference-page { padding:18px 0 24px; } .racer-reference-phone { border-radius:22px; box-shadow:0 18px 50px rgba(31,61,123,.15); } }
-        `}</style>
       </div>
     </main>
   );

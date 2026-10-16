@@ -1,0 +1,17 @@
+﻿/* RACER ACADEMY mobile module header fix */
+@media (max-width: 767px) {
+:is(div, section, header):has(> .racer-vip-heading-copy):has(> .racer-vip-date-tile),
+header[data-racer-vip-header="1"],
+.page-header,
+header:has(.racer-vip-brand-subtitle) {
+  display: none !important;
+}
+}@media (max-width: 767px) {
+  header.racer-shared-fixed-module-header + * {
+    margin-top: 36px !important;
+  }
+  header.racer-shared-fixed-module-header ~ * {
+    scroll-margin-top: 18px;
+  }
+}
+

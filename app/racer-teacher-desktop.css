@@ -1,0 +1,76 @@
+/* =====================================================================
+   RACER ACADEMY - TEACHER DESKTOP (laptop / Windows, >= 1025px)
+   Sirf desktop ke liye header + sidebar. Mobile (<=1024px) bilkul wahi rehta hai.
+   Hatana ho to teacher/layout.tsx se is file ka import aur rtd-* markup hata do.
+   ===================================================================== */
+.rtd-header,
+.rtd-sidebar { display: none; }
+
+@media (min-width: 1025px) {
+  .racer-teacher-shell { --rtd-top: 64px; --rtd-side: 252px; }
+
+  /* ---- header ---- */
+  .racer-teacher-shell .rtd-header {
+    position: fixed; z-index: 10070; top: 0; left: 0; right: 0; height: var(--rtd-top);
+    display: flex; align-items: center; gap: 16px; padding: 0 24px; box-sizing: border-box;
+    background: linear-gradient(110deg, #1742ad, #2458d8); color: #fff;
+    box-shadow: 0 2px 14px rgba(15, 40, 100, .25);
+  }
+  .rtd-brand { display: flex; align-items: center; gap: 12px; color: #fff; text-decoration: none; min-width: calc(var(--rtd-side) - 24px); }
+  .rtd-brand img { width: 40px; height: 40px; border-radius: 10px; object-fit: cover; background: #fff; }
+  .rtd-brand strong { display: block; font-size: 16px; line-height: 1.15; letter-spacing: .02em; }
+  .rtd-brand small { display: block; font-size: 11px; opacity: .8; letter-spacing: .08em; }
+  .rtd-title { flex: 1; font-size: 18px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rtd-tools { display: flex; align-items: center; gap: 10px; }
+  .rtd-btn {
+    height: 36px; padding: 0 14px; border: 1px solid rgba(255, 255, 255, .35); border-radius: 10px;
+    background: rgba(255, 255, 255, .12); color: #fff; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .rtd-btn:hover { background: rgba(255, 255, 255, .22); }
+  .rtd-btn.logout { background: #fff; color: #1742ad; border-color: #fff; }
+  .rtd-user { display: flex; align-items: center; gap: 10px; padding-left: 6px; text-decoration: none; color: #fff; }
+  .rtd-avatar { width: 38px; height: 38px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: #fff; color: #1742ad; font-weight: 800; }
+  .rtd-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .rtd-user strong { display: block; font-size: 14px; line-height: 1.1; }
+  .rtd-user small { font-size: 11px; opacity: .8; }
+
+  /* ---- sidebar ---- */
+  .racer-teacher-shell .rtd-sidebar {
+    position: fixed; z-index: 10060; top: var(--rtd-top); bottom: 0; left: 0; width: var(--rtd-side);
+    display: block; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; padding: 4px 12px 20px;
+    background: linear-gradient(180deg, #071d40 0%, #062b5c 100%); border-right: 1px solid rgba(255, 255, 255, .06);
+  }
+  .rtd-label { margin: 16px 10px 6px; font-size: 11px; font-weight: 800; letter-spacing: .1em; color: #7f9cc9; }
+  .rtd-nav { display: flex; flex-direction: column; gap: 3px; }
+  .rtd-item {
+    display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px;
+    color: #d6e4f6; font-size: 14px; font-weight: 600; text-decoration: none;
+  }
+  .rtd-item:hover { background: rgba(255, 255, 255, .08); color: #fff; }
+  .rtd-item.active { background: #145eb8; color: #fff; box-shadow: inset 3px 0 0 #ffe08a; }
+  .rtd-ico { width: 22px; text-align: center; font-size: 16px; color: #8fb4ea; }
+  .rtd-item.active .rtd-ico { color: #ffe08a; }
+  .rtd-foot { margin: 20px 10px 0; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, .1); color: #7f9cc9; font-size: 11px; }
+  .rtd-foot strong { display: block; color: #d6e4f6; font-size: 12px; }
+
+  /* ---- page area: sidebar ke bagal me, poori width ---- */
+  .racer-teacher-shell .racer-portal-content {
+    margin-left: var(--rtd-side) !important;
+    width: calc(100% - var(--rtd-side)) !important;
+    padding-top: var(--rtd-top) !important;
+  }
+  .racer-teacher-shell .racer-shared-teacher-module-content { padding-top: calc(var(--rtd-top) + 20px) !important; }
+  .racer-teacher-shell .racer-reference-phone { padding-top: 22px !important; }
+
+  /* purane phone-style header / bottom nav desktop pe hide (sidebar ne unki jagah le li) */
+  .racer-teacher-shell .racer-shared-fixed-module-header,
+  .racer-teacher-shell .racer-reference-topbar,
+  .racer-teacher-shell .racer-bottom-nav { display: none !important; }
+}
+
+/* ---- ek hi header: page ke duplicate header/buttons chhupana (mobile + desktop dono) ---- */
+[data-rtd-hide] { display: none !important; }
+header[data-rtd-slim] {
+  background: none !important; box-shadow: none !important; border: 0 !important;
+  padding: 0 !important; min-height: 0 !important; margin: 0 0 12px !important; height: auto !important;
+}

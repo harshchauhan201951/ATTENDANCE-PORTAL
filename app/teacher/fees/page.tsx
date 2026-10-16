@@ -641,7 +641,10 @@ export default function TeacherFeesPage() {
   const [fees, setFees] =
     useState<Fee[]>([]);
 
-  const [studentId, setStudentId] =
+    const [monthlyReportOpen, setMonthlyReportOpen] = useState(false);
+  const [monthlyReportMonth, setMonthlyReportMonth] = useState(String(new Date().getMonth() + 1));
+  const [monthlyReportYear, setMonthlyReportYear] = useState(String(new Date().getFullYear()));
+  const [monthlyReportFilter, setMonthlyReportFilter] = useState<"all" | "submitted" | "pending" | "other" | "missing">("all");const [studentId, setStudentId] =
     useState("");
 
   const [month, setMonth] =
@@ -1989,7 +1992,124 @@ onclick="window.print()"
   }
 
   // RACER_FEES_EXCEL_EXPORT_V1: export current selected month or complete fee history.
-  function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") {
+    // RACER_FEE_HISTORY_MONTHWISE_ACTIONS_V1: export every status for the selected month.
+  function downloadMonthlyFeeExcel() {
+    const rows = fees.filter((fee) =>
+      Number(fee.month) === Number(month) && Number(fee.year) === Number(year)
+    );
+
+    if (rows.length === 0) {
+      setMessage("");
+      setError(`No fee records found for ${getMonthName(Number(month))} ${year}.`);
+      return;
+    }
+
+    const exportRows = rows.map((fee, index) => {
+      const normalized = String(fee.status || "").toUpperCase();
+      const isPaid = ["SUBMITTED", "PAID", "PAID ONLINE"].includes(normalized);
+      const amountValue = Number(fee.amount || 0);
+      const student = students.find((item) => Number(item.id) === Number(fee.student_id));
+      return {
+        "S.No.": index + 1,
+        "Student Name": getStudentName(fee.student_id),
+        "Student Username / ID": getStudentUsername(fee.student_id),
+        "Class": student ? getStudentClass(student) : "",
+        "Month": getMonthName(Number(fee.month)),
+        "Year": Number(fee.year),
+        "Fee Amount (INR)": amountValue,
+        "Paid Amount (INR)": isPaid ? amountValue : 0,
+        "Due Amount (INR)": normalized === "PENDING" ? amountValue : 0,
+        "Status": fee.status || "",
+        "Payment Mode": fee.payment_mode || "",
+        "Payment Date": fee.payment_date || "",
+        "Transaction ID": fee.transaction_id || "",
+        "Remarks": fee.remarks || "",
+        "Fee Record ID": fee.id
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(exportRows);
+    worksheet["!cols"] = [
+      { wch: 8 }, { wch: 26 }, { wch: 24 }, { wch: 12 },
+      { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 18 },
+      { wch: 18 }, { wch: 14 }, { wch: 16 }, { wch: 16 },
+      { wch: 24 }, { wch: 30 }, { wch: 14 }
+    ];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Fee Details");
+
+    const totals = exportRows.reduce((acc, row) => {
+      acc.fee += Number(row["Fee Amount (INR)"] || 0);
+      acc.paid += Number(row["Paid Amount (INR)"] || 0);
+      acc.due += Number(row["Due Amount (INR)"] || 0);
+      return acc;
+    }, { fee: 0, paid: 0, due: 0 });
+    const period = `${getMonthName(Number(month))} ${year}`;
+    const summary = XLSX.utils.aoa_to_sheet([
+      ["RACER ACADEMY - Monthly-wise Fee Report"],
+      ["Period", period],
+      ["Total Records", exportRows.length],
+      ["Total Fee Amount (INR)", totals.fee],
+      ["Total Paid Amount (INR)", totals.paid],
+      ["Total Due Amount (INR)", totals.due],
+      [],
+      ["Generated At", new Date().toLocaleString("en-IN")]
+    ]);
+    XLSX.utils.book_append_sheet(workbook, summary, "Summary");
+    XLSX.writeFile(workbook, `RACER-ACADEMY-MONTHLY-FEES-${String(month).padStart(2, "0")}-${year}.xlsx`);
+    setError("");
+    setMessage(`Monthly-wise fee Excel downloaded for ${period} (${exportRows.length} records).`);
+  }
+  function downloadSelectedMonthlyFeeReportExcel() {
+    const period = `${getMonthName(Number(monthlyReportMonth))} ${monthlyReportYear}`;
+    const exportRows = monthlyReportRows.map((row, index) => {
+      const statusValue = String(row.fee?.status || "NO ENTRY").toUpperCase();
+      const amountValue = Number(row.fee?.amount || 0);
+      const isSubmitted = ["SUBMITTED", "PAID", "PAID ONLINE"].includes(statusValue);
+      const isPending = statusValue === "PENDING";
+      return {
+        "S.No.": index + 1,
+        "Student Name": row.student.student_name || row.student.student_username,
+        "Student Username / ID": row.student.student_username,
+        "Class": getStudentClass(row.student),
+        "Month": getMonthName(Number(monthlyReportMonth)),
+        "Year": Number(monthlyReportYear),
+        "Fee Amount (INR)": row.fee ? amountValue : "",
+        "Paid / Submitted Amount (INR)": isSubmitted ? amountValue : 0,
+        "Pending Amount (INR)": isPending ? amountValue : 0,
+        "Status": row.fee?.status || "NO ENTRY",
+        "Payment Mode": row.fee?.payment_mode || "",
+        "Payment Date": row.fee?.payment_date || "",
+        "Transaction ID": row.fee?.transaction_id || "",
+        "Remarks": row.fee?.remarks || "",
+        "Fee Record ID": row.fee?.id ?? "",
+      };
+    });
+    const detailSheet = XLSX.utils.json_to_sheet(exportRows);
+    detailSheet["!cols"] = [{ wch: 8 }, { wch: 26 }, { wch: 24 }, { wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 24 }, { wch: 20 }, { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 24 }, { wch: 30 }, { wch: 14 }];
+    const summarySheet = XLSX.utils.aoa_to_sheet([
+      ["RACER ACADEMY - MONTHLY FEE REPORT"],
+      ["Month", period],
+      ["Total active students", students.length],
+      ["Fee records in selected month", monthlyReportFeeRecords.length],
+      ["Submitted / Paid records", monthlyReportSubmittedFees.length],
+      ["Submitted / Paid amount (INR)", monthlyReportSubmittedAmount],
+      ["Pending records", monthlyReportPendingFees.length],
+      ["Pending amount (INR)", monthlyReportPendingAmount],
+      ["Other status records", monthlyReportOtherFees.length],
+      ["Students with no fee entry", monthlyReportNoEntryCount],
+      ["Total recorded fee amount (INR)", monthlyReportTotalAmount],
+      ["Generated at", new Date().toLocaleString("en-IN")],
+    ]);
+    summarySheet["!cols"] = [{ wch: 32 }, { wch: 28 }];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, detailSheet, "All Students");
+    XLSX.utils.book_append_sheet(workbook, summarySheet, "Summary");
+    XLSX.writeFile(workbook, `RACER-ACADEMY-MONTHLY-FEE-REPORT-${String(monthlyReportMonth).padStart(2, "0")}-${monthlyReportYear}.xlsx`);
+    setError("");
+    setMessage(`Monthly fee report downloaded for ${period}.`);
+  }
+function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") {
     const wantedStatus = kind === "paid"
       ? ["SUBMITTED", "PAID", "PAID ONLINE"]
       : ["PENDING"];
@@ -2141,6 +2261,7 @@ onclick="window.print()"
   });
   const pendingVipFees = fees.filter((fee) => String(fee.status || "").toUpperCase() === "PENDING");
   const vipCollectionTotal = paidVipFees.reduce((sum, fee) => sum + Number(fee.amount || 0), 0);
+  const vipPendingFeeTotal = pendingVipFees.reduce((sum, fee) => sum + Number(fee.amount || 0), 0); /* RACER_FEES_FIVE_SUMMARY_CARDS_MOBILE_FIX_V3 */
   const visibleVipFees = fees.filter((fee) => {
     const text = `${getStudentName(fee.student_id)} ${getStudentUsername(fee.student_id)} ${fee.month} ${fee.year}`.toLowerCase();
     const statusValue = String(fee.status || "").toUpperCase();
@@ -2153,7 +2274,46 @@ onclick="window.print()"
   const safeFeePage = Math.min(feePage, feeTotalPages);
   const feePageRows = visibleVipFees.slice((safeFeePage - 1) * feePageSize, safeFeePage * feePageSize);
 
-  if (loading) {
+    // RACER_MONTHLY_FEE_REPORT_MODAL_V2: complete month/year report for every student.
+  const monthlyReportYears = Array.from(new Set([
+    ...fees.map((fee) => Number(fee.year)).filter((value) => Number.isFinite(value) && value > 0),
+    ...Array.from({ length: 9 }, (_, index) => new Date().getFullYear() - 4 + index),
+  ])).sort((a, b) => b - a);
+  const monthlyReportFeeRecords = fees.filter((fee) =>
+    Number(fee.month) === Number(monthlyReportMonth) && Number(fee.year) === Number(monthlyReportYear)
+  );
+  const monthlyReportSubmittedFees = monthlyReportFeeRecords.filter((fee) =>
+    ["SUBMITTED", "PAID", "PAID ONLINE"].includes(String(fee.status || "").toUpperCase())
+  );
+  const monthlyReportPendingFees = monthlyReportFeeRecords.filter((fee) =>
+    String(fee.status || "").toUpperCase() === "PENDING"
+  );
+  const monthlyReportOtherFees = monthlyReportFeeRecords.filter((fee) => {
+    const statusValue = String(fee.status || "").toUpperCase();
+    return !["SUBMITTED", "PAID", "PAID ONLINE", "PENDING"].includes(statusValue);
+  });
+  const monthlyReportTotalAmount = monthlyReportFeeRecords.reduce((sum, fee) => sum + Number(fee.amount || 0), 0);
+  const monthlyReportSubmittedAmount = monthlyReportSubmittedFees.reduce((sum, fee) => sum + Number(fee.amount || 0), 0);
+  const monthlyReportPendingAmount = monthlyReportPendingFees.reduce((sum, fee) => sum + Number(fee.amount || 0), 0);
+  const monthlyReportRows = students.flatMap((student) => {
+    const studentRecords = monthlyReportFeeRecords.filter((fee) => Number(fee.student_id) === Number(student.id));
+    if (studentRecords.length === 0) {
+      return [{ key: `student-${student.id}-no-entry`, student, fee: null as Fee | null }];
+    }
+    return studentRecords.map((fee) => ({ key: `fee-${fee.id}`, student, fee: fee as Fee | null }));
+  });
+  const monthlyReportNoEntryCount = students.filter((student) =>
+    !monthlyReportFeeRecords.some((fee) => Number(fee.student_id) === Number(student.id))
+  ).length;
+  const monthlyReportVisibleRows = monthlyReportRows.filter((row) => {
+    const statusValue = String(row.fee?.status || "").toUpperCase();
+    if (monthlyReportFilter === "submitted") return ["SUBMITTED", "PAID", "PAID ONLINE"].includes(statusValue);
+    if (monthlyReportFilter === "pending") return statusValue === "PENDING";
+    if (monthlyReportFilter === "other") return Boolean(row.fee) && !["SUBMITTED", "PAID", "PAID ONLINE", "PENDING"].includes(statusValue);
+    if (monthlyReportFilter === "missing") return !row.fee;
+    return true;
+  });
+if (loading) {
     return (
       <main className="racer-vip-module-page racer-vip-fees-page">
         <div className="racer-vip-phone">
@@ -2167,7 +2327,37 @@ onclick="window.print()"
     <main className="racer-vip-module-page racer-vip-fees-page">
       <div className="racer-vip-phone">
 
-        {message && <div className={`racer-vip-message ${message.toLowerCase().includes("unable") || message.toLowerCase().includes("error") ? "is-error" : "is-success"}`}>{message}</div>}
+                {monthlyReportOpen && (
+          <div role="presentation" onClick={(event) => { if (event.target === event.currentTarget) setMonthlyReportOpen(false); }} style={{ position: "fixed", inset: 0, zIndex: 1000000, display: "flex", alignItems: "center", justifyContent: "center", padding: "12px", background: "rgba(5, 20, 48, .68)", boxSizing: "border-box" }}>
+            <section role="dialog" aria-modal="true" aria-labelledby="racer-monthly-report-title" style={{ width: "min(1100px, 100%)", maxHeight: "92dvh", overflow: "auto", background: "#f5f9ff", border: "1px solid #cbdcf3", borderRadius: "18px", boxShadow: "0 24px 70px rgba(0,0,0,.32)", color: "#15335e", padding: "14px", boxSizing: "border-box" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: "12px" }}>
+                <div><h2 id="racer-monthly-report-title" style={{ margin: 0, fontSize: "20px", fontWeight: 900 }}>Monthly-wise Fee Report</h2><p style={{ margin: "4px 0 0", color: "#637a99", fontSize: "12px" }}>All students and every fee status for the selected month</p></div>
+                <button type="button" aria-label="Close monthly report" onClick={() => setMonthlyReportOpen(false)} style={{ width: "38px", height: "38px", flex: "0 0 38px", border: 0, borderRadius: "11px", background: "#e3edfb", color: "#173b70", fontSize: "23px", fontWeight: 800, cursor: "pointer" }}>×</button>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "8px", marginBottom: "12px" }}>
+                <label style={{ display: "grid", gap: "5px", fontSize: "12px", fontWeight: 800 }}>Select Month<select value={monthlyReportMonth} onChange={(event) => { setMonthlyReportMonth(event.target.value); setMonthlyReportFilter("all"); }} style={{ width: "100%", height: "42px", border: "1px solid #cbdcf3", borderRadius: "10px", background: "#fff", color: "#15335e", padding: "0 10px", fontWeight: 700 }}>{months.map((monthName, index) => <option key={monthName} value={index + 1}>{monthName}</option>)}</select></label>
+                <label style={{ display: "grid", gap: "5px", fontSize: "12px", fontWeight: 800 }}>Select Year<select value={monthlyReportYear} onChange={(event) => { setMonthlyReportYear(event.target.value); setMonthlyReportFilter("all"); }} style={{ width: "100%", height: "42px", border: "1px solid #cbdcf3", borderRadius: "10px", background: "#fff", color: "#15335e", padding: "0 10px", fontWeight: 700 }}>{monthlyReportYears.map((yearValue) => <option key={yearValue} value={yearValue}>{yearValue}</option>)}</select></label>
+              </div>
+              <div style={{ fontSize: "14px", fontWeight: 900, marginBottom: "10px", color: "#0c54b8" }}>{getMonthName(Number(monthlyReportMonth))} {monthlyReportYear} · Monthly overview</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "8px", marginBottom: "12px" }}>
+                <div style={{ padding: "10px", borderRadius: "12px", border: "1px solid #c9e1ff", background: "#eaf4ff" }}><small style={{ display: "block", color: "#476c9c", fontSize: "10px", fontWeight: 800 }}>ALL STUDENTS</small><strong style={{ display: "block", fontSize: "23px", color: "#1557bd" }}>{students.length}</strong><small>{monthlyReportFeeRecords.length} fee records</small></div>
+                <div style={{ padding: "10px", borderRadius: "12px", border: "1px solid #b9efd6", background: "#e9fff4" }}><small style={{ display: "block", color: "#287454", fontSize: "10px", fontWeight: 800 }}>SUBMITTED / PAID</small><strong style={{ display: "block", fontSize: "20px", color: "#07834c" }}>₹{monthlyReportSubmittedAmount.toLocaleString("en-IN")}</strong><small>{monthlyReportSubmittedFees.length} records</small></div>
+                <div style={{ padding: "10px", borderRadius: "12px", border: "1px solid #ffdca8", background: "#fff6e8" }}><small style={{ display: "block", color: "#a75b00", fontSize: "10px", fontWeight: 800 }}>TOTAL PENDING</small><strong style={{ display: "block", fontSize: "20px", color: "#d16a00" }}>₹{monthlyReportPendingAmount.toLocaleString("en-IN")}</strong><small>{monthlyReportPendingFees.length} records</small></div>
+                <div style={{ padding: "10px", borderRadius: "12px", border: "1px solid #d8c8ff", background: "#f3edff" }}><small style={{ display: "block", color: "#7150b2", fontSize: "10px", fontWeight: 800 }}>NO FEE ENTRY</small><strong style={{ display: "block", fontSize: "23px", color: "#7041c7" }}>{monthlyReportNoEntryCount}</strong><small>Students without an entry</small></div>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "10px" }}>
+                {([{ key: "all", label: `All (${monthlyReportRows.length})` }, { key: "submitted", label: `Submitted / Paid (${monthlyReportSubmittedFees.length})` }, { key: "pending", label: `Pending (${monthlyReportPendingFees.length})` }, { key: "other", label: `Other (${monthlyReportOtherFees.length})` }, { key: "missing", label: `No Entry (${monthlyReportNoEntryCount})` }] as const).map((item) => <button key={item.key} type="button" onClick={() => setMonthlyReportFilter(item.key)} style={{ minHeight: "34px", padding: "6px 10px", borderRadius: "9px", border: monthlyReportFilter === item.key ? "1px solid #155bd3" : "1px solid #d1def0", background: monthlyReportFilter === item.key ? "#155bd3" : "#fff", color: monthlyReportFilter === item.key ? "#fff" : "#244b7d", fontSize: "11px", fontWeight: 800, cursor: "pointer" }}>{item.label}</button>)}
+              </div>
+              <div style={{ overflowX: "auto", border: "1px solid #d7e4f5", borderRadius: "12px", background: "#fff", maxHeight: "42dvh", overflowY: "auto" }}>
+                <table style={{ borderCollapse: "collapse", width: "100%", minWidth: "740px", fontSize: "11px", textAlign: "left" }}>
+                  <thead style={{ position: "sticky", top: 0, background: "#eaf2fc", color: "#183f75", zIndex: 1 }}><tr>{["#", "Student", "Class", "Fee", "Paid", "Due", "Status"].map((heading) => <th key={heading} style={{ padding: "9px 7px", borderBottom: "1px solid #d7e4f5", whiteSpace: "nowrap" }}>{heading}</th>)}</tr></thead>
+                  <tbody>{monthlyReportVisibleRows.map((row, index) => { const statusValue = String(row.fee?.status || "NO ENTRY").toUpperCase(); const isSubmitted = ["SUBMITTED", "PAID", "PAID ONLINE"].includes(statusValue); const isPending = statusValue === "PENDING"; const amountValue = Number(row.fee?.amount || 0); const badgeColor = isSubmitted ? { background: "#d9f9e8", color: "#087747" } : isPending ? { background: "#fff0d8", color: "#b65d00" } : row.fee ? { background: "#e9e1ff", color: "#6542b4" } : { background: "#edf1f6", color: "#62748b" }; return <tr key={row.key} style={{ borderBottom: "1px solid #edf2f8" }}><td style={{ padding: "8px 7px" }}>{index + 1}</td><td style={{ padding: "8px 7px", fontWeight: 800, minWidth: "145px" }}>{row.student.student_name || row.student.student_username}<small style={{ display: "block", color: "#7185a0", fontWeight: 500 }}>{row.student.student_username}</small></td><td style={{ padding: "8px 7px", whiteSpace: "nowrap" }}>{getStudentClass(row.student) || "-"}</td><td style={{ padding: "8px 7px", whiteSpace: "nowrap" }}>{row.fee ? `₹${amountValue.toLocaleString("en-IN")}` : "—"}</td><td style={{ padding: "8px 7px", whiteSpace: "nowrap", color: "#087747" }}>{isSubmitted ? `₹${amountValue.toLocaleString("en-IN")}` : "₹0"}</td><td style={{ padding: "8px 7px", whiteSpace: "nowrap", color: isPending ? "#b65d00" : "#244b7d" }}>{isPending ? `₹${amountValue.toLocaleString("en-IN")}` : "₹0"}</td><td style={{ padding: "8px 7px" }}><span style={{ display: "inline-block", padding: "4px 7px", borderRadius: "999px", fontSize: "9px", fontWeight: 900, whiteSpace: "nowrap", ...badgeColor }}>{row.fee?.status || "NO ENTRY"}</span></td></tr>; })}{monthlyReportVisibleRows.length === 0 && <tr><td colSpan={7} style={{ padding: "18px", textAlign: "center", color: "#7185a0" }}>No records for this filter.</td></tr>}</tbody>
+                </table>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "8px", marginTop: "12px" }}><div style={{ fontSize: "11px", color: "#617997" }}>Total recorded fee: <strong>₹{monthlyReportTotalAmount.toLocaleString("en-IN")}</strong> · Other-status amount: <strong>₹{monthlyReportOtherFees.reduce((sum, fee) => sum + Number(fee.amount || 0), 0).toLocaleString("en-IN")}</strong></div><div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}><button type="button" onClick={downloadSelectedMonthlyFeeReportExcel} style={{ minHeight: "38px", padding: "8px 12px", border: 0, borderRadius: "10px", background: "#0c62d6", color: "#fff", fontWeight: 900, fontSize: "11px", cursor: "pointer" }}>Download Excel</button><button type="button" onClick={() => setMonthlyReportOpen(false)} style={{ minHeight: "38px", padding: "8px 14px", border: "1px solid #cbdcf3", borderRadius: "10px", background: "#fff", color: "#244b7d", fontWeight: 900, fontSize: "11px", cursor: "pointer" }}>Close</button></div></div>
+            </section>
+          </div>
+        )}{message && <div className={`racer-vip-message ${message.toLowerCase().includes("unable") || message.toLowerCase().includes("error") ? "is-error" : "is-success"}`}>{message}</div>}
         {error && <div className="racer-vip-message is-error">{error}</div>}
 
         <section className="racer-vip-page-heading">
@@ -2181,6 +2371,7 @@ onclick="window.print()"
           <div className="fee-summary-card paid"><span><Icon name="check" /></span><small>Paid</small><b>{paidVipFees.length}</b></div>
           <div className="fee-summary-card pending"><span><Icon name="calendar" /></span><small>Pending</small><b>{pendingVipFees.length}</b></div>
           <div className="fee-summary-card collection"><span className="rupee-icon">Rs.</span><small>Collection</small><b>Rs. {vipCollectionTotal.toLocaleString("en-IN")}</b></div>
+          <div className="fee-summary-card pending-amount"><span className="rupee-icon">Rs.</span><small>Pending Fees</small><b>Rs. {vipPendingFeeTotal.toLocaleString("en-IN")}</b></div>
         </section>
 
         <details id="racer-fee-entry" className="racer-vip-fee-entry">
@@ -2202,7 +2393,7 @@ onclick="window.print()"
         </details>
 
         <section className="racer-vip-fee-history">
-          <div className="racer-vip-history-toolbar"><div><h2>Fee History</h2><p>Complete student fee records</p></div><div className="racer-fee-export-actions" style={{ display: "flex", flexWrap: "wrap", gap: "8px", justifyContent: "flex-end" }}><button type="button" className="racer-vip-refresh-fee" onClick={() => downloadFeeExcel("paid", "month")}>Paid Excel (Month)</button><button type="button" className="racer-vip-refresh-fee" onClick={() => downloadFeeExcel("paid", "overall")}>Paid Excel (All)</button><button type="button" className="racer-vip-refresh-fee" onClick={() => downloadFeeExcel("pending", "month")}>Pending Excel (Month)</button><button type="button" className="racer-vip-refresh-fee" onClick={() => downloadFeeExcel("pending", "overall")}>Pending Excel (All)</button><button type="button" className="racer-vip-refresh-fee" onClick={() => loadData(true)}>Refresh</button></div></div>
+          <div className="racer-vip-history-toolbar"><div><h2>Fee History</h2><p>Complete student fee records</p></div><div className="racer-fee-export-actions" style={{ display: "flex", flexWrap: "wrap", gap: "8px", justifyContent: "flex-end" }}><button type="button" className="racer-vip-refresh-fee" onClick={() => downloadFeeExcel("paid", "month")}>Paid Excel (Month)</button><button type="button" className="racer-vip-refresh-fee" onClick={() => downloadFeeExcel("paid", "overall")}>Paid Excel (All)</button><button type="button" className="racer-vip-refresh-fee" onClick={() => downloadFeeExcel("pending", "month")}>Pending Excel (Month)</button><button type="button" className="racer-vip-refresh-fee" onClick={() => downloadFeeExcel("pending", "overall")}>Pending Excel (All)</button><button type="button" className="racer-vip-refresh-fee" onClick={() => loadData(true)}>Refresh</button><button type="button" className="racer-vip-refresh-fee" onClick={() => setMonthlyReportOpen(true)}>Monthly-wise Fee</button><button type="button" className="racer-vip-refresh-fee" onClick={() => { const feeEntry = document.getElementById("racer-fee-entry") as HTMLDetailsElement | null; if (feeEntry) { feeEntry.open = true; feeEntry.scrollIntoView({ behavior: "smooth", block: "start" }); } }}>Add Fee</button></div></div>
           <div className="racer-vip-search-wrap"><Icon name="search" /><input value={feeSearch} onChange={(e) => { setFeeSearch(e.target.value); setFeePage(1); }} placeholder="Search student by name or ID..." /></div>
           <div className="racer-vip-fee-filter-row">
             <button type="button" className={feeFilter === "all" ? "active" : ""} onClick={() => { setFeeFilter("all"); setFeePage(1); }}>All</button>

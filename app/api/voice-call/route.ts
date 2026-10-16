@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 
 type Recipient = {
   id?: string;
@@ -44,7 +44,7 @@ function escapeXml(value: string): string {
     .replace(/'/g, "&apos;");
 }
 
-function getVoice(voiceType: VoiceType): string {
+function getVoice(voiceType: VoiceType, isHindi: boolean): string {
   /*
    * Twilio currently supports Google English-India voices.
    *
@@ -142,13 +142,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const voice = getVoice(voiceType);
+    const isHindi = /[\u0900-\u097F]/.test(message);
+    const voice = getVoice(voiceType, isHindi);
+    const language = isHindi ? "hi-IN" : "en-IN";
 
     const twiml = `
 <Response>
   <Say
     voice="${voice}"
-    language="en-IN"
+    language="${language}"
   >${escapeXml(message)}</Say>
   <Hangup/>
 </Response>

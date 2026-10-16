@@ -1,34 +1,48 @@
 {
-  "compilerOptions": {
-    "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "noEmit": true,
-    "esModuleInterop": true,
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "react-jsx",
-    "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
-    "paths": {
-      "@/*": ["./*"]
-    }
-  },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "**/*.mts"
-  ],
-  "exclude": ["node_modules"]
+    "compilerOptions":  {
+                            "target":  "ES2017",
+                            "lib":  [
+                                        "dom",
+                                        "dom.iterable",
+                                        "esnext"
+                                    ],
+                            "allowJs":  true,
+                            "skipLibCheck":  true,
+                            "strict":  true,
+                            "noEmit":  true,
+                            "esModuleInterop":  true,
+                            "module":  "esnext",
+                            "moduleResolution":  "bundler",
+                            "resolveJsonModule":  true,
+                            "isolatedModules":  true,
+                            "jsx":  "react-jsx",
+                            "incremental":  true,
+                            "plugins":  [
+                                            {
+                                                "name":  "next"
+                                            }
+                                        ],
+                            "paths":  {
+                                          "@/*":  [
+                                                      "./*"
+                                                  ]
+                                      }
+                        },
+    "include":  [
+                    "next-env.d.ts",
+                    "**/*.ts",
+                    "**/*.tsx",
+                    ".next/types/**/*.ts",
+                    ".next/dev/types/**/*.ts",
+                    "**/*.mts"
+                ],
+    "exclude":  [
+                    "_backup_premium_ui_20261011-122501/**",
+                    "_backup_premium_ui_20261011-122649/**",
+                    "backup-student-dashboard-phase3-*/**",
+                    "backup-student-dashboard-reference-ui-*/**",
+                    "backup-student-mobile-nav-*/**",
+                    "node_modules",
+                    "RACER-PREMIUM-UI/**"
+                ]
 }

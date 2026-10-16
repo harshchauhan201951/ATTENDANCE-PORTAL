@@ -1,0 +1,369 @@
+/* RACER_DASHBOARD_MAIN_HEADER_LOGOUT_DIRECT_V1 */
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "../../lib/supabase";
+
+type IconName =
+  | "attendance" | "history" | "calendar" | "reports" | "fees" | "payments"
+  | "homework" | "announcement" | "activity" | "profile" | "settings"
+  | "directory" | "extra" | "quiz" | "result" | "call" | "teachers" | "time"
+  | "home" | "bell" | "menu" | "modules" | "notification" | "bulb" | "chevron";
+
+const menuItems = [
+  ["Mark Attendance", "/teacher/attendance", "attendance"],
+  ["Attendance History", "/teacher/attendance-history", "history"],
+  ["Calendar", "/teacher/calendar", "calendar"],
+  ["Reports", "/teacher/reports", "reports"],
+  ["Fees", "/teacher/fees", "fees"],
+  ["Payments", "/teacher/payments", "payments"],
+  ["Homework", "/teacher/homework", "homework"],
+  ["Announcements", "/teacher/announcements", "announcement"],
+  ["Student Login Activity", "/teacher/login-activity", "activity"],
+  ["Profile", "/teacher/profile", "profile"],
+  ["Settings", "/teacher/settings", "settings"],
+  ["Student Directory", "/teacher/student-directory", "directory"],
+  ["Extra Classes", "/teacher/extra-class", "extra"],
+  ["Quiz Tests", "/teacher/quiz-tests", "quiz"],
+  ["Monthly Result", "/teacher/monthly-results", "result"],
+  ["Voice & Call Center", "/teacher/voice-call", "call"],
+  ["Teachers", "/teacher/teachers", "teachers"],
+  ["Timetable", "/teacher/timetable", "time"],
+] as const;
+
+const moduleColors = [
+  "blue", "violet", "green", "orange", "pink", "blue", "violet", "cyan", "green",
+  "pink", "blue", "violet", "green", "violet", "blue", "orange", "pink", "cyan",
+] as const;
+
+function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
+  const common = {
+    width: size,
+    height: size,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true,
+  };
+
+  switch (name) {
+    case "home":
+      return <svg {...common}><path d="M3 11.5L12 4l9 7.5" /><path d="M5.5 10.5V20h13v-9.5" /><path d="M9.5 20v-5h5v5" /></svg>;
+    case "attendance":
+      return <svg {...common}><path d="M5 12l4 4L19 6" /><path d="M5 5h7" /></svg>;
+    case "history":
+      return <svg {...common}><path d="M3 12a9 9 0 1 0 3-6.7" /><path d="M3 4v5h5" /><path d="M12 7v5l3 2" /></svg>;
+    case "calendar":
+      return <svg {...common}><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 3v4M16 3v4M4 9h16" /><path d="M8 13h2M14 13h2M8 17h2M14 17h2" /></svg>;
+    case "reports":
+      return <svg {...common}><path d="M5 20V10M10 20V5M15 20v-8M20 20V3" /></svg>;
+    case "fees":
+      return <svg {...common}><ellipse cx="12" cy="7" rx="6.5" ry="3" /><path d="M5.5 7v5c0 1.7 2.9 3 6.5 3s6.5-1.3 6.5-3V7" /><path d="M5.5 12v5c0 1.7 2.9 3 6.5 3s6.5-1.3 6.5-3v-5" /></svg>;
+    case "payments":
+      return <svg {...common}><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 10h18M7 15h4" /></svg>;
+    case "homework":
+      return <svg {...common}><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 0-3 3z" /><path d="M8 4v16M11 8h5M11 12h5M11 16h4" /></svg>;
+    case "announcement":
+      return <svg {...common}><path d="M4 13h4l7 4V7L8 11H4z" /><path d="M8 13l1 6h2l-1-5" /><path d="M19 10a3 3 0 0 1 0 4" /></svg>;
+    case "activity":
+      return <svg {...common}><circle cx="12" cy="8" r="3" /><path d="M5 21c1-4 3.5-6 7-6s6 2 7 6" /></svg>;
+    case "profile":
+      return <svg {...common}><circle cx="12" cy="8" r="3.2" /><path d="M5 20c1-4 3.2-6 7-6s6 2 7 6" /></svg>;
+    case "settings":
+      return <svg {...common}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.7 1.7-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5v.2h-2.4v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1L8 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H6v-2.4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9L7.3 8.6 9 6.9l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.5v-.2h2.4v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.7 1.7-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.5 1h.2V14h-.2a1.7 1.7 0 0 0-1.5 1z" /></svg>;
+    case "directory":
+      return <svg {...common}><circle cx="9" cy="9" r="3" /><circle cx="17" cy="9" r="3" /><path d="M3 20c1-4 3-6 6-6s5 2 6 6M13 20c.8-2.8 2.4-4.5 4-5" /></svg>;
+    case "extra":
+      return <svg {...common}><path d="M4 5h16v11H4z" /><path d="M8 19h8M12 16v3" /><path d="M7 9h10M7 12h6" /></svg>;
+    case "quiz":
+      return <svg {...common}><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 7h6M9 11h6M9 15h3" /></svg>;
+    case "result":
+      return <svg {...common}><path d="M5 20V11M12 20V6M19 20V3" /><path d="M3 20h18" /></svg>;
+    case "call":
+      return <svg {...common}><path d="M6.5 4.5l3 3-2 2c1.2 2.3 3 4.1 5.3 5.3l2-2 3 3-1.8 2c-.6.7-1.5 1-2.4.8C8.9 17.5 6.5 15.1 5.4 10.4c-.2-.9.1-1.8.8-2.4z" /></svg>;
+    case "teachers":
+      return <svg {...common}><circle cx="9" cy="8" r="3" /><circle cx="17" cy="9" r="2.5" /><path d="M3.5 20c.8-4 2.7-6 5.5-6s4.7 2 5.5 6M13 15c1-.8 2.1-1.2 3.4-1.2 2.5 0 4.2 1.7 5.1 5.2" /></svg>;
+    case "time":
+      return <svg {...common}><circle cx="12" cy="12" r="8" /><path d="M12 8v5l3 2" /></svg>;
+    case "bell":
+      return <svg {...common}><path d="M6 17h12l-1.3-2v-4a4.7 4.7 0 0 0-9.4 0v4z" /><path d="M10 20h4" /></svg>;
+    case "menu":
+      return <svg {...common}><path d="M4 7h16M4 12h16M4 17h16" /></svg>;
+    case "modules":
+      return <svg {...common}><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><rect x="14" y="14" width="6" height="6" rx="1" /></svg>;
+    case "notification":
+      return <svg {...common}><path d="M6 17h12l-1.3-2v-4a4.7 4.7 0 0 0-9.4 0v4z" /><path d="M10 20h4" /></svg>;
+    case "bulb":
+      return <svg {...common}><path d="M9 18h6M10 21h4" /><path d="M8.5 15.5C7.5 14.4 7 13.3 7 12a5 5 0 1 1 10 0c0 1.3-.5 2.4-1.5 3.5-.7.8-1 1.4-1.1 2H9.6c-.1-.6-.4-1.2-1.1-2z" /></svg>;
+    case "chevron":
+      return <svg {...common}><path d="M9 6l6 6-6 6" /></svg>;
+    default:
+      return null;
+  }
+}
+
+function currentTimeLabel() {
+  const value = new Intl.DateTimeFormat("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }).format(new Date());
+  return value.toUpperCase();
+}
+
+export default function TeacherDashboard() {
+  const router = useRouter();
+  const [teacherName, setTeacherName] = useState("Teacher");
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [watchTime, setWatchTime] = useState(currentTimeLabel());
+  const [todayLabel, setTodayLabel] = useState("");
+  // RACER_ASSIGNED_TOTAL_STUDENTS_PATCH
+  const [assignedStudentCount, setAssignedStudentCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    const savedTeacherName =
+      localStorage.getItem("teacherName") ||
+      localStorage.getItem("teacher_name") ||
+      localStorage.getItem("teacherUsername") ||
+      localStorage.getItem("teacher_username") ||
+      "Teacher";
+    setTeacherName(savedTeacherName);
+    setProfileImage(localStorage.getItem("teacherProfileImage"));
+    setTodayLabel(new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short" }).format(new Date()));
+
+    const timer = window.setInterval(() => setWatchTime(currentTimeLabel()), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  // RACER_ASSIGNED_TOTAL_STUDENTS_PATCH
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAssignedStudentCount() {
+      try {
+        const rawTeacherId =
+          sessionStorage.getItem("attendance_teacher_id") ||
+          localStorage.getItem("attendance_teacher_id") ||
+          sessionStorage.getItem("teacher_id") ||
+          localStorage.getItem("teacher_id") ||
+          "";
+
+        const teacherId = Number(rawTeacherId);
+        if (!Number.isInteger(teacherId) || teacherId <= 0) {
+          if (!cancelled) setAssignedStudentCount(0);
+          return;
+        }
+
+        const assignedResult =
+          teacherId === 1
+            ? null
+            : await supabase.rpc("get_teacher_assigned_student_ids", {
+                p_teacher_id: teacherId,
+              });
+
+        if (assignedResult && assignedResult.error) {
+          throw assignedResult.error;
+        }
+
+        const assignedIds =
+          teacherId === 1
+            ? null
+            : (assignedResult?.data || [])
+                .map((row: { student_id?: number }) => Number(row.student_id))
+                .filter((id: number) => Number.isInteger(id) && id > 0);
+
+        if (assignedIds !== null && assignedIds.length === 0) {
+          if (!cancelled) setAssignedStudentCount(0);
+          return;
+        }
+
+        let query = supabase
+          .from("students")
+          .select("id", { count: "exact", head: true });
+
+        if (assignedIds !== null) {
+          query = query.in("id", assignedIds);
+        }
+
+        const { count, error } = await query;
+        if (error) throw error;
+
+        if (!cancelled) {
+          setAssignedStudentCount(typeof count === "number" ? count : 0);
+        }
+      } catch (error) {
+        console.error("Teacher dashboard student count error:", error);
+        if (!cancelled) setAssignedStudentCount(0);
+      }
+    }
+
+    loadAssignedStudentCount();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const displayName = teacherName.trim() || "Teacher";
+  const initial = displayName.slice(0, 1).toUpperCase();
+
+  async function handleLogout() {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    const authKeys = [
+      "attendance_role","attendance_username","attendance_teacher_id","teacherLoggedIn","teacher",
+      "teacherUsername","teacher_username","teacherName","teacher_name","studentLoggedIn","studentId",
+      "studentUsername","student_username","studentName","student_name",
+    ];
+    authKeys.forEach((key) => localStorage.removeItem(key));
+    authKeys.forEach((key) => sessionStorage.removeItem(key));
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    router.replace("/");
+    router.refresh();
+  }
+
+  return (
+    <main className="racer-reference-page">
+      <div className="racer-reference-phone">
+        <header className="racer-reference-topbar">
+          <div className="racer-reference-brand">
+            <div className="racer-reference-ra">RA</div>
+            <div className="racer-reference-brand-copy">
+              <strong>RACER ACADEMY</strong>
+              <span>LEARN&nbsp; | &nbsp;PRACTICE&nbsp; | &nbsp;GROW</span>
+            </div>
+          </div>
+          <div className="racer-reference-top-actions">
+            <button type="button" className="racer-reference-bell" onClick={() => router.push("/teacher/announcements")} aria-label="Announcements">
+              <Icon name="bell" size={19} />
+              
+            </button>
+            <button type="button" className="racer-reference-top-avatar" onClick={() => router.push("/teacher/profile")} aria-label="Profile">
+              {profileImage ? <img src={profileImage} alt="Profile" onError={() => setProfileImage(null)} /> : initial}
+              <i />
+            </button>
+            <button type="button" className="racer-reference-top-logout" onClick={handleLogout} disabled={loggingOut}>{loggingOut ? "..." : "Logout"}</button>
+          </div>
+        </header>
+
+        <section className="racer-reference-welcome-card">
+          <div className="racer-reference-welcome-main">
+            <div className="racer-reference-welcome-avatar">
+              {profileImage ? <img src={profileImage} alt="Profile" onError={() => setProfileImage(null)} /> : initial}
+              <span />
+            </div>
+            <div className="racer-reference-welcome-copy">
+              <div className="racer-reference-hello">Hello, <strong>{displayName}</strong> <em>Teacher</em></div>
+              <p>Small steps. Make big progress!</p>
+            </div>
+          </div>
+          <div className="racer-reference-total-students">
+            <div className="racer-reference-blue-icon"><Icon name="directory" size={19} /></div>
+            <small>Total Students</small>
+            <strong>{assignedStudentCount === null ? "--" : assignedStudentCount}</strong>
+          </div>
+        </section>
+
+        <section className="racer-reference-stats-grid">
+          <div className="racer-reference-stat-card stat-blue"><div className="stat-icon"><Icon name="calendar" size={18} /></div><div><small>Today</small><strong>{todayLabel || "--"}</strong></div></div>
+          <div className="racer-reference-stat-card stat-orange"><div className="stat-icon"><Icon name="time" size={18} /></div><div><small>Time</small><strong>{watchTime}</strong></div></div>
+          <div className="racer-reference-stat-card stat-violet"><div className="stat-icon"><Icon name="modules" size={18} /></div><div><small>Modules</small><strong>{menuItems.length}</strong></div></div>
+        </section>
+
+        <section className="racer-reference-control-head">
+          <div>
+            <h1>Teacher Control Center</h1>
+            <p>Access all modules from here</p>
+          </div>
+          <button type="button" onClick={() => document.getElementById("teacher-modules")?.scrollIntoView({ behavior: "smooth", block: "start" })}>View All <Icon name="chevron" size={14} /></button>
+        </section>
+
+        <section id="teacher-modules" className="racer-reference-module-grid">
+          {menuItems.map(([title, path, icon], index) => (
+            <button key={path} type="button" className={`racer-reference-module-card ${moduleColors[index]}`} onClick={() => router.push(path)}>
+              <span className="racer-reference-number">{String(index + 1).padStart(2, "0")}</span>
+              <span className="racer-reference-module-icon"><Icon name={icon} size={27} /></span>
+              <span className="racer-reference-module-title">{title}</span>
+              <span className="racer-reference-module-arrow"><Icon name="chevron" size={14} /></span>
+            </button>
+          ))}
+        </section>
+
+        <section className="racer-reference-banner">
+          <div className="racer-reference-banner-bulb"><Icon name="bulb" size={20} /></div>
+          <div><strong>Better Students, Brighter Future!</strong><span>Together we can build a smarter learning platform.</span></div>
+          <Icon name="chevron" size={16} />
+        </section>
+
+        <style jsx global>{`
+          * { box-sizing: border-box; }
+          html, body { background: #f5f8ff; }
+          body { margin: 0; }
+          .racer-reference-page { min-height: 100vh; background: #f5f8ff; color: #122448; }
+          .racer-reference-phone { width: min(100%, 430px); margin: 0 auto; min-height: 100vh; padding-bottom: 78px; overflow-x: hidden; background: linear-gradient(180deg,#1d3bdf 0 56px,#eef4ff 56px 100%); }
+          .racer-reference-topbar { height: 56px; padding: 8px 12px; display:flex; align-items:center; justify-content:space-between; color:#fff; }
+          .racer-reference-brand { display:flex; align-items:center; gap:8px; min-width:0; }
+          .racer-reference-ra { width:36px; height:36px; border:2px solid rgba(255,255,255,.9); border-radius:50%; display:grid; place-items:center; font-weight:800; font-size:15px; background:rgba(255,255,255,.12); box-shadow:0 4px 12px rgba(0,0,0,.18); }
+          .racer-reference-brand-copy { display:flex; flex-direction:column; min-width:0; }
+          .racer-reference-brand-copy strong { font-size:13px; line-height:15px; letter-spacing:.2px; }
+          .racer-reference-brand-copy span { font-size:5.5px; font-weight:700; letter-spacing:.55px; opacity:.95; margin-top:1px; }
+          .racer-reference-top-actions { display:flex; align-items:center; gap:10px; }
+          .racer-reference-bell,.racer-reference-top-avatar,.racer-reference-control-head button,.racer-reference-bottom-nav button { border:0; background:none; padding:0; font:inherit; cursor:pointer; }
+          .racer-reference-bell { width:30px; height:30px; position:relative; display:grid; place-items:center; color:#fff; }
+          .racer-reference-bell b { position:absolute; right:-3px; top:-3px; min-width:14px; height:14px; border-radius:8px; background:#ff3b44; color:#fff; font-size:8px; line-height:14px; text-align:center; border:1.5px solid #243ddb; }
+          .racer-reference-top-avatar { width:34px; height:34px; border-radius:50%; background:#ffcb9b; border:2px solid #fff; overflow:visible; position:relative; display:grid; place-items:center; color:#193b87; font-weight:800; }
+          .racer-reference-top-avatar img { width:100%; height:100%; object-fit:cover; border-radius:50%; display:block; }
+          .racer-reference-top-avatar i { position:absolute; right:-1px; bottom:-1px; width:9px; height:9px; border-radius:50%; background:#29df68; border:2px solid #fff; }
+          .racer-reference-welcome-card { margin:0 9px; padding:9px 10px; min-height:72px; background:#fff; border-radius:20px; display:flex; align-items:center; justify-content:space-between; box-shadow:0 10px 24px rgba(38,70,160,.14); }
+          .racer-reference-welcome-main { display:flex; align-items:center; min-width:0; gap:8px; }
+          .racer-reference-welcome-avatar { width:49px; height:49px; border-radius:50%; flex:none; background:linear-gradient(180deg,#ffe1c6,#f3ad7b); display:grid; place-items:center; position:relative; overflow:hidden; color:#18336e; font-weight:900; font-size:17px; }
+          .racer-reference-welcome-avatar img { width:100%; height:100%; object-fit:cover; display:block; }
+          .racer-reference-welcome-avatar span { position:absolute; right:0; bottom:1px; width:10px; height:10px; border-radius:50%; background:#27d86a; border:2px solid #fff; }
+          .racer-reference-welcome-copy { min-width:0; }
+          .racer-reference-hello { font-size:10px; line-height:12px; color:#102a67; white-space:nowrap; }
+          .racer-reference-hello strong { font-size:11px; }
+          .racer-reference-hello em { font-style:normal; display:inline-block; margin-left:4px; padding:4px 6px; border-radius:9px; background:#eae9ff; color:#5d49d7; font-size:7px; font-weight:800; vertical-align:1px; }
+          .racer-reference-welcome-copy p { margin:4px 0 0; font-size:8px; color:#6a7899; }
+          .racer-reference-total-students { min-width:88px; min-height:54px; border-radius:13px; background:#eaf6ff; padding:6px 7px; position:relative; display:grid; grid-template-columns:22px 1fr; grid-template-rows:auto 1fr; column-gap:5px; }
+          .racer-reference-blue-icon { grid-row:1 / span 2; width:22px; height:22px; border-radius:6px; display:grid; place-items:center; background:#d9ecff; color:#2775df; }
+          .racer-reference-total-students small { font-size:7px; color:#42608f; align-self:end; }
+          .racer-reference-total-students strong { font-size:19px; line-height:18px; color:#245fd0; align-self:start; }
+          .racer-reference-stats-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; padding:7px 9px 8px; }
+          .racer-reference-stat-card { min-height:53px; border-radius:12px; padding:6px; display:flex; align-items:center; gap:5px; box-shadow:0 5px 14px rgba(39,62,130,.08); }
+          .racer-reference-stat-card .stat-icon { width:25px; height:25px; border-radius:8px; display:grid; place-items:center; flex:none; }
+          .racer-reference-stat-card small { display:block; font-size:6.5px; font-weight:700; line-height:8px; }
+          .racer-reference-stat-card strong { display:block; font-size:11px; line-height:12px; margin-top:1px; }
+          .stat-blue { background:#e9f2ff; color:#2063d5; }.stat-blue .stat-icon { background:#d4e7ff; }
+          .stat-green { background:#e9faef; color:#1f9e59; }.stat-green .stat-icon { background:#cdf2da; }
+          .stat-violet { background:#f0eaff; color:#6950df; }.stat-violet .stat-icon { background:#dfd5ff; }
+          .stat-orange { background:#fff0e8; color:#f05a20; }.stat-orange .stat-icon { background:#ffd9c8; }
+          .racer-reference-control-head { padding:3px 12px 8px; display:flex; justify-content:space-between; align-items:flex-end; }
+          .racer-reference-control-head h1 { margin:0; font-size:12px; line-height:14px; color:#15305f; }
+          .racer-reference-control-head p { margin:2px 0 0; font-size:7px; color:#657695; }
+          .racer-reference-control-head button { display:flex; align-items:center; gap:1px; color:#155add; font-size:8px; font-weight:800; }
+          .racer-reference-module-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; padding:0 9px 9px; }
+          .racer-reference-module-card { position:relative; min-width:0; min-height:70px; border:1px solid rgba(73,94,145,.08); border-radius:12px; padding:7px 7px 6px; text-align:left; overflow:hidden; cursor:pointer; box-shadow:0 5px 12px rgba(42,68,125,.06); }
+          .racer-reference-module-card.blue { background:#e5f0ff; color:#1f64d7; }.racer-reference-module-card.violet { background:#eee5ff; color:#6b42df; }.racer-reference-module-card.green { background:#def8ea; color:#0eab65; }.racer-reference-module-card.orange { background:#ffecd9; color:#f05b1a; }.racer-reference-module-card.pink { background:#ffe6f1; color:#ed3b79; }.racer-reference-module-card.cyan { background:#def6f8; color:#0b9bb6; }
+          .racer-reference-number { position:absolute; left:6px; top:5px; min-width:17px; height:13px; padding:0 4px; border-radius:8px; background:currentColor; color:#fff; font-size:6px; line-height:13px; font-weight:800; text-align:center; opacity:.95; }
+          .racer-reference-module-icon { display:grid; place-items:center; padding-top:9px; height:32px; }
+          .racer-reference-module-icon svg { width:27px; height:27px; }
+          .racer-reference-module-title { display:block; margin-top:7px; padding-right:8px; font-size:8px; line-height:9px; color:#18325f; font-weight:800; min-height:18px; }
+          .racer-reference-module-arrow { position:absolute; right:5px; bottom:5px; color:inherit; opacity:.9; }
+          .racer-reference-module-arrow svg { width:13px; height:13px; }
+          .racer-reference-banner { margin:1px 9px 10px; min-height:33px; padding:5px 8px; border-radius:12px; display:flex; align-items:center; gap:7px; color:#fff; background:linear-gradient(90deg,#2d24ca,#4b64ff); box-shadow:0 8px 15px rgba(52,67,214,.18); }
+          .racer-reference-banner-bulb { width:25px; height:25px; border-radius:8px; background:#ffcc45; color:#fff; display:grid; place-items:center; flex:none; }
+          .racer-reference-banner div:nth-child(2) { min-width:0; flex:1; }
+          .racer-reference-banner strong,.racer-reference-banner span { display:block; }
+          .racer-reference-banner strong { font-size:8px; line-height:10px; }.racer-reference-banner span { font-size:6.5px; line-height:8px; opacity:.9; }
+          .racer-reference-bottom-nav { position:fixed; z-index:30; bottom:0; left:50%; transform:translateX(-50%); width:min(100%,430px); min-height:58px; background:rgba(255,255,255,.98); border-top:1px solid #dfe6f3; box-shadow:0 -5px 18px rgba(26,49,100,.1); display:grid; grid-template-columns:repeat(4,1fr); padding:5px 4px calc(5px + env(safe-area-inset-bottom)); }
+          .racer-reference-bottom-nav button { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; color:#6b7896; font-size:7px; font-weight:700; }
+          .racer-reference-bottom-nav button.active { color:#1c54df; }.racer-reference-bottom-nav button.active svg { stroke-width:2.4; }
+          .racer-reference-bottom-nav .has-badge b { position:absolute; top:1px; right:26%; min-width:13px; height:13px; border-radius:7px; background:#f24a52; color:#fff; border:1.5px solid #fff; font-size:7px; line-height:10px; text-align:center; }
+          .racer-reference-phone button:focus-visible { outline:2px solid #1e64e8; outline-offset:2px; }
+          @media (min-width:681px) { .racer-reference-page { padding:18px 0 24px; } .racer-reference-phone { border-radius:22px; box-shadow:0 18px 50px rgba(31,61,123,.15); } }
+        `}</style>
+      </div>
+    </main>
+  );
+}
