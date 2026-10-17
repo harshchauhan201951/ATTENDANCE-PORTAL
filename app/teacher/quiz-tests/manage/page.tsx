@@ -663,7 +663,7 @@ export default function ManageQuizzesPage() {
               }
               className="rounded-xl bg-white/5 px-4 py-2 text-sm font-bold transition hover:bg-white/10"
             >
-              â† Quiz Tests
+              ← Quiz Tests
             </button>
           </div>
         </header>
@@ -917,7 +917,7 @@ export default function ManageQuizzesPage() {
                   }
                   className="rounded-xl bg-white/5 px-4 py-2 text-2xl font-bold"
                 >
-                  Ã—
+                  ×
                 </button>
               </div>
 
@@ -1018,7 +1018,7 @@ export default function ManageQuizzesPage() {
                               }`}
                             >
                               {selected
-                                ? "âœ“ "
+                                ? "✓ "
                                 : ""}
                               {className}
                             </button>

@@ -3214,7 +3214,7 @@ function TeacherQuizResultsContent() {
                                                     }
                                                   >
                                                     <div>
-                                                      <strong>{isQuizDeadlinePassed(row.quiz) ? "FAIL Ã¢â‚¬â€ 0 marks" : "No quiz result submitted"}</strong>
+                                                      <strong>{isQuizDeadlinePassed(row.quiz) ? "FAIL — 0 marks" : "No quiz result submitted"}</strong>
 
                                                       <span>
                                                         {isQuizDeadlinePassed(row.quiz) ? "The 9 PM deadline passed without a submitted attempt." : "This student has no submitted attempt for this quiz."}

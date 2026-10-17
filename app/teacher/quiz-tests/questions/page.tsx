@@ -1188,7 +1188,7 @@ function TeacherQuizQuestionsContent() {
               </div>
 
               <span className="text-xl text-cyan-300">
-                {showPasteBox ? "âˆ’" : "+"}
+                {showPasteBox ? "−" : "+"}
               </span>
             </button>
 
@@ -1422,7 +1422,7 @@ D. Jupiter`}
                         }
                         className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold disabled:opacity-30"
                       >
-                        â†‘ Up
+                        ↑ Up
                       </button>
 
                       <button
@@ -1439,7 +1439,7 @@ D. Jupiter`}
                         }
                         className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold disabled:opacity-30"
                       >
-                        â†“ Down
+                        ↓ Down
                       </button>
 
                       {question.id ? (

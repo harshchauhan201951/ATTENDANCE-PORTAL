@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1160" viewBox="0 0 1500 1160">
+  <defs>
+    <linearGradient id="navy" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#102641"/><stop offset="1" stop-color="#1D4165"/></linearGradient>
+    <filter id="shadow" x="-25%" y="-20%" width="150%" height="150%"><feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#18334E" flood-opacity=".15"/></filter>
+  </defs>
+  <rect width="1500" height="1160" fill="#F2F5F8"/>
+  <text x="750" y="54" text-anchor="middle" font-family="Arial,sans-serif" font-size="17" font-weight="700" letter-spacing="4" fill="#E66B2E">RACER ACADEMY · MOBILE LOGIN</text>
+  <text x="750" y="101" text-anchor="middle" font-family="Arial,sans-serif" font-size="34" font-weight="700" fill="#132A43">Designed for the phone screen</text>
+  <text x="750" y="132" text-anchor="middle" font-family="Arial,sans-serif" font-size="15" fill="#6B7C8D">Separate mobile layout · short scroll · large touch targets · same login functions</text>
+
+  <!-- Student phone -->
+  <g transform="translate(192 165)">
+    <rect width="470" height="910" rx="38" fill="#172B3F" filter="url(#shadow)"/>
+    <rect x="10" y="10" width="450" height="890" rx="31" fill="#F8FAFC"/>
+    <rect x="158" y="17" width="154" height="20" rx="10" fill="#172B3F"/>
+    <text x="36" y="65" font-family="Arial,sans-serif" font-size="13" font-weight="700" fill="#21394F">9:41</text>
+    <path d="M383 58h18M386 53v5M392 50v8M398 47v11" stroke="#294257" stroke-width="2" stroke-linecap="round"/>
+    <path d="M417 53q9-9 18 0M420 57q6-6 12 0M425 61q1-1 2 0" fill="none" stroke="#294257" stroke-width="1.8" stroke-linecap="round"/>
+    <rect x="440" y="49" width="14" height="9" rx="2" fill="none" stroke="#294257" stroke-width="1.4"/><rect x="454" y="52" width="2" height="3" rx="1" fill="#294257"/><rect x="442" y="51" width="9" height="5" rx="1" fill="#294257"/>
+    <circle cx="50" cy="107" r="20" fill="#E66B2E"/>
+    <path d="M40 109l7 6 13-15" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="80" y="104" font-family="Arial,sans-serif" font-size="14" font-weight="700" letter-spacing=".8" fill="#172D44">RACER ACADEMY</text>
+    <text x="80" y="123" font-family="Arial,sans-serif" font-size="10" letter-spacing="1.4" fill="#728293">STUDENT PORTAL</text>
+    <rect x="26" y="149" width="418" height="194" rx="22" fill="url(#navy)"/>
+    <circle cx="394" cy="183" r="76" fill="#fff" opacity=".045"/>
+    <circle cx="394" cy="185" r="49" fill="none" stroke="#fff" stroke-opacity=".12"/>
+    <text x="52" y="206" font-family="Arial,sans-serif" font-size="26" font-weight="700" fill="#fff">Ready to learn?</text>
+    <text x="52" y="235" font-family="Arial,sans-serif" font-size="15" fill="#D2DFE9">Your academy is just a sign in away.</text>
+    <rect x="52" y="265" width="157" height="37" rx="18" fill="#F17A3E"/>
+    <text x="130" y="289" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="700" fill="#fff">LET'S GET STARTED</text>
+    <text x="40" y="389" font-family="Arial,sans-serif" font-size="23" font-weight="700" fill="#172D44">Welcome back</text>
+    <text x="40" y="414" font-family="Arial,sans-serif" font-size="13" fill="#758495">Choose your portal and sign in.</text>
+    <rect x="28" y="434" width="414" height="50" rx="14" fill="#EAF0F4"/>
+    <rect x="32" y="438" width="202" height="42" rx="11" fill="#fff" filter="url(#shadow)"/>
+    <text x="133" y="464" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" font-weight="700" fill="#18344F">Student</text>
+    <text x="335" y="464" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#718293">Teacher</text>
+    <text x="40" y="519" font-family="Arial,sans-serif" font-size="13" font-weight="700" fill="#30465B">Student username</text>
+    <rect x="28" y="530" width="414" height="56" rx="12" fill="#fff" stroke="#DCE4EB"/>
+    <circle cx="54" cy="552" r="7" fill="none" stroke="#8292A2" stroke-width="1.8"/><path d="M42 568c2-7 6-10 12-10s10 3 12 10" fill="none" stroke="#8292A2" stroke-width="1.8"/>
+    <text x="80" y="563" font-family="Arial,sans-serif" font-size="14" fill="#9AA7B4">Enter your username</text>
+    <text x="40" y="622" font-family="Arial,sans-serif" font-size="13" font-weight="700" fill="#30465B">Password</text>
+    <rect x="28" y="633" width="414" height="56" rx="12" fill="#fff" stroke="#DCE4EB"/>
+    <path d="M43 654h16v14H43zM46 654v-4a5 5 0 0 1 10 0v4" fill="none" stroke="#8292A2" stroke-width="1.8"/>
+    <text x="80" y="667" font-family="Arial,sans-serif" font-size="14" fill="#9AA7B4">Enter your password</text>
+    <text x="418" y="667" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#60768A">Show</text>
+    <rect x="28" y="711" width="414" height="56" rx="13" fill="#E66B2E"/>
+    <text x="235" y="746" text-anchor="middle" font-family="Arial,sans-serif" font-size="15" font-weight="700" fill="#fff">Login as Student  →</text>
+    <text x="235" y="800" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#718293">Need help? Contact your academy</text>
+    <text x="235" y="837" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#99A5B1">Secure access to your learning portal</text>
+    <rect x="165" y="872" width="140" height="5" rx="2.5" fill="#172B3F"/>
+    <rect x="330" y="923" width="134" height="30" rx="15" fill="#EAF2F8"/>
+    <text x="397" y="943" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" font-weight="700" fill="#34556F">STUDENT · MOBILE</text>
+  </g>
+
+  <!-- Teacher phone -->
+  <g transform="translate(838 165)">
+    <rect width="470" height="910" rx="38" fill="#172B3F" filter="url(#shadow)"/>
+    <rect x="10" y="10" width="450" height="890" rx="31" fill="#fff"/>
+    <rect x="158" y="17" width="154" height="20" rx="10" fill="#172B3F"/>
+    <text x="36" y="65" font-family="Arial,sans-serif" font-size="13" font-weight="700" fill="#21394F">9:41</text>
+    <path d="M383 58h18M386 53v5M392 50v8M398 47v11" stroke="#294257" stroke-width="2" stroke-linecap="round"/>
+    <path d="M417 53q9-9 18 0M420 57q6-6 12 0M425 61q1-1 2 0" fill="none" stroke="#294257" stroke-width="1.8" stroke-linecap="round"/>
+    <rect x="440" y="49" width="14" height="9" rx="2" fill="none" stroke="#294257" stroke-width="1.4"/><rect x="454" y="52" width="2" height="3" rx="1" fill="#294257"/><rect x="442" y="51" width="9" height="5" rx="1" fill="#294257"/>
+    <circle cx="50" cy="107" r="20" fill="#E66B2E"/>
+    <path d="M40 109l7 6 13-15" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="80" y="104" font-family="Arial,sans-serif" font-size="14" font-weight="700" letter-spacing=".8" fill="#172D44">RACER ACADEMY</text>
+    <text x="80" y="123" font-family="Arial,sans-serif" font-size="10" letter-spacing="1.4" fill="#728293">TEACHER WORKSPACE</text>
+    <rect x="26" y="149" width="418" height="194" rx="22" fill="url(#navy)"/>
+    <circle cx="392" cy="190" r="82" fill="#fff" opacity=".045"/>
+    <text x="52" y="206" font-family="Arial,sans-serif" font-size="25" font-weight="700" fill="#fff">Your classroom,</text>
+    <text x="52" y="235" font-family="Arial,sans-serif" font-size="25" font-weight="700" fill="#fff">in your pocket.</text>
+    <text x="52" y="270" font-family="Arial,sans-serif" font-size="14" fill="#D2DFE9">Classes, attendance and results.</text>
+    <rect x="342" y="264" width="68" height="48" rx="14" fill="#F17A3E"/>
+    <path d="M359 297v-17l17-12 17 12v17h-11v-11h-12v11z" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/>
+    <text x="40" y="389" font-family="Arial,sans-serif" font-size="23" font-weight="700" fill="#172D44">Teacher sign in</text>
+    <text x="40" y="414" font-family="Arial,sans-serif" font-size="13" fill="#758495">Pick up where your class day begins.</text>
+    <rect x="28" y="434" width="414" height="50" rx="14" fill="#EAF0F4"/>
+    <text x="133" y="464" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#718293">Student</text>
+    <rect x="238" y="438" width="200" height="42" rx="11" fill="#fff" filter="url(#shadow)"/>
+    <text x="338" y="464" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" font-weight="700" fill="#18344F">Teacher</text>
+    <text x="40" y="519" font-family="Arial,sans-serif" font-size="13" font-weight="700" fill="#30465B">Teacher username</text>
+    <rect x="28" y="530" width="414" height="56" rx="12" fill="#fff" stroke="#DCE4EB"/>
+    <circle cx="54" cy="552" r="7" fill="none" stroke="#8292A2" stroke-width="1.8"/><path d="M42 568c2-7 6-10 12-10s10 3 12 10" fill="none" stroke="#8292A2" stroke-width="1.8"/>
+    <text x="80" y="563" font-family="Arial,sans-serif" font-size="14" fill="#9AA7B4">Enter your username</text>
+    <text x="40" y="622" font-family="Arial,sans-serif" font-size="13" font-weight="700" fill="#30465B">Password</text>
+    <rect x="28" y="633" width="414" height="56" rx="12" fill="#fff" stroke="#DCE4EB"/>
+    <path d="M43 654h16v14H43zM46 654v-4a5 5 0 0 1 10 0v4" fill="none" stroke="#8292A2" stroke-width="1.8"/>
+    <text x="80" y="667" font-family="Arial,sans-serif" font-size="14" fill="#9AA7B4">Enter your password</text>
+    <text x="418" y="667" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#60768A">Show</text>
+    <rect x="28" y="711" width="414" height="56" rx="13" fill="#E66B2E"/>
+    <text x="235" y="746" text-anchor="middle" font-family="Arial,sans-serif" font-size="15" font-weight="700" fill="#fff">Login as Teacher  →</text>
+    <rect x="38" y="791" width="394" height="57" rx="13" fill="#F3F7FA"/>
+    <circle cx="65" cy="819" r="13" fill="#E1EDF5"/><path d="M65 813v7M65 823h.1" stroke="#436580" stroke-width="1.8" stroke-linecap="round"/>
+    <text x="89" y="815" font-family="Arial,sans-serif" font-size="12" font-weight="700" fill="#30465B">Need help signing in?</text>
+    <text x="89" y="834" font-family="Arial,sans-serif" font-size="11" fill="#7C8B99">Contact your academy administrator.</text>
+    <rect x="165" y="872" width="140" height="5" rx="2.5" fill="#172B3F"/>
+    <rect x="330" y="923" width="134" height="30" rx="15" fill="#EAF2F8"/>
+    <text x="397" y="943" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" font-weight="700" fill="#34556F">TEACHER · MOBILE</text>
+  </g>
+</svg>

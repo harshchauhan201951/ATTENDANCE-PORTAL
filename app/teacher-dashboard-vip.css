@@ -143,7 +143,7 @@
     width: 100% !important;
     min-width: 0 !important;
     background: #060c1d !important;
-    overflow-x: hidden !important;
+    overflow-x: clip !important;
   }
   .racer-teacher-shell:has(.vip-td),
   .racer-portal-content:has(> .vip-td) {
@@ -155,7 +155,8 @@
     border: 0 !important;
     border-radius: 0 !important;
     box-shadow: none !important;
-    overflow-x: hidden !important;
+    overflow-x: clip !important;
+    overflow-y: visible !important;
   }
   .vip-td {
     width: 100vw !important;
@@ -165,7 +166,8 @@
     border: 0 !important;
     border-radius: 0 !important;
     box-shadow: none !important;
-    overflow-x: hidden !important;
+    overflow-x: clip !important;
+    overflow-y: visible !important;
     padding-bottom: calc(78px + env(safe-area-inset-bottom)) !important;
   }
   .vip-td-wrap {

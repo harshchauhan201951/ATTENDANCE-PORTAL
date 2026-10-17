@@ -3170,6 +3170,364 @@ export default function TeacherProfilePage() {
             font-size: 20px;
           }
         }
+
+        /* RACER_ACCOUNT_REFRESH_V1: compact, light account workspace */
+        .profile-page {
+          min-height: 100%;
+          padding: 10px 0 22px;
+          background: #f5f8fc;
+        }
+
+        .background-grid,
+        .ambient {
+          display: none;
+        }
+
+        .profile-shell {
+          width: min(calc(100% - 32px), 1240px);
+        }
+
+        .topbar {
+          display: none;
+        }
+
+        .profile-hero {
+          margin-top: 0;
+          padding: 20px 22px;
+          border: 1px solid #dce8f5;
+          border-radius: 18px;
+          background: linear-gradient(115deg, #eff6ff 0%, #ffffff 72%);
+          box-shadow: 0 8px 24px rgba(35, 72, 118, 0.06);
+          color: #1e3554;
+        }
+
+        .hero-glow {
+          opacity: 0.06;
+        }
+
+        .hero-avatar {
+          width: 72px;
+          height: 72px;
+          min-width: 72px;
+          border: 3px solid #fff;
+          box-shadow: 0 2px 12px rgba(35, 72, 118, 0.15);
+        }
+
+        .hero-info h1 {
+          margin: 4px 0 2px;
+          color: #183b64;
+          font-size: 24px;
+          letter-spacing: -0.5px;
+        }
+
+        .hero-info > p {
+          margin: 4px 0 10px;
+          color: #61738a;
+          font-size: 13px;
+          line-height: 1.45;
+        }
+
+        .hero-kicker,
+        .hero-meta b,
+        .panel-label,
+        .section-label {
+          color: #6a7e96;
+          font-size: 10px;
+          letter-spacing: 0.8px;
+        }
+
+        .hero-meta {
+          gap: 8px;
+        }
+
+        .hero-meta > span {
+          border: 1px solid #dce7f3;
+          border-radius: 9px;
+          background: rgba(255, 255, 255, 0.8);
+          padding: 6px 9px;
+          color: #365371;
+          font-size: 11px;
+        }
+
+        .hero-meta b {
+          margin-right: 6px;
+          color: #70839a;
+          font-size: 9px;
+        }
+
+        .hero-actions {
+          display: none;
+        }
+
+        .hero-actions button {
+          min-height: 38px;
+          padding: 8px 12px;
+          border: 1px solid #d9e5f2;
+          border-radius: 10px;
+          background: #fff;
+          color: #335678;
+          font-size: 12px;
+        }
+
+        .section-nav {
+          margin: 12px 0;
+          gap: 9px;
+        }
+
+        .nav-item {
+          min-height: 58px;
+          padding: 10px 13px;
+          border: 1px solid #e1e9f2;
+          border-radius: 12px;
+          background: #fff;
+          box-shadow: none;
+        }
+
+        .nav-item strong {
+          color: #273e59;
+          font-size: 13px;
+        }
+
+        .nav-item small {
+          margin-top: 3px;
+          color: #718198;
+          font-size: 10px;
+        }
+
+        .nav-item.nav-active {
+          border-color: #a9c9ee;
+          background: #edf5ff;
+          box-shadow: inset 3px 0 #3979bd;
+        }
+
+        .main-card {
+          padding: 20px;
+          border: 1px solid #e1e9f2;
+          border-radius: 16px;
+          background: #fff;
+          box-shadow: 0 8px 24px rgba(34, 67, 110, 0.045);
+        }
+
+        .section-heading h2 {
+          color: #1e3554;
+          font-size: 19px;
+          letter-spacing: -0.3px;
+        }
+
+        .section-heading p {
+          color: #718198;
+          font-size: 12px;
+          line-height: 1.45;
+        }
+
+        .profile-layout {
+          grid-template-columns: minmax(230px, 0.72fr) minmax(0, 1.5fr);
+          gap: 13px;
+        }
+
+        .image-panel,
+        .details-panel {
+          padding: 17px;
+          border: 1px solid #e6edf5;
+          border-radius: 13px;
+          background: #fbfdff;
+        }
+
+        .large-avatar {
+          width: 100px;
+          height: 100px;
+          border: 4px solid #fff;
+          box-shadow: 0 2px 12px rgba(35, 72, 118, 0.13);
+        }
+
+        .image-panel h3 {
+          margin: 10px 0 4px;
+          color: #243d5a;
+          font-size: 15px;
+        }
+
+        .image-panel > p,
+        .requirement-box p,
+        .info-notice p {
+          color: #718198;
+          font-size: 11px;
+          line-height: 1.5;
+        }
+
+        .primary-button,
+        .username-input-row button,
+        .change-password-button {
+          border-radius: 9px;
+          font-size: 12px;
+        }
+
+        .username-editor label,
+        .detail-row > span,
+        .input-group label {
+          color: #657990;
+          font-size: 10px;
+          letter-spacing: 0.5px;
+        }
+
+        .username-input-row input,
+        .password-input input {
+          min-height: 42px;
+          font-size: 13px;
+        }
+
+        .detail-list {
+          gap: 5px;
+        }
+
+        .detail-row {
+          min-height: 38px;
+          padding: 7px 10px;
+          border-color: #e8eef5;
+          border-radius: 9px;
+          background: #fff;
+        }
+
+        .detail-row strong {
+          color: #334b68;
+          font-size: 12px;
+        }
+
+        .info-notice {
+          margin-top: 10px;
+          padding: 10px 12px;
+          border-radius: 10px;
+        }
+
+        .info-notice strong,
+        .requirement-box strong {
+          font-size: 11px;
+        }
+
+        .quick-section {
+          margin-top: 14px;
+        }
+
+        .quick-grid {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 8px;
+        }
+
+        .quick-grid button {
+          min-height: 62px;
+          padding: 10px;
+          border: 1px solid #e4ebf3;
+          border-radius: 11px;
+          background: #fbfdff;
+          box-shadow: none;
+        }
+
+        .quick-grid button strong {
+          color: #2e4867;
+          font-size: 11px;
+        }
+
+        .quick-grid button small {
+          font-size: 9px;
+        }
+
+        .password-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+        }
+
+        .password-rules div {
+          font-size: 10px;
+        }
+
+        .preference-list {
+          gap: 8px;
+        }
+
+        .preference-item {
+          min-height: 62px;
+          padding: 10px 12px;
+          border: 1px solid #e5edf5;
+          background: #fbfdff;
+        }
+
+        .preference-text strong { color: #2d4562; font-size: 12px; }
+        .preference-text span { font-size: 10px; }
+        .preference-note strong { font-size: 11px; }
+        .preference-note p { font-size: 10px; }
+
+        .bottom-actions {
+          margin-top: 12px;
+          gap: 8px;
+        }
+
+        .bottom-actions button {
+          min-height: 40px;
+          padding: 9px;
+          font-size: 11px;
+        }
+
+        .profile-page footer {
+          min-height: 45px;
+          margin-top: 10px;
+          font-size: 10px;
+        }
+
+        @media (max-width: 700px) {
+          .profile-page { padding-top: 8px; }
+          .profile-shell { width: calc(100% - 20px); }
+          .profile-hero { gap: 12px; padding: 15px; }
+          .hero-info h1 { font-size: 21px; }
+          .hero-actions { width: auto; }
+          .hero-actions button { flex: initial; }
+          .section-nav {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 7px;
+          }
+          .nav-item {
+            min-width: 0;
+            min-height: 54px;
+            justify-content: center;
+            padding: 8px 6px;
+            text-align: center;
+          }
+          .nav-item small { display: none; }
+          .main-card { padding: 15px; }
+          .profile-layout { grid-template-columns: minmax(0, 1fr); }
+          .quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .password-grid { grid-template-columns: minmax(0, 1fr); }
+          .security-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+          .bottom-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+          .bottom-actions button { font-size: 10px; }
+        }
+
+        @media (max-width: 520px) {
+          .profile-shell { width: calc(100% - 16px); }
+          .profile-hero {
+            display: grid;
+            grid-template-columns: 58px minmax(0, 1fr);
+            align-items: center;
+            gap: 8px 12px;
+            padding: 13px;
+            text-align: left;
+          }
+          .hero-avatar { width: 56px; height: 56px; min-width: 56px; margin: 0; grid-row: span 2; }
+          .hero-info h1 { font-size: 18px; }
+          .hero-info > p { display: none; }
+          .hero-meta { justify-content: flex-start; gap: 5px; }
+          .hero-meta > span { padding: 5px 7px; font-size: 9px; }
+          .hero-meta b { font-size: 8px; }
+          .hero-actions { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .section-nav { margin: 8px 0; }
+          .nav-item { min-height: 46px; gap: 5px; font-size: 11px; }
+          .nav-item > span { font-size: 15px; }
+          .nav-item strong { font-size: 11px; }
+          .section-heading h2 { font-size: 17px; }
+          .image-panel, .details-panel { padding: 13px; }
+          .security-cards { grid-template-columns: minmax(0, 1fr); }
+          .bottom-actions { grid-template-columns: minmax(0, 1fr); }
+          .bottom-actions button { min-height: 38px; }
+        }
       `}</style>
     </main>
   );

@@ -17,13 +17,33 @@ export default function TeacherSettingsPage() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
+    const savedTeacher = localStorage.getItem("teacher");
+    let teacherRecord: { name?: string; teacher_name?: string; username?: string; teacher_username?: string } = {};
+
+    if (savedTeacher) {
+      try {
+        teacherRecord = JSON.parse(savedTeacher) as typeof teacherRecord;
+      } catch {
+        teacherRecord = { username: savedTeacher };
+      }
+    }
+
+    const savedUsername =
+      localStorage.getItem("teacher_username") ||
+      localStorage.getItem("teacherUsername") ||
+      localStorage.getItem("username") ||
+      localStorage.getItem("attendance_username") ||
+      teacherRecord.teacher_username ||
+      teacherRecord.username ||
+      "";
+
     const savedTeacherName =
       localStorage.getItem("teacherName") ||
       localStorage.getItem("teacher_name") ||
+      teacherRecord.teacher_name ||
+      teacherRecord.name ||
+      savedUsername ||
       "Teacher";
-
-    const savedUsername =
-      localStorage.getItem("teacher_username") || "";
 
     const savedPortalName =
       localStorage.getItem("portalName") ||
@@ -102,8 +122,8 @@ export default function TeacherSettingsPage() {
   }
 
   return (
-    <main data-racer-vip-module="settings"  className="racer-module-page racer-settings-page" style={styles.page}>
-      <div style={styles.container}>
+    <main data-racer-vip-module="settings" className="racer-module-page racer-settings-page racer-settings-refresh">
+      <div className="racer-settings-container" style={styles.container}>
 
         {/* HEADER */}
 
@@ -147,9 +167,11 @@ export default function TeacherSettingsPage() {
           </div>
         )}
 
+        <div className="racer-settings-grid">
+
         {/* TEACHER PROFILE */}
 
-        <section style={styles.card}>
+        <section className="racer-settings-account" style={styles.card}>
           <div style={styles.cardHeader}>
             <div style={styles.cardIcon}>
               👨‍🏫
@@ -208,7 +230,7 @@ export default function TeacherSettingsPage() {
 
         {/* PORTAL SETTINGS */}
 
-        <section style={styles.card}>
+        <section className="racer-settings-portal" style={styles.card}>
           <div style={styles.cardHeader}>
             <div style={styles.cardIcon}>
               🏫
@@ -313,7 +335,7 @@ export default function TeacherSettingsPage() {
 
         {/* DASHBOARD INFORMATION */}
 
-        <section style={styles.card}>
+        <section className="racer-settings-summary" style={styles.card}>
           <div style={styles.cardHeader}>
             <div style={styles.cardIcon}>
               📊
@@ -378,7 +400,7 @@ export default function TeacherSettingsPage() {
 
         {/* QUICK NAVIGATION */}
 
-        <section style={styles.card}>
+        <section className="racer-settings-navigation" style={styles.card}>
           <div style={styles.cardHeader}>
             <div style={styles.cardIcon}>
               ⚡
@@ -513,9 +535,11 @@ export default function TeacherSettingsPage() {
           </div>
         </section>
 
+        </div>
+
         {/* SECURITY */}
 
-        <section style={styles.securityCard}>
+        <section className="racer-settings-security" style={styles.securityCard}>
           <div style={styles.securityIcon}>
             🔐
           </div>
@@ -543,7 +567,7 @@ export default function TeacherSettingsPage() {
 
         {/* FOOTER */}
 
-        <footer style={styles.footer}>
+        <footer className="racer-settings-footer" style={styles.footer}>
           <strong>
             Attendance Portal
           </strong>
@@ -554,6 +578,124 @@ export default function TeacherSettingsPage() {
         </footer>
 
       </div>
+      <style jsx global>{`
+        .racer-settings-refresh {
+          min-height: 100% !important;
+          padding: 12px 18px 24px !important;
+          background: #f5f8fc !important;
+          color: #172b4d !important;
+          font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+        }
+        .racer-settings-refresh > .racer-settings-container {
+          width: min(100%, 1280px) !important;
+          margin: 0 auto !important;
+        }
+        .racer-settings-refresh .racer-settings-grid {
+          display: grid;
+          grid-template-columns: minmax(0, .95fr) minmax(0, 1.35fr);
+          grid-template-areas: "account portal" "summary navigation";
+          gap: 13px;
+          align-items: stretch;
+        }
+        .racer-settings-refresh .racer-settings-account { grid-area: account; }
+        .racer-settings-refresh .racer-settings-portal { grid-area: portal; }
+        .racer-settings-refresh .racer-settings-summary { grid-area: summary; }
+        .racer-settings-refresh .racer-settings-navigation { grid-area: navigation; }
+        .racer-settings-refresh .racer-settings-grid > section,
+        .racer-settings-refresh .racer-settings-security {
+          min-width: 0 !important;
+          padding: 16px !important;
+          margin: 0 0 12px !important;
+          border: 1px solid #e1e9f2 !important;
+          border-radius: 16px !important;
+          background: #fff !important;
+          box-shadow: 0 7px 22px rgba(34, 67, 110, .055) !important;
+        }
+        .racer-settings-refresh .racer-settings-grid > section > div:first-child { margin-bottom: 12px !important; }
+        .racer-settings-refresh .racer-settings-grid h2 { color: #1e3554 !important; font-size: 17px !important; letter-spacing: -.02em; }
+        .racer-settings-refresh .racer-settings-grid p { line-height: 1.45; }
+        .racer-settings-refresh .racer-settings-grid input {
+          min-width: 0 !important;
+          height: 40px !important;
+          padding: 9px 11px !important;
+          border: 1px solid #dbe4ef !important;
+          border-radius: 10px !important;
+          background: #fbfdff !important;
+          color: #1e293b !important;
+          font-size: 13px !important;
+        }
+        .racer-settings-refresh .racer-settings-grid input:focus { border-color: #6aa5eb !important; outline: 3px solid rgba(59,130,246,.12); }
+        .racer-settings-refresh .racer-settings-grid label { color: #334b68 !important; font-size: 12px !important; }
+        .racer-settings-refresh .racer-settings-account > div:nth-child(2),
+        .racer-settings-refresh .racer-settings-portal form > div:first-child {
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          gap: 11px !important;
+        }
+        .racer-settings-refresh .racer-settings-summary > div:nth-child(2) {
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          gap: 8px !important;
+        }
+        .racer-settings-refresh .racer-settings-summary > div:nth-child(2) > div {
+          min-width: 0;
+          padding: 11px !important;
+          border: 1px solid #e5edf5 !important;
+          border-radius: 11px !important;
+          background: #f8fbff !important;
+        }
+        .racer-settings-refresh .racer-settings-summary strong { display: block; overflow-wrap: anywhere; font-size: 14px !important; }
+        .racer-settings-refresh .racer-settings-navigation > div:nth-child(2) {
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          gap: 8px !important;
+        }
+        .racer-settings-refresh .racer-settings-navigation button {
+          min-width: 0 !important;
+          min-height: 42px !important;
+          padding: 8px 10px !important;
+          border: 1px solid #e1e9f2 !important;
+          border-radius: 10px !important;
+          background: #f8fbff !important;
+          color: #334b68 !important;
+          font-size: 12px !important;
+          text-align: left;
+        }
+        .racer-settings-refresh .racer-settings-navigation button:hover { border-color: #a9c8ee !important; background: #f0f6ff !important; }
+        .racer-settings-refresh .racer-settings-security { align-items: center !important; padding: 13px 16px !important; background: #fffaf8 !important; border-color: #f1e2d9 !important; }
+        .racer-settings-refresh .racer-settings-security h2 { font-size: 15px !important; }
+        .racer-settings-refresh .racer-settings-security p { margin: 4px 0 9px !important; font-size: 12px !important; }
+        .racer-settings-refresh .racer-settings-security button { padding: 9px 12px !important; font-size: 12px !important; }
+        .racer-settings-refresh .racer-settings-footer { min-height: 30px !important; margin: 3px 0 0 !important; padding: 7px 0 !important; color: #8292a8 !important; font-size: 11px !important; }
+        @media (max-width: 1100px) {
+          .racer-settings-refresh { padding: 10px 12px 22px !important; }
+          .racer-settings-refresh .racer-settings-grid { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+        }
+        @media (max-width: 760px) {
+          .racer-settings-refresh { padding: 8px 10px calc(86px + env(safe-area-inset-bottom)) !important; }
+          .racer-settings-refresh > .racer-settings-container { width: 100% !important; max-width: none !important; }
+          .racer-settings-refresh .racer-settings-grid {
+            grid-template-columns: minmax(0,1fr);
+            grid-template-areas: "account" "portal" "summary" "navigation";
+            gap: 9px;
+          }
+          .racer-settings-refresh .racer-settings-grid > section,
+          .racer-settings-refresh .racer-settings-security { padding: 13px !important; margin-bottom: 9px !important; border-radius: 14px !important; }
+          .racer-settings-refresh .racer-settings-footer { display: none !important; }
+        }
+        @media (max-width: 420px) {
+          .racer-settings-refresh .racer-settings-account > div:nth-child(2),
+          .racer-settings-refresh .racer-settings-portal form > div:first-child { grid-template-columns: minmax(0,1fr) !important; }
+          .racer-settings-refresh .racer-settings-security { flex-wrap: wrap; }
+          .racer-settings-refresh .racer-settings-security button { width: 100%; }
+        }
+      `}</style>
+      <style jsx global>{`
+        .racer-settings-refresh [data-racer-vip-header="1"]{border:1px solid #dce8f6!important;background:linear-gradient(115deg,#fff 0%,#f7faff 55%,#edf5ff 100%)!important;box-shadow:0 10px 30px rgba(28,65,112,.08)!important}
+        .racer-settings-refresh .racer-settings-grid>section{transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+        .racer-settings-refresh .racer-settings-grid>section:hover{transform:translateY(-2px);border-color:#c6d9ef!important;box-shadow:0 12px 28px rgba(34,67,110,.09)!important}
+        .racer-settings-refresh .racer-settings-grid button{transition:transform .16s ease,box-shadow .16s ease,background .16s ease}
+        .racer-settings-refresh .racer-settings-grid button:hover{transform:translateY(-1px);box-shadow:0 5px 14px rgba(35,78,130,.1)}
+        .racer-settings-refresh .racer-settings-security{box-shadow:0 5px 18px rgba(120,60,35,.05)!important}
+        @media(max-width:760px){.racer-settings-refresh .racer-settings-grid>section:hover{transform:none}}
+      `}</style>
     </main>
   );
 }

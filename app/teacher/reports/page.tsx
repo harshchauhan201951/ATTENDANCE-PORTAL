@@ -7,6 +7,7 @@ import {
   type CSSProperties,
 } from "react";
 import { createClient } from "@supabase/supabase-js";
+import * as XLSX from "xlsx";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -224,11 +225,42 @@ export default function TeacherReportsPage() {
   const [selectedAssessment, setSelectedAssessment] = useState("");
 
   const [showAssessmentForm, setShowAssessmentForm] = useState(true);
+  const [activeReportSection, setActiveReportSection] = useState<"attendance-report" | "student-attendance" | "academy" | "assessment-create" | "saved-assessments" | "attendance-records">("attendance-report");
+  const [reportMenuOpen, setReportMenuOpen] = useState(true);
+  const [assessmentStudentIndex, setAssessmentStudentIndex] = useState(0);
+  const [showAssessmentRemark, setShowAssessmentRemark] = useState(false);
+  const [selectedReportStudentId, setSelectedReportStudentId] = useState<number | null>(null);
+  const [studentDetailMonth, setStudentDetailMonth] = useState(String(currentDate.getMonth() + 1));
+  const [studentDetailYear, setStudentDetailYear] = useState(String(currentDate.getFullYear()));
+  const [studentDetailAttendance, setStudentDetailAttendance] = useState<Attendance[]>([]);
+  const [studentDetailLoading, setStudentDetailLoading] = useState(false);
+  const [expandedTestWeek, setExpandedTestWeek] = useState<string | null>(null);
 
   useEffect(() => {
     void loadReport();
     void loadAssessments();
   }, []);
+
+  useEffect(() => {
+    if (selectedReportStudentId === null) return;
+    const start = `${studentDetailYear}-${String(studentDetailMonth).padStart(2, "0")}-01`;
+    const end = new Date(Number(studentDetailYear), Number(studentDetailMonth), 0).getDate();
+    let active = true;
+    setStudentDetailAttendance([]);
+    setStudentDetailLoading(true);
+    void (async () => {
+      try {
+        const { data, error: detailError } = await supabase.from("attendance").select("id, student_id, attendance_date, status")
+          .eq("student_id", selectedReportStudentId).gte("attendance_date", start)
+          .lte("attendance_date", `${studentDetailYear}-${String(studentDetailMonth).padStart(2, "0")}-${String(end).padStart(2, "0")}`)
+          .order("attendance_date", { ascending: false });
+        if (!active) return;
+        if (detailError) setError(detailError.message);
+        else setStudentDetailAttendance((data || []) as Attendance[]);
+      } finally { if (active) setStudentDetailLoading(false); }
+    })();
+    return () => { active = false; };
+  }, [selectedReportStudentId, studentDetailMonth, studentDetailYear]);
 
   async function loadReport() {
     setLoading(true);
@@ -538,6 +570,8 @@ export default function TeacherReportsPage() {
       .split("T")[0];
 
     setTestName("");
+    setAssessmentStudentIndex(0);
+    setShowAssessmentRemark(false);
     setTestDate(today);
     setTotalMarks("");
 
@@ -809,7 +843,9 @@ export default function TeacherReportsPage() {
       `${assessmentName}__${assessmentDate}`
     );
 
+    setAssessmentStudentIndex(0);
     setShowAssessmentForm(true);
+    setActiveReportSection("assessment-create");
 
     window.scrollTo({
       top: 0,
@@ -871,6 +907,22 @@ export default function TeacherReportsPage() {
     return Array.from(groups.values());
   }, [assessments]);
 
+  const assessmentWeeks = useMemo(() => {
+    const weeks = new Map<string, AssessmentRow[][]>();
+    assessmentGroups.forEach((group) => {
+      const date = new Date(`${group[0].test_date}T00:00:00`);
+      const weekday = (date.getDay() + 6) % 7;
+      date.setDate(date.getDate() - weekday);
+      const monday = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      weeks.set(monday, [...(weeks.get(monday) || []), group]);
+    });
+    return Array.from(weeks, ([startDate, groups]) => ({ startDate, groups })).sort((a, b) => b.startDate.localeCompare(a.startDate));
+  }, [assessmentGroups]);
+
+  useEffect(() => {
+    if (expandedTestWeek === null && assessmentWeeks.length > 0) setExpandedTestWeek(assessmentWeeks[0].startDate);
+  }, [assessmentWeeks, expandedTestWeek]);
+
   const totalPresent = attendance.filter(
     (record) => isPresent(record.status)
   ).length;
@@ -885,6 +937,8 @@ export default function TeacherReportsPage() {
     totalRecords > 0
       ? (totalPresent / totalRecords) * 100
       : 0;
+
+  const selectedReportStudent = students.find((student) => student.id === selectedReportStudentId) || null;
 
   const reportData = useMemo(() => {
     return students.map((student) => {
@@ -1011,6 +1065,16 @@ export default function TeacherReportsPage() {
     document.body.removeChild(link);
 
     URL.revokeObjectURL(url);
+  }
+
+  function exportSelectedStudentAttendance() {
+    const student = students.find((item) => item.id === selectedReportStudentId);
+    if (!student) return;
+    const rows = [["Date", "Student", "Username", "Status"], ...studentDetailAttendance.map((record) => [record.attendance_date, student.student_name || "Student", student.student_username, record.status])];
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
+    XLSX.writeFile(workbook, `attendance-${student.student_username}-${studentDetailYear}-${studentDetailMonth}.xlsx`);
   }
 
   function exportAssessmentCSV(
@@ -1704,18 +1768,188 @@ export default function TeacherReportsPage() {
 
   return (
     <main className="racer-module-page racer-reports-page" style={styles.page}>
-      <div style={styles.container}>
-        <header style={styles.header}>
+      <style>{`
+        @media print{body *{visibility:hidden!important}.reports-student-overlay,.reports-student-overlay *{visibility:visible!important}.reports-student-overlay{position:absolute!important;inset:0!important;padding:0!important;background:#fff!important}.reports-student-modal{width:100%!important;max-width:none!important;max-height:none!important;overflow:visible!important;box-shadow:none!important;border:0!important}.reports-student-modal button{display:none!important}}
+        .racer-reports-page{background:#f3f7fc!important;color:#182944!important;padding:24px 20px 42px!important;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif!important}
+        .racer-reports-page>div{max-width:1280px!important}
+        .racer-reports-page .reports-page-header{padding:20px 24px!important;border:1px solid #e5ebf4!important;border-radius:20px!important;box-shadow:0 8px 26px rgba(30,55,90,.06)!important;margin-bottom:16px!important}
+        .racer-reports-page .reports-page-header .reports-title{font-size:26px!important;letter-spacing:-.6px!important;color:#172b4d!important}
+        .racer-reports-page .reports-page-header .reports-subtitle{font-size:13px!important;color:#71809a!important}
+        .racer-reports-page .reports-filter{display:grid!important;grid-template-columns:minmax(190px,1fr) minmax(340px,1.5fr);align-items:center!important;gap:18px!important;padding:18px 20px!important;border:1px solid #e1e8f2!important;border-radius:18px!important;background:#fff!important;box-shadow:0 5px 18px rgba(30,55,90,.04)!important;margin-bottom:14px!important}
+        .racer-reports-page .reports-filter h2,.racer-reports-page .reports-filter p{margin-top:0!important;margin-bottom:0!important}
+        .racer-reports-page .reports-controls{display:grid!important;grid-template-columns:1fr 1fr auto auto!important;align-items:end!important;gap:10px!important}
+        .racer-reports-page input,.racer-reports-page select,.racer-reports-page textarea{border-color:#d8e1ed!important;border-radius:10px!important;min-height:42px!important;font-size:13px!important}
+        .racer-reports-page button{transition:transform .16s ease,box-shadow .16s ease,filter .16s ease!important;font-weight:750!important}
+        .racer-reports-page button:hover{filter:brightness(.98)!important;transform:translateY(-1px)!important;box-shadow:0 5px 13px rgba(30,64,110,.13)!important}
+        .racer-reports-page .reports-summary{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:12px!important;margin-bottom:14px!important}
+        .racer-reports-page .reports-summary-card{position:relative!important;overflow:hidden!important;min-height:98px!important;padding:16px 18px!important;border-radius:17px!important;box-shadow:0 7px 18px rgba(30,55,90,.08)!important}
+        .racer-reports-page .reports-summary-card:after{content:"";position:absolute;right:-18px;bottom:-38px;width:105px;height:105px;border:1px solid rgba(255,255,255,.24);border-radius:50%;box-shadow:0 0 0 13px rgba(255,255,255,.08),0 0 0 27px rgba(255,255,255,.05)}
+        .racer-reports-page .reports-attendance,.racer-reports-page .reports-assessments,.racer-reports-page .reports-records{padding:20px!important;border:1px solid #e3eaf3!important;border-radius:19px!important;background:#fff!important;box-shadow:0 7px 22px rgba(30,55,90,.05)!important;margin-bottom:15px!important}
+        .racer-reports-page .sectionTitle{font-size:19px!important;letter-spacing:-.25px!important;color:#20395f!important;margin:0!important}
+        .racer-reports-page .sectionSubtitle{font-size:12px!important;color:#78869b!important;margin:5px 0 0!important}
+        .racer-reports-page .reports-attendance-table-wrap{margin-top:12px!important;max-height:min(44vh,440px)!important;overflow:auto!important;border:1px solid #e7edf5!important;border-radius:13px!important;overscroll-behavior:contain!important}
+        .racer-reports-page .reports-attendance .mobile-report-table{min-width:720px!important;border-collapse:separate!important;border-spacing:0!important;overflow-wrap:normal!important}
+        .racer-reports-page .reports-attendance .mobile-report-table th{position:sticky;top:0;background:#f5f8fc!important;color:#65748a!important;font-size:10px!important;text-transform:uppercase;letter-spacing:.055em;padding:12px 10px!important;border-bottom:1px solid #e6edf5!important}
+        .racer-reports-page .reports-attendance .mobile-report-table td{padding:11px 10px!important;border-bottom:1px solid #eef2f7!important;color:#4a5a70!important;font-size:12px!important;overflow-wrap:normal!important;word-break:normal!important}
+        .racer-reports-page .reports-attendance .mobile-report-table tr:last-child td{border-bottom:0!important}
+        .racer-reports-page .reports-attendance .mobile-report-table td strong{color:#263c5d!important;font-size:12px!important}
+        .racer-reports-page .reports-assessments .assessmentHeader,.racer-reports-page .reports-assessments .savedHeader{gap:12px!important;padding-bottom:16px!important;border-bottom:1px solid #edf1f6!important}
+        .racer-reports-page .reports-assessments .assessmentTitle{font-size:22px!important;color:#1c3559!important}
+        .racer-reports-page .reports-assessments .assessmentSubtitle{font-size:12px!important;color:#78869b!important}
+        .racer-reports-page .reports-assessments .formBox{background:#f8fafd!important;border:1px solid #e5ebf3!important;border-radius:16px!important;padding:18px!important;margin-top:16px!important}
+        .racer-reports-page .reports-assessments .formTitle{font-size:16px!important;color:#2a4162!important}
+        .racer-reports-page .assessment-entry-table-wrap{max-height:min(52vh,580px)!important;overflow:auto!important;border:1px solid #e3eaf2!important;border-radius:13px!important;background:#fff!important;overscroll-behavior:contain!important}
+        .racer-reports-page .reports-assessments table{border-collapse:separate!important;border-spacing:0!important}
+        .racer-reports-page .reports-assessments table th{position:sticky;top:0;background:#f1f5fa!important;color:#5d6d84!important;font-size:10px!important;text-transform:uppercase;letter-spacing:.04em!important}
+        .racer-reports-page .reports-assessments table td{font-size:12px!important;color:#45556c!important;border-bottom:1px solid #edf1f5!important}
+        .racer-reports-page .reports-assessments .savedSection{margin-top:20px!important}
+        .racer-reports-page .reports-assessments .saved-week-list{max-height:min(44vh,440px);overflow:auto;overscroll-behavior:contain}
+        .racer-reports-page .reports-assessments .saved-week{margin:10px 0;border:1px solid #e2eaf3;border-radius:13px;overflow:hidden;background:#fff}
+        .racer-reports-page .reports-assessments .saved-week-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:0;background:#f4f8fd;color:#29466b;text-align:left;cursor:pointer}
+        .racer-reports-page .reports-assessments .saved-week-toggle strong{font-size:13px}
+        .racer-reports-page .reports-assessments .saved-week-tests{display:grid;gap:8px;padding:9px;max-height:min(44vh,440px);overflow:auto;overscroll-behavior:contain}
+        .racer-reports-page .reports-records .recordGrid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))!important;max-height:42vh!important;overflow:auto!important;padding-right:4px!important}
+        .racer-reports-page .reports-records .recordCard{cursor:pointer!important;text-align:left!important}
+        .racer-reports-page .reports-assessments .savedList{gap:10px!important}
+        .racer-reports-page .reports-assessments .savedCard{border:1px solid #e3eaf2!important;border-radius:14px!important;padding:15px!important;box-shadow:0 3px 12px rgba(30,55,90,.04)!important}
+        .racer-reports-page .reports-assessments .savedTestName{font-size:15px!important;color:#253b5d!important}
+        .racer-reports-page .reports-assessments .savedMeta{font-size:11px!important;color:#728099!important}
+        .racer-reports-page .reports-records .recordGrid{gap:9px!important}
+        .racer-reports-page .reports-records .recordCard{border:1px solid #e5ebf3!important;border-radius:13px!important;padding:12px!important;background:#fff!important}
+        .racer-reports-page .reports-records .recordName{font-size:12px!important;color:#314765!important}
+        .racer-reports-page .reports-records .recordDate{font-size:11px!important;color:#7b8798!important}
+        @media(max-width:760px){
+          .racer-reports-page{padding:10px 0 88px!important;background:#f3f7fc!important;overflow-x:hidden!important}
+          .racer-reports-page>div{width:100%!important;max-width:none!important;padding:0 12px 20px!important;box-sizing:border-box!important}
+          .racer-reports-page .reports-page-header{padding:15px!important;border-radius:16px!important;margin-bottom:10px!important;gap:10px!important}
+          .racer-reports-page .reports-page-header .reports-title{font-size:22px!important;line-height:1.15!important}
+          .racer-reports-page .reports-page-header .reports-subtitle{font-size:11px!important;line-height:1.4!important}
+          .racer-reports-page .reports-page-header a{padding:9px 11px!important;font-size:11px!important}
+          .racer-reports-page .reports-filter{grid-template-columns:1fr!important;gap:12px!important;padding:14px!important;border-radius:15px!important;margin-bottom:10px!important}
+          .racer-reports-page .reports-controls{grid-template-columns:1fr 1fr!important;gap:8px!important}
+          .racer-reports-page .reports-controls button{min-height:40px!important;padding:9px 10px!important;font-size:11px!important}
+          .racer-reports-page .reports-controls select{padding:9px!important;min-height:40px!important}
+          .racer-reports-page .reports-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important;margin-bottom:10px!important}
+          .racer-reports-page .reports-summary-card{min-height:82px!important;padding:12px!important;border-radius:14px!important}
+          .racer-reports-page .reports-summary-card>div:first-child{font-size:12px!important}
+          .racer-reports-page .reports-summary-card>div:nth-child(2){font-size:10px!important;margin-top:5px!important}
+          .racer-reports-page .reports-summary-card>div:nth-child(3){font-size:23px!important;margin-top:1px!important}
+          .racer-reports-page .reports-attendance,.racer-reports-page .reports-assessments,.racer-reports-page .reports-records{padding:13px!important;border-radius:16px!important;margin-bottom:10px!important}
+          .racer-reports-page .sectionTitle{font-size:16px!important}
+          .racer-reports-page .sectionSubtitle{font-size:10px!important}
+          .racer-reports-page .reports-attendance .tableHeader{gap:7px!important;margin-bottom:10px!important}
+          .racer-reports-page .reports-attendance .recordCount{font-size:10px!important;padding:6px 8px!important}
+          .racer-reports-page .reports-attendance-table-wrap{max-height:min(38vh,300px)!important;overflow-y:auto!important;overflow-x:hidden!important;border:0!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch!important}
+          .racer-reports-page .reports-attendance .mobile-report-table{display:block!important;min-width:0!important;width:100%!important}
+          .racer-reports-page .reports-attendance .mobile-report-table thead{display:none!important}
+          .racer-reports-page .reports-attendance .mobile-report-table tbody{display:grid!important;gap:8px!important}
+          .racer-reports-page .reports-attendance .mobile-report-table tbody tr{display:grid!important;grid-template-columns:minmax(0,1fr) repeat(3,auto)!important;grid-template-areas:"student total present absent" "username percent percent percent"!important;gap:6px 7px!important;padding:11px!important;border:1px solid #e3eaf3!important;border-radius:13px!important;background:#fff!important;box-shadow:0 3px 10px rgba(30,55,90,.04)!important}
+          .racer-reports-page .reports-attendance .mobile-report-table tbody td{padding:0!important;border:0!important;min-width:0!important;font-size:11px!important}
+          .racer-reports-page .reports-attendance .mobile-report-table tbody td:nth-child(1){display:none!important}
+          .racer-reports-page .reports-attendance .mobile-report-table tbody td:nth-child(2){grid-area:student!important;white-space:normal!important;overflow-wrap:anywhere!important}
+          .racer-reports-page .reports-attendance .mobile-report-table tbody td:nth-child(2) strong{font-size:12px!important}
+          .racer-reports-page .reports-attendance .mobile-report-table tbody td:nth-child(3){grid-area:username!important;font-size:9px!important;color:#8490a2!important}
+          .racer-reports-page .reports-attendance .mobile-report-table tbody td:nth-child(4){grid-area:total!important;background:#eff6ff!important;color:#2563eb!important;padding:5px 6px!important;border-radius:8px!important;text-align:center!important;font-weight:800!important}
+          .racer-reports-page .reports-attendance .mobile-report-table tbody td:nth-child(5){grid-area:present!important;background:#ecfdf5!important;color:#15803d!important;padding:5px 6px!important;border-radius:8px!important;text-align:center!important;font-weight:800!important}
+          .racer-reports-page .reports-attendance .mobile-report-table tbody td:nth-child(6){grid-area:absent!important;background:#fff1f1!important;color:#c24141!important;padding:5px 6px!important;border-radius:8px!important;text-align:center!important;font-weight:800!important}
+          .racer-reports-page .reports-attendance .mobile-report-table tbody td:nth-child(7){grid-area:percent!important;padding-top:1px!important}
+          .racer-reports-page .reports-attendance .percentageWrapper{display:flex!important;align-items:center!important;gap:8px!important;width:100%!important}
+          .racer-reports-page .reports-attendance .progressBackground{flex:1!important;height:7px!important}
+          .racer-reports-page .reports-assessments .assessmentHeader,.racer-reports-page .reports-assessments .savedHeader{align-items:flex-start!important;flex-wrap:wrap!important}
+          .racer-reports-page .reports-assessments .assessmentTitle{font-size:19px!important}
+          .racer-reports-page .reports-assessments .assessmentSubtitle{font-size:10px!important}
+          .racer-reports-page .reports-assessments .formBox{padding:12px!important;border-radius:13px!important}
+          .racer-reports-page .assessment-entry-table-wrap{max-height:min(44vh,340px)!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch!important}
+          .racer-reports-page .reports-assessments table{min-width:1450px!important}
+          .racer-reports-page .reports-assessments table th,.racer-reports-page .reports-assessments table td{padding:8px!important;font-size:10px!important}
+          .racer-reports-page .reports-assessments .savedCard{padding:12px!important;gap:10px!important}
+          .racer-reports-page .reports-assessments .saved-week-list{max-height:min(40vh,290px);overflow:auto;-webkit-overflow-scrolling:touch}
+          .racer-reports-page .reports-assessments .savedTestName{font-size:13px!important}
+          .racer-reports-page .reports-assessments .savedMeta{line-height:1.55!important;white-space:normal!important}
+          .racer-reports-page .reports-assessments .savedActions{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important;width:100%!important}
+          .racer-reports-page .reports-assessments .savedActions button{padding:8px 5px!important;font-size:10px!important}
+          .racer-reports-page .reports-assessments .gradeGrid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important}
+          .racer-reports-page .reports-records .recordGrid{grid-template-columns:1fr!important}
+          .racer-reports-page .reports-records .recordGrid{max-height:38vh!important}
+          .racer-reports-page .reports-records .recordCard{padding:10px!important}
+        }
+        .racer-reports-page .reports-section-nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;padding:3px 2px 12px;margin-bottom:12px}
+        .racer-reports-page .reports-section-tab{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:10px 12px;border:1px solid #dfe7f1;border-radius:12px;background:#fff;color:#51627b;font-size:13px;font-weight:750;line-height:1.3;text-align:center;white-space:normal;cursor:pointer;transition:background .16s,border-color .16s,color .16s,box-shadow .16s}
+        .racer-reports-page .reports-section-tab>span{font-size:15px;color:#2d65bc}
+        .racer-reports-page .reports-section-tab:hover{border-color:#9db9e5;background:#f5f9ff}
+        .racer-reports-page .reports-section-tab.is-active{border-color:#2d65bc;background:#eaf2ff;color:#17478c;box-shadow:0 3px 10px rgba(45,101,188,.12)}
+        .racer-reports-page .reports-academy-hub{display:grid;grid-template-columns:auto minmax(0,1fr);gap:15px;align-items:center;padding:22px;border:1px solid #e0e9f4;border-radius:16px;background:linear-gradient(135deg,#f7faff,#fff 65%)}
+        .racer-reports-page .reports-academy-mark{display:grid;place-items:center;width:56px;height:56px;border-radius:16px;background:#e6efff;color:#2459a6;font-size:18px;font-weight:900;letter-spacing:-.04em}
+        .racer-reports-page .reports-hub-eyebrow{font-size:10px;font-weight:850;letter-spacing:.09em;color:#6680a2}
+        .racer-reports-page .reports-academy-hub h3{margin:3px 0;color:#203b60;font-size:19px}
+        .racer-reports-page .reports-academy-hub p{margin:0;color:#6e7d91;font-size:12px;line-height:1.5}
+        .racer-reports-page .reports-hub-actions{grid-column:2;display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}
+        .racer-reports-page .reports-hub-actions button{min-height:40px;padding:9px 12px;border:1px solid #dce6f3;border-radius:10px;background:#fff;color:#2c5389;font-size:11px;font-weight:800;cursor:pointer}
+        .racer-reports-page .reports-hub-actions button:first-child{border-color:#2459a6;background:#2459a6;color:#fff}
+        .racer-reports-page .reports-hub-actions button span{display:inline-grid;place-items:center;min-width:21px;height:21px;margin-left:5px;border-radius:99px;background:#eaf2ff;color:#2459a6}
+        .racer-reports-page .reports-content.module-open .reports-page-header{display:none!important}
+        .racer-reports-page .reports-back-to-menu{display:flex;align-items:center;justify-content:center;min-height:40px;margin:2px 0 10px;padding:8px 13px;border:1px solid #d8e3f1;border-radius:10px;background:#fff;color:#315884;font-size:12px;font-weight:850;cursor:pointer}
+        .racer-reports-page .reports-content.module-open{padding-top:8px!important}
+        .racer-reports-page .reports-content.module-open>footer{display:none!important}
+        .racer-reports-page .assessment-form-box{margin-top:10px!important;padding:12px!important}
+        .racer-reports-page .assessment-form-grid{margin-top:10px!important}
+        .racer-reports-page .assessment-form-actions{display:flex!important;gap:8px!important;margin-top:10px!important}
+        .racer-reports-page .mobile-assessment-student{display:none}
+        .racer-reports-page .mobile-add-remark{height:32px;border:1px solid #dce5f0;border-radius:8px;background:#f8fbff;color:#4b678b;font-size:9px;font-weight:800;cursor:pointer}
+        .racer-reports-page .student-photo-actions{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+        .racer-reports-page .student-photo-button{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:34px;padding:7px 9px;border:1px solid #d6e2f1;border-radius:9px;background:#fff;color:#31557f;font-size:10px;font-weight:800;white-space:nowrap;cursor:pointer}
+        .racer-reports-page .student-photo-button input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+        .racer-reports-page .camera-photo-button{border-color:#cdddf5;background:#f0f6ff;color:#2459a6}
+        .racer-reports-page .reports-attendance-table-wrap,.racer-reports-page .assessment-entry-table-wrap,.racer-reports-page .reports-assessments .saved-week-list,.racer-reports-page .reports-assessments .saved-week-tests,.racer-reports-page .reports-records .recordGrid{max-height:none!important;height:auto!important;overflow:visible!important;overscroll-behavior:auto!important;-webkit-overflow-scrolling:auto!important}
+        .racer-reports-page .reports-attendance-table-wrap{overflow-x:visible!important}
+        .racer-reports-page .reports-assessments .saved-week-tests{display:grid;gap:8px;padding:9px}
+        .racer-reports-page .assessment-entry-table-wrap{border:0!important;background:transparent!important}
+        .racer-reports-page .student-assessment-stepper{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:9px;margin:12px 0;padding:10px;border:1px solid #e0e8f2;border-radius:13px;background:#f7faff;color:#5e7088;font-size:12px;text-align:center}
+        .racer-reports-page .student-assessment-stepper strong{color:#204e8e}
+        .racer-reports-page .student-assessment-stepper button{min-height:42px;padding:9px 12px;border:1px solid #cbdcf2;border-radius:10px;background:#fff;color:#2459a6;font-size:12px;font-weight:850;cursor:pointer}
+        .racer-reports-page .student-assessment-stepper button:last-child{background:#2459a6;color:#fff}
+        .racer-reports-page .student-assessment-stepper button:disabled{opacity:.42;cursor:not-allowed}
+        .racer-reports-page .reports-assessments .student-assessment-entry-table{display:block!important;width:100%!important;min-width:0!important;max-width:100%!important;border-spacing:0!important;border-collapse:separate!important}
+        .racer-reports-page .student-assessment-entry-table thead{display:none!important}
+        .racer-reports-page .student-assessment-entry-table tbody{display:block!important;width:100%!important}
+        .racer-reports-page .student-assessment-entry-table tbody tr{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important;padding:12px!important;border:1px solid #e0e8f2!important;border-radius:16px!important;background:#fff!important;box-shadow:0 5px 18px rgba(30,55,90,.06)!important}
+        .racer-reports-page .student-assessment-entry-table tbody td{display:flex!important;flex-direction:column!important;justify-content:center!important;gap:6px!important;min-width:0!important;padding:9px!important;border:1px solid #edf1f6!important;border-radius:10px!important;background:#fbfdff!important;font-size:12px!important;overflow-wrap:anywhere!important}
+        .racer-reports-page .student-assessment-entry-table tbody td:before{color:#7a8ba1;font-size:9px;font-weight:850;letter-spacing:.045em;text-transform:uppercase}
+        .racer-reports-page .student-assessment-entry-table tbody td:nth-child(1){display:none!important}
+        .racer-reports-page .student-assessment-entry-table tbody td:nth-child(4),.racer-reports-page .student-assessment-entry-table tbody td:nth-child(6){display:none!important}
+        .racer-reports-page .student-assessment-entry-table tbody td:nth-child(2){grid-column:1/-1;align-items:flex-start;background:#f2f7ff!important;color:#244875!important;font-size:14px!important}
+        .racer-reports-page .student-assessment-entry-table tbody td:nth-child(2):before{content:"STUDENT"}
+        .racer-reports-page .student-assessment-entry-table tbody td:nth-child(3):before{content:"SUBJECT"}
+        .racer-reports-page .student-assessment-entry-table tbody td:nth-child(4):before{content:"ADMISSION DATE"}
+        .racer-reports-page .student-assessment-entry-table tbody td:nth-child(5):before{content:"ATTENDANCE"}
+        .racer-reports-page .student-assessment-entry-table tbody td:nth-child(6):before{content:"TOTAL MARKS"}
+        .racer-reports-page .student-assessment-entry-table tbody td:nth-child(7):before{content:"OBTAINED MARKS"}
+        .racer-reports-page .student-assessment-entry-table tbody td:nth-child(8):before{content:"PERCENTAGE"}
+        .racer-reports-page .student-assessment-entry-table tbody td:nth-child(9):before{content:"GRADE"}
+        .racer-reports-page .student-assessment-entry-table tbody td:nth-child(10):before{content:"RESULT"}
+        .racer-reports-page .student-assessment-entry-table tbody td:nth-child(11):before{content:"REMARKS"}
+        .racer-reports-page .student-assessment-entry-table tbody td:nth-child(12):before{content:"TEST PHOTOS"}
+        .racer-reports-page .student-assessment-entry-table tbody td:nth-child(7):before{content:"SCORE"}
+        .racer-reports-page .student-assessment-entry-table tbody td:nth-child(8):before{content:"PERCENT"}
+        .racer-reports-page .student-assessment-entry-table tbody td:nth-child(11):before{content:"NOTES"}
+        .racer-reports-page .student-assessment-entry-table input,.racer-reports-page .student-assessment-entry-table select{box-sizing:border-box!important;width:100%!important;max-width:100%!important;min-width:0!important}
+        .racer-reports-page .student-assessment-entry-table .uploadBox{min-width:0!important}
+        @media(max-width:760px){.racer-reports-page .reports-section-nav{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0 0 10px;padding:2px 0 8px}.racer-reports-page .reports-section-tab{min-height:56px;padding:10px 8px;font-size:12px;border-radius:12px}.racer-reports-page .reports-academy-hub{gap:10px;padding:14px}.racer-reports-page .reports-academy-mark{width:44px;height:44px;border-radius:13px;font-size:15px}.racer-reports-page .reports-academy-hub h3{font-size:16px}.racer-reports-page .reports-academy-hub p{font-size:11px}.racer-reports-page .reports-hub-actions{grid-column:1/-1;display:grid;grid-template-columns:1fr}.racer-reports-page .reports-hub-actions button{width:100%;text-align:left}.racer-reports-page .student-photo-actions{min-width:0;display:grid;grid-template-columns:1fr 1fr}.racer-reports-page .student-photo-button{font-size:9px;padding:7px 6px}.racer-reports-page .reports-content.module-open{padding-top:5px!important}.racer-reports-page .reports-content.module-open .reports-back-to-menu{min-height:34px;margin:0 0 6px;padding:6px 10px;font-size:11px}.racer-reports-page .reports-assessments{padding:10px!important}.racer-reports-page .assessment-form-box{margin-top:0!important;padding:7px!important;border-radius:10px!important}.racer-reports-page .assessment-form-box .formTitle{margin:0 0 4px!important;font-size:14px!important}.racer-reports-page .assessment-form-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:5px!important;margin-top:6px!important}.racer-reports-page .assessment-form-grid>div{min-width:0!important}.racer-reports-page .assessment-form-grid label{font-size:9px!important}.racer-reports-page .assessment-form-grid input{min-width:0!important;width:100%!important;height:34px!important;padding:5px!important;font-size:10px!important}.racer-reports-page .assessment-info-box{display:none!important}.racer-reports-page .assessment-entry-table-wrap{display:none!important}.racer-reports-page .mobile-assessment-student{display:grid;gap:8px;padding:11px;border:1px solid #dfe8f4;border-radius:14px;background:#fff;box-shadow:0 4px 14px rgba(30,55,90,.06)}.racer-reports-page .mobile-assessment-student>header{display:grid;gap:3px;padding:2px 1px 8px;border-bottom:1px solid #eaf0f7}.racer-reports-page .mobile-assessment-student>header strong{color:#244875;font-size:14px}.racer-reports-page .mobile-assessment-student>header small{color:#718198;font-size:10px}.racer-reports-page .mobile-assessment-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.racer-reports-page .mobile-assessment-student label{display:grid;gap:4px;min-width:0;color:#74849a;font-size:9px;font-weight:800}.racer-reports-page .mobile-assessment-student input,.racer-reports-page .mobile-assessment-student select{box-sizing:border-box;width:100%;min-width:0;height:36px;padding:6px;border:1px solid #dce5f0;border-radius:8px;background:#fff;color:#304765;font-size:10px;font-weight:700}.racer-reports-page .mobile-assessment-student input:disabled{background:#f2f5f9;color:#98a3b1}.racer-reports-page .mobile-assessment-result{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.racer-reports-page .mobile-assessment-result span{display:grid;gap:2px;padding:6px 8px;border:1px solid #e6edf5;border-radius:8px;background:#f7faff;color:#244875;font-size:11px;font-weight:850}.racer-reports-page .mobile-assessment-result small{color:#8290a2;font-size:8px;font-weight:750;text-transform:uppercase}.racer-reports-page .mobile-assessment-photos{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:2px}.racer-reports-page .mobile-assessment-photos>strong{color:#718198;font-size:10px}.racer-reports-page .mobile-assessment-photos .student-photo-actions{display:flex}.racer-reports-page .mobile-assessment-remarks input{height:33px}.racer-reports-page .mobile-assessment-photo-preview{display:flex;flex-wrap:wrap;gap:5px}.racer-reports-page .mobile-assessment-photo-preview>div{position:relative;width:38px;height:38px}.racer-reports-page .mobile-assessment-photo-preview img{width:100%;height:100%;object-fit:cover;border-radius:6px}.racer-reports-page .mobile-assessment-photo-preview button{position:absolute;right:-5px;top:-5px;width:18px;height:18px;padding:0;border:0;border-radius:50%;background:#c62828;color:white}.racer-reports-page .student-assessment-entry-table tbody tr{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:5px!important;padding:7px!important}.racer-reports-page .student-assessment-entry-table tbody td{gap:4px!important;padding:6px!important;font-size:10px!important}.racer-reports-page .student-assessment-entry-table tbody td:before{font-size:8px!important}.racer-reports-page .student-assessment-entry-table tbody td:nth-child(2){font-size:12px!important}.racer-reports-page .student-assessment-entry-table tbody td:nth-child(12){grid-column:1/-1}.racer-reports-page .student-assessment-stepper{position:static;margin:5px 0;padding:5px;gap:5px;font-size:10px}.racer-reports-page .student-assessment-stepper button{min-height:34px;padding:6px 8px;font-size:10px}.racer-reports-page .assessment-form-actions{margin-top:7px!important}.racer-reports-page .assessment-form-actions button{min-height:34px!important;padding:7px 9px!important}}
+        @media(max-width:760px){.racer-reports-page .mobile-assessment-student{gap:4px;padding:7px}.racer-reports-page .mobile-assessment-student>header{gap:2px;padding:0 1px 4px}.racer-reports-page .mobile-assessment-student>header strong{font-size:12px}.racer-reports-page .mobile-assessment-student>header small{font-size:9px}.racer-reports-page .mobile-assessment-fields{gap:4px}.racer-reports-page .mobile-assessment-student label{gap:2px;font-size:8px}.racer-reports-page .mobile-assessment-student input,.racer-reports-page .mobile-assessment-student select{height:31px;padding:4px;font-size:9px}.racer-reports-page .mobile-assessment-result{gap:4px}.racer-reports-page .mobile-assessment-result span{padding:3px 6px;font-size:10px}.racer-reports-page .mobile-assessment-extras{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:6px;align-items:end}.racer-reports-page .mobile-assessment-photos{display:grid;gap:2px}.racer-reports-page .mobile-assessment-photos>strong{display:none}.racer-reports-page .mobile-assessment-photos .student-photo-actions{display:flex;gap:3px}.racer-reports-page .mobile-assessment-photos .student-photo-button{flex:1;min-width:0;min-height:29px;padding:4px 3px;font-size:8px}.racer-reports-page .mobile-assessment-photo-preview{gap:3px}.racer-reports-page .mobile-assessment-photo-preview>div{width:30px;height:30px}.racer-reports-page .mobile-add-remark{height:29px;font-size:8px}.racer-reports-page .assessment-form-actions{margin-top:4px!important}.racer-reports-page .assessment-form-actions button{min-height:30px!important;padding:5px 8px!important;font-size:10px!important}}
+        @media(min-width:761px) and (max-width:1050px){.racer-reports-page .reports-filter{grid-template-columns:1fr!important}.racer-reports-page .reports-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+      `}</style>
+      <div className={reportMenuOpen ? "reports-content" : "reports-content module-open"} style={styles.container}>
+        <header className="reports-page-header" style={styles.header}>
           <div>
             <div style={styles.brand}>
               RACER ACADEMY
             </div>
 
-            <h1 style={styles.title}>
+            <h1 className="reports-title" style={styles.title}>
               Teacher Reports
             </h1>
 
-            <p style={styles.subtitle}>
+            <p className="reports-subtitle" style={styles.subtitle}>
               Attendance, assessments and
               student performance reports
             </p>
@@ -1729,7 +1963,35 @@ export default function TeacherReportsPage() {
           </a>
         </header>
 
-        <section style={styles.filterCard}>
+        {reportMenuOpen && <nav className="reports-section-nav" aria-label="Report sections">
+          {([
+            ["attendance-report", "Attendance Report", "▦"],
+            ["student-attendance", "Student-wise Attendance", "♙"],
+            ["academy", "RACER ACADEMY", "◆"],
+            ["assessment-create", "Create / Update Assessment", "+"],
+            ["saved-assessments", "Saved Assessments", "▤"],
+            ["attendance-records", "Attendance Records", "◷"],
+          ] as const).map(([key, label, icon]) => (
+            <button key={key} type="button" aria-current={activeReportSection === key ? "page" : undefined}
+              className={activeReportSection === key ? "reports-section-tab is-active" : "reports-section-tab"}
+              onClick={() => {
+                setActiveReportSection(key);
+                setReportMenuOpen(false);
+                document.documentElement.scrollTop = 0;
+                document.querySelector<HTMLElement>(".racer-reports-page")?.scrollTo({ top: 0, left: 0 });
+                if (key === "assessment-create" && !selectedAssessment) {
+                  resetAssessmentForm();
+                  setShowAssessmentForm(true);
+                }
+              }}>
+              <span aria-hidden="true">{icon}</span>{label}
+            </button>
+          ))}
+        </nav>}
+        {!reportMenuOpen && <button type="button" className="reports-back-to-menu" onClick={() => { setReportMenuOpen(true); document.documentElement.scrollTop = 0; document.querySelector<HTMLElement>(".racer-reports-page")?.scrollTo({ top: 0, left: 0 }); }}>← All report sections</button>}
+
+        {activeReportSection === "attendance-report" && <>
+        <section className="reports-filter" style={styles.filterCard}>
           <div>
             <h2 style={styles.sectionTitle}>
               Attendance Report
@@ -1740,7 +2002,7 @@ export default function TeacherReportsPage() {
             </p>
           </div>
 
-          <div style={styles.filterGrid}>
+          <div className="reports-controls" style={styles.filterGrid}>
             <div>
               <label style={styles.label}>
                 Month
@@ -1815,8 +2077,9 @@ export default function TeacherReportsPage() {
           )}
         </section>
 
-        <section style={styles.summaryGrid}>
+        <section className="reports-summary" style={styles.summaryGrid}>
           <div
+            className="reports-summary-card"
             style={{
               ...styles.summaryCard,
               background:
@@ -1837,6 +2100,7 @@ export default function TeacherReportsPage() {
           </div>
 
           <div
+            className="reports-summary-card"
             style={{
               ...styles.summaryCard,
               background:
@@ -1857,6 +2121,7 @@ export default function TeacherReportsPage() {
           </div>
 
           <div
+            className="reports-summary-card"
             style={{
               ...styles.summaryCard,
               background:
@@ -1877,6 +2142,7 @@ export default function TeacherReportsPage() {
           </div>
 
           <div
+            className="reports-summary-card"
             style={{
               ...styles.summaryCard,
               background:
@@ -1896,8 +2162,10 @@ export default function TeacherReportsPage() {
             </div>
           </div>
         </section>
+        </>}
 
-        <section className="mobile-report-section" style={styles.card}>
+        {activeReportSection === "student-attendance" &&
+        <section className="mobile-report-section reports-attendance" style={styles.card}>
           <div style={styles.tableHeader}>
             <div>
               <h2 style={styles.sectionTitle}>
@@ -1920,7 +2188,7 @@ export default function TeacherReportsPage() {
               No students found.
             </div>
           ) : (
-            <div style={styles.tableWrapper}>
+            <div className="reports-attendance-table-wrap" style={styles.tableWrapper}>
               <table className="mobile-report-table" style={styles.table}>
                 <thead>
                   <tr>
@@ -1959,12 +2227,12 @@ export default function TeacherReportsPage() {
                         </td>
 
                         <td style={styles.td}>
-                          <strong>
+                          <button type="button" onClick={() => { setStudentDetailMonth(month); setStudentDetailYear(year); setSelectedReportStudentId(item.student.id); }} style={{ border: 0, padding: 0, background: "transparent", color: "#2355a2", textAlign: "left", textDecoration: "underline", textUnderlineOffset: 3, cursor: "pointer", fontWeight: 800 }}>
                             {item.student
                               .student_name ||
                               item.student
                                 .student_username}
-                          </strong>
+                          </button>
                         </td>
 
                         <td style={styles.td}>
@@ -2031,9 +2299,11 @@ export default function TeacherReportsPage() {
             </div>
           )}
         </section>
+        }
 
-        <section style={styles.assessmentCard}>
-          <div style={styles.assessmentHeader}>
+        {(activeReportSection === "academy" || activeReportSection === "assessment-create" || activeReportSection === "saved-assessments") &&
+        <section className="reports-assessments" style={styles.assessmentCard}>
+          {activeReportSection === "academy" && <div className="assessmentHeader" style={styles.assessmentHeader}>
             <div>
               <div style={styles.assessmentBrand}>
                 RACER ACADEMY
@@ -2064,7 +2334,19 @@ export default function TeacherReportsPage() {
                 ? "Hide Form"
                 : "Add Assessment"}
             </button>
-          </div>
+          </div>}
+
+          {activeReportSection === "academy" && (
+            <div className="reports-academy-hub">
+              <div className="reports-academy-mark" aria-hidden="true">RA</div>
+              <div><span className="reports-hub-eyebrow">RACER ACADEMY</span><h3>Academy Assessments</h3>
+                <p>Create tests, enter each student’s marks, attach test photos, and manage saved results.</p></div>
+              <div className="reports-hub-actions">
+                <button type="button" onClick={() => { resetAssessmentForm(); setShowAssessmentForm(true); setActiveReportSection("assessment-create"); }}>＋ Create / Update Assessment</button>
+                <button type="button" onClick={() => setActiveReportSection("saved-assessments")}>▤ View Saved Assessments <span>{assessmentGroups.length}</span></button>
+              </div>
+            </div>
+          )}
 
           {assessmentError && (
             <div style={styles.error}>
@@ -2078,13 +2360,13 @@ export default function TeacherReportsPage() {
             </div>
           )}
 
-          {showAssessmentForm && (
-            <div style={styles.formBox}>
+          {activeReportSection === "assessment-create" && showAssessmentForm && (
+            <div className="assessment-form-box" style={styles.formBox}>
               <h3 style={styles.formTitle}>
                 Create / Update Assessment
               </h3>
 
-              <div style={styles.assessmentFormGrid}>
+              <div className="assessment-form-grid" style={styles.assessmentFormGrid}>
                 <div>
                   <label style={styles.label}>
                     Test / Assessment Name
@@ -2140,7 +2422,7 @@ export default function TeacherReportsPage() {
                 </div>
               </div>
 
-              <div style={styles.infoBox}>
+              <div className="assessment-info-box" style={styles.infoBox}>
                 <strong>Automatic:</strong>{" "}
                 Admission date ke according students
                 automatically show honge. Test date se
@@ -2153,8 +2435,40 @@ export default function TeacherReportsPage() {
                   student nahi mila.
                 </div>
               ) : (
-                <div style={styles.tableWrapper}>
+                <>
+                <div className="student-assessment-stepper">
+                    <button type="button" disabled={assessmentStudentIndex <= 0}
+                      onClick={() => setAssessmentStudentIndex((index) => Math.max(0, index - 1))}>← Previous</button>
+                    <span><strong>{Math.min(assessmentStudentIndex + 1, eligibleStudents.length)}</strong> / {eligibleStudents.length} students</span>
+                    <button type="button" disabled={assessmentStudentIndex >= eligibleStudents.length - 1}
+                      onClick={() => setAssessmentStudentIndex((index) => Math.min(eligibleStudents.length - 1, index + 1))}>Next →</button>
+                </div>
+                {eligibleStudents[assessmentStudentIndex] && (() => {
+                  const student = eligibleStudents[assessmentStudentIndex];
+                  const mark = studentMarks.find((item) => item.studentId === student.id);
+                  const isAbsent = mark?.attendanceStatus === "ABSENT";
+                  const isNoTest = mark?.attendanceStatus === "NO_TEST";
+                  const score = Number(mark?.obtainedMarks || 0);
+                  const total = Number(totalMarks || 0);
+                  const percentage = !isAbsent && !isNoTest ? getPercentage(score, total) : 0;
+                  return <article className="mobile-assessment-student">
+                    <header><strong>{student.student_name || student.student_username}</strong><small>{student.student_username} · Joined {student.admission_date || "—"}</small></header>
+                    <div className="mobile-assessment-fields">
+                      <label>Subject<select aria-label={`Subject for ${student.student_name || student.student_username}`} value={mark?.subject || "Mathematics"} onChange={(event) => updateStudentSubject(student.id, event.target.value as "English" | "Mathematics")}><option value="English">English</option><option value="Mathematics">Mathematics</option></select></label>
+                      <label>Attendance<select aria-label={`Attendance for ${student.student_name || student.student_username}`} value={mark?.attendanceStatus || "PRESENT"} onChange={(event) => updateStudentAttendance(student.id, event.target.value as "PRESENT" | "ABSENT" | "NO_TEST")}><option value="PRESENT">Present</option><option value="ABSENT">Absent</option><option value="NO_TEST">No test</option></select></label>
+                      <label>Marks<input aria-label={`Marks for ${student.student_name || student.student_username}`} type="number" min="0" max={totalMarks || undefined} value={mark?.obtainedMarks || ""} disabled={isAbsent || isNoTest} placeholder={isAbsent ? "Absent" : isNoTest ? "No test" : "Enter marks"} onChange={(event) => updateStudentMarks(student.id, event.target.value)} /></label>
+                    </div>
+                    <div className="mobile-assessment-result"><span>{total > 0 && !isAbsent && !isNoTest ? `${percentage.toFixed(1)}%` : "—"}<small>Score</small></span><span>{total > 0 && !isAbsent && !isNoTest ? getGrade(percentage) : "—"}<small>Grade</small></span><span>{isAbsent ? "Absent" : isNoTest ? "No test" : total > 0 ? isPass(percentage) ? "Pass" : "Fail" : "—"}<small>Result</small></span></div>
+                    <div className="mobile-assessment-extras">{showAssessmentRemark || mark?.remarks ? <label className="mobile-assessment-remarks">Remarks<input aria-label={`Remarks for ${student.student_name || student.student_username}`} type="text" value={mark?.remarks || ""} onChange={(event) => updateStudentRemarks(student.id, event.target.value)} placeholder="Optional" /></label> : <button type="button" className="mobile-add-remark" onClick={() => setShowAssessmentRemark(true)}>＋ Add note</button>}
+                    <div className="mobile-assessment-photos"><strong>Test photos</strong><div className="student-photo-actions">
+                      <label className="student-photo-button camera-photo-button"><span aria-hidden="true">▣</span> Camera<input type="file" accept="image/*" capture="environment" aria-label={`Take test photo for ${student.student_name || student.student_username}`} onChange={(event) => { void uploadTestImages(student.id, event.currentTarget.files); event.currentTarget.value = ""; }} style={styles.hiddenFileInput} /></label>
+                      <label className="student-photo-button gallery-photo-button"><span aria-hidden="true">＋</span> Gallery<input type="file" accept="image/*" multiple aria-label={`Upload test photos for ${student.student_name || student.student_username}`} onChange={(event) => { void uploadTestImages(student.id, event.currentTarget.files); event.currentTarget.value = ""; }} style={styles.hiddenFileInput} /></label>
+                    </div>{mark && mark.testImages.length > 0 && <div className="mobile-assessment-photo-preview">{mark.testImages.map((url) => <div key={url}><img src={url} alt={`Test work for ${student.student_name || student.student_username}`} /><button type="button" aria-label="Remove photo" onClick={() => removeTestImage(student.id, url)}>×</button></div>)}</div>}</div></div>
+                  </article>;
+                })()}
+                <div className="assessment-entry-table-wrap" style={styles.tableWrapper}>
                   <table
+                    className="student-assessment-entry-table"
                     style={styles.assessmentTable}
                   >
                     <thead>
@@ -2193,13 +2507,13 @@ export default function TeacherReportsPage() {
                           Remarks
                         </th>
                         <th style={styles.th}>
-                          Upload Test Images / Photos
+                          Camera / Test Photos
                         </th>
                       </tr>
                     </thead>
 
                     <tbody>
-                      {eligibleStudents.map(
+                      {eligibleStudents.slice(assessmentStudentIndex, assessmentStudentIndex + 1).map(
                         (student, index) => {
                           const mark =
                             studentMarks.find(
@@ -2262,9 +2576,7 @@ export default function TeacherReportsPage() {
                                     styles.smallText
                                   }
                                 >
-                                  {
-                                    student.student_username
-                                  }
+                                  {student.student_username} · Joined {student.admission_date || "—"}
                                 </div>
                               </td>
 
@@ -2512,31 +2824,26 @@ export default function TeacherReportsPage() {
                                     styles.uploadBox
                                   }
                                 >
-                                  <label
-                                    style={
-                                      styles.uploadButton
-                                    }
-                                  >
-                                    Upload Test Images
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      multiple
-                                      onChange={(e) => {
-                                        void uploadTestImages(
-                                          student.id,
-                                          e.currentTarget
-                                            .files
-                                        );
-
-                                        e.currentTarget.value =
-                                          "";
-                                      }}
-                                      style={
-                                        styles.hiddenFileInput
-                                      }
-                                    />
-                                  </label>
+                                  <div className="student-photo-actions">
+                                    <label className="student-photo-button camera-photo-button">
+                                      <span aria-hidden="true">▣</span> Camera
+                                      <input type="file" accept="image/*" capture="environment"
+                                        aria-label={`Take test photo for ${student.student_name || student.student_username}`}
+                                        onChange={(e) => {
+                                          void uploadTestImages(student.id, e.currentTarget.files);
+                                          e.currentTarget.value = "";
+                                        }} style={styles.hiddenFileInput} />
+                                    </label>
+                                    <label className="student-photo-button gallery-photo-button">
+                                      <span aria-hidden="true">＋</span> Gallery
+                                      <input type="file" accept="image/*" multiple
+                                        aria-label={`Upload test photos for ${student.student_name || student.student_username}`}
+                                        onChange={(e) => {
+                                          void uploadTestImages(student.id, e.currentTarget.files);
+                                          e.currentTarget.value = "";
+                                        }} style={styles.hiddenFileInput} />
+                                    </label>
+                                  </div>
 
                                   <small
                                     style={
@@ -2605,9 +2912,10 @@ export default function TeacherReportsPage() {
                     </tbody>
                   </table>
                 </div>
+                </>
               )}
 
-              <div style={styles.formActions}>
+              <div className="assessment-form-actions" style={styles.formActions}>
                 <button
                   onClick={() =>
                     void saveAssessment()
@@ -2638,8 +2946,8 @@ export default function TeacherReportsPage() {
             </div>
           )}
 
-          <div style={styles.savedSection}>
-            <div style={styles.savedHeader}>
+          {activeReportSection === "saved-assessments" && <div style={styles.savedSection}>
+            <div className="savedHeader" style={styles.savedHeader}>
               <div>
                 <h3
                   style={styles.savedTitle}
@@ -2675,9 +2983,15 @@ export default function TeacherReportsPage() {
                 No assessments added yet.
               </div>
             ) : (
-              <div style={styles.savedList}>
-                {assessmentGroups.map(
-                  (group) => {
+              <div className="saved-week-list">
+                {assessmentWeeks.map((week) => (
+                  <section className="saved-week" key={week.startDate}>
+                    <button type="button" className="saved-week-toggle" aria-expanded={expandedTestWeek === week.startDate} onClick={() => setExpandedTestWeek(expandedTestWeek === week.startDate ? null : week.startDate)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 14px", border: 0, borderRadius: 12, background: "#f1f6fc", color: "#29466b", textAlign: "left", cursor: "pointer" }}>
+                      <strong>▸ Weekly Tests · Week of {new Date(`${week.startDate}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</strong>
+                      <span>{week.groups.length} {week.groups.length === 1 ? "test" : "tests"} {expandedTestWeek === week.startDate ? "−" : "+"}</span>
+                    </button>
+                    {expandedTestWeek === week.startDate && <div className="saved-week-tests">
+                      {week.groups.map((group) => {
                     const first = group[0];
 
                     const total =
@@ -2885,18 +3199,20 @@ export default function TeacherReportsPage() {
                         </div>
                       </div>
                     );
-                  }
-                )}
+                      })}
+                    </div>}
+                  </section>
+                ))}
               </div>
             )}
-          </div>
+          </div>}
 
-          <div style={styles.gradeInfo}>
+          {activeReportSection === "saved-assessments" && <div style={styles.gradeInfo}>
             <h3 style={styles.gradeInfoTitle}>
               Grade System
             </h3>
 
-            <div style={styles.gradeGrid}>
+            <div className="gradeGrid" style={styles.gradeGrid}>
               {[
                 ["90–100%", "A+", "PASS"],
                 ["80–89%", "A", "PASS"],
@@ -2932,10 +3248,12 @@ export default function TeacherReportsPage() {
                 </div>
               ))}
             </div>
-          </div>
+          </div>}
         </section>
+        }
 
-        <section style={styles.card}>
+        {activeReportSection === "attendance-records" &&
+        <section className="reports-records" style={styles.card}>
           <h2 style={styles.sectionTitle}>
             Attendance Records
           </h2>
@@ -2951,11 +3269,15 @@ export default function TeacherReportsPage() {
               for this month.
             </div>
           ) : (
-            <div style={styles.recordGrid}>
-              {attendance.map((record) => (
+            <div className="recordGrid" style={styles.recordGrid}>
+              {reportData.map((item) => (
                 <div
-                  key={record.id}
+                  key={item.student.id}
                   style={styles.recordCard}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => { setStudentDetailMonth(month); setStudentDetailYear(year); setSelectedReportStudentId(item.student.id); }}
+                  onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setStudentDetailMonth(month); setStudentDetailYear(year); setSelectedReportStudentId(item.student.id); } }}
                 >
                   <div>
                     <strong
@@ -2963,9 +3285,7 @@ export default function TeacherReportsPage() {
                         styles.recordName
                       }
                     >
-                      {getStudentName(
-                        record.student_id
-                      )}
+                      {item.student.student_name || item.student.student_username}
                     </strong>
 
                     <p
@@ -2973,43 +3293,52 @@ export default function TeacherReportsPage() {
                         styles.recordDate
                       }
                     >
-                      {record.attendance_date}
+                      {item.present} present · {item.absent} absent · {item.total} classes
                     </p>
                   </div>
 
                   <span
                     style={{
                       ...styles.statusBadge,
-                      background:
-                        isPresent(
-                          record.status
-                        )
-                          ? "#dcfce7"
-                          : "#fee2e2",
-                      color:
-                        isPresent(
-                          record.status
-                        )
-                          ? "#166534"
-                          : "#991b1b",
+                      background: "#eef5ff",
+                      color: "#2259a7",
                     }}
                   >
-                    {isPresent(
-                      record.status
-                    )
-                      ? "PRESENT"
-                      : "ABSENT"}
+                    View records →
                   </span>
                 </div>
               ))}
             </div>
           )}
         </section>
+        }
 
         <footer style={styles.footer}>
           RACER ACADEMY • Teacher Reports •{" "}
           {year}
         </footer>
+
+        {selectedReportStudent && (
+          <div className="reports-student-overlay" role="presentation" onClick={() => setSelectedReportStudentId(null)} style={{ position: "fixed", inset: "108px 0 72px", zIndex: 10000, display: "grid", placeItems: "center", padding: 12, background: "rgba(13,29,53,.55)" }}>
+            <section className="reports-student-modal" role="dialog" aria-modal="true" aria-label={`${selectedReportStudent.student_name || "Student"} attendance records`} onClick={(event) => event.stopPropagation()} style={{ width: "min(100%, 680px)", maxHeight: "calc(100dvh - 200px)", overflow: "auto", padding: 20, borderRadius: 18, background: "#fff", boxShadow: "0 24px 80px rgba(10,25,48,.25)" }}>
+              <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 15 }}>
+                <div><small style={{ color: "#64748b", fontWeight: 800 }}>STUDENT ATTENDANCE</small><h2 style={{ margin: "4px 0", color: "#17345d", fontSize: 21 }}>{selectedReportStudent.student_name || "Student"}</h2><span style={{ color: "#74839a", fontSize: 12 }}>{selectedReportStudent.student_username}</span></div>
+                <button type="button" onClick={() => setSelectedReportStudentId(null)} style={{ border: "1px solid #dbe4ef", borderRadius: 9, padding: "8px 11px", background: "#f8fafc", color: "#334155", cursor: "pointer" }}>Close</button>
+              </header>
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "end", gap: 9, marginBottom: 13 }}>
+                <label style={{ display: "grid", gap: 4, color: "#52647d", fontSize: 11, fontWeight: 800 }}>Month<select aria-label="Student report month" value={studentDetailMonth} onChange={(event) => setStudentDetailMonth(event.target.value)} style={{ minHeight: 40, padding: "8px 10px", border: "1px solid #dbe4ef", borderRadius: 9, background: "#fff", color: "#243b5c" }}>{months.map((item, index) => <option key={item} value={String(index + 1)}>{item}</option>)}</select></label>
+                <label style={{ display: "grid", gap: 4, color: "#52647d", fontSize: 11, fontWeight: 800 }}>Year<select aria-label="Student report year" value={studentDetailYear} onChange={(event) => setStudentDetailYear(event.target.value)} style={{ minHeight: 40, padding: "8px 10px", border: "1px solid #dbe4ef", borderRadius: 9, background: "#fff", color: "#243b5c" }}>{[currentDate.getFullYear() - 1, currentDate.getFullYear(), currentDate.getFullYear() + 1].map((item) => <option key={item} value={String(item)}>{item}</option>)}</select></label>
+                <button type="button" onClick={exportSelectedStudentAttendance} style={{ minHeight: 40, padding: "8px 12px", border: 0, borderRadius: 9, background: "#176b45", color: "#fff", fontWeight: 800, cursor: "pointer" }}>Export Excel</button>
+                <button type="button" onClick={() => window.print()} style={{ minHeight: 40, padding: "8px 12px", border: 0, borderRadius: 9, background: "#1e3a8a", color: "#fff", fontWeight: 800, cursor: "pointer" }}>Print / Save PDF</button>
+              </div>
+              <div style={{ maxHeight: "52vh", overflow: "auto", display: "grid", gap: 7 }}>
+                {studentDetailLoading ? <p style={{ color: "#64748b" }}>Loading attendance…</p> : studentDetailAttendance.length === 0 ? <p style={{ color: "#64748b" }}>No attendance records found for this month.</p> : studentDetailAttendance.map((record) => (
+                  <div key={record.id} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "center", padding: "10px 12px", border: "1px solid #e5ebf3", borderRadius: 11 }}><strong style={{ color: "#334b68", fontSize: 13 }}>{record.attendance_date}</strong><span style={{ color: isPresent(record.status) ? "#16804c" : "#c43d45", fontSize: 12, fontWeight: 850 }}>{record.status}</span></div>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
       </div>
     </main>
   );

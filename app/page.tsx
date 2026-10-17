@@ -2573,6 +2573,24 @@ window.location.replace(
                   </div>
                 </div>
 
+                <div className={`mobile-welcome-panel mobile-welcome-${loginType}`}>
+                  <div className="mobile-welcome-copy">
+                    <strong>
+                      {loginType === "student"
+                        ? "Ready to learn?"
+                        : "Your classroom, in your pocket."}
+                    </strong>
+                    <span>
+                      {loginType === "student"
+                        ? "Your academy is just a sign in away."
+                        : "Classes, attendance and results, wherever you are."}
+                    </span>
+                  </div>
+                  <div className="mobile-welcome-art" aria-hidden="true">
+                    {loginType === "student" ? "✦" : "▤"}
+                  </div>
+                </div>
+
                 <div className="login-switch">
                   <button
                     type="button"
@@ -2861,9 +2879,9 @@ window.location.replace(
                     ? "Students: use the username and password provided by RACER ACADEMY."
                     : "Teachers: use your academy teacher credentials."}
                 </div>
-              </section>
 
-              <button type="button" className="academy-more-link" onClick={() => setShowAcademyInfo((previous) => !previous)}>{showAcademyInfo ? "Back to Login" : "RACER ACADEMY ke baare mein aur jaane ->"}</button>
+                <button type="button" className="academy-more-link" onClick={() => setShowAcademyInfo((previous) => !previous)}>{showAcademyInfo ? "Back to Login" : "RACER ACADEMY ke baare mein aur jaane ->"}</button>
+              </section>
 
               {showAcademyInfo && announcements.length > 0 && (
                 <div className="announcement-mini">
@@ -5318,6 +5336,90 @@ window.location.replace(
 /* RACER ACADEMY PREMIUM MOBILE LOGIN 2026-09-30 */
 @media (max-width:700px){
 .racer-login-page{min-height:100vh!important;padding:10px!important;background:radial-gradient(circle at 50% 0%,rgba(38,105,210,.26),transparent 38%),linear-gradient(180deg,#020b18 0%,#071b31 52%,#0a2038 100%)!important}.login-side{position:static!important;max-width:430px!important;margin:0 auto!important}.racer-login-card{position:relative!important;overflow:hidden!important;border:1px solid rgba(239,191,74,.34)!important;border-radius:24px!important;padding:18px 15px 15px!important;color:#fff!important;background:linear-gradient(180deg,rgba(7,23,43,.98),rgba(4,16,31,.98))!important;box-shadow:0 24px 60px rgba(0,0,0,.38)!important;backdrop-filter:blur(16px)!important}.racer-login-card:before{content:"";position:absolute;inset:-45% -20% auto auto;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,rgba(70,137,255,.28),transparent 68%);pointer-events:none}.racer-login-card:after{content:"";position:absolute;left:-50px;bottom:-70px;width:240px;height:180px;border-radius:50%;background:radial-gradient(circle,rgba(236,177,52,.13),transparent 68%);pointer-events:none}.login-top-decoration{display:none!important}.login-logo{position:relative;z-index:1;align-items:center!important;gap:10px!important;padding-bottom:13px!important;border-bottom:1px solid rgba(255,255,255,.08)!important}.login-logo-icon{width:48px!important;height:48px!important;border-radius:15px!important;background:linear-gradient(145deg,#f6cf66,#d89b26)!important;border:1px solid rgba(255,255,255,.34)!important;box-shadow:0 10px 22px rgba(228,169,48,.18)!important}.login-brand{color:#fff!important;font-size:22px!important;letter-spacing:1.2px!important}.login-brand span{color:#f5c754!important}.login-subtitle{color:#8eabcf!important;font-size:8px!important}.login-switch{position:relative;z-index:1!important;gap:5px!important;padding:5px!important;margin:12px 0 13px!important;border-radius:13px!important;background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.08)!important}.switch-button{min-height:40px!important;border:1px solid transparent!important;background:transparent!important;color:#8ea5c4!important;border-radius:10px!important;font-size:9px!important;font-weight:900!important}.switch-button span{font-size:13px!important}.switch-button.active{background:linear-gradient(135deg,#245dc9,#173b83)!important;color:#fff!important;border-color:rgba(255,255,255,.14)!important;box-shadow:0 6px 16px rgba(26,84,183,.22)!important}.racer-login-card:has(.switch-button:nth-child(2).active){border-color:rgba(245,199,84,.48)!important}.racer-login-card:has(.switch-button:nth-child(2).active) .switch-button.active{background:linear-gradient(135deg,#dba92f,#9e6811)!important;color:#fff!important;box-shadow:0 6px 16px rgba(214,160,37,.22)!important}.login-heading{position:relative;z-index:1!important;margin-bottom:12px!important}.portal-badge{display:inline-flex!important;padding:5px 7px!important;border-radius:999px!important;background:rgba(91,141,235,.12)!important;border:1px solid rgba(121,169,255,.16)!important;color:#8fc0ff!important;font-size:6.5px!important;letter-spacing:1px!important}.racer-login-card:has(.switch-button:nth-child(2).active) .portal-badge{background:rgba(238,189,67,.12)!important;border-color:rgba(238,189,67,.18)!important;color:#ffd76f!important}.login-heading h2{margin:8px 0 4px!important;color:#fff!important;font-size:21px!important;letter-spacing:-.3px!important}.login-heading p{margin:0!important;color:#91a8c8!important;font-size:8.5px!important;line-height:1.45!important}.racer-form{position:relative;z-index:1!important;gap:11px!important}.input-group label{margin-bottom:5px!important;color:#b6c7dd!important;font-size:7px!important;letter-spacing:.4px!important}.input-box{min-height:45px!important;padding:0 10px!important;border:1px solid rgba(145,174,213,.18)!important;border-radius:12px!important;background:rgba(255,255,255,.055)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.04)!important}.input-box:focus-within{border-color:rgba(103,166,255,.75)!important;background:rgba(255,255,255,.075)!important;box-shadow:0 0 0 3px rgba(58,132,237,.13)!important}.input-box>span{font-size:14px!important}.input-box input{font-size:10px!important;color:#fff!important}.input-box input::placeholder{color:#6f87a9!important}.password-toggle{color:#b4c6de!important;font-size:13px!important}.login-error{background:rgba(153,34,34,.18)!important;border-color:rgba(248,113,113,.25)!important;color:#ffb8b8!important;font-size:8px!important;padding:8px 9px!important}.login-button{min-height:46px!important;border-radius:12px!important;background:linear-gradient(135deg,#f6cd59,#d99d22)!important;color:#101a29!important;font-size:10px!important;box-shadow:0 10px 22px rgba(224,171,49,.18)!important}.login-button span{color:#101a29!important}.secure-footer{position:relative;z-index:1!important;margin-top:11px!important;color:#7590b0!important;font-size:7px!important}.footer-separator{color:#3d5573!important}.login-help{position:relative;z-index:1!important;margin-top:10px!important;padding-top:10px!important;border-top-color:rgba(255,255,255,.08)!important;color:#6e86a6!important;font-size:7px!important}.academy-more-link{display:none!important}.announcement-mini{display:none!important}
+}
+
+.mobile-welcome-panel { display: none; }
+
+/* Mobile login is a dedicated layout; desktop styles above remain unchanged. */
+@media (max-width: 700px) {
+  .racer-login-page { min-height: 100svh !important; padding: 18px 14px 28px !important; display: flex !important; align-items: flex-start !important; justify-content: center !important; background: linear-gradient(180deg, #edf3f8 0%, #f7f9fb 45%, #eef3f7 100%) !important; }
+  .background-orb, .background-grid { display: none !important; }
+  .page-shell, .main-layout.login-only-layout { width: 100% !important; max-width: 480px !important; margin: 0 auto !important; }
+  .main-layout.login-only-layout { display: grid !important; grid-template-columns: minmax(0, 1fr) !important; gap: 14px !important; }
+  .login-side { width: 100% !important; max-width: none !important; margin: 0 !important; }
+  .racer-login-card { padding: 22px 18px 18px !important; overflow: hidden !important; color: #172d44 !important; background: #fff !important; border: 1px solid #e1e8ef !important; border-radius: 24px !important; box-shadow: 0 18px 48px rgba(24, 51, 78, .12) !important; }
+  .racer-login-card::before, .racer-login-card::after, .login-top-decoration { display: none !important; }
+  .login-logo { gap: 11px !important; padding: 0 0 17px !important; border-bottom: 1px solid #edf1f4 !important; }
+  .login-logo-icon { display: grid !important; width: 44px !important; height: 44px !important; flex: 0 0 44px !important; place-items: center !important; border: 0 !important; border-radius: 14px !important; background: #e66b2e !important; box-shadow: 0 7px 16px rgba(230, 107, 46, .2) !important; }
+  .login-logo-icon::after { content: "R"; color: #fff; font-size: 22px; font-weight: 800; line-height: 1; }
+  .login-brand { color: #172d44 !important; font-size: 18px !important; letter-spacing: .7px !important; }
+  .login-brand span { color: #e66b2e !important; }
+  .login-subtitle { margin-top: 3px !important; color: #758495 !important; font-size: 10px !important; }
+  .mobile-welcome-panel { position: relative !important; display: flex !important; min-height: 148px !important; align-items: center !important; justify-content: space-between !important; gap: 12px !important; overflow: hidden !important; margin: 17px 0 18px !important; padding: 22px 18px !important; border-radius: 19px !important; color: #fff !important; background: linear-gradient(135deg, #102641 0%, #1d4165 100%) !important; }
+  .mobile-welcome-panel::after { position: absolute; top: -40px; right: -24px; width: 140px; height: 140px; border: 1px solid rgba(255,255,255,.12); border-radius: 50%; content: ""; box-shadow: 0 0 0 23px rgba(255,255,255,.035), 0 0 0 48px rgba(255,255,255,.025); pointer-events: none; }
+  .mobile-welcome-copy { position: relative !important; z-index: 1 !important; display: grid !important; max-width: 270px !important; gap: 9px !important; }
+  .mobile-welcome-copy strong { color: #fff !important; font-size: 22px !important; font-weight: 750 !important; line-height: 1.16 !important; letter-spacing: -.4px !important; }
+  .mobile-welcome-copy span { color: #d2dfe9 !important; font-size: 13px !important; line-height: 1.45 !important; }
+  .mobile-welcome-art { position: relative !important; z-index: 1 !important; display: grid !important; width: 52px !important; height: 52px !important; flex: 0 0 52px !important; place-items: center !important; border-radius: 16px !important; color: #fff !important; background: #e66b2e !important; font-size: 27px !important; }
+  .login-switch { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 5px !important; margin: 0 0 19px !important; padding: 5px !important; border: 1px solid #e5ebf0 !important; border-radius: 14px !important; background: #f1f4f7 !important; }
+  .switch-button { min-width: 0 !important; min-height: 46px !important; border: 0 !important; border-radius: 10px !important; color: #718293 !important; background: transparent !important; font-size: 12px !important; font-weight: 750 !important; }
+  .switch-button.active, .racer-login-card:has(.switch-button:nth-child(2).active) .switch-button.active { color: #17334d !important; background: #fff !important; box-shadow: 0 2px 8px rgba(24,51,78,.10) !important; }
+  .login-heading { margin: 0 0 17px !important; }
+  .portal-badge { padding: 5px 9px !important; border: 1px solid #e7eef4 !important; border-radius: 99px !important; color: #42627d !important; background: #f1f6fa !important; font-size: 9px !important; letter-spacing: .8px !important; }
+  .login-heading h2 { margin: 10px 0 5px !important; color: #172d44 !important; font-size: 25px !important; letter-spacing: -.5px !important; }
+  .login-heading p { color: #758495 !important; font-size: 13px !important; line-height: 1.5 !important; }
+  .saved-students { margin: 0 0 17px !important; padding: 13px !important; border: 1px solid #e5ebf0 !important; border-radius: 14px !important; color: #30465b !important; background: #f7f9fb !important; }
+  .saved-students-heading, .saved-student-text strong { color: #30465b !important; }
+  .saved-student-button { min-height: 54px !important; border-color: #e5ebf0 !important; border-radius: 11px !important; color: #30465b !important; background: #fff !important; }
+  .racer-form { gap: 15px !important; }
+  .input-group label { margin-bottom: 7px !important; color: #30465b !important; font-size: 12px !important; letter-spacing: 0 !important; }
+  .input-box { min-height: 56px !important; padding: 0 14px !important; border: 1px solid #dce4eb !important; border-radius: 12px !important; background: #fff !important; box-shadow: none !important; }
+  .input-box:focus-within { border-color: #6f9cbd !important; background: #fff !important; box-shadow: 0 0 0 3px rgba(67, 117, 154, .12) !important; }
+  .input-box input { color: #172d44 !important; font-size: 16px !important; }
+  .input-box input::placeholder { color: #9aa7b4 !important; }
+  .password-toggle { color: #60768a !important; }
+  .login-error { padding: 10px 12px !important; border-radius: 11px !important; color: #9b2c2c !important; background: #fff1f0 !important; font-size: 12px !important; }
+  .login-button { min-height: 56px !important; border-radius: 13px !important; color: #fff !important; background: #e66b2e !important; box-shadow: 0 8px 18px rgba(230,107,46,.2) !important; font-size: 15px !important; font-weight: 750 !important; }
+  .login-button span { color: #fff !important; }
+  .secure-footer { margin-top: 16px !important; color: #718293 !important; font-size: 10px !important; }
+  .footer-separator { color: #b2bdc7 !important; }
+  .login-help { margin-top: 13px !important; padding-top: 13px !important; border-top: 1px solid #edf1f4 !important; color: #718293 !important; font-size: 11px !important; line-height: 1.55 !important; }
+  .academy-more-link { display: inline-flex !important; min-height: 42px !important; align-items: center !important; justify-content: center !important; margin: 8px auto 0 !important; color: #42627d !important; background: transparent !important; font-size: 12px !important; }
+  .announcement-mini { display: flex !important; }
+  .page-footer { display: none !important; }
+}
+
+@media (max-width: 700px) and (max-height: 760px) {
+  .racer-login-page { min-height: 100svh !important; padding: 5px 10px 7px !important; align-items: center !important; }
+  .racer-login-card { padding: 10px 12px 8px !important; border-radius: 18px !important; }
+  .login-logo { padding-bottom: 6px !important; gap: 8px !important; }
+  .login-logo-icon { width: 34px !important; height: 34px !important; flex-basis: 34px !important; border-radius: 11px !important; }
+  .login-brand { font-size: 14px !important; }
+  .login-subtitle { font-size: 8px !important; }
+  .mobile-welcome-panel { min-height: 58px !important; margin: 6px 0 7px !important; padding: 8px 11px !important; border-radius: 13px !important; }
+  .mobile-welcome-copy { gap: 0 !important; }
+  .mobile-welcome-copy strong { font-size: 16px !important; }
+  .mobile-welcome-copy span { display: none !important; }
+  .mobile-welcome-art { width: 34px !important; height: 34px !important; flex-basis: 34px !important; border-radius: 10px !important; font-size: 18px !important; }
+  .login-switch { min-height: 36px !important; margin-bottom: 7px !important; padding: 3px !important; }
+  .switch-button { min-height: 28px !important; font-size: 10px !important; }
+  .login-heading { margin-bottom: 7px !important; }
+  .portal-badge { display: none !important; }
+  .login-heading h2 { margin: 0 !important; font-size: 19px !important; }
+  .login-heading p { display: none !important; }
+  .racer-form { gap: 7px !important; }
+  .input-group label { margin-bottom: 3px !important; font-size: 10px !important; }
+  .input-box { min-height: 40px !important; padding: 0 11px !important; }
+  .login-button { min-height: 44px !important; }
+  .secure-footer, .login-help, .academy-more-link { display: none !important; }
+  .saved-students { display: flex !important; align-items: center !important; gap: 8px !important; margin-bottom: 7px !important; padding: 4px 7px !important; }
+  .saved-students-heading { display: none !important; }
+  .saved-student-list { display: flex !important; min-width: 0 !important; max-height: 36px !important; flex: 1 !important; gap: 6px !important; overflow-x: auto !important; overflow-y: hidden !important; }
+  .saved-student-button { width: auto !important; min-width: max-content !important; min-height: 34px !important; height: 34px !important; padding: 4px 7px !important; border-radius: 9px !important; }
+  .saved-student-avatar, .saved-student-arrow { display: none !important; }
+  .saved-student-text { display: flex !important; align-items: center !important; gap: 5px !important; }
+  .saved-student-text strong, .saved-student-text small { font-size: 9px !important; }
+  .academy-more-link { min-height: 32px !important; margin-top: 3px !important; }
 }
 
 `}</style>

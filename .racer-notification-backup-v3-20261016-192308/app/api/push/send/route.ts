@@ -1,0 +1,351 @@
+﻿import { NextResponse } from "next/server";
+import webpush from "web-push";
+import { createClient } from "@supabase/supabase-js";
+import { cert, getApps, initializeApp } from "firebase-admin/app";
+import { getMessaging } from "firebase-admin/messaging";
+
+const supabaseUrl =
+  process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+const serviceRoleKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const vapidPublicKey =
+  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+
+const vapidPrivateKey =
+  process.env.VAPID_PRIVATE_KEY;
+
+const vapidSubject =
+  process.env.VAPID_SUBJECT;
+
+if (
+  !supabaseUrl ||
+  !serviceRoleKey ||
+  !vapidPublicKey ||
+  !vapidPrivateKey ||
+  !vapidSubject
+) {
+  throw new Error(
+    "Push notification environment variables are missing."
+  );
+}
+
+const supabaseAdmin = createClient(
+  supabaseUrl,
+  serviceRoleKey,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  }
+);
+
+
+const firebaseProjectId = process.env.FIREBASE_PROJECT_ID;
+const firebaseClientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+const firebasePrivateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+const firebaseAdminApp = firebaseProjectId && firebaseClientEmail && firebasePrivateKey
+  ? (getApps()[0] ?? initializeApp({
+      credential: cert({projectId: firebaseProjectId, clientEmail: firebaseClientEmail, privateKey: firebasePrivateKey. replace(/\\n/g, "\n")}),
+    })): null;
+
+webpush.setVapidDetails(
+  vapidSubject,
+  vapidPublicKey,
+  vapidPrivateKey
+);
+
+type PushSubscriptionRow = {
+  id: number;
+  student_id: number;
+  endpoint: string;
+  subscription: {
+    endpoint?: string;
+    type?: string;
+    token?: string;
+    expirationTime?: number | null;
+    keys?: {
+      p256dh?: string;
+      auth?: string;
+    };
+  };
+};
+
+export async function POST(
+  request: Request
+) {
+  try {
+    const body = await request.json();
+
+    const title =
+      body?.title || "New Announcement";
+
+    const message =
+      body?.message ||
+      "Your teacher has posted a new announcement.";
+
+    const studentId =
+      body?.studentId ?? null;
+
+    const announcementId = body?.announcementId ?? null;
+
+    const category = body?.category || "general";
+    const url = body?.url || (category === "announcement" ? "/student/notifications" : category === "fees" ? "/student/fees" : category === "homework" ? "/student/homework" : category === "quiz" ? "/student/quiz-tests" : category === "timetable" ? "/student/timetable" : category === "result" ? "/student/monthly-result" : "/student/dashboard");
+
+    let query = supabaseAdmin
+      .from("push_subscriptions")
+      .select(
+        "id, student_id, endpoint, subscription"
+      );
+
+    if (studentId !== null) {
+      const numericStudentId =
+        Number(studentId);
+
+      if (
+        Number.isNaN(numericStudentId) ||
+        numericStudentId <= 0
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Invalid studentId.",
+          },
+          { status: 400 }
+        );
+      }
+
+      query = query.eq(
+        "student_id",
+        numericStudentId
+      );
+    }
+
+    const {
+      data: subscriptions,
+      error: subscriptionsError,
+    } = await query;
+
+    if (subscriptionsError) {
+      console.error(
+        "Push subscriptions loading error:",
+        subscriptionsError
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            subscriptionsError.message,
+          code:
+            subscriptionsError.code,
+          details:
+            subscriptionsError.details,
+        },
+        { status: 500 }
+      );
+    }
+
+    const rows =
+      (subscriptions ||
+        []) as PushSubscriptionRow[];
+
+    if (rows.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "No push subscriptions found.",
+          sent: 0,
+        },
+        { status: 404 }
+      );
+    }
+
+    /*
+     * IMPORTANT:
+     *
+     * Your push_subscriptions table stores the
+     * browser PushSubscription inside the JSONB
+     * `subscription` column.
+     *
+     * The actual notification keys are:
+     *
+     * subscription.keys.p256dh
+     * subscription.keys.auth
+     */
+
+    const payload = JSON.stringify({
+      title,
+      message,
+      body: message,
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
+      url,
+      announcementId: announcementId ? String(announcementId) : "",
+
+      /*
+       * Keep notification non-silent.
+       * The actual notification sound is controlled
+       * by the browser/OS notification settings.
+       */
+      silent: false,
+
+      /*
+       * Tell the service worker that this is a
+       * new notification.
+       */
+      renotify: true,
+
+      requireInteraction: false,
+    });
+
+    let sent = 0;
+    let failed = 0;
+
+    for (const row of rows) {
+      const storedSubscription =
+        row.subscription;
+
+       if (storedSubscription?.type === "fcm") {
+        const token = storedSubscription?.token;
+        if (!firebaseAdminApp || !token) {
+          failed++;
+          console.error("Invalid native FCM subscription record:", row.id);
+          continue;
+        }
+        try {
+          await getMessaging(firebaseAdminApp).send({token,notification:{title,body:message},data:{url,category,announcementId:announcementId ? String(announcementId) : ""},android:{priority:"high",notification:{channelId:"racer_academy_v2",sound:"racer_notification"}}});
+          sent++;
+          console.log("Native FCM notification sent successfully:", row.id);
+        } catch (pushError:any) {
+          failed++;
+          console.error("Native FCM notification error:",pushError);
+          if (pushError?.code === "messaging/registration-token-not-registered" || pushError?.code === "messaging/invalid-registration-token") {
+            await supabaseAdmin.from("push_subscriptions").delete().eq("id", row.id);
+          }
+        }
+        continue;
+      }
+
+      const endpoint =
+        row.endpoint ||
+        storedSubscription?.endpoint;
+
+      const p256dh =
+        storedSubscription?.keys?.p256dh;
+
+      const auth =
+        storedSubscription?.keys?.auth;
+
+      /*
+       * Validate the stored subscription before
+       * attempting to send.
+       */
+      if (
+        !endpoint ||
+        !p256dh ||
+        !auth
+      ) {
+        failed++;
+
+        console.error(
+          "Invalid push subscription record:",
+          row.id
+        );
+
+        continue;
+      }
+
+      const pushSubscription =
+        {
+          endpoint,
+          keys: {
+            p256dh,
+            auth,
+          },
+        };
+
+      try {
+        await webpush.sendNotification(
+          pushSubscription,
+          payload
+        );
+
+        sent++;
+
+        console.log(
+          "Push notification sent successfully:",
+          row.id
+        );
+      } catch (pushError: any) {
+        failed++;
+
+        console.error(
+          "Push notification error:",
+          pushError
+        );
+
+        /*
+         * Remove expired/invalid browser
+         * subscriptions.
+         */
+        if (
+          pushError?.statusCode === 404 ||
+          pushError?.statusCode === 410
+        ) {
+          const {
+            error: deleteError,
+          } = await supabaseAdmin
+            .from("push_subscriptions")
+            .delete()
+            .eq("id", row.id);
+
+          if (deleteError) {
+            console.error(
+              "Expired subscription delete error:",
+              deleteError
+            );
+          }
+        }
+      }
+    }
+
+    return NextResponse.json({
+      success: sent > 0,
+      sent,
+      failed,
+      total: rows.length,
+      message:
+        sent > 0
+          ? "Push notifications sent successfully."
+          : "No push notifications were sent.",
+    });
+  } catch (error: any) {
+    console.error(
+      "Push send API error:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          error?.message ||
+          "Failed to send push notification.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+
+
+
+
+
+

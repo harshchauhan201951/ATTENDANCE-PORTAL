@@ -4,6 +4,13 @@
   box-sizing: border-box;
 }
 
+@media (max-width: 680px) {
+  .racer-teacher-shell .racer-shared-teacher-module-content:has(main.racer-profile-page),
+  .racer-teacher-shell .racer-shared-teacher-module-content:has(main.racer-settings-refresh) {
+    padding-top: 132px !important;
+  }
+}
+
 html,
 body {
   margin: 0;
@@ -7558,4 +7565,408 @@ body:has(.racer-student-fixed-header) {
   .racer-student-shell .racer-student-content-area[data-student-route="attendance"] > main:not(.student-dashboard-page) .student-attendance-vip-container .vip-mobile-stat { background: #fff !important; }
   .racer-student-shell .racer-student-content-area[data-student-route="attendance"] > main:not(.student-dashboard-page) .student-attendance-vip-container .vip-mobile-calendar-panel,
   .racer-student-shell .racer-student-content-area[data-student-route="attendance"] > main:not(.student-dashboard-page) .student-attendance-vip-container .vip-mobile-recent-panel { background: #fff !important; }
+}
+
+/* RACER TEACHER MODULE UI REFRESH: consistent app bar, compact controls,
+   and readable attendance-history cards on narrow screens. */
+.racer-teacher-shell main.racer-attendance-history-page > div > header {
+  display: none !important;
+}
+.racer-teacher-shell .racer-shared-fixed-module-header {
+  background: linear-gradient(180deg, #173baf 0%, #214cc5 100%) !important;
+  border-bottom: 1px solid rgba(255,255,255,.2) !important;
+  box-shadow: 0 3px 14px rgba(0,0,0,.22) !important;
+}
+.racer-teacher-shell .racer-shared-fixed-brand small {
+  color: #ffe29a !important;
+}
+.racer-teacher-shell .racer-shared-fixed-menu,
+.racer-teacher-shell .racer-shared-fixed-icon {
+  background: rgba(255,255,255,.15) !important;
+  border-color: rgba(255,255,255,.28) !important;
+}
+.racer-teacher-shell .racer-shared-fixed-logout {
+  min-height: 36px !important;
+  padding: 0 10px !important;
+  border: 1px solid rgba(255,255,255,.55) !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+  color: #1742ad !important;
+  font: 800 10px/1 Arial,Helvetica,sans-serif !important;
+  cursor: pointer !important;
+}
+.racer-teacher-shell .racer-shared-action {
+  min-height: 38px !important;
+  border-radius: 10px !important;
+}
+
+@media (min-width: 641px) {
+  .racer-teacher-shell .racer-attendance-history-page table.mobile-history-table {
+    display: table !important;
+    width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: separate !important;
+  }
+  .racer-teacher-shell .racer-attendance-history-page table.mobile-history-table th:nth-child(1),
+  .racer-teacher-shell .racer-attendance-history-page table.mobile-history-table td:nth-child(1) { width: 5% !important; }
+  .racer-teacher-shell .racer-attendance-history-page table.mobile-history-table th:nth-child(2),
+  .racer-teacher-shell .racer-attendance-history-page table.mobile-history-table td:nth-child(2) { width: 29% !important; }
+  .racer-teacher-shell .racer-attendance-history-page table.mobile-history-table th:nth-child(3),
+  .racer-teacher-shell .racer-attendance-history-page table.mobile-history-table td:nth-child(3) { width: 15% !important; }
+  .racer-teacher-shell .racer-attendance-history-page table.mobile-history-table th:nth-child(4),
+  .racer-teacher-shell .racer-attendance-history-page table.mobile-history-table td:nth-child(4) { width: 16% !important; }
+  .racer-teacher-shell .racer-attendance-history-page table.mobile-history-table th:nth-child(5),
+  .racer-teacher-shell .racer-attendance-history-page table.mobile-history-table td:nth-child(5) { width: 14% !important; }
+  .racer-teacher-shell .racer-attendance-history-page table.mobile-history-table th:nth-child(6),
+  .racer-teacher-shell .racer-attendance-history-page table.mobile-history-table td:nth-child(6) { width: 21% !important; }
+  .racer-teacher-shell .racer-attendance-history-page .studentName {
+    white-space: normal !important;
+    word-break: normal !important;
+    overflow-wrap: break-word !important;
+    line-height: 1.25 !important;
+  }
+  .racer-teacher-shell .racer-attendance-history-page .mobile-delete-button {
+    width: auto !important;
+    min-width: 88px !important;
+    min-height: 34px !important;
+    padding: 8px 12px !important;
+    border-radius: 10px !important;
+    white-space: nowrap !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .racer-teacher-shell main.racer-attendance-history-page {
+    padding-top: 0 !important;
+  }
+  .racer-teacher-shell main.racer-attendance-history-page .filterGrid {
+    grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+    gap: 8px !important;
+  }
+  .racer-teacher-shell main.racer-attendance-history-page .filterGrid > .clearButtonWrapper {
+    grid-column: 1 / -1 !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+  }
+  .racer-teacher-shell main.racer-attendance-history-page .clearButton {
+    min-height: 34px !important;
+    padding: 8px 12px !important;
+    font-size: 11px !important;
+  }
+  .racer-teacher-shell main.racer-attendance-history-page .statCard {
+    display: flex !important;
+    align-items: center !important;
+    gap: 7px !important;
+    padding: 9px 6px !important;
+  }
+  .racer-teacher-shell main.racer-attendance-history-page .statText {
+    font-size: 9px !important;
+  }
+  .racer-teacher-shell .racer-shared-fixed-module-header {
+    padding: 5px 9px 8px !important;
+  }
+  .racer-teacher-shell .racer-shared-fixed-brand-row {
+    min-height: 58px !important;
+    grid-template-columns: 36px minmax(0,1fr) auto !important;
+    gap: 8px !important;
+  }
+  .racer-teacher-shell .racer-shared-fixed-brand strong {
+    font-size: 13px !important;
+    line-height: 1.1 !important;
+  }
+  .racer-teacher-shell .racer-shared-fixed-brand small {
+    font-size: 8px !important;
+    line-height: 1.1 !important;
+    letter-spacing: .35px !important;
+  }
+  .racer-teacher-shell .racer-shared-fixed-right { gap: 5px !important; }
+  .racer-teacher-shell .racer-shared-fixed-logout {
+    min-height: 34px !important;
+    padding: 0 7px !important;
+    font-size: 8px !important;
+  }
+  .racer-teacher-shell .racer-shared-fixed-actions {
+    grid-template-columns: repeat(3,minmax(0,1fr)) !important;
+    gap: 6px !important;
+    margin-top: 5px !important;
+  }
+  .racer-teacher-shell .racer-shared-action {
+    min-height: 35px !important;
+    padding: 6px 3px !important;
+    font-size: 10px !important;
+  }
+  .racer-teacher-shell .racer-shared-action.logout { display: none !important; }
+  .racer-teacher-shell .racer-shared-teacher-module-content {
+    padding-top: 112px !important;
+  }
+
+  /* Break out of the older fixed-layout table rules and keep names as words. */
+  .racer-teacher-shell .racer-attendance-history-page .tableWrapper {
+    width: 100% !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+  }
+  .racer-teacher-shell .racer-attendance-history-page table.mobile-history-table {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    table-layout: auto !important;
+    border-collapse: separate !important;
+  }
+  .racer-teacher-shell .racer-attendance-history-page table.mobile-history-table > tbody {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  .racer-teacher-shell .racer-attendance-history-page table.mobile-history-table > tbody > tr {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 7px 9px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+  .racer-teacher-shell .racer-attendance-history-page table.mobile-history-table > tbody > tr > td {
+    width: auto !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+    white-space: normal !important;
+    word-break: normal !important;
+    overflow-wrap: break-word !important;
+  }
+  .racer-teacher-shell .racer-attendance-history-page table.mobile-history-table > tbody > tr > td:nth-child(1) { display: none !important; }
+  .racer-teacher-shell .racer-attendance-history-page table.mobile-history-table > tbody > tr > td:nth-child(2) { order: 1 !important; flex: 1 1 calc(100% - 86px) !important; }
+  .racer-teacher-shell .racer-attendance-history-page table.mobile-history-table > tbody > tr > td:nth-child(3) { order: 3 !important; flex: 1 1 55% !important; }
+  .racer-teacher-shell .racer-attendance-history-page table.mobile-history-table > tbody > tr > td:nth-child(4) { order: 2 !important; flex: 0 0 78px !important; text-align: right !important; white-space: nowrap !important; font-size: 10px !important; }
+  .racer-teacher-shell .racer-attendance-history-page table.mobile-history-table > tbody > tr > td:nth-child(5) { order: 4 !important; flex: 0 0 auto !important; text-align: right !important; }
+  .racer-teacher-shell .racer-attendance-history-page table.mobile-history-table > tbody > tr > td:nth-child(6) { order: 5 !important; flex: 0 0 100% !important; width: 100% !important; text-align: right !important; }
+  .racer-teacher-shell .racer-attendance-history-page .studentCell {
+    display: flex !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    align-items: center !important;
+  }
+  .racer-teacher-shell .racer-attendance-history-page .studentName {
+    display: block !important;
+    flex: 1 1 auto !important;
+    width: auto !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    font-size: 14px !important;
+    line-height: 1.25 !important;
+    white-space: normal !important;
+    word-break: keep-all !important;
+    overflow-wrap: break-word !important;
+  }
+  .racer-teacher-shell .racer-attendance-history-page .mobile-delete-button {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
+    min-height: 36px !important;
+    border-radius: 10px !important;
+    white-space: nowrap !important;
+  }
+}
+
+
+/* Clean glyphs for the legacy teacher module icon font fallback. */
+.racer-teacher-module-icon.icon-ok::before { content: "OK" !important; }
+.racer-teacher-module-icon.icon-ah::before { content: "HW" !important; }
+.racer-teacher-module-icon.icon-cal::before,
+.racer-teacher-module-icon.icon-tt::before { content: "CAL" !important; }
+.racer-teacher-module-icon.icon-rep::before { content: "R" !important; }
+.racer-teacher-module-icon.icon-rs::before,
+.racer-teacher-module-icon.icon-pay::before { content: "₹" !important; }
+.racer-teacher-module-icon.icon-hw::before { content: "HW" !important; }
+.racer-teacher-module-icon.icon-ann::before { content: "!" !important; }
+.racer-teacher-module-icon.icon-act::before,
+.racer-teacher-module-icon.icon-dir::before { content: "•" !important; }
+.racer-teacher-module-icon.icon-pro::before { content: "P" !important; }
+.racer-teacher-module-icon.icon-set::before { content: "⚙" !important; }
+.racer-teacher-module-icon.icon-call::before { content: "☎" !important; }
+
+/* RACER TEACHER MODULE CONCEPTS — visual layer only; preserve data and handlers. */
+.racer-teacher-shell [data-teacher-module="dashboard"] { --teacher-accent:#2357c8; --teacher-accent-soft:#eaf0ff; --teacher-accent-deep:#183978; }
+.racer-teacher-shell [data-teacher-module="attendance"] { --teacher-accent:#2774d2; --teacher-accent-soft:#eaf3ff; --teacher-accent-deep:#1a4c85; }
+.racer-teacher-shell [data-teacher-module="attendance-history"] { --teacher-accent:#148779; --teacher-accent-soft:#e7f7f3; --teacher-accent-deep:#14564f; }
+.racer-teacher-shell [data-teacher-module="calendar"] { --teacher-accent:#168263; --teacher-accent-soft:#e8f7f0; --teacher-accent-deep:#155843; }
+.racer-teacher-shell [data-teacher-module="timetable"] { --teacher-accent:#6d5ad1; --teacher-accent-soft:#f0edff; --teacher-accent-deep:#463a8d; }
+.racer-teacher-shell [data-teacher-module="homework"] { --teacher-accent:#d5842d; --teacher-accent-soft:#fff3e5; --teacher-accent-deep:#85541e; }
+.racer-teacher-shell [data-teacher-module="extra-class"] { --teacher-accent:#bd7628; --teacher-accent-soft:#fff4e4; --teacher-accent-deep:#754a20; }
+.racer-teacher-shell [data-teacher-module="quiz-tests"] { --teacher-accent:#7556c8; --teacher-accent-soft:#f0ebff; --teacher-accent-deep:#4a3683; }
+.racer-teacher-shell [data-teacher-module="monthly-results"] { --teacher-accent:#167c87; --teacher-accent-soft:#e6f7f8; --teacher-accent-deep:#14545d; }
+.racer-teacher-shell [data-teacher-module="students"] { --teacher-accent:#2675bf; --teacher-accent-soft:#e9f4fc; --teacher-accent-deep:#1b4f79; }
+.racer-teacher-shell [data-teacher-module="student-directory"] { --teacher-accent:#13867d; --teacher-accent-soft:#e5f7f3; --teacher-accent-deep:#14574f; }
+.racer-teacher-shell [data-teacher-module="login-activity"] { --teacher-accent:#695cc4; --teacher-accent-soft:#efedff; --teacher-accent-deep:#453b83; }
+.racer-teacher-shell [data-teacher-module="reports"] { --teacher-accent:#ca7a34; --teacher-accent-soft:#fff2e6; --teacher-accent-deep:#814c27; }
+.racer-teacher-shell [data-teacher-module="announcements"] { --teacher-accent:#c85c63; --teacher-accent-soft:#fff0f0; --teacher-accent-deep:#7d383e; }
+.racer-teacher-shell [data-teacher-module="fees"] { --teacher-accent:#315cc2; --teacher-accent-soft:#ebf0ff; --teacher-accent-deep:#203e82; }
+.racer-teacher-shell [data-teacher-module="payments"] { --teacher-accent:#168363; --teacher-accent-soft:#e8f7f0; --teacher-accent-deep:#155843; }
+.racer-teacher-shell [data-teacher-module="voice-call"] { --teacher-accent:#1582a1; --teacher-accent-soft:#e7f7fb; --teacher-accent-deep:#145265; }
+.racer-teacher-shell [data-teacher-module="teachers"] { --teacher-accent:#3970b8; --teacher-accent-soft:#edf4fc; --teacher-accent-deep:#244b79; }
+.racer-teacher-shell [data-teacher-module="academy-profile"] { --teacher-accent:#7860bc; --teacher-accent-soft:#f1edfc; --teacher-accent-deep:#4e3d7b; }
+.racer-teacher-shell [data-teacher-module="profile"] { --teacher-accent:#3a6ab1; --teacher-accent-soft:#edf4fc; --teacher-accent-deep:#254878; }
+.racer-teacher-shell [data-teacher-module="settings"] { --teacher-accent:#566981; --teacher-accent-soft:#edf2f6; --teacher-accent-deep:#35485d; }
+
+.racer-teacher-shell [data-teacher-module] .racer-vip-page-heading { background:linear-gradient(112deg,var(--teacher-accent-deep,#183978),var(--teacher-accent,#2357c8))!important; }
+.racer-teacher-shell [data-teacher-module] .racer-vip-heading-icon { color:var(--teacher-accent,#2357c8)!important;background:#fff!important;border-color:rgba(255,255,255,.75)!important;box-shadow:0 5px 14px rgba(0,0,0,.12)!important; }
+.racer-teacher-shell [data-teacher-module] .racer-vip-heading-copy h1 { letter-spacing:-.025em!important; }
+.racer-teacher-shell [data-teacher-module] main.racer-module-page:not(.racer-quiz-subpage):not(.racer-voice-call-page),
+.racer-teacher-shell [data-teacher-module] main[data-racer-vip-module]:not(.racer-voice-call-page):not([data-racer-vip-module="timetable"]) {
+  position:relative!important;
+  background:radial-gradient(ellipse at 0 0,color-mix(in srgb,var(--teacher-accent,#2357c8) 8%,transparent),transparent 34%),#f5f8fc!important;
+  color:#172b45!important;
+}
+.racer-teacher-shell [data-teacher-module]:not([data-teacher-module="dashboard"]) > main:not(.racer-quiz-subpage):not(.racer-voice-call-page):not([data-racer-vip-module="timetable"]) {
+  background:radial-gradient(ellipse at 0 0,color-mix(in srgb,var(--teacher-accent,#2357c8) 8%,transparent),transparent 34%),#f5f8fc!important;
+  color:#172b45!important;
+  font-family:Inter,Arial,Helvetica,sans-serif!important;
+}
+.racer-teacher-shell [data-teacher-module] main.racer-module-page section[class*="card"],
+.racer-teacher-shell [data-teacher-module] main.racer-module-page .card,
+.racer-teacher-shell [data-teacher-module] main[data-racer-vip-module] .racer-vip-card {
+  background-color:#fff!important;
+  border:1px solid #e1e9f1!important;
+  box-shadow:0 7px 22px rgba(23,52,82,.065)!important;
+}
+.racer-teacher-shell [data-teacher-module] main.racer-module-page button[class*="primary"],
+.racer-teacher-shell [data-teacher-module] main.racer-module-page button[class*="Primary"],
+.racer-teacher-shell [data-teacher-module] main.racer-module-page button[class*="save"],
+.racer-teacher-shell [data-teacher-module] main.racer-module-page button[class*="Save"],
+.racer-teacher-shell [data-teacher-module] main.racer-module-page button[type="submit"],
+.racer-teacher-shell [data-teacher-module] .racer-vip-page-heading~.racer-vip-card button[class*="primary"],
+.racer-teacher-shell [data-teacher-module] .racer-vip-page-heading~.racer-vip-card button[class*="save"] {
+  background:var(--teacher-accent,#2357c8)!important;
+  border-color:var(--teacher-accent,#2357c8)!important;
+}
+.racer-teacher-shell [data-teacher-module="attendance-history"] .racer-attendance-history-page .filterCard,
+.racer-teacher-shell [data-teacher-module="attendance-history"] .racer-attendance-history-page .mobile-history-card {
+  border-top:3px solid var(--teacher-accent)!important;
+}
+.racer-teacher-shell [data-teacher-module="attendance-history"] .racer-attendance-history-page .refreshButton,
+.racer-teacher-shell [data-teacher-module="attendance-history"] .racer-attendance-history-page .clearButton {
+  background:var(--teacher-accent)!important;
+}
+.racer-teacher-shell [data-teacher-module="attendance-history"] .racer-attendance-history-page .statIcon {
+  background:var(--teacher-accent-soft)!important;
+  color:var(--teacher-accent-deep)!important;
+}
+.racer-teacher-shell [data-teacher-module="calendar"] .racer-vip-calendar-card,
+.racer-teacher-shell [data-teacher-module="calendar"] .racer-vip-month-summary,
+.racer-teacher-shell [data-teacher-module="calendar"] .racer-vip-calendar-info,
+.racer-teacher-shell [data-teacher-module="calendar"] .racer-vip-holiday-list {
+  border-radius:16px!important;
+  box-shadow:0 7px 22px rgba(23,52,82,.065)!important;
+}
+.racer-teacher-shell [data-teacher-module="calendar"] .racer-vip-calendar-nav,
+.racer-teacher-shell [data-teacher-module="calendar"] .racer-vip-today { background:var(--teacher-accent)!important;color:#fff!important; }
+.racer-teacher-shell [data-teacher-module="timetable"] [class*="schedule"],
+.racer-teacher-shell [data-teacher-module="timetable"] [class*="period"],
+.racer-teacher-shell [data-teacher-module="extra-class"] [class*="class-card"],
+.racer-teacher-shell [data-teacher-module="extra-class"] [class*="session"] {
+  border-color:color-mix(in srgb,var(--teacher-accent) 24%,#e1e9f1)!important;
+}
+.racer-teacher-shell [data-teacher-module] .racer-module-page .card,
+.racer-teacher-shell [data-teacher-module] .racer-module-page section[class*="card"],
+.racer-teacher-shell [data-teacher-module] .racer-module-page [class*="summary-card"],
+.racer-teacher-shell [data-teacher-module] .racer-module-page [class*="summaryCard"],
+.racer-teacher-shell [data-teacher-module] .racer-module-page [class*="statCard"] { border-color:#e1e9f1!important;box-shadow:0 5px 18px rgba(22,47,78,.055)!important; }
+.racer-teacher-shell [data-teacher-module] .racer-module-page input:focus,
+.racer-teacher-shell [data-teacher-module] .racer-module-page select:focus,
+.racer-teacher-shell [data-teacher-module] .racer-module-page textarea:focus { border-color:var(--teacher-accent,#2357c8)!important;outline:3px solid color-mix(in srgb,var(--teacher-accent,#2357c8) 18%,transparent)!important;outline-offset:1px!important; }
+.racer-teacher-shell [data-teacher-module] .racer-module-page table tbody tr:hover { background:var(--teacher-accent-soft,#eaf0ff)!important; }
+
+@media (min-width:1025px) {
+  .racer-teacher-shell [data-teacher-module]:not([data-teacher-module="dashboard"]) > main:not(.racer-quiz-subpage):not(.racer-voice-call-page) { width:100%!important;max-width:none!important;margin:0!important;box-sizing:border-box!important; }
+  .racer-teacher-shell [data-teacher-module]:not([data-teacher-module="dashboard"]) > main:not(.racer-quiz-subpage):not(.racer-voice-call-page) > div:first-child { width:100%!important;max-width:1440px!important;margin-left:auto!important;margin-right:auto!important; }
+  .racer-teacher-shell [data-teacher-module] main.racer-module-page { width:100%!important;max-width:none!important;min-height:calc(100vh - 64px)!important;margin:0!important;padding:26px 30px 40px!important;box-sizing:border-box!important; }
+  .racer-teacher-shell [data-teacher-module] main.racer-module-page > div:first-child { width:100%!important;max-width:1440px!important;margin:0 auto!important; }
+  .racer-teacher-shell [data-teacher-module] .racer-vip-module-page,
+  .racer-teacher-shell [data-teacher-module] .racer-vip-attendance-shell { width:100%!important;max-width:none!important;min-height:calc(100vh - 64px)!important;margin:0!important;padding:0!important;background:transparent!important; }
+  .racer-teacher-shell [data-teacher-module] .racer-vip-phone { width:100%!important;max-width:1440px!important;min-height:calc(100vh - 64px)!important;margin:0 auto!important;box-shadow:none!important;background:#f5f8fc!important; }
+  .racer-teacher-shell [data-teacher-module] .racer-module-page h1 { font-size:clamp(22px,2vw,30px)!important; }
+  .racer-teacher-shell [data-teacher-module] .racer-module-page h2 { font-size:clamp(17px,1.4vw,22px)!important; }
+  .racer-teacher-shell [data-teacher-module] .racer-vip-calendar-grid { grid-auto-rows:minmax(76px,auto)!important; }
+}
+
+@media (max-width:680px) {
+  .racer-teacher-shell [data-teacher-module]:not([data-teacher-module="dashboard"]) > main:not(.racer-quiz-subpage):not(.racer-voice-call-page) { width:100%!important;max-width:100%!important;min-width:0!important;overflow-x:hidden!important; }
+  .racer-teacher-shell [data-teacher-module] main.racer-module-page { width:100%!important;max-width:100%!important;min-width:0!important;padding:10px 10px calc(86px + env(safe-area-inset-bottom))!important; }
+  .racer-teacher-shell [data-teacher-module] main.racer-module-page > div:first-child { width:100%!important;max-width:100%!important;min-width:0!important; }
+  .racer-teacher-shell [data-teacher-module] main.racer-module-page h1 { font-size:clamp(19px,5.5vw,24px)!important;line-height:1.18!important; }
+  .racer-teacher-shell [data-teacher-module] main.racer-module-page h2 { font-size:clamp(15px,4.5vw,18px)!important;line-height:1.25!important; }
+  .racer-teacher-shell [data-teacher-module] main.racer-module-page p { line-height:1.45!important; }
+  .racer-teacher-shell [data-teacher-module] main.racer-module-page .card,
+  .racer-teacher-shell [data-teacher-module] main.racer-module-page section[class*="card"] { min-width:0!important; }
+  .racer-teacher-shell [data-teacher-module] main.racer-module-page table { max-width:100%!important; }
+  .racer-teacher-shell [data-teacher-module] .racer-vip-module-page,
+  .racer-teacher-shell [data-teacher-module] .racer-vip-attendance-shell { min-height:auto!important; }
+  .racer-teacher-shell [data-teacher-module] .racer-vip-phone { min-height:0!important; }
+  .racer-teacher-shell [data-teacher-module="attendance-history"] main.racer-attendance-history-page { padding:4px 8px calc(84px + env(safe-area-inset-bottom))!important;background:linear-gradient(180deg,#f0f8f7 0,#f6f8fb 250px)!important; }
+  .racer-teacher-shell [data-teacher-module="attendance-history"] .racer-attendance-history-page > div:first-child { padding:0 10px 18px!important; }
+  .racer-teacher-shell [data-teacher-module="attendance-history"] .racer-attendance-history-page .filterCard { margin-top:6px!important;padding:13px!important;border-radius:15px!important; }
+  .racer-teacher-shell [data-teacher-module="attendance-history"] .racer-attendance-history-page .filterTitle { font-size:15px!important;margin-bottom:10px!important; }
+  .racer-teacher-shell [data-teacher-module="attendance-history"] .racer-attendance-history-page .studentName { width:auto!important;max-width:100%!important;min-width:0!important;white-space:normal!important;word-break:normal!important;overflow-wrap:break-word!important;line-height:1.25!important;font-size:13px!important; }
+  .racer-teacher-shell [data-teacher-module="attendance-history"] .racer-attendance-history-page .mobile-history-table tbody tr { grid-template-columns:minmax(0,1fr) auto!important;gap:7px 10px!important;padding:11px!important;border-color:#d9e9e5!important; }
+  .racer-teacher-shell [data-teacher-module="attendance"] .racer-vip-page-heading,
+  .racer-teacher-shell [data-teacher-module="attendance"] .racer-vip-page-heading.history-heading {
+    background:linear-gradient(112deg,var(--teacher-accent-deep),var(--teacher-accent))!important;
+    border-radius:0 0 16px 16px!important;
+    box-shadow:0 5px 15px color-mix(in srgb,var(--teacher-accent) 20%,transparent)!important;
+  }
+  .racer-teacher-shell [data-teacher-module="attendance"] .racer-vip-card,
+  .racer-teacher-shell [data-teacher-module="attendance"] .racer-vip-history-preview {
+    border:1px solid #e1eaf3!important;
+    border-radius:15px!important;
+    box-shadow:0 5px 16px rgba(20,48,80,.06)!important;
+  }
+  .racer-teacher-shell [data-teacher-module="attendance"] .racer-vip-stat-grid { grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important; }
+  .racer-teacher-shell [data-teacher-module="attendance"] .racer-vip-mini-stat { min-height:58px!important;padding:8px!important;border-radius:12px!important; }
+  .racer-teacher-shell [data-teacher-module="attendance"] .racer-vip-mini-stat small { font-size:10px!important;line-height:1.2!important; }
+  .racer-teacher-shell [data-teacher-module="attendance"] .racer-vip-mini-stat b { font-size:17px!important; }
+  .racer-teacher-shell [data-teacher-module="attendance"] .racer-vip-student-row { min-height:60px!important;grid-template-columns:24px 36px minmax(0,1fr)!important;gap:6px!important;padding:9px 7px!important; }
+  .racer-teacher-shell [data-teacher-module="attendance"] .racer-vip-student-name { min-width:0!important;white-space:normal!important;word-break:normal!important;overflow-wrap:break-word!important;font-size:11px!important;line-height:1.25!important; }
+  .racer-teacher-shell [data-teacher-module="attendance"] .racer-vip-student-id { font-size:9px!important;line-height:1.2!important; }
+  .racer-teacher-shell [data-teacher-module="attendance"] .racer-vip-attendance-buttons button { min-height:34px!important;font-size:10px!important;padding:5px 7px!important; }
+}
+
+/* Keep student ID and both attendance actions in the mobile mark-attendance row. */
+.racer-teacher-shell [data-teacher-module="attendance"] main.racer-vip-attendance-shell .racer-vip-page-heading { display: none !important; }
+@media (max-width: 760px) {
+  .racer-teacher-shell [data-teacher-module="attendance"] .racer-vip-mark-table-head {
+    grid-template-columns: 18px 25px minmax(0, 1fr) 62px 108px !important;
+    gap: 3px !important;
+    padding: 7px 4px !important;
+  }
+  .racer-teacher-shell [data-teacher-module="attendance"] .racer-vip-mark-table-head > span:nth-child(2) { grid-column: 2 / 4 !important; }
+  .racer-teacher-shell [data-teacher-module="attendance"] .racer-vip-mark-table-head > span:nth-child(3) { grid-column: 4 !important; }
+  .racer-teacher-shell [data-teacher-module="attendance"] .racer-vip-mark-table-head > span:nth-child(4) { grid-column: 5 !important; }
+  .racer-teacher-shell [data-teacher-module="attendance"] .racer-vip-student-row {
+    grid-template-columns: 18px 25px minmax(0, 1fr) 62px 108px !important;
+    grid-template-rows: 1fr !important;
+    gap: 3px !important;
+    padding: 6px 4px !important;
+  }
+  .racer-teacher-shell [data-teacher-module="attendance"] .racer-vip-student-name { grid-column: 3 !important; }
+  .racer-teacher-shell [data-teacher-module="attendance"] .racer-vip-student-id {
+    grid-column: 4 !important;
+    grid-row: 1 !important;
+    font-size: 8px !important;
+    text-overflow: clip !important;
+  }
+  .racer-teacher-shell [data-teacher-module="attendance"] .racer-vip-attendance-buttons {
+    grid-column: 5 !important;
+    grid-row: 1 !important;
+    width: 108px !important;
+    gap: 4px !important;
+  }
+  .racer-teacher-shell [data-teacher-module="attendance"] .racer-vip-attendance-buttons button { width: 52px !important; min-width: 0 !important; padding-left: 3px !important; padding-right: 3px !important; }
 }

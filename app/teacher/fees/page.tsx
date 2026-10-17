@@ -1412,7 +1412,7 @@ export default function TeacherFeesPage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               title: status === "SUBMITTED" ? "Fee Payment Confirmed" : "Fee Status Updated",
-              message: `Your ${getMonthName(Number(month))} ${year} fee status is ${status === "SUBMITTED" ? "PAID" : status}. Amount: â‚¹${Number(amount).toLocaleString("en-IN")}.`,
+              message: `Your ${getMonthName(Number(month))} ${year} fee status is ${status === "SUBMITTED" ? "PAID" : status}. Amount: ₹${Number(amount).toLocaleString("en-IN")}.`,
               studentId: Number(studentId),
               category: ["SUBMITTED", "PAID", "PAID ONLINE"].includes(String(status).toUpperCase()) ? "fee_paid" : "fee_pending",
               url: "/student/fees",

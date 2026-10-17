@@ -1221,7 +1221,7 @@ export default function TeacherVoiceCallPage() {
                     onClick={stopPreview}
                     className="flex-1 rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm font-black text-red-300"
                   >
-                    â¹ Stop Preview
+                    Stop Stop Preview
                   </button>
                 )}
               </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import * as XLSX from "xlsx";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,11 +27,21 @@ type HistoryRow = {
   attendance_date: string;
 };
 
+type StudentHistorySummary = {
+  student: Student;
+  total: number;
+  present: number;
+  absent: number;
+  latestDate: string;
+};
+
 export default function AttendanceHistoryPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
 
   const [selectedDate, setSelectedDate] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
 
   const [loading, setLoading] = useState(true);
@@ -188,6 +199,10 @@ export default function AttendanceHistoryPage() {
     );
   }, [records]);
 
+  const availableMonths = useMemo(() => Array.from(new Set(
+    records.map((record) => record.attendance_date.slice(0, 7))
+  )).sort((a, b) => b.localeCompare(a)), [records]);
+
   const filteredRecords = useMemo(() => {
     let result = records;
 
@@ -197,6 +212,10 @@ export default function AttendanceHistoryPage() {
           record.attendance_date ===
           selectedDate
       );
+    }
+
+    if (selectedMonth) {
+      result = result.filter((record) => record.attendance_date.startsWith(selectedMonth));
     }
 
     if (search.trim()) {
@@ -229,8 +248,14 @@ export default function AttendanceHistoryPage() {
     records,
     students,
     selectedDate,
+    selectedMonth,
     search,
   ]);
+
+  const selectedStudent = students.find((student) => student.id === selectedStudentId) || null;
+  const selectedStudentRecords = selectedStudentId === null ? [] : records
+    .filter((record) => record.student_id === selectedStudentId && (!selectedMonth || record.attendance_date.startsWith(selectedMonth)))
+    .sort((a, b) => b.attendance_date.localeCompare(a.attendance_date));
 
   const historyRows: HistoryRow[] =
     filteredRecords
@@ -257,6 +282,24 @@ export default function AttendanceHistoryPage() {
         ): item is HistoryRow =>
           item !== null
       );
+
+  const studentHistoryRows: StudentHistorySummary[] = useMemo(() => {
+    const grouped = new Map<number, StudentHistorySummary>();
+    if (!selectedMonth && !selectedDate) {
+      students.forEach((student) => grouped.set(student.id, { student, total: 0, present: 0, absent: 0, latestDate: "" }));
+    }
+    for (const record of filteredRecords) {
+      const student = students.find((item) => item.id === record.student_id);
+      if (!student) continue;
+      const summary = grouped.get(student.id) || { student, total: 0, present: 0, absent: 0, latestDate: record.attendance_date };
+      summary.total += 1;
+      if (record.status.toLowerCase() === "present") summary.present += 1;
+      if (record.status.toLowerCase() === "absent") summary.absent += 1;
+      if (record.attendance_date > summary.latestDate) summary.latestDate = record.attendance_date;
+      grouped.set(student.id, summary);
+    }
+    return Array.from(grouped.values()).sort((a, b) => (a.student.student_name || a.student.student_username).localeCompare(b.student.student_name || b.student.student_username));
+  }, [filteredRecords, students, selectedMonth, selectedDate]);
 
   const presentCount = historyRows.filter(
     (item) =>
@@ -288,11 +331,22 @@ export default function AttendanceHistoryPage() {
 
   function clearFilters() {
     setSelectedDate("");
+    setSelectedMonth("");
     setSearch("");
+  }
+
+  function exportStudentRecords() {
+    if (!selectedStudent) return;
+    const rows = [["Date", "Student", "Username", "Status"], ...selectedStudentRecords.map((record) => [record.attendance_date, selectedStudent.student_name || "Student", selectedStudent.student_username, record.status])];
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
+    XLSX.writeFile(workbook, `attendance-${selectedStudent.student_username}-${selectedMonth || "all-months"}.xlsx`);
   }
 
   return (
     <main className="racer-module-page racer-attendance-history-page" style={styles.page}>
+<style>{`@media print{body *{visibility:hidden!important}.attendance-student-modal,.attendance-student-modal *{visibility:visible!important}.attendance-student-modal{position:absolute!important;inset:0!important;width:100%!important;max-width:none!important;box-shadow:none!important;border:0!important} .attendance-student-modal button{display:none!important}}`}</style>
 <style>{`@media (max-width:640px){
   .racer-attendance-history-page{padding:0 0 88px!important;background:#f5f9ff!important;min-height:100vh!important;color:#142b57!important;overflow-x:hidden!important}
   .racer-attendance-history-page>div{width:100%!important;max-width:none!important;padding:0 16px 24px!important;box-sizing:border-box!important}
@@ -302,11 +356,15 @@ export default function AttendanceHistoryPage() {
   .racer-attendance-history-page .title{font-size:28px!important;line-height:1.05!important;margin:0!important;font-weight:900!important;color:#172d5f!important;letter-spacing:-.5px!important}
   .racer-attendance-history-page .subtitle{font-size:13px!important;line-height:1.4!important;margin:8px 0 0!important;color:#61749a!important}
   .racer-attendance-history-page .backButton{flex:0 0 auto!important;padding:10px 14px!important;border-radius:12px!important;font-size:12px!important;font-weight:900!important}
-  .racer-attendance-history-page .filterCard{margin:10px 0!important;padding:14px!important;border-radius:18px!important;background:#fff!important;border:1px solid #e2eaf6!important;box-shadow:0 8px 24px rgba(25,58,112,.07)!important}
-  .racer-attendance-history-page .filterGrid{display:grid!important;grid-template-columns:1fr!important;gap:10px!important}
-  .racer-attendance-history-page .clearButtonWrapper{display:block!important}
-  .racer-attendance-history-page .statsGrid{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:8px!important;margin:10px 0!important}
-  .racer-attendance-history-page .statCard{padding:10px 8px!important;border-radius:16px!important;min-width:0!important}
+  .racer-attendance-history-page .filterCard{margin:8px 0!important;padding:10px!important;border-radius:16px!important;background:#fff!important;border:1px solid #e2eaf6!important;box-shadow:0 8px 24px rgba(25,58,112,.07)!important}
+  .racer-attendance-history-page .filterTitle{margin-bottom:6px!important}
+  .racer-attendance-history-page .filterGrid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important;align-items:end!important}
+  .racer-attendance-history-page .inputGroup{min-width:0!important;gap:5px!important}
+  .racer-attendance-history-page .input{min-width:0!important;padding:8px!important;font-size:12px!important}
+  .racer-attendance-history-page .clearButtonWrapper{display:flex!important;justify-content:flex-end!important;align-items:end!important}
+  .racer-attendance-history-page .clearButton{min-height:40px!important;padding:9px 12px!important;font-size:11px!important}
+  .racer-attendance-history-page .statsGrid{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:8px!important;margin:6px 0!important}
+  .racer-attendance-history-page .statCard{padding:8px!important;border-radius:14px!important;min-width:0!important}
   .racer-attendance-history-page .statIcon{width:28px!important;height:28px!important}
   .racer-attendance-history-page .statLabel{font-size:10px!important}
   .racer-attendance-history-page .statValue{font-size:20px!important}
@@ -382,19 +440,20 @@ export default function AttendanceHistoryPage() {
 
         {/* FILTERS */}
 
-        <section style={styles.filterCard}>
-          <div style={styles.filterTitle}>
+        <section className="filterCard" style={styles.filterCard}>
+          <div className="filterTitle" style={styles.filterTitle}>
              Search Attendance
           </div>
 
-          <div style={styles.filterGrid}>
+          <div className="filterGrid" style={styles.filterGrid}>
 
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>
+            <div className="inputGroup" style={styles.inputGroup}>
+              <label className="label" style={styles.label}>
                 Search Student
               </label>
 
               <input
+                className="input"
                 type="text"
                 value={search}
                 onChange={(e) =>
@@ -405,12 +464,21 @@ export default function AttendanceHistoryPage() {
               />
             </div>
 
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>
+            <div className="inputGroup" style={styles.inputGroup}>
+              <label className="label" style={styles.label}>Month</label>
+              <select className="input" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} style={styles.input}>
+                <option value="">All months</option>
+                {availableMonths.map((value) => <option key={value} value={value}>{new Date(`${value}-01T00:00:00`).toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</option>)}
+              </select>
+            </div>
+
+            <div className="inputGroup" style={styles.inputGroup}>
+              <label className="label" style={styles.label}>
                 Attendance Date
               </label>
 
               <select
+                className="input"
                 value={selectedDate}
                 onChange={(e) =>
                   setSelectedDate(
@@ -437,11 +505,13 @@ export default function AttendanceHistoryPage() {
             </div>
 
             <div
+              className="clearButtonWrapper"
               style={
                 styles.clearButtonWrapper
               }
             >
               <button
+                className="clearButton"
                 onClick={clearFilters}
                 style={styles.clearButton}
               >
@@ -454,49 +524,52 @@ export default function AttendanceHistoryPage() {
 
         {/* SUMMARY */}
 
-        <section style={styles.statsGrid}>
+        <section className="statsGrid" style={styles.statsGrid}>
 
-          <div style={styles.statCard}>
+          <div className="statCard" style={styles.statCard}>
             <div
+              className="statIcon"
               style={{
                 ...styles.statIcon,
                 background: "#dbeafe",
               }}
             >
-              
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="#2f73d9" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="3.5" width="14" height="17" rx="2"/><path d="M9 3.5h6v3H9zM8.5 11h7M8.5 15h7"/></svg>
             </div>
 
             <div>
-              <div style={styles.statLabel}>
+              <div className="statLabel" style={styles.statLabel}>
                 Records
               </div>
 
-              <div style={styles.statValue}>
+              <div className="statValue" style={styles.statValue}>
                 {totalCount}
               </div>
 
-              <div style={styles.statText}>
+              <div className="statText" style={styles.statText}>
                 Attendance records
               </div>
             </div>
           </div>
 
-          <div style={styles.statCard}>
+          <div className="statCard" style={styles.statCard}>
             <div
+              className="statIcon"
               style={{
                 ...styles.statIcon,
                 background: "#dcfce7",
               }}
             >
-              
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="#15935b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16.5 9"/></svg>
             </div>
 
             <div>
-              <div style={styles.statLabel}>
+              <div className="statLabel" style={styles.statLabel}>
                 Present
               </div>
 
               <div
+                className="statValue"
                 style={{
                   ...styles.statValue,
                   color: "#15803d",
@@ -505,28 +578,30 @@ export default function AttendanceHistoryPage() {
                 {presentCount}
               </div>
 
-              <div style={styles.statText}>
+              <div className="statText" style={styles.statText}>
                 Students present
               </div>
             </div>
           </div>
 
-          <div style={styles.statCard}>
+          <div className="statCard" style={styles.statCard}>
             <div
+              className="statIcon"
               style={{
                 ...styles.statIcon,
                 background: "#fee2e2",
               }}
             >
-              
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="#d93b45" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/></svg>
             </div>
 
             <div>
-              <div style={styles.statLabel}>
+              <div className="statLabel" style={styles.statLabel}>
                 Absent
               </div>
 
               <div
+                className="statValue"
                 style={{
                   ...styles.statValue,
                   color: "#dc2626",
@@ -535,7 +610,7 @@ export default function AttendanceHistoryPage() {
                 {absentCount}
               </div>
 
-              <div style={styles.statText}>
+              <div className="statText" style={styles.statText}>
                 Students absent
               </div>
             </div>
@@ -555,13 +630,13 @@ export default function AttendanceHistoryPage() {
 
         <section className="mobile-history-card" style={styles.historyCard}>
 
-          <div style={styles.historyHeader}>
+          <div className="historyHeader" style={styles.historyHeader}>
             <div>
-              <h2 style={styles.historyTitle}>
+              <h2 className="historyTitle" style={styles.historyTitle}>
                  Attendance Records
               </h2>
 
-              <p style={styles.historySubtitle}>
+              <p className="historySubtitle" style={styles.historySubtitle}>
                 {selectedDate
                   ? `Showing records for ${formatDate(
                       selectedDate
@@ -571,6 +646,7 @@ export default function AttendanceHistoryPage() {
             </div>
 
             <button
+              className="refreshButton"
               onClick={loadData}
               style={styles.refreshButton}
             >
@@ -593,7 +669,7 @@ export default function AttendanceHistoryPage() {
                 being loaded.
               </p>
             </div>
-          ) : historyRows.length === 0 ? (
+          ) : studentHistoryRows.length === 0 ? (
             <div style={styles.emptyBox}>
               <div style={styles.emptyIcon}>
                 
@@ -616,162 +692,20 @@ export default function AttendanceHistoryPage() {
               </button>
             </div>
           ) : (
-            <div style={styles.tableWrapper}>
-              <table className="mobile-history-table" style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.th}>
-                      #
-                    </th>
-
-                    <th style={styles.th}>
-                      Student
-                    </th>
-
-                    <th style={styles.th}>
-                      Username
-                    </th>
-
-                    <th style={styles.th}>
-                      Date
-                    </th>
-
-                    <th style={styles.th}>
-                      Status
-                    </th>
-
-                    <th
-                      style={{
-                        ...styles.th,
-                        textAlign: "center",
-                      }}
-                    >
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {historyRows.map(
-                    (row, index) => {
-                      const deleteKey =
-                        `${row.student.id}-${row.attendance_date}`;
-
-                      const isDeleting =
-                        deleting === deleteKey;
-
-                      return (
-                        <tr
-                          key={`${row.student.id}-${row.attendance_date}`}
-                        >
-                          <td style={styles.td}>
-                            {index + 1}
-                          </td>
-
-                          <td style={styles.td}>
-                            <div
-                              style={
-                                styles.studentCell
-                              }
-                            >
-                              <div
-                                style={
-                                  styles.studentAvatar
-                                }
-                              >
-                                {row.student.student_name
-                                  ?.charAt(0)
-                                  .toUpperCase() ||
-                                  "S"}
-                              </div>
-
-                              <strong
-                                style={styles.studentName}
-                              >
-                                {row.student.student_name || "Student"}
-                              </strong>
-                            </div>
-                          </td>
-
-                          <td style={styles.td}>
-                            <span
-                              style={
-                                styles.username
-                              }
-                            >
-                              {
-                                row.student
-                                  .student_username
-                              }
-                            </span>
-                          </td>
-
-                          <td style={styles.td}>
-                            {formatDate(
-                              row.attendance_date
-                            )}
-                          </td>
-
-                          <td style={styles.td}>
-                            {row.status
-                              .toLowerCase() ===
-                            "present" ? (
-                              <span
-                                style={
-                                  styles.presentBadge
-                                }
-                              >
-                                 Present
-                              </span>
-                            ) : (
-                              <span
-                                style={
-                                  styles.absentBadge
-                                }
-                              >
-                                 Absent
-                              </span>
-                            )}
-                          </td>
-
-                          <td
-                            style={{
-                              ...styles.td,
-                              textAlign: "center",
-                            }}
-                          >
-                            <button
-                              onClick={() =>
-                                deleteAttendance(
-                                  row.student.id,
-                                  row.attendance_date
-                                )
-                              }
-                              disabled={isDeleting}
-                              className="mobile-delete-button"
-                              style={{
-                                ...styles.deleteButton,
-                                opacity:
-                                  isDeleting
-                                    ? 0.6
-                                    : 1,
-                                cursor:
-                                  isDeleting
-                                    ? "not-allowed"
-                                    : "pointer",
-                              }}
-                            >
-                              {isDeleting
-                                ? " Deleting..."
-                                : " Delete"}
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    }
-                  )}
-                </tbody>
-              </table>
+            <div className="student-summary-list" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(245px, 1fr))", gap: 9 }}>
+              {studentHistoryRows.map((row) => (
+                <button key={row.student.id} type="button" onClick={() => setSelectedStudentId(row.student.id)} aria-label={`View all attendance for ${row.student.student_name || row.student.student_username}`} className="student-summary-row" style={{ display: "grid", gridTemplateColumns: "38px minmax(0,1fr) auto", alignItems: "center", gap: 10, width: "100%", minWidth: 0, padding: "11px 12px", border: "1px solid #dce7f5", borderRadius: 13, background: "#fff", color: "#17345d", textAlign: "left", cursor: "pointer", boxShadow: "0 3px 10px rgba(31,65,120,.04)" }}>
+                  <span aria-hidden="true" style={{ display: "grid", placeItems: "center", width: 36, height: 36, minWidth: 36, borderRadius: "50%", background: "#dbeafe", color: "#2563eb", fontSize: 14, fontWeight: 900 }}>{(row.student.student_name || row.student.student_username || "S").charAt(0).toUpperCase()}</span>
+                  <span style={{ display: "grid", gap: 3, minWidth: 0, overflow: "hidden" }}>
+                    <strong className="student-summary-name" style={{ display: "block", minWidth: 0, color: "#142b57", fontSize: 13, lineHeight: 1.2, fontWeight: 850, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", wordBreak: "normal", overflowWrap: "normal" }}>{row.student.student_name || "Student"}</strong>
+                    <small style={{ color: "#71809a", fontSize: 10, fontWeight: 750, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{row.student.student_username} · {row.latestDate ? formatDate(row.latestDate) : "No records yet"}</small>
+                  </span>
+                  <span style={{ display: "grid", justifyItems: "end", gap: 4, flexShrink: 0 }}>
+                    <strong style={{ color: "#2860ae", fontSize: 11 }}>{row.total} records</strong>
+                    <small style={{ color: "#62748c", fontSize: 9, fontWeight: 750 }}>{row.present} P · {row.absent} A</small>
+                  </span>
+                </button>
+              ))}
             </div>
           )}
         </section>
@@ -810,6 +744,31 @@ export default function AttendanceHistoryPage() {
           Attendance Portal  Teacher Attendance
           History  2026
         </footer>
+
+        {selectedStudent && (
+          <div role="presentation" onClick={() => setSelectedStudentId(null)} style={{ position: "fixed", inset: "108px 0 72px", zIndex: 10000, display: "grid", placeItems: "center", padding: 12, background: "rgba(13,29,53,.55)" }}>
+            <section role="dialog" aria-modal="true" aria-label={`${selectedStudent.student_name || "Student"} attendance`} className="attendance-student-modal" onClick={(event) => event.stopPropagation()} style={{ width: "min(100%, 720px)", maxHeight: "calc(100dvh - 200px)", overflow: "auto", padding: 20, borderRadius: 18, background: "#fff", boxShadow: "0 24px 80px rgba(10,25,48,.25)" }}>
+              <header style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
+                <div><div style={{ color: "#64748b", fontSize: 11, fontWeight: 800 }}>STUDENT ATTENDANCE</div><h2 style={{ margin: "5px 0", color: "#17345d", fontSize: 21 }}>{selectedStudent.student_name || "Student"}</h2><div style={{ color: "#728099", fontSize: 12 }}>{selectedStudent.student_username} · {selectedStudentRecords.length} records</div></div>
+                <button type="button" aria-label="Close attendance details" onClick={() => setSelectedStudentId(null)} style={{ border: "1px solid #dbe4ef", borderRadius: 10, padding: "8px 11px", background: "#f8fafc", color: "#334155", cursor: "pointer" }}>Close</button>
+              </header>
+              <div style={{ display: "flex", gap: 9, flexWrap: "wrap", marginBottom: 14 }}>
+                <select aria-label="Attendance month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} style={{ ...styles.input, width: "auto", minWidth: 190 }}><option value="">All months</option>{availableMonths.map((value) => <option key={value} value={value}>{new Date(`${value}-01T00:00:00`).toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</option>)}</select>
+                <button type="button" onClick={exportStudentRecords} style={{ ...styles.refreshButton, background: "#176b45", border: 0 }}>Export Excel</button>
+                <button type="button" onClick={() => window.print()} style={{ ...styles.refreshButton, background: "#1e3a8a", border: 0 }}>Print / Save PDF</button>
+              </div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {selectedStudentRecords.length === 0 ? <p style={{ color: "#64748b" }}>No attendance records for this month.</p> : selectedStudentRecords.map((record) => (
+                  <div key={`${record.student_id}-${record.attendance_date}`} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", alignItems: "center", gap: 10, padding: "11px 12px", border: "1px solid #e5ebf3", borderRadius: 12 }}>
+                    <strong style={{ color: "#334b68", fontSize: 13 }}>{formatDate(record.attendance_date)}</strong>
+                    <span style={{ color: record.status.toLowerCase() === "present" ? "#16804c" : "#c43d45", fontSize: 12, fontWeight: 800 }}>{record.status}</span>
+                    <button type="button" disabled={deleting === `${record.student_id}-${record.attendance_date}`} onClick={() => void deleteAttendance(record.student_id, record.attendance_date)} style={{ border: "1px solid #f0d0d0", borderRadius: 8, padding: "6px 9px", background: "#fff7f7", color: "#b4232d", cursor: "pointer" }}>Delete</button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
 
       </div>
     </main>

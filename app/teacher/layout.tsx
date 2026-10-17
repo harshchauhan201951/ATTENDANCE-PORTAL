@@ -55,6 +55,11 @@ function getTeacherDesktopTitle(pathname: string) {
   return hit ? hit.label : "Teacher Portal";
 }
 
+function getTeacherModuleKey(pathname: string) {
+  const key = pathname.replace(/^\/teacher\/?/, "").split("/")[0];
+  return key || "dashboard";
+}
+
 export default function TeacherLayout({ children }: { children: ReactNode }) {
   const [headerName, setHeaderName] = useState("Teacher");
   const [headerTime, setHeaderTime] = useState(""); const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -174,6 +179,13 @@ return () => clearInterval(timer);
                   <span>{headerName.slice(0, 1).toUpperCase()}</span>
                 )}
               </Link>
+              <button
+                type="button"
+                className="racer-shared-fixed-logout"
+                onClick={() => { ["teacher_username","teacherUsername","teacherLoggedIn","attendance_role","attendance_username","attendance_teacher_id","teacher_id"].forEach((key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }); window.location.href = "/"; }}
+              >
+                Logout
+              </button>
             </div>
           </div>
 
@@ -213,7 +225,7 @@ return () => clearInterval(timer);
       )}
 
       {!isDashboard && <TeacherModuleHeaderCleaner />}
-      <div className={`racer-portal-content${isDashboard ? "" : " racer-shared-teacher-module-content"}${pathname.startsWith("/teacher/profile") ? " racer-teacher-profile-route" : ""}`}>{children}</div>
+      <div data-teacher-module={getTeacherModuleKey(pathname)} className={`racer-portal-content${isDashboard ? "" : " racer-shared-teacher-module-content"}${pathname.startsWith("/teacher/profile") ? " racer-teacher-profile-route" : ""}`}>{children}</div>
 
       <nav className="racer-bottom-nav" aria-label="Teacher navigation">
         {items.map((item) => {

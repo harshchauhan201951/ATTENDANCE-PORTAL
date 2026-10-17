@@ -577,31 +577,20 @@ export default function TeacherAttendancePage() {
                 <h1>MARK ATTENDANCE</h1>
                 <p>Select date and mark student attendance</p>
               </div>
-              <label className="racer-vip-date-tile">
-                <span><Icon name="calendar" /></span>
-                <span>
-                  <small>Today</small>
-                  <strong>{formatDate(selectedDate)}</strong>
-                </span>
-                <input aria-label="Attendance date" type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
-              </label>
             </section>
 
             <section className="racer-vip-card racer-vip-mark-card">
               <div className="racer-vip-mark-top">
-                <label className="racer-vip-date-field">
-                  <span><Icon name="calendar" /> Attendance Date</span>
-                  <span className="racer-vip-date-input-wrap">
-                    <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
-                    <Icon name="calendar" />
-                  </span>
-                </label>
                 <div className="racer-vip-stat-grid">
                   <div className="racer-vip-mini-stat present"><span><Icon name="check" /></span><div><small>Present</small><b>{presentToday}</b></div></div>
                   <div className="racer-vip-mini-stat absent"><span><Icon name="x" /></span><div><small>Absent</small><b>{absentToday}</b></div></div>
                   <div className="racer-vip-mini-stat total"><span><Icon name="users" /></span><div><small>Total Students</small><b>{totalStudents}</b></div></div>
                   <div className="racer-vip-mini-stat marked"><span><Icon name="check" /></span><div><small>Marked</small><b>{markedToday}</b></div></div>
                 </div>
+                <label className="racer-vip-date-field">
+                  <span>Attendance date</span>
+                  <input aria-label="Attendance date" type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
+                </label>
               </div>
 
               {/* RACER_BULK_ATTENDANCE_ACTIONS */}
@@ -692,7 +681,7 @@ export default function TeacherAttendancePage() {
                 <div>
                   <h2><Icon name="history" /> ATTENDANCE HISTORY</h2>
                 </div>
-                <button type="button" onClick={() => { setAttendanceView("history"); window.scrollTo({ top: 0, behavior: "smooth" }); }}>View All <span>Ã¢â‚¬Âº</span></button>
+                <button type="button" onClick={() => { setAttendanceView("history"); window.scrollTo({ top: 0, behavior: "smooth" }); }}>View All <span>›</span></button>
               </div>
               <div className="racer-vip-history-grid header">
                 <span>#</span><span>Date</span><span>Student</span><span>Username</span><span>Status</span>
@@ -785,7 +774,7 @@ export default function TeacherAttendancePage() {
               <div className="racer-vip-pagination">
                 <button type="button" disabled={safeHistoryPage <= 1} onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}><Icon name="back" /></button>
                 <span>Showing {visibleHistory.length === 0 ? 0 : (safeHistoryPage - 1) * historyPageSize + 1}-{Math.min(safeHistoryPage * historyPageSize, visibleHistory.length)} of {visibleHistory.length} records</span>
-                <button type="button" disabled={safeHistoryPage >= historyTotalPages} onClick={() => setHistoryPage((p) => Math.min(historyTotalPages, p + 1))}><span className="right-arrow">Ã¢â‚¬Âº</span></button>
+                <button type="button" disabled={safeHistoryPage >= historyTotalPages} onClick={() => setHistoryPage((p) => Math.min(historyTotalPages, p + 1))}><span className="right-arrow">›</span></button>
               </div>
             </section>
           </>
@@ -826,8 +815,9 @@ export default function TeacherAttendancePage() {
         .racer-vip-card{margin:0 10px 10px;background:#fff;border-radius:14px;box-shadow:0 3px 14px rgba(9,36,75,.12);border:1px solid #e4ebf6;overflow:hidden;}
         .racer-vip-mark-card{padding:11px 10px 12px;}
         .racer-vip-mark-top{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(220px,1fr);gap:10px;align-items:stretch;}
-        .racer-vip-date-field{display:flex;flex-direction:column;justify-content:center;gap:7px;min-width:0;}
+        .racer-vip-date-field{display:flex;flex-direction:column;justify-content:center;gap:7px;min-width:0;padding:10px 12px;border:1px solid #dbe5f1;border-radius:12px;background:#f8fbff;box-sizing:border-box;}
         .racer-vip-date-field > span:first-child{font-size:11px;font-weight:900;color:#16325e;display:flex;align-items:center;gap:5px;}
+        .racer-vip-date-field input{width:100%;height:40px;padding:0 10px;border:1px solid #cad7eb;border-radius:9px;box-sizing:border-box;background:#fff;color:#233c61;font-size:13px;font-weight:800;}
         .racer-vip-date-input-wrap{height:40px;border:1px solid #cad7eb;border-radius:9px;display:flex;align-items:center;justify-content:space-between;padding:0 9px;background:#fff;box-sizing:border-box;}
         .racer-vip-date-input-wrap input{border:0;outline:0;width:calc(100% - 24px);font-size:12px;font-weight:800;color:#233c61;background:transparent;}
         .racer-vip-date-input-wrap svg{color:#214c8c;flex:0 0 auto;}

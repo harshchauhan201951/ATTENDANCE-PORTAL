@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import "../../teacher-dashboard-vip.css";
+import "../../teacher-dashboard-refresh.css";
 
 type IconName =
   | "attendance" | "history" | "calendar" | "reports" | "fees" | "payments"
