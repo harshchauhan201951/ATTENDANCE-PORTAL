@@ -243,7 +243,7 @@
 
 @media (max-width: 640px) {
   .racer-student-shell .racer-student-content-area[data-student-route]:not([data-student-route="dashboard"]) {
-    padding: 19px 10px 88px !important;
+    padding: 50px 10px 88px !important;
     background: #f2f6fb !important;
   }
   .racer-student-shell .racer-student-content-area[data-student-route]:not([data-student-route="dashboard"]) > main:not(.student-dashboard-page) {
@@ -824,19 +824,19 @@
   .racer-student-shell .racer-student-content-area { padding-top: 140px !important; }
 }
 @media (min-width: 641px) and (max-width: 1024px) {
-  .racer-student-shell .racer-page-actions { top: 74px !important; }
+  .racer-student-shell .racer-page-actions { top: 82px !important; }
   .racer-student-shell .racer-student-content-area { padding-top: 148px !important; }
 }
 
 /* Give the first module card clear air below the fixed Back / Refresh / Dashboard row. */
 @media (max-width: 1024px) {
   .racer-student-shell .racer-student-content-area:not([data-student-route="dashboard"]) {
-    padding-top: 152px !important;
+    padding-top: 168px !important;
   }
 }
 @media (min-width: 641px) and (max-width: 1024px) {
   .racer-student-shell .racer-student-content-area:not([data-student-route="dashboard"]) {
-    padding-top: 160px !important;
+    padding-top: 176px !important;
   }
 }
 

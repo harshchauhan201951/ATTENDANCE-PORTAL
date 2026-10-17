@@ -505,6 +505,16 @@ const start =
 
   function getDisplayedStudentResultStatus(result: QuizResult): string {
     const status = String(result.result_status || "").trim().toUpperCase();
+    const quiz = quizzes.find((item) => Number(item.id) === Number(result.quiz_id));
+    const pendingStatuses = ["", "IN_PROGRESS", "IN PROGRESS", "PENDING", "NOT_ATTEMPT", "NOT_ATTEMPTED", "NOT_SUBMITTED"];
+    if (
+      quiz?.scheduled_date &&
+      !result.submitted_at &&
+      pendingStatuses.includes(status) &&
+      !reattemptQuizIds.has(quiz.id) &&
+      Date.now() >= new Date(`${quiz.scheduled_date}T21:00:00+05:30`).getTime()
+    ) return "FAIL";
+
     if (status === "PASS" || status === "PASSED") return "PASS";
     if (status === "FAIL" || status === "FAILED") return "FAIL";
     if (result.submitted_at && ["", "IN_PROGRESS", "IN PROGRESS", "PENDING"].includes(status)) {
@@ -557,7 +567,27 @@ const start =
 
   const availableQuizzes = quizzes.filter((quiz) => reattemptQuizIds.has(quiz.id) || (getStatus(quiz) === "LIVE" && !hasAttempted(quiz.id)));
 
-  const completedResults = results.filter(isCompletedQuizResult);
+  const missedDeadlineResults: QuizResult[] = quizzes
+    .filter((quiz) =>
+      Boolean(quiz.scheduled_date) &&
+      !reattemptQuizIds.has(quiz.id) &&
+      Date.now() >= new Date(`${quiz.scheduled_date}T21:00:00+05:30`).getTime() &&
+      !results.some((result) => Number(result.quiz_id) === Number(quiz.id))
+    )
+    .map((quiz) => ({
+      quiz_id: quiz.id,
+      obtained_marks: 0,
+      percentage: 0,
+      result_status: "FAIL",
+      attempt_number: 0,
+      submitted_at: null,
+      created_at: `${quiz.scheduled_date}T15:30:00.000Z`,
+      submission_type: "deadline_missed",
+    }));
+  const completedResults = [
+    ...results.filter(isCompletedQuizResult),
+    ...missedDeadlineResults,
+  ];
 
   const passedResults =
     completedResults.filter(
@@ -852,7 +882,7 @@ const start =
                 styles.quickArrow
               }
             >
-              
+
             </span>
           </button>
 
@@ -901,7 +931,7 @@ const start =
                 styles.quickArrow
               }
             >
-              
+
             </span>
           </button>
 
@@ -950,7 +980,7 @@ const start =
                 styles.quickArrow
               }
             >
-              
+
             </span>
           </button>
         </section>
@@ -992,7 +1022,7 @@ const start =
             >
               {liveQuizzes.length}
             </span>
-            <span className="quiz-accordion-chevron" aria-hidden="true">⌄</span>
+            <span className="quiz-accordion-chevron" aria-hidden="true">ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾</span>
             </button>
           </div>
 
@@ -1096,7 +1126,7 @@ const start =
               </div>
               </div>
               <span className="quiz-accordion-count">{upcomingQuizzes.length}</span>
-              <span className="quiz-accordion-chevron" aria-hidden="true">⌄</span>
+              <span className="quiz-accordion-chevron" aria-hidden="true">ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾</span>
             </button>
 
             <button
@@ -1220,7 +1250,7 @@ const start =
               </div>
               </div>
               <span className="quiz-accordion-count">{availableQuizzes.length}</span>
-              <span className="quiz-accordion-chevron" aria-hidden="true">⌄</span>
+              <span className="quiz-accordion-chevron" aria-hidden="true">ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾</span>
             </button>
 
             <button
@@ -1344,7 +1374,7 @@ const start =
               </div>
               </div>
               <span className="quiz-accordion-count">{completedResults.length}</span>
-              <span className="quiz-accordion-chevron" aria-hidden="true">⌄</span>
+              <span className="quiz-accordion-chevron" aria-hidden="true">ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾</span>
             </button>
 
             <button
@@ -3023,4 +3053,3 @@ const styles: Record<
     maxWidth: "100%",
   },
 };
-

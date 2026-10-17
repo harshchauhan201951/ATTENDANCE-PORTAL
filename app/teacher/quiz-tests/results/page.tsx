@@ -172,10 +172,10 @@ function isFinalizedResult(result: QuizResult): boolean {
   return Boolean(result.submitted_at) || ["PASS", "PASSED", "FAIL", "FAILED", "SUBMITTED", "COMPLETED"].includes(status);
 }
 
-function resultStatus(
-  result: QuizResult
-): string {
+function resultStatus(result: QuizResult, quiz?: { scheduled_date: string | null }): string {
   const status = String(result.result_status || "").trim().toUpperCase();
+  const pendingStatuses = ["", "IN_PROGRESS", "IN PROGRESS", "PENDING", "NOT_ATTEMPT", "NOT_ATTEMPTED", "NOT_SUBMITTED"];
+  if (quiz?.scheduled_date && !result.submitted_at && pendingStatuses.includes(status) && isQuizDeadlinePassed(quiz)) return "FAIL";
 
   // submission_type can be "manual" on a newly started attempt; it does not prove submission.
   if (result.submitted_at && ["", "IN_PROGRESS", "IN PROGRESS", "PENDING"].includes(status)) {
@@ -991,7 +991,7 @@ function TeacherQuizResultsContent() {
 
       const latest = getLatestResult(row.results);
 
-      const status = latest ? resultStatus(latest) : "FAIL";
+      const status = latest ? resultStatus(latest, row.quiz) : "FAIL";
 
       if (selectedStatus === "SUBMITTED") { return hasSubmittedResult(row.results); }
 
@@ -1239,11 +1239,11 @@ function TeacherQuizResultsContent() {
 
         const latest = getLatestResult(results);
 
-        if (latest && resultStatus(latest).includes("PASS")) {
+        if (latest && resultStatus(latest, currentQuiz || undefined).includes("PASS")) {
           pass += 1;
         }
 
-        if (latest && resultStatus(latest).includes("FAIL")) {
+        if (latest && resultStatus(latest, currentQuiz || undefined).includes("FAIL")) {
           fail += 1;
         }
       }
@@ -2169,7 +2169,7 @@ function TeacherQuizResultsContent() {
         `Final Percentage: ${safeNumber(
           latest.percentage
         ).toFixed(2)}%`,
-        `Final Status: ${resultStatus(latest)}`,
+        `Final Status: ${resultStatus(latest, quiz)}`,
         `Obtained Marks: ${safeNumber(
           latest.obtained_marks
         )}/${safeNumber(latest.total_marks)}`,
@@ -2223,7 +2223,7 @@ function TeacherQuizResultsContent() {
         const latest = getLatestResult(row.results);
         const submitted = Boolean(latest && isFinalizedResult(latest));
         return {
-          "Student Name": row.student.student_name || "Unnamed", "Class": normalizeClassName(row.student.class_name), "Username": row.student.student_username || "", "Quiz": row.quiz.title || "", "Quiz Date": row.quiz.scheduled_date || "", "Subject": row.quiz.subject || "", "Total Questions": latest ? safeNumber(latest.total_questions) : 0, "Correct Answers": latest ? safeNumber(latest.correct_answers) : 0, "Wrong Answers": latest ? safeNumber(latest.wrong_answers) : 0, "Marks": latest ? safeNumber(latest.obtained_marks) : 0, "Percentage": latest ? (safeNumber(latest.percentage).toFixed(2) + "%") : "0.00%", "Result Status": latest ? resultStatus(latest) : "FAILED", "Submission Type": latest?.submission_type || "", "Submitted": submitted ? "YES" : "NO", "Submitted At": latest?.submitted_at ? formatDateTime(latest.submitted_at) : ""
+          "Student Name": row.student.student_name || "Unnamed", "Class": normalizeClassName(row.student.class_name), "Username": row.student.student_username || "", "Quiz": row.quiz.title || "", "Quiz Date": row.quiz.scheduled_date || "", "Subject": row.quiz.subject || "", "Total Questions": latest ? safeNumber(latest.total_questions) : 0, "Correct Answers": latest ? safeNumber(latest.correct_answers) : 0, "Wrong Answers": latest ? safeNumber(latest.wrong_answers) : 0, "Marks": latest ? safeNumber(latest.obtained_marks) : 0, "Percentage": latest ? (safeNumber(latest.percentage).toFixed(2) + "%") : "0.00%", "Result Status": latest ? resultStatus(latest, row.quiz) : "FAILED", "Submission Type": latest?.submission_type || "", "Submitted": submitted ? "YES" : "NO", "Submitted At": latest?.submitted_at ? formatDateTime(latest.submitted_at) : ""
         };
       });
       const worksheet = XLSX.utils.json_to_sheet(excelRows);
@@ -2246,8 +2246,8 @@ function TeacherQuizResultsContent() {
       const reportTotalAssigned = reportRows.length;
       const reportSubmitted = reportRows.filter((row) => hasSubmittedResult(row.results)).length;
       const reportNotSubmitted = Math.max(0, reportTotalAssigned - reportSubmitted);
-      const reportPass = reportRows.filter((row) => { const latest = getLatestResult(row.results); return Boolean(latest && resultStatus(latest).includes("PASS")); }).length;
-      const reportFail = reportRows.filter((row) => { const latest = getLatestResult(row.results); return Boolean(latest && resultStatus(latest).includes("FAIL")); }).length;
+      const reportPass = reportRows.filter((row) => { const latest = getLatestResult(row.results); return Boolean(latest && resultStatus(latest, row.quiz).includes("PASS")); }).length;
+      const reportFail = reportRows.filter((row) => { const latest = getLatestResult(row.results); return Boolean(latest && resultStatus(latest, row.quiz).includes("FAIL")); }).length;
       const reportAttempts = reportRows.reduce((sum, row) => sum + row.results.length, 0);
       const pdf = new jsPDF({
         orientation: "landscape",
@@ -2429,7 +2429,7 @@ function TeacherQuizResultsContent() {
                 ).toFixed(2)}%`
               : "0%",
             latest
-              ? resultStatus(latest)
+              ? resultStatus(latest, row.quiz)
               : "FAILED",
           ],
           widths,
@@ -3054,7 +3054,7 @@ function TeacherQuizResultsContent() {
                                                         styles.noAttempt
                                                       }
                                                     >
-                                                      NO ATTEMPT
+                                                      {row.quiz?.scheduled_date && isQuizDeadlinePassed(row.quiz) && !reattemptAllowed ? "FAIL - 0 marks" : reattemptAllowed ? "RE-ATTEMPT ALLOWED" : "NO ATTEMPT"}
                                                     </span>
                                                   )}
                                                 </div>
@@ -3214,20 +3214,10 @@ function TeacherQuizResultsContent() {
                                                     }
                                                   >
                                                     <div>
-                                                      <strong>
-                                                        No quiz
-                                                        result
-                                                        submitted
-                                                      </strong>
+                                                      <strong>{isQuizDeadlinePassed(row.quiz) ? "FAIL Ã¢â‚¬â€ 0 marks" : "No quiz result submitted"}</strong>
 
                                                       <span>
-                                                        This
-                                                        student
-                                                        has no
-                                                        submitted
-                                                        attempt
-                                                        for this
-                                                        quiz.
+                                                        {isQuizDeadlinePassed(row.quiz) ? "The 9 PM deadline passed without a submitted attempt." : "This student has no submitted attempt for this quiz."}
                                                       </span>
                                                     </div>
                                                   </div>
@@ -4678,41 +4668,4 @@ const styles: Record<
     fontSize: "12px",
   },
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
