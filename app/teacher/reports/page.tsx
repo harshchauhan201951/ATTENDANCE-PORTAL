@@ -236,6 +236,17 @@ export default function TeacherReportsPage() {
   const [studentDetailLoading, setStudentDetailLoading] = useState(false);
   const [expandedTestWeek, setExpandedTestWeek] = useState<string | null>(null);
 
+  async function getAssignedStudentIdsForCurrentTeacher(): Promise<number[] | null> {
+    const teacherId = Number(localStorage.getItem("attendance_teacher_id") || localStorage.getItem("teacher_id") || "0");
+    if (!Number.isInteger(teacherId) || teacherId <= 0) {
+      throw new Error("Teacher session not found. Please login again.");
+    }
+    if (teacherId === 1) return null;
+    const { data, error } = await supabase.rpc("get_teacher_assigned_student_ids", { p_teacher_id: teacherId });
+    if (error) throw new Error(error.message);
+    return (data || []).map((row: { student_id: number }) => Number(row.student_id)).filter((id: number) => Number.isInteger(id) && id > 0);
+  }
+
   useEffect(() => {
     void loadReport();
     void loadAssessments();
@@ -266,6 +277,25 @@ export default function TeacherReportsPage() {
     setLoading(true);
     setError("");
 
+    let assignedStudentIds: number[] | null;
+    try {
+      assignedStudentIds = await getAssignedStudentIdsForCurrentTeacher();
+    } catch (assignmentError) {
+      setError(assignmentError instanceof Error ? assignmentError.message : "Unable to check assigned students.");
+      setStudents([]);
+      setAttendance([]);
+      setStudentMarks([]);
+      setLoading(false);
+      return;
+    }
+    if (assignedStudentIds !== null && assignedStudentIds.length === 0) {
+      setStudents([]);
+      setAttendance([]);
+      setStudentMarks([]);
+      setLoading(false);
+      return;
+    }
+
     const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
 
     const lastDay = new Date(
@@ -279,10 +309,7 @@ export default function TeacherReportsPage() {
       "0"
     )}-${String(lastDay).padStart(2, "0")}`;
 
-    const {
-      data: studentsData,
-      error: studentsError,
-    } = await supabase
+    let studentsQuery = supabase
       .from("students")
       .select(
         "id, student_name, student_username, admission_date"
@@ -290,6 +317,8 @@ export default function TeacherReportsPage() {
       .order("student_name", {
         ascending: true,
       });
+    if (assignedStudentIds !== null) studentsQuery = studentsQuery.in("id", assignedStudentIds);
+    const { data: studentsData, error: studentsError } = await studentsQuery;
 
     if (studentsError) {
       setError(studentsError.message);
@@ -297,10 +326,7 @@ export default function TeacherReportsPage() {
       return;
     }
 
-    const {
-      data: attendanceData,
-      error: attendanceError,
-    } = await supabase
+    let attendanceQuery = supabase
       .from("attendance")
       .select("*")
       .gte("attendance_date", startDate)
@@ -308,6 +334,8 @@ export default function TeacherReportsPage() {
       .order("attendance_date", {
         ascending: true,
       });
+    if (assignedStudentIds !== null) attendanceQuery = attendanceQuery.in("student_id", assignedStudentIds);
+    const { data: attendanceData, error: attendanceError } = await attendanceQuery;
 
     if (attendanceError) {
       setError(attendanceError.message);
@@ -338,18 +366,29 @@ export default function TeacherReportsPage() {
   }
 
   async function loadAssessments() {
+    let assignedStudentIds: number[] | null;
+    try {
+      assignedStudentIds = await getAssignedStudentIdsForCurrentTeacher();
+    } catch (assignmentError) {
+      setAssessmentError(assignmentError instanceof Error ? assignmentError.message : "Unable to check assigned students.");
+      setAssessments([]);
+      return;
+    }
+    if (assignedStudentIds !== null && assignedStudentIds.length === 0) {
+      setAssessments([]);
+      return;
+    }
+
+    let assessmentsQuery = supabase
+      .from("academy_assessments")
+      .select("*")
+      .order("test_date", { ascending: false })
+      .order("test_name", { ascending: true });
+    if (assignedStudentIds !== null) assessmentsQuery = assessmentsQuery.in("student_id", assignedStudentIds);
     const {
       data,
       error: assessmentFetchError,
-    } = await supabase
-      .from("academy_assessments")
-      .select("*")
-      .order("test_date", {
-        ascending: false,
-      })
-      .order("test_name", {
-        ascending: true,
-      });
+    } = await assessmentsQuery;
 
     if (assessmentFetchError) {
       setAssessmentError(
@@ -633,10 +672,17 @@ export default function TeacherReportsPage() {
       return;
     }
 
+    let assignedStudentIds: number[] | null;
+    try {
+      assignedStudentIds = await getAssignedStudentIdsForCurrentTeacher();
+    } catch (assignmentError) {
+      setAssessmentError(assignmentError instanceof Error ? assignmentError.message : "Unable to verify student assignments.");
+      return;
+    }
     const eligibleIds = new Set(
-      eligibleStudents.map(
-        (student) => student.id
-      )
+      eligibleStudents
+        .filter((student) => assignedStudentIds === null || assignedStudentIds.includes(Number(student.id)))
+        .map((student) => student.id)
     );
 
     const validMarks = studentMarks.filter(
@@ -866,13 +912,25 @@ export default function TeacherReportsPage() {
     setAssessmentError("");
     setAssessmentMessage("");
 
-    const {
-      error: deleteError,
-    } = await supabase
+    let deleteQuery = supabase
       .from("academy_assessments")
       .delete()
       .eq("test_name", assessmentName)
       .eq("test_date", assessmentDate);
+    try {
+      const assignedStudentIds = await getAssignedStudentIdsForCurrentTeacher();
+      if (assignedStudentIds !== null) {
+        if (assignedStudentIds.length === 0) {
+          setAssessmentError("No assigned students are available to update.");
+          return;
+        }
+        deleteQuery = deleteQuery.in("student_id", assignedStudentIds);
+      }
+    } catch (assignmentError) {
+      setAssessmentError(assignmentError instanceof Error ? assignmentError.message : "Unable to verify student assignments.");
+      return;
+    }
+    const { error: deleteError } = await deleteQuery;
 
     if (deleteError) {
       setAssessmentError(

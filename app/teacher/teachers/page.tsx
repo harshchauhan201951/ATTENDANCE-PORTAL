@@ -13,6 +13,14 @@ type Teacher = {
   id: number;
   teacher_username: string;
   created_at: string;
+  assigned_student_count?: number;
+};
+
+type AssignmentStudent = {
+  id: number;
+  student_name: string | null;
+  student_username: string | null;
+  class_name: string | null;
 };
 
 export default function TeacherManagementPage() {
@@ -27,11 +35,17 @@ export default function TeacherManagementPage() {
 
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
-  const [deletingId, setDeletingId] =
-    useState<number | null>(null);
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [currentTeacherId, setCurrentTeacherId] = useState<number | null>(null);
+  const [canManageAssignments, setCanManageAssignments] = useState(false);
+  const [assignmentTeacher, setAssignmentTeacher] = useState<Teacher | null>(null);
+  const [assignmentStudents, setAssignmentStudents] = useState<AssignmentStudent[]>([]);
+  const [selectedAssignmentIds, setSelectedAssignmentIds] = useState<number[]>([]);
+  const [assignmentSearch, setAssignmentSearch] = useState("");
+  const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [savingAssignments, setSavingAssignments] = useState(false);
 
   async function loadTeachers() {
     setLoading(true);
@@ -50,15 +64,97 @@ export default function TeacherManagementPage() {
       setError(error.message);
       setTeachers([]);
     } else {
-      setTeachers(data || []);
+      const teachersWithAssignments = await Promise.all(
+        (data || []).map(async (teacher) => {
+          if (teacher.id === 1) {
+            const { count, error: studentsCountError } = await supabase
+              .from("students")
+              .select("id", { count: "exact", head: true });
+            if (studentsCountError) {
+              console.error("Main teacher student count lookup failed:", studentsCountError);
+            }
+            return { ...teacher, assigned_student_count: count || 0 };
+          }
+          const { data: assignedRows, error: assignmentError } = await supabase.rpc(
+            "get_teacher_assigned_student_ids",
+            { p_teacher_id: teacher.id }
+          );
+          if (assignmentError) {
+            console.error(`Assigned students lookup failed for teacher ${teacher.id}:`, assignmentError);
+            return { ...teacher, assigned_student_count: 0 };
+          }
+          return { ...teacher, assigned_student_count: (assignedRows || []).length };
+        })
+      );
+      setTeachers(teachersWithAssignments);
     }
 
     setLoading(false);
   }
 
   useEffect(() => {
+    const loggedInTeacherId = Number(localStorage.getItem("attendance_teacher_id") || localStorage.getItem("teacher_id") || "0");
+    setCurrentTeacherId(loggedInTeacherId || null);
+    setCanManageAssignments(loggedInTeacherId === 1);
     loadTeachers();
   }, []);
+
+  async function openAssignmentManager(teacher: Teacher) {
+    setAssignmentTeacher(teacher);
+    setAssignmentSearch("");
+    setAssignmentStudents([]);
+    setSelectedAssignmentIds([]);
+    setLoadingAssignments(true);
+    setError("");
+    try {
+      const [studentsResult, assignmentsResult] = await Promise.all([
+        supabase.from("students").select("id, student_name, student_username, class_name").eq("is_active", true).order("class_name").order("student_name"),
+        supabase.rpc("get_teacher_assigned_student_ids", { p_teacher_id: teacher.id }),
+      ]);
+      if (studentsResult.error) throw new Error(studentsResult.error.message);
+      if (assignmentsResult.error) throw new Error(assignmentsResult.error.message);
+      setAssignmentStudents((studentsResult.data || []) as AssignmentStudent[]);
+      setSelectedAssignmentIds((assignmentsResult.data || []).map((row: { student_id: number }) => Number(row.student_id)));
+    } catch (assignmentError) {
+      setError(assignmentError instanceof Error ? assignmentError.message : "Unable to load assigned students.");
+      setAssignmentTeacher(null);
+    } finally {
+      setLoadingAssignments(false);
+    }
+  }
+
+  function toggleAssignmentStudent(studentId: number) {
+    setSelectedAssignmentIds((current) => current.includes(studentId)
+      ? current.filter((id) => id !== studentId)
+      : [...current, studentId]);
+  }
+
+  async function saveAssignments() {
+    if (!assignmentTeacher || !canManageAssignments) return;
+    setSavingAssignments(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch("/api/teacher/assignments", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          managerTeacherId: 1,
+          teacherId: assignmentTeacher.id,
+          studentIds: selectedAssignmentIds,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.error || "Could not save student assignments.");
+      setMessage(`${selectedAssignmentIds.length} students assigned to ${assignmentTeacher.teacher_username}.`);
+      setAssignmentTeacher(null);
+      await loadTeachers();
+    } catch (assignmentError) {
+      setError(assignmentError instanceof Error ? assignmentError.message : "Could not save student assignments.");
+    } finally {
+      setSavingAssignments(false);
+    }
+  }
 
   async function handleAddTeacher(
     event: React.FormEvent<HTMLFormElement>
@@ -114,49 +210,11 @@ export default function TeacherManagementPage() {
     setAdding(false);
   }
 
-  async function handleDeleteTeacher(
-    teacher: Teacher
-  ) {
-    if (teacher.id === 1) {
-      setError(
-        "The main teacher cannot be deleted."
-      );
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Delete teacher "${teacher.teacher_username}"?`
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setMessage("");
-    setError("");
-    setDeletingId(teacher.id);
-
-    const { error } = await supabase.rpc(
-      "delete_teacher",
-      {
-        p_teacher_id: teacher.id,
-      }
-    );
-
-    if (error) {
-      setError(error.message);
-      setDeletingId(null);
-      return;
-    }
-
-    setMessage(
-      "Teacher deleted successfully."
-    );
-
-    await loadTeachers();
-
-    setDeletingId(null);
-  }
+  const filteredAssignmentStudents = assignmentStudents.filter((student) => {
+    const query = assignmentSearch.trim().toLowerCase();
+    if (!query) return true;
+    return `${student.student_name || ""} ${student.student_username || ""} ${student.class_name || ""}`.toLowerCase().includes(query);
+  });
 
   return (
     <main data-racer-vip-module="teachers"  className="racer-module-page racer-teachers-page"
@@ -278,7 +336,7 @@ export default function TeacherManagementPage() {
             }}
           >
             Create login credentials
-            for a new teacher.
+            for a new teacher. Teacher modules show only assigned students; the main teacher sees the full roster.
           </p>
 
           <form
@@ -625,19 +683,31 @@ export default function TeacherManagementPage() {
                       </div>
 
                       <div>
-                        <div
-                          style={{
-                            color:
-                              "#0f172a",
-                            fontSize:
-                              "16px",
-                            fontWeight:
-                              900,
-                          }}
-                        >
-                          {
-                            teacher.teacher_username
-                          }
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                          <span
+                            style={{
+                              color: "#0f172a",
+                              fontSize: "16px",
+                              fontWeight: 900,
+                            }}
+                          >
+                            {teacher.teacher_username}
+                          </span>
+                          {currentTeacherId === teacher.id && (
+                            <span
+                              style={{
+                                background: "#dbeafe",
+                                color: "#1d4ed8",
+                                padding: "4px 8px",
+                                borderRadius: "999px",
+                                fontSize: "10px",
+                                fontWeight: 900,
+                                letterSpacing: "0.04em",
+                              }}
+                            >
+                              YOU
+                            </span>
+                          )}
                         </div>
 
                         <div
@@ -652,6 +722,16 @@ export default function TeacherManagementPage() {
                         >
                           Teacher ID:{" "}
                           {teacher.id}
+                        </div>
+                        <div
+                          style={{
+                            marginTop: "6px",
+                            color: "#475569",
+                            fontSize: "12px",
+                            fontWeight: 750,
+                          }}
+                        >
+                          👥 {teacher.assigned_student_count ?? 0} assigned students
                         </div>
                       </div>
                     </div>
@@ -677,48 +757,17 @@ export default function TeacherManagementPage() {
                         MAIN TEACHER
                       </span>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleDeleteTeacher(
-                            teacher
-                          )
-                        }
-                        disabled={
-                          deletingId ===
-                          teacher.id
-                        }
-                        style={{
-                          border:
-                            "none",
-                          background:
-                            deletingId ===
-                            teacher.id
-                              ? "#94a3b8"
-                              : "#fee2e2",
-                          color:
-                            deletingId ===
-                            teacher.id
-                              ? "#ffffff"
-                              : "#b91c1c",
-                          padding:
-                            "9px 14px",
-                          borderRadius:
-                            "10px",
-                          fontWeight:
-                            900,
-                          cursor:
-                            deletingId ===
-                            teacher.id
-                              ? "not-allowed"
-                              : "pointer",
-                        }}
-                      >
-                        {deletingId ===
-                        teacher.id
-                          ? "Deleting..."
-                          : "Delete"}
-                      </button>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                        {canManageAssignments && (
+                          <button
+                            type="button"
+                            onClick={() => void openAssignmentManager(teacher)}
+                            style={{ border: "1px solid #c7d2fe", background: "#eef2ff", color: "#4338ca", padding: "9px 12px", borderRadius: "10px", fontWeight: 900, cursor: "pointer" }}
+                          >
+                            👥 Assign Students
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 )
@@ -726,6 +775,52 @@ export default function TeacherManagementPage() {
             </div>
           )}
         </section>
+
+        {assignmentTeacher && (
+          <div role="presentation" onClick={() => !savingAssignments && setAssignmentTeacher(null)} style={{ position: "fixed", inset: 0, zIndex: 1000, display: "grid", placeItems: "center", padding: "18px", background: "rgba(15,23,42,0.48)" }}>
+            <section role="dialog" aria-modal="true" aria-labelledby="teacher-assignment-title" onClick={(event) => event.stopPropagation()} style={{ width: "min(100%, 620px)", maxHeight: "min(84vh, 760px)", display: "flex", flexDirection: "column", gap: "14px", padding: "22px", borderRadius: "20px", background: "#ffffff", boxShadow: "0 24px 80px rgba(15,23,42,0.28)" }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px" }}>
+                <div>
+                  <div style={{ color: "#4f46e5", fontSize: "11px", fontWeight: 900, letterSpacing: "1px" }}>TEACHER ACCESS</div>
+                  <h2 id="teacher-assignment-title" style={{ margin: "5px 0 0", color: "#0f172a", fontSize: "21px" }}>Assign Students</h2>
+                  <p style={{ margin: "5px 0 0", color: "#64748b", fontSize: "13px" }}>{assignmentTeacher.teacher_username} will see and manage the selected students.</p>
+                </div>
+                <button type="button" aria-label="Close assignment dialog" onClick={() => setAssignmentTeacher(null)} disabled={savingAssignments} style={{ border: 0, borderRadius: "10px", background: "#f1f5f9", color: "#334155", width: "36px", height: "36px", fontSize: "20px", cursor: "pointer" }}>×</button>
+              </div>
+
+              <input type="search" value={assignmentSearch} onChange={(event) => setAssignmentSearch(event.target.value)} placeholder="Search by student name, username, or class" aria-label="Search students to assign" style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", border: "1px solid #cbd5e1", borderRadius: "11px", outline: "none", fontSize: "14px" }} />
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", color: "#475569", fontSize: "12px", fontWeight: 800 }}>
+                <span>{selectedAssignmentIds.length} selected · {filteredAssignmentStudents.length} shown</span>
+                <button type="button" onClick={() => setSelectedAssignmentIds(filteredAssignmentStudents.map((student) => student.id))} style={{ border: 0, background: "transparent", color: "#4f46e5", fontWeight: 900, cursor: "pointer" }}>Select shown</button>
+              </div>
+
+              <div style={{ minHeight: "180px", overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: "13px", background: "#f8fafc" }}>
+                {loadingAssignments ? (
+                  <div style={{ padding: "28px", textAlign: "center", color: "#64748b", fontWeight: 700 }}>Loading students…</div>
+                ) : filteredAssignmentStudents.length === 0 ? (
+                  <div style={{ padding: "28px", textAlign: "center", color: "#64748b" }}>No students match your search.</div>
+                ) : filteredAssignmentStudents.map((student) => {
+                  const checked = selectedAssignmentIds.includes(student.id);
+                  return (
+                    <label key={student.id} style={{ display: "flex", alignItems: "center", gap: "11px", padding: "11px 13px", borderBottom: "1px solid #e8edf4", cursor: "pointer", background: checked ? "#eef2ff" : "transparent" }}>
+                      <input type="checkbox" checked={checked} onChange={() => toggleAssignmentStudent(student.id)} />
+                      <span style={{ minWidth: 0, flex: 1 }}>
+                        <strong style={{ display: "block", color: "#1e293b", fontSize: "13px" }}>{student.student_name || student.student_username || `Student ${student.id}`}</strong>
+                        <span style={{ color: "#64748b", fontSize: "11px" }}>{student.student_username || ""}{student.class_name ? ` · ${student.class_name}` : ""}</span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "9px", paddingTop: "2px" }}>
+                <button type="button" disabled={savingAssignments} onClick={() => setAssignmentTeacher(null)} style={{ border: "1px solid #cbd5e1", borderRadius: "10px", padding: "10px 14px", background: "#fff", color: "#475569", fontWeight: 800, cursor: "pointer" }}>Cancel</button>
+                <button type="button" disabled={loadingAssignments || savingAssignments} onClick={() => void saveAssignments()} style={{ border: 0, borderRadius: "10px", padding: "10px 16px", background: savingAssignments ? "#94a3b8" : "#4f46e5", color: "#fff", fontWeight: 900, cursor: savingAssignments ? "not-allowed" : "pointer" }}>{savingAssignments ? "Saving…" : "Save assignments"}</button>
+              </div>
+            </section>
+          </div>
+        )}
 
         <footer
           style={{

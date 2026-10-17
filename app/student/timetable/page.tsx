@@ -75,7 +75,9 @@ export default function StudentTimetablePage() {
 
       if (typeof window === "undefined") return;
 
-      const loggedIn = sessionStorage.getItem("studentLoggedIn");
+      const loggedIn =
+        localStorage.getItem("studentLoggedIn") ||
+        sessionStorage.getItem("studentLoggedIn");
 
       if (loggedIn !== "true") {
         router.replace("/");

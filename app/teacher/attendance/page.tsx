@@ -112,6 +112,11 @@ export default function TeacherAttendancePage() {
     studentId: number,
     status: "Present" | "Absent"
   ) {
+    if (!students.some((student) => Number(student.id) === Number(studentId))) {
+      setMessage("You can only mark attendance for students assigned to you.");
+      return;
+    }
+
     setSaving(true);
     setMessage("");
 

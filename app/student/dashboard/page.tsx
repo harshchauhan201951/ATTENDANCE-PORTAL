@@ -932,23 +932,18 @@ export default function StudentDashboardPage() {
     )
       ? announcements[0]
       : null;
+  const newAnnouncementCount = announcements.filter((announcement) =>
+    isWithinLatest24Hours(announcement.created_at)
+  ).length;
 
   const dashboardUpdates = [
-    ...(latestAnnouncement ? [{
-      eyebrow: "NEW • LAST 24 HOURS",
-      title: latestAnnouncement.title,
-      detail: latestAnnouncement.message,
-      icon: "📢",
-      metric: "NEW",
-      href: "/student/announcements",
-    }] : []),
     { eyebrow: "ATTENDANCE • TODAY", title: dashboardFacts.attendance.startsWith("Today: Present") ? "Present today" : "Attendance today", detail: dashboardFacts.attendance, icon: "✓", metric: dashboardFacts.attendance.startsWith("Today: Present") ? "HERE" : dashboardFacts.attendance.includes("Absent") ? "ABSENT" : "—", href: "/student/attendance" },
     { eyebrow: "FEES", title: dashboardFacts.fees.includes("pending") ? "Fee payment pending" : "Fee status", detail: dashboardFacts.fees, icon: "₹", metric: dashboardFacts.fees.match(/₹[\d,]+/)?.[0] || (dashboardFacts.fees.includes("pending") ? "DUE" : "CLEAR"), href: "/student/fees" },
     { eyebrow: "OVERALL PERFORMANCE", title: "Your performance", detail: dashboardFacts.performance, icon: "↗", metric: dashboardFacts.performance.match(/[\d.]+%/)?.[0] || "—", href: "/student/reports" },
     { eyebrow: "QUIZ RESULTS", title: "Latest quiz result", detail: dashboardFacts.quiz, icon: "✎", metric: dashboardFacts.quiz.match(/[\d.]+%/)?.[0] || "—", href: "/student/quiz-tests" },
     { eyebrow: "SATURDAY WEEK TEST", title: "Weekly test result", detail: dashboardFacts.weeklyTest, icon: "★", metric: dashboardFacts.weeklyTest.match(/[\d.]+%/)?.[0] || "—", href: "/student/monthly-result" },
     { eyebrow: "CLASS TIMETABLE", title: "Today's class time", detail: dashboardFacts.timetable, icon: "◷", metric: dashboardFacts.timetable.match(/\d{1,2}:\d{2} ?[AP]M/i)?.[0] || "VIEW", href: "/student/timetable" },
-    { eyebrow: "ACADEMIC UPDATE", title: latestAnnouncement?.title || "Academic calendar", detail: latestAnnouncement?.message || "No teacher announcement in the last 24 hours. Open the calendar for upcoming dates.", icon: "▦", metric: latestAnnouncement ? "NEW" : "WEEK", href: latestAnnouncement ? "/student/announcements" : "/student/calendar" },
+    { eyebrow: "ACADEMIC CALENDAR", title: "Upcoming dates", detail: "Open the calendar for upcoming dates.", icon: "▦", metric: "WEEK", href: "/student/calendar" },
   ];
   const updateCount = dashboardUpdates.length;
   const currentDashboardUpdate = dashboardUpdates[activeUpdateSlide % dashboardUpdates.length];
@@ -1849,203 +1844,69 @@ export default function StudentDashboardPage() {
             latestAnnouncement && (
               <section
                 className="student-latest-announcement"
-                style={
-                  styles.latestAnnouncementSection
-                }
+                aria-label="New announcements"
+                style={{
+                  ...styles.latestAnnouncementSection,
+                  padding: "12px 16px",
+                  marginBottom: "12px",
+                }}
               >
                 <div
                   className="student-latest-header"
-                  style={
-                    styles.latestAnnouncementHeader
-                  }
+                  style={{
+                    ...styles.latestAnnouncementHeader,
+                    alignItems: "center",
+                    marginBottom: "8px",
+                  }}
                 >
                   <div>
                     <div
                       className="student-latest-eyebrow"
-                      style={
-                        styles.latestAnnouncementEyebrow
-                      }
+                      style={{ ...styles.latestAnnouncementEyebrow, marginBottom: "2px" }}
                     >
-                       NEW ANNOUNCEMENT
+                      NEW • {newAnnouncementCount} {newAnnouncementCount === 1 ? "ANNOUNCEMENT" : "ANNOUNCEMENTS"}
                     </div>
 
                     <h2
-                      className="student-latest-title"
-                      style={
-                        styles.latestAnnouncementTitle
-                      }
+                      className="student-new-announcements-title"
+                      style={{ margin: 0, color: "#0f172a", fontSize: "17px", fontWeight: 900 }}
                     >
-                      Latest Announcement
+                      New Announcements
                     </h2>
-
-                    <p
-                      className="student-latest-subtitle"
-                      style={
-                        styles.latestAnnouncementSubtitle
-                      }
-                    >
-                      This announcement will stay
-                      here for 24 hours.
-                    </p>
                   </div>
 
                   <div
                     className="student-latest-badge"
-                    style={
-                      styles.latestAnnouncementBadge
-                    }
+                    style={{ ...styles.latestAnnouncementBadge, padding: "6px 9px" }}
                   >
-                    NEW  24 HOURS
+                    NEW
                   </div>
                 </div>
 
-                <article
-                  className="student-latest-card"
-                  style={
-                    styles.latestAnnouncementCard
-                  }
+                <button
+                  type="button"
+                  className="student-open-announcement-prompt"
+                  onClick={() => router.push("/student/announcements")}
+                  style={{
+                    width: "100%",
+                    minHeight: "42px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "10px",
+                    padding: "9px 12px",
+                    border: "1px solid #cbdcf2",
+                    borderRadius: "10px",
+                    background: "#f7fbff",
+                    color: "#174a82",
+                    fontSize: "13px",
+                    fontWeight: 800,
+                    cursor: "pointer",
+                  }}
                 >
-                  <div
-                    className="student-announcement-card-top"
-                    style={
-                      styles.announcementCardTop
-                    }
-                  >
-                    <div
-                      className="student-announcement-icon"
-                      style={
-                        styles.latestAnnouncementIcon
-                      }
-                    >
-                      
-                    </div>
-
-                    <div
-                      style={
-                        styles.announcementCardContent
-                      }
-                    >
-                      <div
-                        className="student-announcement-meta"
-                        style={
-                          styles.announcementMeta
-                        }
-                      >
-                        <span
-                          className="student-teacher-badge"
-                          style={
-                            styles.latestTeacherBadge
-                          }
-                        >
-                          TEACHER
-                        </span>
-
-                        <span
-                          className="student-time-badge"
-                          style={
-                            styles.latestTimeBadge
-                          }
-                        >
-                          LATEST
-                        </span>
-
-                        <span
-                          className="student-announcement-date"
-                          style={
-                            styles.announcementDate
-                          }
-                        >
-                          {formatAnnouncementDate(
-                            latestAnnouncement.created_at
-                          )}
-                        </span>
-                      </div>
-
-                      <h3
-                        className="student-latest-card-title"
-                        style={
-                          styles.latestAnnouncementCardTitle
-                        }
-                      >
-                        {
-                          latestAnnouncement.title
-                        }
-                      </h3>
-
-                      <p
-                        className="student-announcement-message"
-                        style={
-                          styles.announcementMessage
-                        }
-                      >
-                        {
-                          latestAnnouncement.message
-                        }
-                      </p>
-                    </div>
-                  </div>
-
-                  <div
-                    className="student-announcement-bottom"
-                    style={
-                      styles.announcementBottom
-                    }
-                  >
-                    <div
-                      className="student-everyone-text"
-                      style={
-                        styles.everyoneText
-                      }
-                    >
-                       For all students
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        toggleLike(
-                          latestAnnouncement.id
-                        )
-                      }
-                      disabled={
-                        likingId ===
-                        latestAnnouncement.id
-                      }
-                      className="student-like-button"
-                      style={{
-                        ...styles.likeButton,
-                        ...(latestAnnouncement.likedByMe
-                          ? styles.likeButtonActive
-                          : {}),
-                        opacity:
-                          likingId ===
-                          latestAnnouncement.id
-                            ? 0.65
-                            : 1,
-                        cursor:
-                          likingId ===
-                          latestAnnouncement.id
-                            ? "not-allowed"
-                            : "pointer",
-                      }}
-                    >
-                      {latestAnnouncement.likedByMe
-                        ? " Liked"
-                        : " Like"}
-
-                      <span
-                        className="student-like-count"
-                        style={
-                          styles.likeCount
-                        }
-                      >
-                        {
-                          latestAnnouncement.likeCount
-                        }
-                      </span>
-                    </button>
-                  </div>
-                </article>
+                  <span>📢 Open New Announcements</span>
+                  <span aria-hidden="true">→</span>
+                </button>
               </section>
             )}
 

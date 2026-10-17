@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../lib/supabase";
+import { getTeacherAssignedStudentIds } from "../../../lib/teacher-assigned-students";
 
 type Student = {
   id: number;
@@ -126,13 +127,30 @@ export default function ExtraClassPage() {
   async function loadData() {
     try {
       setLoading(true);
+      const assignedStudentIds = await getTeacherAssignedStudentIds(supabase);
+      if (assignedStudentIds !== null && assignedStudentIds.length === 0) {
+        setStudents([]);
+        setClasses([]);
+        setAttendance([]);
+        return;
+      }
+
+      let studentsQuery = supabase
+        .from("students")
+        .select("*")
+        .order("id", { ascending: true });
+      let attendanceQuery = supabase
+        .from("extra_class_attendance")
+        .select("*")
+        .order("id", { ascending: true });
+      if (assignedStudentIds !== null) {
+        studentsQuery = studentsQuery.in("id", assignedStudentIds);
+        attendanceQuery = attendanceQuery.in("student_id", assignedStudentIds);
+      }
 
       const [studentsResult, classesResult, attendanceResult] =
         await Promise.all([
-          supabase
-            .from("students")
-            .select("*")
-            .order("id", { ascending: true }),
+          studentsQuery,
 
           supabase
             .from("extra_classes")
@@ -140,10 +158,7 @@ export default function ExtraClassPage() {
             .order("class_date", { ascending: false })
             .order("id", { ascending: false }),
 
-          supabase
-            .from("extra_class_attendance")
-            .select("*")
-            .order("id", { ascending: true }),
+          attendanceQuery,
         ]);
 
       if (studentsResult.error) {

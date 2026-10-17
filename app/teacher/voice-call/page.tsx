@@ -8,6 +8,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { getTeacherAssignedStudentIds } from "@/lib/teacher-assigned-students";
 
 type StudentRecord = Record<string, unknown>;
 
@@ -155,10 +156,18 @@ export default function TeacherVoiceCallPage() {
     try {
       setLoading(true);
 
-      const { data, error } = await supabase
+      const assignedStudentIds = await getTeacherAssignedStudentIds(supabase);
+      if (assignedStudentIds !== null && assignedStudentIds.length === 0) {
+        setStudents([]);
+        return;
+      }
+
+      let studentsQuery = supabase
         .from("students")
         .select("*")
         .order("id", { ascending: true });
+      if (assignedStudentIds !== null) studentsQuery = studentsQuery.in("id", assignedStudentIds);
+      const { data, error } = await studentsQuery;
 
       if (error) {
         console.error(

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
+import { getTeacherAssignedStudentIds } from "../../../lib/teacher-assigned-students";
 
 type Announcement = {
   id: number;
@@ -88,13 +89,18 @@ export default function TeacherAnnouncementsPage() {
         (announcement) => announcement.id
       );
 
-      const {
-        data: likesData,
-        error: likesError,
-      } = await supabase
+      const assignedStudentIds = await getTeacherAssignedStudentIds(supabase);
+      if (assignedStudentIds !== null && assignedStudentIds.length === 0) {
+        setAnnouncements(announcementRows.map((announcement) => ({ ...announcement, likeCount: 0, likedStudents: [] })));
+        return;
+      }
+
+      let likesQuery = supabase
         .from("announcement_likes")
         .select("announcement_id, student_id")
         .in("announcement_id", announcementIds);
+      if (assignedStudentIds !== null) likesQuery = likesQuery.in("student_id", assignedStudentIds);
+      const { data: likesData, error: likesError } = await likesQuery;
 
       if (likesError) {
         console.error(
@@ -964,16 +970,6 @@ export default function TeacherAnnouncementsPage() {
                                 ? "Like"
                                 : "Likes"
                             }
-
-                            <span
-                              style={
-                                styles.viewArrow
-                              }
-                            >
-                              {isExpanded
-                                ? "UP"
-                                : "DOWN"}
-                            </span>
 
                           </button>
 
@@ -1924,13 +1920,6 @@ const styles: {
       "#ffe4e6",
     border:
       "1px solid #fb7185",
-  },
-
-  viewArrow: {
-    fontSize:
-      "8px",
-    marginLeft:
-      "2px",
   },
 
   deleteButton: {

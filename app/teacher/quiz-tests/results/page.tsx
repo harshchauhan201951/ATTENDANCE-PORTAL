@@ -246,6 +246,19 @@ function getQuizClasses(quiz: QuizTest): string[] {
   return sortClasses([...classes]);
 }
 
+const resultFilterStyle: React.CSSProperties = {
+  boxSizing: "border-box",
+  width: "100%",
+  minHeight: "39px",
+  padding: "9px 11px",
+  border: "1px solid #dbe2f0",
+  borderRadius: "10px",
+  background: "#fff",
+  color: "#1e293b",
+  fontSize: "12px",
+  outlineColor: "#6366f1",
+};
+
 function TeacherQuizResultsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -291,6 +304,7 @@ function TeacherQuizResultsContent() {
   const [selectedSubject, setSelectedSubject] = useState("ALL");
   const [selectedClass, setSelectedClass] = useState("ALL");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
+  const [studentSearch, setStudentSearch] = useState("");
 
   const [expandedDates, setExpandedDates] =
     useState<Set<string>>(new Set());
@@ -317,6 +331,11 @@ function TeacherQuizResultsContent() {
     useState("");
 
   const [deleteResultLoading, setDeleteResultLoading] = useState<number | null>(null);
+  const [assignmentTarget, setAssignmentTarget] = useState<QuizStudentRow | null>(null);
+  const [assignmentObtainedMarks, setAssignmentObtainedMarks] = useState("");
+  const [assignmentTotalMarks, setAssignmentTotalMarks] = useState("");
+  const [assignmentFormError, setAssignmentFormError] = useState("");
+  const [savingAssignmentMarks, setSavingAssignmentMarks] = useState(false);
 
   const goBack = () => {
     router.back();
@@ -730,15 +749,9 @@ function TeacherQuizResultsContent() {
             setAllQuizzes(normalizedQuizzes);
             setAllResults(normalizedAllResults);
 
-            setExpandedDates(
-              new Set(
-                normalizedQuizzes
-                  .filter((q) => q.scheduled_date)
-                  .map(
-                    (q) => q.scheduled_date as string
-                  )
-              )
-            );
+            // Keep the results workspace compact; expand only the quiz currently
+            // selected so teachers can open other dates when they need them.
+            setExpandedDates(new Set(quiz.scheduled_date ? [quiz.scheduled_date] : []));
 
             void loadReattemptPermissions(
               normalizedQuizzes,
@@ -983,6 +996,10 @@ function TeacherQuizResultsContent() {
     }
 
     return allStudentQuizRows.filter((row) => {
+      if (selectedStatus === "NO_ATTEMPT") {
+        return row.results.length === 0;
+      }
+
       if (row.results.length === 0) {
         return isQuizDeadlinePassed(row.quiz)
           ? selectedStatus === "FAIL"
@@ -1010,6 +1027,16 @@ function TeacherQuizResultsContent() {
       return true;
     });
   }, [allStudentQuizRows, selectedStatus]);
+
+  const visibleResultRows = useMemo(() => {
+    const query = studentSearch.trim().toLocaleLowerCase();
+    if (!query) return filteredStatusRows;
+
+    return filteredStatusRows.filter((row) =>
+      [row.student.student_name, row.student.student_username, row.student.class_name, row.quiz.title, row.quiz.subject]
+        .some((value) => String(value || "").toLocaleLowerCase().includes(query))
+    );
+  }, [filteredStatusRows, studentSearch]);
 
   const stats = useMemo(() => {
     const quizCount = filteredQuizzes.length;
@@ -1082,7 +1109,7 @@ function TeacherQuizResultsContent() {
       Map<string, QuizStudentRow[]>
     >();
 
-    filteredStatusRows.forEach((row) => {
+    visibleResultRows.forEach((row) => {
       const date =
         row.quiz.scheduled_date || "unknown";
 
@@ -1146,7 +1173,7 @@ function TeacherQuizResultsContent() {
         classes,
       };
     });
-  }, [filteredStatusRows]);
+  }, [visibleResultRows]);
 
   const currentQuizClasses = useMemo(() => {
     if (!currentQuiz) {
@@ -1372,6 +1399,48 @@ function TeacherQuizResultsContent() {
       setDeleteResultLoading(null);
     }
   };
+
+  const saveAssignmentMarks = async () => {
+    if (!assignmentTarget || savingAssignmentMarks) return;
+    const teacherId = Number(localStorage.getItem("attendance_teacher_id") || localStorage.getItem("teacher_id") || "0");
+    const obtainedMarks = Number(assignmentObtainedMarks);
+    const totalMarks = Number(assignmentTotalMarks);
+    if (!Number.isFinite(obtainedMarks) || !Number.isFinite(totalMarks) || totalMarks <= 0 || obtainedMarks < 0 || obtainedMarks > totalMarks) {
+      setAssignmentFormError("Enter valid marks. Obtained marks must be between 0 and total marks.");
+      return;
+    }
+
+    setSavingAssignmentMarks(true);
+    setAssignmentFormError("");
+    setReattemptMessage("");
+    try {
+      const response = await fetch("/api/quiz-tests/assignment-marks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({
+          teacherId,
+          quizId: assignmentTarget.quiz.id,
+          studentId: assignmentTarget.student.id,
+          obtainedMarks,
+          totalMarks,
+        }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) throw new Error(result?.error || "Could not save assignment marks.");
+      setAssignmentTarget(null);
+      setAssignmentObtainedMarks("");
+      setAssignmentTotalMarks("");
+      setAssignmentFormError("");
+      setReattemptMessage("Assignment marks saved and included in quiz results.");
+      await loadData();
+    } catch (saveError) {
+      setAssignmentFormError(saveError instanceof Error ? saveError.message : "Could not save assignment marks.");
+    } finally {
+      setSavingAssignmentMarks(false);
+    }
+  };
+
   const resetAllReattempts = async () => {
     setReattemptMessage("");
     try {
@@ -2622,7 +2691,38 @@ function TeacherQuizResultsContent() {
 
         </section>
 
-        <button type="button" onClick={resetAllReattempts} disabled={reattemptLoading !== null || dateReattemptLoading !== null} style={{ marginBottom: "10px", padding: "9px 14px", borderRadius: "9px", border: "1px solid #dc2626", background: "#dc2626", color: "#fff", fontWeight: 700, cursor: "pointer" }}>RESET ALL RE-ATTEMPTS</button>
+        <section aria-label="Filter quiz results" style={{ margin: "14px 0", padding: "16px", border: "1px solid #dbeafe", borderRadius: "16px", background: "linear-gradient(135deg,#f8fbff,#f4f7ff)", boxShadow: "0 8px 24px rgba(30,64,175,.06)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px", marginBottom: "12px" }}>
+            <div>
+              <div style={{ color: "#172554", fontSize: "15px", fontWeight: 900 }}>Find and manage results</div>
+              <div style={{ color: "#64748b", fontSize: "12px", marginTop: "3px" }}>Search students, narrow results, and grade assignments for students with no attempt.</div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+              <span style={{ padding: "7px 10px", borderRadius: "999px", background: "#fff7ed", color: "#c2410c", border: "1px solid #fed7aa", fontSize: "11px", fontWeight: 850 }}>{allStudentQuizRows.filter((row) => row.results.length === 0).length} need assignment marks</span>
+              <button type="button" onClick={() => setSelectedStatus(selectedStatus === "NO_ATTEMPT" ? "ALL" : "NO_ATTEMPT")} style={{ padding: "8px 11px", borderRadius: "10px", border: "1px solid #c7d2fe", background: selectedStatus === "NO_ATTEMPT" ? "#4338ca" : "#fff", color: selectedStatus === "NO_ATTEMPT" ? "#fff" : "#4338ca", fontSize: "11px", fontWeight: 850, cursor: "pointer" }}>Needs assignment</button>
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(155px,1fr))", gap: "9px" }}>
+            <input aria-label="Search student or quiz" value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} placeholder="Search student or quiz…" style={resultFilterStyle} />
+            <select aria-label="Filter by date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} style={resultFilterStyle}>
+              <option value="ALL">All dates</option>{availableDates.map((date) => <option key={date} value={date}>{formatDate(date)}</option>)}
+            </select>
+            <select aria-label="Filter by subject" value={selectedSubject} onChange={(event) => setSelectedSubject(event.target.value)} style={resultFilterStyle}>
+              <option value="ALL">All subjects</option>{availableSubjects.map((subject) => <option key={subject} value={subject}>{subject}</option>)}
+            </select>
+            <select aria-label="Filter by class" value={selectedClass} onChange={(event) => setSelectedClass(event.target.value)} style={resultFilterStyle}>
+              <option value="ALL">All classes</option>{availableClasses.map((className) => <option key={className} value={className}>{className}</option>)}
+            </select>
+            <select aria-label="Filter by status" value={selectedStatus} onChange={(event) => setSelectedStatus(event.target.value)} style={resultFilterStyle}>
+              <option value="ALL">All statuses</option><option value="SUBMITTED">Submitted</option><option value="PASS">Passed</option><option value="FAIL">Failed</option><option value="NOT_SUBMITTED">Not submitted</option><option value="NO_ATTEMPT">No attempt · assignment needed</option>
+            </select>
+            <button type="button" onClick={() => { setStudentSearch(""); setSelectedDate("ALL"); setSelectedSubject("ALL"); setSelectedClass("ALL"); setSelectedStatus("ALL"); }} style={{ ...resultFilterStyle, cursor: "pointer", background: "#fff", color: "#475569", fontWeight: 800 }}>Clear filters</button>
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "10px" }}>
+            <button type="button" onClick={resetAllReattempts} disabled={reattemptLoading !== null || dateReattemptLoading !== null} style={{ padding: "8px 11px", borderRadius: "10px", border: "1px solid #fecaca", background: "#fff", color: "#b91c1c", fontSize: "11px", fontWeight: 800, cursor: "pointer" }}>Reset all re-attempts</button>
+          </div>
+        </section>
+
         {reattemptMessage ? (
           <div style={styles.messageBox}>
             {reattemptMessage}
@@ -3043,9 +3143,9 @@ function TeacherQuizResultsContent() {
                                                           styles.summaryStatus
                                                         }
                                                       >
-                                                        {resultStatus(
-                                                          latest
-                                                        )}
+                                                        {String(latest.submission_type || "").toLowerCase() === "assignment"
+                                                          ? `ASSIGNMENT · ${safeNumber(latest.obtained_marks)}/${safeNumber(latest.total_marks)}`
+                                                          : resultStatus(latest)}
                                                       </span>
                                                     </>
                                                   ) : (
@@ -3085,6 +3185,27 @@ function TeacherQuizResultsContent() {
                                                     onClick={() => allowReattempt(row.quiz.id, row.student.id)}
                                                   >
                                                     {reattemptLoading === allowedKey ? "ALLOWING..." : "ALLOW RE-ATTEMPT"}
+                                                  </button>
+                                                )}
+                                                {row.results.length === 0 && (
+                                                  <button
+                                                    type="button"
+                                                    style={{
+                                                      ...styles.pdfSmallButton,
+                                                      background: "#fff7ed",
+                                                      color: "#c2410c",
+                                                      border: "1px solid #fed7aa",
+                                                    }}
+                                                    onClick={() => {
+                                                      setAssignmentTarget(row);
+                                                      setAssignmentObtainedMarks("");
+                                                      setAssignmentTotalMarks("");
+                                                      setAssignmentFormError("");
+                                                      setReattemptMessage("");
+                                                    }}
+                                                  >
+                                                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: "13px", height: "13px", verticalAlign: "-2px", marginRight: "4px" }}><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" /></svg>
+                                                    Assignment
                                                   </button>
                                                 )}
                                                 <button
@@ -3636,6 +3757,59 @@ function TeacherQuizResultsContent() {
             </div>
           ) : null}
         </section>
+
+        {assignmentTarget && (
+          <div
+            role="presentation"
+            onClick={() => !savingAssignmentMarks && setAssignmentTarget(null)}
+            style={{ position: "fixed", inset: 0, zIndex: 1000, display: "grid", placeItems: "center", padding: "18px", background: "rgba(15,23,42,0.58)", backdropFilter: "blur(4px)" }}
+          >
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="assignment-grade-title"
+              onClick={(event) => event.stopPropagation()}
+              style={{ width: "min(100%, 460px)", padding: "24px", borderRadius: "22px", background: "#ffffff", boxShadow: "0 28px 90px rgba(15,23,42,.30)" }}
+            >
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "16px" }}>
+                <div>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: "7px", padding: "6px 10px", borderRadius: "999px", background: "#fff7ed", color: "#c2410c", fontSize: "10px", fontWeight: 900, letterSpacing: ".08em", textTransform: "uppercase" }}>
+                    Assignment grading
+                  </div>
+                  <h2 id="assignment-grade-title" style={{ margin: "12px 0 0", color: "#0f172a", fontSize: "22px", fontWeight: 900 }}>Record assignment marks</h2>
+                  <p style={{ margin: "7px 0 0", color: "#64748b", fontSize: "13px", lineHeight: 1.6 }}>This student has no quiz attempt. The grade will be saved in the quiz results and included in performance totals.</p>
+                </div>
+                <button type="button" aria-label="Close assignment grading" disabled={savingAssignmentMarks} onClick={() => setAssignmentTarget(null)} style={{ width: "34px", height: "34px", border: "1px solid #e2e8f0", borderRadius: "10px", background: "#fff", color: "#64748b", fontSize: "20px", cursor: "pointer" }}>×</button>
+              </div>
+
+              <div style={{ marginTop: "18px", padding: "13px 14px", border: "1px solid #e2e8f0", borderRadius: "14px", background: "#f8fafc" }}>
+                <div style={{ color: "#0f172a", fontSize: "14px", fontWeight: 850 }}>{assignmentTarget.student.student_name || "Unnamed Student"}</div>
+                <div style={{ marginTop: "3px", color: "#64748b", fontSize: "12px" }}>{assignmentTarget.quiz.title} · Class {normalizeClassName(assignmentTarget.student.class_name)}</div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginTop: "17px" }}>
+                <label style={{ display: "grid", gap: "7px", color: "#334155", fontSize: "12px", fontWeight: 800 }}>
+                  Marks obtained
+                  <input type="number" min="0" step="0.01" value={assignmentObtainedMarks} onChange={(event) => setAssignmentObtainedMarks(event.target.value)} placeholder="e.g. 8" style={{ width: "100%", boxSizing: "border-box", padding: "11px 12px", border: "1px solid #cbd5e1", borderRadius: "11px", color: "#0f172a", fontSize: "14px", fontWeight: 700, outlineColor: "#6366f1" }} />
+                </label>
+                <label style={{ display: "grid", gap: "7px", color: "#334155", fontSize: "12px", fontWeight: 800 }}>
+                  Assignment total marks
+                  <input type="number" min="0.01" step="0.01" value={assignmentTotalMarks} onChange={(event) => setAssignmentTotalMarks(event.target.value)} placeholder="e.g. 10" style={{ width: "100%", boxSizing: "border-box", padding: "11px 12px", border: "1px solid #cbd5e1", borderRadius: "11px", color: "#0f172a", fontSize: "14px", fontWeight: 700, outlineColor: "#6366f1" }} />
+                </label>
+              </div>
+
+              {assignmentObtainedMarks && assignmentTotalMarks && Number(assignmentTotalMarks) > 0 && (
+                <p style={{ margin: "10px 0 0", color: "#475569", fontSize: "12px", fontWeight: 750 }}>Score: {((Number(assignmentObtainedMarks) / Number(assignmentTotalMarks)) * 100).toFixed(1)}%</p>
+              )}
+              {assignmentFormError && <p role="alert" style={{ margin: "12px 0 0", padding: "9px 11px", border: "1px solid #fecaca", borderRadius: "10px", background: "#fef2f2", color: "#b91c1c", fontSize: "12px", fontWeight: 750 }}>{assignmentFormError}</p>}
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "9px", marginTop: "21px" }}>
+                <button type="button" disabled={savingAssignmentMarks} onClick={() => setAssignmentTarget(null)} style={{ padding: "10px 14px", border: "1px solid #e2e8f0", borderRadius: "11px", background: "#fff", color: "#475569", fontSize: "12px", fontWeight: 850, cursor: "pointer" }}>Cancel</button>
+                <button type="button" disabled={savingAssignmentMarks || !assignmentObtainedMarks || !assignmentTotalMarks} onClick={() => void saveAssignmentMarks()} style={{ padding: "10px 15px", border: "none", borderRadius: "11px", background: savingAssignmentMarks ? "#94a3b8" : "linear-gradient(135deg,#f97316,#ea580c)", color: "#fff", fontSize: "12px", fontWeight: 900, cursor: savingAssignmentMarks ? "wait" : "pointer", boxShadow: "0 7px 15px rgba(234,88,12,.20)" }}>{savingAssignmentMarks ? "SAVING…" : "SAVE ASSIGNMENT MARKS"}</button>
+              </div>
+            </section>
+          </div>
+        )}
 
         <footer style={styles.footer}>
           <div style={styles.footerBrand}>

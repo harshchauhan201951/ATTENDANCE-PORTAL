@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { getTeacherAssignedStudentIds } from "../../../lib/teacher-assigned-students";
 
 type Student = {
   id: number;
@@ -153,18 +154,32 @@ export default function StudentLoginActivityPage() {
     try {
       setError("");
 
-      const [studentsResult, activitiesResult] = await Promise.all([
-        supabase
+      const assignedStudentIds = await getTeacherAssignedStudentIds(supabase);
+      if (assignedStudentIds !== null && assignedStudentIds.length === 0) {
+        setStudents([]);
+        setActivities([]);
+        return;
+      }
+
+      let studentsQuery = supabase
           .from("students")
           .select(
             "id, student_username, student_name, created_at, admission_date, date_of_birth, father_name, mother_name"
           )
-          .order("id", { ascending: true }),
-
-        supabase
+          .order("id", { ascending: true });
+      let activitiesQuery = supabase
           .from("student_login_activity")
           .select("id, student_id, login_at, created_at")
-          .order("login_at", { ascending: false }),
+          .order("login_at", { ascending: false });
+      if (assignedStudentIds !== null) {
+        studentsQuery = studentsQuery.in("id", assignedStudentIds);
+        activitiesQuery = activitiesQuery.in("student_id", assignedStudentIds);
+      }
+
+      const [studentsResult, activitiesResult] = await Promise.all([
+        studentsQuery,
+
+        activitiesQuery,
       ]);
 
       if (studentsResult.error) {

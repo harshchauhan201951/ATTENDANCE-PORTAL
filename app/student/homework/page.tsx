@@ -380,6 +380,7 @@ export default function StudentHomeworkPage() {
 
   function logout() {
     sessionStorage.removeItem("studentLoggedIn");
+    localStorage.removeItem("studentLoggedIn");
     localStorage.removeItem("student_username");
     localStorage.removeItem("studentUsername");
     localStorage.removeItem("studentName");

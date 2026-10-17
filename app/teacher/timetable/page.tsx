@@ -63,6 +63,7 @@ export default function TeacherTimetablePage() {
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [selectedDay, setSelectedDay] = useState("All");
+  const [searchText, setSearchText] = useState("");
 
   const loadTimetable = useCallback(async () => {
     setLoading(true);
@@ -150,36 +151,55 @@ export default function TeacherTimetablePage() {
     }
   }
 
-  const visibleEntries =
-    selectedDay === "All"
-      ? entries
-      : entries.filter(
-          (item) => item.day_of_week === selectedDay
-        );
+  const todayName = new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+  }).format(new Date());
+  const visibleEntries = entries.filter((entry) => {
+    const matchesDay = selectedDay === "All" || entry.day_of_week === selectedDay;
+    const search = searchText.trim().toLowerCase();
+    const searchableText = [
+      entry.subject,
+      entry.teacher_name,
+      entry.day_of_week,
+      ...(entry.class_names || []).map((name) => `class ${name}`),
+      ...(entry.class_names || []),
+      entry.is_holiday ? "holiday" : "",
+    ].join(" ").toLowerCase();
+    return matchesDay && (!search || searchableText.includes(search));
+  });
+  const getDayCount = (day: string) => day === "All"
+    ? entries.length
+    : entries.filter((entry) => entry.day_of_week === day).length;
+  const activeDayCount = new Set(
+    entries.filter((entry) => !entry.is_holiday).map((entry) => entry.day_of_week)
+  ).size;
+  const holidayCount = entries.filter((entry) => entry.is_holiday).length;
 
   return (
-    <main data-racer-vip-module="timetable"  className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto w-full max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
-        <div className="mb-6 flex flex-wrap items-center gap-2">
+    <main data-racer-vip-module="timetable" className="min-h-screen bg-[#f5f7fc] text-slate-900">
+      <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
+        <div className="absolute -right-28 -top-36 h-96 w-96 rounded-full bg-indigo-200/35 blur-3xl" />
+        <div className="absolute -bottom-40 -left-24 h-96 w-96 rounded-full bg-cyan-100/70 blur-3xl" />
+      </div>
+      <div className="relative mx-auto w-full max-w-7xl px-4 py-5 sm:px-6 sm:py-8 lg:px-8">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-indigo-600">Racer Academy · Academics</p>
+            <p className="mt-1 text-sm font-medium text-slate-500">Your weekly teaching plan</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={loadTimetable}
-            className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-800"
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50"
           >
-            Refresh
-          </button>
-
-          <button
-            onClick={() => router.back()}
-            className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-800"
-          >
-            Back
+            ↻ Refresh
           </button>
 
           <button
             onClick={() => router.push("/teacher")}
-            className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-800"
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50"
           >
-            Dashboard
+            ← Dashboard
           </button>
 
           <button
@@ -187,143 +207,181 @@ export default function TeacherTimetablePage() {
               localStorage.clear();
               router.replace("/");
             }}
-            className="rounded-xl border border-red-900/70 bg-red-950/40 px-4 py-2.5 text-sm font-semibold text-red-200 transition hover:bg-red-900/50"
+            className="rounded-xl border border-rose-100 bg-white px-4 py-2.5 text-sm font-bold text-rose-600 shadow-sm transition hover:bg-rose-50"
           >
             Logout
           </button>
+          </div>
         </div>
 
-        <section className="mb-7 overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br from-indigo-950 via-slate-900 to-cyan-950 p-6 shadow-2xl">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="mb-2 text-xs font-bold uppercase tracking-[0.25em] text-cyan-300">
-                RACER ACADEMY
-              </p>
-
-              <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
-                Teacher Timetable
-              </h1>
-
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-                Create and manage your class-wise timetable. Multiple classes
-                can be assigned to the same timetable entry.
+        <section className="relative mb-6 overflow-hidden rounded-[28px] bg-gradient-to-br from-indigo-700 via-indigo-600 to-violet-600 p-6 text-white shadow-[0_24px_60px_rgba(79,70,229,0.22)] sm:p-8">
+          <div className="absolute -right-10 -top-16 h-64 w-64 rounded-full border-[34px] border-white/10" />
+          <div className="absolute right-36 top-24 h-20 w-20 rounded-full bg-cyan-300/20 blur-xl" />
+          <div className="relative flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+            <div className="max-w-2xl">
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-indigo-50">
+                <span className="h-2 w-2 rounded-full bg-emerald-300 shadow-[0_0_12px_rgba(110,231,183,0.9)]" />
+                {todayName === "Sunday" ? "Weekend overview" : `Today · ${todayName}`}
+              </span>
+              <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">Teacher Timetable</h1>
+              <p className="mt-2 max-w-xl text-sm leading-6 text-indigo-100 sm:text-base">
+                Your classes, subjects and teaching hours—organized in one easy weekly view.
               </p>
             </div>
-
             <button
-              onClick={() =>
-                router.push("/teacher/timetable/create")
-              }
-              className="rounded-2xl bg-white px-5 py-3 font-bold text-slate-900 shadow-lg transition hover:-translate-y-0.5 hover:bg-cyan-50"
+              onClick={() => router.push("/teacher/timetable/create")}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3.5 text-sm font-black text-indigo-700 shadow-lg transition hover:-translate-y-0.5 hover:bg-cyan-50"
             >
-              + Create Timetable
+              <span className="text-xl leading-none">+</span> Create timetable
             </button>
           </div>
         </section>
 
-        <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
+        <section className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {[
+            { label: "Scheduled classes", value: entries.length - holidayCount, icon: "▦", tint: "bg-indigo-50 text-indigo-600", accent: "bg-indigo-500" },
+            { label: "Teaching days", value: activeDayCount, icon: "◷", tint: "bg-cyan-50 text-cyan-700", accent: "bg-cyan-500" },
+            { label: "Holiday entries", value: holidayCount, icon: "☼", tint: "bg-amber-50 text-amber-600", accent: "bg-amber-400" },
+          ].map((stat) => (
+            <div key={stat.label} className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-5">
+              <span className={`absolute inset-y-0 left-0 w-1 ${stat.accent}`} />
+              <div className="flex items-center justify-between gap-3 pl-2">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">{stat.label}</p>
+                  <p className="mt-1 text-2xl font-black text-slate-900">{loading ? "—" : stat.value}</p>
+                </div>
+                <span className={`flex h-11 w-11 items-center justify-center rounded-xl text-xl font-black ${stat.tint}`}>{stat.icon}</span>
+              </div>
+            </div>
+          ))}
+        </section>
+
+        <section className="mb-5 rounded-2xl border border-slate-200/80 bg-white/90 p-3 shadow-sm sm:p-4">
+          <div className="mb-3 flex flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-sm font-black text-slate-900">Find a class</h2>
+              <p className="mt-0.5 text-xs font-medium text-slate-500">Search by subject, teacher or class, or filter by day</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 transition focus-within:border-indigo-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-indigo-50 sm:w-72 sm:flex-none">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4 shrink-0 text-slate-400" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
+                <input
+                  type="search"
+                  value={searchText}
+                  onChange={(event) => setSearchText(event.target.value)}
+                  placeholder="Subject, class, teacher…"
+                  aria-label="Search timetable"
+                  className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-700 outline-none placeholder:font-medium placeholder:text-slate-400"
+                />
+                {searchText && (
+                  <button type="button" onClick={() => setSearchText("")} aria-label="Clear search" className="rounded-md px-1 text-lg leading-none text-slate-400 hover:bg-slate-200 hover:text-slate-700">×</button>
+                )}
+              </label>
+              {(selectedDay !== "All" || searchText) && (
+                <button type="button" onClick={() => { setSelectedDay("All"); setSearchText(""); }} className="shrink-0 rounded-xl px-3 py-2.5 text-xs font-black text-indigo-700 hover:bg-indigo-50">Reset</button>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-2 overflow-x-auto px-1 pb-1 pt-1">
           {["All", ...DAYS].map((day) => (
             <button
               key={day}
               onClick={() => setSelectedDay(day)}
-              className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition ${
+              aria-pressed={selectedDay === day}
+              className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2.5 text-sm font-bold transition ${
                 selectedDay === day
-                  ? "bg-cyan-400 text-slate-950"
-                  : "border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800"
+                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-200"
+                  : "border border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
               }`}
             >
-              {day}
+              <span>{day}</span>
+              {day === todayName && day !== "All" && <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide ${selectedDay === day ? "bg-white/20 text-white" : "bg-emerald-50 text-emerald-700"}`}>Today</span>}
+              <span className={`min-w-5 rounded-full px-1.5 py-0.5 text-[10px] font-black ${selectedDay === day ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>{getDayCount(day)}</span>
             </button>
           ))}
         </div>
+          <div className="mt-3 flex items-center justify-between border-t border-slate-100 px-1 pt-3">
+            <span className="text-xs font-medium text-slate-500">{selectedDay === "All" ? "All days" : selectedDay}{searchText.trim() ? ` · “${searchText.trim()}”` : ""}</span>
+            <span className="text-xs font-extrabold text-slate-700">{visibleEntries.length} {visibleEntries.length === 1 ? "class" : "classes"}</span>
+          </div>
+        </section>
 
         {loading ? (
-          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-10 text-center text-slate-400">
-            Loading timetable...
+          <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center shadow-sm">
+            <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-indigo-100 border-t-indigo-600" />
+            <p className="text-sm font-bold text-slate-600">Loading your weekly plan…</p>
           </div>
         ) : visibleEntries.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-slate-700 bg-slate-900/70 p-12 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan-950 text-3xl">
-              T
+          <div className="rounded-3xl border border-dashed border-indigo-200 bg-white/85 px-6 py-14 text-center shadow-sm">
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-100 to-cyan-100 text-3xl text-indigo-600">
+              ▦
             </div>
 
-            <h2 className="text-xl font-bold text-white">
-              No timetable entries
+            <h2 className="text-xl font-black text-slate-900">
+              {searchText.trim() ? "No matching timetable entries" : entries.length === 0 ? "Your timetable is ready for its first entry" : `No classes on ${selectedDay}`}
             </h2>
 
-            <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">
-              Create your first timetable entry and assign it to one or more
-              classes.
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
+              {searchText.trim() ? "Try a different search or reset filters to see the full timetable." : entries.length === 0 ? "Add a subject, time and class to build your weekly teaching plan." : "Try another day or add a timetable entry for this day."}
             </p>
 
             <button
-              onClick={() =>
-                router.push("/teacher/timetable/create")
-              }
-              className="mt-6 rounded-xl bg-cyan-400 px-5 py-3 font-bold text-slate-950 hover:bg-cyan-300"
+              onClick={() => searchText.trim() || selectedDay !== "All" ? (setSearchText(""), setSelectedDay("All")) : router.push("/teacher/timetable/create")}
+              className="mt-6 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700"
             >
-              Create First Timetable
+              {searchText.trim() || selectedDay !== "All" ? "Reset filters" : "+ Create timetable"}
             </button>
           </div>
         ) : (
-          <div className="grid gap-4">
-            {visibleEntries.map((entry) => (
+          <div className="grid gap-3 lg:grid-cols-2">
+            {visibleEntries.map((entry, index) => (
               <article
                 key={entry.id}
-                className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-xl"
+                className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)] transition duration-200 hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-[0_18px_36px_rgba(79,70,229,0.10)]"
               >
-                <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="min-w-0">
-                    <div className="mb-3 flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-indigo-500/15 px-3 py-1 text-xs font-bold text-indigo-300">
-                        {entry.day_of_week}
-                      </span>
-
-                      {entry.is_holiday ? (
-                        <span className="rounded-full bg-orange-500/15 px-3 py-1 text-xs font-bold text-orange-300">
-                          Holiday
-                        </span>
-                      ) : (
-                        <span className="rounded-full bg-cyan-500/15 px-3 py-1 text-xs font-bold text-cyan-300">
-                          {formatTime(entry.start_time)} -{" "}
-                          {formatTime(entry.end_time)}
-                        </span>
-                      )}
+                <div className={`absolute inset-x-0 top-0 h-1 ${entry.is_holiday ? "bg-amber-400" : index % 2 === 0 ? "bg-indigo-500" : "bg-cyan-500"}`} />
+                <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
+                  <div className="flex min-w-0 gap-4">
+                    <div className={`flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl ${entry.is_holiday ? "bg-amber-50 text-amber-700" : "bg-indigo-50 text-indigo-700"}`}>
+                      <span className="text-[10px] font-black uppercase tracking-wide">{entry.day_of_week.slice(0, 3)}</span>
+                      <span className="mt-0.5 text-lg font-black leading-none">{entry.is_holiday ? "☼" : "◷"}</span>
                     </div>
-
-                    <h2 className="text-xl font-bold text-white">
-                      {entry.is_holiday
-                        ? "Holiday"
-                        : entry.subject || "Subject"}
-                    </h2>
-
-                    <p className="mt-2 text-sm text-slate-400">
-                      Teacher:{" "}
-                      <span className="font-semibold text-slate-200">
-                        {entry.teacher_name}
-                      </span>
-                    </p>
-
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {entry.class_names.map((className) => (
-                        <span
-                          key={className}
-                          className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200"
-                        >
-                          Class {className}
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${entry.is_holiday ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>
+                          {entry.is_holiday ? "Holiday" : "Class session"}
                         </span>
-                      ))}
+                        <span className="text-xs font-semibold text-slate-400">{entry.day_of_week}</span>
+                      </div>
+                      <h2 className="mt-2 truncate text-lg font-black text-slate-900 sm:text-xl">
+                        {entry.is_holiday ? "Holiday" : entry.subject || "Subject"}
+                      </h2>
+                      {!entry.is_holiday && (
+                        <p className="mt-1 text-sm font-bold text-indigo-700">
+                          {formatTime(entry.start_time)} <span className="px-1 text-slate-300">→</span> {formatTime(entry.end_time)}
+                        </p>
+                      )}
+                      <p className="mt-2 text-xs font-medium text-slate-500">
+                        Teacher <span className="font-bold text-slate-700">{entry.teacher_name}</span>
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {(entry.class_names || []).map((className) => (
+                          <span key={className} className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-bold text-slate-600">
+                            Class {className}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex shrink-0 gap-2">
+                  <div className="flex shrink-0 gap-2 sm:pt-1">
                     <button
                       onClick={() =>
                         router.push(
                           `/teacher/timetable/create?id=${entry.id}`
                         )
                       }
-                      className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-700"
+                      className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-black text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
                     >
                       Edit
                     </button>
@@ -333,7 +391,7 @@ export default function TeacherTimetablePage() {
                         deleteTimetable(entry.id)
                       }
                       disabled={deletingId === entry.id}
-                      className="rounded-xl border border-red-900/70 bg-red-950/30 px-4 py-2.5 text-sm font-bold text-red-300 hover:bg-red-950/60 disabled:opacity-50"
+                      className="rounded-xl border border-rose-100 bg-rose-50 px-3.5 py-2 text-xs font-black text-rose-600 transition hover:bg-rose-100 disabled:opacity-50"
                     >
                       {deletingId === entry.id
                         ? "Deleting..."

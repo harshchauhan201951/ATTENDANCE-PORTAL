@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+import { getTeacherAssignedStudentIds } from "../../../lib/teacher-assigned-students";
 
 type Homework = {
   id: number;
@@ -59,6 +60,13 @@ export default function TeacherHomeworkPage() {
     setError("");
 
     try {
+      const assignedStudentIds = await getTeacherAssignedStudentIds(supabase);
+      if (assignedStudentIds !== null && assignedStudentIds.length === 0) {
+        setHomework([]);
+        setStudents([]);
+        return;
+      }
+
       const { data: homeworkData, error: homeworkError } =
         await supabase
           .from("homework")
@@ -82,15 +90,14 @@ export default function TeacherHomeworkPage() {
         return;
       }
 
-      const { data: studentsData, error: studentsError } =
-        await supabase
+      let studentsQuery = supabase
           .from("students")
           .select(
             "id, student_name, student_username, class_name"
           )
-          .order("student_name", {
-            ascending: true,
-          });
+          .order("student_name", { ascending: true });
+      if (assignedStudentIds !== null) studentsQuery = studentsQuery.in("id", assignedStudentIds);
+      const { data: studentsData, error: studentsError } = await studentsQuery;
 
       if (studentsError) {
         console.error(

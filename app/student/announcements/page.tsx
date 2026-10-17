@@ -13,6 +13,13 @@ type Announcement = {
   likedByMe: boolean;
 };
 
+function isWithinLatest24Hours(createdAt: string) {
+  const createdTime = new Date(createdAt).getTime();
+  const age = Date.now() - createdTime;
+
+  return Number.isFinite(createdTime) && age >= 0 && age < 24 * 60 * 60 * 1000;
+}
+
 export default function StudentAnnouncementsPage() {
   const router = useRouter();
 
@@ -31,8 +38,24 @@ export default function StudentAnnouncementsPage() {
   const [likingId, setLikingId] =
     useState<number | null>(null);
 
+  const [expandedAnnouncementId, setExpandedAnnouncementId] =
+    useState<number | null>(null);
+
+  const [collapsedFreshAnnouncementId, setCollapsedFreshAnnouncementId] =
+    useState<number | null>(null);
+
+  const [, setAnnouncementClock] = useState(0);
+
   useEffect(() => {
     initialize();
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setAnnouncementClock((value) => value + 1);
+    }, 60 * 1000);
+
+    return () => window.clearInterval(timer);
   }, []);
 
   async function initialize() {
@@ -459,6 +482,108 @@ export default function StudentAnnouncementsPage() {
     );
   }
 
+  function renderInlineAnnouncementText(text: string) {
+    return text
+      .split(/(\*\*.+?\*\*|\*[^*\n]+\*|__.+?__)/g)
+      .map((part, index) => {
+        const isBold =
+          (part.startsWith("**") && part.endsWith("**")) ||
+          (part.startsWith("__") && part.endsWith("__")) ||
+          (part.startsWith("*") && part.endsWith("*"));
+
+        return isBold ? (
+          <strong key={index} style={{ color: "#172d44", fontWeight: 800 }}>
+            {part.replace(/^(\*\*|__|\*)|(?:(\*\*|__)|\*)$/g, "")}
+          </strong>
+        ) : (
+          part
+        );
+      });
+  }
+
+  function renderAnnouncementMessage(title: string, message: string) {
+    const lines = String(message || "")
+      .replace(/\r\n?/g, "\n")
+      .trim()
+      .split("\n");
+    const normalizeForCompare = (value: string) =>
+      value.replace(/[*_`#]/g, "").replace(/\s+/g, " ").trim().toLocaleLowerCase();
+    const firstContentLine = lines.findIndex((line) => line.trim());
+
+    if (
+      firstContentLine >= 0 &&
+      normalizeForCompare(lines[firstContentLine]) === normalizeForCompare(title)
+    ) {
+      lines.splice(firstContentLine, 1);
+    }
+
+    return lines.map((line, index) => {
+      const trimmed = line.trim();
+      const indentation = line.length - line.trimStart().length;
+
+      if (!trimmed) {
+        return <div key={`space-${index}`} aria-hidden="true" style={{ height: "7px" }} />;
+      }
+
+      if (/^[━─—_=-]{4,}$/.test(trimmed)) {
+        return <hr key={`rule-${index}`} style={{ border: 0, borderTop: "1px solid #d7e1eb", margin: "8px 0" }} />;
+      }
+
+      const heading = trimmed.match(/^#{1,3}\s+(.+)$/);
+      if (heading) {
+        return (
+          <h3 key={`heading-${index}`} style={{ margin: "12px 0 5px", color: "#174a82", fontSize: "17px", lineHeight: 1.45 }}>
+            {renderInlineAnnouncementText(heading[1])}
+          </h3>
+        );
+      }
+
+      const numberedItem = trimmed.match(/^(\d+)[.)]\s+(.+)$/);
+      if (numberedItem) {
+        return (
+          <div key={`number-${index}`} style={{ display: "grid", gridTemplateColumns: "28px minmax(0, 1fr)", gap: "5px", margin: "4px 0 7px" }}>
+            <strong style={{ color: "#2563eb" }}>{numberedItem[1]}.</strong>
+            <span>{renderInlineAnnouncementText(numberedItem[2])}</span>
+          </div>
+        );
+      }
+
+      const bulletItem = trimmed.match(/^[•●▪*-]\s+(.+)$/);
+      if (bulletItem) {
+        return (
+          <div key={`bullet-${index}`} style={{ display: "grid", gridTemplateColumns: "20px minmax(0, 1fr)", gap: "5px", margin: "4px 0 7px", marginLeft: `${Math.min(indentation, 3) * 7}px` }}>
+            <span aria-hidden="true" style={{ color: "#e66b2e", fontWeight: 900 }}>•</span>
+            <span>{renderInlineAnnouncementText(bulletItem[1])}</span>
+          </div>
+        );
+      }
+
+      return (
+        <p key={`paragraph-${index}`} style={{ margin: `0 0 8px ${indentation ? "22px" : "0"}` }}>
+          {renderInlineAnnouncementText(trimmed)}
+        </p>
+      );
+    });
+  }
+
+  const latestFreshAnnouncementId =
+    announcements.find((announcement) =>
+      isWithinLatest24Hours(announcement.created_at)
+    )?.id ?? null;
+
+  function toggleAnnouncement(announcement: Announcement) {
+    if (announcement.id === latestFreshAnnouncementId) {
+      setCollapsedFreshAnnouncementId((current) =>
+        current === announcement.id ? null : announcement.id
+      );
+      return;
+    }
+
+    setExpandedAnnouncementId((current) =>
+      current === announcement.id ? null : announcement.id
+    );
+  }
+
   return (
     <main style={styles.page}>
       <div
@@ -632,7 +757,14 @@ export default function StudentAnnouncementsPage() {
             }
           >
             {announcements.map(
-              (announcement) => (
+              (announcement) => {
+                const isExpanded =
+                  (announcement.id === latestFreshAnnouncementId &&
+                    collapsedFreshAnnouncementId !== announcement.id) ||
+                  (announcement.id !== latestFreshAnnouncementId &&
+                    expandedAnnouncementId === announcement.id);
+
+                return (
                 <article
                   key={
                     announcement.id
@@ -683,29 +815,40 @@ export default function StudentAnnouncementsPage() {
                         </span>
                       </div>
 
-                      <h2
-                        style={
-                          styles.cardTitle
-                        }
+                      <button
+                        type="button"
+                        aria-expanded={isExpanded}
+                        aria-controls={`announcement-body-${announcement.id}`}
+                        onClick={() => toggleAnnouncement(announcement)}
+                        style={styles.topicButton}
                       >
-                        {
-                          announcement.title
-                        }
-                      </h2>
+                        <span
+                          role="heading"
+                          aria-level={2}
+                          style={{ ...styles.cardTitle, margin: 0, minWidth: 0, flex: "1 1 auto" }}
+                        >
+                          {renderInlineAnnouncementText(announcement.title)}
+                        </span>
+                        <span style={styles.topicHint}>
+                          {isExpanded
+                            ? "Hide details ↑"
+                            : "Tap to read →"}
+                        </span>
+                      </button>
 
-                      <p
-                        style={
-                          styles.message
-                        }
-                      >
-                        {
-                          announcement.message
-                        }
-                      </p>
                     </div>
                   </div>
 
                   <div
+                    id={`announcement-body-${announcement.id}`}
+                    hidden={!isExpanded}
+                    style={styles.message}
+                  >
+                    {renderAnnouncementMessage(announcement.title, announcement.message)}
+                  </div>
+
+                  <div
+                    hidden={!isExpanded}
                     style={
                       styles.bottom
                     }
@@ -762,7 +905,8 @@ export default function StudentAnnouncementsPage() {
                     </button>
                   </div>
                 </article>
-              )
+                );
+              }
             )}
           </div>
         )}
@@ -781,7 +925,7 @@ const styles: {
     padding: "18px",
     boxSizing: "border-box",
     fontFamily:
-      "Arial, Helvetica, sans-serif",
+      '"Segoe UI", Inter, Arial, sans-serif',
     color: "#0f172a",
   },
 
@@ -833,7 +977,7 @@ const styles: {
 
   hero: {
     background:
-      "linear-gradient(135deg,#172554,#2563eb,#4f46e5)",
+      "linear-gradient(125deg,#142b58 0%,#2455a5 56%,#6652c8 100%)",
     borderRadius: "22px",
     padding: "25px",
     display: "flex",
@@ -867,7 +1011,7 @@ const styles: {
 
   title: {
     margin: "4px 0 0",
-    fontSize: "28px",
+    fontSize: "25px",
     fontWeight: "1000",
   },
 
@@ -893,16 +1037,17 @@ const styles: {
   list: {
     display: "flex",
     flexDirection: "column",
-    gap: "12px",
+    gap: "14px",
   },
 
   card: {
-    background: "#ffffff",
-    border: "1px solid #dbeafe",
-    borderRadius: "17px",
-    padding: "17px",
+    background: "linear-gradient(135deg,#ffffff 0%,#fbfdff 72%,#f4f7ff 100%)",
+    border: "1px solid #dce6f5",
+    borderLeft: "4px solid #5979df",
+    borderRadius: "16px",
+    padding: "15px",
     boxShadow:
-      "0 7px 22px rgba(15,23,42,0.05)",
+      "0 8px 24px rgba(30,58,110,0.07)",
   },
 
   cardTop: {
@@ -912,16 +1057,17 @@ const styles: {
   },
 
   icon: {
-    width: "47px",
-    height: "47px",
-    minWidth: "47px",
-    borderRadius: "13px",
+    width: "43px",
+    height: "43px",
+    minWidth: "43px",
+    borderRadius: "14px",
     background:
-      "linear-gradient(135deg,#dbeafe,#ede9fe)",
+      "linear-gradient(145deg,#e0edff,#eee8ff)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "22px",
+    fontSize: "19px",
+    boxShadow: "inset 0 0 0 1px rgba(95,124,210,0.08)",
   },
 
   content: {
@@ -937,37 +1083,69 @@ const styles: {
   },
 
   teacherBadge: {
-    background: "#dbeafe",
-    color: "#1d4ed8",
-    padding: "4px 7px",
-    borderRadius: "6px",
-    fontSize: "8px",
+    background: "#e9f0ff",
+    color: "#3158ad",
+    padding: "4px 8px",
+    borderRadius: "999px",
+    fontSize: "9px",
     fontWeight: "1000",
     letterSpacing: "0.7px",
   },
 
   date: {
-    color: "#94a3b8",
-    fontSize: "9px",
+    color: "#8290a7",
+    fontSize: "11px",
     fontWeight: "700",
   },
 
   cardTitle: {
-    margin: "7px 0 0",
-    color: "#172554",
-    fontSize: "18px",
+    margin: "0",
+    color: "#172b50",
+    fontSize: "17px",
     fontWeight: "1000",
     wordBreak: "break-word",
+    lineHeight: 1.5,
+  },
+
+  topicButton: {
+    width: "100%",
+    margin: "9px 0 0",
+    padding: "9px 10px",
+    border: "1px solid #e4eaf5",
+    borderRadius: "11px",
+    background: "rgba(244,247,255,0.85)",
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: "12px",
+    textAlign: "left",
+    cursor: "pointer",
+  },
+
+  topicHint: {
+    flex: "0 0 auto",
+    marginTop: "2px",
+    padding: "5px 8px",
+    borderRadius: "999px",
+    background: "#e8efff",
+    color: "#3158ad",
+    fontSize: "10px",
+    fontWeight: 800,
+    whiteSpace: "nowrap",
   },
 
   message: {
-    margin: "7px 0 0",
-    color: "#475569",
-    fontSize: "12px",
-    lineHeight: 1.65,
-    fontWeight: "600",
-    whiteSpace: "pre-wrap",
+    margin: "11px 0 0",
+    padding: "14px 15px",
+    border: "1px solid #e0e8f3",
+    borderRadius: "12px",
+    background: "linear-gradient(180deg,#ffffff,#f8faff)",
+    color: "#33445d",
+    fontSize: "14px",
+    lineHeight: 1.75,
+    fontWeight: "500",
     wordBreak: "break-word",
+    overflowWrap: "anywhere",
   },
 
   bottom: {

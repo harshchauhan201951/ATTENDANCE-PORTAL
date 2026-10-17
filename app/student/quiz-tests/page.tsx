@@ -669,7 +669,7 @@ const start =
               styles.errorIcon
             }
           >
-            Q
+            !
           </div>
 
           <h1
@@ -789,7 +789,7 @@ const start =
           className="quiz-stats-grid quiz-stats-horizontal"
         >
           <StatCard
-            icon="Q"
+            icon="📚"
             label="Total Quizzes"
             value={String(
               quizzes.length
@@ -797,7 +797,7 @@ const start =
           />
 
           <StatCard
-            icon="A"
+            icon="✍️"
             label="Attempted"
             value={String(
               results.length
@@ -805,7 +805,7 @@ const start =
           />
 
           <StatCard
-            icon="P"
+            icon="🏆"
             label="Passed"
             value={String(
               passedResults.length
@@ -813,7 +813,7 @@ const start =
           />
 
           <StatCard
-            icon="F"
+            icon="✕"
             label="Failed"
             value={String(
               failedResults.length
@@ -853,8 +853,9 @@ const start =
               style={
                 styles.quickIcon
               }
+              className="quiz-quick-icon"
             >
-              GO
+              📝
             </div>
 
             <div
@@ -881,8 +882,8 @@ const start =
               style={
                 styles.quickArrow
               }
-            >
-
+              aria-hidden="true"
+            >›
             </span>
           </button>
 
@@ -902,8 +903,9 @@ const start =
               style={
                 styles.quickIcon
               }
+              className="quiz-quick-icon"
             >
-              H
+              🕘
             </div>
 
             <div
@@ -930,8 +932,8 @@ const start =
               style={
                 styles.quickArrow
               }
-            >
-
+              aria-hidden="true"
+            >›
             </span>
           </button>
 
@@ -951,8 +953,9 @@ const start =
               style={
                 styles.quickIcon
               }
+              className="quiz-quick-icon"
             >
-              R
+              📈
             </div>
 
             <div
@@ -979,8 +982,8 @@ const start =
               style={
                 styles.quickArrow
               }
-            >
-
+              aria-hidden="true"
+            >›
             </span>
           </button>
         </section>
@@ -1022,7 +1025,7 @@ const start =
             >
               {liveQuizzes.length}
             </span>
-            <span className="quiz-accordion-chevron" aria-hidden="true">ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾</span>
+            <span className="quiz-accordion-chevron" aria-hidden="true" />
             </button>
           </div>
 
@@ -1038,8 +1041,9 @@ const start =
                 style={
                   styles.emptyIcon
                 }
+              className="quiz-empty-icon"
               >
-                Q
+                📝
               </div>
 
               <div
@@ -1126,7 +1130,7 @@ const start =
               </div>
               </div>
               <span className="quiz-accordion-count">{upcomingQuizzes.length}</span>
-              <span className="quiz-accordion-chevron" aria-hidden="true">ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾</span>
+              <span className="quiz-accordion-chevron" aria-hidden="true" />
             </button>
 
             <button
@@ -1157,8 +1161,9 @@ const start =
                 style={
                   styles.emptyIcon
                 }
+                className="quiz-empty-icon"
               >
-                C
+                🗓️
               </div>
 
               <div
@@ -1250,7 +1255,7 @@ const start =
               </div>
               </div>
               <span className="quiz-accordion-count">{availableQuizzes.length}</span>
-              <span className="quiz-accordion-chevron" aria-hidden="true">ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾</span>
+              <span className="quiz-accordion-chevron" aria-hidden="true" />
             </button>
 
             <button
@@ -1281,8 +1286,9 @@ const start =
                 style={
                   styles.emptyIcon
                 }
+                className="quiz-empty-icon"
               >
-                Q
+                📝
               </div>
 
               <div
@@ -1374,7 +1380,7 @@ const start =
               </div>
               </div>
               <span className="quiz-accordion-count">{completedResults.length}</span>
-              <span className="quiz-accordion-chevron" aria-hidden="true">ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾</span>
+              <span className="quiz-accordion-chevron" aria-hidden="true" />
             </button>
 
             <button
@@ -1405,8 +1411,9 @@ const start =
                 style={
                   styles.emptyIcon
                 }
+                className="quiz-empty-icon"
               >
-                R
+                📊
               </div>
 
               <div
@@ -1459,8 +1466,9 @@ const start =
                           style={
                             styles.resultIcon
                           }
+                          className="quiz-result-icon"
                         >
-                          R
+                          📊
                         </div>
 
                         <div
@@ -1537,11 +1545,11 @@ const start =
           className="quiz-footer"
         >
           <span>
-            RACER ACADEMY  /  Student Quiz Center
+            RACER ACADEMY  •  Student Quiz Center
           </span>
 
           <span>
-            Quiz duration is fixed at 30 minutes.
+            Each quiz lasts 30 minutes.
           </span>
         </footer>
       </div>
@@ -1581,6 +1589,111 @@ const start =
           width: 100% !important;
           max-width: 1250px !important;
           min-width: 0 !important;
+          margin: 18px auto 0 !important;
+        }
+
+        .quiz-section {
+          padding: 20px;
+          border: 1px solid #e3eaf3;
+          border-radius: 20px;
+          background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+          box-shadow: 0 10px 28px rgba(28, 54, 91, 0.07);
+          transition: box-shadow 180ms ease, border-color 180ms ease;
+        }
+
+        .quiz-section:hover {
+          border-color: #c9d9ec;
+          box-shadow: 0 13px 32px rgba(28, 54, 91, 0.1);
+        }
+
+        .quiz-section-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 14px;
+          margin-bottom: 14px;
+        }
+
+        .quiz-section-toggle {
+          min-width: 0;
+          flex: 1 1 auto;
+          display: flex;
+          align-items: center;
+          gap: 13px;
+          padding: 0;
+          border: 0;
+          background: transparent;
+          color: inherit;
+          text-align: left;
+          cursor: pointer;
+        }
+
+        .quiz-section-toggle-copy,
+        .quiz-section-heading {
+          min-width: 0;
+          flex: 1 1 auto;
+        }
+
+        .quiz-accordion-count {
+          flex: 0 0 auto;
+          min-width: 30px;
+          padding: 7px 10px;
+          border-radius: 999px;
+          background: #eef4ff;
+          color: #2854a1;
+          font-size: 11px;
+          font-weight: 900;
+          text-align: center;
+        }
+
+        .quiz-accordion-chevron {
+          width: 30px;
+          height: 30px;
+          flex: 0 0 30px;
+          display: grid;
+          place-items: center;
+          border: 1px solid #e3eaf3;
+          border-radius: 50%;
+          background: #f8faff;
+          transition: transform 180ms ease, background 180ms ease;
+        }
+
+        .quiz-accordion-chevron::after {
+          width: 8px;
+          height: 8px;
+          content: "";
+          border-right: 2px solid #526985;
+          border-bottom: 2px solid #526985;
+          transform: translateY(-2px) rotate(45deg);
+        }
+
+        .quiz-section.is-open .quiz-accordion-chevron {
+          transform: rotate(180deg);
+          background: #edf4ff;
+        }
+
+        .quiz-section:not(.is-open) > :not(.quiz-section-header) {
+          display: none !important;
+        }
+
+        .quiz-stat-icon,
+        .quiz-quick-icon {
+          font-size: 20px !important;
+          line-height: 1;
+        }
+
+        .quiz-empty-icon,
+        .quiz-result-icon,
+        .quiz-card-icon {
+          font-size: 20px !important;
+          line-height: 1;
+        }
+
+        .quiz-section-toggle:focus-visible,
+        .quiz-quick-card:focus-visible,
+        .quiz-view-all-button:focus-visible {
+          outline: 3px solid #93c5fd;
+          outline-offset: 3px;
         }
 
         .quiz-dashboard-header,
@@ -1842,6 +1955,8 @@ const start =
           .quiz-section {
             width: 100% !important;
             margin-bottom: 19px !important;
+            padding: 14px !important;
+            border-radius: 16px !important;
           }
 
           .quiz-section-header {
@@ -2107,11 +2222,13 @@ function StatCard({
       style={
         styles.statCard
       }
+      className="quiz-stat-card"
     >
       <div
         style={
           styles.statIcon
         }
+      className="quiz-stat-icon"
       >
         {icon}
       </div>
@@ -2176,8 +2293,9 @@ function QuizCard({
           style={
             styles.quizIcon
           }
+      className="quiz-card-icon"
         >
-          Q
+          📝
         </div>
 
         <span

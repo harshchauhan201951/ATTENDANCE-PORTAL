@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../lib/supabase";
+import { getTeacherAssignedStudentIds } from "../../../lib/teacher-assigned-students";
 
 type Student = {
   id: number;
@@ -31,7 +32,13 @@ export default function StudentDirectoryPage() {
       setLoading(true);
       setError("");
 
-      const { data, error: fetchError } = await supabase
+      const assignedStudentIds = await getTeacherAssignedStudentIds(supabase);
+      if (assignedStudentIds !== null && assignedStudentIds.length === 0) {
+        setStudents([]);
+        return;
+      }
+
+      let studentsQuery = supabase
         .from("students")
         .select(
           `
@@ -46,6 +53,8 @@ export default function StudentDirectoryPage() {
         `
         )
         .order("id", { ascending: true });
+      if (assignedStudentIds !== null) studentsQuery = studentsQuery.in("id", assignedStudentIds);
+      const { data, error: fetchError } = await studentsQuery;
 
       if (fetchError) {
         console.error("Student directory error:", fetchError);
