@@ -8091,3 +8091,49 @@ body:has(.racer-student-fixed-header) {
     padding: 16px !important;
   }
 }
+
+/* Student dashboard updates: distinct colors and touch-friendly manual swipe. */
+.racer-student-shell .student-announcement-section[data-update-type] {
+  --update-accent: #2563eb;
+  border-color: color-mix(in srgb, var(--update-accent) 24%, #dce7f3) !important;
+  background: linear-gradient(120deg, color-mix(in srgb, var(--update-accent) 7%, #fff), #fff 72%) !important;
+}
+.racer-student-shell .student-announcement-section[data-update-type="attendance"] { --update-accent: #08916c; }
+.racer-student-shell .student-announcement-section[data-update-type="fees"] { --update-accent: #d97706; }
+.racer-student-shell .student-announcement-section[data-update-type="performance"] { --update-accent: #7c3aed; }
+.racer-student-shell .student-announcement-section[data-update-type="quiz"] { --update-accent: #2563eb; }
+.racer-student-shell .student-announcement-section[data-update-type="weekly-test"] { --update-accent: #db2777; }
+.racer-student-shell .student-announcement-section[data-update-type="timetable"] { --update-accent: #0891b2; }
+.racer-student-shell .student-announcement-section[data-update-type="calendar"] { --update-accent: #4f46e5; }
+.racer-student-shell .student-update-carousel { touch-action: pan-y; cursor: grab; }
+.racer-student-shell .student-update-carousel:active { cursor: grabbing; }
+.racer-student-shell .student-update-icon {
+  display: grid !important;
+  place-items: center !important;
+  flex: 0 0 42px !important;
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 14px !important;
+  color: var(--update-accent) !important;
+  background: color-mix(in srgb, var(--update-accent) 13%, white) !important;
+  font-size: 20px !important;
+  font-weight: 900 !important;
+}
+.racer-student-shell .student-update-open {
+  color: var(--update-accent) !important;
+  background: color-mix(in srgb, var(--update-accent) 10%, white) !important;
+}
+.racer-student-shell .student-update-dots button {
+  width: 7px !important;
+  height: 7px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  background: #c7d5e5 !important;
+  cursor: pointer !important;
+  transition: width .2s ease, background .2s ease !important;
+}
+.racer-student-shell .student-update-dots button.active {
+  width: 18px !important;
+  background: var(--update-accent) !important;
+}

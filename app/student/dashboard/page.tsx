@@ -1,10 +1,11 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { PushNotifications } from "@capacitor/push-notifications";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+import { getStudentCalendarEvent } from "../../../lib/student-calendar-events";
 
 type DashboardCard = {
   icon: string;
@@ -30,6 +31,7 @@ type DashboardFacts = {
   quiz: string;
   weeklyTest: string;
   timetable: string;
+  calendar: string;
 };
 
 function dashboardTime(value: string | null | undefined) {
@@ -39,6 +41,12 @@ function dashboardTime(value: string | null | undefined) {
   const minute = Number(rawMinute || 0);
   if (!Number.isFinite(hour) || !Number.isFinite(minute)) return String(value);
   return `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${hour >= 12 ? "PM" : "AM"}`;
+}
+
+function dashboardDate(value: string | null | undefined) {
+  if (!value) return "Date unavailable";
+  const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
 
 export default function StudentDashboardPage() {
@@ -82,6 +90,7 @@ export default function StudentDashboardPage() {
   const [announcementLoading, setAnnouncementLoading] = useState(true);
   const [likingId, setLikingId] = useState<number | null>(null);
   const [activeUpdateSlide, setActiveUpdateSlide] = useState(0);
+  const updateSwipeStartX = useRef<number | null>(null);
   const [dashboardFacts, setDashboardFacts] = useState<DashboardFacts>({
     attendance: "Loading today's attendance…",
     fees: "Loading fee status…",
@@ -89,6 +98,7 @@ export default function StudentDashboardPage() {
     quiz: "Loading quiz result…",
     weeklyTest: "Loading Saturday test…",
     timetable: "Loading today's class schedule…",
+    calendar: "Checking upcoming calendar dates…",
   });
 
   useEffect(() => {
@@ -100,30 +110,50 @@ export default function StudentDashboardPage() {
       const [attendanceResult, feeResult, quizResult] = await Promise.all([
         supabase.from("attendance").select("attendance_date,status").eq("student_id", studentId).order("attendance_date", { ascending: false }).order("id", { ascending: false }).limit(1),
         supabase.from("fees").select("month,year,amount,status").eq("student_id", studentId).order("year", { ascending: false }).order("month", { ascending: false }).limit(12),
-        supabase.from("quiz_results").select("obtained_marks,percentage,submitted_at,created_at").eq("student_id", studentId).order("submitted_at", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false }).limit(1),
+        supabase.from("quiz_results").select("quiz_id,total_marks,obtained_marks,percentage,submitted_at,created_at").eq("student_id", studentId).not("submitted_at", "is", null).order("submitted_at", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false }).limit(1),
       ]);
 
-      let timetableFact = "Open timetable to view this week's classes.";
+      let timetableFact = "No upcoming class is listed in your timetable.";
+      let calendarFact = "No upcoming calendar event is listed.";
       try {
         const { data: studentRow } = await supabase.from("students").select("class_name").eq("id", studentId).maybeSingle();
         const className = String(studentRow?.class_name || "").trim().toLowerCase();
         if (className) {
           const { data: timetableRows } = await supabase.from("timetables").select("day_of_week,subject,start_time,end_time,class_names,is_holiday");
           const todayName = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(now);
-          const todayClasses = (timetableRows || []).filter((entry: any) => String(entry.day_of_week).toLowerCase() === todayName.toLowerCase() && !entry.is_holiday && Array.isArray(entry.class_names) && entry.class_names.some((name: string) => String(name).trim().toLowerCase() === className)).sort((a: any,b: any) => String(a.start_time || "").localeCompare(String(b.start_time || "")));
-          if (todayClasses.length) {
-            const currentMinutes = now.getHours() * 60 + now.getMinutes();
-            const nextClass = todayClasses.find((entry: any) => { const [h,m] = String(entry.start_time || "").split(":").map(Number); return Number.isFinite(h) && h * 60 + (m || 0) >= currentMinutes; }) || todayClasses[0];
-            timetableFact = `${todayName}: ${dashboardTime(nextClass.start_time)}–${dashboardTime(nextClass.end_time)} · ${nextClass.subject || "Class"}${todayClasses.length > 1 ? ` · +${todayClasses.length - 1} more` : ""}.`;
-          } else {
-            const orderedDays = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
-            const currentDayIndex = orderedDays.indexOf(todayName);
-            const nextEntry = (timetableRows || []).filter((entry: any) => !entry.is_holiday && Array.isArray(entry.class_names) && entry.class_names.some((name: string) => String(name).trim().toLowerCase() === className)).sort((a: any,b: any) => ((orderedDays.indexOf(a.day_of_week) - currentDayIndex + 7) % 7) - ((orderedDays.indexOf(b.day_of_week) - currentDayIndex + 7) % 7) || String(a.start_time || "").localeCompare(String(b.start_time || "")))[0];
-            if (nextEntry) timetableFact = `${nextEntry.day_of_week}: ${dashboardTime(nextEntry.start_time)}–${dashboardTime(nextEntry.end_time)} · ${nextEntry.subject || "Class"}.`;
+          const orderedDays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+          const currentDayIndex = now.getDay();
+          const currentMinutes = now.getHours() * 60 + now.getMinutes();
+          const upcomingClass = (timetableRows || []).filter((entry: any) => {
+            if (entry.is_holiday || !Array.isArray(entry.class_names) || !entry.class_names.some((name: string) => String(name).trim().toLowerCase() === className)) return false;
+            const dayIndex = orderedDays.findIndex((day) => day.toLowerCase() === String(entry.day_of_week).toLowerCase());
+            if (dayIndex < 0) return false;
+            const dayOffset = (dayIndex - currentDayIndex + 7) % 7;
+            const [hour, minute] = String(entry.start_time || "").split(":").map(Number);
+            return dayOffset > 0 || (dayOffset === 0 && Number.isFinite(hour) && hour * 60 + (minute || 0) >= currentMinutes);
+          }).sort((a: any, b: any) => {
+            const dayOffset = (entry: any) => (orderedDays.findIndex((day) => day.toLowerCase() === String(entry.day_of_week).toLowerCase()) - currentDayIndex + 7) % 7;
+            return dayOffset(a) - dayOffset(b) || String(a.start_time || "").localeCompare(String(b.start_time || ""));
+          })[0];
+          if (upcomingClass) {
+            const classDayIndex = orderedDays.findIndex((day) => day.toLowerCase() === String(upcomingClass.day_of_week).toLowerCase());
+            const dayOffset = (classDayIndex - currentDayIndex + 7) % 7;
+            const dayLabel = dayOffset === 0 ? "Today" : dayOffset === 1 ? "Tomorrow" : String(upcomingClass.day_of_week);
+            timetableFact = `${dayLabel} · ${dashboardTime(upcomingClass.start_time)}–${dashboardTime(upcomingClass.end_time)} · ${upcomingClass.subject || "Class"}.`;
+          }
+        }
+
+        for (let offset = 1; offset <= 90; offset += 1) {
+          const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+          const event = getStudentCalendarEvent(date);
+          if (event && (event.type === "holiday" || event.type === "test")) {
+            calendarFact = `${event.title} · ${dashboardDate(event.date)} · ${event.description}`;
+            break;
           }
         }
       } catch {}
 
+      /* Use only the next published/scheduled class, never a class already over. */
       const attendance = attendanceResult.data?.[0];
       const attendanceFact = attendance?.attendance_date === today
         ? `Today: ${String(attendance.status || "Marked").toLowerCase() === "present" ? "Present" : String(attendance.status || "Marked")}.`
@@ -137,32 +167,43 @@ export default function StudentDashboardPage() {
         : feeResult.error ? "Fee status is unavailable right now." : "No pending fees recorded.";
 
       const quiz = quizResult.data?.[0];
+      let quizTitle = "Latest quiz";
+      let quizSubject = "";
+      if (quiz?.quiz_id) {
+        try {
+          const { data: quizInfo } = await supabase.from("quiz_tests").select("title,subject").eq("id", quiz.quiz_id).maybeSingle();
+          quizTitle = String(quizInfo?.title || quizTitle);
+          quizSubject = String(quizInfo?.subject || "").trim();
+        } catch {}
+      }
       const quizFact = quiz
-        ? `Latest score: ${Number(quiz.percentage || 0).toFixed(0)}% (${Number(quiz.obtained_marks || 0)} marks).`
+        ? `${quizTitle}${quizSubject ? ` · ${quizSubject}` : ""}: ${Number(quiz.obtained_marks || 0)}/${Number(quiz.total_marks || 0)} marks (${Number(quiz.percentage || 0).toFixed(0)}%) · ${dashboardDate(quiz.submitted_at)}.`
         : "No submitted quiz result yet.";
 
-      let performanceFact = quiz
-        ? `Latest quiz performance: ${Number(quiz.percentage || 0).toFixed(0)}%.`
-        : "Your report is ready to view.";
+      let performanceFact = "Your latest monthly performance will appear here when a result is released.";
       let weeklyTestFact = "No Saturday test result published yet.";
       try {
         const periodsResponse = await fetch("/api/monthly-results/publish?list=1", { cache: "no-store" });
         const periodsData = await periodsResponse.json();
-        const period = (Array.isArray(periodsData?.periods) ? periodsData.periods : []).find((item: any) => Boolean(item.is_released) || (item.scheduled_release_at && Date.now() >= new Date(item.scheduled_release_at).getTime()));
+        const periods = Array.isArray(periodsData?.periods) ? [...periodsData.periods].sort((a: any, b: any) => String(b?.month_key || "").localeCompare(String(a?.month_key || ""))) : [];
+        const period = periods.find((item: any) => Boolean(item.is_released) || (item.scheduled_release_at && Date.now() >= new Date(item.scheduled_release_at).getTime()));
         if (period) {
           const resultResponse = await fetch(`/api/monthly-results/publish?monthKey=${encodeURIComponent(period.month_key)}&studentId=${studentId}`, { cache: "no-store" });
           const resultData = await resultResponse.json();
           const snapshot = resultData?.results?.[0]?.snapshot;
-          if (snapshot?.totals) performanceFact = `Monthly result: ${Number(snapshot.totals.percentage || 0).toFixed(1)}% • ${snapshot.totals.status || "Published"}.`;
-          const latestWeeklyTest = Array.isArray(snapshot?.weeklyTests) ? snapshot.weeklyTests[0] : null;
-          if (latestWeeklyTest) weeklyTestFact = `${latestWeeklyTest.name}: ${latestWeeklyTest.obtained}/${latestWeeklyTest.total} (${Number(latestWeeklyTest.percentage || 0).toFixed(0)}%).`;
+          if (snapshot?.totals) performanceFact = `${snapshot.monthLabel || period.month_key} · ${Number(snapshot.totals.percentage || 0).toFixed(1)}% · ${snapshot.totals.status || "Published"} (${snapshot.totals.grandObtained}/${snapshot.totals.grandTotal}).`;
+          const latestWeeklyTest = Array.isArray(snapshot?.weeklyTests)
+            ? [...snapshot.weeklyTests].sort((a: any, b: any) => String(b.date || "").localeCompare(String(a.date || "")))[0]
+            : null;
+          if (latestWeeklyTest) weeklyTestFact = `${latestWeeklyTest.name} · ${latestWeeklyTest.subject || "Weekly test"} · ${dashboardDate(latestWeeklyTest.date)} · ${latestWeeklyTest.obtained}/${latestWeeklyTest.total} (${Number(latestWeeklyTest.percentage || 0).toFixed(0)}%).`;
         }
       } catch {}
 
-      if (!cancelled) setDashboardFacts({ attendance: attendanceFact, fees: feesFact, performance: performanceFact, quiz: quizFact, weeklyTest: weeklyTestFact, timetable: timetableFact });
+      if (!cancelled) setDashboardFacts({ attendance: attendanceFact, fees: feesFact, performance: performanceFact, quiz: quizFact, weeklyTest: weeklyTestFact, timetable: timetableFact, calendar: calendarFact });
     };
     void loadFacts();
-    return () => { cancelled = true; };
+    const refreshTimer = window.setInterval(() => void loadFacts(), 60000);
+    return () => { cancelled = true; window.clearInterval(refreshTimer); };
   }, [studentId]);
 
   useEffect(() => {
@@ -937,13 +978,13 @@ export default function StudentDashboardPage() {
   ).length;
 
   const dashboardUpdates = [
-    { eyebrow: "ATTENDANCE • TODAY", title: dashboardFacts.attendance.startsWith("Today: Present") ? "Present today" : "Attendance today", detail: dashboardFacts.attendance, icon: "✓", metric: dashboardFacts.attendance.startsWith("Today: Present") ? "HERE" : dashboardFacts.attendance.includes("Absent") ? "ABSENT" : "—", href: "/student/attendance" },
-    { eyebrow: "FEES", title: dashboardFacts.fees.includes("pending") ? "Fee payment pending" : "Fee status", detail: dashboardFacts.fees, icon: "₹", metric: dashboardFacts.fees.match(/₹[\d,]+/)?.[0] || (dashboardFacts.fees.includes("pending") ? "DUE" : "CLEAR"), href: "/student/fees" },
-    { eyebrow: "OVERALL PERFORMANCE", title: "Your performance", detail: dashboardFacts.performance, icon: "↗", metric: dashboardFacts.performance.match(/[\d.]+%/)?.[0] || "—", href: "/student/reports" },
-    { eyebrow: "QUIZ RESULTS", title: "Latest quiz result", detail: dashboardFacts.quiz, icon: "✎", metric: dashboardFacts.quiz.match(/[\d.]+%/)?.[0] || "—", href: "/student/quiz-tests" },
-    { eyebrow: "SATURDAY WEEK TEST", title: "Weekly test result", detail: dashboardFacts.weeklyTest, icon: "★", metric: dashboardFacts.weeklyTest.match(/[\d.]+%/)?.[0] || "—", href: "/student/monthly-result" },
-    { eyebrow: "CLASS TIMETABLE", title: "Today's class time", detail: dashboardFacts.timetable, icon: "◷", metric: dashboardFacts.timetable.match(/\d{1,2}:\d{2} ?[AP]M/i)?.[0] || "VIEW", href: "/student/timetable" },
-    { eyebrow: "ACADEMIC CALENDAR", title: "Upcoming dates", detail: "Open the calendar for upcoming dates.", icon: "▦", metric: "WEEK", href: "/student/calendar" },
+    { type: "attendance", eyebrow: "ATTENDANCE • TODAY", title: dashboardFacts.attendance.startsWith("Today: Present") ? "Present today" : "Attendance today", detail: dashboardFacts.attendance, icon: "✓", metric: dashboardFacts.attendance.startsWith("Today: Present") ? "HERE" : dashboardFacts.attendance.includes("Absent") ? "ABSENT" : "—", href: "/student/attendance" },
+    { type: "fees", eyebrow: "FEES", title: dashboardFacts.fees.includes("pending") ? "Fee payment pending" : "Fee status", detail: dashboardFacts.fees, icon: "₹", metric: dashboardFacts.fees.match(/₹[\d,]+/)?.[0] || (dashboardFacts.fees.includes("pending") ? "DUE" : "CLEAR"), href: "/student/fees" },
+    { type: "performance", eyebrow: "MONTHLY PERFORMANCE", title: "Your latest performance", detail: dashboardFacts.performance, icon: "↗", metric: dashboardFacts.performance.match(/[\d.]+%/)?.[0] || "—", href: "/student/reports" },
+    { type: "quiz", eyebrow: "LATEST QUIZ", title: "Your latest quiz result", detail: dashboardFacts.quiz, icon: "✎", metric: dashboardFacts.quiz.match(/[\d.]+%/)?.[0] || "—", href: "/student/quiz-tests" },
+    { type: "weekly-test", eyebrow: "LATEST WEEKLY TEST", title: "Weekly test result", detail: dashboardFacts.weeklyTest, icon: "★", metric: dashboardFacts.weeklyTest.match(/[\d.]+%/)?.[0] || "—", href: "/student/monthly-result" },
+    { type: "timetable", eyebrow: "UPCOMING TIMETABLE", title: "Your next class", detail: dashboardFacts.timetable, icon: "◷", metric: dashboardFacts.timetable.match(/\d{1,2}:\d{2} ?[AP]M/i)?.[0] || "VIEW", href: "/student/timetable" },
+    { type: "calendar", eyebrow: "UPCOMING CALENDAR", title: "Next important date", detail: dashboardFacts.calendar, icon: "▦", metric: dashboardFacts.calendar.match(/\d{1,2} [A-Za-z]{3}/)?.[0] || "VIEW", href: "/student/calendar" },
   ];
   const updateCount = dashboardUpdates.length;
   const currentDashboardUpdate = dashboardUpdates[activeUpdateSlide % dashboardUpdates.length];
@@ -1912,11 +1953,13 @@ export default function StudentDashboardPage() {
 
           <section
             className="student-announcement-section"
+            data-update-type={currentDashboardUpdate.type}
             style={
               styles.announcementSection
             }
           >
-            <div className="student-update-carousel" aria-live="polite">
+            <div className="student-update-carousel" aria-live="polite" onPointerDown={(event) => { updateSwipeStartX.current = event.clientX; }} onPointerUp={(event) => { const startX = updateSwipeStartX.current; updateSwipeStartX.current = null; if (startX === null || Math.abs(event.clientX - startX) < 40) return; setActiveUpdateSlide((current) => (current + (event.clientX < startX ? 1 : -1) + updateCount) % updateCount); }} onPointerCancel={() => { updateSwipeStartX.current = null; }}>
+              <span className="student-update-icon" aria-hidden="true">{currentDashboardUpdate.icon}</span>
               <div className="student-update-copy" key={activeUpdateSlide % dashboardUpdates.length}>
                 <span className="student-update-eyebrow">{currentDashboardUpdate.eyebrow}</span>
                 <strong className="student-update-title">{currentDashboardUpdate.title}</strong>
@@ -1931,9 +1974,9 @@ export default function StudentDashboardPage() {
                 <strong>{currentDashboardUpdate.metric}</strong>
                 <span>OPEN</span>
               </button>
-              <div className="student-update-dots" aria-hidden="true">
+              <div className="student-update-dots" aria-label="Dashboard updates">
                 {dashboardUpdates.map((update, index) => (
-                  <span key={`${update.eyebrow}-${index}`} className={index === activeUpdateSlide % dashboardUpdates.length ? "active" : ""} />
+                  <button type="button" key={`${update.eyebrow}-${index}`} className={index === activeUpdateSlide % dashboardUpdates.length ? "active" : ""} aria-label={`Show ${update.title}`} aria-current={index === activeUpdateSlide % dashboardUpdates.length ? "true" : undefined} onClick={() => setActiveUpdateSlide(index)} />
                 ))}
               </div>
             </div>
