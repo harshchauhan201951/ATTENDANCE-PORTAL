@@ -2,10 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isFeePeriodOnOrAfterAdmission, isOnOrAfterAdmission } from "../admission-date";
 import { getStudentCalendarEvent } from "../student-calendar-events";
 
-type Topic = "attendance" | "fees" | "results" | "homework" | "timetable" | "calendar" | null;
+type Topic = "profile" | "attendance" | "fees" | "results" | "homework" | "timetable" | "calendar" | null;
 
 function requestedTopic(question: string): Topic {
   const text = question.toLowerCase();
+  if (/\b(my name|my class|my profile|my details|my information|about me|who am i|tell me about me|mera naam|meri class|meri details|mera profile|meri jaankari|mere bare me|mere baare mein)\b/.test(text) || /मेरा नाम|मेरी क्लास|मेरा क्लास|मेरी जानकारी|मेरे बारे में|मेरे विवरण|मेरी डिटेल/.test(text)) return "profile";
   if (/\b(attendance|present|absent)\b/.test(text) || /हाज़िरी|हाजिरी|अटेंडेंस|उपस्थिति/.test(text)) return "attendance";
   if (/\b(fee|fees|payment|paid|due)\b/.test(text) || /फीस|शुल्क|भुगतान|बकाया/.test(text)) return "fees";
   if (/\b(homework|assignment)\b/.test(text) || /गृहकार्य|होमवर्क|असाइनमेंट/.test(text)) return "homework";
@@ -31,6 +32,12 @@ export async function loadSaathiStudentContext(db: SupabaseClient, studentId: nu
   if (!topic) return { authorized: true as const, context: null };
   const className = String(profile.class_name || "").trim();
   const admissionDate = profile.admission_date as string | null;
+
+  if (topic === "profile") {
+    const { data: identity, error } = await db.from("students").select("student_name,class_name,admission_date").eq("id", studentId).maybeSingle();
+    if (error || !identity) return { authorized: true as const, context: { topic, available: false } };
+    return { authorized: true as const, context: { topic, available: true, studentName: safeLabel(identity.student_name, 80), className: safeLabel(identity.class_name, 40), admissionDate: identity.admission_date } };
+  }
 
   if (topic === "attendance") {
     const [regular, extra] = await Promise.all([
