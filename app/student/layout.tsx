@@ -10,7 +10,7 @@ const items = [
   { href: "/student/dashboard", label: "Home", icon: "home" },
   { href: "/student/dashboard#modules", label: "Modules", icon: "grid" },
   { href: "/student/notifications", label: "Notifications", icon: "bell" },
-  { href: "/student/monthly-result", label: "Results", icon: "chart" },
+  { href: "/student/exams", label: "Exams", icon: "chart" },
   { href: "/student/profile", label: "Profile", icon: "user" },
 ]; // RACER_STUDENT_MOBILE_NAV_REFERENCE_V4
 
@@ -24,8 +24,7 @@ const studentDesktopNavItems = [
   { href: "/student/fees", label: "Fees", icon: "â‚¹" },
   { href: "/student/homework", label: "Homework", icon: "âœŽ" },
   { href: "/student/settings", label: "Settings", icon: "âš™" },
-  { href: "/student/quiz-tests", label: "Quiz Tests", icon: "âœ“" },
-  { href: "/student/monthly-result", label: "Monthly Final Result", icon: "â˜…" },
+  { href: "/student/exams", label: "Exams", icon: "ðŸ“‹" },
   { href: "/student/timetable", label: "Timetable", icon: "â–¦" },
 ];
 
@@ -41,6 +40,7 @@ function getStudentDesktopModule(pathname: string) {
   if (pathname.startsWith("/student/quiz-tests/results")) return { key: "quiz-results", title: "Quiz Tests", subtitle: "Check your marks, accuracy, and submitted quiz details.", icon: "â˜…" };
   if (pathname.startsWith("/student/quiz-tests/available")) return { key: "quiz-available", title: "Quiz Tests", subtitle: "Choose an assigned quiz and check its duration before starting.", icon: "âœ“" };
   if (pathname === "/student/dashboard" || pathname === "/student") return { key: "dashboard", title: "Dashboard", subtitle: "Your attendance, learning activities, results, and updates in one place.", icon: "âŒ‚" };
+  if (pathname.startsWith("/student/exams")) return { key: "exams", title: "Exams", subtitle: "Quiz tests, monthly final results, and Saturday weekly test reports.", icon: "ðŸ“‹" };
   if (pathname.startsWith("/student/attendance-history")) return { key: "attendance-history", title: "Attendance History", subtitle: "Browse your recorded attendance by date and month.", icon: "â—·" };
   if (pathname.startsWith("/student/attendance")) return { key: "attendance", title: "My Attendance", subtitle: "Track present days, absences, and extra-class attendance.", icon: "â–£" };
   if (pathname.startsWith("/student/calendar")) return { key: "calendar", title: "Academic Calendar", subtitle: "View school days, holidays, events, and weekly test dates.", icon: "â–¦" };

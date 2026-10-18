@@ -1088,18 +1088,10 @@ export default function StudentDashboardPage() {
         className: "cyan",
       },
       {
-        icon: "?",
-        title: "QUIZ TESTS",
-        description:
-          "Attempt scheduled quizzes, view your scores and quiz history.",
-        path: "/student/quiz-tests",
-        className: "quiz",
-      },
-      {
-        icon: "MR",
-        title: "Monthly Final Result",
-        description: "View your official monthly academic result and PDF.",
-        path: "/student/monthly-result",
+         icon: "EX",
+         title: "Exams",
+         description: "Open quiz tests, monthly results and weekly test reports.",
+         path: "/student/exams",
         className: "orange",
       },
       {
@@ -2102,7 +2094,7 @@ export default function StudentDashboardPage() {
                         style={
                           styles.cardIcon
                         }
-                      >{card.title === "My Attendance" ? "✅" : card.title === "Attendance History" ? "🕘" : card.title === "Academic Calendar" ? "📅" : card.title === "Reports" ? "📊" : card.title === "Fees" ? "💰" : card.title === "Homework" ? "📚" : card.title === "Settings" ? "⚙️" : card.title === "QUIZ TESTS" ? "🧩" : card.title === "Monthly Final Result" ? "🏆" : card.title === "Timetable" ? "🗓️" : "⭐"}
+                      >{card.title === "My Attendance" ? "✅" : card.title === "Attendance History" ? "🕘" : card.title === "Academic Calendar" ? "📅" : card.title === "Reports" ? "📊" : card.title === "Fees" ? "💰" : card.title === "Homework" ? "📚" : card.title === "Settings" ? "⚙️" : card.title === "Exams" ? "📝" : card.title === "Timetable" ? "🗓️" : "⭐"}
                       </div>
 
                       <div

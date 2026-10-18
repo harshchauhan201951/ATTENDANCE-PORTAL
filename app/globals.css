@@ -8150,3 +8150,83 @@ body:has(.racer-student-fixed-header) {
   background: var(--update-accent) !important;
 }
 .racer-student-shell .student-update-dots { align-items: center !important; z-index: 2 !important; }
+
+.racer-student-shell .student-exams-page {
+  width: min(100%, 1120px);
+  margin: 0 auto;
+  padding: 26px 22px 40px;
+}
+.racer-student-shell .student-exams-heading {
+  margin: 0 0 22px;
+  padding: 24px 26px;
+  border: 1px solid #d8e6f5;
+  border-radius: 22px;
+  background: linear-gradient(125deg, #e8f3ff, #ffffff);
+  color: #183454;
+  box-shadow: 0 14px 30px rgba(20, 60, 110, .13);
+}
+.racer-student-shell .student-exams-heading > span {
+  color: #275a94;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 1.7px;
+}
+.racer-student-shell .racer-student-content-area[data-student-route] > main.student-exams-page .student-exams-heading h1 {
+  margin: 8px 0 3px;
+  color: #183454 !important;
+  font-size: clamp(25px, 4vw, 36px);
+  line-height: 1.1;
+}
+.racer-student-shell .student-exams-heading p { margin: 0; color: #60748b; font-size: 14px; }
+.racer-student-shell .student-exams-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.racer-student-shell .student-exams-card {
+  display: flex;
+  min-width: 0;
+  min-height: 220px;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 20px;
+  border: 1px solid #dce7f3;
+  border-radius: 20px;
+  background: #fff;
+  color: #1e3552;
+  text-decoration: none;
+  box-shadow: 0 6px 20px rgba(20, 60, 110, .07);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.racer-student-shell .student-exams-card:hover { transform: translateY(-3px); border-color: var(--exam-accent); box-shadow: 0 12px 26px rgba(20, 60, 110, .12); }
+.racer-student-shell .student-exams-card.quiz { --exam-accent: #2563eb; }
+.racer-student-shell .student-exams-card.monthly { --exam-accent: #7c3aed; }
+.racer-student-shell .student-exams-card.weekly { --exam-accent: #db2777; }
+.racer-student-shell .student-exams-icon {
+  display: grid;
+  width: 50px;
+  height: 50px;
+  place-items: center;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--exam-accent) 11%, white);
+  font-size: 25px;
+}
+.racer-student-shell .student-exams-card-copy { display: grid; gap: 7px; margin: 17px 0 auto; }
+.racer-student-shell .student-exams-card-copy strong { color: #183454; font-size: 18px; line-height: 1.2; }
+.racer-student-shell .student-exams-card-copy > span { color: #63758a; font-size: 13px; line-height: 1.5; }
+.racer-student-shell .student-exams-action { display: flex; width: 100%; justify-content: space-between; align-items: center; margin-top: 18px; padding-top: 13px; border-top: 1px solid #e8eef6; color: var(--exam-accent); font-size: 12px; font-weight: 900; }
+.racer-student-shell .student-exams-action b { font-size: 19px; }
+.racer-student-shell .student-exams-back { display: inline-flex; margin-top: 24px; color: #275a94; font-size: 13px; font-weight: 800; text-decoration: none; }
+
+@media (max-width: 760px) {
+  .racer-student-shell .student-exams-page { padding: 14px 12px 30px; }
+  .racer-student-shell .student-exams-heading { margin-bottom: 14px; padding: 18px; border-radius: 17px; }
+  .racer-student-shell .student-exams-heading p { font-size: 12px; }
+  .racer-student-shell .student-exams-grid { grid-template-columns: 1fr; gap: 10px; }
+  .racer-student-shell .student-exams-card { min-height: 0; display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 0 13px; padding: 14px; border-radius: 16px; }
+  .racer-student-shell .student-exams-icon { width: 46px; height: 46px; grid-row: span 2; }
+  .racer-student-shell .student-exams-card-copy { gap: 4px; margin: 0; }
+  .racer-student-shell .student-exams-card-copy strong { font-size: 15px; }
+  .racer-student-shell .student-exams-card-copy > span { font-size: 11px; line-height: 1.35; }
+  .racer-student-shell .student-exams-action { grid-column: 2; margin-top: 9px; padding-top: 8px; font-size: 11px; }
+}
