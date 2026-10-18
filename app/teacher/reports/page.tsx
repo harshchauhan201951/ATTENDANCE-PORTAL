@@ -796,6 +796,27 @@ export default function TeacherReportsPage() {
         throw insertError;
       }
 
+      await Promise.allSettled(validMarks.map((item) => {
+        const absent = item.attendanceStatus === "ABSENT";
+        const noTest = item.attendanceStatus === "NO_TEST";
+        const score = absent || noTest ? item.attendanceStatus : `${Number(item.obtainedMarks)} / ${total} marks`;
+        const resultMessage = `${trimmedName}: ${noTest ? "No test was recorded for you." : absent ? "You were marked absent." : `Your score is ${score}.`}${item.subject ? ` Subject: ${item.subject}.` : ""}`;
+        const keyPart = encodeURIComponent(trimmedName.toLowerCase()).slice(0, 48);
+        return fetch("/api/push/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            studentId: item.studentId,
+            category: "weekly_test",
+            title: "Saturday Weekly Test Result",
+            message: resultMessage,
+            url: "/student/exams/weekly-tests",
+            notificationKey: `weekly-test:${testDate}:${keyPart}:${item.studentId}:${encodeURIComponent(score)}`,
+            metadata: { source: "weekly_test_report", testName: trimmedName, testDate, subject: item.subject, score, totalMarks: total },
+          }),
+        });
+      }));
+
       setAssessmentMessage(
         selectedAssessment
           ? "Assessment successfully updated."

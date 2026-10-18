@@ -264,6 +264,30 @@ function CreateTimetableContent() {
         return;
       }
 
+      try {
+        const classList = [...selectedClasses].sort().join(",");
+        const title = isHoliday ? `Holiday Notice · ${dayOfWeek}` : `Timetable Updated · ${subject.trim()}`;
+        const message = isHoliday
+          ? `There will be no classes on ${dayOfWeek} for your class. Please check the academic calendar for details.`
+          : `Your ${subject.trim()} class is scheduled on ${dayOfWeek}, ${startTime}–${endTime}.`;
+        const notificationResponse = await fetch("/api/push/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            targetClasses: selectedClasses,
+            category: isHoliday ? "academic_calendar" : "timetable",
+            title,
+            message,
+            url: isHoliday ? "/student/calendar" : "/student/timetable",
+            notificationKey: `timetable:${editId || "new"}:${dayOfWeek}:${classList}:${isHoliday ? "holiday" : `${subject.trim()}:${startTime}:${endTime}`}`,
+            metadata: { source: "teacher_timetable_update", dayOfWeek, classNames: selectedClasses, isHoliday, subject: subject.trim() || null, startTime: startTime || null, endTime: endTime || null },
+          }),
+        });
+        if (!notificationResponse.ok) console.warn("Timetable notification failed:", await notificationResponse.json().catch(() => null));
+      } catch (notificationError) {
+        console.error("Timetable notification request failed:", notificationError);
+      }
+
       alert(
         isHoliday
           ? "Holiday timetable saved successfully."

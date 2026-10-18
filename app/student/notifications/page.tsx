@@ -1,17 +1,21 @@
 ﻿"use client";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-type NotificationItem={id:number;student_id:number;category:string;title:string;message:string;url:string;is_read:boolean;audio_url:string|null;metadata:Record<string,unknown>;authorized_at:string;read_at?:string};
+type NotificationItem={id:number;student_id:number;category:string;title:string;message:string;url:string;is_read:boolean;audio_url:string|null;metadata:Record<string,unknown>;created_at:string;read_at?:string};
 const categoryInfo:Record<string,{icon:string;label:string}>={
   fee_pending:{icon:"📪",label:"Fee Pending"},
   fee_paid:{icon:"✅",label:"Fee Paid"},
+  fee_refunded:{icon:"↩️",label:"Fee Refund"},
   fees:{icon:"💰",label:"Fee Update"},
   announcement:{icon:"📢",label:"Announcement"},
   quiz_test:{icon:"📝",label:"Quiz / Test"},
+  weekly_test:{icon:"📋",label:"Saturday Weekly Test"},
   quiz:{icon:"🧩",label:"Quiz / Test"},
   homework:{icon:"📚",label:"Assignment"},
   general:{icon:"🔔",label:"General Update"},
   timetable:{icon:"📅",label:"Timetable"},
+  academic_calendar:{icon:"🗓️",label:"Academic Calendar"},
+  attendance:{icon:"✅",label:"Attendance"},
   result:{icon:"🏆",label:"Result"}
 };
 export default function StudentNotificationsPage(){
@@ -107,7 +111,7 @@ export default function StudentNotificationsPage(){
                 </div>
                 <div style={{fontSize:12,fontWeight:800,color:"#6b7280",marginTop:3}}>{info.label}</div>
                 <div style={{fontSize:14,color:"#374151",lineHeight:1.5,marginTop:7,whiteSpace:"pre-wrap"}}>{item.message}</div>
-                {item.authorized_at&&<div style={{fontSize:11,color:"#9ca3af",marginTop:8}}>{new Date(item.authorized_at).toLocaleString("en-IN")}</div>}
+                {item.created_at&&<div style={{fontSize:11,color:"#9ca3af",marginTop:8}}>{new Date(item.created_at).toLocaleString("en-IN")}</div>}
               </div>
             </div>
           </div>

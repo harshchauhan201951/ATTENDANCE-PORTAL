@@ -1407,14 +1407,17 @@ export default function TeacherFeesPage() {
       // RACER_FEE_PUSH_NOTIFICATION_V3
       {
         try {
+          const normalizedFeeStatus = String(status).toUpperCase();
+          const refunded = normalizedFeeStatus.includes("REFUND");
+          const feePaid = ["SUBMITTED", "PAID", "PAID ONLINE"].includes(normalizedFeeStatus);
           const feePushResponse = await fetch("/api/push/send", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              title: status === "SUBMITTED" ? "Fee Payment Confirmed" : "Fee Status Updated",
-              message: `Your ${getMonthName(Number(month))} ${year} fee status is ${status === "SUBMITTED" ? "PAID" : status}. Amount: ₹${Number(amount).toLocaleString("en-IN")}.`,
+              title: refunded ? "Fee Refund Updated" : feePaid ? "Fee Payment Confirmed" : "Fee Status Updated",
+              message: `Your ${getMonthName(Number(month))} ${year} fee status is ${refunded ? "REFUNDED" : feePaid ? "PAID" : status}. Amount: ₹${Number(amount).toLocaleString("en-IN")}.`,
               studentId: Number(studentId),
-              category: ["SUBMITTED", "PAID", "PAID ONLINE"].includes(String(status).toUpperCase()) ? "fee_paid" : "fee_pending",
+              category: refunded ? "fee_refunded" : feePaid ? "fee_paid" : "fee_pending",
               url: "/student/fees",
               notificationKey: `fee-status:${studentId}:${month}:${year}:${String(status).toUpperCase()}:${Number(amount)}:${paymentDate || ""}`,
               metadata: { source: "teacher_fee_update", month: Number(month), year: Number(year), status: String(status).toUpperCase(), amount: Number(amount) },

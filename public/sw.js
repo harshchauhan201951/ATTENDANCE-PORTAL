@@ -19,7 +19,7 @@ self.addEventListener("push", (event) => {
     silent: false,
     vibrate: [300, 150, 300],
     renotify: true,
-    tag: data.tag || `racer-academy-${category}`,
+    tag: data.tag || `racer-academy-${category}-${Date.now()}`,
     requireInteraction: false,
     data: { url, category, notificationId: data.notificationId || null },
     actions: [{ action: "open", title: "Open" }],

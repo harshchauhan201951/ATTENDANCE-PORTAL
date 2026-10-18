@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import RacerPageActions from "../../components/RacerPageActions"; import { supabase } from "../../lib/supabase";
+import StudentNotificationCenter from "../../components/StudentNotificationCenter";
 
 const items = [
   { href: "/student/dashboard", label: "Home", icon: "home" },
@@ -158,6 +159,7 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="racer-portal-shell racer-student-shell">
+      <StudentNotificationCenter />
       {/* Original mobile app bar is preserved and remains the only header below desktop width. */}
       <header className="racer-mobile-appbar racer-student-fixed-header">
         <Link href="/student/dashboard" className="racer-appbar-brand">

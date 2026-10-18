@@ -337,6 +337,25 @@ export async function POST(
       );
     }
 
+    try {
+      const notification = await fetch(new URL("/api/push/send", request.url), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: Number(updatedFee.student_id),
+          category: "fee_paid",
+          title: "Online Fee Payment Successful",
+          message: `Your fee payment of ₹${Number(updatedFee.amount).toLocaleString("en-IN")} has been received successfully.`,
+          url: "/student/fees",
+          notificationKey: `fee-online-paid:${razorpay_payment_id}`,
+          metadata: { source: "verified_online_fee_payment", feeId: Number(updatedFee.id), paymentId: String(razorpay_payment_id), amount: Number(updatedFee.amount) },
+        }),
+      });
+      if (!notification.ok) console.error("Online fee payment notification failed:", await notification.json().catch(() => null));
+    } catch (notificationError) {
+      console.error("Online fee notification request failed:", notificationError);
+    }
+
     /*
      * SUCCESS
      */

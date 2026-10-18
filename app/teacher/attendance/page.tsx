@@ -171,6 +171,21 @@ export default function TeacherAttendancePage() {
       setMessage(
         `Attendance marked ${status} successfully.`
       );
+      if (!existing || String(existing.status).toLowerCase() !== status.toLowerCase()) {
+        void fetch("/api/push/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            studentId,
+            category: "attendance",
+            title: "Attendance Updated",
+            message: `Your attendance for ${formatDate(selectedDate)} has been marked ${status}.`,
+            url: "/student/attendance-history",
+            notificationKey: `attendance:${studentId}:${selectedDate}:${status.toLowerCase()}:${Math.floor(Date.now() / 60000)}`,
+            metadata: { source: "teacher_attendance", attendanceDate: selectedDate, status },
+          }),
+        }).catch((noticeError) => console.error("Attendance notification failed:", noticeError));
+      }
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -283,6 +298,25 @@ export default function TeacherAttendancePage() {
         ...updatedRecords,
         ...insertedRecords,
       ];
+
+      const changedStudentIds = students
+        .filter((student) => String(existingByStudent.get(student.id)?.status || "").toLowerCase() !== status.toLowerCase())
+        .map((student) => Number(student.id));
+      if (changedStudentIds.length) {
+        void fetch("/api/push/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            studentIds: changedStudentIds,
+            category: "attendance",
+            title: "Attendance Updated",
+            message: `Your attendance for ${formatDate(selectedDate)} has been marked ${status}.`,
+            url: "/student/attendance-history",
+            notificationKey: `attendance:${selectedDate}:${status.toLowerCase()}:${Math.floor(Date.now() / 60000)}`,
+            metadata: { source: "teacher_attendance_bulk", attendanceDate: selectedDate, status },
+          }),
+        }).catch((noticeError) => console.error("Bulk attendance notification failed:", noticeError));
+      }
 
       setAttendance((current) => {
         const ids = new Set(

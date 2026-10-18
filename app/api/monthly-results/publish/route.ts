@@ -29,6 +29,8 @@ async function notifyMonthlyResult(request: Request, monthKey: string) {
         message: "Your monthly academic result is now available in RACER ACADEMY. Tap to view your result.",
         category: "result",
         url: "/student/monthly-result",
+        notificationKey: `monthly-result:${monthKey}`,
+        metadata: { source: "published_monthly_result", monthKey },
         studentIds,
       }),
     });

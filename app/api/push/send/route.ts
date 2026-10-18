@@ -100,11 +100,11 @@ export async function POST(
       : [];
 
     const category = body?.category || "general";
-    const url = body?.url || (category === "announcement" ? "/student/notifications" : ["fees", "fee_pending", "fee_paid"].includes(category) ? "/student/fees" : category === "homework" ? "/student/homework" : category === "quiz" ? "/student/quiz-tests" : category === "timetable" ? "/student/timetable" : category === "result" ? "/student/monthly-result" : "/student/dashboard");
+    const url = body?.url || (category === "announcement" ? "/student/notifications" : ["fees", "fee_pending", "fee_paid", "fee_refunded"].includes(category) ? "/student/fees" : category === "homework" ? "/student/homework" : category === "quiz" ? "/student/quiz-tests" : category === "weekly_test" ? "/student/reports?section=tests" : category === "attendance" ? "/student/attendance-history" : category === "academic_calendar" ? "/student/calendar" : category === "timetable" ? "/student/timetable" : category === "result" ? "/student/monthly-result" : "/student/dashboard");
     const notificationKey = typeof body?.notificationKey === "string" ? body.notificationKey.trim().slice(0, 180) : "";
 
     // Fee notifications always belong to one verified student record; never broadcast fee details.
-    if (category === "fees" || category === "fee_pending" || category === "fee_paid") {
+    if (category === "fees" || category === "fee_pending" || category === "fee_paid" || category === "fee_refunded") {
       const numericStudentId = Number(studentId);
       if (studentId === null || !Number.isInteger(numericStudentId) || numericStudentId <= 0) {
         return NextResponse.json({ success: false, error: "Fee notifications require one studentId." }, { status: 400 });
@@ -152,7 +152,8 @@ export async function POST(
       }
       const { data: targetStudents, error: targetStudentsError } = await supabaseAdmin
         .from("students")
-        .select("id,class_name");
+        .select("id,class_name")
+        .or("is_active.eq.true,is_active.is.null");
       if (targetStudentsError) {
         return NextResponse.json({ success: false, error: targetStudentsError.message }, { status: 500 });
       }
@@ -199,7 +200,7 @@ export async function POST(
     else if (Array.isArray(body?.studentIds)) recipientStudentIds = requestedStudentIds;
     else if (Array.isArray(body?.targetClasses)) {
       const normalized = (value: unknown) => String(value ?? "").trim().replace(/\s+/g, " ").toUpperCase();
-      const { data: matchingStudents, error: matchingError } = await supabaseAdmin.from("students").select("id,class_name");
+      const { data: matchingStudents, error: matchingError } = await supabaseAdmin.from("students").select("id,class_name").or("is_active.eq.true,is_active.is.null");
       if (matchingError) return NextResponse.json({ success: false, error: matchingError.message }, { status: 500 });
       recipientStudentIds = Array.from(new Set((matchingStudents || []).filter((student: { id: number; class_name: string | null }) => targetClasses.includes(normalized(student.class_name))).map((student: { id: number }) => Number(student.id))));
     } else if (category === "announcement") {
@@ -214,7 +215,7 @@ export async function POST(
       if (recipientError) return NextResponse.json({ success: false, error: recipientError.message }, { status: 500 });
       const validIds = new Set((existingStudents || []).map((student: { id: number }) => Number(student.id)));
       recipientStudentIds = recipientStudentIds.filter((id) => validIds.has(id));
-      if (["fees", "fee_pending", "fee_paid"].includes(category) && !validIds.has(Number(studentId))) {
+      if (["fees", "fee_pending", "fee_paid", "fee_refunded"].includes(category) && !validIds.has(Number(studentId))) {
         return NextResponse.json({ success: false, error: "The fee notification student record does not exist." }, { status: 404 });
       }
     }
@@ -280,6 +281,9 @@ export async function POST(
     const payload = JSON.stringify({
       title,
       message,
+      category,
+      tag: notificationKey || `racer-academy-${category}-${Date.now()}`,
+      notificationKey,
       body: message,
       icon: "/icon-192.png",
       badge: "/icon-192.png",
