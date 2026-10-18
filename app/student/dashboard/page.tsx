@@ -410,6 +410,19 @@ export default function StudentDashboardPage() {
   ) {
     try {
       if (Capacitor.isNativePlatform()) {
+        if (Capacitor.getPlatform() === "android") {
+          await PushNotifications.createChannel({
+            id: "racer_academy_v3",
+            name: "RACER Academy alerts",
+            description: "School updates, attendance, homework, results and fee notices.",
+            importance: 4,
+            sound: "racer_notification",
+            visibility: 1,
+            lights: true,
+            lightColor: "#FFD43B",
+            vibration: true,
+          });
+        }
         let permission = await PushNotifications.checkPermissions();
         if (permission.receive === "prompt") permission = await PushNotifications.requestPermissions();
         if (permission.receive !== "granted") return;

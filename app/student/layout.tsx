@@ -144,8 +144,8 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
       {/* Original mobile app bar is preserved and remains the only header below desktop width. */}
       <header className="racer-mobile-appbar racer-student-fixed-header">
         <Link href="/student/dashboard" className="racer-appbar-brand">
-          <span className="racer-appbar-logo racer-student-profile-circle">
-            <span className="racer-om-3d" aria-label="RACER ACADEMY" role="img">RA</span>
+          <span className="racer-appbar-logo racer-student-profile-circle" aria-label="RACER ACADEMY" role="img">
+            <img src="/racer-academy-icon.png" alt="" />
           </span>
           <span className="racer-student-header-brand-copy">
             <strong>RACER ACADEMY</strong>

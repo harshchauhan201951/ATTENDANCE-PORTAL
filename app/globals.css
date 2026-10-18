@@ -8630,3 +8630,27 @@ main[data-racer-vip-module="homework"] .homeworkList .deleteButton { padding:7px
   .racer-student-shell .student-exams-card-copy > span { font-size: 11px; line-height: 1.35; }
   .racer-student-shell .student-exams-action { grid-column: 2; margin-top: 9px; padding-top: 8px; font-size: 11px; }
 }
+
+/* Keep the complete Racer Academy mark visible in the student mobile app bar. */
+@media (max-width: 640px) {
+  .racer-student-shell .racer-student-fixed-header .racer-appbar-logo {
+    width: 52px !important;
+    height: 52px !important;
+    min-width: 52px !important;
+    min-height: 52px !important;
+    flex: 0 0 52px !important;
+    border: 1px solid #e6b73b !important;
+    border-radius: 10px !important;
+    overflow: hidden !important;
+    background: #000 !important;
+  }
+
+  .racer-student-shell .racer-student-fixed-header .racer-appbar-logo > img {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+    object-position: center !important;
+    border-radius: inherit !important;
+  }
+}

@@ -321,7 +321,7 @@ export async function POST(
           continue;
         }
         try {
-          await getMessaging(firebaseAdminApp).send({token,notification:{title,body:message},data:{url,category,announcementId:announcementId ? String(announcementId) : ""},android:{priority:"high",notification:{channelId:"racer_academy_v2",sound:"racer_notification"}}});
+          await getMessaging(firebaseAdminApp).send({token,notification:{title,body:message},data:{url,category,announcementId:announcementId ? String(announcementId) : ""},android:{priority:"high",notification:{channelId:"racer_academy_v3",sound:"racer_notification"}}});
           sent++;
           console.log("Native FCM notification sent successfully:", row.id);
         } catch (pushError:any) {
