@@ -8023,6 +8023,77 @@ body:has(.racer-student-fixed-header) {
   .racer-student-shell .student-weekly-report-score span { font-size:9px; }
 }
 
+.racer-student-shell main.student-timetable-v2 { min-height:calc(100dvh - 80px)!important; padding:22px!important; background:linear-gradient(180deg,#f4f8fe,#edf3fb)!important; color:#183454!important; }
+.racer-student-shell .student-timetable-v2-container { width:min(100%,1120px); margin:0 auto; }
+.racer-student-shell .student-timetable-v2-heading { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:22px 24px; margin-bottom:14px; border:1px solid #d8e6f5; border-radius:21px; background:linear-gradient(125deg,#e8f3ff,#fff); box-shadow:0 8px 22px rgba(20,60,110,.07); }
+.racer-student-shell .student-timetable-v2-heading>div>span { color:#56769a; font-size:9px; font-weight:900; letter-spacing:1.3px; }
+.racer-student-shell .student-timetable-v2-heading h1 { margin:6px 0 3px; color:#183454!important; font-size:clamp(24px,3vw,34px); line-height:1.12; }
+.racer-student-shell .student-timetable-v2-heading p { margin:0; color:#687d95; font-size:13px; }
+.racer-student-shell .student-timetable-refresh { min-width:112px; min-height:42px; padding:9px 14px; border:0; border-radius:12px; background:#1765b5; color:#fff; font-size:12px; font-weight:900; cursor:pointer; box-shadow:0 4px 10px rgba(23,101,181,.18); }
+.racer-student-shell .student-timetable-refresh:disabled { opacity:.65; cursor:wait; }
+.racer-student-shell .student-timetable-v2-error { padding:13px 15px; margin:12px 0; border:1px solid #fecaca; border-radius:13px; background:#fff1f2; color:#a11b1b; font-size:13px; font-weight:750; }
+.racer-student-shell .student-timetable-overview { display:grid; grid-template-columns:minmax(0,2fr) repeat(2,minmax(120px,1fr)); gap:11px; margin-bottom:14px; }
+.racer-student-shell .student-timetable-overview article { display:grid; align-content:center; gap:7px; min-height:92px; padding:15px 17px; border:1px solid #e0e9f4; border-radius:16px; background:#fff; box-shadow:0 4px 12px rgba(20,60,110,.045); }
+.racer-student-shell .student-timetable-overview article>span,.racer-student-shell .student-timetable-next>span { color:#71839a; font-size:9px; font-weight:950; letter-spacing:.9px; }
+.racer-student-shell .student-timetable-overview article>strong { color:#183454; font-size:24px; line-height:1.1; }
+.racer-student-shell .student-timetable-overview article.student-timetable-next { background:linear-gradient(115deg,#145aa5,#193f79); border-color:#195293; }
+.racer-student-shell .student-timetable-next>span { color:#cfe5ff; }
+.racer-student-shell .student-timetable-next>strong { color:#fff!important; font-size:20px!important; }
+.racer-student-shell .student-timetable-next p { margin:0; color:#e2efff; font-size:12px; font-weight:700; }
+.racer-student-shell .student-timetable-week { padding:18px; border:1px solid #e0e9f4; border-radius:20px; background:#fff; box-shadow:0 5px 18px rgba(20,60,110,.055); }
+.racer-student-shell .student-timetable-week-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.racer-student-shell .student-timetable-week-heading>div>span { color:#71839a; font-size:9px; font-weight:950; letter-spacing:1px; }
+.racer-student-shell .student-timetable-week-heading h2 { margin:4px 0 0; color:#183454!important; font-size:20px; }
+.racer-student-shell .student-timetable-class-pill { padding:7px 10px; border:1px solid #dce9f7; border-radius:999px; background:#f2f7ff; color:#265786; font-size:10px; font-weight:900; }
+.racer-student-shell .student-timetable-day-tabs { display:flex; gap:7px; overflow:auto; padding:13px 0 11px; scrollbar-width:thin; }
+.racer-student-shell .student-timetable-day-tabs button { flex:0 0 auto; min-height:34px!important; padding:7px 12px!important; border:1px solid #e0e8f2!important; border-radius:999px!important; background:#fff!important; color:#5d7087!important; font-size:10px!important; font-weight:850!important; cursor:pointer; }
+.racer-student-shell .student-timetable-day-tabs button.active { border-color:#1765b5!important; background:#1765b5!important; color:#fff!important; box-shadow:0 3px 8px rgba(23,101,181,.16); }
+.racer-student-shell .student-timetable-day-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.racer-student-shell .student-timetable-day-card { min-width:0; padding:13px; border:1px solid #e4ebf4; border-radius:15px; background:#fff; }
+.racer-student-shell .student-timetable-day-card.today { border-color:#b8d8f7; background:linear-gradient(145deg,#f5faff,#fff 75%); }
+.racer-student-shell .student-timetable-day-card>header { display:flex; justify-content:space-between; align-items:center; gap:8px; padding-bottom:9px; border-bottom:1px solid #edf1f6; }
+.racer-student-shell .student-timetable-day-card>header>div>span { color:#8292a5; font-size:8px; font-weight:950; letter-spacing:.9px; }
+.racer-student-shell .student-timetable-day-card>header h3 { margin:2px 0 0; color:#203b5b!important; font-size:15px; }
+.racer-student-shell .student-timetable-day-card>header>strong { color:#567596; font-size:8px; letter-spacing:.5px; }
+.racer-student-shell .student-timetable-classes { display:grid; gap:7px; padding-top:9px; }
+.racer-student-shell .student-timetable-class-row { display:grid; grid-template-columns:76px minmax(0,1fr) 12px; align-items:center; gap:9px; padding:9px 8px; border-radius:11px; background:#f6f9fd; }
+.racer-student-shell .student-timetable-class-time { display:grid; gap:3px; }
+.racer-student-shell .student-timetable-class-time strong { color:#285984; font-size:10px; white-space:nowrap; }
+.racer-student-shell .student-timetable-class-time span { color:#8594a6; font-size:9px; white-space:nowrap; }
+.racer-student-shell .student-timetable-class-detail { display:grid; gap:3px; min-width:0; }
+.racer-student-shell .student-timetable-class-detail strong { overflow:hidden; color:#233d5b; font-size:11px; text-overflow:ellipsis; white-space:nowrap; }
+.racer-student-shell .student-timetable-class-detail span { overflow:hidden; color:#7a8a9d; font-size:9px; text-overflow:ellipsis; white-space:nowrap; }
+.racer-student-shell .student-timetable-class-dot { color:#5e9ce0; font-size:19px; text-align:center; }
+.racer-student-shell .student-timetable-no-class,.racer-student-shell .student-timetable-holiday { margin:11px 0 2px; color:#7b8da2; font-size:11px; }
+.racer-student-shell .student-timetable-holiday { color:#ab6d18; }
+.racer-student-shell .student-timetable-holiday-note { color:#ab6d18; font-size:11px; }
+.racer-student-shell .student-timetable-v2-empty { grid-column:1/-1; padding:24px 12px; color:#7b8da2; font-size:12px; text-align:center; }
+.racer-student-shell .student-timetable-v2-footer { display:flex; justify-content:space-between; gap:12px; padding:15px 4px; color:#7a8b9f; font-size:11px; }
+.racer-student-shell .student-timetable-v2-footer a { color:#275a94; font-weight:850; text-decoration:none; }
+@media(max-width:700px) {
+  .racer-student-shell main.student-timetable-v2 { min-height:calc(100dvh - 70px)!important; padding:12px 10px 92px!important; }
+  .racer-student-shell .student-timetable-v2-heading { padding:15px; margin-bottom:10px; border-radius:16px; }
+  .racer-student-shell .student-timetable-v2-heading>div>span { font-size:7px; letter-spacing:.8px; }
+  .racer-student-shell .student-timetable-v2-heading h1 { font-size:22px; }
+  .racer-student-shell .student-timetable-v2-heading p { max-width:240px; font-size:10px; line-height:1.4; }
+  .racer-student-shell .student-timetable-refresh { min-width:82px; min-height:36px; padding:7px 9px; font-size:10px; }
+  .racer-student-shell .student-timetable-overview { grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; margin-bottom:10px; }
+  .racer-student-shell .student-timetable-overview article { min-height:70px; padding:10px; border-radius:13px; }
+  .racer-student-shell .student-timetable-overview article.student-timetable-next { grid-column:1/-1; min-height:82px; }
+  .racer-student-shell .student-timetable-overview article>span,.racer-student-shell .student-timetable-next>span { font-size:7px; }
+  .racer-student-shell .student-timetable-overview article>strong { font-size:20px; }
+  .racer-student-shell .student-timetable-next>strong { font-size:17px!important; }
+  .racer-student-shell .student-timetable-next p { font-size:10px; }
+  .racer-student-shell .student-timetable-week { padding:12px; border-radius:16px; }
+  .racer-student-shell .student-timetable-week-heading h2 { font-size:16px; }
+  .racer-student-shell .student-timetable-class-pill { padding:6px 8px; font-size:8px; }
+  .racer-student-shell .student-timetable-day-tabs { gap:5px; margin-right:-4px; }
+  .racer-student-shell .student-timetable-day-tabs button { min-height:31px!important; padding:6px 9px!important; font-size:9px!important; }
+  .racer-student-shell .student-timetable-day-list { grid-template-columns:minmax(0,1fr); gap:8px; }
+  .racer-student-shell .student-timetable-day-card { padding:11px; }
+  .racer-student-shell .student-timetable-v2-footer { padding:12px 3px; font-size:9px; }
+}
+
 /* Student dashboard: restore the full desktop canvas after mobile preview rules. */
 @media (min-width: 1025px) {
   .racer-student-shell {
@@ -8142,6 +8213,83 @@ body:has(.racer-student-fixed-header) {
     min-height: 142px !important;
     padding: 16px !important;
   }
+}
+
+/* Student timetable: fixed day grid, separate range controls, and class progress tracker. */
+.racer-student-shell .student-timetable-v2 .student-timetable-day-tabs {
+  display: grid !important;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+  gap: 7px !important;
+  overflow: visible !important;
+  padding: 14px 0 9px !important;
+  margin: 0 !important;
+}
+.racer-student-shell .student-timetable-v2 .student-timetable-day-tabs button {
+  min-width: 0 !important;
+  min-height: 38px !important;
+  padding: 7px 5px !important;
+  border-radius: 10px !important;
+  white-space: nowrap !important;
+}
+.racer-student-shell .student-timetable-v2 .student-timetable-day-tabs button.is-today:not(.active) {
+  border-color: #8db9e8 !important;
+  background: #edf6ff !important;
+  color: #1b5b98 !important;
+}
+.racer-student-shell .student-timetable-v2 .student-timetable-view-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 0 0 13px;
+}
+.racer-student-shell .student-timetable-v2 .student-timetable-view-tabs button {
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid #dfe8f2;
+  border-radius: 11px;
+  background: #f7f9fc;
+  color: #60748c;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.racer-student-shell .student-timetable-v2 .student-timetable-view-tabs button.active {
+  border-color: #155ba2;
+  background: #155ba2;
+  color: #fff;
+  box-shadow: 0 4px 11px rgba(21,91,162,.18);
+}
+.racer-student-shell .student-timetable-v2 .student-timetable-class-row {
+  display: block !important;
+  min-width: 0;
+  padding: 12px !important;
+  border: 1px solid color-mix(in srgb, var(--class-accent) 18%, white);
+  border-left: 3px solid var(--class-accent);
+  border-radius: 13px !important;
+  background: color-mix(in srgb, var(--class-accent) 5%, white) !important;
+}
+.racer-student-shell .student-timetable-class-main { display: grid; gap: 7px; min-width: 0; }
+.racer-student-shell .student-timetable-class-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.racer-student-shell .student-timetable-class-top>strong { overflow: hidden; color: #203b5b; font-size: 13px; font-weight: 950; text-overflow: ellipsis; white-space: nowrap; }
+.racer-student-shell .student-timetable-state { flex: 0 0 auto; padding: 5px 8px; border-radius: 999px; background: #edf3fb; color: #46627e; font-size: 8px; font-weight: 950; letter-spacing: .45px; }
+.racer-student-shell .student-timetable-state.live { background: #dcfce9; color: #087345; }
+.racer-student-shell .student-timetable-state.completed { background: #e9edf2; color: #657488; }
+.racer-student-shell .student-timetable-state.up-next { background: #e7f1ff; color: #155ba2; }
+.racer-student-shell .student-timetable-state.upcoming { background: #f3eaff; color: #7040a2; }
+.racer-student-shell .student-timetable-class-teacher { overflow: hidden; color: #75859a; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.racer-student-shell .student-timetable-track-times,.racer-student-shell .student-timetable-track-meta { display: flex; justify-content: space-between; gap: 10px; }
+.racer-student-shell .student-timetable-track-times { color: #526b86; font-size: 9px; font-weight: 850; }
+.racer-student-shell .student-timetable-track { height: 7px; overflow: visible; border-radius: 99px; background: #e5ebf3; }
+.racer-student-shell .student-timetable-track>span { position: relative; display: block; width: var(--class-progress); height: 100%; border-radius: inherit; background: var(--class-accent); transition: width .5s ease; }
+.racer-student-shell .student-timetable-track>span>i { position: absolute; top: 50%; right: -5px; width: 13px; height: 13px; transform: translateY(-50%); border: 2px solid white; border-radius: 50%; background: var(--class-accent); box-shadow: 0 1px 5px #17395835; }
+.racer-student-shell .student-timetable-track-meta { align-items: center; color: #708198; font-size: 9px; }
+.racer-student-shell .student-timetable-track-meta b { color: var(--class-accent); font-size: 9px; }
+@media(max-width:700px) {
+  .racer-student-shell .student-timetable-v2 .student-timetable-day-tabs { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 6px !important; }
+  .racer-student-shell .student-timetable-v2 .student-timetable-day-tabs button { min-height: 34px !important; padding: 6px 3px !important; font-size: 9px !important; }
+  .racer-student-shell .student-timetable-v2 .student-timetable-view-tabs { gap: 6px; padding-bottom: 10px; }
+  .racer-student-shell .student-timetable-v2 .student-timetable-view-tabs button { min-height: 38px; padding: 7px 5px; font-size: 9px; }
+  .racer-student-shell .student-timetable-v2 .student-timetable-class-row { padding: 10px !important; }
 }
 
 /* Student dashboard updates: distinct colors and touch-friendly manual swipe. */

@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+import { isHiddenStudentTimetableTeacher } from "../../../lib/student-timetable";
 
 type TimetableRow = {
   id: number;
@@ -23,845 +25,194 @@ type StudentInfo = {
   student_name?: string | null;
 };
 
-const DAYS = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-];
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const DAY_ORDER: Record<string, number> = Object.fromEntries(DAYS.map((day, index) => [day, index]));
 
-const DAY_ORDER: Record<string, number> = {
-  Monday: 1,
-  Tuesday: 2,
-  Wednesday: 3,
-  Thursday: 4,
-  Friday: 5,
-  Saturday: 6,
-  Sunday: 7,
-};
+function formatTime(value: string | null) {
+  if (!value) return "Time not set";
+  const [rawHour, rawMinute] = value.split(":");
+  const hour = Number(rawHour);
+  const minute = Number(rawMinute || 0);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return value;
+  return `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${hour >= 12 ? "PM" : "AM"}`;
+}
 
-function formatTime(time: string | null) {
-  if (!time) return "-";
+function getTodayName() {
+  return new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "Asia/Kolkata" }).format(new Date());
+}
 
-  const parts = time.split(":");
-  const hour = Number(parts[0]);
-  const minute = Number(parts[1] || 0);
-
-  if (Number.isNaN(hour) || Number.isNaN(minute)) {
-    return time;
+function getClassTracker(item: TimetableRow, todayName: string, now: Date | null) {
+  if (!now) return { label: "UP NEXT", detail: "Class timeline", progress: 0, state: "up-next" };
+  if (item.day_of_week !== todayName) {
+    const daysUntil = (DAY_ORDER[item.day_of_week] - DAY_ORDER[todayName] + 7) % 7 || 7;
+    return { label: "UPCOMING", detail: daysUntil === 1 ? "Tomorrow" : `In ${daysUntil} days`, progress: 0, state: "upcoming" };
   }
 
-  const suffix = hour >= 12 ? "PM" : "AM";
-  const displayHour = hour % 12 || 12;
-
-  return `${displayHour}:${String(minute).padStart(2, "0")} ${suffix}`;
+  const [startHour, startMinute] = String(item.start_time || "").split(":").map(Number);
+  const [endHour, endMinute] = String(item.end_time || "").split(":").map(Number);
+  if (!Number.isFinite(startHour) || !Number.isFinite(endHour)) return { label: "SCHEDULED", detail: "Class time not set", progress: 0, state: "up-next" };
+  const start = startHour * 60 + (startMinute || 0);
+  const end = endHour * 60 + (endMinute || 0);
+  const current = now.getHours() * 60 + now.getMinutes();
+  if (current < start) {
+    const remaining = start - current;
+    const detail = remaining >= 60 ? `Starts in ${Math.floor(remaining / 60)}h ${remaining % 60}m` : `Starts in ${remaining}m`;
+    return { label: "UP NEXT", detail, progress: 0, state: "up-next" };
+  }
+  if (current >= end || end <= start) return { label: "COMPLETED", detail: "Class finished today", progress: 100, state: "completed" };
+  const progress = Math.round(((current - start) / (end - start)) * 100);
+  const remaining = end - current;
+  const detail = remaining >= 60 ? `${progress}% complete · ${Math.floor(remaining / 60)}h ${remaining % 60}m left` : `${progress}% complete · ${remaining}m left`;
+  return { label: "LIVE NOW", detail, progress, state: "live" };
 }
 
 export default function StudentTimetablePage() {
   const router = useRouter();
-
   const [student, setStudent] = useState<StudentInfo | null>(null);
   const [timetables, setTimetables] = useState<TimetableRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [selectedDay, setSelectedDay] = useState(getTodayName());
+  const [scheduleMode, setScheduleMode] = useState<"two-days" | "full-week">("two-days");
+  const [clockNow, setClockNow] = useState<Date | null>(null);
+  const todayName = getTodayName();
 
   const loadTimetable = async () => {
     try {
       setError("");
+      const loggedIn = localStorage.getItem("studentLoggedIn") || sessionStorage.getItem("studentLoggedIn");
+      if (loggedIn !== "true") { router.replace("/"); return; }
 
-      if (typeof window === "undefined") return;
-
-      const loggedIn =
-        localStorage.getItem("studentLoggedIn") ||
-        sessionStorage.getItem("studentLoggedIn");
-
-      if (loggedIn !== "true") {
-        router.replace("/");
-        return;
-      }
-
-      const username =
-        localStorage.getItem("student_username") ||
-        localStorage.getItem("studentUsername") ||
-        "";
-
-      const savedStudentId =
-        localStorage.getItem("studentId") || "";
-
-      if (!username && !savedStudentId) {
-        router.replace("/");
-        return;
-      }
+      const username = localStorage.getItem("student_username") || localStorage.getItem("studentUsername") || "";
+      const savedStudentId = localStorage.getItem("studentId") || "";
+      if (!username && !savedStudentId) { router.replace("/"); return; }
 
       let studentData: StudentInfo | null = null;
-
-      if (savedStudentId) {
-        const numericId = Number(savedStudentId);
-
-        if (!Number.isNaN(numericId)) {
-          const { data } = await supabase
-            .from("students")
-            .select(
-              "id, student_username, class_name, student_name"
-            )
-            .eq("id", numericId)
-            .maybeSingle();
-
-          if (data) {
-            studentData = data as StudentInfo;
-          }
-        }
+      if (savedStudentId && Number(savedStudentId) > 0) {
+        const { data } = await supabase.from("students").select("id,student_username,class_name,student_name").eq("id", Number(savedStudentId)).maybeSingle();
+        if (data) studentData = data as StudentInfo;
       }
-
       if (!studentData && username) {
-        const { data } = await supabase
-          .from("students")
-          .select(
-            "id, student_username, class_name, student_name"
-          )
-          .eq("student_username", username)
-          .maybeSingle();
-
-        if (data) {
-          studentData = data as StudentInfo;
-        }
+        const { data } = await supabase.from("students").select("id,student_username,class_name,student_name").eq("student_username", username).maybeSingle();
+        if (data) studentData = data as StudentInfo;
       }
-
-      if (!studentData) {
-        setError("Student details could not be found.");
-        setTimetables([]);
-        return;
-      }
-
+      if (!studentData) throw new Error("Student details could not be found.");
       setStudent(studentData);
 
       const studentClass = studentData.class_name?.trim();
-
-      if (!studentClass) {
-        setError("Your class is not assigned yet.");
-        setTimetables([]);
-        return;
-      }
+      if (!studentClass) throw new Error("Your class is not assigned yet.");
 
       const { data, error: timetableError } = await supabase
         .from("timetables")
-        .select("id, teacher_id, teacher_name, class_names, day_of_week, subject, start_time, end_time, is_holiday");
+        .select("id,teacher_id,teacher_name,class_names,day_of_week,subject,start_time,end_time,is_holiday");
+      if (timetableError) throw timetableError;
 
-      if (timetableError) {
-        throw timetableError;
-      }
-
-      const normalizedStudentClass = studentClass.trim().toLowerCase();
-
-      const matchedTimetables = ((data || []) as TimetableRow[]).filter((item) =>
-        Array.isArray(item.class_names) &&
-        item.class_names.some((className) =>
-          String(className).trim().toLowerCase() === normalizedStudentClass
-        )
-      );
-
-      const rows = matchedTimetables.sort((a, b) => {
-        const dayDifference =
-          (DAY_ORDER[a.day_of_week] || 99) -
-          (DAY_ORDER[b.day_of_week] || 99);
-
-        if (dayDifference !== 0) return dayDifference;
-        if (a.is_holiday && !b.is_holiday) return -1;
-        if (!a.is_holiday && b.is_holiday) return 1;
-        return (a.start_time || "").localeCompare(b.start_time || "");
-      });
-
+      const normalizedClass = studentClass.toLowerCase();
+      const rows = ((data || []) as TimetableRow[])
+        .filter((item) => !isHiddenStudentTimetableTeacher(item.teacher_name))
+        .filter((item) => Array.isArray(item.class_names) && item.class_names.some((name) => String(name).trim().toLowerCase() === normalizedClass))
+        .sort((a, b) => DAY_ORDER[a.day_of_week] - DAY_ORDER[b.day_of_week] || (a.start_time || "").localeCompare(b.start_time || ""));
       setTimetables(rows);
-    } catch (err: any) {
-      console.error("Student timetable error:", err);
-      setError(err?.message || "Unable to load timetable.");
+    } catch (loadError: any) {
+      console.error("Student timetable error:", loadError);
+      setError(loadError?.message || "Unable to load timetable.");
       setTimetables([]);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
 
+  useEffect(() => { void loadTimetable(); }, []);
+
   useEffect(() => {
-    loadTimetable();
+    const updateTime = () => setClockNow(new Date());
+    updateTime();
+    const timer = window.setInterval(updateTime, 30000);
+    return () => window.clearInterval(timer);
   }, []);
 
-  const timetableByDay = useMemo(() => {
-    const grouped: Record<string, TimetableRow[]> = {};
+  const days = useMemo(() => DAYS.map((day) => {
+    const rows = timetables.filter((item) => item.day_of_week === day && !item.is_holiday);
+    const holiday = timetables.some((item) => item.day_of_week === day && item.is_holiday);
+    return { day, rows, holiday };
+  }), [timetables]);
 
-    DAYS.forEach((day) => {
-      grouped[day] = [];
-    });
+  const classRows = timetables.filter((item) => !item.is_holiday);
+  const subjects = new Set(classRows.map((item) => String(item.subject || "").trim()).filter(Boolean));
+  const nextClass = useMemo(() => {
+    if (!clockNow) return null;
+    const now = clockNow;
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    return [...classRows].map((item) => {
+      const dayOffset = (DAY_ORDER[item.day_of_week] - DAY_ORDER[todayName] + 7) % 7;
+      const [hour, minute] = String(item.start_time || "").split(":").map(Number);
+      const startMinutes = Number.isFinite(hour) ? hour * 60 + (minute || 0) : -1;
+      const offset = dayOffset === 0 && startMinutes < currentMinutes ? 7 : dayOffset;
+      return { item, offset };
+    }).filter(({ offset }) => offset < 7).sort((a, b) => a.offset - b.offset || (a.item.start_time || "").localeCompare(b.item.start_time || ""))[0]?.item || null;
+  }, [classRows, todayName, clockNow]);
 
-    timetables.forEach((item) => {
-      if (grouped[item.day_of_week]) {
-        grouped[item.day_of_week].push(item);
-      }
-    });
-
-    return grouped;
-  }, [timetables]);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadTimetable();
-  };
-
-  const handleLogout = () => {
-    const keysToRemove = [
-      "studentLoggedIn",
-      "student_username",
-      "studentUsername",
-      "studentName",
-      "student_name",
-      "studentId",
-    ];
-
-    keysToRemove.forEach((key) =>
-      localStorage.removeItem(key)
-    );
-
-    sessionStorage.clear();
-
-    router.replace("/");
-  };
-
-  if (loading) {
-    return (
-      <main className="student-timetable-page" style={styles.page}>
-        <div style={styles.loadingCard}>
-          <div style={styles.loadingIcon}></div>
-
-          <h2 style={styles.loadingTitle}>
-            Loading Timetable...
-          </h2>
-
-          <p style={styles.loadingText}>
-            Please wait while we load your class timetable.
-          </p>
-        </div>
-      </main>
-    );
-  }
+  const selectedDayIndex = DAY_ORDER[selectedDay] ?? DAY_ORDER[todayName];
+  const visibleDays = scheduleMode === "full-week"
+    ? days
+    : [days[selectedDayIndex], days[(selectedDayIndex + 1) % DAYS.length]].filter(Boolean);
 
   return (
-    <main className="student-timetable-page" style={styles.page}>
-      <div className="student-timetable-container" style={styles.container}>
-        <header className="student-timetable-header" style={styles.header}>
+    <main className="student-timetable-page student-timetable-v2">
+      <div className="student-timetable-v2-container">
+        <header className="student-timetable-v2-heading">
           <div>
-            <div style={styles.badge}>RACER ACADEMY</div>
-
-            <h1 style={styles.title}> My Timetable</h1>
-
-            <p style={styles.subtitle}>
-              View your class-wise daily timetable and teacher schedule.
-            </p>
-          </div>
-
-          <div style={styles.headerButtons}>
-            <button
-              type="button"
-              onClick={handleRefresh}
-              disabled={refreshing}
-              style={styles.refreshButton}
-            >
-              {refreshing ? "Refreshing..." : " Refresh"}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => router.back()}
-              style={styles.secondaryButton}
-            >
-               Back
-            </button>
-
-            <button
-              type="button"
-              onClick={() => router.push("/student/dashboard")}
-              style={styles.dashboardButton}
-            >
-              Dashboard
-            </button>
-
-            <button
-              type="button"
-              onClick={handleLogout}
-              style={styles.logoutButton}
-            >
-              Logout
-            </button>
+            <span>RACER ACADEMY · CLASS {student?.class_name || ""}</span>
+            <h1>My Timetable</h1>
+            <p>Your classes at a glance. Choose a day to see its schedule.</p>
           </div>
         </header>
 
-        <section className="student-timetable-card" style={styles.studentCard}>
-          <div style={styles.studentIcon}></div>
+        {error && <div className="student-timetable-v2-error" role="alert">{error}</div>}
 
-          <div style={styles.studentInfo}>
-            <div style={styles.studentLabel}>STUDENT</div>
-
-            <div style={styles.studentName}>
-              {student?.student_name ||
-                localStorage.getItem("studentName") ||
-                "Student"}
-            </div>
-
-            <div style={styles.classText}>
-              Class:{" "}
-              <strong>
-                {student?.class_name || "Class not assigned"}
-              </strong>
-            </div>
-          </div>
-        </section>
-
-        {error && (
-          <div style={styles.errorBox}>
-            <strong>Unable to load timetable</strong>
-
-            <div style={styles.errorText}>{error}</div>
-          </div>
-        )}
-
-        {!error && (
-          <section className="student-timetable-schedule" style={styles.scheduleSection}>
-            <div style={styles.sectionHeader}>
-              <div>
-                <h2 style={styles.sectionTitle}>
-                  Weekly Schedule
-                </h2>
-
-                <p style={styles.sectionSubtitle}>
-                  Monday to Sunday timetable
-                </p>
-              </div>
-
-              <div style={styles.classBadge}>
-                {student?.class_name || "Class"}
-              </div>
-            </div>
-
-            {(() => {
-              const todayName = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(new Date());
-              const todayRows = (timetableByDay[todayName] || []).filter((item) => !item.is_holiday);
-              const todayHoliday = (timetableByDay[todayName] || []).some((item) => item.is_holiday);
-              return (
-                <div className="student-timetable-today">
-                  <div className="student-timetable-today-heading">
-                    <div><span>TODAY · {todayName.toUpperCase()}</span><strong>{todayHoliday ? "Holiday" : todayRows.length ? `${todayRows.length} class${todayRows.length === 1 ? "" : "es"} scheduled` : "No class scheduled"}</strong></div>
-                    <div className="student-timetable-today-icon">◷</div>
-                  </div>
-                  {todayRows.length ? todayRows.map((item) => (
-                    <div className="student-timetable-today-class" key={`today-${item.id}`}>
-                      <div><strong>{item.subject || "Class"}</strong><span>{item.teacher_name || "Teacher"}</span></div>
-                      <b>{formatTime(item.start_time)} <i>→</i> {formatTime(item.end_time)}</b>
-                    </div>
-                  )) : <p>{todayHoliday ? "There are no classes today." : "Your next classes appear in the weekly schedule below."}</p>}
-                </div>
-              );
-            })()}
-
-            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: "10px", width: "100%" }}>
-  {(() => {
-    const teacherGroups = new Map<string, TimetableRow[]>();
-
-    DAYS.forEach((day) => {
-      const dayItems = timetableByDay[day] || [];
-      dayItems.forEach((item) => {
-        if (item.is_holiday) return;
-        const teacher = item.teacher_name || "Teacher";
-        if (!teacherGroups.has(teacher)) teacherGroups.set(teacher, []);
-        teacherGroups.get(teacher)!.push(item);
-      });
-    });
-
-    return Array.from(teacherGroups.entries()).map(([teacher, items]) => (
-      <div key={teacher} className="student-timetable-teacher-box" style={styles.teacherTimetableBox}>
-        <div style={styles.teacherTimetableTitle}>
-          TIMETABLE ASSIGNED BY : {teacher}
-        </div>
-
-        {DAYS.map((day) => {
-          const dayItems = items.filter((item) => item.day_of_week === day);
-          const holiday = (timetableByDay[day] || []).some((item) => item.is_holiday);
-
-          if (holiday) {
-            return (
-              <div key={`${teacher}-${day}`} style={styles.teacherDayRow}>
-                <span style={styles.teacherDayLabel}>{day.toUpperCase()}</span>
-                <span style={styles.teacherDayValue}>HOLIDAY</span>
-              </div>
-            );
-          }
-
-          return dayItems.map((item) => (
-            <div key={item.id} style={styles.teacherScheduleItem}>
-              <div style={styles.teacherDayRow}>
-                <span style={styles.teacherDayLabel}>{day.toUpperCase()}</span>
-                <span style={styles.teacherDayValue}>
-                  {formatTime(item.start_time)} <span style={styles.scheduleArrow}>→</span> {formatTime(item.end_time)}
-                </span>
-              </div>
-              <div style={styles.teacherDayRow}>
-                <span style={styles.teacherDayLabel}>SUBJECT</span>
-                <span style={styles.teacherDayValue}>{item.subject || "Subject"}</span>
-              </div>
-            </div>
-          ));
-        })}
-      </div>
-    ));
-  })()}
-</div>
-
-            {timetables.length === 0 && (
-              <div style={styles.noTimetableBox}>
-                <div style={styles.noTimetableIcon}></div>
-
-                <h3 style={styles.noTimetableTitle}>
-                  No Timetable Available
-                </h3>
-
-                <p style={styles.noTimetableText}>
-                  No timetable has been created for your class yet.
-                </p>
-              </div>
-            )}
+        {!error && <>
+          <section className="student-timetable-overview">
+            <article className="student-timetable-next">
+              <span>NEXT CLASS</span>
+              {loading ? <strong>Loading your schedule…</strong> : nextClass ? <><strong>{nextClass.subject || "Class"}</strong><p>{nextClass.day_of_week === todayName ? "Today" : nextClass.day_of_week} · {formatTime(nextClass.start_time)}–{formatTime(nextClass.end_time)}</p></> : <><strong>No upcoming class</strong><p>Your next scheduled class will appear here.</p></>}
+            </article>
+            <article><span>CLASSES THIS WEEK</span><strong>{loading ? "—" : classRows.length}</strong></article>
+            <article><span>SUBJECTS</span><strong>{loading ? "—" : subjects.size}</strong></article>
           </section>
-        )}
 
-        <footer style={styles.footer}>
-          <div>RACER ACADEMY</div>
+          <section className="student-timetable-week">
+            <div className="student-timetable-week-heading">
+              <div><span>YOUR SCHEDULE</span><h2>Weekly classes</h2></div>
+              <span className="student-timetable-class-pill">Class {student?.class_name || "—"}</span>
+            </div>
+            <div className="student-timetable-day-tabs" role="group" aria-label="Choose a day">
+              {DAYS.map((day) => <button key={day} type="button" className={`${selectedDay === day ? "active" : ""} ${todayName === day ? "is-today" : ""}`} onClick={() => { setSelectedDay(day); setScheduleMode("two-days"); }}>{day}</button>)}
+            </div>
+            <div className="student-timetable-view-tabs" role="group" aria-label="Choose timetable range">
+              <button type="button" className={scheduleMode === "two-days" ? "active" : ""} onClick={() => setScheduleMode("two-days")}>2 Days Timetable</button>
+              <button type="button" className={scheduleMode === "full-week" ? "active" : ""} onClick={() => setScheduleMode("full-week")}>Full Week Timetable</button>
+            </div>
 
-          <div style={styles.footerText}>
-            Student Timetable - Monday to Sunday
-          </div>
-        </footer>
+            <div className="student-timetable-day-list">
+              {loading ? <div className="student-timetable-v2-empty">Loading your classes…</div> : timetables.length === 0 ? <div className="student-timetable-v2-empty">No timetable has been assigned to your class yet.</div> : visibleDays.map(({ day, rows, holiday }) => (
+                <article key={day} className={`student-timetable-day-card ${day === todayName ? "today" : ""}`}>
+                  <header><div><span>{day === todayName ? "TODAY" : "WEEKLY SCHEDULE"}</span><h3>{day}</h3></div><strong>{holiday && rows.length === 0 ? "HOLIDAY" : `${rows.length} CLASS${rows.length === 1 ? "" : "ES"}`}</strong></header>
+                  {holiday && rows.length === 0 ? <p className="student-timetable-holiday">No classes scheduled for this holiday.</p> : rows.length ? <div className="student-timetable-classes">{rows.map((item) => { const tracker = getClassTracker(item, todayName, clockNow); const accent = ["#2563eb", "#7c3aed", "#08916c", "#d97706", "#db2777"][item.id % 5]; return <div key={item.id} className={`student-timetable-class-row ${tracker.state}`} style={{ "--class-accent": accent, "--class-progress": `${tracker.progress}%` } as React.CSSProperties}>
+                    <div className="student-timetable-class-main"><div className="student-timetable-class-top"><strong>{item.subject || "Class"}</strong><span className={`student-timetable-state ${tracker.state}`}>{tracker.label}</span></div><span className="student-timetable-class-teacher">{item.teacher_name || "Teacher"}</span>
+                      <div className="student-timetable-track-times"><span>{formatTime(item.start_time)}</span><span>{formatTime(item.end_time)}</span></div>
+                      <div className="student-timetable-track"><span><i /></span></div>
+                      <div className="student-timetable-track-meta"><span>{tracker.detail}</span><b>{tracker.progress}%</b></div>
+                    </div>
+                  </div>; })}</div> : <p className="student-timetable-no-class">No classes scheduled for this day.</p>}
+                </article>
+              ))}
+              {!loading && !visibleDays.length && <div className="student-timetable-v2-empty">No schedule for this day.</div>}
+            </div>
+          </section>
+        </>}
+
+        <footer className="student-timetable-v2-footer"><span>{student?.student_name || "Student"}</span><Link href="/student/dashboard">Back to Dashboard →</Link></footer>
       </div>
     </main>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  page: {
-    minHeight: "100vh",
-    background:
-      "linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #eff6ff 100%)",
-    padding: "24px",
-    fontFamily: "Arial, Helvetica, sans-serif",
-    color: "#0f172a",
-  },
-
-  container: {
-    maxWidth: "1400px",
-    margin: "0 auto",
-  },
-
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: "20px",
-    marginBottom: "22px",
-    flexWrap: "wrap",
-  },
-
-  badge: {
-    display: "inline-block",
-    background: "#1d4ed8",
-    color: "#ffffff",
-    fontSize: "12px",
-    fontWeight: 800,
-    letterSpacing: "1px",
-    padding: "7px 12px",
-    borderRadius: "999px",
-    marginBottom: "10px",
-  },
-
-  title: {
-    margin: 0,
-    fontSize: "32px",
-    fontWeight: 800,
-    lineHeight: 1.2,
-  },
-
-  subtitle: {
-    margin: "8px 0 0",
-    color: "#64748b",
-    fontSize: "15px",
-  },
-
-  headerButtons: {
-    display: "flex",
-    gap: "9px",
-    flexWrap: "wrap",
-  },
-
-  refreshButton: {
-    border: "none",
-    borderRadius: "10px",
-    padding: "11px 15px",
-    background: "#2563eb",
-    color: "#ffffff",
-    fontWeight: 700,
-    cursor: "pointer",
-  },
-
-  secondaryButton: {
-    border: "1px solid #cbd5e1",
-    borderRadius: "10px",
-    padding: "11px 15px",
-    background: "#ffffff",
-    color: "#0f172a",
-    fontWeight: 700,
-    cursor: "pointer",
-  },
-
-  dashboardButton: {
-    border: "none",
-    borderRadius: "10px",
-    padding: "11px 15px",
-    background: "#0f172a",
-    color: "#ffffff",
-    fontWeight: 700,
-    cursor: "pointer",
-  },
-
-  logoutButton: {
-    border: "none",
-    borderRadius: "10px",
-    padding: "11px 15px",
-    background: "#dc2626",
-    color: "#ffffff",
-    fontWeight: 700,
-    cursor: "pointer",
-  },
-
-  studentCard: {
-    display: "flex",
-    alignItems: "center",
-    gap: "16px",
-    background: "#ffffff",
-    border: "1px solid #dbeafe",
-    borderRadius: "18px",
-    padding: "20px",
-    marginBottom: "22px",
-    boxShadow: "0 8px 25px rgba(15, 23, 42, 0.06)",
-  },
-
-  studentIcon: {
-    width: "58px",
-    height: "58px",
-    borderRadius: "16px",
-    background: "#dbeafe",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "29px",
-    flexShrink: 0,
-  },
-
-  studentInfo: {
-    minWidth: 0,
-  },
-
-  studentLabel: {
-    color: "#64748b",
-    fontSize: "11px",
-    fontWeight: 800,
-    letterSpacing: "1px",
-  },
-
-  studentName: {
-    marginTop: "3px",
-    fontSize: "21px",
-    fontWeight: 800,
-  },
-
-  classText: {
-    marginTop: "5px",
-    color: "#475569",
-    fontSize: "14px",
-  },
-
-  errorBox: {
-    background: "#fef2f2",
-    border: "1px solid #fecaca",
-    color: "#991b1b",
-    borderRadius: "14px",
-    padding: "18px",
-    marginBottom: "22px",
-  },
-
-  errorText: {
-    marginTop: "6px",
-    fontSize: "14px",
-  },
-
-  scheduleSection: {
-    background: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: "20px",
-    padding: "22px",
-    boxShadow: "0 10px 30px rgba(15, 23, 42, 0.06)",
-  },
-
-  sectionHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "15px",
-    marginBottom: "20px",
-    flexWrap: "wrap",
-  },
-
-  sectionTitle: {
-    margin: 0,
-    fontSize: "22px",
-    fontWeight: 800,
-  },
-
-  sectionSubtitle: {
-    margin: "5px 0 0",
-    color: "#64748b",
-    fontSize: "14px",
-  },
-
-  classBadge: {
-    background: "#eff6ff",
-    color: "#1d4ed8",
-    border: "1px solid #bfdbfe",
-    padding: "8px 13px",
-    borderRadius: "999px",
-    fontWeight: 800,
-    fontSize: "13px",
-  },
-
-  daysGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: "16px",
-  },
-
-  dayCard: {
-    border: "1px solid #e2e8f0",
-    borderRadius: "16px",
-    overflow: "hidden",
-    background: "#f8fafc",
-  },
-
-  dayHeader: {
-    background: "#eff6ff",
-    borderBottom: "1px solid #dbeafe",
-    padding: "14px 16px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "10px",
-  },
-
-  dayTitle: { margin: 0, fontSize: "14px", fontWeight: 850, whiteSpace: "nowrap", flexShrink: 0 },
-
-  classCount: {
-    background: "#ffffff",
-    color: "#475569",
-    border: "1px solid #dbeafe",
-    borderRadius: "999px",
-    padding: "5px 9px",
-    fontSize: "11px",
-    fontWeight: 700,
-    whiteSpace: "nowrap",
-  },
-
-  holidayBadge: {
-    background: "#ffedd5",
-    color: "#c2410c",
-    border: "1px solid #fed7aa",
-    borderRadius: "999px",
-    padding: "5px 9px",
-    fontSize: "11px",
-    fontWeight: 800,
-    whiteSpace: "nowrap",
-  },
-
-  dayContent: {
-    padding: "12px",
-  },
-
-  classItem: { background: "#fff", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "5px 8px", marginBottom: "5px", minWidth: 0 },
-  infoRow: { display: "grid", gridTemplateColumns: "132px minmax(0,1fr)", alignItems: "center", gap: "5px", minWidth: 0, padding: "2px 0", lineHeight: "1.15" },
-  rowLabel: { color: "#64748b", fontSize: "8px", fontWeight: 800, letterSpacing: "0.25px", whiteSpace: "nowrap" },
-  rowValue: { color: "#0f172a", fontSize: "11px", fontWeight: 700, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
-  arrow: { color: "#2563eb", fontWeight: 900, margin: "0 2px" },
-
-  holidayBox: {
-    textAlign: "center",
-    padding: "28px 12px",
-    background: "#fff7ed",
-    border: "1px solid #fed7aa",
-    borderRadius: "12px",
-  },
-
-  holidayIcon: {
-    fontSize: "32px",
-    marginBottom: "7px",
-  },
-
-  holidayTitle: { margin: 0, fontSize: "14px", fontWeight: 850, whiteSpace: "nowrap", flexShrink: 0 },
-
-  holidayText: {
-    marginTop: "5px",
-    color: "#9a3412",
-    fontSize: "12px",
-  },
-
-  emptyDay: {
-    textAlign: "center",
-    padding: "28px 12px",
-  },
-
-  emptyIcon: {
-    fontSize: "27px",
-    marginBottom: "7px",
-  },
-
-  emptyTitle: {
-    fontSize: "13px",
-    fontWeight: 700,
-    color: "#475569",
-  },
-
-  emptyText: {
-    marginTop: "4px",
-    color: "#94a3b8",
-    fontSize: "11px",
-  },  teacherTimetableBox: {
-    background: "#ffffff",
-    border: "1px solid #dbe3ee",
-    borderRadius: "10px",
-    padding: "8px 10px",
-    width: "100%",
-    boxSizing: "border-box",
-    overflow: "hidden",
-  },
-  teacherTimetableTitle: {
-    fontSize: "10px",
-    fontWeight: 850,
-    color: "#2563eb",
-    letterSpacing: "0.3px",
-    paddingBottom: "6px",
-    marginBottom: "3px",
-    borderBottom: "1px solid #e5e7eb",
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-  },
-  teacherScheduleItem: {
-    padding: "4px 0",
-    borderBottom: "1px solid #f1f5f9",
-  },
-  teacherDayRow: {
-    display: "grid",
-    gridTemplateColumns: "72px minmax(0,1fr)",
-    gap: "5px",
-    alignItems: "center",
-    lineHeight: "1.15",
-    padding: "2px 0",
-  },
-  teacherDayLabel: {
-    fontSize: "9px",
-    fontWeight: 850,
-    color: "#64748b",
-    whiteSpace: "nowrap",
-  },
-  teacherDayValue: {
-    fontSize: "11px",
-    fontWeight: 700,
-    color: "#0f172a",
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  scheduleArrow: {
-    color: "#2563eb",
-    fontWeight: 900,
-    margin: "0 2px",
-  },
-
-  noTimetableBox: {
-    marginTop: "18px",
-    textAlign: "center",
-    border: "1px dashed #cbd5e1",
-    borderRadius: "14px",
-    padding: "30px 15px",
-    background: "#f8fafc",
-  },
-
-  noTimetableIcon: {
-    fontSize: "35px",
-  },
-
-  noTimetableTitle: {
-    margin: "8px 0 4px",
-    fontSize: "18px",
-  },
-
-  noTimetableText: {
-    margin: 0,
-    color: "#64748b",
-    fontSize: "13px",
-  },
-
-  loadingCard: {
-    maxWidth: "500px",
-    margin: "15vh auto",
-    textAlign: "center",
-    background: "#ffffff",
-    borderRadius: "20px",
-    padding: "40px 25px",
-    boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)",
-  },
-
-  loadingIcon: {
-    fontSize: "45px",
-  },
-
-  loadingTitle: {
-    margin: "12px 0 5px",
-    fontSize: "22px",
-  },
-
-  loadingText: {
-    margin: 0,
-    color: "#64748b",
-    fontSize: "14px",
-  },
-
-  footer: {
-    textAlign: "center",
-    marginTop: "25px",
-    color: "#475569",
-    fontWeight: 800,
-    fontSize: "13px",
-  },
-
-  footerText: {
-    marginTop: "4px",
-    color: "#94a3b8",
-    fontWeight: 500,
-    fontSize: "11px",
-  },
-};
-
-
-
-
-
-
-
-

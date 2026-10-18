@@ -6,6 +6,7 @@ import { PushNotifications } from "@capacitor/push-notifications";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { getStudentCalendarEvent } from "../../../lib/student-calendar-events";
+import { isHiddenStudentTimetableTeacher } from "../../../lib/student-timetable";
 
 type DashboardCard = {
   icon: string;
@@ -120,13 +121,13 @@ export default function StudentDashboardPage() {
         const { data: studentRow } = await supabase.from("students").select("class_name").eq("id", studentId).maybeSingle();
         const className = String(studentRow?.class_name || "").trim().toLowerCase();
         if (className) {
-          const { data: timetableRows } = await supabase.from("timetables").select("day_of_week,subject,start_time,end_time,class_names,is_holiday");
+          const { data: timetableRows } = await supabase.from("timetables").select("day_of_week,subject,start_time,end_time,class_names,is_holiday,teacher_name");
           const todayName = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(now);
           const orderedDays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
           const currentDayIndex = now.getDay();
           const currentMinutes = now.getHours() * 60 + now.getMinutes();
           const upcomingClass = (timetableRows || []).filter((entry: any) => {
-            if (entry.is_holiday || !Array.isArray(entry.class_names) || !entry.class_names.some((name: string) => String(name).trim().toLowerCase() === className)) return false;
+            if (entry.is_holiday || isHiddenStudentTimetableTeacher(entry.teacher_name) || !Array.isArray(entry.class_names) || !entry.class_names.some((name: string) => String(name).trim().toLowerCase() === className)) return false;
             const dayIndex = orderedDays.findIndex((day) => day.toLowerCase() === String(entry.day_of_week).toLowerCase());
             if (dayIndex < 0) return false;
             const dayOffset = (dayIndex - currentDayIndex + 7) % 7;
