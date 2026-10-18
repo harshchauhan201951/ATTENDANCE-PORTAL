@@ -237,9 +237,7 @@ export default function TeacherDashboard() {
     ];
     authKeys.forEach((key) => localStorage.removeItem(key));
     authKeys.forEach((key) => sessionStorage.removeItem(key));
-    await new Promise((resolve) => setTimeout(resolve, 100));
     router.replace("/");
-    router.refresh();
   }
 
   return (
@@ -295,7 +293,7 @@ export default function TeacherDashboard() {
           {vipQuick.map((path) => {
             const m = vipModule(path);
             return (
-              <button key={path} type="button" className="vip-td-q" data-tone={vipTone(path)} onClick={() => router.push(path)}>
+              <button key={path} type="button" className="vip-td-q" data-tone={vipTone(path)} onPointerEnter={() => router.prefetch(path)} onFocus={() => router.prefetch(path)} onClick={() => router.push(path)}>
                 <span className="vip-td-q-ico"><Icon name={m[2]} size={21} /></span>
                 <span>{m[0]}</span>
               </button>
@@ -314,7 +312,7 @@ export default function TeacherDashboard() {
                 {group.paths.map((path) => {
                   const m = vipModule(path);
                   return (
-                    <button key={path} type="button" className="vip-td-tile" data-tone={vipTone(path)} onClick={() => router.push(path)}>
+                    <button key={path} type="button" className="vip-td-tile" data-tone={vipTone(path)} onPointerEnter={() => router.prefetch(path)} onFocus={() => router.prefetch(path)} onClick={() => router.push(path)}>
                       <span className="vip-td-tile-ico"><Icon name={m[2]} size={24} /></span>
                       <span className="vip-td-tile-title">{m[0]}</span>
                     </button>

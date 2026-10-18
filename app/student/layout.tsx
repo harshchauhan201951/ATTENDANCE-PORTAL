@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import RacerPageActions from "../../components/RacerPageActions"; import { supabase } from "../../lib/supabase";
@@ -59,8 +59,6 @@ function getStudentDesktopModule(pathname: string) {
 }
 
 export default function StudentLayout({ children }: { children: ReactNode }) {
-  const [studentAccountChecking, setStudentAccountChecking] = useState(true);
-  const [studentAccountActive, setStudentAccountActive] = useState(true);
   const [headerName, setHeaderName] = useState("Student");
   const [headerTime, setHeaderTime] = useState(""); const [profileImage, setProfileImage] = useState<string | null>(null);
 
@@ -104,7 +102,6 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
         const username = localStorage.getItem("studentUsername") || localStorage.getItem("student_username") || "";
         const rawStudentId = localStorage.getItem("attendance_student_id") || localStorage.getItem("studentId") || localStorage.getItem("student_id") || "";
         if (!username && !rawStudentId) {
-          if (!cancelled) setStudentAccountChecking(false);
           return;
         }
         let query = supabase.from("students").select("id,is_active");
@@ -113,7 +110,6 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
         } else {
           const numericId = Number(rawStudentId);
           if (!Number.isInteger(numericId) || numericId <= 0) {
-            if (!cancelled) setStudentAccountChecking(false);
             return;
           }
           query = query.eq("id", numericId);
@@ -121,14 +117,9 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
         const { data } = await query.maybeSingle();
         const active = data ? data.is_active !== false : true;
         if (!cancelled) {
-          setStudentAccountActive(active);
           localStorage.setItem("studentAccountActive", String(active));
         }
-      } catch {
-        if (!cancelled) setStudentAccountActive(true);
-      } finally {
-        if (!cancelled) setStudentAccountChecking(false);
-      }
+      } catch {}
     })();
     return () => { cancelled = true; };
   }, []);
@@ -136,17 +127,7 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isDashboard = pathname === "/student/dashboard";
 
-  if (studentAccountChecking) {
-    return (
-      <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: "24px", fontFamily: "Arial, sans-serif" }}>
-        <div style={{ textAlign: "center" }}>
-          <strong style={{ display: "block", fontSize: "16px" }}>Checking account...</strong>
-          <span style={{ display: "block", marginTop: "6px", fontSize: "12px", color: "#64748b" }}>Please wait</span>
-        </div>
-      </div>
-    );
-  }
-
+  const router = useRouter();
   const desktopModule = getStudentDesktopModule(pathname);
 
   const handleDesktopLogout = () => {
@@ -154,7 +135,7 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
       localStorage.removeItem(key);
       sessionStorage.removeItem(key);
     });
-    window.location.href = "/";
+    router.replace("/");
   };
 
   return (

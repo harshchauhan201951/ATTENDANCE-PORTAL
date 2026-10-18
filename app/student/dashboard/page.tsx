@@ -2071,6 +2071,8 @@ export default function StudentDashboardPage() {
                   <button
                     key={card.path}
                     type="button"
+                    onPointerEnter={() => router.prefetch(card.path)}
+                    onFocus={() => router.prefetch(card.path)}
                     onClick={() =>
                       router.push(
                         card.path
@@ -2195,6 +2197,8 @@ export default function StudentDashboardPage() {
 
             <button
               type="button"
+              onPointerEnter={() => router.prefetch("/student/profile")}
+              onFocus={() => router.prefetch("/student/profile")}
               onClick={() =>
                 router.push(
                   "/student/profile"

@@ -1,5 +1,5 @@
 ﻿"use client";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 type NotificationItem={id:number;student_id:number;category:string;title:string;message:string;url:string;is_read:boolean;audio_url:string|null;metadata:Record<string,unknown>;created_at:string;read_at?:string};
 const categoryInfo:Record<string,{icon:string;label:string}>={
@@ -18,7 +18,7 @@ const categoryInfo:Record<string,{icon:string;label:string}>={
   attendance:{icon:"✅",label:"Attendance"},
   result:{icon:"🏆",label:"Result"}
 };
-export default function StudentNotificationsPage(){
+function StudentNotificationsContent(){
   const router=useRouter(); const searchParams=useSearchParams(); const requestedAnnouncementId=searchParams.get("announcementId");
   const[items,setItems]=useState<NotificationItem[]>([]);
   const[loading,setLoading]=useState(true);
@@ -119,5 +119,9 @@ export default function StudentNotificationsPage(){
       </div>}
     </div>
   </main>;
+}
+
+export default function StudentNotificationsPage(){
+  return <Suspense fallback={<main role="status" style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"#f5f7fb",fontFamily:"Arial,sans-serif",fontWeight:700,color:"#173776"}}>Opening notifications…</main>}><StudentNotificationsContent /></Suspense>;
 }
 

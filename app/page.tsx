@@ -380,12 +380,13 @@ function getComboFee(
   );
 }
 
-type SavedStudent = {
-  id: string;
-  username: string;
-  name: string;
-  data: any;
-};
+function withoutPasswordFields(value: any): any {
+  if (Array.isArray(value)) return value.map(withoutPasswordFields);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.entries(value)
+    .filter(([key]) => !key.toLowerCase().includes("password"))
+    .map(([key, nested]) => [key, withoutPasswordFields(nested)]));
+}
 
 export default function HomePage() {
   const router = useRouter();
@@ -433,10 +434,6 @@ export default function HomePage() {
 
   const [showAcademyInfo, setShowAcademyInfo] = useState(false);
 
-  const [savedTeachers, setSavedTeachers] = useState<SavedStudent[]>([]);
-
-
-
   const [selectedMedium, setSelectedMedium] =
     useState<FeeMedium>("Hindi Medium");
 
@@ -474,87 +471,10 @@ export default function HomePage() {
       return;
     }
 
-    // Remove legacy account chips. Passwords belong in the browser's password manager.
+    // Remove legacy app-managed account chips. Browser password managers handle credentials.
     localStorage.removeItem("racer_saved_students");
-
-    try {
-      const savedTeachers = JSON.parse(
-        localStorage.getItem("racer_saved_teachers") || "[]"
-      );
-
-      if (Array.isArray(savedTeachers)) {
-        setSavedTeachers(
-          savedTeachers
-            .filter((item) => item?.id && item?.username)
-            .slice(0, 6)
-        );
-      }
-    } catch {
-      setSavedTeachers([]);
-    }
+    localStorage.removeItem("racer_saved_teachers");
   }, [router]);
-
-  const saveTeacherAccount = (userData: any) => {
-    const id = String(userData?.id || "").trim();
-    const teacherUsername = String(userData?.teacher_username || "").trim();
-
-    if (!id || !teacherUsername) {
-      return;
-    }
-
-    const safeData = Object.fromEntries(
-      Object.entries(userData).filter(
-        ([key]) => !key.toLowerCase().includes("password")
-      )
-    );
-
-    const account: SavedStudent = {
-      id,
-      username: teacherUsername,
-      name: String(
-        userData?.teacher_name || userData?.teacherName || userData?.name || "Teacher"
-      ),
-      data: safeData,
-    };
-
-    try {
-      const saved = JSON.parse(
-        localStorage.getItem("racer_saved_teachers") || "[]"
-      );
-
-      const list = Array.isArray(saved) ? saved : [];
-      const next = [
-        account,
-        ...list.filter(
-          (item) =>
-            String(item?.id || "") !== id &&
-            String(item?.username || "").toLowerCase() !==
-              teacherUsername.toLowerCase()
-        ),
-      ].slice(0, 6);
-
-      localStorage.setItem(
-        "racer_saved_teachers",
-        JSON.stringify(next)
-      );
-
-      setSavedTeachers(next);
-    } catch {}
-  };
-
-  const quickLoginSavedTeacher = (account: SavedStudent) => {
-    if (loading) return;
-
-    setLoginType("teacher");
-    setUsername(account.username || "");
-    setPassword("");
-    setError("");
-    setShowPassword(false);
-
-    window.setTimeout(() => {
-      document.getElementById("password")?.focus();
-    }, 0);
-  };
   useEffect(() => {
     async function loadAcademyData() {
       try {
@@ -702,6 +622,31 @@ export default function HomePage() {
     loadAcademyData();
   }, []);
 
+  async function offerBrowserPasswordSave(
+    accountType: LoginType,
+    accountUsername: string,
+    accountPassword: string
+  ) {
+    try {
+      const credentialWindow = window as Window & {
+        PasswordCredential?: new (data: { id: string; password: string; name?: string }) => Credential;
+      };
+      const credentialContainer = navigator.credentials as CredentialsContainer & {
+        store?: (credential: Credential) => Promise<Credential | null>;
+      };
+      if (!credentialWindow.PasswordCredential || !credentialContainer.store) return;
+      const credential = new credentialWindow.PasswordCredential({
+        id: accountUsername,
+        password: accountPassword,
+        name: `RACER ACADEMY ${accountType}`,
+      });
+      // The browser owns the native Save password? prompt and secure credential storage.
+      await credentialContainer.store(credential);
+    } catch {
+      // Unsupported browsers can still offer native saving from the semantic login form.
+    }
+  }
+
   const handleLogin = async (
     e: FormEvent<HTMLFormElement>
   ) => {
@@ -772,27 +717,7 @@ export default function HomePage() {
 
         const userData = data[0];
 
-        // Ask the browser's password manager to offer its native save/update prompt.
-        try {
-          const passwordCredentialWindow = window as Window & {
-            PasswordCredential?: new (form: HTMLFormElement) => Credential;
-          };
-          const credentialStore = navigator.credentials as CredentialsContainer & {
-            store?: (credential: Credential) => Promise<Credential | null>;
-          };
-          const loginForm = document.querySelector<HTMLFormElement>(
-            'form[name="racer-login"]'
-          );
-          if (
-            passwordCredentialWindow.PasswordCredential &&
-            credentialStore.store &&
-            loginForm
-          ) {
-            void credentialStore
-              .store(new passwordCredentialWindow.PasswordCredential(loginForm))
-              .catch(() => undefined);
-          }
-        } catch {}
+        void offerBrowserPasswordSave("student", cleanUsername, cleanPassword);
 
         const currentStudentId =
           Number(userData.id);
@@ -824,14 +749,15 @@ export default function HomePage() {
           }
         }
 
+        const safeUserData = withoutPasswordFields(userData);
         localStorage.setItem(
           "racer_academy_student",
-          JSON.stringify(userData)
+          JSON.stringify(safeUserData)
         );
 
         localStorage.setItem(
           "student",
-          JSON.stringify(userData)
+          JSON.stringify(safeUserData)
         );
 
         localStorage.setItem(
@@ -870,6 +796,7 @@ export default function HomePage() {
             ""
         );
 
+        setPassword("");
         router.push(
           "/student/dashboard"
         );
@@ -962,6 +889,8 @@ export default function HomePage() {
           userData.teacher_username
         ).trim();
 
+      void offerBrowserPasswordSave("teacher", cleanUsername, cleanPassword);
+
       const teacherId =
         String(userData.id);
 
@@ -969,14 +898,15 @@ export default function HomePage() {
       // SAVE TEACHER DATA IN LOCAL STORAGE
       // =========================================================
 
+      const safeUserData = withoutPasswordFields(userData);
       localStorage.setItem(
         "racer_academy_teacher",
-        JSON.stringify(userData)
+        JSON.stringify(safeUserData)
       );
 
       localStorage.setItem(
         "teacher",
-        JSON.stringify(userData)
+        JSON.stringify(safeUserData)
       );
 
       sessionStorage.setItem(
@@ -1102,15 +1032,11 @@ export default function HomePage() {
       );
 
       // =========================================================
-      // REDIRECT TO TEACHER DASHBOARD
-      // Hard navigation makes sure the /teacher page
-      // reloads after all login data has been saved.
+      // Navigate directly to the teacher dashboard without a full page reload.
       // =========================================================
 
-      saveTeacherAccount(userData);
-window.location.replace(
-        "/teacher"
-      );
+      setPassword("");
+      router.replace("/teacher/dashboard");
 
       return;
     } catch (err) {
@@ -2600,41 +2526,6 @@ window.location.replace(
                   </p>
                 </div>
 
-                {loginType === "teacher" && savedTeachers.length > 0 && (
-                  <div className="saved-students">
-                    <div className="saved-students-heading">
-                      <span></span>
-                      <strong>Saved Teacher Accounts</strong>
-                    </div>
-
-                    <div className="saved-student-list">
-                      {savedTeachers.map((teacher) => (
-                        <button
-                          type="button"
-                          className="saved-student-button"
-                          key={`${teacher.id}-${teacher.username}`}
-                          onClick={() => quickLoginSavedTeacher(teacher)}
-                          disabled={loading}
-                        >
-                          <span className="saved-student-avatar">
-                            T
-                          </span>
-
-                          <span className="saved-student-text">
-                            <strong>
-                              {teacher.name || "Teacher"}
-                            </strong>
-                            <small>{teacher.username}</small>
-                          </span>
-
-                          <span className="saved-student-arrow">
-                            &gt;
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
                 <form
                   onSubmit={handleLogin}
                   className="racer-form"
@@ -2651,7 +2542,7 @@ window.location.replace(
 
                       <input
                         id="username"
-                        name="id"
+                        name="username"
                         type="text"
                         value={username}
                         onChange={(e) =>
@@ -2666,6 +2557,8 @@ window.location.replace(
                             : "Enter teacher username"
                         }
                         autoComplete="username"
+                        autoCapitalize="none"
+                        spellCheck={false}
                         disabled={
                           loading
                         }

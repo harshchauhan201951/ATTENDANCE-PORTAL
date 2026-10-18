@@ -2,7 +2,7 @@
 import "./teacher-mobile-header-fix.css";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import "../racer-teacher-desktop.css";
@@ -61,6 +61,7 @@ function getTeacherModuleKey(pathname: string) {
 }
 
 export default function TeacherLayout({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [headerName, setHeaderName] = useState("Teacher");
   const [headerTime, setHeaderTime] = useState(""); const [profileImage, setProfileImage] = useState<string | null>(null);
 
@@ -71,23 +72,6 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
     const updateHeaderTime = () => setHeaderTime(new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }));
     updateHeaderTime();
     const timer = setInterval(updateHeaderTime, 1000);
-    // RACER_SHARED_FIXED_HEADER_LOGOUT
-  function handleSharedTeacherLogout() {
-    const keys = [
-      "teacher_username",
-      "teacherUsername",
-      "teacherLoggedIn",
-      "attendance_role",
-      "attendance_username",
-      "attendance_teacher_id",
-      "teacher_id",
-    ];
-    keys.forEach((key) => {
-      localStorage.removeItem(key);
-      sessionStorage.removeItem(key);
-    });
-    window.location.href = "/";
-  }
 return () => clearInterval(timer);
   }, []);
   const pathname = usePathname();
@@ -97,7 +81,7 @@ return () => clearInterval(timer);
       localStorage.removeItem(key);
       sessionStorage.removeItem(key);
     });
-    window.location.href = "/";
+    router.replace("/");
   };
 
   return (
@@ -113,7 +97,7 @@ return () => clearInterval(timer);
         </Link>
         <div className="rtd-title">{getTeacherDesktopTitle(pathname)}</div>
         <div className="rtd-tools">
-          {!isDashboard && <button type="button" className="rtd-btn" onClick={() => window.history.back()}>Back</button>}
+          {!isDashboard && <button type="button" className="rtd-btn" onClick={() => router.back()}>Back</button>}
           <button type="button" className="rtd-btn" onClick={() => window.location.reload()}>Refresh</button>
           <Link href="/teacher/profile" className="rtd-user">
             <span className="rtd-avatar">{profileImage ? <img src={profileImage} alt="" onError={() => setProfileImage(null)} /> : headerName.slice(0, 1).toUpperCase()}</span>
@@ -182,7 +166,7 @@ return () => clearInterval(timer);
               <button
                 type="button"
                 className="racer-shared-fixed-logout"
-                onClick={() => { ["teacher_username","teacherUsername","teacherLoggedIn","attendance_role","attendance_username","attendance_teacher_id","teacher_id"].forEach((key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }); window.location.href = "/"; }}
+                onClick={() => { ["teacher_username","teacherUsername","teacherLoggedIn","attendance_role","attendance_username","attendance_teacher_id","teacher_id"].forEach((key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }); router.replace("/"); }}
               >
                 Logout
               </button>
@@ -190,7 +174,7 @@ return () => clearInterval(timer);
           </div>
 
           <div className="racer-shared-fixed-actions" aria-label="Teacher page actions">
-            <button type="button" onClick={() => window.history.back()} className="racer-shared-action back">
+            <button type="button" onClick={() => router.back()} className="racer-shared-action back">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M19 12H5M11 18l-6-6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -214,7 +198,7 @@ return () => clearInterval(timer);
               <span>Dashboard</span>
             </Link>
 
-            <button type="button" onClick={() => { ["teacher_username","teacherUsername","teacherLoggedIn","attendance_role","attendance_username","attendance_teacher_id","teacher_id"].forEach((key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }); window.location.href = "/"; }} className="racer-shared-action logout">
+            <button type="button" onClick={() => { ["teacher_username","teacherUsername","teacherLoggedIn","attendance_role","attendance_username","attendance_teacher_id","teacher_id"].forEach((key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }); router.replace("/"); }} className="racer-shared-action logout">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M10 5H5v14h5M15 8l4 4-4 4M9 12h10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
