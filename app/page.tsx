@@ -717,6 +717,18 @@ export default function HomePage() {
 
         const userData = data[0];
 
+        const secureSessionResponse = await fetch("/api/student/session", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: cleanUsername, password: cleanPassword }),
+        });
+        const secureSessionResult = await secureSessionResponse.json().catch(() => null);
+        if (!secureSessionResponse.ok || !secureSessionResult?.success) {
+          setError(secureSessionResult?.error || "Secure student sign-in could not be started. Please try again.");
+          return;
+        }
+
         void offerBrowserPasswordSave("student", cleanUsername, cleanPassword);
 
         const currentStudentId =

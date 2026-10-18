@@ -131,6 +131,7 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
   const desktopModule = getStudentDesktopModule(pathname);
 
   const handleDesktopLogout = () => {
+    void fetch("/api/student/session", { method: "DELETE", credentials: "same-origin" }).catch(() => undefined);
     ["student_username", "studentUsername", "studentLoggedIn", "attendance_student_id", "studentId", "student_id", "attendance_student_name", "studentName", "student_name"].forEach((key) => {
       localStorage.removeItem(key);
       sessionStorage.removeItem(key);
