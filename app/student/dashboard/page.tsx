@@ -107,10 +107,11 @@ export default function StudentDashboardPage() {
     const loadFacts = async () => {
       const now = new Date();
       const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-      const [attendanceResult, feeResult, quizResult] = await Promise.all([
-        supabase.from("attendance").select("attendance_date,status").eq("student_id", studentId).order("attendance_date", { ascending: false }).order("id", { ascending: false }).limit(1),
+      const [attendanceResult, feeResult, quizResult, weeklyRecordsResult] = await Promise.all([
+        supabase.from("attendance").select("attendance_date,status").eq("student_id", studentId).order("attendance_date", { ascending: false }).order("id", { ascending: false }),
         supabase.from("fees").select("month,year,amount,status").eq("student_id", studentId).order("year", { ascending: false }).order("month", { ascending: false }).limit(12),
         supabase.from("quiz_results").select("quiz_id,total_marks,obtained_marks,percentage,submitted_at,created_at").eq("student_id", studentId).not("submitted_at", "is", null).order("submitted_at", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false }).limit(1),
+        supabase.from("academy_assessments").select("id,test_name,test_date,total_marks,obtained_marks,subject,attendance_status").eq("student_id", studentId).order("id", { ascending: false }).limit(100),
       ]);
 
       let timetableFact = "No upcoming class is listed in your timetable.";
@@ -154,10 +155,17 @@ export default function StudentDashboardPage() {
       } catch {}
 
       /* Use only the next published/scheduled class, never a class already over. */
-      const attendance = attendanceResult.data?.[0];
-      const attendanceFact = attendance?.attendance_date === today
-        ? `Today: ${String(attendance.status || "Marked").toLowerCase() === "present" ? "Present" : String(attendance.status || "Marked")}.`
-        : "Today's attendance has not been marked yet.";
+      const attendanceRows = attendanceResult.data || [];
+      const countedAttendance = attendanceRows.filter((row) => !["holiday", "off", "not applicable"].includes(String(row.status || "").trim().toLowerCase()));
+      const presentCount = countedAttendance.filter((row) => String(row.status || "").trim().toLowerCase() === "present").length;
+      const absentCount = countedAttendance.filter((row) => String(row.status || "").trim().toLowerCase() === "absent").length;
+      const totalClasses = countedAttendance.length;
+      const attendancePercentage = totalClasses ? Math.round((presentCount / totalClasses) * 100) : 0;
+      const todayAttendance = attendanceRows.find((row) => row.attendance_date === today);
+      const overallAttendance = `Overall ${attendancePercentage}% · ${presentCount}/${totalClasses} present · ${absentCount} absent.`;
+      const attendanceFact = todayAttendance
+        ? `Today ${String(todayAttendance.status || "Marked")} · ${overallAttendance}`
+        : `Not marked today · ${overallAttendance}`;
 
       const pendingFees = (feeResult.data || []).filter((fee) => String(fee.status || "").toUpperCase() === "PENDING");
       const pendingTotal = pendingFees.reduce((sum, fee) => sum + Number(fee.amount || 0), 0);
@@ -181,7 +189,18 @@ export default function StudentDashboardPage() {
         : "No submitted quiz result yet.";
 
       let performanceFact = "Your latest monthly performance will appear here when a result is released.";
-      let weeklyTestFact = "No Saturday test result published yet.";
+      let weeklyTestFact = "No Saturday test result found yet.";
+      const latestWeeklyRecord = (weeklyRecordsResult.data || []).find((record: any) => {
+        const dateParts = String(record.test_date || "").slice(0, 10).split("-").map(Number);
+        const isSaturday = dateParts.length === 3 && new Date(dateParts[0], dateParts[1] - 1, dateParts[2]).getDay() === 6;
+        return isSaturday && !/maha\s*test/i.test(String(record.test_name || "")) && String(record.attendance_status || "PRESENT").toUpperCase() === "PRESENT";
+      });
+      if (latestWeeklyRecord) {
+        const obtained = Number(latestWeeklyRecord.obtained_marks || 0);
+        const total = Number(latestWeeklyRecord.total_marks || 0);
+        const percentage = total > 0 ? (obtained / total) * 100 : 0;
+        weeklyTestFact = `${latestWeeklyRecord.test_name || "Saturday Weekly Test"} · ${latestWeeklyRecord.subject || "Weekly test"} · ${dashboardDate(latestWeeklyRecord.test_date)} · ${obtained}/${total} (${percentage.toFixed(0)}%).`;
+      }
       try {
         const periodsResponse = await fetch("/api/monthly-results/publish?list=1", { cache: "no-store" });
         const periodsData = await periodsResponse.json();
@@ -192,7 +211,7 @@ export default function StudentDashboardPage() {
           const resultData = await resultResponse.json();
           const snapshot = resultData?.results?.[0]?.snapshot;
           if (snapshot?.totals) performanceFact = `${snapshot.monthLabel || period.month_key} · ${Number(snapshot.totals.percentage || 0).toFixed(1)}% · ${snapshot.totals.status || "Published"} (${snapshot.totals.grandObtained}/${snapshot.totals.grandTotal}).`;
-          const latestWeeklyTest = Array.isArray(snapshot?.weeklyTests)
+          const latestWeeklyTest = !latestWeeklyRecord && Array.isArray(snapshot?.weeklyTests)
             ? [...snapshot.weeklyTests].sort((a: any, b: any) => String(b.date || "").localeCompare(String(a.date || "")))[0]
             : null;
           if (latestWeeklyTest) weeklyTestFact = `${latestWeeklyTest.name} · ${latestWeeklyTest.subject || "Weekly test"} · ${dashboardDate(latestWeeklyTest.date)} · ${latestWeeklyTest.obtained}/${latestWeeklyTest.total} (${Number(latestWeeklyTest.percentage || 0).toFixed(0)}%).`;
