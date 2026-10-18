@@ -7971,6 +7971,58 @@ body:has(.racer-student-fixed-header) {
   .racer-teacher-shell [data-teacher-module="attendance"] .racer-vip-attendance-buttons button { width: 52px !important; min-width: 0 !important; padding-left: 3px !important; padding-right: 3px !important; }
 }
 
+.racer-student-shell .student-weekly-report { width:min(100%,1120px); margin:0 auto; padding:24px 22px 40px; }
+.racer-student-shell .student-weekly-report-hero { padding:24px 26px; margin-bottom:16px; border:1px solid #d7e6f7; border-radius:22px; background:linear-gradient(125deg,#e9f3ff,#fff); box-shadow:0 10px 24px rgba(20,60,110,.08); }
+.racer-student-shell .student-weekly-report-hero>span,.racer-student-shell .student-weekly-report-panel-head>div>span { color:#5275a2; font-size:10px; font-weight:900; letter-spacing:1.4px; }
+.racer-student-shell .student-weekly-report-hero h1 { margin:7px 0 4px; color:#183454!important; font-size:clamp(23px,3.5vw,34px); line-height:1.15; }
+.racer-student-shell .student-weekly-report-hero p { margin:0; color:#66798e; font-size:13px; }
+.racer-student-shell .student-weekly-report-error { padding:12px 14px; margin-bottom:12px; border:1px solid #fecaca; border-radius:12px; background:#fff1f2; color:#a11b1b; font-weight:700; }
+.racer-student-shell .student-weekly-report-stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-bottom:15px; }
+.racer-student-shell .student-weekly-report-stats article { display:grid; gap:6px; padding:15px 17px; border:1px solid #e0e9f4; border-radius:16px; background:#fff; box-shadow:0 4px 12px rgba(20,60,110,.05); }
+.racer-student-shell .student-weekly-report-stats span { color:#73849a; font-size:9px; font-weight:900; letter-spacing:.8px; }
+.racer-student-shell .student-weekly-report-stats strong { color:#183454; font-size:22px; }
+.racer-student-shell .student-weekly-report-panel { padding:19px; border:1px solid #e0e9f4; border-radius:20px; background:#fff; box-shadow:0 5px 18px rgba(20,60,110,.06); }
+.racer-student-shell .student-weekly-report-panel-head { display:flex; justify-content:space-between; align-items:center; gap:14px; margin-bottom:14px; }
+.racer-student-shell .student-weekly-report-panel-head h2 { margin:4px 0 0; color:#183454!important; font-size:20px; }
+.racer-student-shell .student-weekly-report-panel-head label { display:grid; gap:4px; color:#63758a; font-size:10px; font-weight:800; }
+.racer-student-shell .student-weekly-report-panel-head select { min-width:150px; padding:9px 11px; border:1px solid #d8e3ef; border-radius:10px; background:#fff; color:#183454; font-weight:700; }
+.racer-student-shell .student-weekly-report-list { display:grid; gap:9px; }
+.racer-student-shell .student-weekly-report-list article { display:grid; grid-template-columns:68px minmax(0,1fr) auto; align-items:center; gap:13px; padding:13px; border:1px solid #e4eaf2; border-radius:14px; background:#fff; }
+.racer-student-shell .student-weekly-report-list article.latest { border-color:#d7b6f4; background:linear-gradient(110deg,#faf5ff,#fff 72%); }
+.racer-student-shell .student-weekly-report-number { color:#7651a9; font-size:9px; font-weight:950; letter-spacing:.4px; }
+.racer-student-shell .student-weekly-report-test-copy { display:grid; gap:4px; min-width:0; }
+.racer-student-shell .student-weekly-report-test-copy strong { color:#203a58; font-size:14px; }
+.racer-student-shell .student-weekly-report-test-copy span,.racer-student-shell .student-weekly-report-test-copy p { margin:0; color:#728197; font-size:11px; line-height:1.4; }
+.racer-student-shell .student-weekly-report-score { display:grid; justify-items:end; gap:3px; white-space:nowrap; }
+.racer-student-shell .student-weekly-report-score strong { color:#193a62; font-size:15px; }
+.racer-student-shell .student-weekly-report-score span { color:#7651a9; font-size:11px; font-weight:900; }
+.racer-student-shell .student-weekly-report-empty,.racer-student-shell .student-weekly-report-loading { display:grid; justify-items:center; gap:8px; padding:34px 16px; color:#718198; text-align:center; }
+.racer-student-shell .student-weekly-report-empty>span { font-size:30px; }
+.racer-student-shell .student-weekly-report-empty strong { color:#203a58; }
+.racer-student-shell .student-weekly-report-empty p { max-width:360px; margin:0; font-size:12px; }
+.racer-student-shell .student-weekly-report-latest-note { color:#6d7f95; font-size:11px; }
+.racer-student-shell .student-weekly-report-back { display:inline-flex; margin-top:20px; color:#275a94; font-size:13px; font-weight:800; text-decoration:none; }
+@media(max-width:700px) {
+  .racer-student-shell .student-weekly-report { padding:14px 12px 32px; }
+  .racer-student-shell .student-weekly-report-hero { padding:18px; border-radius:17px; }
+  .racer-student-shell .student-weekly-report-hero p { font-size:11px; line-height:1.4; }
+  .racer-student-shell .student-weekly-report-stats { gap:7px; }
+  .racer-student-shell .student-weekly-report-stats article { padding:11px 8px; border-radius:13px; }
+  .racer-student-shell .student-weekly-report-stats span { font-size:7px; }
+  .racer-student-shell .student-weekly-report-stats strong { font-size:17px; }
+  .racer-student-shell .student-weekly-report-panel { padding:13px; border-radius:16px; }
+  .racer-student-shell .student-weekly-report-panel-head { align-items:flex-start; }
+  .racer-student-shell .student-weekly-report-panel-head h2 { font-size:17px; }
+  .racer-student-shell .student-weekly-report-panel-head label { font-size:9px; }
+  .racer-student-shell .student-weekly-report-panel-head select { min-width:112px; max-width:130px; padding:8px 7px; font-size:11px; }
+  .racer-student-shell .student-weekly-report-list article { grid-template-columns:47px minmax(0,1fr) auto; gap:8px; padding:10px 8px; }
+  .racer-student-shell .student-weekly-report-number { font-size:8px; }
+  .racer-student-shell .student-weekly-report-test-copy strong { font-size:12px; }
+  .racer-student-shell .student-weekly-report-test-copy span,.racer-student-shell .student-weekly-report-test-copy p { font-size:9px; }
+  .racer-student-shell .student-weekly-report-score strong { font-size:12px; }
+  .racer-student-shell .student-weekly-report-score span { font-size:9px; }
+}
+
 /* Student dashboard: restore the full desktop canvas after mobile preview rules. */
 @media (min-width: 1025px) {
   .racer-student-shell {

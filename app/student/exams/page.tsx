@@ -18,7 +18,7 @@ const examOptions = [
     action: "View final result",
   },
   {
-    href: "/student/reports?section=tests",
+    href: "/student/exams/weekly-tests",
     icon: "📊",
     title: "Saturday Weekly Tests",
     description: "Review the latest weekly test marks, subjects and report history.",

@@ -897,12 +897,6 @@ export default function StudentReportsPage() {
   const [openSection, setOpenSection] =
     useState<SectionName>("attendance");
 
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("section") === "tests") {
-      setOpenSection("tests");
-    }
-  }, []);
-
   const [expandedMonth, setExpandedMonth] =
     useState<string | null>(null);
 
