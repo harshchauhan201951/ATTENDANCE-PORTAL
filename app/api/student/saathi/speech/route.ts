@@ -34,7 +34,18 @@ export async function POST(request: Request) {
       }),
       signal: AbortSignal.timeout(30_000),
     });
-    if (!response.ok || !response.body) return NextResponse.json({ success: false, error: "Voice playback is unavailable right now." }, { status: response.status === 429 ? 429 : 502 });
+    if (!response.ok || !response.body) {
+      const providerPayload = await response.json().catch(() => null) as { error?: { type?: unknown; code?: unknown } } | null;
+      const providerType = String(providerPayload?.error?.type || "").slice(0, 80);
+      const providerCode = String(providerPayload?.error?.code || "").slice(0, 80);
+      console.error("RACER Saathi speech provider request rejected", { status: response.status, type: providerType, code: providerCode });
+      if (response.status === 401) return NextResponse.json({ success: false, error: "AI voice key rejected. Academy admin: verify OPENAI_API_KEY is the OpenAI secret key, then redeploy." }, { status: 502 });
+      if (response.status === 403) return NextResponse.json({ success: false, error: "AI voice access is not enabled for this key or project. Academy admin: check API permissions and billing." }, { status: 502 });
+      if (response.status === 429 && ["insufficient_quota", "billing_hard_limit_reached", "usage_limit_reached"].includes(providerCode)) return NextResponse.json({ success: false, error: "OpenAI API credits or usage limit are exhausted. Academy admin: check API billing, then try again." }, { status: 503 });
+      if (response.status === 429) return NextResponse.json({ success: false, error: "AI voice is busy or its rate limit was reached. Please wait a moment and try again." }, { status: 429 });
+      if (response.status === 404 || providerCode === "model_not_found") return NextResponse.json({ success: false, error: "The configured voice model is unavailable. Academy admin: check OPENAI_TTS_MODEL." }, { status: 502 });
+      return NextResponse.json({ success: false, error: "AI voice provider is temporarily unavailable. Please try again shortly." }, { status: 502 });
+    }
     return new Response(response.body, { headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-RACER-Voice": voice } });
   } catch {
     return NextResponse.json({ success: false, error: "Voice playback failed. Please try again." }, { status: 502 });
