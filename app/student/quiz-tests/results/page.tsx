@@ -138,7 +138,7 @@ function dateTimeText(
   value: string | null
 ): string {
   if (!value) {
-    return "â€”";
+    return "—";
   }
 
   const date = new Date(value);
@@ -160,7 +160,7 @@ function dateText(
   value: string | null
 ): string {
   if (!value) {
-    return "â€”";
+    return "—";
   }
 
   const date = new Date(
@@ -182,7 +182,7 @@ function timeText(
   value: string | null
 ): string {
   if (!value) {
-    return "â€”";
+    return "—";
   }
 
   const parts = value.split(":");
@@ -1961,7 +1961,7 @@ function ResultsContent() {
                       )}`
                     : studentClass
                       ? `Class ${studentClass}`
-                      : "â€”"}
+                      : "—"}
                 </p>
               </div>
 
@@ -1971,7 +1971,7 @@ function ResultsContent() {
                 </p>
 
                 <p className="mt-1 font-black">
-                  {quiz.subject || "â€”"}
+                  {quiz.subject || "—"}
                 </p>
               </div>
 

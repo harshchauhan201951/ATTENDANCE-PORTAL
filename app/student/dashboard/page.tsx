@@ -1033,7 +1033,7 @@ export default function StudentDashboardPage() {
   const cards: DashboardCard[] =
     [
       {
-        icon: "ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“",
+        icon: "✓",
         title: "My Attendance",
         description:
           "View your current attendance and attendance percentage.",
@@ -1041,7 +1041,7 @@ export default function StudentDashboardPage() {
         className: "blue",
       },
       {
-        icon: "ÃƒÂ¢Ã¢â‚¬Â Ã‚Âº",
+        icon: "↺",
         title: "Attendance History",
         description:
           "Check your previous attendance records and details.",
@@ -1049,7 +1049,7 @@ export default function StudentDashboardPage() {
         className: "purple",
       },
       {
-        icon: "ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¡",
+        icon: "□",
         title: "Academic Calendar",
         description:
           "View important academic dates and calendar information.",
@@ -1057,7 +1057,7 @@ export default function StudentDashboardPage() {
         className: "green",
       },
       {
-        icon: "ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¤",
+        icon: "▤",
         title: "Reports",
         description:
           "View your attendance reports and performance details.",
@@ -1065,7 +1065,7 @@ export default function StudentDashboardPage() {
         className: "orange",
       },
       {
-        icon: "ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹",
+        icon: "₹",
         title: "Fees",
         description:
           "Check your student fee information and payment details.",
@@ -1073,7 +1073,7 @@ export default function StudentDashboardPage() {
         className: "pink",
       },
       {
-        icon: "ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â£",
+        icon: "▣",
         title: "Homework",
         description:
           "View homework assigned to your class by your teacher.",
@@ -1081,7 +1081,7 @@ export default function StudentDashboardPage() {
         className: "indigo",
       },
       {
-        icon: "ÃƒÂ¢Ã…Â¡Ã¢â€žÂ¢",
+        icon: "⚙",
         title: "Settings",
         description:
           "Manage your account, name and password.",
@@ -1584,7 +1584,7 @@ export default function StudentDashboardPage() {
           }
         }
 
-        /* RACER STUDENT REFERENCE DASHBOARD ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 2026-09-29 */
+        /* RACER STUDENT REFERENCE DASHBOARD — 2026-09-29 */
         .student-header-profile-image{width:100%;height:100%;display:block;object-fit:cover;border-radius:50%;}
 
         @media (max-width: 768px){

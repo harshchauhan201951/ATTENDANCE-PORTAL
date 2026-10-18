@@ -17,45 +17,45 @@ const items = [
 
 
 const studentDesktopNavItems = [
-  { href: "/student/dashboard", label: "Dashboard", icon: "âŒ‚" },
-  { href: "/student/attendance", label: "My Attendance", icon: "â–£" },
-  { href: "/student/attendance-history", label: "Attendance History", icon: "â—·" },
-  { href: "/student/calendar", label: "Academic Calendar", icon: "â–¦" },
-  { href: "/student/reports", label: "Reports", icon: "â–¤" },
-  { href: "/student/fees", label: "Fees", icon: "â‚¹" },
-  { href: "/student/homework", label: "Homework", icon: "âœŽ" },
-  { href: "/student/settings", label: "Settings", icon: "âš™" },
-  { href: "/student/exams", label: "Exams", icon: "ðŸ“‹" },
-  { href: "/student/timetable", label: "Timetable", icon: "â–¦" },
+  { href: "/student/dashboard", label: "Dashboard", icon: "⌂" },
+  { href: "/student/attendance", label: "My Attendance", icon: "▣" },
+  { href: "/student/attendance-history", label: "Attendance History", icon: "◷" },
+  { href: "/student/calendar", label: "Academic Calendar", icon: "▦" },
+  { href: "/student/reports", label: "Reports", icon: "▤" },
+  { href: "/student/fees", label: "Fees", icon: "₹" },
+  { href: "/student/homework", label: "Homework", icon: "✎" },
+  { href: "/student/settings", label: "Settings", icon: "⚙" },
+  { href: "/student/exams", label: "Exams", icon: "📋" },
+  { href: "/student/timetable", label: "Timetable", icon: "▦" },
 ];
 
 const studentDesktopExtraItems = [
-  { href: "/student/announcements", label: "Announcements", icon: "â˜…" },
-  { href: "/student/notifications", label: "Notifications", icon: "ðŸ””" },
-  { href: "/student/profile", label: "My Profile", icon: "â—‰" },
+  { href: "/student/announcements", label: "Announcements", icon: "★" },
+  { href: "/student/notifications", label: "Notifications", icon: "🔔" },
+  { href: "/student/profile", label: "My Profile", icon: "◉" },
 ];
 
 function getStudentDesktopModule(pathname: string) {
-  if (pathname.startsWith("/student/quiz-tests/attempt")) return { key: "quiz-attempt", title: "Quiz Tests", subtitle: "Read each question carefully and submit your answers before the timer ends.", icon: "âœ“" };
-  if (pathname.startsWith("/student/quiz-tests/history")) return { key: "quiz-history", title: "Quiz Tests", subtitle: "Review your previous quiz attempts and scores.", icon: "â—·" };
-  if (pathname.startsWith("/student/quiz-tests/results")) return { key: "quiz-results", title: "Quiz Tests", subtitle: "Check your marks, accuracy, and submitted quiz details.", icon: "â˜…" };
-  if (pathname.startsWith("/student/quiz-tests/available")) return { key: "quiz-available", title: "Quiz Tests", subtitle: "Choose an assigned quiz and check its duration before starting.", icon: "âœ“" };
-  if (pathname === "/student/dashboard" || pathname === "/student") return { key: "dashboard", title: "Dashboard", subtitle: "Your attendance, learning activities, results, and updates in one place.", icon: "âŒ‚" };
-  if (pathname.startsWith("/student/exams")) return { key: "exams", title: "Exams", subtitle: "Quiz tests, monthly final results, and Saturday weekly test reports.", icon: "ðŸ“‹" };
-  if (pathname.startsWith("/student/attendance-history")) return { key: "attendance-history", title: "Attendance History", subtitle: "Browse your recorded attendance by date and month.", icon: "â—·" };
-  if (pathname.startsWith("/student/attendance")) return { key: "attendance", title: "My Attendance", subtitle: "Track present days, absences, and extra-class attendance.", icon: "â–£" };
-  if (pathname.startsWith("/student/calendar")) return { key: "calendar", title: "Academic Calendar", subtitle: "View school days, holidays, events, and weekly test dates.", icon: "â–¦" };
-  if (pathname.startsWith("/student/reports")) return { key: "reports", title: "Reports", subtitle: "Review attendance, assessment performance, and fee reports.", icon: "â–¤" };
-  if (pathname.startsWith("/student/fees")) return { key: "fees", title: "Fees", subtitle: "View fee status, payment history, and available receipts.", icon: "â‚¹" };
-  if (pathname.startsWith("/student/homework")) return { key: "homework", title: "Homework", subtitle: "View assignments, due dates, and completion status.", icon: "âœŽ" };
-  if (pathname.startsWith("/student/settings")) return { key: "settings", title: "Settings", subtitle: "Manage your personal details and account security.", icon: "âš™" };
-  if (pathname.startsWith("/student/quiz-tests")) return { key: "quiz-tests", title: "Quiz Tests", subtitle: "Start available quizzes or review your attempts and results.", icon: "âœ“" };
-  if (pathname.startsWith("/student/monthly-result")) return { key: "monthly-result", title: "Monthly Final Result", subtitle: "Review quiz, Saturday test, MahaTest, and final score details.", icon: "â˜…" };
-  if (pathname.startsWith("/student/timetable")) return { key: "timetable", title: "Timetable", subtitle: "Check your class schedule and subject timings by weekday.", icon: "â–¦" };
-  if (pathname.startsWith("/student/announcements")) return { key: "announcements", title: "Announcements", subtitle: "Read notices and academic updates shared by RACER ACADEMY.", icon: "â˜…" };
-  if (pathname.startsWith("/student/notifications")) return { key: "notifications", title: "Notifications", subtitle: "Review notices, reminders, results, and unread updates.", icon: "ðŸ””" };
-  if (pathname.startsWith("/student/profile")) return { key: "profile", title: "My Profile", subtitle: "View your student information and saved profile details.", icon: "â—‰" };
-  return { key: "student", title: "Student Portal", subtitle: "Your RACER ACADEMY learning space.", icon: "âŒ‚" };
+  if (pathname.startsWith("/student/quiz-tests/attempt")) return { key: "quiz-attempt", title: "Quiz Tests", subtitle: "Read each question carefully and submit your answers before the timer ends.", icon: "✓" };
+  if (pathname.startsWith("/student/quiz-tests/history")) return { key: "quiz-history", title: "Quiz Tests", subtitle: "Review your previous quiz attempts and scores.", icon: "◷" };
+  if (pathname.startsWith("/student/quiz-tests/results")) return { key: "quiz-results", title: "Quiz Tests", subtitle: "Check your marks, accuracy, and submitted quiz details.", icon: "★" };
+  if (pathname.startsWith("/student/quiz-tests/available")) return { key: "quiz-available", title: "Quiz Tests", subtitle: "Choose an assigned quiz and check its duration before starting.", icon: "✓" };
+  if (pathname === "/student/dashboard" || pathname === "/student") return { key: "dashboard", title: "Dashboard", subtitle: "Your attendance, learning activities, results, and updates in one place.", icon: "⌂" };
+  if (pathname.startsWith("/student/exams")) return { key: "exams", title: "Exams", subtitle: "Quiz tests, monthly final results, and Saturday weekly test reports.", icon: "📋" };
+  if (pathname.startsWith("/student/attendance-history")) return { key: "attendance-history", title: "Attendance History", subtitle: "Browse your recorded attendance by date and month.", icon: "◷" };
+  if (pathname.startsWith("/student/attendance")) return { key: "attendance", title: "My Attendance", subtitle: "Track present days, absences, and extra-class attendance.", icon: "▣" };
+  if (pathname.startsWith("/student/calendar")) return { key: "calendar", title: "Academic Calendar", subtitle: "View school days, holidays, events, and weekly test dates.", icon: "▦" };
+  if (pathname.startsWith("/student/reports")) return { key: "reports", title: "Reports", subtitle: "Review attendance, assessment performance, and fee reports.", icon: "▤" };
+  if (pathname.startsWith("/student/fees")) return { key: "fees", title: "Fees", subtitle: "View fee status, payment history, and available receipts.", icon: "₹" };
+  if (pathname.startsWith("/student/homework")) return { key: "homework", title: "Homework", subtitle: "View assignments, due dates, and completion status.", icon: "✎" };
+  if (pathname.startsWith("/student/settings")) return { key: "settings", title: "Settings", subtitle: "Manage your personal details and account security.", icon: "⚙" };
+  if (pathname.startsWith("/student/quiz-tests")) return { key: "quiz-tests", title: "Quiz Tests", subtitle: "Start available quizzes or review your attempts and results.", icon: "✓" };
+  if (pathname.startsWith("/student/monthly-result")) return { key: "monthly-result", title: "Monthly Final Result", subtitle: "Review quiz, Saturday test, MahaTest, and final score details.", icon: "★" };
+  if (pathname.startsWith("/student/timetable")) return { key: "timetable", title: "Timetable", subtitle: "Check your class schedule and subject timings by weekday.", icon: "▦" };
+  if (pathname.startsWith("/student/announcements")) return { key: "announcements", title: "Announcements", subtitle: "Read notices and academic updates shared by RACER ACADEMY.", icon: "★" };
+  if (pathname.startsWith("/student/notifications")) return { key: "notifications", title: "Notifications", subtitle: "Review notices, reminders, results, and unread updates.", icon: "🔔" };
+  if (pathname.startsWith("/student/profile")) return { key: "profile", title: "My Profile", subtitle: "View your student information and saved profile details.", icon: "◉" };
+  return { key: "student", title: "Student Portal", subtitle: "Your RACER ACADEMY learning space.", icon: "⌂" };
 }
 
 export default function StudentLayout({ children }: { children: ReactNode }) {
@@ -164,13 +164,13 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
           <img src="/racer-academy-icon.png" alt="RACER ACADEMY" />
           <span className="racer-student-desktop-brand-copy">
             <strong>RACER ACADEMY</strong>
-            <small>Learn â€¢ Grow â€¢ Achieve</small>
+            <small>Learn • Grow • Achieve</small>
           </span>
         </Link>
-        <div className="racer-student-desktop-title"><span aria-hidden="true">ðŸŽ“</span><span>Student Portal</span></div>
+        <div className="racer-student-desktop-title"><span aria-hidden="true">🎓</span><span>Student Portal</span></div>
         <div className="racer-student-desktop-actions">
           <Link href="/student/notifications" className="racer-student-desktop-notice" aria-label="Open notifications" title="Notifications">
-            <span aria-hidden="true">ðŸ””</span>
+            <span aria-hidden="true">🔔</span>
           </Link>
           <div className="racer-student-desktop-user">
             <span className="racer-student-desktop-avatar">
@@ -178,7 +178,7 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
             </span>
             <span className="racer-student-desktop-user-copy"><strong>{headerName}</strong><small>Student Account</small></span>
           </div>
-          <button type="button" className="racer-student-desktop-logout" onClick={handleDesktopLogout}>Logout <span aria-hidden="true">â†—</span></button>
+          <button type="button" className="racer-student-desktop-logout" onClick={handleDesktopLogout}>Logout <span aria-hidden="true">↗</span></button>
         </div>
       </header>
 
@@ -208,7 +208,7 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
               );
             })}
           </nav>
-          <div className="racer-student-sidebar-footer"><strong>RACER ACADEMY</strong><small>Learn â€¢ Grow â€¢ Achieve</small></div>
+          <div className="racer-student-sidebar-footer"><strong>RACER ACADEMY</strong><small>Learn • Grow • Achieve</small></div>
         </aside>
 
         <div className="racer-student-workarea">

@@ -1382,7 +1382,7 @@ const [isReattempt, setIsReattempt] =
                 <p className="text-[10px] text-slate-400 sm:text-xs">
                   RACER ACADEMY
                   {isReattempt
-                    ? " Ã¢â‚¬Â¢ RE-ATTEMPT"
+                    ? " • RE-ATTEMPT"
                     : ""}
                 </p>
               </div>

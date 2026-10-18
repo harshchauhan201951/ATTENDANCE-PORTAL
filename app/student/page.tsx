@@ -796,7 +796,7 @@ export default function StudentDashboardPage() {
         <nav style={styles.navbar}>
           <div style={styles.brandArea}>
             <div style={styles.brandIcon}>
-              ðŸŽ“
+              🎓
             </div>
 
             <div>
@@ -812,7 +812,7 @@ export default function StudentDashboardPage() {
 
           <div style={styles.navRight}>
             <div style={styles.clock}>
-              ðŸ•’ {time}
+              🕒 {time}
             </div>
 
             <button
@@ -900,7 +900,7 @@ export default function StudentDashboardPage() {
                   styles.latestAnnouncementIcon
                 }
               >
-                ðŸ“¢
+                📢
               </div>
 
               <div>
@@ -909,7 +909,7 @@ export default function StudentDashboardPage() {
                     styles.announcementEyebrow
                   }
                 >
-                  ðŸ“¢ IMPORTANT
+                  📢 IMPORTANT
                 </div>
 
                 <h2
@@ -953,7 +953,7 @@ export default function StudentDashboardPage() {
                   styles.loadingIcon
                 }
               >
-                â³
+                ⏳
               </div>
 
               <div>
@@ -985,7 +985,7 @@ export default function StudentDashboardPage() {
                   styles.noAnnouncementIcon
                 }
               >
-                ðŸ“­
+                📭
               </div>
 
               <div>
@@ -1024,7 +1024,7 @@ export default function StudentDashboardPage() {
                     styles.announcementIcon
                   }
                 >
-                  ðŸ“¢
+                  📢
                 </div>
 
                 <div
@@ -1096,7 +1096,7 @@ export default function StudentDashboardPage() {
                     styles.everyoneText
                   }
                 >
-                  ðŸ‘¥ For all students
+                  👥 For all students
                 </div>
 
                 <button
@@ -1111,7 +1111,7 @@ export default function StudentDashboardPage() {
                   }
                 >
                   Open Announcement
-                  <span>â†’</span>
+                  <span>→</span>
                 </button>
               </div>
             </div>
@@ -1155,7 +1155,7 @@ export default function StudentDashboardPage() {
                         styles.modalIcon
                       }
                     >
-                      ðŸ“¢
+                      📢
                     </div>
 
                     <div>
@@ -1189,7 +1189,7 @@ export default function StudentDashboardPage() {
                     }
                     aria-label="Close announcement"
                   >
-                    Ã—
+                    ×
                   </button>
                 </div>
 
@@ -1233,7 +1233,7 @@ export default function StudentDashboardPage() {
                       styles.everyoneText
                     }
                   >
-                    ðŸ‘¥ For all students
+                    👥 For all students
                   </div>
 
                   <button
@@ -1265,8 +1265,8 @@ export default function StudentDashboardPage() {
                     }}
                   >
                     {latestAnnouncement.likedByMe
-                      ? "â¤ï¸ Liked"
-                      : "ðŸ¤ Like"}
+                      ? "❤️ Liked"
+                      : "🤍 Like"}
 
                     <span
                       style={
@@ -1287,7 +1287,7 @@ export default function StudentDashboardPage() {
 
         <section style={styles.notice}>
           <div style={styles.noticeIcon}>
-            â„¹ï¸
+            ℹ️
           </div>
 
           <div>
@@ -1468,11 +1468,11 @@ export default function StudentDashboardPage() {
 
         <footer style={styles.footer}>
           <div style={styles.footerBrand}>
-            ðŸŽ“ Attendance Portal
+            🎓 Attendance Portal
           </div>
 
           <div>
-            Student Portal â€¢ 2026
+            Student Portal • 2026
           </div>
         </footer>
       </div>

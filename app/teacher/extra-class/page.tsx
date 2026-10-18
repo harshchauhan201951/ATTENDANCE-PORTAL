@@ -1275,7 +1275,7 @@ export default function ExtraClassPage() {
           {historyClasses.length === 0 ? (
             <div className="empty-history">
               <div className="empty-history-icon">
-                ðŸ“š
+                📚
               </div>
 
               <h3>No Extra Classes Found</h3>
@@ -1351,7 +1351,7 @@ export default function ExtraClassPage() {
 
                         <div className="history-meta">
                           <span>
-                            ðŸ•{" "}
+                            🕐{" "}
                             {formatTime(
                               extraClass.class_time
                             )}
@@ -1419,7 +1419,7 @@ export default function ExtraClassPage() {
                               }
                               disabled={deleting}
                             >
-                              ðŸ—‘ Delete
+                              🗑 Delete
                             </button>
                           </div>
                         </div>
