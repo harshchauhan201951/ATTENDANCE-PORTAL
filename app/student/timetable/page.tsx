@@ -42,28 +42,22 @@ function getTodayName() {
 }
 
 function getClassTracker(item: TimetableRow, todayName: string, now: Date | null) {
-  if (!now) return { label: "UP NEXT", detail: "Class timeline", progress: 0, state: "up-next" };
+  if (!now) return { label: "SCHEDULED", state: "scheduled" };
   if (item.day_of_week !== todayName) {
-    const daysUntil = (DAY_ORDER[item.day_of_week] - DAY_ORDER[todayName] + 7) % 7 || 7;
-    return { label: "UPCOMING", detail: daysUntil === 1 ? "Tomorrow" : `In ${daysUntil} days`, progress: 0, state: "upcoming" };
+    return { label: "SCHEDULED", state: "scheduled" };
   }
 
   const [startHour, startMinute] = String(item.start_time || "").split(":").map(Number);
   const [endHour, endMinute] = String(item.end_time || "").split(":").map(Number);
-  if (!Number.isFinite(startHour) || !Number.isFinite(endHour)) return { label: "SCHEDULED", detail: "Class time not set", progress: 0, state: "up-next" };
+  if (!Number.isFinite(startHour) || !Number.isFinite(endHour)) return { label: "SCHEDULED", state: "scheduled" };
   const start = startHour * 60 + (startMinute || 0);
   const end = endHour * 60 + (endMinute || 0);
   const current = now.getHours() * 60 + now.getMinutes();
   if (current < start) {
-    const remaining = start - current;
-    const detail = remaining >= 60 ? `Starts in ${Math.floor(remaining / 60)}h ${remaining % 60}m` : `Starts in ${remaining}m`;
-    return { label: "UP NEXT", detail, progress: 0, state: "up-next" };
+    return { label: "UP NEXT", state: "up-next" };
   }
-  if (current >= end || end <= start) return { label: "COMPLETED", detail: "Class finished today", progress: 100, state: "completed" };
-  const progress = Math.round(((current - start) / (end - start)) * 100);
-  const remaining = end - current;
-  const detail = remaining >= 60 ? `${progress}% complete · ${Math.floor(remaining / 60)}h ${remaining % 60}m left` : `${progress}% complete · ${remaining}m left`;
-  return { label: "LIVE NOW", detail, progress, state: "live" };
+  if (current >= end || end <= start) return { label: "COMPLETED", state: "completed" };
+  return { label: "LIVE NOW", state: "live" };
 }
 
 export default function StudentTimetablePage() {
@@ -73,7 +67,7 @@ export default function StudentTimetablePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedDay, setSelectedDay] = useState(getTodayName());
-  const [scheduleMode, setScheduleMode] = useState<"two-days" | "full-week">("two-days");
+  const [scheduleMode, setScheduleMode] = useState<"today" | "full-week">("today");
   const [clockNow, setClockNow] = useState<Date | null>(null);
   const todayName = getTodayName();
 
@@ -155,7 +149,7 @@ export default function StudentTimetablePage() {
   const selectedDayIndex = DAY_ORDER[selectedDay] ?? DAY_ORDER[todayName];
   const visibleDays = scheduleMode === "full-week"
     ? days
-    : [days[selectedDayIndex], days[(selectedDayIndex + 1) % DAYS.length]].filter(Boolean);
+    : [days[selectedDayIndex]].filter(Boolean);
 
   return (
     <main className="student-timetable-page student-timetable-v2">
@@ -186,10 +180,10 @@ export default function StudentTimetablePage() {
               <span className="student-timetable-class-pill">Class {student?.class_name || "—"}</span>
             </div>
             <div className="student-timetable-day-tabs" role="group" aria-label="Choose a day">
-              {DAYS.map((day) => <button key={day} type="button" className={`${selectedDay === day ? "active" : ""} ${todayName === day ? "is-today" : ""}`} onClick={() => { setSelectedDay(day); setScheduleMode("two-days"); }}>{day}</button>)}
+              {DAYS.map((day) => <button key={day} type="button" className={`${selectedDay === day ? "active" : ""} ${todayName === day ? "is-today" : ""}`} onClick={() => { setSelectedDay(day); setScheduleMode("today"); }}>{day}</button>)}
             </div>
             <div className="student-timetable-view-tabs" role="group" aria-label="Choose timetable range">
-              <button type="button" className={scheduleMode === "two-days" ? "active" : ""} onClick={() => setScheduleMode("two-days")}>2 Days Timetable</button>
+              <button type="button" className={scheduleMode === "today" ? "active" : ""} onClick={() => { setSelectedDay(todayName); setScheduleMode("today"); }}>Today’s Timetable</button>
               <button type="button" className={scheduleMode === "full-week" ? "active" : ""} onClick={() => setScheduleMode("full-week")}>Full Week Timetable</button>
             </div>
 
@@ -197,11 +191,9 @@ export default function StudentTimetablePage() {
               {loading ? <div className="student-timetable-v2-empty">Loading your classes…</div> : timetables.length === 0 ? <div className="student-timetable-v2-empty">No timetable has been assigned to your class yet.</div> : visibleDays.map(({ day, rows, holiday }) => (
                 <article key={day} className={`student-timetable-day-card ${day === todayName ? "today" : ""}`}>
                   <header><div><span>{day === todayName ? "TODAY" : "WEEKLY SCHEDULE"}</span><h3>{day}</h3></div><strong>{holiday && rows.length === 0 ? "HOLIDAY" : `${rows.length} CLASS${rows.length === 1 ? "" : "ES"}`}</strong></header>
-                  {holiday && rows.length === 0 ? <p className="student-timetable-holiday">No classes scheduled for this holiday.</p> : rows.length ? <div className="student-timetable-classes">{rows.map((item) => { const tracker = getClassTracker(item, todayName, clockNow); const accent = ["#2563eb", "#7c3aed", "#08916c", "#d97706", "#db2777"][item.id % 5]; return <div key={item.id} className={`student-timetable-class-row ${tracker.state}`} style={{ "--class-accent": accent, "--class-progress": `${tracker.progress}%` } as React.CSSProperties}>
+                  {holiday && rows.length === 0 ? <p className="student-timetable-holiday">No classes scheduled for this holiday.</p> : rows.length ? <div className="student-timetable-classes">{rows.map((item) => { const tracker = getClassTracker(item, todayName, clockNow); const accent = ["#2563eb", "#7c3aed", "#08916c", "#d97706", "#db2777"][item.id % 5]; return <div key={item.id} className={`student-timetable-class-row ${tracker.state}`} style={{ "--class-accent": accent } as React.CSSProperties}>
                     <div className="student-timetable-class-main"><div className="student-timetable-class-top"><strong>{item.subject || "Class"}</strong><span className={`student-timetable-state ${tracker.state}`}>{tracker.label}</span></div><span className="student-timetable-class-teacher">{item.teacher_name || "Teacher"}</span>
-                      <div className="student-timetable-track-times"><span>{formatTime(item.start_time)}</span><span>{formatTime(item.end_time)}</span></div>
-                      <div className="student-timetable-track"><span><i /></span></div>
-                      <div className="student-timetable-track-meta"><span>{tracker.detail}</span><b>{tracker.progress}%</b></div>
+                      <div className="student-timetable-class-time-range"><span>{formatTime(item.start_time)}</span><b>→</b><span>{formatTime(item.end_time)}</span></div>
                     </div>
                   </div>; })}</div> : <p className="student-timetable-no-class">No classes scheduled for this day.</p>}
                 </article>

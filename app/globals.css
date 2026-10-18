@@ -8284,6 +8284,9 @@ body:has(.racer-student-fixed-header) {
 .racer-student-shell .student-timetable-track>span>i { position: absolute; top: 50%; right: -5px; width: 13px; height: 13px; transform: translateY(-50%); border: 2px solid white; border-radius: 50%; background: var(--class-accent); box-shadow: 0 1px 5px #17395835; }
 .racer-student-shell .student-timetable-track-meta { align-items: center; color: #708198; font-size: 9px; }
 .racer-student-shell .student-timetable-track-meta b { color: var(--class-accent); font-size: 9px; }
+.racer-student-shell .student-timetable-class-time-range { display:flex; align-items:center; gap:9px; color:#385d83; font-size:11px; font-weight:900; }
+.racer-student-shell .student-timetable-class-time-range b { color:var(--class-accent); font-size:13px; }
+.racer-student-shell .student-timetable-state.scheduled { background:#edf3fb; color:#46627e; }
 @media(max-width:700px) {
   .racer-student-shell .student-timetable-v2 .student-timetable-day-tabs { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 6px !important; }
   .racer-student-shell .student-timetable-v2 .student-timetable-day-tabs button { min-height: 34px !important; padding: 6px 3px !important; font-size: 9px !important; }
