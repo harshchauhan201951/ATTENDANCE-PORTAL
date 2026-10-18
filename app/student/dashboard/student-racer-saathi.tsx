@@ -76,12 +76,13 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
   const [voiceNotice, setVoiceNotice] = useState("");
   const [autoSpeak, setAutoSpeak] = useState(false);
   const [voiceSettingsOpen, setVoiceSettingsOpen] = useState(false);
+  const [toolShelfOpen, setToolShelfOpen] = useState(false);
   const [voice, setVoice] = useState("shimmer");
   const [voiceSpeed, setVoiceSpeed] = useState(1);
   const [savedAnswers, setSavedAnswers] = useState<string[]>([]);
   const [historyReadyFor, setHistoryReadyFor] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const questionInputRef = useRef<HTMLInputElement>(null);
+  const questionInputRef = useRef<HTMLTextAreaElement>(null);
   const aiAbortRef = useRef<AbortController | null>(null);
   const speechAbortRef = useRef<AbortController | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -153,6 +154,7 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
     setCategory(null);
     setOptions([]);
     setPicker(null);
+    setToolShelfOpen(false);
   }, [open, messages.length]);
 
   useEffect(() => {
@@ -323,9 +325,16 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
           const response = await fetch("/api/student/saathi/transcribe", { method: "POST", credentials: "same-origin", body: form });
           const result = await response.json().catch(() => null);
           if (!response.ok || !result?.success) throw new Error(result?.error || "आवाज़ समझ नहीं आई।");
-          setTypedQuestion(String(result.text || ""));
-          setVoiceNotice("सवाल लिख दिया है—भेजने से पहले उसे जाँच लें। आपकी recording save नहीं हुई।");
-          questionInputRef.current?.focus();
+          const transcript = String(result.text || "").trim();
+          if (!transcript) throw new Error("आवाज़ समझ नहीं आई। एक बार फिर कोशिश करें।");
+          if (autoSpeak) {
+            setVoiceNotice("साथी जवाब दे रहा है… आपकी recording save नहीं हुई।");
+            void askAi(transcript, transcript);
+          } else {
+            setTypedQuestion(transcript);
+            setVoiceNotice("सवाल लिख दिया है—जाँचकर भेजें, या Voice replies चालू करें। आपकी recording save नहीं हुई।");
+            questionInputRef.current?.focus();
+          }
         } catch (error) {
           setVoiceNotice(error instanceof Error ? error.message : "Voice transcription failed.");
         } finally { setTranscribing(false); }
@@ -348,6 +357,7 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
     setMessages([{ from: "bot", text: "नमस्ते! मैं RACER साथी हूँ—एक AI learning companion. आज किस विषय में मदद चाहिए? मैं एक बार में एक कदम लेकर समझाऊँगा।", createdAt: Date.now() }]);
     setTutorMode(false);
     setCategory(null);
+    setToolShelfOpen(false);
     setOptions(mainOptions);
     setTypedQuestion("");
   };
@@ -367,6 +377,7 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
 
   const askCategory = (item: typeof categories[number], alreadySaid = false) => {
     if (!alreadySaid) studentSaid(`${item.icon}  ${item.label}`);
+    setToolShelfOpen(false);
     setCategory(item.category);
     if (item.category !== "study") setTutorMode(false);
     if (item.category === "study") menu(studyActions.map(({ id, label, icon }) => ({ id, label, icon })), "किस तरह की पढ़ाई में मदद चाहिए? मैं एक सवाल एक बार में पूछूँगा।");
@@ -674,13 +685,14 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
       <span className="racer-saathi-launcher-face"><RACreature compact /></span>
       <span><strong>RACER साथी</strong><small>आपका AI learning partner</small></span><span className="racer-saathi-launcher-dot" />
     </button>
-    {open && <section className="racer-saathi-panel" aria-label="रेसर साथी विद्यार्थी सहायता">
-      <header className="racer-saathi-header"><span className="racer-saathi-header-mascot"><RACreature compact /></span><div><strong>RACER साथी</strong><small>AI learning companion</small></div><span className={`racer-saathi-online ${serviceStatus}`}><i />{serviceStatus === "ready" ? "AI ready" : serviceStatus === "checking" ? "जाँच रहे हैं" : serviceStatus === "login" ? "Sign-in चाहिए" : serviceStatus === "setup" ? "Setup pending" : "Offline"}</span><button type="button" onClick={clearChat} aria-label="नई chat शुरू करें" title="नई chat">↻</button><button type="button" className={autoSpeak ? "voice-enabled" : ""} onClick={() => speaking ? stopSpeech() : setAutoSpeak((enabled) => !enabled)} aria-label={speaking ? "आवाज़ रोकें" : autoSpeak ? "Auto voice बंद करें" : "Auto voice चालू करें"} title={speaking ? "आवाज़ रोकें" : "Auto voice replies"}>{speaking ? "⏹" : autoSpeak ? "🔊" : "🔈"}</button><button type="button" onClick={() => setVoiceSettingsOpen((value) => !value)} aria-label="Voice settings" title="Voice settings">⚙</button><button type="button" onClick={() => setOpen(false)} aria-label="बंद करें">×</button></header>
+    {open && <section className="racer-saathi-panel" aria-label="रेसर साथी AI chat">
+      <header className="racer-saathi-header"><span className="racer-saathi-header-mascot"><RACreature compact /></span><div><strong>RACER साथी</strong><small>Your AI study companion</small></div><span className={`racer-saathi-online ${serviceStatus}`}><i />{serviceStatus === "ready" ? "Ready" : serviceStatus === "checking" ? "Connecting" : serviceStatus === "login" ? "Sign-in needed" : serviceStatus === "setup" ? "Setup needed" : "Offline"}</span><button type="button" onClick={clearChat} aria-label="नई chat शुरू करें" title="नई chat">＋</button><button type="button" className={autoSpeak ? "voice-enabled" : ""} onClick={() => speaking ? stopSpeech() : setAutoSpeak((enabled) => !enabled)} aria-label={speaking ? "आवाज़ रोकें" : autoSpeak ? "Voice replies बंद करें" : "Voice replies चालू करें"} title={speaking ? "आवाज़ रोकें" : autoSpeak ? "Voice replies on" : "Voice replies off"}>{speaking ? "■" : autoSpeak ? "◖))" : "◖)"}</button><button type="button" onClick={() => setVoiceSettingsOpen((value) => !value)} aria-label="Voice settings" title="Voice settings">⚙</button><button type="button" onClick={() => setOpen(false)} aria-label="बंद करें">×</button></header>
       {serviceStatus === "setup" && <div className="racer-saathi-setup-note">AI setup pending. The school information menu works; free-form AI and voice need the academy’s provider key.</div>}
       {serviceStatus === "login" && <div className="racer-saathi-setup-note">सुरक्षित AI chat के लिए sign out करके दोबारा sign in करें।</div>}
       {serviceStatus === "offline" && <div className="racer-saathi-setup-note">AI service से संपर्क नहीं हो पाया। Internet जाँचें; चाहें तो school information menu इस्तेमाल करें।</div>}
+      <div className="racer-saathi-chat-scroll">
       <div className="racer-saathi-messages" aria-live="polite">
-        {messages.length === 1 && messages[0].from === "bot" && <div className="racer-saathi-welcome-card"><img className="racer-saathi-welcome-mascot" src="/racer-saathi-mascot.png" alt="RACER साथी का supplied smiling robot mascot" /><div className="racer-saathi-welcome-copy"><strong>आपका AI study partner</strong><span>Hindi · Hinglish · English</span><small>आपके सवालों को कदम-दर-कदम समझने में मदद करता है।</small></div></div>}
+        {messages.length === 1 && messages[0].from === "bot" && <div className="racer-saathi-welcome-card"><img className="racer-saathi-welcome-mascot" src="/racer-saathi-mascot.png" alt="RACER साथी का supplied smiling robot mascot" /><div className="racer-saathi-welcome-copy"><span className="racer-saathi-eyebrow">YOUR LEARNING COMPANION</span><strong>नमस्ते{student?.student_name ? `, ${student.student_name.split(" ")[0]}` : ""}! आज क्या सीखना है?</strong><small>कुछ भी पूछें—मैं आसान भाषा में समझाऊँगा।</small><span className="racer-saathi-languages">Hindi <i /> Hinglish <i /> English</span></div></div>}
         {messages.map((message, index) => <div key={`${index}-${message.from}`} className={`racer-saathi-message ${message.from}`}>
           {message.from === "bot" && <span className="racer-saathi-message-avatar"><RACreature compact /></span>}
           <div className="racer-saathi-message-content"><div className="racer-saathi-message-text">{message.text}</div>
@@ -691,25 +703,27 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
         {loading && (messages.at(-1)?.from !== "bot" || !messages.at(-1)?.text) && <div className="racer-saathi-message bot"><span className="racer-saathi-message-avatar"><RACreature compact /></span><div className="racer-saathi-message-content"><div className="racer-saathi-message-text">साथी सोच रहा है <span className="saathi-typing">•••</span></div></div></div>}
         <div ref={messagesEndRef} />
       </div>
+      {messages.length === 1 && <div className="racer-saathi-suggestions"><span>शुरू करने के लिए चुनें</span><div><button type="button" onClick={() => void askAi("Help me learn a topic step by step. Ask me what subject and topic I want to study.", "मुझे पढ़ाई में मदद करें")}>✨ <span>पढ़ाई में मदद</span></button><button type="button" onClick={() => void askAi("Give me a short class-level practice quiz. First ask which subject I want.", "एक quiz शुरू करें")}>📝 <span>Quiz practice</span></button><button type="button" onClick={() => { setToolShelfOpen(true); setOptions(mainOptions); }}>📚 <span>मेरी school info</span></button></div></div>}
       {picker && <div className="racer-saathi-picker"><label>{picker === "month" ? "महीना चुनें" : "तारीख चुनें"}<input type={picker} value={pickerValue} onChange={(event) => setPickerValue(event.target.value)} /></label><button type="button" onClick={() => void submitPicker()} disabled={loading || !pickerValue}>दिखाएँ <span>→</span></button></div>}
-      <div className="racer-saathi-menu-label">{category ? "अपनी पसंद चुनें" : "किस जानकारी की ज़रूरत है?"}</div>
+      {(category || toolShelfOpen) && <div className="racer-saathi-tool-shelf"><div className="racer-saathi-tool-heading"><strong>{category ? "अपनी school information चुनें" : "आप किस बारे में पूछना चाहते हैं?"}</strong><button type="button" onClick={() => { setToolShelfOpen(false); setCategory(null); setOptions([]); }} aria-label="सवालों का मेनू बंद करें">×</button></div>
+      {!category && <div className="racer-saathi-menu">{mainOptions.filter((option) => option.id !== "other").map((option) => <button key={option.id} type="button" onClick={() => { const selected = categories.find((item) => item.id === option.id); if (selected) askCategory(selected); }} disabled={loading}><span>{option.icon || "›"}</span>{option.label}<b>→</b></button>)}</div>}
       {category && <div className="racer-saathi-menu">{options.map((option) => <button key={option.id} type="button" onClick={() => {
         if (option.id === "main") { studentSaid(option.label); mainMenu(); return; }
         void detail(option.id);
       }} disabled={loading}><span>{option.icon || "›"}</span>{option.label}<b>→</b></button>)}</div>}
-      <div className="racer-saathi-shortcuts-label">मुख्य विकल्प <span>किसी भी समय चुनें</span></div>
-      <div className="racer-saathi-shortcuts">{mainOptions.map((option) => <button key={option.id} type="button" onClick={() => {
-        if (option.id === "other") { setTutorMode(true); studentSaid("कुछ और पूछें"); bot("अपना सवाल नीचे लिखें—मैं पढ़ाई के सवाल समझाऊँगा और ज़रूरत होने पर आपकी school information ढूँढूँगा। मैं AI हूँ, जवाब भेजने से पहले जरूरी तथ्यों को जाँचें।"); questionInputRef.current?.focus(); return; }
-        const selected = categories.find((item) => item.id === option.id);
-        if (selected) askCategory(selected);
-      }} disabled={loading}><span>{option.icon}</span><small>{option.label}</small></button>)}</div>
-      {voiceNotice && <div className={`racer-saathi-voice-notice ${recording ? "listening" : speaking ? "speaking" : ""}`} role="status">{voiceNotice}</div>}
-      {voiceSettingsOpen && <div className="racer-saathi-voice-settings-inline"><label>AI voice<select value={voice} onChange={(event) => setVoice(event.target.value)}><option value="shimmer">Shimmer · default</option><option value="coral">Coral</option><option value="marin">Marin</option><option value="cedar">Cedar</option></select></label><label>Speed <strong>{voiceSpeed.toFixed(2)}×</strong><input type="range" min="0.75" max="1.25" step="0.05" value={voiceSpeed} onChange={(event) => setVoiceSpeed(Number(event.target.value))} /></label><span>AI voice is generated on request. Hindi pronunciation and accent can vary by provider. {savedAnswers.length} saved answer(s) on this device.</span><button type="button" onClick={clearSavedAnswers} disabled={!savedAnswers.length}>Clear saved answers</button></div>}
+      </div>}
+      </div>
+      <div className="racer-saathi-compose-area">
+      {voiceNotice && <div className={`racer-saathi-voice-notice ${recording ? "listening" : speaking ? "speaking" : ""}`} role="status">{recording && <span className="racer-saathi-live-wave"><i/><i/><i/><i/><i/></span>}{voiceNotice}</div>}
+      {voiceSettingsOpen && <div className="racer-saathi-voice-settings-inline"><label>AI voice<select value={voice} onChange={(event) => setVoice(event.target.value)}><option value="shimmer">Shimmer · default</option><option value="coral">Coral</option><option value="marin">Marin</option><option value="cedar">Cedar</option></select></label><label>Speed <strong>{voiceSpeed.toFixed(2)}×</strong><input type="range" min="0.75" max="1.25" step="0.05" value={voiceSpeed} onChange={(event) => setVoiceSpeed(Number(event.target.value))} /></label><span>Voice replies {autoSpeak ? "on" : "off"} · {savedAnswers.length} saved answers on this device.</span><button type="button" onClick={clearSavedAnswers} disabled={!savedAnswers.length}>Clear saved answers</button></div>}
       <form className="racer-saathi-composer" onSubmit={submitTypedQuestion}>
-        <button type="button" className={`racer-saathi-mic ${recording ? "recording" : ""}`} onClick={() => void toggleRecording()} disabled={loading || transcribing || serviceStatus !== "ready"} aria-label={recording ? "Recording रोकें" : transcribing ? "Voice transcription चल रही है" : "अपना सवाल बोलें"} title="Mic पर टैप करके बोलें">{recording ? "■" : transcribing ? "…" : "🎙"}</button>
-        <input ref={questionInputRef} value={typedQuestion} onChange={(event) => setTypedQuestion(event.target.value)} placeholder={tutorMode ? "अपना सवाल लिखें…" : "AI सवाल या school info पूछें…"} aria-label="रेसर साथी से सवाल पूछें" />
-        <button type="submit" aria-label="सवाल भेजें" disabled={!typedQuestion.trim() || loading}>➤</button>
+        <button type="button" className="racer-saathi-tools-toggle" onClick={() => { setToolShelfOpen((shown) => !shown); setCategory(null); setOptions(mainOptions); }} aria-expanded={toolShelfOpen || Boolean(category)} aria-label="School information and study tools" title="School information and study tools">＋</button>
+        <textarea ref={questionInputRef} value={typedQuestion} onChange={(event) => { setTypedQuestion(event.target.value); event.currentTarget.style.height = "auto"; event.currentTarget.style.height = `${Math.min(event.currentTarget.scrollHeight, 150)}px`; }} placeholder={recording ? "साथी सुन रहा है… mic रोकने के लिए फिर दबाएँ" : "साथी से कुछ भी पूछें"} aria-label="रेसर साथी से सवाल पूछें" rows={1} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} />
+        <button type="button" className={`racer-saathi-mic ${recording ? "recording" : ""}`} onClick={() => void toggleRecording()} disabled={loading || transcribing || serviceStatus !== "ready"} aria-label={recording ? "Recording रोकें" : transcribing ? "Voice transcription चल रही है" : "अपना सवाल बोलें"} title={recording ? "रोकें" : "बोलकर सवाल पूछें"}>{recording ? "■" : transcribing ? "…" : "🎙"}</button>
+        <button type="submit" className="racer-saathi-send" aria-label="सवाल भेजें" disabled={!typedQuestion.trim() || loading}>{loading ? "…" : "↑"}</button>
       </form>
+      <div className="racer-saathi-compose-hint">Enter से भेजें <i /> AI गलतियाँ कर सकता है—ज़रूरी जानकारी जाँचें</div>
+      </div>
     </section>}
     <style jsx>{`
       .racer-mascot{width:64px;height:64px;display:block;object-fit:contain;filter:drop-shadow(0 5px 6px #0a285b30)}.racer-mascot.compact{width:46px;height:46px}
@@ -765,6 +779,20 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
       @keyframes buddy-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}@keyframes buddy-wave{0%,100%{transform:rotate(-7deg)}50%{transform:rotate(17deg)}}
       @media(max-width:600px){.racer-saathi-panel{inset:0;width:100vw;height:100dvh;min-height:0;right:auto;bottom:auto;border:0;border-radius:0;box-shadow:none;padding-top:env(safe-area-inset-top)}.racer-saathi-header{min-height:72px;padding:8px 9px;gap:5px}.racer-saathi-header-mascot{width:40px;height:40px;flex:none}.racer-saathi-header-mascot .racer-mascot{width:38px;height:38px}.racer-saathi-header button{width:28px;height:30px;font-size:14px}.racer-saathi-online{font-size:7px}.racer-saathi-messages{padding:12px 10px 8px}.racer-saathi-welcome-card{min-height:118px;padding:7px 9px}.racer-saathi-welcome-mascot{width:91px;height:112px}.racer-saathi-shortcuts{gap:5px;padding:0 9px 7px}.racer-saathi-shortcuts button{min-height:52px}.racer-saathi-menu{max-height:103px}.racer-saathi-panel .racer-saathi-menu-label{padding-top:5px}.racer-saathi-composer{padding-bottom:max(12px,env(safe-area-inset-bottom))}.racer-saathi-voice-settings-inline{grid-template-columns:1fr;gap:7px}.racer-saathi-voice-settings-inline>span{grid-column:auto}}
       @media(prefers-reduced-motion:reduce){.racer-saathi-buddy,.racer-saathi-wave-arm{animation:none}}
+      .racer-saathi-panel{inset:50% auto auto 50%;right:auto;bottom:auto;transform:translate(-50%,-50%);width:min(880px,calc(100vw - 48px));height:min(900px,calc(100dvh - 48px));min-height:560px;border:1px solid #dce8f6;border-radius:24px;background:#fff;box-shadow:0 30px 100px #0a214255}
+      .racer-saathi-header{min-height:76px;padding:12px 20px;gap:12px;background:#fff;color:#14243b;border-bottom:1px solid #e9edf3;box-shadow:none}
+      .racer-saathi-header-mascot{width:46px;height:46px;background:#edf7ff;border:1px solid #dbeeff}
+      .racer-saathi-header>div{flex:1}.racer-saathi-header strong{font-size:15px;color:#14243b}.racer-saathi-header small{color:#7b8798;opacity:1;font-size:11px}.racer-saathi-header button{width:38px;height:38px;border:1px solid #e5eaf0;background:#fff;color:#475569;font-size:18px;border-radius:12px}.racer-saathi-header button:hover{background:#f3f7fb}.racer-saathi-header button.voice-enabled{background:#e9f6ff;border-color:#b9e3ff;color:#0878d1}
+      .racer-saathi-online{color:#66758a;font-size:10px}.racer-saathi-online i{background:#23b578;box-shadow:0 0 0 3px #23b57819}.racer-saathi-online.setup i,.racer-saathi-online.login i,.racer-saathi-online.offline i{background:#efa92e;box-shadow:0 0 0 3px #efa92e22}
+      .racer-saathi-chat-scroll{min-height:0;flex:1;display:flex;flex-direction:column;overflow:auto;background:#fff;scrollbar-color:#cbd5e1 transparent;scrollbar-width:thin}
+      .racer-saathi-messages{width:min(100%,760px);margin:0 auto;flex:1 0 auto;overflow:visible;padding:30px 24px 16px;gap:22px;background:#fff}
+      .racer-saathi-welcome-card{margin:0 auto 18px;width:min(100%,660px);min-height:144px;padding:14px 20px;border:0;border-radius:20px;background:linear-gradient(115deg,#f3f9ff,#f7f7ff)}.racer-saathi-welcome-card:after{display:none}.racer-saathi-welcome-mascot{width:110px;height:126px}.racer-saathi-welcome-copy{gap:7px;padding:0}.racer-saathi-welcome-copy .racer-saathi-eyebrow{font-size:9px;letter-spacing:1.3px;font-weight:900;color:#73839a}.racer-saathi-welcome-copy strong{font-size:19px;color:#172e4d}.racer-saathi-welcome-copy small{font-size:12px;color:#63748a}.racer-saathi-welcome-copy .racer-saathi-languages{display:flex;align-items:center;gap:8px;font-size:10px;color:#64748b}.racer-saathi-languages i{width:3px;height:3px;border-radius:50%;background:#94a3b8}
+      .racer-saathi-message{gap:11px}.racer-saathi-message.bot{width:100%}.racer-saathi-message.student{max-width:78%}.racer-saathi-message-avatar{width:34px;height:34px;margin-bottom:20px}.racer-saathi-message-content{max-width:calc(100% - 46px)}.racer-saathi-message-text{font-size:14px;line-height:1.72;padding:14px 17px;border-radius:18px!important;box-shadow:none}.racer-saathi-message.bot .racer-saathi-message-text{border:0;background:#f5f7fa;color:#1f2937}.racer-saathi-message.student .racer-saathi-message-text{background:#e8f3ff;color:#164e87;box-shadow:none}.racer-saathi-message-actions{gap:10px;padding:8px 4px 0}.racer-saathi-message-actions button{padding:4px 7px;border-radius:7px;font-size:11px;color:#69788c}.racer-saathi-message-actions button:hover{background:#f1f5f9}
+      .racer-saathi-suggestions{width:min(100%,660px);margin:0 auto 24px;padding:0 0 12px}.racer-saathi-suggestions>span{display:block;margin-bottom:10px;color:#7b8798;font-size:11px;font-weight:700}.racer-saathi-suggestions>div{display:flex;flex-wrap:wrap;gap:9px}.racer-saathi-suggestions button{display:flex;align-items:center;gap:8px;padding:10px 13px;border:1px solid #e1e8f0;border-radius:14px;background:#fff;color:#355270;font-size:13px;cursor:pointer;transition:background .15s,border-color .15s,transform .15s}.racer-saathi-suggestions button:hover{background:#f4f9ff;border-color:#a8d5fb;transform:translateY(-1px)}
+      .racer-saathi-tool-shelf{width:min(100%,700px);margin:0 auto 18px;padding:14px;border:1px solid #e5ebf2;border-radius:18px;background:#fbfcfe}.racer-saathi-tool-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;color:#30425a;font-size:12px}.racer-saathi-tool-heading button{border:0;background:transparent;color:#64748b;font-size:20px;cursor:pointer}.racer-saathi-menu{max-height:190px;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0}.racer-saathi-menu button{grid-template-columns:26px 1fr 13px;padding:9px 10px;border-radius:12px;font-size:11px;box-shadow:none}
+      .racer-saathi-picker{width:min(100%,700px);margin:0 auto;padding:8px 14px 16px}.racer-saathi-setup-note{padding:10px 20px;font-size:11px}.racer-saathi-compose-area{flex:none;padding:14px 20px 10px;border-top:1px solid #edf0f4;background:#fff}.racer-saathi-composer{width:min(100%,760px);margin:0 auto;padding:8px 9px;border:1px solid #d8e0ea;border-radius:20px;gap:9px;background:#fff;box-shadow:0 3px 12px #1a2a3b0a}.racer-saathi-composer textarea{flex:1;min-width:0;min-height:42px;max-height:150px;resize:none;overflow-y:auto;padding:11px 8px;border:0;outline:none;background:transparent;color:#172b45;font:inherit;font-size:14px;line-height:1.45}.racer-saathi-composer textarea:focus{box-shadow:none}.racer-saathi-composer button{width:40px;height:40px;flex:none}.racer-saathi-composer .racer-saathi-tools-toggle{border:0;background:#f2f5f8;color:#475569;font-size:22px}.racer-saathi-composer .racer-saathi-mic{border:0;background:#f2f5f8;color:#475569;font-size:17px}.racer-saathi-composer .racer-saathi-mic.recording{background:#fff0f0;color:#c62838;border:0}.racer-saathi-composer .racer-saathi-send{background:#164e87;color:#fff;font-size:22px;font-weight:800}.racer-saathi-compose-hint{width:min(100%,760px);margin:7px auto 0;text-align:center;color:#98a3b2;font-size:9px}.racer-saathi-compose-hint i{display:inline-block;width:3px;height:3px;margin:0 6px 2px;border-radius:50%;background:#aab4c0}
+      .racer-saathi-voice-settings-inline{width:min(100%,760px);margin:0 auto 10px;padding:12px 14px;border:1px solid #e4eaf1;border-radius:14px;background:#f8fafc;font-size:11px}.racer-saathi-voice-settings-inline>span{font-size:10px}.racer-saathi-voice-notice{display:flex;align-items:center;justify-content:center;gap:9px;width:min(100%,760px);margin:0 auto 8px;padding:8px 12px;border-radius:10px;font-size:10px}.racer-saathi-live-wave{height:15px;display:flex;align-items:center;gap:2px}.racer-saathi-live-wave i{display:block;width:3px;height:5px;border-radius:4px;background:#1685ee;animation:saathi-wave .8s ease-in-out infinite alternate}.racer-saathi-live-wave i:nth-child(2),.racer-saathi-live-wave i:nth-child(4){animation-delay:.2s}.racer-saathi-live-wave i:nth-child(3){animation-delay:.4s}.racer-saathi-compose-area .racer-saathi-voice-notice+.racer-saathi-voice-settings-inline{margin-top:0}
+      @keyframes saathi-wave{to{height:14px}}@media(max-width:600px){.racer-saathi-panel{inset:0;width:100vw;height:100dvh;min-height:0;transform:none;border:0;border-radius:0;padding-top:env(safe-area-inset-top)}.racer-saathi-header{min-height:64px;padding:8px 10px;gap:6px}.racer-saathi-header-mascot{width:38px;height:38px}.racer-saathi-header-mascot .racer-mascot{width:36px;height:36px}.racer-saathi-header strong{font-size:13px}.racer-saathi-header small{font-size:9px}.racer-saathi-header button{width:32px;height:32px;border-radius:10px;font-size:15px}.racer-saathi-online{font-size:8px}.racer-saathi-messages{width:100%;padding:18px 14px 12px;gap:18px}.racer-saathi-welcome-card{min-height:112px;padding:8px 10px;margin-bottom:8px}.racer-saathi-welcome-mascot{width:82px;height:100px}.racer-saathi-welcome-copy strong{font-size:15px}.racer-saathi-welcome-copy small{font-size:10px}.racer-saathi-message-text{font-size:13px;padding:12px 14px}.racer-saathi-message.student{max-width:88%}.racer-saathi-suggestions{padding:0 14px;margin-bottom:18px}.racer-saathi-suggestions>div{gap:7px}.racer-saathi-suggestions button{padding:8px 10px;font-size:11px}.racer-saathi-tool-shelf{width:calc(100% - 20px);padding:10px}.racer-saathi-menu{grid-template-columns:repeat(2,minmax(0,1fr));max-height:30dvh;overflow:auto}.racer-saathi-menu button{font-size:10px}.racer-saathi-compose-area{padding:9px 10px max(9px,env(safe-area-inset-bottom))}.racer-saathi-composer{padding:5px;gap:5px;border-radius:18px}.racer-saathi-composer textarea{font-size:13px;min-height:39px;padding:10px 5px}.racer-saathi-composer button{width:36px;height:36px}.racer-saathi-compose-hint{font-size:8px}.racer-saathi-voice-settings-inline{grid-template-columns:1fr;gap:8px}.racer-saathi-voice-settings-inline>span{grid-column:auto}}
     `}</style>
   </>;
 }
