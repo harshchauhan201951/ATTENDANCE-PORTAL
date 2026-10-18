@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 import { getTeacherAssignedStudentIds } from "../../../lib/teacher-assigned-students";
+import { AdmissionDateTimeline } from "../../../components/admission-date-timeline";
 
 type Student = {
   id: number;
@@ -10,6 +11,8 @@ type Student = {
   student_name: string | null;
   created_at: string | null;
   admission_date: string | null;
+  admission_history?: { date: string; type?: string }[];
+  is_active: boolean;
   date_of_birth: string | null;
   father_name: string | null;
   mother_name: string | null;
@@ -47,6 +50,7 @@ export default function StudentDirectoryPage() {
           student_name,
           created_at,
           admission_date,
+          is_active,
           date_of_birth,
           father_name,
           mother_name
@@ -62,7 +66,21 @@ export default function StudentDirectoryPage() {
         return;
       }
 
-      setStudents(data || []);
+      const loadedStudents = (data || []) as Student[];
+      if (loadedStudents.length > 0) {
+        const { data: historyRows, error: historyError } = await supabase
+          .from("students")
+          .select("id,admission_history")
+          .in("id", loadedStudents.map((student) => student.id));
+        if (!historyError) {
+          const histories = new Map<number, { date: string; type?: string }[]>();
+          (historyRows || []).forEach((row: { id: number; admission_history: unknown }) => {
+            histories.set(Number(row.id), Array.isArray(row.admission_history) ? row.admission_history as { date: string; type?: string }[] : []);
+          });
+          loadedStudents.forEach((student) => { student.admission_history = histories.get(student.id) || []; });
+        }
+      }
+      setStudents(loadedStudents);
     } catch (err) {
       console.error("Unexpected error:", err);
       setError("Unable to load student details.");
@@ -340,7 +358,7 @@ export default function StudentDirectoryPage() {
                       <th>#</th>
                       <th>Student</th>
                       <th>Student ID</th>
-                      <th>Admission Date</th>
+                      <th>Admission Dates</th>
                       <th>Date of Birth</th>
                       <th>Father Name</th>
                       <th>Mother Name</th>
@@ -384,9 +402,7 @@ export default function StudentDirectoryPage() {
                           </td>
 
                           <td>
-                            {formatDate(
-                              student.admission_date
-                            )}
+                            <AdmissionDateTimeline currentDate={student.admission_date} history={student.admission_history} isActive={student.is_active !== false} />
                           </td>
 
                           <td>
@@ -455,12 +471,8 @@ export default function StudentDirectoryPage() {
 
                     <div className="mobile-details">
                       <div>
-                        <span>📅 Admission Date</span>
-                        <strong>
-                          {formatDate(
-                            student.admission_date
-                          )}
-                        </strong>
+                        <span>📅 Admission Dates</span>
+                        <AdmissionDateTimeline currentDate={student.admission_date} history={student.admission_history} isActive={student.is_active !== false} />
                       </div>
 
                       <div>
@@ -575,12 +587,8 @@ export default function StudentDirectoryPage() {
               </div>
 
               <div className="detail-item">
-                <span>📅 Admission Date</span>
-                <strong>
-                  {formatDate(
-                    selectedStudent.admission_date
-                  )}
-                </strong>
+                <span>📅 Admission Dates</span>
+                <AdmissionDateTimeline currentDate={selectedStudent.admission_date} history={selectedStudent.admission_history} isActive={selectedStudent.is_active !== false} />
               </div>
 
               <div className="detail-item">

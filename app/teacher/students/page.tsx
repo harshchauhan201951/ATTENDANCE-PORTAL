@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
+import { AdmissionDateTimeline } from "../../../components/admission-date-timeline";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,6 +17,7 @@ type Student = {
   created_at: string | null;
   student_name: string | null;
   admission_date: string | null;
+  admission_history?: AdmissionHistoryEntry[];
   date_of_birth: string | null;
   father_name: string | null;
   mother_name: string | null;
@@ -36,10 +38,17 @@ type Student = {
   is_active: boolean;
 };
 
+type AdmissionHistoryEntry = {
+  date: string;
+  type: "Initial admission" | "Re-admission";
+  recordedAt?: string;
+};
+
 export default function TeacherStudentsPage() {
   const router = useRouter();
 
   const [students, setStudents] = useState<Student[]>([]);
+  const [admissionHistoryMigrationMissing, setAdmissionHistoryMigrationMissing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -184,7 +193,28 @@ export default function TeacherStudentsPage() {
 
       const { data, error } = await studentQuery;
       if (error) throw new Error(error.message);
-      setStudents((data || []) as Student[]);
+      const studentRows = (data || []) as Student[];
+      if (studentRows.length === 0) {
+        setStudents([]);
+        return;
+      }
+      const historyQuery = await supabase
+        .from("students")
+        .select("id,admission_history")
+        .in("id", studentRows.map((student) => student.id));
+      const historyById = new Map<number, AdmissionHistoryEntry[]>();
+      if (!historyQuery.error) {
+        setAdmissionHistoryMigrationMissing(false);
+        (historyQuery.data || []).forEach((row: { id: number; admission_history: unknown }) => {
+          const history = Array.isArray(row.admission_history)
+            ? row.admission_history.filter((entry): entry is AdmissionHistoryEntry => Boolean(entry && typeof entry === "object" && typeof (entry as AdmissionHistoryEntry).date === "string"))
+            : [];
+          historyById.set(Number(row.id), history);
+        });
+      } else {
+        setAdmissionHistoryMigrationMissing(/admission_history/i.test(historyQuery.error.message));
+      }
+      setStudents(studentRows.map((student) => ({ ...student, admission_history: historyById.get(student.id) || [] })));
     } catch (error) {
       console.error("Students loading error:", error);
       setError(error instanceof Error ? error.message : "Unable to load students.");
@@ -641,8 +671,15 @@ export default function TeacherStudentsPage() {
       });
       const result = await response.json();
       if (!response.ok || !result?.success) throw new Error(result?.error || "Unable to update account status.");
-      setStudents((current) => current.map((item) => item.id === student.id ? { ...item, is_active: nextStatus } : item));
-      setSuccess(`${student.student_name || "Student"} account ${nextStatus ? "activated" : "deactivated"} successfully.`);
+      setStudents((current) => current.map((item) => item.id === student.id ? {
+        ...item,
+        is_active: Boolean(result.student.is_active),
+        admission_date: result.student.admission_date ?? item.admission_date,
+        admission_history: Array.isArray(result.student.admission_history) ? result.student.admission_history : item.admission_history || [],
+      } : item));
+      setSuccess(nextStatus
+        ? `${student.student_name || "Student"} re-admitted. The re-admission date is now the current admission date.`
+        : `${student.student_name || "Student"} account deactivated successfully.`);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Unable to update account status.");
     } finally {
@@ -866,6 +903,12 @@ export default function TeacherStudentsPage() {
             </button>
           </div>
 
+          {admissionHistoryMigrationMissing && (
+            <div className="students-history-migration-note" role="status">
+              Re-admission dates need a one-time database update. Run <code>database/migrations/20261018_student_admission_history.sql</code> in the academy&apos;s Supabase SQL Editor; re-admission is disabled until then.
+            </div>
+          )}
+
           {loading ? (
             <div style={styles.loading}>
               Loading students...
@@ -904,7 +947,7 @@ export default function TeacherStudentsPage() {
               className="students-table-wrapper"
               style={styles.tableWrapper}
             >
-              <table style={styles.table}>
+              <table className="students-table" style={styles.table}>
                 <thead>
                   <tr>
                     <th style={styles.th}>
@@ -920,7 +963,7 @@ export default function TeacherStudentsPage() {
                     </th>
 
                     <th style={styles.th}>
-                      Admission Date
+                      Admission Dates
                     </th>
 
                     <th style={styles.th}>
@@ -936,14 +979,15 @@ export default function TeacherStudentsPage() {
                   {students.map(
                     (student) => (
                       <tr
+                        className="students-table-row"
                         key={
                           student.id
                         }
                       >
                         <td
-                          style={
-                            styles.td
-                          }
+                          className="students-cell students-cell-id"
+                          data-label="Student ID"
+                          style={styles.td}
                         >
                           <span
                             style={
@@ -957,9 +1001,9 @@ export default function TeacherStudentsPage() {
                         </td>
 
                         <td
-                          style={
-                            styles.td
-                          }
+                          className="students-cell students-cell-name"
+                          data-label="Student name"
+                          style={styles.td}
                         >
                           <div
                             style={
@@ -972,9 +1016,9 @@ export default function TeacherStudentsPage() {
                         </td>
 
                         <td
-                          style={
-                            styles.td
-                          }
+                          className="students-cell students-cell-username"
+                          data-label="Username"
+                          style={styles.td}
                         >
                           {
                             student.student_username
@@ -982,29 +1026,30 @@ export default function TeacherStudentsPage() {
                         </td>
 
                         <td
-                          style={
-                            styles.td
-                          }
+                          className="students-cell students-cell-admission"
+                          data-label="Admission history"
+                          style={styles.td}
                         >
-                          {student.admission_date ||
-                            "Not set"}
+                          <AdmissionDateTimeline currentDate={student.admission_date} history={student.admission_history} isActive={student.is_active} />
                         </td>
 
                         <td
+                          className="students-cell students-cell-status"
+                          data-label="Account status"
                           style={styles.td}
                         >
                           <div style={{ display: "flex", flexDirection: "column", gap: "6px", alignItems: "center" }}>
                             <span style={{ padding: "4px 8px", borderRadius: "999px", fontSize: "10px", fontWeight: 800, background: student.is_active ? "#dcfce7" : "#fee2e2", color: student.is_active ? "#166534" : "#991b1b" }}>
-                              {student.is_active ? "ACTIVE" : "INACTIVE"}
+                              {student.is_active ? "ACTIVE" : "DEACTIVATED"}
                             </span>
-                            <button type="button" onClick={() => toggleStudentStatus(student)} disabled={statusUpdatingId === student.id} style={{ border: 0, borderRadius: "7px", padding: "5px 8px", fontSize: "9px", fontWeight: 800, cursor: statusUpdatingId === student.id ? "not-allowed" : "pointer", opacity: statusUpdatingId === student.id ? 0.6 : 1, background: student.is_active ? "#fee2e2" : "#dcfce7", color: student.is_active ? "#991b1b" : "#166534" }}>{statusUpdatingId === student.id ? "Saving..." : student.is_active ? "DEACTIVATE" : "ACTIVATE"}</button>
+                            <button className="students-status-action" type="button" onClick={() => toggleStudentStatus(student)} disabled={statusUpdatingId === student.id || (!student.is_active && admissionHistoryMigrationMissing)} title={!student.is_active && admissionHistoryMigrationMissing ? "Apply the admission history database migration to enable re-admission." : undefined} style={{ border: 0, borderRadius: "7px", padding: "5px 8px", fontSize: "9px", fontWeight: 800, cursor: statusUpdatingId === student.id || (!student.is_active && admissionHistoryMigrationMissing) ? "not-allowed" : "pointer", opacity: statusUpdatingId === student.id || (!student.is_active && admissionHistoryMigrationMissing) ? 0.6 : 1, background: student.is_active ? "#fee2e2" : "#dcfce7", color: student.is_active ? "#991b1b" : "#166534" }}>{statusUpdatingId === student.id ? "Saving..." : student.is_active ? "DEACTIVATE" : "RE-ADMIT"}</button>
                           </div>
                         </td>
 
                         <td
-                          style={
-                            styles.td
-                          }
+                          className="students-cell students-cell-actions"
+                          data-label="Actions"
+                          style={styles.td}
                         >
                           <div
                             style={
@@ -3889,8 +3934,7 @@ const styles: {
   tableWrapper: {
     width: "100%",
     maxWidth: "100%",
-    overflowX: "auto",
-    overflowY: "hidden",
+    overflow: "hidden",
     border: "1px solid #e2e8f0",
     borderRadius: "14px",
     WebkitOverflowScrolling: "touch",
@@ -3899,7 +3943,8 @@ const styles: {
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    minWidth: "800px",
+    minWidth: 0,
+    tableLayout: "fixed",
   },
 
   th: {

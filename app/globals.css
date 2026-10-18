@@ -42,6 +42,42 @@ button {
    MAIN PAGE
 ========================================= */
 
+.racer-login-boot {
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  color: #eef5ff;
+  text-align: center;
+  background: radial-gradient(circle at 50% 28%, rgba(34, 91, 174, .22), transparent 42%), linear-gradient(145deg, #020817, #0a1830 62%, #101b33);
+}
+
+.racer-login-boot-mark {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 3px;
+  border: 1px solid rgba(255, 211, 91, .55);
+  border-radius: 17px;
+  background: linear-gradient(145deg, #f6cd59, #d99d22);
+  color: #10233d;
+  font-size: 17px;
+  font-weight: 950;
+  box-shadow: 0 8px 28px rgba(224, 171, 49, .2);
+}
+
+.racer-login-boot > strong { font-size: 15px; letter-spacing: .09em; }
+.racer-login-boot > span { color: #9db2ce; font-size: 12px; }
+.racer-login-boot > i { width: 28px; height: 3px; margin-top: 5px; border-radius: 999px; background: #f3c34b; animation: racerLoginBootPulse 1s ease-in-out infinite alternate; }
+@keyframes racerLoginBootPulse { to { opacity: .35; transform: scaleX(.55); } }
+@media (prefers-reduced-motion: reduce) { .racer-login-boot > i { animation: none; } }
+
 .racer-login-page {
   min-height: 100vh;
   min-height: 100dvh;
@@ -8044,6 +8080,109 @@ main[data-racer-vip-module="homework"] .homeworkList .deleteButton { padding:7px
   main[data-racer-vip-module="homework"] .classGrid button { min-height:40px!important; }
 }
 
+/* Homework Studio dashboard refresh: clearer hierarchy, workload summary and quick filters. */
+main[data-racer-vip-module="homework"].racer-homework-page {
+  padding:clamp(14px,2.2vw,30px)!important;
+  background:radial-gradient(ellipse at 92% 4%,rgba(53,147,193,.14),transparent 31%),linear-gradient(180deg,#eef5fb 0,#f6f9fd 330px,#f4f7fb 100%)!important;
+  color:#122b49!important;
+}
+main[data-racer-vip-module="homework"] header[data-racer-vip-header] {
+  position:relative!important;
+  overflow:hidden!important;
+  min-height:174px!important;
+  border-radius:26px!important;
+  padding:clamp(24px,3.5vw,42px)!important;
+  background:linear-gradient(118deg,#10294d 0%,#124e73 56%,#147b83 100%)!important;
+  box-shadow:0 20px 42px rgba(18,48,78,.19)!important;
+}
+main[data-racer-vip-module="homework"] header[data-racer-vip-header]::after {
+  content:""!important;position:absolute!important;width:300px!important;height:300px!important;right:-80px!important;top:-145px!important;border:1px solid rgba(255,255,255,.13)!important;border-radius:50%!important;box-shadow:0 0 0 28px rgba(255,255,255,.035),0 0 0 58px rgba(255,255,255,.025)!important;pointer-events:none!important;
+}
+main[data-racer-vip-module="homework"] header[data-racer-vip-header] h1 { font-size:clamp(29px,3.6vw,42px)!important;letter-spacing:-1.6px!important; }
+main[data-racer-vip-module="homework"] header[data-racer-vip-header] p { margin-top:8px!important;font-size:14px!important; }
+main[data-racer-vip-module="homework"] header[data-racer-vip-header] button { position:relative!important;z-index:1!important;border-radius:13px!important;padding:12px 17px!important; }
+main[data-racer-vip-module="homework"] .homeworkOverview { display:grid!important;grid-template-columns:minmax(210px,.8fr) minmax(0,2.4fr)!important;gap:13px!important;margin:14px 0 18px!important; }
+main[data-racer-vip-module="homework"] .homeworkOverviewIntro { display:flex!important;align-items:center!important;gap:13px!important;padding:17px!important;border:1px solid #dce7f2!important;border-radius:18px!important;background:linear-gradient(145deg,#fff,#f8fbff)!important;box-shadow:0 7px 20px rgba(21,52,82,.045)!important; }
+main[data-racer-vip-module="homework"] .homeworkOverviewIcon { display:grid!important;place-items:center!important;flex:0 0 44px!important;width:44px!important;height:44px!important;border-radius:14px!important;background:#e5f4f7!important;color:#16798a!important;font-size:21px!important; }
+main[data-racer-vip-module="homework"] .homeworkOverviewIntro strong,main[data-racer-vip-module="homework"] .homeworkOverviewIntro span:not(.homeworkOverviewIcon) { display:block!important; }
+main[data-racer-vip-module="homework"] .homeworkOverviewIntro strong { color:#17334e!important;font-size:14px!important;font-weight:900!important; }
+main[data-racer-vip-module="homework"] .homeworkOverviewIntro span:not(.homeworkOverviewIcon) { margin-top:5px!important;color:#71849a!important;font-size:11px!important;line-height:1.45!important; }
+main[data-racer-vip-module="homework"] .homeworkStats { display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:10px!important; }
+main[data-racer-vip-module="homework"] .homeworkStat { display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;align-content:center!important;gap:3px 8px!important;min-width:0!important;padding:13px 15px!important;border:1px solid #dce7f2!important;border-radius:17px!important;background:#fff!important;box-shadow:0 7px 20px rgba(21,52,82,.045)!important; }
+main[data-racer-vip-module="homework"] .homeworkStat > span { color:#536b83!important;font-size:10px!important;font-weight:800!important; }
+main[data-racer-vip-module="homework"] .homeworkStat > strong { grid-column:2!important;grid-row:1 / span 2!important;align-self:center!important;font-size:25px!important;line-height:1!important;letter-spacing:-.8px!important; }
+main[data-racer-vip-module="homework"] .homeworkStat > small { color:#91a0b0!important;font-size:9px!important; }
+main[data-racer-vip-module="homework"] .homeworkStatBlue > strong { color:#2366b0!important; }
+main[data-racer-vip-module="homework"] .homeworkStatGreen > strong { color:#13946b!important; }
+main[data-racer-vip-module="homework"] .homeworkStatViolet > strong { color:#7350c5!important; }
+main[data-racer-vip-module="homework"] .homeworkStatAmber > strong { color:#c47a10!important; }
+main[data-racer-vip-module="homework"] .createCard,main[data-racer-vip-module="homework"] .listCard { padding:clamp(18px,2.4vw,30px)!important;border:1px solid #dce7f2!important;border-radius:22px!important;background:rgba(255,255,255,.96)!important;box-shadow:0 12px 32px rgba(21,52,82,.065)!important; }
+main[data-racer-vip-module="homework"] .createCard { margin-bottom:16px!important; }
+main[data-racer-vip-module="homework"] .cardHeader { align-items:center!important;margin-bottom:20px!important; }
+main[data-racer-vip-module="homework"] .cardIcon { width:46px!important;height:46px!important;border-radius:15px!important;background:#e7f3f7!important;box-shadow:inset 0 0 0 1px #d6e9ef!important; }
+main[data-racer-vip-module="homework"] .cardTitle { color:#17334e!important;font-size:20px!important;letter-spacing:-.45px!important; }
+main[data-racer-vip-module="homework"] .cardSubtitle { margin-top:4px!important;color:#75879a!important;font-size:12px!important; }
+main[data-racer-vip-module="homework"] .classSection { padding:16px!important;border:1px solid #e2ebf4!important;border-radius:17px!important;background:#f8fbfe!important; }
+main[data-racer-vip-module="homework"] .classHeaderRow { margin-bottom:11px!important; }
+main[data-racer-vip-module="homework"] .classGrid { gap:8px!important; }
+main[data-racer-vip-module="homework"] .classGrid button { border:1px solid #d8e4ef!important;background:#fff!important;color:#4c6279!important;box-shadow:0 2px 5px rgba(23,51,78,.025)!important; }
+main[data-racer-vip-module="homework"] .classGrid button:has(span:first-child[style*="#2563eb"]) { border-color:#8ec1cf!important;background:#eaf6f8!important;color:#12687a!important; }
+main[data-racer-vip-module="homework"] .selectedInfo { margin-top:12px!important;padding:10px 12px!important;border-radius:12px!important;background:#edf6f8!important; }
+main[data-racer-vip-module="homework"] .selectedLabel { color:#47667a!important;font-size:10px!important; }
+main[data-racer-vip-module="homework"] .formGrid { margin-top:17px!important; }
+main[data-racer-vip-module="homework"] .formGrid input,main[data-racer-vip-module="homework"] .formGrid textarea { border-color:#d8e3ed!important;border-radius:12px!important;background:#fbfdff!important;transition:border-color .18s,box-shadow .18s!important; }
+main[data-racer-vip-module="homework"] .formGrid input:focus,main[data-racer-vip-module="homework"] .formGrid textarea:focus,main[data-racer-vip-module="homework"] .homeworkSearchBox:focus-within { border-color:#4d9aab!important;box-shadow:0 0 0 3px rgba(77,154,171,.13)!important;outline:none!important; }
+main[data-racer-vip-module="homework"] .scheduleSection { border-color:#e0e9f1!important;border-radius:17px!important;background:linear-gradient(135deg,#f7fbfd,#f7f8ff)!important; }
+main[data-racer-vip-module="homework"] .modeButton { min-width:0!important;min-height:78px!important;padding:12px!important;gap:9px!important;border-color:#dce5ef!important;border-radius:13px!important; }
+main[data-racer-vip-module="homework"] .homeworkModeCopy { display:flex!important;flex:1 1 auto!important;flex-direction:column!important;align-items:flex-start!important;min-width:0!important;gap:4px!important;line-height:1.25!important; }
+main[data-racer-vip-module="homework"] .homeworkModeCopy strong { display:block!important;max-width:100%!important;white-space:normal!important;overflow-wrap:anywhere!important;font-size:14px!important; }
+main[data-racer-vip-module="homework"] .homeworkModeCopy small { display:block!important;max-width:100%!important;white-space:normal!important;overflow-wrap:anywhere!important;font-size:11px!important;line-height:1.35!important; }
+main[data-racer-vip-module="homework"] .modeButtonSelected { border-color:#5c9dab!important;background:#edf8f9!important;color:#145d6b!important;box-shadow:0 0 0 2px rgba(92,157,171,.08)!important; }
+main[data-racer-vip-module="homework"] .assignmentInfo { border:1px solid #d8e9ed!important;border-radius:15px!important;background:#f0f8f9!important; }
+main[data-racer-vip-module="homework"] .assignmentClass { color:#167487!important; }
+main[data-racer-vip-module="homework"] .addButton { min-height:48px!important;border-radius:14px!important;background:linear-gradient(110deg,#155f77,#16827e)!important;box-shadow:0 9px 20px rgba(21,111,125,.2)!important; }
+main[data-racer-vip-module="homework"] .addButton:hover { filter:brightness(1.04)!important;transform:translateY(-1px)!important; }
+main[data-racer-vip-module="homework"] .homeworkListCard .cardHeader { margin-bottom:14px!important; }
+main[data-racer-vip-module="homework"] .homeworkListToolbar { display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;margin-bottom:16px!important;padding:11px!important;border:1px solid #e2ebf4!important;border-radius:15px!important;background:#f8fbfe!important; }
+main[data-racer-vip-module="homework"] .homeworkSearchBox { display:flex!important;align-items:center!important;gap:8px!important;flex:1 1 260px!important;max-width:420px!important;min-width:0!important;padding:0 12px!important;border:1px solid #dce6ef!important;border-radius:11px!important;background:#fff!important;color:#7790a3!important; }
+main[data-racer-vip-module="homework"] .homeworkSearchBox > span { font-size:21px!important;line-height:1!important; }
+main[data-racer-vip-module="homework"] .homeworkSearchBox input { width:100%!important;min-width:0!important;height:39px!important;border:0!important;outline:0!important;background:transparent!important;color:#17334e!important;font-size:12px!important; }
+main[data-racer-vip-module="homework"] .homeworkFilterTabs { display:flex!important;flex-wrap:wrap!important;gap:5px!important; }
+main[data-racer-vip-module="homework"] .homeworkFilterTabs button { min-height:35px!important;padding:0 12px!important;border:1px solid transparent!important;border-radius:9px!important;background:transparent!important;color:#657a8e!important;font-size:10px!important;font-weight:800!important;cursor:pointer!important; }
+main[data-racer-vip-module="homework"] .homeworkFilterTabs button.is-selected { border-color:#d5e7eb!important;background:#eaf5f6!important;color:#176d79!important; }
+main[data-racer-vip-module="homework"] .homeworkList { gap:13px!important; }
+main[data-racer-vip-module="homework"] .homeworkList > div { padding:17px!important;border:1px solid #e0e9f2!important;border-radius:17px!important;box-shadow:0 6px 18px rgba(21,52,82,.045)!important; }
+main[data-racer-vip-module="homework"] .homeworkList > div:hover { border-color:#c7dce5!important;box-shadow:0 10px 24px rgba(21,52,82,.075)!important; }
+main[data-racer-vip-module="homework"] .homeworkList h3 { margin:9px 0 3px!important;color:#183650!important;font-size:17px!important; }
+main[data-racer-vip-module="homework"] .homeworkList .homeworkBottom { color:#667d91!important; }
+main[data-racer-vip-module="homework"] .homeworkList .openHomeworkButton { min-height:36px!important;border-color:#d5e6eb!important;border-radius:10px!important;background:#f1f8f9!important;color:#176d79!important; }
+main[data-racer-vip-module="homework"] .homeworkList .deleteButton { border-radius:10px!important;background:#fff2f2!important;color:#ae4b4b!important; }
+@media(max-width:900px) {
+  main[data-racer-vip-module="homework"] .homeworkOverview { grid-template-columns:1fr!important; }
+  main[data-racer-vip-module="homework"] .homeworkStats { grid-template-columns:repeat(4,minmax(0,1fr))!important; }
+}
+@media(max-width:680px) {
+  main[data-racer-vip-module="homework"].racer-homework-page { padding:10px 10px 18px!important; }
+  main[data-racer-vip-module="homework"] header[data-racer-vip-header] { min-height:unset!important;padding:21px!important;border-radius:20px!important; }
+  main[data-racer-vip-module="homework"] header[data-racer-vip-header] h1 { font-size:29px!important; }
+  main[data-racer-vip-module="homework"] header[data-racer-vip-header] p { font-size:12px!important; }
+  main[data-racer-vip-module="homework"] .homeworkOverview { gap:9px!important;margin:10px 0 13px!important; }
+  main[data-racer-vip-module="homework"] .homeworkOverviewIntro { padding:13px!important; }
+  main[data-racer-vip-module="homework"] .homeworkStats { grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important; }
+  main[data-racer-vip-module="homework"] .homeworkStat { min-height:68px!important;padding:10px 12px!important;border-radius:14px!important; }
+  main[data-racer-vip-module="homework"] .homeworkStat > strong { font-size:22px!important; }
+  main[data-racer-vip-module="homework"] .createCard,main[data-racer-vip-module="homework"] .listCard { padding:15px!important;border-radius:18px!important; }
+  main[data-racer-vip-module="homework"] .cardHeader { margin-bottom:15px!important; }
+  main[data-racer-vip-module="homework"] .cardTitle { font-size:18px!important; }
+  main[data-racer-vip-module="homework"] .homeworkListToolbar { align-items:stretch!important;flex-direction:column!important;gap:8px!important;padding:9px!important; }
+  main[data-racer-vip-module="homework"] .homeworkSearchBox { max-width:none!important;flex-basis:auto!important; }
+  main[data-racer-vip-module="homework"] .homeworkFilterTabs { display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important; }
+  main[data-racer-vip-module="homework"] .homeworkFilterTabs button { padding:0 5px!important;font-size:9px!important; }
+  main[data-racer-vip-module="homework"] .homeworkList > div { padding:14px!important; }
+  main[data-racer-vip-module="homework"] .homeworkList .deleteButton { min-height:35px!important; }
+  main[data-racer-vip-module="homework"] .actions .addButton { width:100%!important; }
+}
+
 /* Teacher payments: light finance dashboard, clearly readable in both view modes. */
 .racer-teacher-shell [data-teacher-module="payments"] main.payments-page {
   min-height:calc(100vh - 64px)!important;
@@ -8577,6 +8716,134 @@ main[data-racer-vip-module="homework"] .homeworkList .deleteButton { padding:7px
   font-size: clamp(25px, 4vw, 36px);
   line-height: 1.1;
 }
+
+/* Teacher student roster: keep every field visible without an inner scrollbar. */
+.racer-students-page .students-table-wrapper {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  border: 1px solid #dce7f3 !important;
+  border-radius: 16px !important;
+  background: #fff !important;
+}
+.racer-students-page .students-table {
+  width: 100% !important;
+  min-width: 0 !important;
+  table-layout: fixed !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+}
+.racer-students-page .students-table th,
+.racer-students-page .students-table td {
+  padding: 12px 10px !important;
+  overflow-wrap: anywhere !important;
+  word-break: normal !important;
+  vertical-align: middle !important;
+}
+.racer-students-page .students-table th {
+  color: #52657e !important;
+  background: #f3f7fc !important;
+  font-size: 10px !important;
+  letter-spacing: .45px !important;
+  text-transform: uppercase !important;
+  white-space: normal !important;
+}
+.racer-students-page .students-table th:nth-child(1) { width: 12%; }
+.racer-students-page .students-table th:nth-child(2) { width: 21%; }
+.racer-students-page .students-table th:nth-child(3) { width: 14%; }
+.racer-students-page .students-table th:nth-child(4) { width: 20%; }
+.racer-students-page .students-table th:nth-child(5) { width: 14%; }
+.racer-students-page .students-table th:nth-child(6) { width: 19%; }
+.racer-students-page .students-table tbody tr:nth-child(even) { background: #f9fbfe !important; }
+.racer-students-page .students-table tbody tr:hover { background: #f1f7ff !important; }
+.racer-students-page .students-table .students-cell { color: #334a65 !important; font-size: 12px !important; }
+.racer-students-page .students-admission-current { display: grid; gap: 3px; }
+.racer-students-page .students-admission-current span,
+.racer-students-page .students-admission-history-title { color: #75869b; font-size: 9px; font-weight: 750; }
+.racer-students-page .students-admission-current strong { color: #183454; font-size: 11px; }
+.racer-students-page .students-admission-history { display: grid; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #d9e4f1; }
+.racer-students-page .students-admission-history-list { display: grid; gap: 3px; }
+.racer-students-page .students-admission-history-list > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 8px; color: #60738a; font-size: 9px; }
+.racer-students-page .students-admission-history-list strong { color: #314d6b; font-size: 9px; }
+.racer-students-page .students-cell-status > div { align-items: flex-start !important; }
+.racer-students-page .students-cell-actions > div { display: flex !important; flex-wrap: wrap !important; gap: 6px !important; }
+.racer-students-page .students-status-action { min-height: 29px !important; padding: 6px 9px !important; font-size: 9px !important; }
+.racer-students-page .students-history-migration-note { margin: -4px 0 16px; padding: 11px 13px; border: 1px solid #f3d28b; border-radius: 12px; background: #fff9e9; color: #775214; font-size: 11px; line-height: 1.5; }
+.racer-students-page .students-history-migration-note code { display: inline; color: #6c4310; font-size: 10px; overflow-wrap: anywhere; }
+
+@media (max-width: 760px) {
+  .racer-students-page .students-table-wrapper { overflow: visible !important; border: 0 !important; background: transparent !important; }
+  .racer-students-page .students-table,
+  .racer-students-page .students-table tbody { display: grid !important; width: 100% !important; gap: 10px !important; }
+  .racer-students-page .students-table thead { display: none !important; }
+  .racer-students-page .students-table tbody tr {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    grid-template-areas: "name name" "id username" "admission admission" "status actions" !important;
+    gap: 8px 12px !important;
+    min-width: 0 !important;
+    position: relative !important;
+    padding: 14px 13px 13px !important;
+    border: 1px solid #d9e6f5 !important;
+    border-radius: 17px !important;
+    background: linear-gradient(145deg, #fff 0%, #fff 72%, #f5f9ff 100%) !important;
+    box-shadow: 0 7px 20px rgba(20, 55, 95, .075) !important;
+    overflow: hidden !important;
+  }
+  .racer-students-page .students-table tbody tr::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #1558bd, #56b8d8, #f3bf43); }
+  .racer-students-page .students-table tbody tr:nth-child(even) { background: #fff !important; }
+  .racer-students-page .students-table tbody td.students-cell {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 4px !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    font-size: 12px !important;
+  }
+  .racer-students-page .students-table tbody td.students-cell::before {
+    content: attr(data-label);
+    color: #7a8ba0;
+    font-size: 9px;
+    font-weight: 850;
+    letter-spacing: .35px;
+    text-transform: uppercase;
+  }
+  .racer-students-page .students-table .students-cell-name,
+  .racer-students-page .students-table .students-cell-admission,
+  .racer-students-page .students-table .students-cell-actions { grid-column: 1 / -1 !important; }
+  .racer-students-page .students-table .students-cell-id { grid-area: id !important; }
+  .racer-students-page .students-table .students-cell-username { grid-area: username !important; }
+  .racer-students-page .students-table .students-cell-name { grid-area: name !important; padding-bottom: 8px !important; border-bottom: 1px solid #edf2f7 !important; }
+  .racer-students-page .students-table .students-cell-admission { grid-area: admission !important; }
+  .racer-students-page .students-table .students-cell-status { grid-area: status !important; }
+  .racer-students-page .students-table .students-cell-actions { grid-area: actions !important; padding-top: 8px !important; border-top: 1px solid #edf2f7 !important; }
+  .racer-students-page .students-table .students-cell-name > div { color: #152d4a !important; font-size: 15px !important; font-weight: 850 !important; }
+  .racer-students-page .students-table .students-cell-id .idBadge { width: max-content !important; max-width: 100% !important; padding: 5px 9px !important; border: 1px solid #d8e7ff !important; border-radius: 9px !important; background: #edf4ff !important; color: #1558bd !important; }
+  .racer-students-page .students-table .students-cell-status > div { flex-direction: row !important; align-items: center !important; flex-wrap: wrap !important; gap: 7px !important; }
+  .racer-students-page .students-table .students-cell-actions > div { display: flex !important; align-items: center !important; flex-wrap: wrap !important; gap: 7px !important; }
+  .racer-students-page .students-status-action { min-height: 34px !important; padding: 7px 10px !important; font-size: 10px !important; }
+}
+
+/* Admission timeline shared by student profiles and teacher records. */
+.admission-timeline { display: grid; gap: 6px; min-width: 0; margin: 0; padding: 0; list-style: none; }
+.admission-timeline li { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 7px; min-width: 0; padding: 7px 9px; border: 1px solid #e3eaf3; border-radius: 11px; background: #f8fafc; }
+.admission-timeline li.is-current { border-color: #b5e5d0; background: linear-gradient(110deg, #effcf5, #f7fcff); }
+.admission-timeline-marker { display: grid; width: 18px; height: 18px; place-items: center; border-radius: 50%; background: #e7edf5; color: #7890a9; font-size: 8px; }
+.admission-timeline li.is-current .admission-timeline-marker { background: #d3f5e3; color: #168354; }
+.admission-timeline-copy { display: grid; gap: 2px; min-width: 0; }
+.admission-timeline-copy strong { color: #1e3858; font-size: 11px; line-height: 1.25; }
+.admission-timeline-copy small { color: #73859b; font-size: 9px; }
+.admission-timeline-status { padding: 4px 7px; border-radius: 999px; background: #e9eef5; color: #6b7f95; font-size: 8px; font-weight: 950; letter-spacing: .45px; }
+.admission-timeline li.is-current .admission-timeline-status { background: #d8f5e5; color: #13734a; }
+.admission-timeline-empty { color: #8291a3; font-size: 11px; }
+.students-cell-admission .admission-timeline li { padding: 5px 7px; }
+@media (max-width: 760px) {
+  .students-cell-admission .admission-timeline { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .students-cell-admission .admission-timeline li { min-height: 43px; }
+  .admission-timeline li { grid-template-columns: 18px minmax(0, 1fr) auto; }
+}
 .racer-student-shell .student-exams-heading p { margin: 0; color: #60748b; font-size: 14px; }
 .racer-student-shell .student-exams-grid {
   display: grid;
@@ -8652,5 +8919,18 @@ main[data-racer-vip-module="homework"] .homeworkList .deleteButton { padding:7px
     object-fit: contain !important;
     object-position: center !important;
     border-radius: inherit !important;
+  }
+}
+
+/* Keep student page content scrollable above the fixed mobile navigation. */
+@media (max-width: 1024px) {
+  .racer-student-shell .racer-student-content-area[data-student-route] {
+    padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important;
+    scroll-padding-bottom: calc(120px + env(safe-area-inset-bottom));
+  }
+
+  .racer-student-shell .racer-bottom-nav {
+    position: fixed !important;
+    z-index: 9998 !important;
   }
 }

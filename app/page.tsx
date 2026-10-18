@@ -390,6 +390,8 @@ function withoutPasswordFields(value: any): any {
 
 export default function HomePage() {
   const router = useRouter();
+  const [sessionChecked, setSessionChecked] = useState(false);
+  const [academyDataReady, setAcademyDataReady] = useState(false);
 
   const [loginType, setLoginType] =
     useState<LoginType>("student");
@@ -474,6 +476,7 @@ export default function HomePage() {
     // Remove legacy app-managed account chips. Browser password managers handle credentials.
     localStorage.removeItem("racer_saved_students");
     localStorage.removeItem("racer_saved_teachers");
+    setSessionChecked(true);
   }, [router]);
   useEffect(() => {
     async function loadAcademyData() {
@@ -616,6 +619,8 @@ export default function HomePage() {
           "Academy profile loading error:",
           err
         );
+      } finally {
+        setAcademyDataReady(true);
       }
     }
 
@@ -2072,6 +2077,17 @@ export default function HomePage() {
 
     return null;
   };
+
+  if (!sessionChecked || !academyDataReady) {
+    return (
+      <main className="racer-login-boot" aria-live="polite" aria-busy="true">
+        <div className="racer-login-boot-mark" aria-hidden="true">RA</div>
+        <strong>RACER ACADEMY</strong>
+        <span>Preparing your latest academy page…</span>
+        <i aria-hidden="true" />
+      </main>
+    );
+  }
 
   return (
     <>

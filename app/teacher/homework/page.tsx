@@ -24,6 +24,7 @@ type Student = {
 };
 
 type PostingMode = "now" | "schedule";
+type HomeworkFilter = "all" | "published" | "scheduled" | "overdue";
 
 export default function TeacherHomeworkPage() {
   const router = useRouter();
@@ -50,6 +51,8 @@ export default function TeacherHomeworkPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [homeworkSearch, setHomeworkSearch] = useState("");
+  const [homeworkFilter, setHomeworkFilter] = useState<HomeworkFilter>("all");
 
   useEffect(() => {
     loadData();
@@ -143,6 +146,28 @@ export default function TeacherHomeworkPage() {
         )
     )
   ).sort();
+
+  const todayInIndia = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  const scheduledHomeworkCount = homework.filter(isScheduledFuture).length;
+  const publishedHomeworkCount = homework.length - scheduledHomeworkCount;
+  const overdueHomeworkCount = homework.filter((item) => !isScheduledFuture(item) && item.due_date < todayInIndia).length;
+  const visibleHomework = homework.filter((item) => {
+    const query = homeworkSearch.trim().toLocaleLowerCase();
+    const matchesSearch = !query || [item.title, item.subject, item.description, item.class_name]
+      .some((value) => value?.toLocaleLowerCase().includes(query));
+    const scheduled = isScheduledFuture(item);
+    const overdue = !scheduled && item.due_date < todayInIndia;
+    const matchesFilter = homeworkFilter === "all"
+      || (homeworkFilter === "scheduled" && scheduled)
+      || (homeworkFilter === "published" && !scheduled)
+      || (homeworkFilter === "overdue" && overdue);
+    return matchesSearch && matchesFilter;
+  });
 
   function toggleClass(classValue: string) {
     setSelectedClasses((previous) => {
@@ -515,9 +540,9 @@ export default function TeacherHomeworkPage() {
               TEACHER PORTAL
             </div>
 
-            <h1 style={styles.title}>RACER ACADEMY</h1>
+            <h1 style={styles.title}>Homework Studio</h1>
 
-            <p style={styles.subtitle}>TEACHER CONTROL CENTER</p>
+            <p style={styles.subtitle}>Plan, publish and track class assignments</p>
           </div>
 
           <button
@@ -533,13 +558,29 @@ export default function TeacherHomeworkPage() {
           </button>
         </header>
 
+        <section className="homeworkOverview" aria-label="Homework overview">
+          <div className="homeworkOverviewIntro">
+            <span className="homeworkOverviewIcon">✦</span>
+            <div>
+              <strong>Your assignment desk</strong>
+              <span>One place to prepare work for every assigned class.</span>
+            </div>
+          </div>
+          <div className="homeworkStats">
+            <article className="homeworkStat homeworkStatBlue"><span>Total assignments</span><strong>{homework.length}</strong><small>Across your classes</small></article>
+            <article className="homeworkStat homeworkStatGreen"><span>Published</span><strong>{publishedHomeworkCount}</strong><small>Visible to students</small></article>
+            <article className="homeworkStat homeworkStatViolet"><span>Scheduled</span><strong>{scheduledHomeworkCount}</strong><small>Waiting to publish</small></article>
+            <article className="homeworkStat homeworkStatAmber"><span>Past due</span><strong>{overdueHomeworkCount}</strong><small>Due date has passed</small></article>
+          </div>
+        </section>
+
         {error && (
           <div style={styles.errorBox}>
             ⚠️ {error}
           </div>
         )}
 
-        <section className="createCard" style={styles.createCard}>
+        <section className="createCard homeworkCreateCard" style={styles.createCard}>
 
           <div style={styles.cardHeader}>
             <div style={styles.cardIcon}>
@@ -548,11 +589,11 @@ export default function TeacherHomeworkPage() {
 
             <div>
               <h2 style={styles.cardTitle}>
-                Create New Homework
+                Create an assignment
               </h2>
 
               <p style={styles.cardSubtitle}>
-                Select one or multiple classes.
+                Set the task, choose classes and decide when students see it.
               </p>
             </div>
           </div>
@@ -834,14 +875,13 @@ export default function TeacherHomeworkPage() {
                   ⚡
                 </span>
 
-                <span>
+                <span className="homeworkModeCopy">
                   <strong>
                     Add Now
                   </strong>
 
                   <small>
-                    Show to students
-                    immediately
+                    Visible right away
                   </small>
                 </span>
               </button>
@@ -869,14 +909,13 @@ export default function TeacherHomeworkPage() {
                   🗓️
                 </span>
 
-                <span>
+                <span className="homeworkModeCopy">
                   <strong>
                     Schedule Homework
                   </strong>
 
                   <small>
-                    Show automatically
-                    at selected time
+                    Publish at a chosen time
                   </small>
                 </span>
               </button>
@@ -1025,7 +1064,7 @@ export default function TeacherHomeworkPage() {
 
         </section>
 
-        <section className="listCard" style={styles.listCard}>
+        <section className="listCard homeworkListCard" style={styles.listCard}>
 
           <div style={styles.cardHeader}>
 
@@ -1040,15 +1079,25 @@ export default function TeacherHomeworkPage() {
               </h2>
 
               <p style={styles.cardSubtitle}>
-                {homework.length} homework
-                item
-                {homework.length !== 1
-                  ? "s"
-                  : ""}
+                {visibleHomework.length} of {homework.length} assignment{homework.length !== 1 ? "s" : ""}
               </p>
 
             </div>
 
+          </div>
+
+          <div className="homeworkListToolbar">
+            <label className="homeworkSearchBox">
+              <span aria-hidden="true">⌕</span>
+              <input value={homeworkSearch} onChange={(event) => setHomeworkSearch(event.target.value)} placeholder="Search title, subject or class" aria-label="Search homework" />
+            </label>
+            <div className="homeworkFilterTabs" role="group" aria-label="Filter homework">
+              {(["all", "published", "scheduled", "overdue"] as HomeworkFilter[]).map((filter) => (
+                <button key={filter} type="button" className={homeworkFilter === filter ? "is-selected" : ""} onClick={() => setHomeworkFilter(filter)}>
+                  {filter === "all" ? "All" : filter === "overdue" ? "Past due" : filter[0].toUpperCase() + filter.slice(1)}
+                </button>
+              ))}
+            </div>
           </div>
 
           {loading ? (
@@ -1071,7 +1120,7 @@ export default function TeacherHomeworkPage() {
               </h3>
 
             </div>
-          ) : homework.length ===
+          ) : visibleHomework.length ===
             0 ? (
             <div style={styles.empty}>
 
@@ -1088,7 +1137,7 @@ export default function TeacherHomeworkPage() {
                   styles.emptyTitle
                 }
               >
-                No Homework Added
+                {homework.length === 0 ? "No Homework Added Yet" : "No Matching Homework"}
               </h3>
 
               <p
@@ -1096,8 +1145,7 @@ export default function TeacherHomeworkPage() {
                   styles.emptyText
                 }
               >
-                Create your first homework
-                using the form above.
+                {homework.length === 0 ? "Create an assignment above to get started." : "Try a different search or filter."}
               </p>
 
             </div>
@@ -1109,7 +1157,7 @@ export default function TeacherHomeworkPage() {
               }
             >
 
-              {homework.map((item) => {
+              {visibleHomework.map((item) => {
 
                 const assignedClasses =
                   getAssignedClasses(
@@ -1125,6 +1173,7 @@ export default function TeacherHomeworkPage() {
                   isScheduledFuture(
                     item
                   );
+                const overdue = !future && item.due_date < todayInIndia;
 
                 const isOpen =
                   openHomeworkIds.includes(
@@ -1179,8 +1228,9 @@ export default function TeacherHomeworkPage() {
                             )
                           )}
 
-                          {scheduled &&
-                            (
+                          <span style={styles.subjectBadge}>{item.subject}</span>
+
+                          {scheduled ? (
                               <span
                                 style={
                                   future
@@ -1192,7 +1242,11 @@ export default function TeacherHomeworkPage() {
                                 ? "Scheduled"
                                   : "Published"}
                               </span>
-                            )}
+                          ) : (
+                            <span style={overdue ? styles.overdueBadge : styles.publishedBadge}>
+                              {overdue ? "Past due" : "Published"}
+                            </span>
+                          )}
 
                         </div>
 
@@ -1975,6 +2029,16 @@ const styles: {
     color: "#166534",
     padding: "5px 9px",
     borderRadius: "7px",
+    fontSize: "10px",
+    fontWeight: "900",
+  },
+
+  overdueBadge: {
+    display: "inline-block",
+    background: "#fff1f2",
+    color: "#be123c",
+    padding: "5px 9px",
+    borderRadius: "999px",
     fontSize: "10px",
     fontWeight: "900",
   },

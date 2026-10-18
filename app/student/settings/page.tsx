@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
+import { AdmissionDateTimeline } from "../../../components/admission-date-timeline";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,6 +16,8 @@ type Student = {
   student_name: string | null;
   student_username: string;
   admission_date: string | null;
+  admission_history?: { date: string; type?: string }[];
+  is_active: boolean;
   date_of_birth: string | null;
   father_name: string | null;
   mother_name: string | null;
@@ -147,6 +150,7 @@ export default function StudentSettingsPage() {
 
   const [username, setUsername] = useState("");
   const [form, setForm] = useState<FormData>(emptyForm);
+  const [studentRecord, setStudentRecord] = useState<Student | null>(null);
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -193,6 +197,7 @@ export default function StudentSettingsPage() {
           student_name,
           student_username,
           admission_date,
+          is_active,
           date_of_birth,
           father_name,
           mother_name,
@@ -215,6 +220,13 @@ export default function StudentSettingsPage() {
       }
 
       const student = data as Student;
+      const { data: historyData } = await supabase
+        .from("students")
+        .select("admission_history")
+        .eq("id", student.id)
+        .maybeSingle();
+      if (Array.isArray(historyData?.admission_history)) student.admission_history = historyData.admission_history;
+      setStudentRecord(student);
 
       setForm({
         student_name: student.student_name || "",
@@ -351,7 +363,12 @@ export default function StudentSettingsPage() {
       }
 
       const updatedStudent =
-        data as Student;
+        {
+          ...(data as Student),
+          is_active: studentRecord?.is_active ?? true,
+          admission_history: studentRecord?.admission_history || [],
+        };
+      setStudentRecord(updatedStudent);
 
       setForm({
         student_name:
@@ -765,6 +782,7 @@ export default function StudentSettingsPage() {
                 <small style={styles.lockedText}>
                   🔒 Admission Date is locked. Only Teacher can change it.
                 </small>
+                <AdmissionDateTimeline currentDate={studentRecord?.admission_date || form.admission_date || null} history={studentRecord?.admission_history} isActive={studentRecord?.is_active !== false} />
               </div>
 
               {/* FATHER */}

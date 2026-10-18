@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { allowSaathiRequest, isSameOriginRequest, readStudentSession } from "../../../../../lib/server/student-session";
 import { loadSaathiStudentContext } from "../../../../../lib/server/saathi-context";
+import { getAiProvider } from "../../../../../lib/server/ai-provider";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,7 +26,8 @@ export async function POST(request: Request) {
   const session = readStudentSession(request);
   if (!session) return jsonError("Your secure student session expired. Sign out and sign in again.", 401);
   if (!allowSaathiRequest(`chat:${session.studentId}`, 12)) return jsonError("Please wait a moment before sending another question.", 429);
-  if (!process.env.OPENAI_API_KEY) return jsonError("AI is not configured yet. The academy administrator must add the server-side OPENAI_API_KEY.", 503);
+  const aiProvider = getAiProvider();
+  if (!aiProvider.configured) return jsonError("AI isn’t connected in this environment. Add AI_GATEWAY_API_KEY to .env.local and restart localhost, or add it to Vercel and redeploy.", 503);
   if (!supabaseAdmin) return jsonError("Student data services are unavailable right now.", 503);
 
   try {
@@ -58,11 +60,14 @@ export async function POST(request: Request) {
     request.signal.addEventListener("abort", abortFromClient, { once: true });
     let upstream: Response;
     try {
-      upstream = await fetch("https://api.openai.com/v1/responses", {
+      upstream = await fetch(`${aiProvider.baseUrl}/responses`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
+        headers: { Authorization: `Bearer ${aiProvider.apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini",
+          model: aiProvider.model(
+            aiProvider.throughGateway ? process.env.AI_GATEWAY_CHAT_MODEL || process.env.OPENAI_CHAT_MODEL : process.env.OPENAI_CHAT_MODEL,
+            "gpt-4o-mini",
+          ),
           instructions: systemInstructions,
           input,
           max_output_tokens: 700,
@@ -83,7 +88,7 @@ export async function POST(request: Request) {
       console.error("RACER Saathi provider request rejected", { status: upstream.status, type: providerType, code: providerCode });
       clearTimeout(timeout);
       request.signal.removeEventListener("abort", abortFromClient);
-      if (upstream.status === 401) return jsonError("AI key rejected. Academy admin: check that OPENAI_API_KEY is the OpenAI secret key, then redeploy.", 502);
+      if (upstream.status === 401) return jsonError("AI key rejected. Check the AI Gateway/OpenAI secret key in Vercel, then redeploy.", 502);
       if (upstream.status === 403) return jsonError("AI access is not enabled for this key or project. Academy admin: check API project permissions and billing.", 502);
       if (upstream.status === 429 && ["insufficient_quota", "billing_hard_limit_reached", "usage_limit_reached"].includes(providerCode)) return jsonError("OpenAI API credits or usage limit are exhausted. Academy admin: check API billing, then try again.", 503);
       if (upstream.status === 429) return jsonError("AI is busy or its rate limit was reached. Please wait a moment and try again.", 429);

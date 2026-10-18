@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { AdmissionDateTimeline } from "../../../components/admission-date-timeline";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,6 +14,8 @@ type Student = {
   student_name: string | null;
   student_username: string;
   admission_date: string | null;
+  admission_history?: { date: string; type?: string }[];
+  is_active?: boolean;
   date_of_birth: string | null;
   father_name: string | null;
   mother_name: string | null;
@@ -136,6 +139,7 @@ export default function StudentProfilePage() {
           student_name,
           student_username,
           admission_date,
+          is_active,
           date_of_birth,
           father_name,
           mother_name,
@@ -168,6 +172,14 @@ export default function StudentProfilePage() {
       }
 
       const loadedStudent = data as Student;
+      const { data: admissionData } = await supabase
+        .from("students")
+        .select("admission_history")
+        .eq("id", loadedStudent.id)
+        .maybeSingle();
+      if (Array.isArray(admissionData?.admission_history)) {
+        loadedStudent.admission_history = admissionData.admission_history;
+      }
 
       setStudent(loadedStudent);
       setForm(studentToForm(loadedStudent));
@@ -308,6 +320,9 @@ export default function StudentProfilePage() {
       }
 
       const updatedStudent = data as Student;
+
+      updatedStudent.is_active = student.is_active;
+      updatedStudent.admission_history = student.admission_history;
 
       setStudent(updatedStudent);
       setForm(studentToForm(updatedStudent));
@@ -543,7 +558,11 @@ export default function StudentProfilePage() {
         );
       }
 
-      setStudent(data as Student);
+      setStudent({
+        ...(data as Student),
+        is_active: student.is_active,
+        admission_history: student.admission_history,
+      });
 
       setSuccessMessage(
         "✅ Profile picture successfully uploaded."
@@ -1014,6 +1033,7 @@ export default function StudentProfilePage() {
                 <span style={styles.helpText}>
                   🔒 Only teacher can change admission date
                 </span>
+                <AdmissionDateTimeline currentDate={student.admission_date} history={student.admission_history} isActive={student.is_active !== false} />
               </div>
 
               <Field
@@ -1212,10 +1232,8 @@ export default function StudentProfilePage() {
             />
 
             <Detail
-              label="Admission Date"
-              value={formatDate(
-                student.admission_date
-              )}
+              label="Admission Dates"
+              value={<AdmissionDateTimeline currentDate={student.admission_date} history={student.admission_history} isActive={student.is_active !== false} />}
               locked
             />
 
@@ -1415,7 +1433,7 @@ function Detail({
   locked = false,
 }: {
   label: string;
-  value: string;
+  value: React.ReactNode;
   locked?: boolean;
 }) {
   return (

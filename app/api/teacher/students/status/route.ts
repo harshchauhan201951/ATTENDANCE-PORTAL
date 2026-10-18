@@ -27,7 +27,51 @@ export async function POST(request: NextRequest) {
       const isAssigned = (assignedData || []).some((row: { student_id: number }) => Number(row.student_id) === studentId);
       if (!isAssigned) return NextResponse.json({ success: false, error: "You can only change account status for students assigned to you." }, { status: 403 });
     }
-    const { data: student, error: updateError } = await supabaseAdmin.from("students").update({ is_active: isActive }).eq("id", studentId).select("id,student_name,is_active").maybeSingle();
+    const { data: currentStudent, error: currentStudentError } = await supabaseAdmin
+      .from("students")
+      .select("id,student_name,is_active,admission_date,admission_history")
+      .eq("id", studentId)
+      .maybeSingle();
+    if (currentStudentError) {
+      const missingHistoryColumn = /admission_history/i.test(currentStudentError.message);
+      if (missingHistoryColumn && !isActive) {
+        const { data: deactivatedStudent, error: deactivateError } = await supabaseAdmin
+          .from("students")
+          .update({ is_active: false })
+          .eq("id", studentId)
+          .select("id,student_name,is_active,admission_date")
+          .maybeSingle();
+        if (deactivateError) return NextResponse.json({ success: false, error: deactivateError.message }, { status: 500 });
+        if (!deactivatedStudent) return NextResponse.json({ success: false, error: "Student was not found." }, { status: 404 });
+        return NextResponse.json({ success: true, student: { ...deactivatedStudent, admission_history: [] } });
+      }
+      return NextResponse.json({ success: false, error: missingHistoryColumn ? "Apply the student admission history database migration before changing student account status." : currentStudentError.message }, { status: 500 });
+    }
+    if (!currentStudent) return NextResponse.json({ success: false, error: "Student was not found." }, { status: 404 });
+
+    const history = Array.isArray(currentStudent.admission_history)
+      ? currentStudent.admission_history.filter((entry: unknown): entry is { date: string; type: "Initial admission" | "Re-admission"; recordedAt?: string } => Boolean(entry && typeof entry === "object" && typeof (entry as { date?: unknown }).date === "string"))
+      : [];
+    const updateData: { is_active: boolean; admission_date?: string; admission_history?: typeof history } = { is_active: isActive };
+    const isReadmission = isActive && !currentStudent.is_active;
+    if (isReadmission) {
+      const admissionDate = currentStudent.admission_date ? String(currentStudent.admission_date).slice(0, 10) : null;
+      const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+      const nextHistory = [...history];
+      if (admissionDate && !nextHistory.some((entry) => entry.date.slice(0, 10) === admissionDate)) {
+        nextHistory.push({ date: admissionDate, type: "Initial admission" });
+      }
+      nextHistory.push({ date: today, type: "Re-admission", recordedAt: new Date().toISOString() });
+      updateData.admission_date = today;
+      updateData.admission_history = nextHistory;
+    }
+
+    const { data: student, error: updateError } = await supabaseAdmin
+      .from("students")
+      .update(updateData)
+      .eq("id", studentId)
+      .select("id,student_name,is_active,admission_date,admission_history")
+      .maybeSingle();
     if (updateError) return NextResponse.json({ success: false, error: updateError.message }, { status: 500 });
     if (!student) return NextResponse.json({ success: false, error: "Student was not found." }, { status: 404 });
     return NextResponse.json({ success: true, student });

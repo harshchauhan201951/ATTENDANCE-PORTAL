@@ -43,7 +43,23 @@ export function isSameOriginRequest(request: Request) {
   const origin = request.headers.get("origin");
   if (!origin) return false;
   try {
-    return new URL(origin).origin === new URL(request.url).origin;
+    const parsedOrigin = new URL(origin);
+    const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+    const requestHost = request.headers.get("host")?.trim() || forwardedHost;
+    const forwardedProtocol = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+    const requestProtocol = forwardedProtocol
+      ? `${forwardedProtocol.replace(/:$/, "")}:`
+      : new URL(request.url).protocol;
+
+    // Behind a TLS-terminating proxy, request.url can contain the internal
+    // HTTP origin while the browser correctly sends the public HTTPS origin.
+    // Validate against the incoming host and forwarded public protocol.
+    if (requestHost) {
+      return parsedOrigin.host.toLowerCase() === requestHost.toLowerCase()
+        && parsedOrigin.protocol === requestProtocol;
+    }
+
+    return parsedOrigin.origin === new URL(request.url).origin;
   } catch {
     return false;
   }
