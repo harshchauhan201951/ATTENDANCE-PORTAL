@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
+import { isOnOrAfterAdmission } from "../../../lib/admission-date";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -46,6 +47,7 @@ type Student = {
   id: number;
   student_name: string | null;
   student_username: string;
+  admission_date?: string | null;
 };
 
 export default function StudentAttendancePage() {
@@ -94,7 +96,7 @@ export default function StudentAttendancePage() {
 
     const exactResult = await supabase
       .from("students")
-      .select("id, student_name, student_username")
+      .select("id, student_name, student_username, admission_date")
       .eq("student_username", cleanUsername)
       .maybeSingle();
 
@@ -108,7 +110,7 @@ export default function StudentAttendancePage() {
 
     const fallbackResult = await supabase
       .from("students")
-      .select("id, student_name, student_username")
+      .select("id, student_name, student_username, admission_date")
       .ilike("student_username", cleanUsername)
       .limit(1);
 
@@ -236,12 +238,11 @@ export default function StudentAttendancePage() {
       }
 
       setRecords(
-        (regularAttendanceResult.data || []) as AttendanceRecord[]
+        ((regularAttendanceResult.data || []) as AttendanceRecord[]).filter((record) => isOnOrAfterAdmission(studentData.admission_date, record.attendance_date))
       );
 
       setExtraClassRecords(
-        (extraClassAttendanceResult.data ||
-          []) as ExtraClassAttendanceRecord[]
+        ((extraClassAttendanceResult.data || []) as ExtraClassAttendanceRecord[]).filter((record) => isOnOrAfterAdmission(studentData.admission_date, record.extra_class_date))
       );
     } catch (err) {
       setError(
@@ -1420,7 +1421,9 @@ export default function StudentAttendancePage() {
                                   styles.extraBadge
                                 }
                               >
-                                ⭐ EXTRA
+                                {record.remarks?.startsWith("Managed extra class date")
+                                  ? "↻ MANAGED EXTRA"
+                                  : "⭐ EXTRA"}
                               </span>
                             ) : (
                               <span
@@ -1568,7 +1571,9 @@ export default function StudentAttendancePage() {
                           styles.extraSmallLabel
                         }
                       >
-                        ⭐ EXTRA CLASS
+                        {record.remarks?.startsWith("Managed extra class date")
+                          ? "↻ MANAGED EXTRA CLASS"
+                          : "⭐ EXTRA CLASS"}
                       </span>
 
                       <h3

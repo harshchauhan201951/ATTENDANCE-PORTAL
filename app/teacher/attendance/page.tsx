@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { isOnOrAfterAdmission } from "../../../lib/admission-date";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,6 +13,7 @@ type Student = {
   id: number;
   student_name: string | null;
   student_username: string;
+  admission_date?: string | null;
 };
 
 type AttendanceRecord = {
@@ -50,7 +52,7 @@ export default function TeacherAttendancePage() {
     setMessage("");
 
     try {
-      const savedTeacherId = Number(localStorage.getItem("attendance_teacher_id") || "0"); if (!savedTeacherId) { throw new Error("Teacher session not found."); } const displayTeacherName = localStorage.getItem("teacherName") || localStorage.getItem("teacher_name") || localStorage.getItem("teacherUsername") || localStorage.getItem("teacher_username") || "Teacher"; setTeacherDisplayName(displayTeacherName); let assignedStudentIds: number[] = []; if (savedTeacherId !== 1) { const { data: assignedData, error: assignedError } = await supabase.rpc("get_teacher_assigned_student_ids", { p_teacher_id: savedTeacherId }); if (assignedError) throw new Error(assignedError.message); assignedStudentIds = (assignedData || []).map((item: { student_id: number }) => Number(item.student_id)); } let studentQuery = supabase.from("students").select("id, student_name, student_username, is_active").eq("is_active", true).order("id", { ascending: true }); if (savedTeacherId !== 1) { if (assignedStudentIds.length === 0) { setStudents([]); setAttendance([]); setLoading(false); return; } studentQuery = studentQuery.in("id", assignedStudentIds); } const { data: studentData, error: studentError } = await studentQuery;
+      const savedTeacherId = Number(localStorage.getItem("attendance_teacher_id") || "0"); if (!savedTeacherId) { throw new Error("Teacher session not found."); } const displayTeacherName = localStorage.getItem("teacherName") || localStorage.getItem("teacher_name") || localStorage.getItem("teacherUsername") || localStorage.getItem("teacher_username") || "Teacher"; setTeacherDisplayName(displayTeacherName); let assignedStudentIds: number[] = []; if (savedTeacherId !== 1) { const { data: assignedData, error: assignedError } = await supabase.rpc("get_teacher_assigned_student_ids", { p_teacher_id: savedTeacherId }); if (assignedError) throw new Error(assignedError.message); assignedStudentIds = (assignedData || []).map((item: { student_id: number }) => Number(item.student_id)); } let studentQuery = supabase.from("students").select("id, student_name, student_username, admission_date, is_active").eq("is_active", true).order("id", { ascending: true }); if (savedTeacherId !== 1) { if (assignedStudentIds.length === 0) { setStudents([]); setAttendance([]); setLoading(false); return; } studentQuery = studentQuery.in("id", assignedStudentIds); } const { data: studentData, error: studentError } = await studentQuery;
 
       if (studentError) {
         throw new Error(studentError.message);
@@ -62,8 +64,10 @@ export default function TeacherAttendancePage() {
         throw new Error(attendanceError.message);
       }
 
-      setStudents(studentData || []);
-      setAttendance(attendanceData || []);
+      const loadedStudents = (studentData || []) as Student[];
+      const admissionDates = new Map(loadedStudents.map((student) => [Number(student.id), student.admission_date]));
+      setStudents(loadedStudents);
+      setAttendance((attendanceData || []).filter((record) => isOnOrAfterAdmission(admissionDates.get(Number(record.student_id)), record.attendance_date)));
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -79,10 +83,11 @@ export default function TeacherAttendancePage() {
     const text = search.trim().toLowerCase();
 
     if (!text) {
-      return students;
+      return students.filter((student) => isOnOrAfterAdmission(student.admission_date, selectedDate));
     }
 
     return students.filter((student) => {
+      if (!isOnOrAfterAdmission(student.admission_date, selectedDate)) return false;
       const name = student.student_name?.toLowerCase() || "";
       const username = student.student_username.toLowerCase();
 
@@ -91,7 +96,7 @@ export default function TeacherAttendancePage() {
         username.includes(text)
       );
     });
-  }, [students, search]);
+  }, [students, search, selectedDate]);
 
   const selectedDateRecords = useMemo(() => {
     return attendance.filter(

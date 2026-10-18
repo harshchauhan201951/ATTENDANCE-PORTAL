@@ -18,7 +18,7 @@ type Quiz = {
   created_at: string;
 };
 
-type QuizIconName = "overview" | "live" | "draft" | "calendar" | "create" | "manage" | "questions" | "results" | "settings" | "rules";
+type QuizIconName = "overview" | "live" | "draft" | "calendar" | "create" | "manage" | "questions" | "results" | "settings";
 
 function QuizIcon({ name, className = "h-5 w-5" }: { name: QuizIconName; className?: string }) {
   const paths: Record<QuizIconName, string> = {
@@ -31,7 +31,6 @@ function QuizIcon({ name, className = "h-5 w-5" }: { name: QuizIconName; classNa
     questions: "M9.1 9a3 3 0 1 1 5.8 1c-.9 1.2-2.9 1.6-2.9 3.5M12 17h.01M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0z",
     results: "M4 19V5m0 14h17M8 15l4-4 3 2 5-6",
     settings: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm0-5v2m0 14v2m9-9h-2M5 12H3m15.36-6.36-1.42 1.42M7.06 16.94l-1.42 1.42m12.72 0-1.42-1.42M7.06 7.06 5.64 5.64",
-    rules: "M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01",
   };
 
   return (
@@ -45,10 +44,7 @@ export default function TeacherQuizTestsPage() {
   const router = useRouter();
 
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
-  const [loading, setLoading] = useState(true);
   const [teacherName, setTeacherName] = useState("Teacher");
-  const [quizSearch, setQuizSearch] = useState("");
-  const [quizStatus, setQuizStatus] = useState("All");
 
   useEffect(() => {
     const storedName =
@@ -66,8 +62,6 @@ export default function TeacherQuizTestsPage() {
   }, []);
 
   async function loadQuizzes() {
-    setLoading(true);
-
     const { data, error } = await supabase
       .from("quiz_tests")
       .select("*")
@@ -80,37 +74,6 @@ export default function TeacherQuizTestsPage() {
       setQuizzes((data || []) as Quiz[]);
     }
 
-    setLoading(false);
-  }
-
-  function formatDate(date: string) {
-    if (!date) return "-";
-
-    const d = new Date(`${date}T00:00:00`);
-
-    return d.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  }
-
-  function formatTime(time: string) {
-    if (!time) return "-";
-
-    const [hourString, minuteString] = time.split(":");
-    let hour = Number(hourString);
-    const minute = minuteString || "00";
-
-    const period = hour >= 12 ? "PM" : "AM";
-
-    hour = hour % 12;
-
-    if (hour === 0) {
-      hour = 12;
-    }
-
-    return `${hour}:${minute} ${period}`;
   }
 
   function openQuizResults(quizId: number) {
@@ -136,12 +99,6 @@ export default function TeacherQuizTestsPage() {
 
     return quizDateTime > today && quiz.is_published;
   }).length;
-
-  const visibleRecentQuizzes = quizzes.filter((quiz) => {
-    const matchesSearch = `${quiz.title} ${quiz.description || ""}`.toLowerCase().includes(quizSearch.trim().toLowerCase());
-    const matchesStatus = quizStatus === "All" || (quizStatus === "Published" ? quiz.is_published : !quiz.is_published);
-    return matchesSearch && matchesStatus;
-  }).slice(0, 5);
 
   return (
     <main data-racer-vip-module="quiz-tests" className="min-h-screen bg-[#f5f7fc] text-slate-900 racer-module-page racer-quiz-tests-page">
@@ -250,7 +207,7 @@ export default function TeacherQuizTestsPage() {
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="racer-quiz-tools grid grid-cols-2 gap-3 lg:grid-cols-3">
               {/* CREATE */}
               <button
                 onClick={() =>
@@ -419,217 +376,16 @@ export default function TeacherQuizTestsPage() {
                 </div>
               </button>
 
-              {/* RULES */}
-              <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
-                <div className="absolute right-0 top-0 h-20 w-20 translate-x-10 -translate-y-10 rounded-full bg-slate-200/70" />
-
-                <div className="relative mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm">
-                  <QuizIcon name="rules" className="h-6 w-6" />
-                </div>
-
-                <h4 className="text-base font-black text-slate-950">
-                  Quiz Rules
-                </h4>
-
-                <div className="mt-3 space-y-2 text-xs text-slate-600">
-                  <p className="flex items-start gap-2">
-                    <span className="mt-0.5 font-black text-indigo-500">
-                      •
-                    </span>
-                    Fixed duration: 30 minutes
-                  </p>
-
-                  <p className="flex items-start gap-2">
-                    <span className="mt-0.5 font-black text-indigo-500">
-                      •
-                    </span>
-                    Multiple-choice questions
-                  </p>
-
-                  <p className="flex items-start gap-2">
-                    <span className="mt-0.5 font-black text-indigo-500">
-                      •
-                    </span>
-                    Negative marking supported
-                  </p>
-
-                  <p className="flex items-start gap-2">
-                    <span className="mt-0.5 font-black text-indigo-500">
-                      •
-                    </span>
-                    Scheduled start time
-                  </p>
-
-                  <p className="flex items-start gap-2">
-                    <span className="mt-0.5 font-black text-indigo-500">
-                      •
-                    </span>
-                    Automatic result calculation
-                  </p>
-                </div>
-              </div>
             </div>
           </section>
 
-          {/* RECENT QUIZZES */}
-          <section>
-            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <div className="mb-2 text-xs font-black uppercase tracking-[0.22em] text-slate-400">
-                  YOUR QUIZ LIBRARY
-                </div>
-
-                <h3 className="text-2xl font-black tracking-tight text-slate-950">
-                  Recent quizzes
-                </h3>
-
-                <p className="mt-1 text-sm text-slate-500">
-                  Open a quiz, review results or continue managing it.
-                </p>
-              </div>
-
-              <button
-                onClick={() =>
-                  router.push("/teacher/quiz-tests/manage")
-                }
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-indigo-600 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50"
-              >
-                View all quizzes
-              </button>
+          <section className="rounded-2xl border border-indigo-100 bg-white p-5 shadow-sm sm:flex sm:items-center sm:justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">Quiz library</p>
+              <h3 className="mt-1 text-lg font-black text-slate-900">Manage your quizzes</h3>
+              <p className="mt-1 text-sm text-slate-500">Open the full list to edit, publish, add questions, or review results.</p>
             </div>
-
-            <div className="mb-3 flex flex-col gap-2.5 rounded-xl border border-slate-200/80 bg-white p-2.5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-              <label className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 focus-within:border-indigo-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-indigo-50 sm:w-80">
-                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-4 w-4 shrink-0 text-slate-400"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
-                <input type="search" value={quizSearch} onChange={(event) => setQuizSearch(event.target.value)} placeholder="Search quiz title…" aria-label="Search quizzes" className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-700 outline-none placeholder:font-medium placeholder:text-slate-400" />
-                {quizSearch && <button type="button" onClick={() => setQuizSearch("")} aria-label="Clear quiz search" className="text-lg leading-none text-slate-400 hover:text-slate-700">×</button>}
-              </label>
-              <div className="flex flex-wrap items-center gap-2" aria-label="Filter quizzes by status">
-                {["All", "Published", "Draft"].map((status) => (
-                  <button key={status} type="button" aria-pressed={quizStatus === status} onClick={() => setQuizStatus(status)} className={`rounded-xl px-3.5 py-2 text-xs font-extrabold transition ${quizStatus === status ? "bg-indigo-600 text-white shadow-md shadow-indigo-100" : "border border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"}`}>
-                    {status}{status === "All" ? ` · ${totalQuizzes}` : status === "Published" ? ` · ${publishedQuizzes}` : ` · ${draftQuizzes}`}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {loading ? (
-              <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
-                <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-500" />
-
-                <p className="text-sm font-medium text-slate-500">
-                  Loading quizzes...
-                </p>
-              </div>
-            ) : quizzes.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-                  <QuizIcon name="questions" className="h-6 w-6" />
-                </div>
-
-                <h4 className="text-base font-black text-slate-950">
-                  No quizzes created yet
-                </h4>
-
-                <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
-                  Create your first quiz and add questions for your students.
-                </p>
-
-                <button
-                  onClick={() =>
-                    router.push("/teacher/quiz-tests/create")
-                  }
-                  className="mt-4 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-700"
-                >
-                  + Create First Quiz
-                </button>
-              </div>
-            ) : visibleRecentQuizzes.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-500"><QuizIcon name="overview" /></div>
-                <h4 className="font-black text-slate-800">No quizzes match this filter</h4>
-                <p className="mt-1 text-sm text-slate-500">Change the search or select another status.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {visibleRecentQuizzes.map((quiz) => (
-                  <div
-                    key={quiz.id}
-                    className="group relative overflow-hidden rounded-xl border border-slate-200/80 bg-white p-3 shadow-[0_6px_18px_rgba(15,23,42,0.04)] transition hover:border-indigo-200 hover:shadow-md sm:p-3.5"
-                  >
-                    <div className={`absolute inset-y-0 left-0 w-1 ${quiz.is_published ? "bg-emerald-400" : "bg-amber-400"}`} />
-                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                      <div className="min-w-0 pl-2">
-                        <div className="flex items-center gap-2">
-                          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${quiz.is_published ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}><QuizIcon name={quiz.is_published ? "live" : "draft"} className="h-4 w-4" /></span>
-                          <h4 className="min-w-0 truncate font-black text-slate-950">
-                            {quiz.title}
-                          </h4>
-
-                          <span
-                            className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${
-                              quiz.is_published
-                                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                : "border-amber-200 bg-amber-50 text-amber-700"
-                            }`}
-                          >
-                            {quiz.is_published
-                              ? "Published"
-                              : "Draft"}
-                          </span>
-                        </div>
-
-                        <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-semibold text-slate-500">
-                          <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1">
-                            {formatDate(quiz.scheduled_date)}
-                          </span>
-
-                          <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1">
-                            {formatTime(quiz.scheduled_time)}
-                          </span>
-
-                          <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1">
-                            {quiz.duration_minutes} min
-                          </span>
-
-                          <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1">
-                            {quiz.marks_per_question} mark / question
-                          </span>
-
-                          <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1">
-                            {quiz.negative_marks} negative mark
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex shrink-0 flex-wrap gap-2">
-                        {/* RESULTS */}
-                        <button
-                          onClick={() =>
-                            openQuizResults(quiz.id)
-                          }
-                          className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-xs font-extrabold text-emerald-700 transition hover:bg-emerald-100"
-                        >
-                          <QuizIcon name="results" className="h-4 w-4" />
-                          Results
-                        </button>
-
-                        {/* MANAGE */}
-                        <button
-                          onClick={() =>
-                            router.push("/teacher/quiz-tests/manage")
-                          }
-                          className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-extrabold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
-                        >
-                          <QuizIcon name="manage" className="h-4 w-4" />
-                          Manage
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <button onClick={() => router.push("/teacher/quiz-tests/manage")} className="mt-4 min-h-11 w-full rounded-xl bg-indigo-600 px-5 py-3 text-sm font-black text-white shadow-md shadow-indigo-100 hover:bg-indigo-700 sm:mt-0 sm:w-auto">View all quizzes</button>
           </section>
         </div>
       </div>

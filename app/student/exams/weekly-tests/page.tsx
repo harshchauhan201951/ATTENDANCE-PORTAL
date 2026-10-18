@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../../../../lib/supabase";
+import { isOnOrAfterAdmission } from "../../../../lib/admission-date";
 
 type WeeklyRecord = {
   id: number;
@@ -34,7 +35,7 @@ export default function StudentWeeklyTestsPage() {
       try {
         const username = localStorage.getItem("studentUsername") || localStorage.getItem("student_username") || "";
         const rawId = localStorage.getItem("studentId") || localStorage.getItem("attendance_student_id") || localStorage.getItem("student_id") || "";
-        let studentQuery = supabase.from("students").select("id,student_name,student_username");
+        let studentQuery = supabase.from("students").select("id,student_name,student_username,admission_date");
         if (username) studentQuery = studentQuery.eq("student_username", username);
         else if (Number(rawId) > 0) studentQuery = studentQuery.eq("id", Number(rawId));
         else throw new Error("Student login information not found. Please log in again.");
@@ -55,7 +56,7 @@ export default function StudentWeeklyTestsPage() {
           const [year, month, day] = String(record.test_date || "").slice(0, 10).split("-").map(Number);
           const saturday = year && month && day && new Date(year, month - 1, day).getDay() === 6;
           const attended = String(record.attendance_status || "PRESENT").trim().toUpperCase();
-          return saturday && attended === "PRESENT" && !/maha\s*test/i.test(String(record.test_name || ""));
+          return saturday && attended === "PRESENT" && !/maha\s*test/i.test(String(record.test_name || "")) && isOnOrAfterAdmission(student.admission_date, record.test_date);
         }) as WeeklyRecord[];
 
         if (active) {

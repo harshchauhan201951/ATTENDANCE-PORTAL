@@ -1,5 +1,6 @@
 ﻿import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { isOnOrAfterAdmission } from "../../../../lib/admission-date";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -546,6 +547,16 @@ export async function POST(
             "Quiz not found.",
         },
         { status: 404 }
+      );
+    }
+
+    if (!isOnOrAfterAdmission(student.admission_date, quiz.scheduled_date)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "This quiz was scheduled before your admission date.",
+        },
+        { status: 403 }
       );
     }
 

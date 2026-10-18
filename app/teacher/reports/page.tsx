@@ -8,6 +8,9 @@ import {
 } from "react";
 import { createClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import { downloadPdfFile } from "../../../lib/download-pdf";
+import { isOnOrAfterAdmission } from "../../../lib/admission-date";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -142,54 +145,6 @@ function getImageUrls(value: unknown): string[] {
   return [];
 }
 
-function escapeHtml(value: unknown) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-function waitForImagesToLoad(printWindow: Window): Promise<void> {
-  return new Promise((resolve) => {
-    const images = Array.from(printWindow.document.images);
-
-    if (images.length === 0) {
-      resolve();
-      return;
-    }
-
-    let completed = 0;
-    let resolved = false;
-
-    const finish = () => {
-      completed += 1;
-
-      if (completed >= images.length && !resolved) {
-        resolved = true;
-        resolve();
-      }
-    };
-
-    images.forEach((image) => {
-      if (image.complete) {
-        finish();
-      } else {
-        image.addEventListener("load", finish, { once: true });
-        image.addEventListener("error", finish, { once: true });
-      }
-    });
-
-    setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        resolve();
-      }
-    }, 7000);
-  });
-}
-
 export default function TeacherReportsPage() {
   const currentDate = new Date();
 
@@ -267,11 +222,14 @@ export default function TeacherReportsPage() {
           .order("attendance_date", { ascending: false });
         if (!active) return;
         if (detailError) setError(detailError.message);
-        else setStudentDetailAttendance((data || []) as Attendance[]);
+        else {
+          const enrollment = students.find((item) => Number(item.id) === Number(selectedReportStudentId));
+          setStudentDetailAttendance(((data || []) as Attendance[]).filter((record) => isOnOrAfterAdmission(enrollment?.admission_date, record.attendance_date)));
+        }
       } finally { if (active) setStudentDetailLoading(false); }
     })();
     return () => { active = false; };
-  }, [selectedReportStudentId, studentDetailMonth, studentDetailYear]);
+  }, [selectedReportStudentId, studentDetailMonth, studentDetailYear, students]);
 
   async function loadReport() {
     setLoading(true);
@@ -347,9 +305,8 @@ export default function TeacherReportsPage() {
 
     setStudents(loadedStudents);
 
-    setAttendance(
-      (attendanceData || []) as Attendance[]
-    );
+    const admissionDateByStudent = new Map(loadedStudents.map((student) => [Number(student.id), student.admission_date]));
+    setAttendance(((attendanceData || []) as Attendance[]).filter((record) => isOnOrAfterAdmission(admissionDateByStudent.get(Number(record.student_id)), record.attendance_date)));
 
     setStudentMarks(
       loadedStudents.map((student) => ({
@@ -385,10 +342,9 @@ export default function TeacherReportsPage() {
       .order("test_date", { ascending: false })
       .order("test_name", { ascending: true });
     if (assignedStudentIds !== null) assessmentsQuery = assessmentsQuery.in("student_id", assignedStudentIds);
-    const {
-      data,
-      error: assessmentFetchError,
-    } = await assessmentsQuery;
+    let studentsQuery = supabase.from("students").select("id,admission_date");
+    if (assignedStudentIds !== null) studentsQuery = studentsQuery.in("id", assignedStudentIds);
+    const [{ data, error: assessmentFetchError }, { data: studentRows }] = await Promise.all([assessmentsQuery, studentsQuery]);
 
     if (assessmentFetchError) {
       setAssessmentError(
@@ -397,9 +353,8 @@ export default function TeacherReportsPage() {
       return;
     }
 
-    setAssessments(
-      (data || []) as AssessmentRow[]
-    );
+    const admissionDateByStudent = new Map((studentRows || []).map((student: any) => [Number(student.id), student.admission_date]));
+    setAssessments(((data || []) as AssessmentRow[]).filter((record) => isOnOrAfterAdmission(admissionDateByStudent.get(Number(record.student_id)), record.test_date)));
   }
 
   function isStudentEligibleForTest(
@@ -1156,6 +1111,25 @@ export default function TeacherReportsPage() {
     XLSX.writeFile(workbook, `attendance-${student.student_username}-${studentDetailYear}-${studentDetailMonth}.xlsx`);
   }
 
+  function downloadSelectedStudentAttendancePdf() {
+    if (!selectedReportStudent) return;
+    try {
+      const doc = new jsPDF({ unit: "mm", format: "a4" });
+      doc.setFillColor(12, 76, 145); doc.rect(0, 0, 210, 38, "F");
+      doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(17); doc.text("RACER ACADEMY", 15, 17);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text("STUDENT ATTENDANCE REPORT", 15, 27);
+      doc.setTextColor(25, 43, 68); doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text(selectedReportStudent.student_name || "Student", 15, 50);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.text(`Username: ${selectedReportStudent.student_username}`, 15, 57); doc.text(`Period: ${months[Number(studentDetailMonth) - 1]} ${studentDetailYear}`, 15, 64);
+      let y = 80; doc.setFont("helvetica", "bold"); doc.text("Date", 18, y); doc.text("Status", 108, y); doc.line(15, y + 3, 195, y + 3); y += 11;
+      studentDetailAttendance.forEach((record) => { if (y > 278) { doc.addPage(); y = 20; } doc.setFont("helvetica", "normal"); doc.text(String(record.attendance_date || ""), 18, y); doc.text(String(record.status || ""), 108, y); y += 8; });
+      if (!studentDetailAttendance.length) doc.text("No attendance records found for this period.", 18, y);
+      doc.setFontSize(8); doc.setTextColor(100, 116, 139); doc.text(`Total records: ${studentDetailAttendance.length}`, 15, 286);
+      downloadPdfFile(doc, `RACER_ACADEMY_ATTENDANCE_${selectedReportStudent.student_username}_${studentDetailYear}_${studentDetailMonth}.pdf`);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Attendance PDF could not be downloaded.");
+    }
+  }
+
   function exportAssessmentCSV(
     rows: AssessmentRow[]
   ) {
@@ -1283,523 +1257,39 @@ export default function TeacherReportsPage() {
     URL.revokeObjectURL(url);
   }
 
-  function downloadStudentResult(
-    studentId: number,
-    testNameValue: string,
-    testDateValue: string
-  ) {
-    const rows = assessments.filter(
-      (item) =>
-        item.student_id === studentId &&
-        item.test_name === testNameValue &&
-        item.test_date === testDateValue
-    );
-
-    if (rows.length === 0) {
-      window.alert(
-        "Is student ka result nahi mila."
-      );
-      return;
-    }
-
-    const student = students.find(
-      (item) => item.id === studentId
-    );
-
-    const printWindow =
-      window.open("", "_blank");
-
-    if (!printWindow) {
-      window.alert(
-        "Popup blocked hai. Please browser me popup allow karein."
-      );
-      return;
-    }
-
-    const resultRows = rows
-      .map((item) => {
-        const isAbsentStudent =
-          item.attendance_status ===
-          "ABSENT";
-
-        const isNoTestStudent =
-          item.attendance_status ===
-          "NO_TEST";
-
-        const percentage =
-          !isAbsentStudent &&
-          !isNoTestStudent
-            ? getPercentage(
-                Number(item.obtained_marks),
-                Number(item.total_marks)
-              )
-            : 0;
-
-        return `
-          <tr>
-            <td>${escapeHtml(item.subject)}</td>
-            <td>${
-              isAbsentStudent
-                ? "ABSENT"
-                : isNoTestStudent
-                ? "NO TEST"
-                : "PRESENT"
-            }</td>
-            <td>${
-              isAbsentStudent || isNoTestStudent
-                ? "—"
-                : escapeHtml(item.total_marks)
-            }</td>
-            <td>${
-              isAbsentStudent || isNoTestStudent
-                ? "—"
-                : escapeHtml(item.obtained_marks)
-            }</td>
-            <td>${
-              isAbsentStudent || isNoTestStudent
-                ? "—"
-                : `${percentage.toFixed(1)}%`
-            }</td>
-            <td>${
-              isAbsentStudent || isNoTestStudent
-                ? "—"
-                : getGrade(percentage)
-            }</td>
-            <td>${
-              isAbsentStudent
-                ? "ABSENT"
-                : isNoTestStudent
-                ? "NO TEST"
-                : isPass(percentage)
-                ? "PASS"
-                : "FAIL"
-            }</td>
-            <td>${escapeHtml(item.remarks || "")}</td>
-          </tr>
-        `;
-      })
-      .join("");
-
-    const imageItems = rows.flatMap((row) =>
-      getImageUrls(row.test_images).map(
-        (imageUrl) => ({
-          imageUrl,
-          subject: row.subject,
-          remarks: row.remarks || "",
-        })
-      )
-    );
-
-    const imagePages = imageItems
-      .map(
-        (image, index) => `
-          <section class="pdf-image-page">
-            <div class="image-page-header">
-              <div class="brand">
-                RACER ACADEMY
-              </div>
-
-              <h2>
-                Checked Test Paper / Photo
-              </h2>
-
-              <div class="image-meta">
-                <strong>Student:</strong>
-                ${escapeHtml(
-                  student?.student_name ||
-                    student?.student_username ||
-                    ""
-                )}
-              </div>
-
-              <div class="image-meta">
-                <strong>Test:</strong>
-                ${escapeHtml(testNameValue)}
-              </div>
-
-              <div class="image-meta">
-                <strong>Date:</strong>
-                ${escapeHtml(testDateValue)}
-              </div>
-
-              <div class="image-meta">
-                <strong>Subject:</strong>
-                ${escapeHtml(image.subject)}
-              </div>
-
-              <div class="image-number">
-                Image ${index + 1}
-              </div>
-            </div>
-
-            <div class="image-container">
-              <img
-                src="${escapeHtml(image.imageUrl)}"
-                alt="Checked test paper"
-              />
-            </div>
-
-            ${
-              image.remarks
-                ? `
-                  <div class="image-remarks">
-                    <strong>Remarks:</strong>
-                    ${escapeHtml(image.remarks)}
-                  </div>
-                `
-                : ""
-            }
-          </section>
-        `
-      )
-      .join("");
-
-    const totalImageCount = imageItems.length;
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="UTF-8" />
-
-          <title>
-            RACER ACADEMY Result -
-            ${escapeHtml(
-              student?.student_name ||
-                student?.student_username ||
-                ""
-            )}
-          </title>
-
-          <style>
-            @page {
-              size: A4;
-              margin: 12mm;
-            }
-
-            * {
-              box-sizing: border-box;
-            }
-
-            html,
-            body {
-              margin: 0;
-              padding: 0;
-              background: white;
-            }
-
-            body {
-              font-family:
-                Arial,
-                Helvetica,
-                sans-serif;
-              color: #111827;
-            }
-
-            .result-section {
-              width: 100%;
-              page-break-after: auto;
-            }
-
-            .brand {
-              color: #2563eb;
-              font-size: 11px;
-              font-weight: 900;
-              letter-spacing: 3px;
-              margin-bottom: 6px;
-            }
-
-            h1 {
-              color: #1e3a8a;
-              margin: 0 0 12px;
-              font-size: 27px;
-            }
-
-            .meta {
-              margin: 6px 0;
-              color: #475569;
-              font-size: 13px;
-            }
-
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-top: 20px;
-              font-size: 11px;
-            }
-
-            th,
-            td {
-              border: 1px solid #cbd5e1;
-              padding: 8px;
-              text-align: left;
-              vertical-align: top;
-            }
-
-            th {
-              background: #eff6ff;
-              color: #1e3a8a;
-              font-weight: 800;
-            }
-
-            .summary {
-              margin-top: 18px;
-              display: grid;
-              grid-template-columns:
-                repeat(3, 1fr);
-              gap: 10px;
-            }
-
-            .summary-box {
-              border: 1px solid #dbeafe;
-              background: #f8fafc;
-              border-radius: 9px;
-              padding: 10px;
-            }
-
-            .summary-label {
-              font-size: 9px;
-              color: #64748b;
-              text-transform: uppercase;
-            }
-
-            .summary-value {
-              margin-top: 4px;
-              font-size: 15px;
-              font-weight: 800;
-              color: #172554;
-            }
-
-            .print-button {
-              margin-top: 22px;
-              border: none;
-              background: #1e3a8a;
-              color: white;
-              padding: 11px 17px;
-              border-radius: 8px;
-              font-weight: 800;
-              cursor: pointer;
-            }
-
-            .pdf-image-page {
-              break-before: page;
-              page-break-before: always;
-
-              min-height:
-                calc(297mm - 24mm);
-
-              display: flex;
-              flex-direction: column;
-
-              padding: 5px 0;
-            }
-
-            .image-page-header {
-              border-bottom:
-                1px solid #cbd5e1;
-
-              padding-bottom: 10px;
-              margin-bottom: 12px;
-            }
-
-            .image-page-header h2 {
-              color: #172554;
-              margin: 3px 0 10px;
-              font-size: 20px;
-            }
-
-            .image-meta {
-              color: #475569;
-              font-size: 11px;
-              margin-top: 3px;
-            }
-
-            .image-number {
-              display: inline-block;
-              margin-top: 8px;
-              padding: 5px 9px;
-              border-radius: 999px;
-              background: #dbeafe;
-              color: #1e3a8a;
-              font-size: 10px;
-              font-weight: 800;
-            }
-
-            .image-container {
-              flex: 1;
-              min-height: 0;
-
-              display: flex;
-              align-items: center;
-              justify-content: center;
-
-              width: 100%;
-              overflow: hidden;
-
-              padding: 8px;
-            }
-
-            .image-container img {
-              display: block;
-
-              max-width: 100%;
-              max-height: 225mm;
-
-              width: auto;
-              height: auto;
-
-              object-fit: contain;
-
-              border: 1px solid #cbd5e1;
-            }
-
-            .image-remarks {
-              margin-top: 10px;
-              padding: 9px;
-
-              border-radius: 8px;
-              background: #f8fafc;
-              border: 1px solid #e2e8f0;
-
-              color: #475569;
-              font-size: 11px;
-            }
-
-            @media print {
-              body {
-                padding: 0;
-              }
-
-              .print-button {
-                display: none !important;
-              }
-
-              .pdf-image-page {
-                break-before: page;
-                page-break-before: always;
-              }
-            }
-          </style>
-        </head>
-
-        <body>
-          <div class="result-section">
-            <div class="brand">
-              RACER ACADEMY
-            </div>
-
-            <h1>
-              Student Result
-            </h1>
-
-            <div class="meta">
-              <strong>Student:</strong>
-              ${escapeHtml(
-                student?.student_name ||
-                  student?.student_username ||
-                  ""
-              )}
-            </div>
-
-            <div class="meta">
-              <strong>Username:</strong>
-              ${escapeHtml(
-                student?.student_username || ""
-              )}
-            </div>
-
-            <div class="meta">
-              <strong>Test:</strong>
-              ${escapeHtml(testNameValue)}
-            </div>
-
-            <div class="meta">
-              <strong>Date:</strong>
-              ${escapeHtml(testDateValue)}
-            </div>
-
-            <table>
-              <thead>
-                <tr>
-                  <th>Subject</th>
-                  <th>Attendance</th>
-                  <th>Total</th>
-                  <th>Obtained</th>
-                  <th>Percentage</th>
-                  <th>Grade</th>
-                  <th>Result</th>
-                  <th>Remarks</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                ${resultRows}
-              </tbody>
-            </table>
-
-            <div class="summary">
-              <div class="summary-box">
-                <div class="summary-label">
-                  Total Subjects
-                </div>
-
-                <div class="summary-value">
-                  ${rows.length}
-                </div>
-              </div>
-
-              <div class="summary-box">
-                <div class="summary-label">
-                  Uploaded Images
-                </div>
-
-                <div class="summary-value">
-                  ${totalImageCount}
-                </div>
-              </div>
-
-              <div class="summary-box">
-                <div class="summary-label">
-                  Academy
-                </div>
-
-                <div class="summary-value">
-                  RACER ACADEMY
-                </div>
-              </div>
-            </div>
-
-            <button
-              class="print-button"
-              onclick="window.print()"
-            >
-              Print / Save as PDF
-            </button>
-          </div>
-
-          ${imagePages}
-        </body>
-      </html>
-    `);
-
-    printWindow.document.close();
-
-    void waitForImagesToLoad(
-      printWindow
-    ).then(() => {
-      setTimeout(() => {
-        try {
-          printWindow.focus();
-          printWindow.print();
-        } catch (printError) {
-          console.error(
-            "Print error:",
-            printError
-          );
-        }
-      }, 500);
-    });
+  function downloadStudentResult(studentId: number, testNameValue: string, testDateValue: string) {
+    const rows = assessments.filter((item) => item.student_id === studentId && item.test_name === testNameValue && item.test_date === testDateValue);
+    if (!rows.length) { window.alert("Is student ka result nahi mila."); return; }
+    const student = students.find((item) => item.id === studentId);
+    try {
+      const doc = new jsPDF({ unit: "mm", format: "a4" });
+      doc.setFillColor(12, 76, 145); doc.rect(0, 0, 210, 38, "F");
+      doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(17); doc.text("RACER ACADEMY", 15, 17);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text("STUDENT TEST RESULT", 15, 27);
+      doc.setTextColor(25, 43, 68); doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text(student?.student_name || student?.student_username || "Student", 15, 50);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.text(`Username: ${student?.student_username || "—"}`, 15, 57); doc.text(`Test: ${testNameValue}`, 15, 64); doc.text(`Date: ${testDateValue}`, 15, 71);
+      let y = 86; doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.text("SUBJECT", 15, y); doc.text("ATTENDANCE", 54, y); doc.text("MARKS", 86, y); doc.text("%", 112, y); doc.text("GRADE / RESULT", 127, y); doc.text("REMARKS", 166, y); doc.line(15, y + 3, 195, y + 3); y += 10;
+      let imageIndex = 0;
+      rows.forEach((item) => {
+        const absent = item.attendance_status === "ABSENT"; const noTest = item.attendance_status === "NO_TEST";
+        const percentage = !absent && !noTest ? getPercentage(Number(item.obtained_marks), Number(item.total_marks)) : 0;
+        const subjectLines = doc.splitTextToSize(String(item.subject || "—"), 36); const remarkLines = doc.splitTextToSize(String(item.remarks || "—"), 27);
+        const height = Math.max(subjectLines.length, remarkLines.length, 1) * 4 + 4;
+        if (y + height > 270) { doc.addPage(); y = 20; }
+        doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.text(subjectLines, 15, y); doc.text(absent ? "ABSENT" : noTest ? "NO TEST" : "PRESENT", 54, y);
+        doc.text(absent || noTest ? "—" : `${item.obtained_marks}/${item.total_marks}`, 86, y); doc.text(absent || noTest ? "—" : `${percentage.toFixed(1)}%`, 112, y);
+        doc.text(absent || noTest ? (absent ? "ABSENT" : "NO TEST") : `${getGrade(percentage)} / ${isPass(percentage) ? "PASS" : "FAIL"}`, 127, y); doc.text(remarkLines, 166, y); y += height;
+        const imageUrls = getImageUrls(item.test_images);
+        imageUrls.forEach((imageUrl) => { if (y > 276) { doc.addPage(); y = 20; } doc.setTextColor(37, 99, 235); doc.text(`Open checked-paper photo ${++imageIndex}`, 18, y); doc.link(18, y - 3, 45, 5, { url: imageUrl }); doc.setTextColor(25, 43, 68); y += 6; });
+        doc.setDrawColor(225, 232, 240); doc.line(15, y, 195, y); y += 5;
+      });
+      doc.setFontSize(8); doc.setTextColor(100, 116, 139); doc.text(`Subjects: ${rows.length} · Checked-paper photos: ${imageIndex}`, 15, Math.min(y + 5, 284));
+      const safeName = (student?.student_name || student?.student_username || "STUDENT").replace(/[^a-z0-9]+/gi, "_");
+      const safeTest = testNameValue.replace(/[^a-z0-9]+/gi, "_");
+      downloadPdfFile(doc, `RACER_ACADEMY_${safeName}_${safeTest}_${testDateValue}_RESULT.pdf`);
+    } catch (error) { setError(error instanceof Error ? error.message : "Result PDF could not be downloaded."); }
   }
+
 
   if (loading) {
     return (
@@ -3408,7 +2898,7 @@ export default function TeacherReportsPage() {
                 <label style={{ display: "grid", gap: 4, color: "#52647d", fontSize: 11, fontWeight: 800 }}>Month<select aria-label="Student report month" value={studentDetailMonth} onChange={(event) => setStudentDetailMonth(event.target.value)} style={{ minHeight: 40, padding: "8px 10px", border: "1px solid #dbe4ef", borderRadius: 9, background: "#fff", color: "#243b5c" }}>{months.map((item, index) => <option key={item} value={String(index + 1)}>{item}</option>)}</select></label>
                 <label style={{ display: "grid", gap: 4, color: "#52647d", fontSize: 11, fontWeight: 800 }}>Year<select aria-label="Student report year" value={studentDetailYear} onChange={(event) => setStudentDetailYear(event.target.value)} style={{ minHeight: 40, padding: "8px 10px", border: "1px solid #dbe4ef", borderRadius: 9, background: "#fff", color: "#243b5c" }}>{[currentDate.getFullYear() - 1, currentDate.getFullYear(), currentDate.getFullYear() + 1].map((item) => <option key={item} value={String(item)}>{item}</option>)}</select></label>
                 <button type="button" onClick={exportSelectedStudentAttendance} style={{ minHeight: 40, padding: "8px 12px", border: 0, borderRadius: 9, background: "#176b45", color: "#fff", fontWeight: 800, cursor: "pointer" }}>Export Excel</button>
-                <button type="button" onClick={() => window.print()} style={{ minHeight: 40, padding: "8px 12px", border: 0, borderRadius: 9, background: "#1e3a8a", color: "#fff", fontWeight: 800, cursor: "pointer" }}>Print / Save PDF</button>
+                <button type="button" onClick={downloadSelectedStudentAttendancePdf} style={{ minHeight: 40, padding: "8px 12px", border: 0, borderRadius: 9, background: "#1e3a8a", color: "#fff", fontWeight: 800, cursor: "pointer" }}>Download PDF</button>
               </div>
               <div style={{ maxHeight: "52vh", overflow: "auto", display: "grid", gap: 7 }}>
                 {studentDetailLoading ? <p style={{ color: "#64748b" }}>Loading attendance…</p> : studentDetailAttendance.length === 0 ? <p style={{ color: "#64748b" }}>No attendance records found for this month.</p> : studentDetailAttendance.map((record) => (

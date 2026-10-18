@@ -61,20 +61,6 @@ function formatDate(date: string) {
   });
 }
 
-function formatTime(time: string | null) {
-  if (!time) return "-";
-
-  const [hourString, minute] = time.split(":");
-  const hour = Number(hourString);
-
-  if (Number.isNaN(hour)) return time;
-
-  const suffix = hour >= 12 ? "PM" : "AM";
-  const displayHour = hour % 12 || 12;
-
-  return `${displayHour}:${minute} ${suffix}`;
-}
-
 function getMonthName(monthValue: string) {
   if (!monthValue) return "";
 
@@ -93,13 +79,10 @@ export default function ExtraClassPage() {
 
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
 
-  const [classDate, setClassDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
-  const [classTime, setClassTime] = useState("");
-  const [subject, setSubject] = useState("");
-  const [topic, setTopic] = useState("");
-  const [remarks, setRemarks] = useState("");
+  const [classDate, setClassDate] = useState(getTodayDate());
+  const [manageDateClass, setManageDateClass] = useState<ExtraClass | null>(null);
+  const [managedDate, setManagedDate] = useState("");
+  const [savingManagedDate, setSavingManagedDate] = useState(false);
 
   const [studentSearch, setStudentSearch] = useState("");
   const [historySearch, setHistorySearch] = useState("");
@@ -119,6 +102,12 @@ export default function ExtraClassPage() {
   >("info");
 
   const isEditing = selectedClassId !== null;
+
+  function getTodayDate() {
+    const now = new Date();
+    const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
+    return localDate.toISOString().slice(0, 10);
+  }
 
   // ---------------------------------------------------------
   // LOAD DATA
@@ -220,11 +209,7 @@ export default function ExtraClassPage() {
   function startNewClass() {
     setSelectedClassId(null);
 
-    setClassDate(new Date().toISOString().split("T")[0]);
-    setClassTime("");
-    setSubject("");
-    setTopic("");
-    setRemarks("");
+    setClassDate(getTodayDate());
 
     setStudentSearch("");
     setSelectedStudents([]);
@@ -255,10 +240,6 @@ export default function ExtraClassPage() {
     setSelectedClassId(extraClass.id);
 
     setClassDate(extraClass.class_date);
-    setClassTime(extraClass.class_time || "");
-    setSubject(extraClass.subject || "");
-    setTopic(extraClass.topic || "");
-    setRemarks(extraClass.remarks || "");
 
     const studentIds = classAttendance.map((item) => item.student_id);
 
@@ -420,16 +401,6 @@ export default function ExtraClassPage() {
       return;
     }
 
-    if (!subject.trim()) {
-      showMessage("Please enter subject.", "error");
-      return;
-    }
-
-    if (!topic.trim()) {
-      showMessage("Please enter topic.", "error");
-      return;
-    }
-
     if (selectedStudents.length === 0) {
       showMessage(
         "Please select at least one student.",
@@ -452,10 +423,10 @@ export default function ExtraClassPage() {
           .from("extra_classes")
           .insert({
             class_date: classDate,
-            class_time: classTime || null,
-            subject: subject.trim(),
-            topic: topic.trim(),
-            remarks: remarks.trim() || null,
+            class_time: null,
+            subject: "Extra Class",
+            topic: "Extra Class session",
+            remarks: null,
           })
           .select("*")
           .single();
@@ -474,10 +445,6 @@ export default function ExtraClassPage() {
           .from("extra_classes")
           .update({
             class_date: classDate,
-            class_time: classTime || null,
-            subject: subject.trim(),
-            topic: topic.trim(),
-            remarks: remarks.trim() || null,
           })
           .eq("id", classId);
 
@@ -503,11 +470,11 @@ export default function ExtraClassPage() {
         extra_class_id: classId,
         student_id: studentId,
         extra_class_date: classDate,
-        class_time: classTime || null,
-        subject: subject.trim(),
-        topic: topic.trim(),
+        class_time: null,
+        subject: "Extra Class",
+        topic: "Extra Class session",
         status: statusMap[studentId] || "Absent",
-        remarks: remarks.trim() || null,
+        remarks: null,
       }));
 
       const { error: attendanceInsertError } = await supabase
@@ -535,10 +502,10 @@ export default function ExtraClassPage() {
           classes.find((item) => item.id === classId) || {
             id: classId,
             class_date: classDate,
-            class_time: classTime || null,
-            subject: subject.trim(),
-            topic: topic.trim(),
-            remarks: remarks.trim() || null,
+            class_time: null,
+            subject: "Extra Class",
+            topic: "Extra Class session",
+            remarks: null,
           };
 
         setTimeout(() => {
@@ -559,6 +526,101 @@ export default function ExtraClassPage() {
     }
   }
 
+  function openManageDate(extraClass: ExtraClass) {
+    setManageDateClass(extraClass);
+    setManagedDate(extraClass.class_date);
+  }
+
+  async function saveManagedDate() {
+    if (!manageDateClass || !managedDate) {
+      showMessage("Select the new class date.", "error");
+      return;
+    }
+
+    const previousDate = manageDateClass.class_date;
+    if (previousDate === managedDate) {
+      setManageDateClass(null);
+      return;
+    }
+
+    setSavingManagedDate(true);
+    try {
+      const rows = getClassAttendance(manageDateClass.id);
+      const remarkUpdates = rows.map((row) => {
+        const existingRemark = (row.remarks || "")
+          .replace(/^Managed extra class date\.\s*/i, "")
+          .trim();
+        return {
+          id: row.id,
+          remarks: ["Managed extra class date", existingRemark]
+            .filter(Boolean)
+            .join(". "),
+        };
+      });
+
+      if (rows.length > 0) {
+        const { error: attendanceDateError } = await supabase
+          .from("extra_class_attendance")
+          .update({ extra_class_date: managedDate })
+          .eq("extra_class_id", manageDateClass.id);
+        if (attendanceDateError) throw new Error(attendanceDateError.message);
+
+        for (const update of remarkUpdates) {
+          const { error } = await supabase
+            .from("extra_class_attendance")
+            .update({ remarks: update.remarks })
+            .eq("id", update.id);
+          if (error) {
+            await supabase
+              .from("extra_class_attendance")
+              .update({ extra_class_date: previousDate })
+              .eq("extra_class_id", manageDateClass.id);
+            for (const row of rows) {
+              await supabase
+                .from("extra_class_attendance")
+                .update({ remarks: row.remarks })
+                .eq("id", row.id);
+            }
+            throw new Error(error.message);
+          }
+        }
+      }
+
+      const { error: classDateError } = await supabase
+        .from("extra_classes")
+        .update({ class_date: managedDate })
+        .eq("id", manageDateClass.id);
+
+      if (classDateError) {
+        if (rows.length > 0) {
+          await supabase
+            .from("extra_class_attendance")
+            .update({ extra_class_date: previousDate })
+            .eq("extra_class_id", manageDateClass.id);
+          for (const row of rows) {
+            await supabase
+              .from("extra_class_attendance")
+              .update({ remarks: row.remarks })
+              .eq("id", row.id);
+          }
+        }
+        throw new Error(classDateError.message);
+      }
+
+      setManageDateClass(null);
+      await loadData();
+      showMessage("Date updated. Student attendance now shows the managed class date.", "success");
+    } catch (error) {
+      console.error("Manage extra class date error:", error);
+      showMessage(
+        error instanceof Error ? error.message : "Unable to update the class date.",
+        "error"
+      );
+    } finally {
+      setSavingManagedDate(false);
+    }
+  }
+
   // ---------------------------------------------------------
   // DELETE CLASS
   // ---------------------------------------------------------
@@ -566,14 +628,8 @@ export default function ExtraClassPage() {
   async function deleteClass(extraClass: ExtraClass) {
     const confirmed = window.confirm(
       `Delete this Extra Class?\n\n${
-        extraClass.subject || "Extra Class"
-      }\n${extraClass.topic || ""}\n${formatDate(
-        extraClass.class_date
-      )} ${
-        extraClass.class_time
-          ? `at ${formatTime(extraClass.class_time)}`
-          : ""
-      }\n\nIts attendance records will also be deleted.`
+        "Class #" + extraClass.id
+      }\n${formatDate(extraClass.class_date)}\n\nIts attendance records will also be deleted.`
     );
 
     if (!confirmed) return;
@@ -651,15 +707,6 @@ export default function ExtraClassPage() {
     if (query) {
       result = result.filter((item) => {
         return (
-          (item.subject || "")
-            .toLowerCase()
-            .includes(query) ||
-          (item.topic || "")
-            .toLowerCase()
-            .includes(query) ||
-          (item.remarks || "")
-            .toLowerCase()
-            .includes(query) ||
           item.class_date.includes(query)
         );
       });
@@ -726,8 +773,7 @@ export default function ExtraClassPage() {
             <h1>Extra Classes</h1>
 
             <p>
-              Create extra classes, select students and
-              manage attendance class-wise.
+              Schedule a date, mark attendance, and manage make-up class dates.
             </p>
           </div>
 
@@ -744,7 +790,7 @@ export default function ExtraClassPage() {
               className="new-class-button"
               onClick={startNewClass}
             >
-              ï¼‹ New Extra Class
+              + New Extra Class
             </button>
           </div>
         </header>
@@ -789,9 +835,7 @@ export default function ExtraClassPage() {
               </h2>
 
               <p>
-                First create the class details, then
-                select the students who attended this
-                Extra Class.
+                Choose the class date, then select students and record attendance.
               </p>
             </div>
 
@@ -806,7 +850,7 @@ export default function ExtraClassPage() {
             )}
           </div>
 
-          <div className="details-grid">
+          <div className="details-grid date-only-grid">
             <label className="field">
               <span>Date *</span>
 
@@ -818,57 +862,6 @@ export default function ExtraClassPage() {
                 }
               />
             </label>
-
-            <label className="field">
-              <span>Time</span>
-
-              <input
-                type="time"
-                value={classTime}
-                onChange={(e) =>
-                  setClassTime(e.target.value)
-                }
-              />
-            </label>
-
-            <label className="field">
-              <span>Subject *</span>
-
-              <input
-                type="text"
-                value={subject}
-                onChange={(e) =>
-                  setSubject(e.target.value)
-                }
-                placeholder="e.g. Mathematics"
-              />
-            </label>
-
-            <label className="field">
-              <span>Topic *</span>
-
-              <input
-                type="text"
-                value={topic}
-                onChange={(e) =>
-                  setTopic(e.target.value)
-                }
-                placeholder="e.g. Trigonometry"
-              />
-            </label>
-
-            <label className="field full-width">
-              <span>Remarks / Instructions</span>
-
-              <textarea
-                value={remarks}
-                onChange={(e) =>
-                  setRemarks(e.target.value)
-                }
-                placeholder="Extra class instructions, homework, important notes..."
-                rows={3}
-              />
-            </label>
           </div>
         </section>
 
@@ -876,7 +869,7 @@ export default function ExtraClassPage() {
         <section className="summary-grid">
           <div className="summary-card">
             <div className="summary-icon blue">
-              T
+              S
             </div>
 
             <div>
@@ -983,7 +976,7 @@ export default function ExtraClassPage() {
 
           <div className="student-toolbar">
             <div className="search-box">
-              <span>X</span>
+                <span>⌕</span>
 
               <input
                 type="text"
@@ -1222,11 +1215,7 @@ export default function ExtraClassPage() {
 
               <h2>Extra Class History</h2>
 
-              <p>
-                Every Extra Class is shown separately,
-                even when multiple classes happen on
-                the same date.
-              </p>
+              <p>Past classes can be moved to a new date; the student attendance record follows it.</p>
             </div>
 
             <div className="history-count">
@@ -1259,7 +1248,7 @@ export default function ExtraClassPage() {
             </select>
 
             <div className="history-search">
-              <span>X</span>
+              <span>⌕</span>
 
               <input
                 type="text"
@@ -1267,7 +1256,7 @@ export default function ExtraClassPage() {
                 onChange={(e) =>
                   setHistorySearch(e.target.value)
                 }
-                placeholder="Search subject, topic or date..."
+                placeholder="Search by date..."
               />
             </div>
           </div>
@@ -1332,15 +1321,8 @@ export default function ExtraClassPage() {
                       <div className="history-main">
                         <div className="history-title-row">
                           <div>
-                            <div className="history-subject">
-                              {extraClass.subject ||
-                                "Extra Class"}
-                            </div>
-
-                            <h3>
-                              {extraClass.topic ||
-                                "No topic"}
-                            </h3>
+                            <div className="history-subject">EXTRA CLASS</div>
+                            <h3>Class #{extraClass.id}</h3>
                           </div>
 
                           <span className="class-id">
@@ -1351,14 +1333,7 @@ export default function ExtraClassPage() {
 
                         <div className="history-meta">
                           <span>
-                            🕐{" "}
-                            {formatTime(
-                              extraClass.class_time
-                            )}
-                          </span>
-
-                          <span>
-                            T {stats.total} Students
+                            {stats.total} Students
                           </span>
 
                           <span className="meta-present">
@@ -1369,15 +1344,6 @@ export default function ExtraClassPage() {
                             × {stats.absent} Absent
                           </span>
                         </div>
-
-                        {extraClass.remarks && (
-                          <div className="history-remarks">
-                            <strong>
-                              Note:
-                            </strong>{" "}
-                            {extraClass.remarks}
-                          </div>
-                        )}
 
                         <div className="history-bottom">
                           <div className="history-progress">
@@ -1397,6 +1363,15 @@ export default function ExtraClassPage() {
                           </div>
 
                           <div className="history-actions">
+                            {extraClass.class_date < getTodayDate() && (
+                              <button
+                                type="button"
+                                className="manage-date-button"
+                                onClick={() => openManageDate(extraClass)}
+                              >
+                                Manage date
+                              </button>
+                            )}
                             <button
                               type="button"
                               className="view-button"
@@ -1406,7 +1381,7 @@ export default function ExtraClassPage() {
                                 )
                               }
                             >
-                              View / Edit
+                              Attendance
                             </button>
 
                             <button
@@ -1419,7 +1394,7 @@ export default function ExtraClassPage() {
                               }
                               disabled={deleting}
                             >
-                              🗑 Delete
+                              Delete
                             </button>
                           </div>
                         </div>
@@ -1431,6 +1406,60 @@ export default function ExtraClassPage() {
             </div>
           )}
         </section>
+
+        {manageDateClass && (
+          <div
+            className="manage-date-backdrop"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget && !savingManagedDate) {
+                setManageDateClass(null);
+              }
+            }}
+          >
+            <section
+              className="manage-date-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="manage-date-title"
+            >
+              <div className="manage-date-icon" aria-hidden="true">↻</div>
+              <span className="section-kicker">RESCHEDULE CLASS</span>
+              <h2 id="manage-date-title">Manage class date</h2>
+              <p>
+                Class #{manageDateClass.id} · Current date {formatDate(manageDateClass.class_date)}.
+                Choose the new date; student attendance will move with it.
+              </p>
+              <label className="field">
+                <span>New class date</span>
+                <input
+                  autoFocus
+                  type="date"
+                  value={managedDate}
+                  onChange={(event) => setManagedDate(event.target.value)}
+                />
+              </label>
+              <div className="manage-date-actions">
+                <button
+                  type="button"
+                  className="manage-cancel-button"
+                  onClick={() => setManageDateClass(null)}
+                  disabled={savingManagedDate}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="manage-save-button"
+                  onClick={saveManagedDate}
+                  disabled={savingManagedDate || !managedDate}
+                >
+                  {savingManagedDate ? "Updating..." : "Save new date"}
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
 
         {/* FOOTER */}
         <footer className="page-footer">
@@ -1662,6 +1691,10 @@ export default function ExtraClassPage() {
             minmax(0, 1fr)
           );
           gap: 16px;
+        }
+
+        .date-only-grid {
+          grid-template-columns: minmax(240px, 360px);
         }
 
         .field {
@@ -2373,10 +2406,12 @@ export default function ExtraClassPage() {
         .history-actions {
           display: flex;
           gap: 7px;
+          flex-wrap: wrap;
         }
 
         .view-button,
-        .delete-button {
+        .delete-button,
+        .manage-date-button {
           border-radius: 9px;
           padding: 8px 11px;
           font-size: 11px;
@@ -2390,6 +2425,12 @@ export default function ExtraClassPage() {
           border: 1px solid #bfdbfe;
         }
 
+        .manage-date-button {
+          color: #9a5b08;
+          background: #fff7e8;
+          border: 1px solid #f3d39b;
+        }
+
         .delete-button {
           color: #dc2626;
           background: #fef2f2;
@@ -2399,6 +2440,91 @@ export default function ExtraClassPage() {
         .delete-button:disabled {
           opacity: 0.5;
           cursor: not-allowed;
+        }
+
+        .manage-date-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 1000;
+          display: grid;
+          place-items: center;
+          padding: 20px;
+          background: rgba(15, 23, 42, 0.48);
+          backdrop-filter: blur(5px);
+        }
+
+        .manage-date-dialog {
+          width: min(100%, 460px);
+          padding: 28px;
+          border: 1px solid #e2e8f0;
+          border-radius: 24px;
+          background: white;
+          box-shadow: 0 28px 90px rgba(15, 23, 42, 0.24);
+        }
+
+        .manage-date-icon {
+          display: grid;
+          place-items: center;
+          width: 48px;
+          height: 48px;
+          margin-bottom: 18px;
+          border-radius: 15px;
+          background: #fff4df;
+          color: #a16207;
+          font-size: 25px;
+          font-weight: 900;
+        }
+
+        .manage-date-dialog h2 {
+          margin: 0;
+          color: #172033;
+          font-size: 24px;
+        }
+
+        .manage-date-dialog > p {
+          margin: 9px 0 20px;
+          color: #64748b;
+          font-size: 13px;
+          line-height: 1.55;
+        }
+
+        .manage-date-dialog .field input {
+          min-height: 48px;
+        }
+
+        .manage-date-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 9px;
+          margin-top: 22px;
+        }
+
+        .manage-date-actions button {
+          min-height: 43px;
+          padding: 0 15px;
+          border-radius: 11px;
+          font: inherit;
+          font-size: 13px;
+          font-weight: 850;
+          cursor: pointer;
+        }
+
+        .manage-date-actions button:disabled {
+          cursor: wait;
+          opacity: 0.55;
+        }
+
+        .manage-cancel-button {
+          color: #475569;
+          background: white;
+          border: 1px solid #dbe2ea;
+        }
+
+        .manage-save-button {
+          color: white;
+          background: linear-gradient(135deg, #2563eb, #4f46e5);
+          border: 0;
+          box-shadow: 0 8px 20px rgba(37, 99, 235, 0.2);
         }
 
         .page-footer {
@@ -2464,6 +2590,10 @@ export default function ExtraClassPage() {
           }
 
           .details-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .date-only-grid {
             grid-template-columns: 1fr;
           }
 
@@ -2585,12 +2715,25 @@ export default function ExtraClassPage() {
           }
 
           .view-button,
-          .delete-button {
+          .delete-button,
+          .manage-date-button {
             flex: 1;
           }
         }
 
         @media (max-width: 430px) {
+          .manage-date-dialog {
+            padding: 22px;
+          }
+
+          .manage-date-actions {
+            flex-direction: column-reverse;
+          }
+
+          .manage-date-actions button {
+            width: 100%;
+          }
+
           .top-header h1 {
             font-size: 29px;
           }

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { isOnOrAfterAdmission } from "../../../lib/admission-date";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -321,7 +322,7 @@ export default function StudentAttendanceHistoryPage() {
 
       const { data: student, error: studentError } = await supabase
         .from("students")
-        .select("id, student_name, student_username")
+        .select("id, student_name, student_username, admission_date")
         .eq("student_username", savedUsername)
         .maybeSingle();
       if (studentError) throw new Error("Student information load nahi ho paayi: " + studentError.message);
@@ -336,7 +337,7 @@ export default function StudentAttendanceHistoryPage() {
         .order("attendance_date", { ascending: false })
         .order("id", { ascending: false });
       if (attendanceError) throw new Error("Attendance load nahi ho paayi: " + attendanceError.message);
-      setRecords((attendance || []) as AttendanceRecord[]);
+      setRecords(((attendance || []) as AttendanceRecord[]).filter((record) => isOnOrAfterAdmission(student.admission_date, record.attendance_date)));
 
       // Extra-class data is additive and never blocks the regular history if unavailable.
       const { data: extra, error: extraError } = await supabase
@@ -345,7 +346,7 @@ export default function StudentAttendanceHistoryPage() {
         .eq("student_id", student.id)
         .order("extra_class_date", { ascending: false })
         .order("id", { ascending: false });
-      if (!extraError) setExtraRecords((extra || []) as ExtraAttendanceRecord[]);
+      if (!extraError) setExtraRecords(((extra || []) as ExtraAttendanceRecord[]).filter((record) => isOnOrAfterAdmission(student.admission_date, record.extra_class_date)));
       else setExtraRecords([]);
     } catch (error) {
       console.error("Student attendance history error:", error);

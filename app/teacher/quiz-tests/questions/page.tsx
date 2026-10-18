@@ -23,6 +23,8 @@ type Quiz = {
   is_published: boolean;
 };
 
+type QuizChoice = Pick<Quiz, "id" | "title" | "scheduled_date" | "is_published">;
+
 type QuizOption = {
   id?: number;
   question_id?: number;
@@ -203,6 +205,7 @@ function TeacherQuizQuestionsContent() {
   const quizId = Number(quizIdParam);
 
   const [quiz, setQuiz] = useState<Quiz | null>(null);
+  const [quizChoices, setQuizChoices] = useState<QuizChoice[]>([]);
   const [questions, setQuestions] = useState<QuestionItem[]>([]);
 
   const [loading, setLoading] = useState(true);
@@ -220,10 +223,21 @@ function TeacherQuizQuestionsContent() {
 
   const validQuizId = Number.isInteger(quizId) && quizId > 0;
 
+  useEffect(() => {
+    if (validQuizId) return;
+    let cancelled = false;
+    void supabase.from("quiz_tests").select("id,title,scheduled_date,is_published").order("created_at", { ascending: false })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) setError(`Unable to load quizzes: ${error.message}`);
+        else setQuizChoices((data || []) as QuizChoice[]);
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [validQuizId]);
+
   const loadQuizAndQuestions = useCallback(async () => {
     if (!validQuizId) {
-      setError("Invalid quiz ID.");
-      setLoading(false);
       return;
     }
 
@@ -1046,27 +1060,14 @@ function TeacherQuizQuestionsContent() {
 
   if (!validQuizId) {
     return (
-      <main className="min-h-screen bg-slate-950 px-4 py-10 text-white racer-module-page racer-quiz-subpage">
-        <div className="mx-auto max-w-3xl rounded-3xl border border-red-400/20 bg-red-500/10 p-8 text-center">
-          <h1 className="text-2xl font-black">
-            Invalid Quiz ID
-          </h1>
-
-          <p className="mt-3 text-sm text-slate-300">
-            Open Questions from a specific quiz.
-          </p>
-
-          <button
-            type="button"
-            onClick={() =>
-              router.push(
-                "/teacher/quiz-tests"
-              )
-            }
-            className="mt-6 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold hover:bg-indigo-500"
-          >
-            Back to Quiz Tests
-          </button>
+      <main className="min-h-screen bg-slate-950 px-4 py-8 text-white racer-module-page racer-quiz-subpage">
+        <div className="mx-auto max-w-5xl">
+          <header className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-white/10 bg-white/5 p-5">
+            <div><p className="text-xs font-black uppercase tracking-widest text-indigo-300">Question library</p><h1 className="mt-1 text-2xl font-black">Choose a quiz</h1><p className="mt-1 text-sm text-slate-400">Select a quiz to view and edit its questions and answers.</p></div>
+            <button type="button" onClick={() => router.push("/teacher/quiz-tests")} className="min-h-11 rounded-xl border border-white/10 px-4 py-2 text-sm font-bold">← Quiz dashboard</button>
+          </header>
+          {loading ? <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center text-slate-300">Loading quizzes…</div> : quizChoices.length === 0 ? <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 p-8 text-center"><p className="font-bold">No quizzes available yet</p><button onClick={() => router.push("/teacher/quiz-tests/create")} className="mt-4 min-h-11 rounded-xl bg-indigo-600 px-4 py-2 font-bold">Create a quiz</button></div> : <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{quizChoices.map((item) => <article key={item.id} className="rounded-2xl border border-white/10 bg-white/5 p-4"><div className="flex items-start justify-between gap-3"><h2 className="font-black">{item.title}</h2><span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-black ${item.is_published ? "bg-emerald-400/15 text-emerald-300" : "bg-amber-400/15 text-amber-300"}`}>{item.is_published ? "Published" : "Draft"}</span></div><p className="mt-2 text-xs text-slate-400">{item.scheduled_date || "Date not set"}</p><button type="button" onClick={() => router.push(`/teacher/quiz-tests/questions?quizId=${item.id}`)} className="mt-4 min-h-11 w-full rounded-xl bg-indigo-600 px-4 py-2 text-sm font-black hover:bg-indigo-500">Edit questions →</button></article>)}</div>}
+          {error && <p role="alert" className="mt-4 text-sm text-rose-300">{error}</p>}
         </div>
       </main>
     );

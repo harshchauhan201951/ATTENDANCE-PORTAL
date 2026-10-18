@@ -539,7 +539,7 @@ export default function TeacherHomeworkPage() {
           </div>
         )}
 
-        <section style={styles.createCard}>
+        <section className="createCard" style={styles.createCard}>
 
           <div style={styles.cardHeader}>
             <div style={styles.cardIcon}>
@@ -603,7 +603,7 @@ export default function TeacherHomeworkPage() {
             </div>
 
             {classNames.length > 0 ? (
-              <div style={styles.classGrid}>
+              <div className="classGrid" style={styles.classGrid}>
 
                 {classNames.map((item) => {
 
@@ -684,7 +684,7 @@ export default function TeacherHomeworkPage() {
 
           </div>
 
-          <div style={styles.formGrid}>
+          <div className="formGrid" style={styles.formGrid}>
 
             <div style={styles.field}>
 
@@ -1025,7 +1025,7 @@ export default function TeacherHomeworkPage() {
 
         </section>
 
-        <section style={styles.listCard}>
+        <section className="listCard" style={styles.listCard}>
 
           <div style={styles.cardHeader}>
 
@@ -1103,6 +1103,7 @@ export default function TeacherHomeworkPage() {
             </div>
           ) : (
             <div
+              className="homeworkList"
               style={
                 styles.homeworkList
               }
@@ -1133,12 +1134,14 @@ export default function TeacherHomeworkPage() {
                 return (
                   <div
                     key={item.id}
+                    className="homeworkCard"
                     style={
                       styles.homeworkCard
                     }
                   >
 
                     <div
+                      className="homeworkContentBox"
                       style={
                         styles.homeworkTop
                       }
@@ -1176,16 +1179,6 @@ export default function TeacherHomeworkPage() {
                             )
                           )}
 
-                          <span
-                            style={
-                              styles.subjectBadge
-                            }
-                          >
-                            {
-                              item.subject
-                            }
-                          </span>
-
                           {scheduled &&
                             (
                               <span
@@ -1196,8 +1189,8 @@ export default function TeacherHomeworkPage() {
                                 }
                               >
                                 {future
-                                  ? "🕐 Scheduled"
-                                  : "✓ Published"}
+                                ? "Scheduled"
+                                  : "Published"}
                               </span>
                             )}
 
@@ -1232,6 +1225,7 @@ export default function TeacherHomeworkPage() {
                     {/* HOMEWORK CONTENT ACCORDION */}
 
                     <div
+                      className="homeworkBottom"
                       style={
                         styles.homeworkContentBox
                       }
@@ -1267,8 +1261,8 @@ export default function TeacherHomeworkPage() {
 
                           <span>
                             {isOpen
-                              ? "गृह कार्य बंद करें"
-                              : "गृह कार्य खोलें"}
+                              ? "Hide instructions"
+                              : "View instructions"}
                           </span>
                         </span>
 
@@ -1302,7 +1296,7 @@ export default function TeacherHomeworkPage() {
                                   styles.documentLabel
                                 }
                               >
-                                📄 गृह कार्य
+                                Homework instructions
                               </div>
 
                               <div
@@ -1425,8 +1419,8 @@ const styles: {
   page: {
     minHeight: "100vh",
     background:
-      "linear-gradient(135deg,#eef2ff,#f8fafc,#eff6ff)",
-    padding: "25px 15px",
+      "radial-gradient(circle at 90% 0%,rgba(59,130,246,.11),transparent 30%),linear-gradient(135deg,#f3f6fb,#f8fafc 55%,#eef4ff)",
+    padding: "clamp(14px,2.4vw,32px)",
     boxSizing: "border-box",
     fontFamily:
       "Arial, Helvetica, sans-serif",
@@ -1435,14 +1429,14 @@ const styles: {
 
   container: {
     width: "100%",
-    maxWidth: "1100px",
+    maxWidth: "1420px",
     margin: "0 auto",
   },
 
   header: {
-    background: "#ffffff",
-    borderRadius: "22px",
-    padding: "25px",
+    background: "linear-gradient(115deg,#102b58,#164e83 62%,#116b83)",
+    borderRadius: "24px",
+    padding: "clamp(22px,3vw,38px)",
     display: "flex",
     justifyContent:
       "space-between",
@@ -1450,14 +1444,14 @@ const styles: {
     gap: "15px",
     marginBottom: "18px",
     boxShadow:
-      "0 10px 30px rgba(15,23,42,0.08)",
+      "0 20px 48px rgba(15,35,72,0.18)",
     flexWrap: "wrap",
   },
 
   badge: {
     display: "inline-block",
-    background: "#dbeafe",
-    color: "#1d4ed8",
+    background: "rgba(255,255,255,.12)",
+    color: "#c8e9ff",
     padding: "7px 12px",
     borderRadius: "999px",
     fontSize: "11px",
@@ -1470,19 +1464,19 @@ const styles: {
     margin: 0,
     fontSize: "30px",
     fontWeight: "900",
-    color: "#0f172a",
+    color: "#ffffff",
   },
 
   subtitle: {
     margin: "7px 0 0",
-    color: "#64748b",
+    color: "#d4e3f4",
     fontSize: "14px",
     fontWeight: "600",
   },
 
   backButton: {
-    border: "none",
-    background: "#475569",
+    border: "1px solid rgba(255,255,255,.24)",
+    background: "rgba(255,255,255,.1)",
     color: "#ffffff",
     padding: "11px 18px",
     borderRadius: "10px",
@@ -1508,7 +1502,9 @@ const styles: {
     marginBottom: "18px",
     boxShadow:
       "0 10px 30px rgba(15,23,42,0.08)",
-    border: "2px solid #bfdbfe",
+    border: "1px solid #d7e3f3",
+    position: "relative",
+    overflow: "hidden",
   },
 
   listCard: {
@@ -1518,6 +1514,7 @@ const styles: {
     marginBottom: "18px",
     boxShadow:
       "0 10px 30px rgba(15,23,42,0.08)",
+    border: "1px solid #e1e8f1",
   },
 
   cardHeader: {
@@ -1556,9 +1553,9 @@ const styles: {
   classSection: {
     marginBottom: "20px",
     padding: "16px",
-    background: "#f8fafc",
-    border: "1px solid #e2e8f0",
-    borderRadius: "14px",
+    background: "linear-gradient(135deg,#f7faff,#f1f6fc)",
+    border: "1px solid #e0e8f2",
+    borderRadius: "17px",
   },
 
   classHeaderRow: {
@@ -1601,10 +1598,9 @@ const styles: {
   },
 
   classGrid: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(3,minmax(0,1fr))",
-    gap: "9px",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "8px",
   },
 
   classOption: {
@@ -1612,8 +1608,8 @@ const styles: {
       "1px solid #cbd5e1",
     background: "#ffffff",
     color: "#334155",
-    padding: "11px 12px",
-    borderRadius: "9px",
+    padding: "9px 13px",
+    borderRadius: "999px",
     display: "flex",
     alignItems: "center",
     gap: "9px",
@@ -1689,8 +1685,8 @@ const styles: {
   formGrid: {
     display: "grid",
     gridTemplateColumns:
-      "repeat(2,minmax(0,1fr))",
-    gap: "16px",
+      "repeat(3,minmax(0,1fr))",
+    gap: "18px",
   },
 
   field: {
@@ -1724,7 +1720,7 @@ const styles: {
   scheduleSection: {
     marginTop: "20px",
     padding: "17px",
-    background: "#f8fafc",
+    background: "#f8faff",
     border:
       "1px solid #e2e8f0",
     borderRadius: "14px",
@@ -1912,40 +1908,41 @@ const styles: {
   },
 
   homeworkList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "14px",
+    display: "grid",
+    gridTemplateColumns: "repeat(2,minmax(0,1fr))",
+    gap: "12px",
   },
 
   homeworkCard: {
-    border:
-      "1px solid #e2e8f0",
+    border: "1px solid #dfe7f1",
     borderRadius: "16px",
-    padding: "18px",
-    background: "#f8fafc",
+    padding: "14px 15px",
+    background: "#ffffff",
+    boxShadow: "0 5px 16px rgba(15,23,42,.035)",
+    minWidth: 0,
   },
 
   homeworkTop: {
     display: "flex",
     justifyContent:
       "space-between",
-    alignItems: "flex-start",
-    gap: "15px",
+    alignItems: "center",
+    gap: "10px",
     flexWrap: "wrap",
   },
 
   badgeRow: {
     display: "flex",
-    gap: "7px",
+    gap: "6px",
     flexWrap: "wrap",
   },
 
   classBadge: {
     display: "inline-block",
-    background: "#ede9fe",
-    color: "#6d28d9",
+    background: "#e8f4ff",
+    color: "#155e9b",
     padding: "5px 9px",
-    borderRadius: "7px",
+    borderRadius: "999px",
     fontSize: "10px",
     fontWeight: "900",
   },
@@ -1983,9 +1980,9 @@ const styles: {
   },
 
   homeworkTitle: {
-    margin: "8px 0 0",
-    color: "#172554",
-    fontSize: "19px",
+    margin: "7px 0 0",
+    color: "#172b4d",
+    fontSize: "16px",
     fontWeight: "900",
     lineHeight: 1.4,
   },
@@ -1995,24 +1992,24 @@ const styles: {
    */
 
   homeworkContentBox: {
-    marginTop: "15px",
+    marginTop: "10px",
   },
 
   openHomeworkButton: {
-    width: "100%",
+    width: "auto",
     border:
       "1px solid #bfdbfe",
     background: "#eff6ff",
     color: "#1d4ed8",
-    padding: "12px 14px",
-    borderRadius: "10px",
+    padding: "7px 10px",
+    borderRadius: "9px",
     display: "flex",
     justifyContent:
       "space-between",
     alignItems: "center",
     gap: "10px",
     cursor: "pointer",
-    fontSize: "12px",
+    fontSize: "10px",
     fontWeight: "900",
     textAlign: "left",
   },
@@ -2047,7 +2044,7 @@ const styles: {
     borderTop: "none",
     borderBottomLeftRadius: "10px",
     borderBottomRightRadius: "10px",
-    padding: "17px",
+    padding: "13px",
   },
 
   documentHeader: {
@@ -2145,7 +2142,7 @@ const styles: {
       "space-between",
     alignItems: "center",
     gap: "10px",
-    paddingTop: "12px",
+    paddingTop: "9px",
     borderTop:
       "1px solid #e2e8f0",
     flexWrap: "wrap",
@@ -2170,8 +2167,8 @@ const styles: {
     border: "none",
     background: "#fee2e2",
     color: "#991b1b",
-    padding: "8px 12px",
-    borderRadius: "8px",
+    padding: "7px 9px",
+    borderRadius: "9px",
     fontWeight: "900",
     cursor: "pointer",
     fontSize: "11px",

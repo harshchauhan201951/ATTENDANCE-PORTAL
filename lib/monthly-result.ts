@@ -1,4 +1,7 @@
-﻿export type MonthlyQuizEntry = {
+import { isOnOrAfterAdmission } from "./admission-date";
+
+
+export type MonthlyQuizEntry = {
   quizId: number;
   title: string;
   subject: string;
@@ -131,5 +134,32 @@ export function calculateMonthlyTotals(args: {
     status: args.mahaObtained === null || args.mahaObtained === undefined || grandTotal <= 0 ? 'PENDING' : percentage >= (safeNumber(args.passPercentage) || 40) ? 'PASS' : 'FAIL',
   };
 }
+
+export function filterMonthlySnapshotByAdmission(
+  snapshot: MonthlyResultSnapshot,
+  admissionDate: string | null | undefined,
+): MonthlyResultSnapshot {
+  const quizzes = snapshot.quizzes.filter((item) => isOnOrAfterAdmission(admissionDate, item.date));
+  const weeklyTests = snapshot.weeklyTests.filter((item) => isOnOrAfterAdmission(admissionDate, item.date));
+  const mahaEligible = isOnOrAfterAdmission(admissionDate, snapshot.mahaTest.date);
+  const mahaObtained = mahaEligible ? snapshot.mahaTest.obtained : null;
+  const totals = calculateMonthlyTotals({
+    quizzes,
+    weeklyTests,
+    mahaObtained,
+    passPercentage: snapshot.totals.passPercentage,
+  });
+  return {
+    ...snapshot,
+    quizzes,
+    weeklyTests,
+    mahaTest: { ...snapshot.mahaTest, obtained: mahaObtained },
+    totals,
+    award: undefined,
+    awardGroup: undefined,
+    position: undefined,
+  };
+}
+
 
 

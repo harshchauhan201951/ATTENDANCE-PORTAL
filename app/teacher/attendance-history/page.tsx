@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import { downloadPdfFile } from "../../../lib/download-pdf";
+import { isOnOrAfterAdmission } from "../../../lib/admission-date";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,6 +16,7 @@ type Student = {
   id: number;
   student_name: string;
   student_username: string;
+  admission_date?: string | null;
 };
 
 type AttendanceRecord = {
@@ -68,7 +72,7 @@ export default function AttendanceHistoryPage() {
         assignedStudentIds = (assignedData || []).map((item: { student_id: number }) => Number(item.student_id));
       }
 
-      let studentQuery = supabase.from("students").select("id, student_name, student_username, is_active").eq("is_active", true).order("id", { ascending: true });
+      let studentQuery = supabase.from("students").select("id, student_name, student_username, admission_date, is_active").eq("is_active", true).order("id", { ascending: true });
       if (savedTeacherId !== 1) {
         if (assignedStudentIds.length === 0) { setStudents([]); setRecords([]); setLoading(false); return; }
         studentQuery = studentQuery.in("id", assignedStudentIds);
@@ -81,7 +85,12 @@ export default function AttendanceHistoryPage() {
       if (studentsResult.error) throw new Error(studentsResult.error.message);
       if (attendanceResult.error) throw new Error(attendanceResult.error.message);
       setStudents(studentsResult.data || []);
-      const activeStudentIds = new Set((studentsResult.data || []).map((student) => Number(student.id))); setRecords((attendanceResult.data || []).filter((record) => activeStudentIds.has(Number(record.student_id))));
+      const activeStudents = (studentsResult.data || []) as Student[];
+      const studentById = new Map(activeStudents.map((student) => [Number(student.id), student]));
+      setRecords((attendanceResult.data || []).filter((record) => {
+        const student = studentById.get(Number(record.student_id));
+        return Boolean(student) && isOnOrAfterAdmission(student?.admission_date, record.attendance_date);
+      }));
     } catch (error) {
       console.error("Load attendance history error:", error);
       setErrorMessage(error instanceof Error ? error.message : "Failed to load attendance history.");
@@ -342,6 +351,33 @@ export default function AttendanceHistoryPage() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
     XLSX.writeFile(workbook, `attendance-${selectedStudent.student_username}-${selectedMonth || "all-months"}.xlsx`);
+  }
+
+  function downloadSelectedStudentPdf() {
+    if (!selectedStudent) return;
+    try {
+      const doc = new jsPDF({ unit: "mm", format: "a4" });
+      doc.setFillColor(12, 76, 145); doc.rect(0, 0, 210, 38, "F");
+      doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(17); doc.text("RACER ACADEMY", 15, 17);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text("STUDENT ATTENDANCE REPORT", 15, 27);
+      doc.setTextColor(25, 43, 68); doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text(selectedStudent.student_name || "Student", 15, 50);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.text(`Username: ${selectedStudent.student_username}`, 15, 57);
+      doc.text(`Period: ${selectedMonth || "All months"}`, 15, 63);
+      let y = 78;
+      doc.setFont("helvetica", "bold"); doc.text("Date", 18, y); doc.text("Status", 108, y); doc.line(15, y + 3, 195, y + 3); y += 11;
+      const rows = selectedStudentRecords.length ? selectedStudentRecords : [];
+      rows.forEach((record) => {
+        if (y > 278) { doc.addPage(); y = 20; }
+        doc.setFont("helvetica", "normal"); doc.text(formatDate(record.attendance_date), 18, y);
+        doc.setTextColor(record.status.toLowerCase() === "present" ? 20 : 180, record.status.toLowerCase() === "present" ? 120 : 50, 65);
+        doc.text(record.status, 108, y); doc.setTextColor(25, 43, 68); y += 8;
+      });
+      if (!rows.length) doc.text("No attendance records found for this period.", 18, y);
+      doc.setFontSize(8); doc.setTextColor(100, 116, 139); doc.text(`Total records: ${rows.length}`, 15, 286);
+      downloadPdfFile(doc, `RACER_ACADEMY_ATTENDANCE_${selectedStudent.student_username}_${selectedMonth || "ALL"}.pdf`);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Attendance PDF could not be downloaded.");
+    }
   }
 
   return (
@@ -755,7 +791,7 @@ export default function AttendanceHistoryPage() {
               <div style={{ display: "flex", gap: 9, flexWrap: "wrap", marginBottom: 14 }}>
                 <select aria-label="Attendance month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} style={{ ...styles.input, width: "auto", minWidth: 190 }}><option value="">All months</option>{availableMonths.map((value) => <option key={value} value={value}>{new Date(`${value}-01T00:00:00`).toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</option>)}</select>
                 <button type="button" onClick={exportStudentRecords} style={{ ...styles.refreshButton, background: "#176b45", border: 0 }}>Export Excel</button>
-                <button type="button" onClick={() => window.print()} style={{ ...styles.refreshButton, background: "#1e3a8a", border: 0 }}>Print / Save PDF</button>
+                <button type="button" onClick={downloadSelectedStudentPdf} style={{ ...styles.refreshButton, background: "#1e3a8a", border: 0 }}>Download PDF</button>
               </div>
               <div style={{ display: "grid", gap: 8 }}>
                 {selectedStudentRecords.length === 0 ? <p style={{ color: "#64748b" }}>No attendance records for this month.</p> : selectedStudentRecords.map((record) => (

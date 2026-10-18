@@ -3,11 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import * as XLSX from "xlsx"; // RACER_FEES_EXCEL_EXPORT_V1
+import jsPDF from "jspdf";
+import { downloadPdfFile } from "../../../lib/download-pdf";
+import { isFeePeriodOnOrAfterAdmission } from "../../../lib/admission-date";
 
 type Student = {
   id: number;
   student_name: string | null;
   student_username: string;
+  admission_date?: string | null;
   [key: string]: unknown;
 };
 
@@ -1186,8 +1190,9 @@ export default function TeacherFeesPage() {
         existingFees = (refreshedFees || []) as Fee[];
       }
 
+      const admissionDates = new Map(studentList.map((student) => [Number(student.id), student.admission_date]));
       setStudents(studentList);
-      setFees(existingFees);
+      setFees(existingFees.filter((fee) => isFeePeriodOnOrAfterAdmission(admissionDates.get(Number(fee.student_id)), fee.year, fee.month)));
     } catch (err) {
       console.error(err);
       setError(
@@ -1667,357 +1672,33 @@ export default function TeacherFeesPage() {
     );
   }
 
-  function downloadReceipt(
-    fee: Fee
-  ) {
-    const studentName =
-      getStudentName(
-        fee.student_id
-      );
-
-    const username =
-      getStudentUsername(
-        fee.student_id
-      );
-
-    const monthName =
-      getMonthName(
-        fee.month
-      );
-
-    const receiptNumber =
-      `RA-${fee.year}-${String(
-        fee.month
-      ).padStart(
-        2,
-        "0"
-      )}-${fee.id}`;
-
-    const normalizedPaymentMode =
-      String(
-        fee.payment_mode ||
-          ""
-      ).toUpperCase();
-
-    const paymentModeText =
-      normalizedPaymentMode ===
-      "ONLINE"
-        ? "ONLINE"
-        : normalizedPaymentMode ===
-          "CASH"
-        ? "CASH"
-        : "";
-
-    const receiptHTML = `
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8" />
-<title>RACER ACADEMY Fee Receipt</title>
-
-<style>
-
-body {
-  font-family: Arial, Helvetica, sans-serif;
-  background: #f1f5f9;
-  margin: 0;
-  padding: 30px;
-}
-
-.receipt {
-  max-width: 760px;
-  margin: auto;
-  background: white;
-  padding: 40px;
-  border-radius: 18px;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.08);
-}
-
-.top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  border-bottom: 2px solid #111827;
-  padding-bottom: 20px;
-}
-
-.academy {
-  font-size: 30px;
-  font-weight: 900;
-  color: #111827;
-}
-
-.tagline {
-  margin-top: 5px;
-  color: #6b7280;
-  font-size: 13px;
-}
-
-.receipt-title {
-  text-align: right;
-  font-size: 24px;
-  font-weight: 800;
-  color: #1d4ed8;
-}
-
-.receipt-number {
-  text-align: right;
-  margin-top: 6px;
-  color: #6b7280;
-  font-size: 13px;
-}
-
-.paid {
-  margin: 30px 0;
-  padding: 18px;
-  text-align: center;
-  border-radius: 12px;
-  background: #dcfce7;
-  color: #166534;
-  font-size: 22px;
-  font-weight: 800;
-}
-
-.section {
-  margin-top: 25px;
-}
-
-.section-title {
-  font-size: 16px;
-  font-weight: 800;
-  color: #111827;
-  margin-bottom: 10px;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-td {
-  padding: 12px;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-td:first-child {
-  width: 40%;
-  color: #64748b;
-  font-weight: 700;
-}
-
-td:last-child {
-  color: #111827;
-  font-weight: 600;
-}
-
-.amount {
-  font-size: 24px;
-  font-weight: 900;
-  color: #111827;
-}
-
-.footer {
-  margin-top: 35px;
-  padding-top: 20px;
-  border-top: 1px solid #e5e7eb;
-  text-align: center;
-  color: #64748b;
-  font-size: 12px;
-}
-
-.print-button {
-  display: block;
-  margin: 25px auto 0;
-  background: #111827;
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 700;
-}
-
-@media print {
-
-  body {
-    background: white;
-    padding: 0;
+  function downloadReceipt(fee: Fee) {
+    try {
+      const doc = new jsPDF({ unit: "mm", format: "a4" });
+      const studentName = getStudentName(fee.student_id) || "Student";
+      const username = getStudentUsername(fee.student_id);
+      const monthName = getMonthName(fee.month);
+      const receiptNumber = `RA-${fee.year}-${String(fee.month).padStart(2, "0")}-${fee.id}`;
+      doc.setFillColor(12, 76, 145); doc.rect(0, 0, 210, 43, "F");
+      doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.text("RACER ACADEMY", 15, 18);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text("OFFICIAL FEE RECEIPT", 15, 28); doc.text(receiptNumber, 195, 28, { align: "right" });
+      doc.setTextColor(25, 43, 68); let y = 60;
+      const rows: Array<[string, string]> = [
+        ["Student", studentName], ["Username", username], ["Fee period", `${monthName} ${fee.year}`],
+        ["Amount", `INR ${Number(fee.amount || 0).toLocaleString("en-IN")}`], ["Payment status", String(fee.status || "").toUpperCase()],
+        ["Payment mode", String(fee.payment_mode || "—").toUpperCase()], ["Payment date", String(fee.payment_date || "—")],
+        ["Transaction ID", String(fee.transaction_id || "—")], ["Remarks", String(fee.remarks || "—")],
+      ];
+      rows.forEach(([label, value], index) => {
+        doc.setFillColor(index % 2 ? 255 : 242, index % 2 ? 255 : 247, index % 2 ? 255 : 253); doc.roundedRect(15, y - 6, 180, 15, 2, 2, "F");
+        doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(85, 103, 125); doc.text(label, 20, y);
+        doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(25, 43, 68); doc.text(doc.splitTextToSize(value, 120), 72, y); y += 18;
+      });
+      doc.setFontSize(8); doc.setTextColor(100, 116, 139); doc.text("Computer-generated receipt · RACER ACADEMY", 105, 282, { align: "center" });
+      downloadPdfFile(doc, `RACER_ACADEMY_${receiptNumber}.pdf`);
+    } catch (error) { setError(error instanceof Error ? error.message : "Receipt PDF could not be downloaded."); }
   }
 
-  .receipt {
-    box-shadow: none;
-    border-radius: 0;
-    max-width: none;
-  }
-
-  .print-button {
-    display: none;
-  }
-
-}
-
-</style>
-</head>
-
-<body>
-
-<div class="receipt">
-
-<div class="top">
-
-<div>
-
-<div class="academy">
-RACER ACADEMY
-</div>
-
-<div class="tagline">
-Learn  Grow  Race Ahead
-</div>
-
-</div>
-
-<div>
-
-<div class="receipt-title">
-FEE RECEIPT
-</div>
-
-<div class="receipt-number">
-Receipt No: ${receiptNumber}
-</div>
-
-</div>
-
-</div>
-
-<div class="paid">
- PAYMENT RECEIVED
-</div>
-
-<div class="section">
-
-<div class="section-title">
-Student Details
-</div>
-
-<table>
-
-<tr>
-<td>Student Name</td>
-<td>${studentName}</td>
-</tr>
-
-<tr>
-<td>Username</td>
-<td>${username}</td>
-</tr>
-
-</table>
-
-</div>
-
-<div class="section">
-
-<div class="section-title">
-Fee Details
-</div>
-
-<table>
-
-<tr>
-<td>Fee Month</td>
-<td>${monthName} ${fee.year}</td>
-</tr>
-
-<tr>
-<td>Amount Paid</td>
-<td class="amount">
-${Number(
-      fee.amount
-    ).toLocaleString(
-      "en-IN"
-    )}
-</td>
-</tr>
-
-<tr>
-<td>Status</td>
-<td>${fee.status}</td>
-</tr>
-
-<tr>
-<td>Payment Mode</td>
-<td>${paymentModeText}</td>
-</tr>
-
-<tr>
-<td>Payment Date</td>
-<td>${fee.payment_date || ""}</td>
-</tr>
-
-<tr>
-<td>Transaction ID</td>
-<td>${fee.transaction_id || ""}</td>
-</tr>
-
-<tr>
-<td>Remarks</td>
-<td>${fee.remarks || ""}</td>
-</tr>
-
-</table>
-
-</div>
-
-<div class="footer">
-
-This is a computer-generated fee receipt.
-
-<br />
-
-RACER ACADEMY  Attendance & Fee Management
-
-</div>
-
-<button
-class="print-button"
-onclick="window.print()"
->
-- Print / Save PDF
-</button>
-
-</div>
-
-</body>
-</html>
-`;
-
-    const receiptWindow =
-      window.open(
-        "",
-        "_blank",
-        "width=900,height=900"
-      );
-
-    if (!receiptWindow) {
-      setError(
-        "Please allow pop-ups to download the receipt."
-      );
-      return;
-    }
-
-    receiptWindow.document.open();
-
-    receiptWindow.document.write(
-      receiptHTML
-    );
-
-    receiptWindow.document.close();
-  }
-
-  // RACER_FEES_EXCEL_EXPORT_V1: export current selected month or complete fee history.
-    // RACER_FEE_HISTORY_MONTHWISE_ACTIONS_V1: export every status for the selected month.
   function downloadMonthlyFeeExcel() {
     const rows = fees.filter((fee) =>
       Number(fee.month) === Number(month) && Number(fee.year) === Number(year)

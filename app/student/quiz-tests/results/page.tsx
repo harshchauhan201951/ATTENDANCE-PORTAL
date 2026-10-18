@@ -10,6 +10,7 @@ import {
   useSearchParams,
 } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
+import { isOnOrAfterAdmission } from "../../../../lib/admission-date";
 
 type Quiz = {
   id: number;
@@ -692,6 +693,13 @@ function ResultsContent() {
       (resultData ||
         []) as QuizResult[];
 
+    const { data: studentMeta, error: studentMetaError } = await supabase
+      .from("students")
+      .select("admission_date")
+      .eq("id", studentId)
+      .maybeSingle();
+    if (studentMetaError) throw new Error(studentMetaError.message);
+
     if (rawResults.length === 0) {
       setResults([]);
       return;
@@ -759,6 +767,7 @@ function ResultsContent() {
             ) || null,
         }))
         .filter((item) => {
+          if (item.quiz && !isOnOrAfterAdmission(studentMeta?.admission_date, item.quiz.scheduled_date)) return false;
           if (
             item.quiz &&
             currentClass
@@ -835,6 +844,7 @@ function ResultsContent() {
                 ) || null,
             }))
             .filter((item) => {
+              if (item.quiz && !isOnOrAfterAdmission(studentMeta?.admission_date, item.quiz.scheduled_date)) return false;
               if (
                 item.quiz &&
                 currentClass
@@ -894,6 +904,16 @@ function ResultsContent() {
 
     const quiz =
       quizData as Quiz;
+
+    const { data: studentMeta, error: studentMetaError } = await supabase
+      .from("students")
+      .select("admission_date")
+      .eq("id", studentId)
+      .maybeSingle();
+    if (studentMetaError) throw new Error(studentMetaError.message);
+    if (!isOnOrAfterAdmission(studentMeta?.admission_date, quiz.scheduled_date)) {
+      throw new Error("यह क्विज़ आपकी प्रवेश तिथि से पहले का है, इसलिए उपलब्ध नहीं है।");
+    }
 
     setSelectedQuiz(quiz);
 

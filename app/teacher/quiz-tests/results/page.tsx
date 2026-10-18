@@ -10,6 +10,8 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
 import jsPDF from "jspdf";
+import { downloadPdfFile } from "../../../../lib/download-pdf";
+import { isOnOrAfterAdmission } from "../../../../lib/admission-date";
 import * as XLSX from "xlsx";
 
 type QuizTest = {
@@ -34,6 +36,7 @@ type Student = {
   student_name: string | null;
   student_username: string | null;
   class_name: string | null;
+  admission_date?: string | null;
 };
 
 type QuizResult = {
@@ -594,7 +597,8 @@ function TeacherQuizResultsContent() {
               id,
               student_name,
               student_username,
-              class_name
+              class_name,
+              admission_date
             `
           )
           .order("class_name", {
@@ -640,12 +644,16 @@ function TeacherQuizResultsContent() {
         id: Number(student.id),
       }));
 
+      const currentEligibleStudents = normalizedStudents.filter((student) => isOnOrAfterAdmission(student.admission_date, quiz.scheduled_date));
+      const currentEligibleStudentIds = new Set(currentEligibleStudents.map((student) => Number(student.id)));
+      const currentEligibleResults = normalizedCurrentResults.filter((row) => currentEligibleStudentIds.has(Number(row.student_id)));
+
       setCurrentQuiz(quiz);
-      setCurrentResults(normalizedCurrentResults);
-      setCurrentStudents(normalizedStudents);
+      setCurrentResults(currentEligibleResults);
+      setCurrentStudents(currentEligibleStudents);
 
       setAllQuizzes([quiz]);
-      setAllResults(normalizedCurrentResults);
+      setAllResults(currentEligibleResults);
       setAllStudents(normalizedStudents);
 
       setSelectedDate("ALL");
@@ -732,9 +740,16 @@ function TeacherQuizResultsContent() {
               (quizzesResponse.data || []) as QuizTest[];
 
             const passPercentByQuiz = new Map<number, number>(normalizedQuizzes.map((item) => [Number(item.id), Number(item.pass_percentage ?? 40)] as [number, number]));
-            const normalizedAllResults = (
+          const quizById = new Map(normalizedQuizzes.map((item) => [Number(item.id), item]));
+          const studentById = new Map(normalizedStudents.map((item) => [Number(item.id), item]));
+          const normalizedAllResults = (
               (resultsResponse.data || []) as QuizResult[]
-            ).filter((row) => savedTeacherId === 1 || assignedStudentIds.includes(Number(row.student_id))).map((row) => ({
+          ).filter((row) => {
+            if (savedTeacherId !== 1 && !assignedStudentIds.includes(Number(row.student_id))) return false;
+            const student = studentById.get(Number(row.student_id));
+            const quizRow = quizById.get(Number(row.quiz_id));
+            return Boolean(student && quizRow && isOnOrAfterAdmission(student.admission_date, quizRow.scheduled_date));
+          }).map((row) => ({
               ...row,
               id: Number(row.id),
               quiz_id: Number(row.quiz_id),
@@ -950,8 +965,8 @@ function TeacherQuizResultsContent() {
         const studentClass = normalizeClassName(student.class_name);
 
         return (
-          quizClasses.length === 0 ||
-          quizClasses.includes(studentClass)
+          isOnOrAfterAdmission(student.admission_date, quiz.scheduled_date) &&
+          (quizClasses.length === 0 || quizClasses.includes(studentClass))
         );
       });
 
@@ -2279,9 +2294,7 @@ function TeacherQuizResultsContent() {
         .replace(/[^a-z0-9]+/gi, "_")
         .replace(/^_+|_+$/g, "");
 
-    pdf.save(
-      `RACER_ACADEMY_${safeStudentName}_${safeQuizTitle}_RESULT.pdf`
-    );
+    downloadPdfFile(pdf, `RACER_ACADEMY_${safeStudentName}_${safeQuizTitle}_RESULT.pdf`);
   };
 
   const downloadOverallExcel = async (reportDate?: string) => {
@@ -2527,9 +2540,7 @@ function TeacherQuizResultsContent() {
         reportDate || (selectedDate !== "ALL" ? selectedDate : currentQuiz?.scheduled_date || null)
       );
 
-      pdf.save(
-        reportDate ? "RACER_ACADEMY_"+reportDate+"_QUIZ_RESULTS.pdf" : "RACER_ACADEMY_OVERALL_QUIZ_RESULTS.pdf"
-      );
+      downloadPdfFile(pdf, reportDate ? "RACER_ACADEMY_"+reportDate+"_QUIZ_RESULTS.pdf" : "RACER_ACADEMY_OVERALL_QUIZ_RESULTS.pdf");
     } finally {
       setFilterLoading(false);
     }
@@ -2556,7 +2567,7 @@ function TeacherQuizResultsContent() {
 
   if (error) {
     return (
-      <main style={styles.page}>
+      <main className="racer-module-page racer-quiz-subpage racer-quiz-results" style={styles.page}>
         <div style={styles.errorCard}>
           <div style={styles.errorIcon}>!</div>
 
@@ -2587,7 +2598,7 @@ function TeacherQuizResultsContent() {
   }
 
   return (
-    <main style={styles.page}>
+    <main className="racer-module-page racer-quiz-subpage racer-quiz-results" style={styles.page}>
       <div style={styles.container}>
         <header style={styles.topHeader}>
           <div style={styles.brandBlock}>
@@ -3033,11 +3044,7 @@ function TeacherQuizResultsContent() {
                                               styles.studentCard
                                             }
                                           >
-                                            <div
-                                              style={
-                                                styles.studentTop
-                                              }
-                                            >
+                                            <div className="quiz-result-student-card-top" style={styles.studentTop}>
                                               <button
                                                 type="button"
                                                 style={
@@ -3055,10 +3062,7 @@ function TeacherQuizResultsContent() {
                                                   }
                                                 >
                                                   {String(
-                                                    row
-                                                      .student
-                                                      .student_name ||
-                                                      "S"
+                                                      row.student.student_name || row.student.student_username || "S"
                                                   )
                                                     .trim()
                                                     .charAt(
@@ -3077,10 +3081,7 @@ function TeacherQuizResultsContent() {
                                                       styles.studentName
                                                     }
                                                   >
-                                                    {row
-                                                      .student
-                                                      .student_name ||
-                                                      "Unnamed Student"}
+                                                    {row.student.student_name?.trim() || row.student.student_username?.trim() || `Student #${row.student.id}`}
                                                   </div>
 
                                                   <div
@@ -3088,25 +3089,12 @@ function TeacherQuizResultsContent() {
                                                       styles.studentUsername
                                                     }
                                                   >
-                                                    {row
-                                                      .student
-                                                      .student_username ||
-                                                      "Username not available"}
-                                                    {"  "}
-                                                    {normalizeSubject(
-                                                      row
-                                                        .quiz
-                                                        .subject
-                                                    )}
+                                                    ID {row.student.student_username || row.student.id} · {normalizeSubject(row.quiz.subject)}
                                                   </div>
                                                 </div>
                                               </button>
 
-                                              <div
-                                                style={
-                                                  styles.studentActions
-                                                }
-                                              >
+                                              <div className="quiz-result-student-actions" style={styles.studentActions}>
                                                 <div
                                                   style={
                                                     styles.studentSummary
@@ -3154,11 +3142,12 @@ function TeacherQuizResultsContent() {
                                                         styles.noAttempt
                                                       }
                                                     >
-                                                      {row.quiz?.scheduled_date && isQuizDeadlinePassed(row.quiz) && !reattemptAllowed ? "FAIL - 0 marks" : reattemptAllowed ? "RE-ATTEMPT ALLOWED" : "NO ATTEMPT"}
+                                                      {row.quiz?.scheduled_date && isQuizDeadlinePassed(row.quiz) && !reattemptAllowed ? "NOT SUBMITTED · 0 MARKS" : reattemptAllowed ? "RE-ATTEMPT ALLOWED" : "NO ATTEMPT"}
                                                     </span>
                                                   )}
                                                 </div>
 
+                                                <div className="quiz-result-student-buttons">
                                                 {reattemptAllowed ? (
                                                   <button
                                                     type="button"
@@ -3205,7 +3194,7 @@ function TeacherQuizResultsContent() {
                                                     }}
                                                   >
                                                     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: "13px", height: "13px", verticalAlign: "-2px", marginRight: "4px" }}><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" /></svg>
-                                                    Assignment
+                                                    Assignment marks
                                                   </button>
                                                 )}
                                                 <button
@@ -3223,7 +3212,7 @@ function TeacherQuizResultsContent() {
                                                   }
                                                   disabled={!latest}
                                                 >
-                                                  PDF
+                                                  Student PDF
                                                 </button>
 
                                                 <button
@@ -3237,10 +3226,9 @@ function TeacherQuizResultsContent() {
                                                     )
                                                   }
                                                 >
-                                                  {studentOpen
-                                                    ? ""
-                                                    : "+"}
+                                                  {studentOpen ? "Hide details" : "Details"}
                                                 </button>
+                                                </div>
                                               </div>
                                             </div>
 
@@ -4380,14 +4368,14 @@ const styles: Record<
 
   studentTop: {
     padding: "11px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "12px",
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr)",
+    gap: "10px",
   },
 
   studentMainButton: {
-    flex: "1 1 auto",
+    width: "100%",
+    flex: "1 1 100%",
     minWidth: 0,
     border: "none",
     background: "transparent",
@@ -4414,38 +4402,40 @@ const styles: Record<
 
   studentIdentity: {
     minWidth: 0,
+    flex: "1 1 auto",
   },
 
   studentName: {
-    fontSize: "14px",
+    fontSize: "15px",
     fontWeight: 900,
     color: "#0f172a",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
+    lineHeight: 1.3,
+    whiteSpace: "normal",
+    overflowWrap: "anywhere",
   },
 
   studentUsername: {
     marginTop: "3px",
-    fontSize: "10px",
+    fontSize: "11px",
     color: "#64748b",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
+    lineHeight: 1.35,
+    whiteSpace: "normal",
+    overflowWrap: "anywhere",
   },
 
   studentActions: {
-    display: "flex",
+    display: "grid",
+    gridTemplateColumns: "minmax(115px, .7fr) minmax(0, 1.3fr)",
     alignItems: "center",
-    gap: "7px",
-    flexShrink: 0,
+    gap: "9px",
+    minWidth: 0,
   },
 
   studentSummary: {
     display: "flex",
     flexDirection: "column",
-    alignItems: "flex-end",
-    minWidth: "65px",
+    alignItems: "flex-start",
+    minWidth: 0,
   },
 
   summaryStatus: {
@@ -4465,7 +4455,8 @@ const styles: Record<
     border: "1px solid #c7d2fe",
     background: "#eef2ff",
     color: "#3730a3",
-    padding: "8px 9px",
+    minHeight: "38px",
+    padding: "8px 10px",
     borderRadius: "9px",
     fontSize: "9px",
     fontWeight: 950,
@@ -4473,13 +4464,15 @@ const styles: Record<
   },
 
   expandButton: {
-    width: "31px",
-    height: "31px",
+    width: "auto",
+    minWidth: "75px",
+    minHeight: "38px",
     border: "none",
     borderRadius: "9px",
     background: "#f1f5f9",
     color: "#334155",
-    fontSize: "18px",
+    padding: "7px 10px",
+    fontSize: "10px",
     fontWeight: 900,
     cursor: "pointer",
   },

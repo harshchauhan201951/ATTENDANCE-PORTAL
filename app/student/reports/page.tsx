@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import jsPDF from "jspdf";
+import { downloadPdfFile } from "../../../lib/download-pdf";
+import { isFeePeriodOnOrAfterAdmission, isOnOrAfterAdmission } from "../../../lib/admission-date";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -49,6 +51,7 @@ type Student = {
   id: number;
   student_name: string | null;
   student_username: string;
+  admission_date?: string | null;
 };
 
 type StudentIdentifier = {
@@ -376,7 +379,7 @@ function CircularProgress({
   );
 }
 
-function createPdfWindow(
+function createStudentReportPdf(
   student: Student,
   assessments: AssessmentRecord[],
   selectedSubject: string
@@ -496,7 +499,7 @@ function createPdfWindow(
       doc.text(`Page ${page} of ${pages}`, 195, 289, { align: 'right' });
     }
     const safeName = (student.student_name || student.student_username || 'STUDENT').replace(/[^a-z0-9]+/gi, '_');
-    doc.save(`RACER_ACADEMY_${safeName}_WEEKLY_TEST_REPORT.pdf`);
+    downloadPdfFile(doc, `RACER_ACADEMY_${safeName}_WEEKLY_TEST_REPORT.pdf`);
     return true;
   } catch (error) {
     console.error('Unable to generate student report PDF:', error);
@@ -1203,7 +1206,7 @@ export default function StudentReportsPage() {
     const exactResult = await supabase
       .from("students")
       .select(
-        "id, student_name, student_username"
+        "id, student_name, student_username, admission_date"
       )
       .eq("student_username", cleanUsername)
       .maybeSingle();
@@ -1219,7 +1222,7 @@ export default function StudentReportsPage() {
     const fallbackResult = await supabase
       .from("students")
       .select(
-        "id, student_name, student_username"
+        "id, student_name, student_username, admission_date"
       )
       .ilike("student_username", cleanUsername)
       .limit(1);
@@ -1348,18 +1351,15 @@ export default function StudentReportsPage() {
       }
 
       setAttendance(
-        (attendanceResult.data ||
-          []) as AttendanceRecord[]
+        ((attendanceResult.data || []) as AttendanceRecord[]).filter((record) => isOnOrAfterAdmission(studentData.admission_date, record.attendance_date))
       );
 
       setFees(
-        (feeResult.data ||
-          []) as FeeRecord[]
+        ((feeResult.data || []) as FeeRecord[]).filter((record) => isFeePeriodOnOrAfterAdmission(studentData.admission_date, record.year, record.month))
       );
 
       setAssessments(
-        (assessmentResult.data ||
-          []) as AssessmentRecord[]
+        ((assessmentResult.data || []) as AssessmentRecord[]).filter((record) => isOnOrAfterAdmission(studentData.admission_date, record.test_date))
       );
     } catch (err) {
       setError(
@@ -1692,7 +1692,7 @@ export default function StudentReportsPage() {
       return;
     }
 
-    const success = createPdfWindow(
+    const success = createStudentReportPdf(
       student,
       assessments,
       selectedSubject
@@ -1708,7 +1708,7 @@ export default function StudentReportsPage() {
       return;
     }
 
-    const success = createPdfWindow(
+    const success = createStudentReportPdf(
       student,
       [test],
       String(test.subject || "All")

@@ -8,6 +8,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
+import { isOnOrAfterAdmission } from "../../../../lib/admission-date";
 
 type Quiz = {
   id: string;
@@ -325,6 +326,7 @@ export default function StudentQuizHistoryPage() {
               student_username: string | null;
               student_name: string | null;
               class_name: string | null;
+              admission_date: string | null;
             }
           | null = null;
 
@@ -333,7 +335,7 @@ export default function StudentQuizHistoryPage() {
             await supabase
               .from("students")
               .select(
-                "id, student_username, student_name, class_name"
+                "id, student_username, student_name, class_name, admission_date"
               )
               .eq("id", studentId)
               .maybeSingle();
@@ -353,7 +355,7 @@ export default function StudentQuizHistoryPage() {
             await supabase
               .from("students")
               .select(
-                "id, student_username, student_name, class_name"
+                "id, student_username, student_name, class_name, admission_date"
               )
               .eq(
                 "student_username",
@@ -389,7 +391,7 @@ export default function StudentQuizHistoryPage() {
             } = await supabase
               .from("students")
               .select(
-                "id, student_username, student_name, class_name"
+                "id, student_username, student_name, class_name, admission_date"
               )
               .eq(
                 "student_username",
@@ -572,6 +574,10 @@ export default function StudentQuizHistoryPage() {
           );
 
           if (!quiz) {
+            continue;
+          }
+
+          if (!isOnOrAfterAdmission(studentRecord.admission_date, quiz.scheduled_date)) {
             continue;
           }
 

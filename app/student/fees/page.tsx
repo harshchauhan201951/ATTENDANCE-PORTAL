@@ -2,11 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import jsPDF from "jspdf";
+import { downloadPdfFile } from "../../../lib/download-pdf";
+import { isFeePeriodOnOrAfterAdmission } from "../../../lib/admission-date";
 
 type Student = {
   id: number;
   student_name: string | null;
   student_username: string;
+  admission_date?: string | null;
   [key: string]: unknown;
 };
 
@@ -450,7 +454,7 @@ function FeesReferenceVip({
           <button type="button" onClick={() => paidFee && printReceipt(paidFee)} disabled={!canReceipt(paidFee)} style={{ border: '1px solid #dce7f8', borderRadius: 14, padding: 11, background: '#fff', color: '#18336d', textAlign: 'left', opacity: canReceipt(paidFee) ? 1 : .55 }}>
             <div style={{ fontSize: 15 }}>🧾</div>
             <strong style={{ display: 'block', marginTop: 5, fontSize: 9 }}>Download Receipt</strong>
-            <span style={{ display: 'block', marginTop: 2, fontSize: 6.5, color: '#7586a4' }}>{canReceipt(paidFee) ? 'Print / save receipt' : 'Receipt unavailable'}</span>
+            <span style={{ display: 'block', marginTop: 2, fontSize: 6.5, color: '#7586a4' }}>{canReceipt(paidFee) ? 'Download PDF receipt' : 'Receipt unavailable'}</span>
           </button>
         </section>
 
@@ -844,14 +848,9 @@ export default function StudentFeesPage() {
           finalFeeError
         );
 
-        setFees(
-          existingFees
-        );
+        setFees(existingFees.filter((fee) => isFeePeriodOnOrAfterAdmission(currentStudent.admission_date, fee.year, fee.month)));
       } else {
-        setFees(
-          (finalFeeData ||
-            []) as Fee[]
-        );
+        setFees(((finalFeeData || []) as Fee[]).filter((fee) => isFeePeriodOnOrAfterAdmission(currentStudent.admission_date, fee.year, fee.month)));
       }
     } catch (err) {
       console.error(
@@ -1150,411 +1149,31 @@ export default function StudentFeesPage() {
     }
   }
 
-  function printReceipt(
-    fee: Fee
-  ) {
-    const monthName =
-      months[fee.month] ||
-      `Month ${fee.month}`;
-
-    const receiptNumber =
-      `RA-FEE-${fee.id}-${fee.year}`;
-
-    const paymentDate =
-      fee.payment_date ||
-      new Date()
-        .toISOString()
-        .split(
-          "T"
-        )[0];
-
-    const amount =
-      Number(
-        fee.amount || 0
-      ).toLocaleString(
-        "en-IN"
-      );
-
-    const transactionId =
-      fee.transaction_id ||
-      "—";
-
-    const status =
-      String(
-        fee.status || ""
-      ).toUpperCase();
-
-    const paymentMode =
-      String(
-        fee.payment_mode ||
-          ""
-      ).toUpperCase();
-
-    const paymentModeDisplay =
-      paymentMode ===
-      "CASH"
-        ? "CASH"
-        : paymentMode ===
-          "ONLINE"
-        ? "ONLINE"
-        : "—";
-
-    const receiptWindow =
-      window.open(
-        "",
-        "_blank",
-        "width=800,height=900"
-      );
-
-    if (!receiptWindow) {
-      setError(
-        "Please allow pop-ups in your browser to print the receipt."
-      );
-
-      return;
-    }
-
-    receiptWindow.document.write(`
-      <!DOCTYPE html>
-
-      <html>
-        <head>
-          <title>${receiptNumber}</title>
-
-          <style>
-            * {
-              box-sizing: border-box;
-            }
-
-            body {
-              margin: 0;
-              padding: 30px;
-              background: #f3f4f6;
-              font-family:
-                Arial,
-                Helvetica,
-                sans-serif;
-              color: #111827;
-            }
-
-            .receipt {
-              max-width: 700px;
-              margin: 0 auto;
-              background: white;
-              padding: 40px;
-              border-radius: 16px;
-              box-shadow:
-                0 8px 30px
-                rgba(0,0,0,0.08);
-            }
-
-            .header {
-              text-align: center;
-              border-bottom:
-                2px solid #111827;
-              padding-bottom: 22px;
-              margin-bottom: 25px;
-            }
-
-            .academy {
-              font-size: 30px;
-              font-weight: 900;
-              letter-spacing: 1px;
-              color: #111827;
-            }
-
-            .subtitle {
-              margin-top: 7px;
-              color: #6b7280;
-              font-size: 14px;
-            }
-
-            .receipt-title {
-              margin-top: 22px;
-              font-size: 22px;
-              font-weight: 800;
-            }
-
-            .receipt-number {
-              margin-top: 6px;
-              color: #6b7280;
-              font-size: 13px;
-            }
-
-            .success {
-              margin: 25px 0;
-              padding: 14px;
-              text-align: center;
-              border-radius: 10px;
-              background: #dcfce7;
-              color: #166534;
-              font-weight: 800;
-            }
-
-            .row {
-              display: flex;
-              justify-content: space-between;
-              gap: 20px;
-              padding: 13px 0;
-              border-bottom:
-                1px solid #e5e7eb;
-            }
-
-            .label {
-              color: #6b7280;
-              font-size: 14px;
-            }
-
-            .value {
-              text-align: right;
-              font-weight: 700;
-              color: #111827;
-              overflow-wrap: anywhere;
-            }
-
-            .amount {
-              margin-top: 25px;
-              padding: 20px;
-              border-radius: 12px;
-              background: #f3f4f6;
-              text-align: center;
-            }
-
-            .amount-label {
-              color: #6b7280;
-              font-size: 14px;
-            }
-
-            .amount-value {
-              margin-top: 6px;
-              font-size: 32px;
-              font-weight: 900;
-            }
-
-            .footer {
-              text-align: center;
-              margin-top: 30px;
-              padding-top: 20px;
-              border-top:
-                1px solid #e5e7eb;
-              color: #6b7280;
-              font-size: 12px;
-              line-height: 1.6;
-            }
-
-            .print-button {
-              display: block;
-              margin: 25px auto 0;
-              border: none;
-              background: #111827;
-              color: white;
-              padding: 13px 25px;
-              border-radius: 8px;
-              font-weight: 700;
-              cursor: pointer;
-              font-size: 14px;
-            }
-
-            @media print {
-              body {
-                padding: 0;
-                background: white;
-              }
-
-              .receipt {
-                max-width: none;
-                box-shadow: none;
-                border-radius: 0;
-              }
-
-              .print-button {
-                display: none;
-              }
-            }
-
-            @media (max-width: 600px) {
-              body {
-                padding: 10px;
-              }
-
-              .receipt {
-                padding: 22px 16px;
-                border-radius: 12px;
-              }
-
-              .academy {
-                font-size: 24px;
-              }
-
-              .receipt-title {
-                font-size: 19px;
-              }
-
-              .row {
-                gap: 12px;
-              }
-
-              .label,
-              .value {
-                font-size: 13px;
-              }
-
-              .amount-value {
-                font-size: 27px;
-              }
-            }
-          </style>
-        </head>
-
-        <body>
-          <div class="receipt">
-
-            <div class="header">
-
-              <div class="academy">
-                RACER ACADEMY
-              </div>
-
-              <div class="subtitle">
-                Student Fee Payment Receipt
-              </div>
-
-              <div class="receipt-title">
-                FEE RECEIPT
-              </div>
-
-              <div class="receipt-number">
-                Receipt No:
-                ${receiptNumber}
-              </div>
-
-            </div>
-
-            <div class="success">
-              ✓ PAYMENT RECEIVED
-            </div>
-
-            <div class="row">
-              <div class="label">
-                Student Name
-              </div>
-
-              <div class="value">
-                ${studentName}
-              </div>
-            </div>
-
-            <div class="row">
-              <div class="label">
-                Username
-              </div>
-
-              <div class="value">
-                ${studentUsername}
-              </div>
-            </div>
-
-            <div class="row">
-              <div class="label">
-                Fee Month
-              </div>
-
-              <div class="value">
-                ${monthName}
-                ${fee.year}
-              </div>
-            </div>
-
-            <div class="row">
-              <div class="label">
-                Payment Mode
-              </div>
-
-              <div class="value">
-                ${paymentModeDisplay}
-              </div>
-            </div>
-
-            <div class="row">
-              <div class="label">
-                Payment Date
-              </div>
-
-              <div class="value">
-                ${paymentDate}
-              </div>
-            </div>
-
-            <div class="row">
-              <div class="label">
-                Payment Status
-              </div>
-
-              <div class="value">
-                ${status}
-              </div>
-            </div>
-
-            <div class="row">
-              <div class="label">
-                Transaction ID
-              </div>
-
-              <div class="value">
-                ${transactionId}
-              </div>
-            </div>
-
-            <div class="amount">
-              <div class="amount-label">
-                Amount Paid
-              </div>
-
-              <div class="amount-value">
-                ₹${amount}
-              </div>
-            </div>
-
-            ${
-              fee.remarks
-                ? `
-                  <div class="row">
-                    <div class="label">
-                      Remarks
-                    </div>
-
-                    <div class="value">
-                      ${fee.remarks}
-                    </div>
-                  </div>
-                `
-                : ""
-            }
-
-            <div class="footer">
-              This is a computer-generated
-              fee receipt.<br />
-
-              RACER ACADEMY •
-              Student Fee Management
-            </div>
-
-            <button
-              class="print-button"
-              onclick="window.print()"
-            >
-              🖨️ Print / Save as PDF
-            </button>
-
-          </div>
-        </body>
-      </html>
-    `);
-
-    receiptWindow.document.close();
-    receiptWindow.focus();
+  function printReceipt(fee: Fee) {
+    try {
+      const doc = new jsPDF({ unit: "mm", format: "a4" });
+      const monthName = months[fee.month] || `Month ${fee.month}`;
+      const receiptNumber = `RA-FEE-${fee.id}-${fee.year}`;
+      const studentName = localStorage.getItem("studentName") || localStorage.getItem("student_name") || "Student";
+      doc.setFillColor(12, 76, 145); doc.rect(0, 0, 210, 43, "F");
+      doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.text("RACER ACADEMY", 15, 18);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text("OFFICIAL FEE RECEIPT", 15, 28); doc.text(receiptNumber, 195, 28, { align: "right" });
+      doc.setTextColor(25, 43, 68); let y = 60;
+      const rows: Array<[string, string]> = [
+        ["Student", studentName], ["Username", localStorage.getItem("studentUsername") || localStorage.getItem("student_username") || ""],
+        ["Fee period", `${monthName} ${fee.year}`], ["Amount", `INR ${Number(fee.amount || 0).toLocaleString("en-IN")}`],
+        ["Payment status", String(fee.status || "").toUpperCase()], ["Payment mode", String(fee.payment_mode || "—").toUpperCase()],
+        ["Payment date", String(fee.payment_date || "—")], ["Transaction ID", String(fee.transaction_id || "—")], ["Remarks", String(fee.remarks || "—")],
+      ];
+      rows.forEach(([label, value], index) => {
+        doc.setFillColor(index % 2 ? 255 : 242, index % 2 ? 255 : 247, index % 2 ? 255 : 253); doc.roundedRect(15, y - 6, 180, 15, 2, 2, "F");
+        doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(85, 103, 125); doc.text(label, 20, y);
+        doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(25, 43, 68); doc.text(doc.splitTextToSize(value, 120), 72, y); y += 18;
+      });
+      doc.setFontSize(8); doc.setTextColor(100, 116, 139); doc.text("Computer-generated receipt · RACER ACADEMY", 105, 282, { align: "center" });
+      downloadPdfFile(doc, `RACER_ACADEMY_${receiptNumber}.pdf`);
+    } catch (error) { setError(error instanceof Error ? error.message : "Receipt PDF could not be downloaded."); }
   }
-
   const totalFees =
     fees.reduce(
       (sum, fee) =>

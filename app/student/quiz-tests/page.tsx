@@ -7,6 +7,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
+import { isOnOrAfterAdmission } from "../../../lib/admission-date";
 
 type Quiz = {
   id: number;
@@ -48,6 +49,7 @@ type Student = {
   student_name: string | null;
   student_username: string | null;
   class_name: string | null;
+  admission_date?: string | null;
 };
 
 export default function StudentQuizTestsPage() {
@@ -185,7 +187,7 @@ export default function StudentQuizTestsPage() {
           await supabase
             .from("students")
             .select(
-              "id,student_name,student_username,class_name"
+              "id,student_name,student_username,class_name,admission_date"
             )
             .eq(
               "student_username",
@@ -235,7 +237,7 @@ export default function StudentQuizTestsPage() {
             await supabase
               .from("students")
               .select(
-                "id,student_name,student_username,class_name"
+                "id,student_name,student_username,class_name,admission_date"
               )
               .eq(
                 "id",
@@ -340,7 +342,7 @@ export default function StudentQuizTestsPage() {
             quizBelongsToStudent(
               quiz,
               actualStudentClass
-            )
+            ) && isOnOrAfterAdmission(actualStudent.admission_date, quiz.scheduled_date)
         );
 
 
@@ -373,8 +375,8 @@ export default function StudentQuizTestsPage() {
           if (!authorizedQuizError && authorizedQuizRows) {
             const byId = new Map<number, Quiz>();
             visibleQuizzes.forEach((quiz) => byId.set(Number(quiz.id), quiz));
-            (authorizedQuizRows as Quiz[]).forEach((quiz) => byId.set(Number(quiz.id), quiz));
-            visibleQuizzes = Array.from(byId.values());
+            (authorizedQuizRows as Quiz[]).filter((quiz) => isOnOrAfterAdmission(actualStudent.admission_date, quiz.scheduled_date)).forEach((quiz) => byId.set(Number(quiz.id), quiz));
+            visibleQuizzes = Array.from(byId.values()).filter((quiz) => isOnOrAfterAdmission(actualStudent?.admission_date, quiz.scheduled_date));
           }
         }
       } else {

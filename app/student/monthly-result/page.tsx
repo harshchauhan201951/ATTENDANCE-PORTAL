@@ -1,9 +1,11 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import jsPDF from "jspdf";
+import { downloadPdfFile } from "../../../lib/download-pdf";
 import type { MonthlyResultSnapshot } from "../../../lib/monthly-result";
+import { filterMonthlySnapshotByAdmission } from "../../../lib/monthly-result";
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
@@ -30,8 +32,8 @@ function pdfFor(s:MonthlyResultSnapshot){
 export default function StudentMonthlyResultPage(){
  const [snapshot,setSnapshot]=useState<MonthlyResultSnapshot|null>(null);const [loading,setLoading]=useState(true);const [message,setMessage]=useState("");const [error,setError]=useState("");const [pdfMessage,setPdfMessage]=useState("");
   useEffect(()=>{void load();const timer=setInterval(()=>{void load();},30000);return()=>clearInterval(timer);},[]);
-  async function load(){setLoading(true);setError("");try{const id=Number(localStorage.getItem("studentId")||localStorage.getItem("attendance_student_id")||localStorage.getItem("student_id")||"0");if(!id)throw new Error("Student session not found. Please login again.");const res=await fetch("/api/monthly-results/publish?list=1");const listData=await res.json();if(!res.ok||!listData.success)throw new Error(listData.error||"Monthly result load failed.");const periods=listData.periods||[];const period=periods.find((p:any)=>Boolean(p.is_released)||(p.scheduled_release_at&&Date.now()>=new Date(p.scheduled_release_at).getTime()));if(!period){setMessage("Monthly result has not been released yet.");return;}const resultRes=await fetch("/api/monthly-results/publish?monthKey="+encodeURIComponent(period.month_key)+"&studentId="+encodeURIComponent(String(id)));const resultData=await resultRes.json();if(!resultRes.ok||!resultData.success)throw new Error(resultData.error||"Student result load failed.");const row=resultData.results?.[0];if(!row?.snapshot){setMessage("Your result is not available yet.");return;}setSnapshot(row.snapshot as MonthlyResultSnapshot);}catch(e){setError(e instanceof Error?e.message:"Result load failed.");}finally{setLoading(false);}}
- function download(){if(!snapshot)return;try{pdfFor(snapshot).save(`RACER_ACADEMY_${snapshot.student.name.replace(/[^a-z0-9]+/gi,"_")}_${snapshot.monthKey}_MONTHLY_RESULT.pdf`);setPdfMessage("Your full result PDF has been prepared for download.");}catch{setPdfMessage("PDF download could not start. Please try again.");}}
+  async function load(){setLoading(true);setError("");try{const id=Number(localStorage.getItem("studentId")||localStorage.getItem("attendance_student_id")||localStorage.getItem("student_id")||"0");if(!id)throw new Error("Student session not found. Please login again.");const res=await fetch("/api/monthly-results/publish?list=1");const listData=await res.json();if(!res.ok||!listData.success)throw new Error(listData.error||"Monthly result load failed.");const periods=listData.periods||[];const period=periods.find((p:any)=>Boolean(p.is_released)||(p.scheduled_release_at&&Date.now()>=new Date(p.scheduled_release_at).getTime()));if(!period){setMessage("Monthly result has not been released yet.");return;}const resultRes=await fetch("/api/monthly-results/publish?monthKey="+encodeURIComponent(period.month_key)+"&studentId="+encodeURIComponent(String(id)));const resultData=await resultRes.json();if(!resultRes.ok||!resultData.success)throw new Error(resultData.error||"Student result load failed.");const row=resultData.results?.[0];if(!row?.snapshot){setMessage("Your result is not available yet.");return;}const {data: studentInfo,error: studentInfoError}=await supabase.from("students").select("admission_date").eq("id",id).maybeSingle();if(studentInfoError)throw studentInfoError;setSnapshot(filterMonthlySnapshotByAdmission(row.snapshot as MonthlyResultSnapshot,studentInfo?.admission_date));}catch(e){setError(e instanceof Error?e.message:"Result load failed.");}finally{setLoading(false);}}
+ function download(){if(!snapshot)return;try{downloadPdfFile(pdfFor(snapshot),`RACER_ACADEMY_${snapshot.student.name.replace(/[^a-z0-9]+/gi,"_")}_${snapshot.monthKey}_MONTHLY_RESULT.pdf`);setPdfMessage("Your full result PDF has been downloaded.");}catch{setPdfMessage("PDF download could not start. Please try again.");}}
  return (
   <main className="monthly-result-page">
    <div className="monthly-result-heading">

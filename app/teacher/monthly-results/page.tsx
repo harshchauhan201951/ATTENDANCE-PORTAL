@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import jsPDF from "jspdf";
+import { downloadPdfFile } from "../../../lib/download-pdf";
 import * as XLSX from "xlsx";
+import { isOnOrAfterAdmission } from "../../../lib/admission-date";
 import {
   calculateMonthlyTotals,
   isSaturday,
@@ -236,7 +238,7 @@ export default function MonthlyResultsPage() {
         const q = quizMap.get(Number(r.quiz_id));
         if (!q) return false;
         const quizDate = String(q.scheduled_date || q.created_at || "").slice(0, 10);
-        if (!quizDate || !cutoff || quizDate > cutoff || (start && quizDate < start)) return false;
+        if (!quizDate || !cutoff || quizDate > cutoff || (start && quizDate < start) || !isOnOrAfterAdmission(student.admission_date, quizDate)) return false;
         return quizTargetsStudent(q, student.class_name || "");
       })
       .sort((a, b) => {
@@ -264,6 +266,7 @@ export default function MonthlyResultsPage() {
       const testDate = String(t.test_date || "").slice(0, 10);
       return Number(t.student_id) === Number(student.id)
         && testDate
+        && isOnOrAfterAdmission(student.admission_date, testDate)
         && (!start || testDate >= start)
         && (!cutoff || testDate <= cutoff)
         && isSaturday(t.test_date)
@@ -273,7 +276,8 @@ export default function MonthlyResultsPage() {
       const obtained = safeNumber(t.obtained_marks), total = safeNumber(t.total_marks);
       return { id: Number(t.id), name: t.test_name || "Saturday Test", subject: t.subject || "", date: t.test_date, obtained, total, percentage: total > 0 ? (obtained/total)*100 : 0 };
     });
-    const mahaValue = mahaMarks[Number(student.id)] === undefined || mahaMarks[Number(student.id)] === "" ? null : Math.max(0, Math.min(100, Number(mahaMarks[Number(student.id)])));
+    const mahaEligible = isOnOrAfterAdmission(student.admission_date, mahaDate);
+    const mahaValue = !mahaEligible || mahaMarks[Number(student.id)] === undefined || mahaMarks[Number(student.id)] === "" ? null : Math.max(0, Math.min(100, Number(mahaMarks[Number(student.id)])));
     const totals = calculateMonthlyTotals({ quizzes: qEntries, weeklyTests: tEntries, mahaObtained: mahaValue, passPercentage: Number(passPercentage) || 40 });
     return {
       monthKey, monthLabel: monthLabelFromKey(monthKey),
@@ -346,16 +350,7 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
   function downloadPdf(snapshot: MonthlyResultSnapshot) {
     try {
       const doc = pdfSnapshot(snapshot);
-      const blob = doc.output("blob");
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "RACER_ACADEMY_" + snapshot.student.name.replace(/[^a-z0-9]+/gi,"_") + "_" + snapshot.monthKey + "_MONTHLY_RESULT.pdf";
-      a.style.display = "none";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      downloadPdfFile(doc, "RACER_ACADEMY_" + snapshot.student.name.replace(/[^a-z0-9]+/gi,"_") + "_" + snapshot.monthKey + "_MONTHLY_RESULT.pdf");
     } catch (e) {
       setError(e instanceof Error ? "PDF download failed: " + e.message : "PDF download failed.");
     }

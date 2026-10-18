@@ -200,6 +200,13 @@ export default function TeacherPaymentsPage() {
     setEditing(false);
   };
 
+  const bankReady = Boolean(bankName.trim() && accountNumber.trim() && ifscCode.trim());
+  const upiReady = Boolean(upiId.trim());
+  const qrReady = Boolean(qrCodeUrl || qrFile);
+  const activePaymentMethods = Number(bankReady) + Number(upiReady) + Number(qrReady);
+  const configuredDetails = [bankName, accountHolderName, accountNumber, ifscCode, branchName, upiId]
+    .filter((value) => value.trim()).length;
+
   if (loading) {
     return (
       <main data-racer-vip-module="payments"  className="loading-page racer-module-page racer-payments-page">
@@ -257,15 +264,15 @@ export default function TeacherPaymentsPage() {
         {/* HEADER */}
         <header data-racer-vip-header="1"  className="header">
           <div>
-            <div className="kicker">RACER ACADEMY</div>
-            <h1>RACER ACADEMY</h1>
-            <p>TEACHER CONTROL CENTER</p>
+            <div className="kicker">RACER ACADEMY · FINANCE</div>
+            <h1>Payment setup</h1>
+            <p>Manage how families pay and preview the details students see.</p>
           </div>
 
           <button
             type="button"
             className="back-button"
-            onClick={() => window.history.back()}
+            onClick={() => window.location.assign("/teacher/dashboard")}
           >
             ← Back
           </button>
@@ -286,6 +293,24 @@ export default function TeacherPaymentsPage() {
             {message}
           </div>
         )}
+
+        <section className="payment-overview" aria-label="Payment setup overview">
+          <article className="overview-card overview-methods">
+            <span className="overview-icon">₹</span>
+            <div><small>PAYMENT METHODS</small><strong>{activePaymentMethods} <span>/ 3 active</span></strong></div>
+            <i>{activePaymentMethods ? "Ready for students" : "Add a payment method"}</i>
+          </article>
+          <article className="overview-card">
+            <span className="overview-icon bank-icon">▤</span>
+            <div><small>BANK DETAILS</small><strong>{bankReady ? "Complete" : "Needs setup"}</strong></div>
+            <i>{configuredDetails} of 6 details added</i>
+          </article>
+          <article className="overview-card">
+            <span className="overview-icon qr-icon">▦</span>
+            <div><small>PAYMENT QR</small><strong>{qrReady ? "Available" : "Not added"}</strong></div>
+            <i>{qrReady ? "Students can scan to pay" : "Upload a QR image below"}</i>
+          </article>
+        </section>
 
         <div className="content-grid">
           {/* PAYMENT DETAILS */}
