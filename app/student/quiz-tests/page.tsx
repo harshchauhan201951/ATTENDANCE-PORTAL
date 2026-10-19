@@ -7,7 +7,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
-import { isOnOrAfterAdmission } from "../../../lib/admission-date";
+import { isStudentEligibleForDate } from "../../../lib/admission-date";
 
 type Quiz = {
   id: number;
@@ -50,6 +50,8 @@ type Student = {
   student_username: string | null;
   class_name: string | null;
   admission_date?: string | null;
+  admission_history?: { date?: string | null; type?: string | null }[] | null;
+  is_active?: boolean | null;
 };
 
 export default function StudentQuizTestsPage() {
@@ -189,7 +191,7 @@ export default function StudentQuizTestsPage() {
           await supabase
             .from("students")
             .select(
-              "id,student_name,student_username,class_name,admission_date"
+              "id,student_name,student_username,class_name,admission_date,admission_history,is_active"
             )
             .eq(
               "student_username",
@@ -239,7 +241,7 @@ export default function StudentQuizTestsPage() {
             await supabase
               .from("students")
               .select(
-                "id,student_name,student_username,class_name,admission_date"
+              "id,student_name,student_username,class_name,admission_date,admission_history,is_active"
               )
               .eq(
                 "id",
@@ -344,7 +346,7 @@ export default function StudentQuizTestsPage() {
             quizBelongsToStudent(
               quiz,
               actualStudentClass
-            ) && isOnOrAfterAdmission(actualStudent.admission_date, quiz.scheduled_date)
+            ) && actualStudent.is_active !== false && isStudentEligibleForDate(actualStudent.admission_date, actualStudent.admission_history, quiz.scheduled_date, actualStudent.is_active)
         );
 
 
@@ -384,7 +386,7 @@ export default function StudentQuizTestsPage() {
             visibleQuizzes = Array.from(byId.values()).filter(
               (quiz) =>
                 authorizedIds.has(Number(quiz.id)) ||
-                isOnOrAfterAdmission(actualStudent?.admission_date, quiz.scheduled_date)
+                actualStudent?.is_active !== false && isStudentEligibleForDate(actualStudent?.admission_date, actualStudent?.admission_history, quiz.scheduled_date, actualStudent?.is_active)
             );
           }
         }

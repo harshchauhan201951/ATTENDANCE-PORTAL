@@ -8,7 +8,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
-import { isOnOrAfterAdmission } from "../../../../lib/admission-date";
+import { isStudentEligibleForDate } from "../../../../lib/admission-date";
 
 type Quiz = {
   id: string;
@@ -327,6 +327,8 @@ export default function StudentQuizHistoryPage() {
               student_name: string | null;
               class_name: string | null;
               admission_date: string | null;
+              admission_history?: { date?: string | null; type?: string | null }[] | null;
+              is_active?: boolean | null;
             }
           | null = null;
 
@@ -335,7 +337,7 @@ export default function StudentQuizHistoryPage() {
             await supabase
               .from("students")
               .select(
-                "id, student_username, student_name, class_name, admission_date"
+                "id, student_username, student_name, class_name, admission_date, admission_history, is_active"
               )
               .eq("id", studentId)
               .maybeSingle();
@@ -355,7 +357,7 @@ export default function StudentQuizHistoryPage() {
             await supabase
               .from("students")
               .select(
-                "id, student_username, student_name, class_name, admission_date"
+                "id, student_username, student_name, class_name, admission_date, admission_history, is_active"
               )
               .eq(
                 "student_username",
@@ -391,7 +393,7 @@ export default function StudentQuizHistoryPage() {
             } = await supabase
               .from("students")
               .select(
-                "id, student_username, student_name, class_name, admission_date"
+                "id, student_username, student_name, class_name, admission_date, admission_history, is_active"
               )
               .eq(
                 "student_username",
@@ -577,7 +579,7 @@ export default function StudentQuizHistoryPage() {
             continue;
           }
 
-          if (!isOnOrAfterAdmission(studentRecord.admission_date, quiz.scheduled_date)) {
+          if (!isStudentEligibleForDate(studentRecord.admission_date, studentRecord.admission_history, quiz.scheduled_date, studentRecord.is_active)) {
             continue;
           }
 

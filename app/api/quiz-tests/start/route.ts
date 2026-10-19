@@ -1,6 +1,6 @@
 ﻿import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { isOnOrAfterAdmission } from "../../../../lib/admission-date";
+import { isStudentEligibleForDate } from "../../../../lib/admission-date";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -503,6 +503,10 @@ export async function POST(
       );
     }
 
+    if (student.is_active === false) {
+      return NextResponse.json({ success: false, error: "This student account is currently deactivated." }, { status: 403 });
+    }
+
     /*
      * ---------------------------------------------------------
      * LOAD QUIZ
@@ -550,7 +554,7 @@ export async function POST(
       );
     }
 
-    if (!isOnOrAfterAdmission(student.admission_date, quiz.scheduled_date)) {
+    if (!isStudentEligibleForDate(student.admission_date, student.admission_history, quiz.scheduled_date, student.is_active)) {
       return NextResponse.json(
         {
           success: false,

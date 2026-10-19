@@ -50,10 +50,17 @@ export async function POST(request: NextRequest) {
     if (!currentStudent) return NextResponse.json({ success: false, error: "Student was not found." }, { status: 404 });
 
     const history = Array.isArray(currentStudent.admission_history)
-      ? currentStudent.admission_history.filter((entry: unknown): entry is { date: string; type: "Initial admission" | "Re-admission"; recordedAt?: string } => Boolean(entry && typeof entry === "object" && typeof (entry as { date?: unknown }).date === "string"))
+      ? currentStudent.admission_history.filter((entry: unknown): entry is { date: string; type: string; recordedAt?: string } => Boolean(entry && typeof entry === "object" && typeof (entry as { date?: unknown }).date === "string"))
       : [];
     const updateData: { is_active: boolean; admission_date?: string; admission_history?: typeof history } = { is_active: isActive };
     const isReadmission = isActive && !currentStudent.is_active;
+    if (!isActive && currentStudent.is_active) {
+      const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+      if (!history.some((entry) => entry.date.slice(0, 10) === today && entry.type === "Deactivation")) {
+        history.push({ date: today, type: "Deactivation", recordedAt: new Date().toISOString() });
+      }
+      updateData.admission_history = history;
+    }
     if (isReadmission) {
       const admissionDate = currentStudent.admission_date ? String(currentStudent.admission_date).slice(0, 10) : null;
       const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());

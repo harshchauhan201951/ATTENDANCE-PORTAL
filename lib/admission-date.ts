@@ -10,6 +10,41 @@ export function isOnOrAfterAdmission(
   return record >= admission;
 }
 
+export type AdmissionHistoryEntry = {
+  date?: string | null;
+  type?: string | null;
+};
+
+/**
+ * Quiz eligibility follows admission cycles. A deactivation closes the
+ * current cycle; a later re-admission opens a new one. This lets historical
+ * quizzes remain visible while excluding quizzes scheduled during a gap.
+ */
+export function isStudentEligibleForDate(
+  admissionDate: string | null | undefined,
+  admissionHistory: AdmissionHistoryEntry[] | null | undefined,
+  recordDate: string | null | undefined,
+  isActive?: boolean | null,
+): boolean {
+  const record = normalizeDate(recordDate);
+  if (!record) return true;
+  const events: Array<{ date: string; active: boolean }> = [];
+  const baseAdmission = normalizeDate(admissionDate);
+  if (baseAdmission) events.push({ date: baseAdmission, active: true });
+  for (const entry of Array.isArray(admissionHistory) ? admissionHistory : []) {
+    const date = normalizeDate(entry?.date);
+    if (!date) continue;
+    const type = String(entry?.type || "").trim().toLowerCase();
+    if (type.includes("deactiv")) events.push({ date, active: false });
+    else if (type.includes("admission") || type.includes("reactiv")) events.push({ date, active: true });
+  }
+  if (!events.length) return isActive === false ? false : true;
+  events.sort((a, b) => a.date.localeCompare(b.date));
+  const latest = events.filter((event) => event.date <= record).at(-1);
+  if (!latest) return false;
+  return latest.active;
+}
+
 /** Fee records represent a whole month, so eligibility begins in the admission month. */
 export function isFeePeriodOnOrAfterAdmission(
   admissionDate: string | null | undefined,

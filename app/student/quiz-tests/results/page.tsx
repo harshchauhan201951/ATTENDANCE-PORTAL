@@ -10,7 +10,7 @@ import {
   useSearchParams,
 } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
-import { isOnOrAfterAdmission } from "../../../../lib/admission-date";
+import { isStudentEligibleForDate } from "../../../../lib/admission-date";
 
 type Quiz = {
   id: number;
@@ -695,7 +695,7 @@ function ResultsContent() {
 
     const { data: studentMeta, error: studentMetaError } = await supabase
       .from("students")
-      .select("admission_date")
+      .select("admission_date,admission_history,is_active")
       .eq("id", studentId)
       .maybeSingle();
     if (studentMetaError) throw new Error(studentMetaError.message);
@@ -769,7 +769,7 @@ function ResultsContent() {
         .filter((item) => {
           // A teacher-deleted quiz must not leave a stale result card behind.
           if (!item.quiz) return false;
-          if (!isOnOrAfterAdmission(studentMeta?.admission_date, item.quiz.scheduled_date)) return false;
+          if (!isStudentEligibleForDate(studentMeta?.admission_date, studentMeta?.admission_history, item.quiz.scheduled_date, studentMeta?.is_active)) return false;
           if (
             currentClass
           ) {
@@ -846,7 +846,7 @@ function ResultsContent() {
             }))
             .filter((item) => {
               if (!item.quiz) return false;
-              if (!isOnOrAfterAdmission(studentMeta?.admission_date, item.quiz.scheduled_date)) return false;
+              if (!isStudentEligibleForDate(studentMeta?.admission_date, studentMeta?.admission_history, item.quiz.scheduled_date, studentMeta?.is_active)) return false;
               if (
                 currentClass
               ) {
@@ -914,11 +914,11 @@ function ResultsContent() {
 
     const { data: studentMeta, error: studentMetaError } = await supabase
       .from("students")
-      .select("admission_date")
+      .select("admission_date,admission_history,is_active")
       .eq("id", studentId)
       .maybeSingle();
     if (studentMetaError) throw new Error(studentMetaError.message);
-    if (!isOnOrAfterAdmission(studentMeta?.admission_date, quiz.scheduled_date)) {
+    if (!isStudentEligibleForDate(studentMeta?.admission_date, studentMeta?.admission_history, quiz.scheduled_date, studentMeta?.is_active)) {
       throw new Error("यह क्विज़ आपकी प्रवेश तिथि से पहले का है, इसलिए उपलब्ध नहीं है।");
     }
 

@@ -11,7 +11,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
 import jsPDF from "jspdf";
 import { downloadPdfFile } from "../../../../lib/download-pdf";
-import { isOnOrAfterAdmission } from "../../../../lib/admission-date";
+import { isStudentEligibleForDate } from "../../../../lib/admission-date";
 import * as XLSX from "xlsx";
 
 type QuizTest = {
@@ -37,6 +37,8 @@ type Student = {
   student_username: string | null;
   class_name: string | null;
   admission_date?: string | null;
+  admission_history?: { date?: string | null; type?: string | null }[] | null;
+  is_active?: boolean | null;
 };
 
 type QuizResult = {
@@ -598,7 +600,9 @@ function TeacherQuizResultsContent() {
               student_name,
               student_username,
               class_name,
-              admission_date
+              admission_date,
+              admission_history,
+              is_active
             `
           )
           .order("class_name", {
@@ -644,7 +648,7 @@ function TeacherQuizResultsContent() {
         id: Number(student.id),
       }));
 
-      const currentEligibleStudents = normalizedStudents.filter((student) => isOnOrAfterAdmission(student.admission_date, quiz.scheduled_date));
+      const currentEligibleStudents = normalizedStudents.filter((student) => isStudentEligibleForDate(student.admission_date, student.admission_history, quiz.scheduled_date, student.is_active));
       const currentEligibleStudentIds = new Set(currentEligibleStudents.map((student) => Number(student.id)));
       const currentEligibleResults = normalizedCurrentResults.filter((row) => currentEligibleStudentIds.has(Number(row.student_id)));
 
@@ -748,7 +752,7 @@ function TeacherQuizResultsContent() {
             if (savedTeacherId !== 1 && !assignedStudentIds.includes(Number(row.student_id))) return false;
             const student = studentById.get(Number(row.student_id));
             const quizRow = quizById.get(Number(row.quiz_id));
-            return Boolean(student && quizRow && isOnOrAfterAdmission(student.admission_date, quizRow.scheduled_date));
+            return Boolean(student && quizRow && isStudentEligibleForDate(student.admission_date, student.admission_history, quizRow.scheduled_date, student.is_active));
           }).map((row) => ({
               ...row,
               id: Number(row.id),
@@ -965,7 +969,7 @@ function TeacherQuizResultsContent() {
         const studentClass = normalizeClassName(student.class_name);
 
         return (
-          isOnOrAfterAdmission(student.admission_date, quiz.scheduled_date) &&
+          isStudentEligibleForDate(student.admission_date, student.admission_history, quiz.scheduled_date, student.is_active) &&
           (quizClasses.length === 0 || quizClasses.includes(studentClass))
         );
       });

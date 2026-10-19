@@ -6,6 +6,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
+import { isStudentEligibleForDate } from "../../../../lib/admission-date";
 
 type Quiz = {
   id: number;
@@ -22,6 +23,8 @@ type Quiz = {
   is_published: boolean;
   access_mode: "scheduled" | "any_time" | null;
 };
+
+type StudentCycle = { id: number; class_name: string | null; admission_date?: string | null; admission_history?: { date?: string | null; type?: string | null }[] | null; is_active?: boolean | null };
 
 function normalizeClass(
   value: unknown
@@ -320,14 +323,7 @@ export default function StudentAvailableQuizzesPage() {
             "student_username"
           );
 
-        let student:
-          | {
-              id: number;
-              class_name:
-                | string
-                | null;
-            }
-          | null = null;
+        let student: StudentCycle | null = null;
 
         /*
          * -----------------------------------------------------
@@ -346,7 +342,7 @@ export default function StudentAvailableQuizzesPage() {
                 "students"
               )
               .select(
-                "id,class_name"
+                "id,class_name,admission_date,admission_history,is_active"
               )
               .eq(
                 "student_username",
@@ -393,7 +389,7 @@ export default function StudentAvailableQuizzesPage() {
                 "students"
               )
               .select(
-                "id,class_name"
+                "id,class_name,admission_date,admission_history,is_active"
               )
               .eq(
                 "id",
@@ -474,15 +470,14 @@ export default function StudentAvailableQuizzesPage() {
 
         const matchingQuizzes =
           (
-            (quizData ||
-              []) as Quiz[]
+            (quizData || []) as Quiz[]
           ).filter(
             (quiz) =>
               quizBelongsToStudent(
                 quiz,
                 student.class_name ||
                   ""
-              )
+              ) && student.is_active !== false && isStudentEligibleForDate(student.admission_date, student.admission_history, quiz.scheduled_date, student.is_active)
           );
 
 
@@ -608,7 +603,7 @@ export default function StudentAvailableQuizzesPage() {
                   const byId = new Map<number, Quiz>();
                   visibleQuizzes.forEach((quiz) => byId.set(Number(quiz.id), quiz));
                   (authorizedQuizRows as Quiz[])
-                    .filter((quiz) => quiz.is_published)
+                    .filter((quiz) => quiz.is_published && student.is_active !== false && isStudentEligibleForDate(student.admission_date, student.admission_history, quiz.scheduled_date, student.is_active))
                     .forEach((quiz) => byId.set(Number(quiz.id), quiz));
                   visibleQuizzes = Array.from(byId.values());
                   setQuizzes(visibleQuizzes);
