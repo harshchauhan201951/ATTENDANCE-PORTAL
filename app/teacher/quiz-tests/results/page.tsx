@@ -844,19 +844,13 @@ function TeacherQuizResultsContent() {
     const classes = new Set<string>();
 
     allStudents.forEach((student) => {
-      if (student.class_name) {
+      if (student.is_active !== false && student.class_name) {
         classes.add(
           normalizeClassName(
             student.class_name
           )
         );
       }
-    });
-
-    allQuizzes.forEach((quiz) => {
-      getQuizClasses(quiz).forEach(
-        (className) => classes.add(className)
-      );
     });
 
     return sortClasses([...classes]);
