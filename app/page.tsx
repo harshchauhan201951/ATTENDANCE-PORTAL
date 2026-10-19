@@ -764,6 +764,17 @@ export default function HomePage() {
               activityError
             );
           }
+
+          void fetch("/api/teacher/notifications/ingest", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              eventType: "student_login",
+              studentId: currentStudentId,
+              deviceType: /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) ? "mobile/tablet" : "desktop/browser",
+            }),
+          }).catch((notificationError) => console.error("Teacher student-login notification error:", notificationError));
         }
 
         const safeUserData = withoutPasswordFields(userData);

@@ -1,5 +1,6 @@
 ﻿import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createTeacherNotifications } from "../../../../lib/server/teacher-notifications";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,6 +29,18 @@ async function notifySubmittedQuiz(requestUrl: string, result: any, quiz: any, s
       }),
     });
     if (!response.ok) console.warn("Quiz result notification was not delivered:", await response.json().catch(() => null));
+    const { data: student } = await supabaseAdmin.from("students").select("student_name,student_username").eq("id", studentId).maybeSingle();
+    const studentName = String(student?.student_name || student?.student_username || `Student #${studentId}`).trim();
+    const teacherId = Number(quiz?.created_by);
+    await createTeacherNotifications({
+      teacherIds: Number.isInteger(teacherId) && teacherId > 0 ? [teacherId] : undefined,
+      title: "Quiz Submitted",
+      message: `${studentName} submitted ${quiz?.title || "a quiz"}: ${safeNumber(result.obtained_marks)}/${safeNumber(result.total_marks)} marks (${safeNumber(result.percentage).toFixed(1)}%).`,
+      category: "quiz_submission",
+      url: `/teacher/quiz-tests/results?quizId=${Number(result.quiz_id)}&studentId=${studentId}`,
+      metadata: { source: "quiz_submission", studentId, studentName, quizId: Number(result.quiz_id), resultId: Number(result.id), percentage: safeNumber(result.percentage), obtainedMarks: safeNumber(result.obtained_marks), totalMarks: safeNumber(result.total_marks), resultStatus: String(result.result_status || "COMPLETED") },
+      notificationKey: `teacher-quiz-submission:${Number(result.id)}`,
+    });
   } catch (error) {
     console.error("Quiz result notification request failed:", error);
   }
@@ -236,6 +249,7 @@ export async function POST(
         `
         id,
         title,
+        created_by,
         duration_minutes,
         marks_per_question,
         negative_marks,

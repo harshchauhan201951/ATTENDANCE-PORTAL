@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import "../racer-teacher-desktop.css";
 import TeacherModuleHeaderCleaner from "../components/TeacherModuleHeaderCleaner";
+import TeacherNotificationsBell from "../components/TeacherNotificationsBell";
 const items = [
   { href: "/teacher/dashboard", label: "Home", icon: "\u2302" },
   { href: "/teacher/attendance", label: "Attendance", icon: "\u25A6" },
@@ -151,11 +152,7 @@ return () => clearInterval(timer);
             </Link>
 
             <div className="racer-shared-fixed-right">
-              <Link href="/teacher/announcements" className="racer-shared-fixed-icon" aria-label="Announcements">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </Link>
+              <TeacherNotificationsBell className="teacher-notifications-module" />
               <Link href="/teacher/profile" className="racer-shared-fixed-avatar" aria-label="Profile">
                 {profileImage ? (
                   <img src={profileImage} alt="Profile" onError={() => setProfileImage(null)} />

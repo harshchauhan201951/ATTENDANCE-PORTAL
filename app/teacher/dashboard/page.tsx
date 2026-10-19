@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+import TeacherNotificationsBell from "../../components/TeacherNotificationsBell";
 import "../../teacher-dashboard-vip.css";
 import "../../teacher-dashboard-refresh.css";
 
@@ -252,9 +253,7 @@ export default function TeacherDashboard() {
             </span>
           </div>
           <div className="vip-td-actions">
-            <button type="button" className="vip-td-icon-btn" onClick={() => router.push("/teacher/announcements")} aria-label="Announcements">
-              <Icon name="bell" size={19} />
-            </button>
+            <TeacherNotificationsBell className="teacher-notifications-dashboard" />
             <button type="button" className="vip-td-icon-btn" onClick={handleLogout} disabled={loggingOut} aria-label="Logout">
               <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10 5H5v14h5M15 8l4 4-4 4M9 12h10" /></svg>
             </button>
