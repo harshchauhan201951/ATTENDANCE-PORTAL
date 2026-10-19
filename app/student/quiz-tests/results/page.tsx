@@ -675,11 +675,11 @@ function ResultsContent() {
       .from("quiz_results")
       .select("*")
       .eq("student_id", studentId)
-      .not("submitted_at", "is", null)
       .order(
         "submitted_at",
         {
           ascending: false,
+          nullsFirst: false,
         }
       );
 
@@ -767,9 +767,10 @@ function ResultsContent() {
             ) || null,
         }))
         .filter((item) => {
-          if (item.quiz && !isOnOrAfterAdmission(studentMeta?.admission_date, item.quiz.scheduled_date)) return false;
+          // A teacher-deleted quiz must not leave a stale result card behind.
+          if (!item.quiz) return false;
+          if (!isOnOrAfterAdmission(studentMeta?.admission_date, item.quiz.scheduled_date)) return false;
           if (
-            item.quiz &&
             currentClass
           ) {
             return matchesClass(
@@ -821,11 +822,11 @@ function ResultsContent() {
         .from("quiz_results")
         .select("*")
         .eq("student_id", studentId)
-      .not("submitted_at", "is", null)
       .order(
           "submitted_at",
           {
             ascending: false,
+            nullsFirst: false,
           }
         );
 
@@ -844,18 +845,18 @@ function ResultsContent() {
                 ) || null,
             }))
             .filter((item) => {
-              if (item.quiz && !isOnOrAfterAdmission(studentMeta?.admission_date, item.quiz.scheduled_date)) return false;
+              if (!item.quiz) return false;
+              if (!isOnOrAfterAdmission(studentMeta?.admission_date, item.quiz.scheduled_date)) return false;
               if (
-                item.quiz &&
                 currentClass
               ) {
-                return matchesClass(
+                if (!matchesClass(
                   item.quiz,
                   currentClass
-                );
+                )) return false;
               }
 
-              return true;
+              return hasFinalResultStatus(item);
             });
 
         setResults(
@@ -867,8 +868,14 @@ function ResultsContent() {
     }
 
     setResults(
-      combinedBeforeCleanup
+      combinedBeforeCleanup.filter(hasFinalResultStatus)
     );
+  }
+
+  function hasFinalResultStatus(item: ResultItem): boolean {
+    if (item.submitted_at) return true;
+    const status = String(item.result_status || "").trim().toUpperCase();
+    return ["PASS", "PASSED", "FAIL", "FAILED", "SUBMITTED", "COMPLETED"].includes(status);
   }
 
   async function loadSingleResult(
@@ -1029,6 +1036,10 @@ function ResultsContent() {
             refreshedResult as QuizResult;
         }
       }
+    }
+
+    if (!hasFinalResultStatus({ ...result, quiz })) {
+      throw new Error("This attempt is still in progress and is not shown in quiz results.");
     }
 
     setSelectedResult(

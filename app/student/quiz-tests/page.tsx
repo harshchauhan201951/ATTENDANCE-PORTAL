@@ -68,6 +68,8 @@ export default function StudentQuizTestsPage() {
 
   const [now, setNow] = useState(() => new Date());
 
+  const [liveSlideIndex, setLiveSlideIndex] = useState(0);
+
   const [reattemptQuizIds, setReattemptQuizIds] = useState<Set<number>>(new Set());
 
   const [errorMessage, setErrorMessage] =
@@ -375,8 +377,15 @@ export default function StudentQuizTestsPage() {
           if (!authorizedQuizError && authorizedQuizRows) {
             const byId = new Map<number, Quiz>();
             visibleQuizzes.forEach((quiz) => byId.set(Number(quiz.id), quiz));
-            (authorizedQuizRows as Quiz[]).filter((quiz) => isOnOrAfterAdmission(actualStudent.admission_date, quiz.scheduled_date)).forEach((quiz) => byId.set(Number(quiz.id), quiz));
-            visibleQuizzes = Array.from(byId.values()).filter((quiz) => isOnOrAfterAdmission(actualStudent?.admission_date, quiz.scheduled_date));
+            (authorizedQuizRows as Quiz[])
+              .filter((quiz) => quiz.is_published)
+              .forEach((quiz) => byId.set(Number(quiz.id), quiz));
+            const authorizedIds = new Set(ids);
+            visibleQuizzes = Array.from(byId.values()).filter(
+              (quiz) =>
+                authorizedIds.has(Number(quiz.id)) ||
+                isOnOrAfterAdmission(actualStudent?.admission_date, quiz.scheduled_date)
+            );
           }
         }
       } else {
@@ -480,12 +489,9 @@ const start =
   function hasAttempted(
     quizId: number
   ): boolean {
-    return results.some(
-      (result) =>
-        Number(
-          result.quiz_id
-        ) ===
-        Number(quizId)
+    return results.some((result) =>
+      Number(result.quiz_id) === Number(quizId) &&
+      isCompletedQuizResult(result)
     );
   }
 
@@ -551,23 +557,67 @@ const start =
     return student.class_name;
   }
 
-  const liveQuizzes =
-    quizzes.filter(
-      (quiz) =>
-        getStatus(
-          quiz
-        ) === "LIVE"
-    );
+  function getTodayInIST(): string {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(now);
+    const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return `${value.year}-${value.month}-${value.day}`;
+  }
+
+  const todayInIST = getTodayInIST();
+
+  // An unused teacher-authorized re-attempt is available regardless of
+  // the quiz's original date/time window. Include every normal quiz scheduled
+  // for today as well, so the alert carousel covers the full day's schedule.
+  const liveQuizzes = quizzes.filter(
+    (quiz) =>
+      quiz.is_published &&
+      (reattemptQuizIds.has(quiz.id) ||
+        (quiz.scheduled_date === todayInIST && !hasAttempted(quiz.id)))
+  );
+
+  useEffect(() => {
+    if (liveQuizzes.length < 2) {
+      setLiveSlideIndex(0);
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setLiveSlideIndex((current) => (current + 1) % liveQuizzes.length);
+    }, 5500);
+
+    return () => window.clearInterval(timer);
+  }, [liveQuizzes.length]);
+
+  const activeLiveQuiz = liveQuizzes[liveSlideIndex] || liveQuizzes[0];
 
   const upcomingQuizzes =
     quizzes.filter(
       (quiz) =>
+        !reattemptQuizIds.has(quiz.id) &&
+        quiz.scheduled_date !== todayInIST &&
         getStatus(
           quiz
         ) === "UPCOMING"
     );
 
-  const availableQuizzes = quizzes.filter((quiz) => reattemptQuizIds.has(quiz.id) || (getStatus(quiz) === "LIVE" && !hasAttempted(quiz.id)));
+  const availableQuizzes = quizzes.filter(
+    (quiz) =>
+      quiz.is_published &&
+      (reattemptQuizIds.has(quiz.id) ||
+        (getStatus(quiz) === "LIVE" && !hasAttempted(quiz.id)))
+  );
+
+  const activeLiveQuizStatus = activeLiveQuiz
+    ? reattemptQuizIds.has(activeLiveQuiz.id)
+      ? "LIVE"
+      : getStatus(activeLiveQuiz)
+    : "ENDED";
+  const activeLiveQuizCanStart = activeLiveQuizStatus === "LIVE";
 
   const missedDeadlineResults: QuizResult[] = quizzes
     .filter((quiz) =>
@@ -881,6 +931,27 @@ const start =
             </div>
 
             <span
+              className="quiz-quick-count"
+              aria-label={`${availableQuizzes.length} available quizzes`}
+              style={{
+                display: "inline-flex",
+                minWidth: "28px",
+                height: "28px",
+                padding: "0 7px",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: "999px",
+                background: "#eef2ff",
+                color: "#4338ca",
+                fontSize: "12px",
+                fontWeight: 900,
+                flexShrink: 0,
+              }}
+            >
+              {availableQuizzes.length}
+            </span>
+
+            <span
               style={
                 styles.quickArrow
               }
@@ -990,6 +1061,107 @@ const start =
           </button>
         </section>
 
+        {activeLiveQuiz && (
+          <section
+            className="quiz-live-bulletin"
+            aria-label="Live quiz alerts"
+            aria-roledescription="carousel"
+          >
+            <div className="quiz-live-ribbon">
+              <span className="quiz-live-breaking">BREAKING</span>
+              <span className="quiz-live-ribbon-dot" aria-hidden="true" />
+              <span>LIVE QUIZ ALERT</span>
+              <span className="quiz-live-ribbon-message">
+                {liveQuizzes.length} quiz{liveQuizzes.length === 1 ? " is" : "es are"} scheduled today or reopened by your teacher
+              </span>
+            </div>
+
+            <div className="quiz-live-bulletin-body">
+              <div className="quiz-live-slide" key={activeLiveQuiz.id} aria-live="polite">
+                <div className="quiz-live-kicker">
+                  <span className="quiz-live-dot" aria-hidden="true" />
+                  {reattemptQuizIds.has(activeLiveQuiz.id)
+                    ? "TEACHER RE-ATTEMPT"
+                    : activeLiveQuizStatus === "LIVE"
+                      ? "LIVE NOW"
+                      : activeLiveQuizStatus === "UPCOMING"
+                        ? "TODAY · OPENS SOON"
+                        : "TODAY · WINDOW ENDED"}
+                  <span className="quiz-live-slide-number">
+                    {String(liveSlideIndex + 1).padStart(2, "0")} / {String(liveQuizzes.length).padStart(2, "0")}
+                  </span>
+                </div>
+
+                <h2>{activeLiveQuiz.title}</h2>
+                <p className="quiz-live-description">
+                  {activeLiveQuiz.subject || activeLiveQuiz.description || "Your quiz is open. Start now and finish within the time limit."}
+                </p>
+
+                <div className="quiz-live-meta">
+                  <span>{formatQuizDate(activeLiveQuiz.scheduled_date)}</span>
+                  <span>{formatQuizTime(activeLiveQuiz.scheduled_time)}</span>
+                  <span>{activeLiveQuiz.duration_minutes} min</span>
+                  {reattemptQuizIds.has(activeLiveQuiz.id) && (
+                    <span className="quiz-live-reattempt-tag">TEACHER RE-ATTEMPT</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="quiz-live-side">
+                <div className="quiz-live-total" aria-label={`${liveQuizzes.length} live quizzes`}>
+                  <strong>{String(liveQuizzes.length).padStart(2, "0")}</strong>
+                  <span>LIVE<br />QUIZ{liveQuizzes.length === 1 ? "" : "ES"}</span>
+                </div>
+
+                <button
+                  type="button"
+                  className="quiz-live-start"
+                  disabled={!activeLiveQuizCanStart}
+                  onClick={() => activeLiveQuizCanStart && router.push(`/student/quiz-tests/attempt?quizId=${activeLiveQuiz.id}${reattemptQuizIds.has(activeLiveQuiz.id) ? "&reattempt=true" : ""}`)}
+                >
+                  {activeLiveQuizCanStart
+                    ? reattemptQuizIds.has(activeLiveQuiz.id) ? "Start Re-attempt" : "Start Quiz"
+                    : activeLiveQuizStatus === "UPCOMING" ? `Opens at ${formatQuizTime(activeLiveQuiz.scheduled_time)}` : "Quiz window ended"}
+                  {activeLiveQuizCanStart && <span aria-hidden="true">→</span>}
+                </button>
+
+                {liveQuizzes.length > 1 && (
+                  <div className="quiz-live-controls" aria-label="Choose a live quiz">
+                    <button
+                      type="button"
+                      className="quiz-live-arrow"
+                      aria-label="Previous live quiz"
+                      onClick={() => setLiveSlideIndex((current) => (current - 1 + liveQuizzes.length) % liveQuizzes.length)}
+                    >
+                      ‹
+                    </button>
+                    <div className="quiz-live-dots">
+                      {liveQuizzes.map((quiz, index) => (
+                        <button
+                          key={quiz.id}
+                          type="button"
+                          className={`quiz-live-dot-button ${index === liveSlideIndex ? "is-active" : ""}`}
+                          aria-label={`Show live quiz ${index + 1}: ${quiz.title}`}
+                          aria-current={index === liveSlideIndex ? "true" : undefined}
+                          onClick={() => setLiveSlideIndex(index)}
+                        />
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      className="quiz-live-arrow"
+                      aria-label="Next live quiz"
+                      onClick={() => setLiveSlideIndex((current) => (current + 1) % liveQuizzes.length)}
+                    >
+                      ›
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* LIVE NOW */}
 
         <section
@@ -1007,7 +1179,7 @@ const start =
                   styles.sectionEyebrow
                 }
               >
-                LIVE NOW
+                LIVE NOW · TODAY'S QUIZZES
               </div>
 
               <h2
@@ -1080,7 +1252,7 @@ const start =
                   <QuizCard
                     key={quiz.id}
                     quiz={quiz}
-                    status="LIVE"
+                    status={reattemptQuizIds.has(quiz.id) ? "LIVE" : getStatus(quiz)}
                     attempted={!reattemptQuizIds.has(quiz.id) && hasAttempted(quiz.id)}
                     result={getResult(
                       quiz.id
@@ -1592,6 +1764,122 @@ const start =
           max-width: 1250px !important;
           min-width: 0 !important;
           margin: 18px auto 0 !important;
+        }
+
+        .quiz-live-bulletin {
+          position: relative;
+          overflow: hidden;
+          margin: 0 0 22px;
+          border: 1px solid #fecaca;
+          border-radius: 23px;
+          background: radial-gradient(circle at 90% 0%, rgba(251, 113, 133, .16), transparent 31%), linear-gradient(115deg, #fff7ed 0%, #fff1f2 54%, #fff 100%);
+          box-shadow: 0 14px 36px rgba(190, 24, 93, .1);
+        }
+
+        .quiz-live-ribbon {
+          min-height: 40px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 9px 18px;
+          background: linear-gradient(90deg, #b91c1c, #e11d48 58%, #be123c);
+          color: #fff;
+          font-size: 10px;
+          font-weight: 950;
+          letter-spacing: .13em;
+        }
+
+        .quiz-live-breaking {
+          padding: 4px 7px;
+          border: 1px solid rgba(255,255,255,.52);
+          border-radius: 5px;
+          background: rgba(255,255,255,.14);
+        }
+
+        .quiz-live-ribbon-dot,
+        .quiz-live-dot {
+          width: 8px;
+          height: 8px;
+          flex: 0 0 8px;
+          border-radius: 50%;
+          background: #fff;
+          box-shadow: 0 0 0 4px rgba(255,255,255,.18);
+          animation: quizLivePulse 1.5s infinite;
+        }
+
+        .quiz-live-ribbon-message {
+          overflow: hidden;
+          margin-left: auto;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          letter-spacing: .04em;
+          font-weight: 700;
+          opacity: .9;
+        }
+
+        .quiz-live-bulletin-body {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) 190px;
+          align-items: center;
+          gap: 24px;
+          padding: 23px 26px 24px;
+        }
+
+        .quiz-live-slide { min-width: 0; animation: quizLiveSlideIn .38s ease both; }
+
+        .quiz-live-kicker {
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          color: #be123c;
+          font-size: 10px;
+          font-weight: 950;
+          letter-spacing: .16em;
+        }
+
+        .quiz-live-dot { width: 9px; height: 9px; flex-basis: 9px; background: #e11d48; box-shadow: 0 0 0 4px rgba(225,29,72,.12); }
+        .quiz-live-slide-number { margin-left: 4px; color: #9f1239; font-variant-numeric: tabular-nums; letter-spacing: .08em; }
+        .quiz-live-slide h2 { margin: 12px 0 0; color: #172554; font-size: clamp(22px, 3vw, 32px); line-height: 1.12; font-weight: 950; letter-spacing: -.035em; }
+        .quiz-live-description { margin: 8px 0 0; max-width: 680px; color: #64748b; font-size: 13px; line-height: 1.6; }
+        .quiz-live-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 15px; }
+        .quiz-live-meta > span { padding: 6px 9px; border: 1px solid #ffe4e6; border-radius: 999px; background: rgba(255,255,255,.82); color: #475569; font-size: 10px; font-weight: 800; }
+        .quiz-live-meta > .quiz-live-reattempt-tag { border-color: #fbcfe8; background: #fdf2f8; color: #a21caf; }
+        .quiz-live-side { display: flex; flex-direction: column; align-items: stretch; gap: 11px; }
+        .quiz-live-total { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 67px; border: 1px solid #fecdd3; border-radius: 17px; background: rgba(255,255,255,.72); color: #9f1239; }
+        .quiz-live-total strong { color: #be123c; font-size: 36px; line-height: 1; font-weight: 950; letter-spacing: -.06em; font-variant-numeric: tabular-nums; }
+        .quiz-live-total span { font-size: 9px; line-height: 1.25; font-weight: 950; letter-spacing: .12em; }
+        .quiz-live-start { min-height: 46px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 15px; border: 0; border-radius: 13px; background: linear-gradient(100deg, #be123c, #e11d48); color: #fff; box-shadow: 0 8px 18px rgba(190,24,93,.18); font-size: 12px; font-weight: 900; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease; }
+        .quiz-live-start:hover { transform: translateY(-1px); box-shadow: 0 11px 22px rgba(190,24,93,.24); }
+        .quiz-live-start span { font-size: 18px; }
+        .quiz-live-controls { display: flex; align-items: center; justify-content: center; gap: 12px; }
+        .quiz-live-arrow { width: 23px; height: 23px; display: grid; place-items: center; padding: 0; border: 1px solid #fecdd3; border-radius: 8px; background: #fff; color: #be123c; font-size: 14px !important; line-height: 1; font-weight: 800; cursor: pointer; }
+        .quiz-live-dots { display: flex; align-items: center; justify-content: center; gap: 5px; }
+        .quiz-live-dot-button { width: 7px; height: 7px; padding: 0; border: 0; border-radius: 99px; background: #fda4af; cursor: pointer; transition: width .2s ease, background .2s ease; }
+        .quiz-live-dot-button.is-active { width: 20px; background: #be123c; }
+
+        @keyframes quizLivePulse { 50% { opacity: .58; transform: scale(.8); } }
+        @keyframes quizLiveSlideIn { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+
+        @media (max-width: 700px) {
+          .quiz-live-bulletin { margin-bottom: 17px; border-radius: 18px; }
+          .quiz-live-ribbon { gap: 8px; min-height: 38px; padding: 8px 12px; font-size: 9px; }
+          .quiz-live-ribbon-message { display: none; }
+          .quiz-live-bulletin-body { grid-template-columns: minmax(0, 1fr); gap: 17px; padding: 17px 16px 16px; }
+          .quiz-live-slide h2 { margin-top: 9px; font-size: 23px; }
+          .quiz-live-description { font-size: 12px; }
+          .quiz-live-meta { gap: 6px; margin-top: 12px; }
+          .quiz-live-meta > span { padding: 5px 8px; font-size: 9px; }
+          .quiz-live-side { display: grid; grid-template-columns: minmax(90px, .65fr) minmax(0, 1.5fr); align-items: center; gap: 9px; }
+          .quiz-live-total { min-height: 48px; gap: 7px; border-radius: 12px; }
+          .quiz-live-total strong { font-size: 26px; }
+          .quiz-live-total span { font-size: 8px; }
+          .quiz-live-start { min-height: 44px; padding: 0 12px; font-size: 11px; }
+          .quiz-live-controls { grid-column: 1 / -1; margin-top: 1px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .quiz-live-ribbon-dot, .quiz-live-dot, .quiz-live-slide { animation: none !important; }
+          .quiz-live-start, .quiz-live-dot-button { transition: none !important; }
         }
 
         .quiz-section {
@@ -2396,7 +2684,9 @@ function QuizCard({
             styles.waitingButton
           }
         >
-          Quiz will open at the scheduled time.
+          {status === "UPCOMING"
+            ? `Opens at ${formatQuizTime(quiz.scheduled_time)}.`
+            : "The quiz window has ended."}
         </div>
       )}
 

@@ -418,8 +418,7 @@ export async function POST(
         number | null;
       is_correct: boolean;
       marks_awarded: number;
-      answered_at:
-        string | null;
+      answered_at: string;
     }> = [];
 
     for (
@@ -517,8 +516,10 @@ export async function POST(
             false,
           marks_awarded:
             0,
+          // The database requires this timestamp even for unanswered items;
+          // use the finalization time for the blank-answer record.
           answered_at:
-            null,
+            now.toISOString(),
         });
 
         continue;
