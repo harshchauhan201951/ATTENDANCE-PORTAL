@@ -118,22 +118,27 @@ export async function POST(
      * Therefore we DO NOT insert auth or p256dh
      * into separate columns.
      */
-    const {
-      data,
-      error,
-    } = await supabaseAdmin
+    const endpoint = subscription.endpoint || ("fcm:" + subscription.token);
+
+    /*
+     * A browser/PWA or native app install may be used by another student
+     * later. Rebind the endpoint before saving the current login so one
+     * physical install can never remain attached to two student IDs.
+     * This also repairs duplicate legacy rows when the endpoint constraint
+     * was not present in an older database version.
+     */
+    const { error: staleBindingError } = await supabaseAdmin
       .from("push_subscriptions")
-      .upsert(
-        {
-          student_id: studentId,
-          endpoint: subscription.endpoint || ("fcm:" + subscription.token),
-          subscription:
-            subscription,
-        },
-        {
-          onConflict: "endpoint",
-        }
-      )
+      .delete()
+      .eq("endpoint", endpoint);
+    if (staleBindingError) {
+      console.error("Old push subscription binding cleanup error:", staleBindingError);
+      return NextResponse.json({ success: false, error: staleBindingError.message }, { status: 500 });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("push_subscriptions")
+      .insert({ student_id: studentId, endpoint, subscription })
       .select()
       .single();
 
