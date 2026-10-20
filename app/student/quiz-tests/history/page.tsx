@@ -697,9 +697,9 @@ export default function StudentQuizHistoryPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-3 py-5 text-white sm:px-5 sm:py-8">
-      <div className="mx-auto w-full max-w-6xl">
-        <div className="mb-6 rounded-3xl border border-white/10 bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 p-5 shadow-2xl sm:p-7">
+    <main className="quiz-history-page min-h-screen px-3 py-5 sm:px-5 sm:py-8">
+      <div className="quiz-history-shell mx-auto w-full max-w-6xl">
+        <div className="quiz-history-hero mb-6 rounded-3xl p-5 shadow-2xl sm:p-7">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <button
@@ -783,7 +783,7 @@ export default function StudentQuizHistoryPage() {
         )}
 
         {history.length > 0 && (
-          <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="quiz-history-stats mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
               <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
                 Completed
@@ -860,8 +860,8 @@ export default function StudentQuizHistoryPage() {
         )}
 
         {history.length > 0 && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between px-1">
+          <div className="quiz-history-list space-y-4">
+            <div className="quiz-history-list-heading flex items-center justify-between px-1">
               <div>
                 <h2 className="text-xl font-black text-white">
                   Completed Quizzes
@@ -910,12 +910,12 @@ export default function StudentQuizHistoryPage() {
                 return (
                   <article
                     key={`${result.id}-${quiz.id}-${index}`}
-                    className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900 shadow-xl transition hover:border-indigo-400/30"
+                    className="quiz-history-card overflow-hidden rounded-3xl shadow-xl transition"
                   >
                     <div className="p-4 sm:p-6">
-                      <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+                      <div className="quiz-history-card-main flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
                         <div className="min-w-0 flex-1">
-                          <div className="mb-3 flex flex-wrap items-center gap-2">
+                          <div className="quiz-history-card-badges mb-3 flex flex-wrap items-center gap-2">
                             <span
                               className={`rounded-full px-3 py-1 text-xs font-black ${
                                 status === "PASS"
@@ -942,7 +942,7 @@ export default function StudentQuizHistoryPage() {
                               "Untitled Quiz"}
                           </h3>
 
-                          <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                          <div className="quiz-history-card-dates mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
                             <div className="rounded-xl bg-white/[0.03] p-3">
                               <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
                                 Quiz Date
@@ -983,8 +983,8 @@ export default function StudentQuizHistoryPage() {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-5 xl:min-w-[190px] xl:justify-center">
-                          <div className="flex h-24 w-24 shrink-0 flex-col items-center justify-center rounded-full border-4 border-indigo-500/30 bg-indigo-500/10">
+                        <div className="quiz-history-score flex items-center gap-5 xl:min-w-[190px] xl:justify-center">
+                          <div className="quiz-history-score-ring flex h-24 w-24 shrink-0 flex-col items-center justify-center rounded-full border-4">
                             <span className="text-2xl font-black text-white">
                               {numberText(
                                 percentage
@@ -1015,7 +1015,7 @@ export default function StudentQuizHistoryPage() {
                         </div>
                       </div>
 
-                      <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      <div className="quiz-history-metrics mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
                         <div className="rounded-xl border border-white/5 bg-white/[0.03] p-3">
                           <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
                             Marks
@@ -1069,7 +1069,7 @@ export default function StudentQuizHistoryPage() {
                         </div>
                       </div>
 
-                      <div className="mt-5 flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="quiz-history-card-footer mt-5 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
                         <div className="text-xs text-slate-500">
                           Submitted{" "}
                           {dateTimeText(
