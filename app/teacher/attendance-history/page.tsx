@@ -5,6 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import { downloadPdfFile } from "../../../lib/download-pdf";
+import { isStudentRecordVisibleOnDate } from "../../../lib/admission-date";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,6 +17,7 @@ type Student = {
   student_name: string;
   student_username: string;
   admission_date?: string | null;
+  admission_history?: { date?: string | null; type?: string | null }[] | null;
 };
 
 type AttendanceRecord = {
@@ -75,7 +77,7 @@ export default function AttendanceHistoryPage() {
       }
 
       // History is an archive: include deactivated students so their saved records remain visible.
-      let studentQuery = supabase.from("students").select("id, student_name, student_username, admission_date, is_active").order("id", { ascending: true });
+      let studentQuery = supabase.from("students").select("id, student_name, student_username, admission_date, admission_history, is_active").order("id", { ascending: true });
       if (savedTeacherId !== 1) {
         if (assignedStudentIds.length === 0) { setStudents([]); setRecords([]); setLoading(false); return; }
         studentQuery = studentQuery.in("id", assignedStudentIds);
@@ -92,8 +94,15 @@ export default function AttendanceHistoryPage() {
       if (extraAttendanceResult.error) throw new Error(`Extra class attendance could not be loaded: ${extraAttendanceResult.error.message}`);
       setStudents(studentsResult.data || []);
       const studentIds = new Set((studentsResult.data || []).map((student) => Number(student.id)));
-      const regularRecords: AttendanceRecord[] = (attendanceResult.data || []).filter((record) => studentIds.has(Number(record.student_id))).map((record) => ({ ...record, source: "regular" as const }));
-      const extraRecords: AttendanceRecord[] = (extraAttendanceResult.data || []).filter((record) => studentIds.has(Number(record.student_id))).map((record) => ({ id: record.id, student_id: record.student_id, attendance_date: record.extra_class_date, status: record.status, subject: record.subject, source: "extra" as const }));
+      const studentsById = new Map(((studentsResult.data || []) as Student[]).map((student) => [Number(student.id), student]));
+      const regularRecords: AttendanceRecord[] = (attendanceResult.data || []).filter((record) => {
+        const student = studentsById.get(Number(record.student_id));
+        return studentIds.has(Number(record.student_id)) && isStudentRecordVisibleOnDate(student?.admission_date, student?.admission_history, record.attendance_date);
+      }).map((record) => ({ ...record, source: "regular" as const }));
+      const extraRecords: AttendanceRecord[] = (extraAttendanceResult.data || []).filter((record) => {
+        const student = studentsById.get(Number(record.student_id));
+        return studentIds.has(Number(record.student_id)) && isStudentRecordVisibleOnDate(student?.admission_date, student?.admission_history, record.extra_class_date);
+      }).map((record) => ({ id: record.id, student_id: record.student_id, attendance_date: record.extra_class_date, status: record.status, subject: record.subject, source: "extra" as const }));
       setRecords([...regularRecords, ...extraRecords].sort((a, b) => b.attendance_date.localeCompare(a.attendance_date) || b.id - a.id));
     } catch (error) {
       console.error("Load attendance history error:", error);

@@ -5,12 +5,14 @@ import { supabase } from "../../lib/supabase";
 import * as XLSX from "xlsx"; // RACER_FEES_EXCEL_EXPORT_V1
 import jsPDF from "jspdf";
 import { downloadPdfFile } from "../../../lib/download-pdf";
+import { isStudentFeePeriodVisible } from "../../../lib/admission-date";
 
 type Student = {
   id: number;
   student_name: string | null;
   student_username: string;
   admission_date?: string | null;
+  admission_history?: { date?: string | null; type?: string | null }[] | null;
   [key: string]: unknown;
 };
 
@@ -1202,8 +1204,12 @@ export default function TeacherFeesPage() {
 
       setStudents(studentList);
       setAllStudents(allStudentList);
-      // Existing fee rows are history and must survive deactivation/readmission unchanged.
-      setFees(existingFees);
+      // Keep all fee rows stored, but display them only for months in an active enrollment cycle.
+      const studentById = new Map(allStudentList.map((student) => [Number(student.id), student]));
+      setFees(existingFees.filter((fee) => {
+        const student = studentById.get(Number(fee.student_id));
+        return !student || isStudentFeePeriodVisible(student.admission_date, student.admission_history, fee.year, fee.month);
+      }));
     } catch (err) {
       console.error(err);
       setError(

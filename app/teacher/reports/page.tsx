@@ -10,7 +10,7 @@ import { createClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import { downloadPdfFile } from "../../../lib/download-pdf";
-import { isOnOrAfterAdmission } from "../../../lib/admission-date";
+import { isOnOrAfterAdmission, isStudentRecordVisibleOnDate } from "../../../lib/admission-date";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,6 +22,7 @@ type Student = {
   student_name: string | null;
   student_username: string;
   admission_date: string | null;
+  admission_history?: { date?: string | null; type?: string | null }[] | null;
 };
 
 type Attendance = {
@@ -224,7 +225,7 @@ export default function TeacherReportsPage() {
         if (detailError) setError(detailError.message);
         else {
           const enrollment = students.find((item) => Number(item.id) === Number(selectedReportStudentId));
-          setStudentDetailAttendance((data || []) as Attendance[]);
+          setStudentDetailAttendance(((data || []) as Attendance[]).filter((record) => isStudentRecordVisibleOnDate(enrollment?.admission_date, enrollment?.admission_history, record.attendance_date)));
         }
       } finally { if (active) setStudentDetailLoading(false); }
     })();
@@ -270,7 +271,7 @@ export default function TeacherReportsPage() {
     let studentsQuery = supabase
       .from("students")
       .select(
-        "id, student_name, student_username, admission_date"
+        "id, student_name, student_username, admission_date, admission_history"
       )
       .order("student_name", {
         ascending: true,
@@ -305,7 +306,11 @@ export default function TeacherReportsPage() {
 
     setStudents(loadedStudents);
 
-    setAttendance((attendanceData || []) as Attendance[]);
+    const studentById = new Map(loadedStudents.map((student) => [Number(student.id), student]));
+    setAttendance(((attendanceData || []) as Attendance[]).filter((record) => {
+      const student = studentById.get(Number(record.student_id));
+      return !student || isStudentRecordVisibleOnDate(student.admission_date, student.admission_history, record.attendance_date);
+    }));
 
     setStudentMarks(
       loadedStudents.map((student) => ({
