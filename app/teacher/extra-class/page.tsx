@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 import { getTeacherAssignedStudentIds } from "../../../lib/teacher-assigned-students";
+import { getManagedAttendanceDate, withManagedAttendanceDate } from "../../../lib/managed-attendance";
 
 type Student = {
   id: number;
@@ -413,6 +414,11 @@ export default function ExtraClassPage() {
       setSaving(true);
 
       let classId = selectedClassId;
+      const managedAttendanceDate = classId
+        ? getClassAttendance(classId)
+            .map((row) => getManagedAttendanceDate(row.remarks))
+            .find(Boolean) || null
+        : null;
 
       // -----------------------------------------------------
       // CREATE CLASS
@@ -474,7 +480,7 @@ export default function ExtraClassPage() {
         subject: "Extra Class",
         topic: "Extra Class session",
         status: statusMap[studentId] || "Absent",
-        remarks: null,
+        remarks: withManagedAttendanceDate(null, managedAttendanceDate),
       }));
 
       const { error: attendanceInsertError } = await supabase
@@ -528,17 +534,28 @@ export default function ExtraClassPage() {
 
   function openManageDate(extraClass: ExtraClass) {
     setManageDateClass(extraClass);
-    setManagedDate(extraClass.class_date);
+    setManagedDate(
+      getClassAttendance(extraClass.id)
+        .map((row) => getManagedAttendanceDate(row.remarks))
+        .find(Boolean) || ""
+    );
   }
 
   async function saveManagedDate() {
     if (!manageDateClass || !managedDate) {
-      showMessage("Select the new class date.", "error");
+      showMessage("Select the regular class date to manage.", "error");
       return;
     }
 
-    const previousDate = manageDateClass.class_date;
-    if (previousDate === managedDate) {
+    if (managedDate === manageDateClass.class_date) {
+      showMessage("Choose a date other than the Extra Class date.", "error");
+      return;
+    }
+
+    const previousManagedDate = getClassAttendance(manageDateClass.id)
+      .map((row) => getManagedAttendanceDate(row.remarks))
+      .find(Boolean) || null;
+    if (previousManagedDate === managedDate) {
       setManageDateClass(null);
       return;
     }
@@ -546,74 +563,34 @@ export default function ExtraClassPage() {
     setSavingManagedDate(true);
     try {
       const rows = getClassAttendance(manageDateClass.id);
-      const remarkUpdates = rows.map((row) => {
-        const existingRemark = (row.remarks || "")
-          .replace(/^Managed extra class date\.\s*/i, "")
-          .trim();
-        return {
-          id: row.id,
-          remarks: ["Managed extra class date", existingRemark]
-            .filter(Boolean)
-            .join(". "),
-        };
-      });
-
-      if (rows.length > 0) {
-        const { error: attendanceDateError } = await supabase
-          .from("extra_class_attendance")
-          .update({ extra_class_date: managedDate })
-          .eq("extra_class_id", manageDateClass.id);
-        if (attendanceDateError) throw new Error(attendanceDateError.message);
-
-        for (const update of remarkUpdates) {
-          const { error } = await supabase
-            .from("extra_class_attendance")
-            .update({ remarks: update.remarks })
-            .eq("id", update.id);
-          if (error) {
-            await supabase
-              .from("extra_class_attendance")
-              .update({ extra_class_date: previousDate })
-              .eq("extra_class_id", manageDateClass.id);
-            for (const row of rows) {
-              await supabase
-                .from("extra_class_attendance")
-                .update({ remarks: row.remarks })
-                .eq("id", row.id);
-            }
-            throw new Error(error.message);
-          }
-        }
+      if (rows.length === 0) {
+        throw new Error("This Extra Class has no student attendance to manage.");
       }
 
-      const { error: classDateError } = await supabase
-        .from("extra_classes")
-        .update({ class_date: managedDate })
-        .eq("id", manageDateClass.id);
-
-      if (classDateError) {
-        if (rows.length > 0) {
-          await supabase
-            .from("extra_class_attendance")
-            .update({ extra_class_date: previousDate })
-            .eq("extra_class_id", manageDateClass.id);
-          for (const row of rows) {
+      for (let index = 0; index < rows.length; index += 1) {
+        const row = rows[index];
+        const { error } = await supabase
+          .from("extra_class_attendance")
+          .update({ remarks: withManagedAttendanceDate(row.remarks, managedDate) })
+          .eq("id", row.id);
+        if (error) {
+          for (const rollbackRow of rows.slice(0, index)) {
             await supabase
               .from("extra_class_attendance")
-              .update({ remarks: row.remarks })
-              .eq("id", row.id);
+              .update({ remarks: rollbackRow.remarks })
+              .eq("id", rollbackRow.id);
           }
+          throw new Error(error.message);
         }
-        throw new Error(classDateError.message);
       }
 
       setManageDateClass(null);
       await loadData();
-      showMessage("Date updated. Student attendance now shows the managed class date.", "success");
+      showMessage("Managed Attendance marked. The Extra Class date and attendance history were kept unchanged.", "success");
     } catch (error) {
-      console.error("Manage extra class date error:", error);
+      console.error("Manage attendance date error:", error);
       showMessage(
-        error instanceof Error ? error.message : "Unable to update the class date.",
+        error instanceof Error ? error.message : "Unable to mark Managed Attendance.",
         "error"
       );
     } finally {
@@ -719,6 +696,12 @@ export default function ExtraClassPage() {
     return attendance.filter(
       (item) => item.extra_class_id === classId
     );
+  }
+
+  function getClassManagedDate(classId: number) {
+    return getClassAttendance(classId)
+      .map((row) => getManagedAttendanceDate(row.remarks))
+      .find(Boolean) || null;
   }
 
   function getClassStats(classId: number) {
@@ -1343,6 +1326,11 @@ export default function ExtraClassPage() {
                           <span className="meta-absent">
                             × {stats.absent} Absent
                           </span>
+                          {getClassManagedDate(extraClass.id) && (
+                            <span className="meta-managed-attendance">
+                              ↻ Managed Attendance · {formatDate(getClassManagedDate(extraClass.id)!)}
+                            </span>
+                          )}
                         </div>
 
                         <div className="history-bottom">
@@ -1369,7 +1357,7 @@ export default function ExtraClassPage() {
                                 className="manage-date-button"
                                 onClick={() => openManageDate(extraClass)}
                               >
-                                Manage date
+                                Manage Attendance
                               </button>
                             )}
                             <button
@@ -1424,14 +1412,17 @@ export default function ExtraClassPage() {
               aria-labelledby="manage-date-title"
             >
               <div className="manage-date-icon" aria-hidden="true">↻</div>
-              <span className="section-kicker">RESCHEDULE CLASS</span>
-              <h2 id="manage-date-title">Manage class date</h2>
+              <span className="section-kicker">MANAGED ATTENDANCE</span>
+              <h2 id="manage-date-title">Manage Attendance</h2>
               <p>
-                Class #{manageDateClass.id} · Current date {formatDate(manageDateClass.class_date)}.
-                Choose the new date; student attendance will move with it.
+                Extra Class #{manageDateClass.id} was held on {formatDate(manageDateClass.class_date)}.
+                Choose the regular class date the teacher will take off. Students will see “Managed Attendance” on that date; the Extra Class date and its P/A records will stay unchanged.
+                {getClassManagedDate(manageDateClass.id) && (
+                  <> Current managed date: {formatDate(getClassManagedDate(manageDateClass.id)!)}.</>
+                )}
               </p>
               <label className="field">
-                <span>New class date</span>
+                <span>Regular class date to mark as managed</span>
                 <input
                   autoFocus
                   type="date"
@@ -1454,7 +1445,7 @@ export default function ExtraClassPage() {
                   onClick={saveManagedDate}
                   disabled={savingManagedDate || !managedDate}
                 >
-                  {savingManagedDate ? "Updating..." : "Save new date"}
+                  {savingManagedDate ? "Saving..." : "Mark Managed Attendance"}
                 </button>
               </div>
             </section>
@@ -2351,6 +2342,11 @@ export default function ExtraClassPage() {
 
         .meta-absent {
           color: #dc2626;
+        }
+
+        .meta-managed-attendance {
+          color: #0873a8;
+          font-weight: 900;
         }
 
         .history-remarks {

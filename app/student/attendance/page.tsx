@@ -5,6 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { isOnOrAfterAdmission } from "../../../lib/admission-date";
 import { getStudentCalendarEvent, getStudentCalendarEventEmoji } from "../../../lib/student-calendar-events";
+import { getManagedAttendanceDate, getVisibleManagedAttendanceRemarks } from "../../../lib/managed-attendance";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -58,6 +59,7 @@ export default function StudentAttendancePage() {
 
   const [extraClassRecords, setExtraClassRecords] =
     useState<ExtraClassAttendanceRecord[]>([]);
+  const [managedAttendanceDates, setManagedAttendanceDates] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -242,8 +244,13 @@ export default function StudentAttendancePage() {
         ((regularAttendanceResult.data || []) as AttendanceRecord[]).filter((record) => isOnOrAfterAdmission(studentData.admission_date, record.attendance_date))
       );
 
-      setExtraClassRecords(
-        ((extraClassAttendanceResult.data || []) as ExtraClassAttendanceRecord[]).filter((record) => isOnOrAfterAdmission(studentData.admission_date, record.extra_class_date))
+      const loadedExtraClassRecords =
+        ((extraClassAttendanceResult.data || []) as ExtraClassAttendanceRecord[]).filter((record) => isOnOrAfterAdmission(studentData.admission_date, record.extra_class_date));
+      setExtraClassRecords(loadedExtraClassRecords);
+      setManagedAttendanceDates(
+        Array.from(new Set(loadedExtraClassRecords
+          .map((record) => getManagedAttendanceDate(record.remarks))
+          .filter((date): date is string => Boolean(date))))
       );
     } catch (err) {
       setError(
@@ -285,7 +292,7 @@ export default function StudentAttendancePage() {
         class_time: record.class_time,
         subject: record.subject,
         topic: record.topic,
-        remarks: record.remarks,
+        remarks: getVisibleManagedAttendanceRemarks(record.remarks),
       }));
 
     return [
@@ -432,6 +439,10 @@ export default function StudentAttendancePage() {
       if (hasFutureAttendance) keys.add(key);
     });
 
+    managedAttendanceDates.forEach((value) => {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(value)) keys.add(value.slice(0, 7));
+    });
+
     return Array.from(keys)
       .sort()
       .reverse()
@@ -450,7 +461,7 @@ export default function StudentAttendancePage() {
           }),
         };
       });
-  }, [unifiedAttendance]);
+  }, [unifiedAttendance, managedAttendanceDates]);
 
   useEffect(() => {
     if (
@@ -470,9 +481,17 @@ export default function StudentAttendancePage() {
     const monthStart = new Date(year, monthIndex, 1);
     const monthEnd = new Date(year, monthIndex + 1, 0);
 
-    const endDate = new Date(
-      Math.min(new Date().setHours(0, 0, 0, 0), monthEnd.getTime())
-    );
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    let endDate = new Date(Math.min(today.getTime(), monthEnd.getTime()));
+    managedAttendanceDates
+      .filter((date) => date.startsWith(mobileCalendarMonthKey))
+      .forEach((date) => {
+        const managedDate = new Date(`${date}T00:00:00`);
+        if (!Number.isNaN(managedDate.getTime()) && managedDate > endDate) {
+          endDate = managedDate;
+        }
+      });
 
     const dates = [];
     for (
@@ -484,7 +503,7 @@ export default function StudentAttendancePage() {
     }
 
     return dates;
-  }, [mobileCalendarMonthKey]);
+  }, [mobileCalendarMonthKey, managedAttendanceDates]);
 
   const mobileCalendarMonthName = useMemo(() => {
     const [yearText, monthText] = mobileCalendarMonthKey.split("-");
@@ -794,6 +813,7 @@ export default function StudentAttendancePage() {
                 const hasExtra = dayRecords.some(
                   (record) => record.attendance_type === "extra"
                 );
+                const isManagedAttendanceDate = managedAttendanceDates.includes(key);
                 const calendarEvent = getStudentCalendarEvent(date);
                 const isOffDate = Boolean(
                   calendarEvent?.type === "holiday" &&
@@ -817,11 +837,14 @@ export default function StudentAttendancePage() {
                         ? "is-absent"
                         : status === "P"
                         ? "is-present"
+                        : isManagedAttendanceDate
+                        ? "is-managed-attendance"
                         : isOffDate
                         ? "is-off-day"
                         : holidayEmoji
                         ? "is-holiday-day"
-                        : "is-empty")
+                        : "is-empty") +
+                      (isManagedAttendanceDate && status ? " is-managed-attendance" : "")
                     }
                     key={key}
                   >
@@ -832,9 +855,16 @@ export default function StudentAttendancePage() {
                     </span>
                     <strong>{date.getDate()}</strong>
                     <em>
-                      {status || (isOffDate ? <><span className="vip-off-cross">×</span> OFF</> : holidayEmoji || "•")}
+                      {status || (isManagedAttendanceDate ? "M" : isOffDate ? <><span className="vip-off-cross">×</span> OFF</> : holidayEmoji || "•")}
                     </em>
-                    {calendarEvent?.type === "holiday" && (
+                    {isManagedAttendanceDate ? (
+                      <small
+                        className="vip-week-event-name is-managed-attendance-label"
+                        title={calendarEvent?.type === "holiday" ? `Managed Attendance · ${calendarEvent.title}` : "Managed Attendance"}
+                      >
+                        Managed Attendance
+                      </small>
+                    ) : calendarEvent?.type === "holiday" && (
                       <small
                         className={"vip-week-event-name" + (status ? " has-attendance" : "")}
                         title={calendarEvent.title}
@@ -842,7 +872,9 @@ export default function StudentAttendancePage() {
                         {calendarEvent.title}
                       </small>
                     )}
-                    {holidayEmoji && status && (
+                    {isManagedAttendanceDate ? (
+                      <b className="vip-managed-attendance-marker" title="Managed Attendance">↻</b>
+                    ) : holidayEmoji && status && (
                       <b className="vip-week-holiday-marker" title={calendarEvent?.title}>
                         {holidayEmoji}
                       </b>
@@ -1483,11 +1515,11 @@ export default function StudentAttendancePage() {
                                   </span>
                                 )}
 
-                                {record.remarks && (
+                                {getVisibleManagedAttendanceRemarks(record.remarks) && (
                                   <span>
                                     Remark:{" "}
                                     {
-                                      record.remarks
+                                      getVisibleManagedAttendanceRemarks(record.remarks)
                                     }
                                   </span>
                                 )}
@@ -1658,7 +1690,7 @@ export default function StudentAttendancePage() {
                     </div>
                   </div>
 
-                  {record.remarks && (
+                  {getVisibleManagedAttendanceRemarks(record.remarks) && (
                     <div
                       style={
                         styles.remarksBox
@@ -1669,7 +1701,7 @@ export default function StudentAttendancePage() {
                       </span>
 
                       <p>
-                        {record.remarks}
+                        {getVisibleManagedAttendanceRemarks(record.remarks)}
                       </p>
                     </div>
                   )}
@@ -2143,6 +2175,12 @@ export default function StudentAttendancePage() {
           .vip-week-day.is-absent em { background: #ff586b; }
           .vip-week-day.is-off-day { background: #fff8e9; color: #8c5700; border-color: #f4d99c; }
           .vip-week-day.is-off-day em { display: flex !important; width: auto !important; min-width: 35px !important; height: 19px !important; padding: 0 5px !important; align-items: center; justify-content: center; gap: 2px; background: linear-gradient(135deg,#ffe49a,#ffc94f) !important; color: #765000 !important; border: 1px solid #e6ad2e; border-radius: 999px !important; font-size: 7px !important; }
+          .vip-week-day.is-managed-attendance { background: #e7f5ff; color: #145b86; border-color: #9ad5fb; }
+          .vip-week-day.is-managed-attendance em { background: #bce7ff; color: #075985; }
+          .vip-week-day.is-managed-attendance.is-present em { background: #20cb89; color: #fff; }
+          .vip-week-day.is-managed-attendance.is-absent em { background: #ff586b; color: #fff; }
+          .vip-managed-attendance-marker { position: absolute; top: 29px; left: 50%; z-index: 3; display: grid; width: 10px; height: 10px; place-items: center; transform: translateX(-13px); border: 1px solid #7dc8f2; border-radius: 50%; background: #fff; color: #0873a8; font-size: 8px; font-weight: 900; line-height: 1; }
+          .vip-week-event-name.is-managed-attendance-label { color: #075985; font-weight: 900; }
           .vip-off-cross { color: #e53935; font-size: 11px; font-weight: 1000; line-height: 1; }
           .vip-week-day.is-holiday-day { background: #fff8f1; color: #8c5700; border-color: #f4d8b8; }
           .vip-week-day.is-holiday-day em { background: #fff; color: #805000; }
@@ -3238,6 +3276,12 @@ export default function StudentAttendancePage() {
           .vip-week-day.is-absent { border-color: #f4c9d0 !important; background: #fff5f6 !important; }
           .vip-week-day.is-off-day { border-color: #f4d99c !important; background: #fff8e9 !important; color: #8c5700 !important; }
           .vip-week-day.is-off-day em { display: flex !important; width: auto !important; min-width: 35px !important; height: 19px !important; padding: 0 5px !important; align-items: center !important; justify-content: center !important; gap: 2px !important; border-radius: 999px !important; border: 1px solid #e6ad2e !important; background: linear-gradient(135deg,#ffe49a,#ffc94f) !important; color: #765000 !important; font-size: 7px !important; }
+          .vip-week-day.is-managed-attendance { border-color: #9ad5fb !important; background: #e7f5ff !important; color: #145b86 !important; }
+          .vip-week-day.is-managed-attendance:not(.is-present):not(.is-absent) em { width: 19px !important; height: 19px !important; background: #bce7ff !important; color: #075985 !important; font-size: 8px !important; }
+          .vip-week-day.is-managed-attendance.is-present em { background: #20cb89 !important; color: #fff !important; }
+          .vip-week-day.is-managed-attendance.is-absent em { background: #ff586b !important; color: #fff !important; }
+          .vip-managed-attendance-marker { position: absolute !important; top: 29px !important; left: 50% !important; z-index: 3 !important; display: grid !important; width: 10px !important; height: 10px !important; place-items: center !important; transform: translateX(-13px) !important; border: 1px solid #7dc8f2 !important; border-radius: 50% !important; background: #fff !important; color: #0873a8 !important; font-size: 8px !important; font-weight: 900 !important; line-height: 1 !important; }
+          .vip-week-event-name.is-managed-attendance-label { color: #075985 !important; font-weight: 900 !important; }
           .vip-off-cross { color: #e53935 !important; font-size: 11px !important; font-weight: 1000 !important; line-height: 1 !important; }
           .vip-week-day.is-holiday-day { border-color: #f4d8b8 !important; background: #fff8f1 !important; color: #8c5700 !important; }
           .vip-week-day.is-holiday-day em { background: #fff !important; color: #805000 !important; }
