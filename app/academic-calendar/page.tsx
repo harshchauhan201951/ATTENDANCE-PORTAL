@@ -1,12 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 import { getMonthlyCalendarEvents, getMonthlyCalendarEvent } from "../../lib/monthly-calendar";
+
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
 type CalendarEvent = {
   date: string;
   title: string;
-  type: "holiday" | "test" | "event" | "break";
+  type: "holiday" | "test" | "event" | "break" | "class";
   description: string;
 };
 
@@ -154,10 +157,6 @@ function dateKey(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function getEvent(date: Date) {
-  return events.find((event) => event.date === dateKey(date)) || getMonthlyCalendarEvent(date) || undefined;
-}
-
 export default function AcademicCalendarPage() {
   const today = new Date();
 
@@ -167,6 +166,30 @@ export default function AcademicCalendarPage() {
 
   const [selectedEvent, setSelectedEvent] =
     useState<CalendarEvent | null>(null);
+  const [extraClassByDate, setExtraClassByDate] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const username = localStorage.getItem("student_username") || localStorage.getItem("studentUsername") || localStorage.getItem("username");
+        if (!username) return;
+        const { data: student } = await supabase.from("students").select("id").ilike("student_username", username.trim()).maybeSingle();
+        if (!student?.id) return;
+        const { data, error } = await supabase.from("extra_class_attendance").select("extra_class_date,status").eq("student_id", student.id);
+        if (error) throw error;
+        const rows: Record<string, string[]> = {};
+        for (const row of data || []) {
+          const date = String(row.extra_class_date || "").slice(0, 10);
+          if (/^\d{4}-\d{2}-\d{2}$/.test(date)) (rows[date] ||= []).push(String(row.status || ""));
+        }
+        if (active) setExtraClassByDate(Object.fromEntries(Object.entries(rows).map(([date, statuses]) => [date, statuses.some((status) => status.toLowerCase() === "present") ? "Present" : "Absent"])));
+      } catch (error) {
+        console.error("Academic calendar extra-class load failed:", error);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
@@ -202,10 +225,27 @@ export default function AcademicCalendarPage() {
     );
     }),
     ...getMonthlyCalendarEvents(year, month),
+    ...Object.entries(extraClassByDate)
+      .filter(([date]) => date.startsWith(`${year}-${String(month + 1).padStart(2, "0")}-`))
+      .map(([date, status]) => ({ date, title: `Extra Class · ${status}`, type: "class" as const, description: `Teacher held an Extra Class; your attendance is ${status}.` })),
     ...getMonthlyCalendarEvents(year, month)
       .filter((event) => event.title === "Monthly Result" && new Date(`${event.date}T00:00:00`).getDay() === 1 && event.date >= "2026-08-31")
       .map((event) => ({ date: event.date, title: "Monday Off", type: "holiday" as const, description: "Monday is the weekly tuition holiday; the Monthly Result is also scheduled for this date." })),
   ];
+
+  function getEvent(date: Date): CalendarEvent | undefined {
+    const key = dateKey(date);
+    const holiday = events.find((event) => event.date === key && event.type === "holiday");
+    if (holiday) return holiday;
+    const monthlyEvent = getMonthlyCalendarEvent(date);
+    if (monthlyEvent) return monthlyEvent;
+    const extraStatus = extraClassByDate[key];
+    if (extraStatus) return { date: key, title: `Extra Class · ${extraStatus}`, type: "class", description: `Teacher held an Extra Class; your attendance is ${extraStatus}.` };
+    if (key >= "2026-08-31" && date.getDay() === 1) {
+      return { date: key, title: "Monday Off", type: "holiday", description: "Monday is the weekly tuition holiday from 31 August 2026 onward." };
+    }
+    return events.find((event) => event.date === key);
+  }
 
   function previousMonth() {
     setCurrentMonth(
@@ -399,6 +439,7 @@ export default function AcademicCalendarPage() {
                           : {}),
                         ...(event.title === "Monthly MahaTest" ? styles.monthlyMahaTestTag : {}),
                         ...(event.title === "Monthly Result" ? styles.monthlyResultTag : {}),
+                        ...(event.type === "class" ? styles.extraClassTag : {}),
                         ...(event.type ===
                         "event"
                           ? styles.eventTagBlue
@@ -412,6 +453,8 @@ export default function AcademicCalendarPage() {
                       {event.type ===
                       "holiday"
                         ? "🎉"
+                        : event.type === "class"
+                        ? "✨"
                         : event.type ===
                           "test"
                         ? "📝"
@@ -495,6 +538,7 @@ export default function AcademicCalendarPage() {
                           : {}),
                         ...(event.title === "Monthly MahaTest" ? styles.monthlyMahaTestBadge : {}),
                         ...(event.title === "Monthly Result" ? styles.monthlyResultBadge : {}),
+                        ...(event.type === "class" ? styles.extraClassBadge : {}),
                         ...(event.type ===
                         "event"
                           ? styles.typeEvent
@@ -505,7 +549,7 @@ export default function AcademicCalendarPage() {
                           : {}),
                       }}
                     >
-                      {event.title === "Monthly MahaTest" ? "MONTHLY MAHATEST" : event.title === "Monthly Result" ? "MONTHLY RESULT" : event.type}
+                      {event.title === "Monthly MahaTest" ? "MONTHLY MAHATEST" : event.title === "Monthly Result" ? "MONTHLY RESULT" : event.type === "class" ? "EXTRA CLASS" : event.type}
                     </div>
                   </button>
                 ))}
@@ -901,6 +945,13 @@ const styles: {
     boxShadow: "0 3px 9px rgba(7,89,133,.2)",
   },
 
+  extraClassTag: {
+    background: "linear-gradient(120deg,#087f8c,#20b9b0)",
+    color: "#ffffff",
+    border: "1px solid #6ad9d2",
+    boxShadow: "0 3px 9px rgba(8,127,140,.2)",
+  },
+
   eventTagBlue: {
     background: "#dbeafe",
     color: "#1d4ed8",
@@ -988,6 +1039,12 @@ const styles: {
     background: "linear-gradient(120deg,#075985,#0f8b8d)",
     color: "#f0ffff",
     border: "1px solid #70d3d0",
+  },
+
+  extraClassBadge: {
+    background: "linear-gradient(120deg,#087f8c,#20b9b0)",
+    color: "#ffffff",
+    border: "1px solid #6ad9d2",
   },
 
   typeEvent: {

@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 
-import { getStudentCalendarEvent, getStudentCalendarEvents, getStudentCalendarEventEmoji, studentCalendarHolidays, type CalendarEvent } from "../../../lib/student-calendar-events";
+import { getStudentCalendarEvent, getStudentCalendarEventEmoji, studentCalendarHolidays, type CalendarEvent } from "../../../lib/student-calendar-events";
+
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
 const monthNames = [
   "January",
@@ -78,6 +81,7 @@ type CalendarReferenceVipProps = {
   nextMonth: () => void;
   goToday: () => void;
   getDayInfo: (date: Date) => CalendarEvent | null;
+  getDayEvents: (date: Date) => CalendarEvent[];
 };
 
 function CalendarReferenceVip({
@@ -91,12 +95,14 @@ function CalendarReferenceVip({
   nextMonth,
   goToday,
   getDayInfo,
+  getDayEvents,
 }: CalendarReferenceVipProps) {
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
   const todayKey = dateKey(today);
 
   const eventColor = (type: CalendarEvent["type"], title = "") => {
+    if (title.startsWith("Extra Class")) return "#087e8b";
     if (title === "Monthly MahaTest") return "#9a6700";
     if (title === "Monthly Result") return "#087e8b";
     if (type === "holiday") return "#f43f75";
@@ -105,6 +111,7 @@ function CalendarReferenceVip({
   };
 
   const eventBg = (type: CalendarEvent["type"], title = "") => {
+    if (title.startsWith("Extra Class")) return "#d9f7f5";
     if (title === "Monthly MahaTest") return "#fff4d6";
     if (title === "Monthly Result") return "#d9f7f5";
     if (type === "holiday") return "#ffe9f0";
@@ -242,7 +249,7 @@ function CalendarReferenceVip({
               }
 
               const info = getDayInfo(date);
-              const dayEvents = getStudentCalendarEvents(date);
+              const dayEvents = getDayEvents(date);
               const key = dateKey(date);
               const selected = key === todayKey;
 
@@ -272,7 +279,7 @@ function CalendarReferenceVip({
                       {dayEvents.map((event) => <div key={event.title} style={{ marginBottom: 2 }}>
                         <div style={{ width: 7, height: 7, borderRadius: "50%", background: eventColor(event.type, event.title), marginBottom: 2 }} />
                         <div style={{ fontSize: 5.5, fontWeight: 900, color: eventColor(event.type, event.title), background: event.title === "Monthly MahaTest" ? "linear-gradient(110deg,#fff5d6,#f7d77a)" : event.title === "Monthly Result" ? "linear-gradient(110deg,#d9f7f5,#b5e7ee)" : event.title === "Monday Off" ? "#ffe9f0" : "transparent", border: event.title.startsWith("Monthly ") ? `1px solid ${event.title === "Monthly Result" ? "#5eb8c0" : "#d7aa35"}` : "0", borderRadius: 999, padding: event.title.startsWith("Monthly ") ? "2px 3px" : 0, lineHeight: 1.15, overflowWrap: "anywhere" }}>
-                          {event.type === "holiday" ? `${getStudentCalendarEventEmoji(event)} OFF` : event.type === "test" ? event.title : "Class"}
+                          {event.type === "holiday" ? `${getStudentCalendarEventEmoji(event)} OFF` : event.type === "test" ? event.title : event.title.startsWith("Extra Class") ? "✨ EXTRA CLASS" : "Class"}
                         </div>
                         <div style={{ marginTop: 1, fontSize: 5.5, color: "#6f819f", lineHeight: 1.15, overflowWrap: "anywhere" }}>{event.title}</div>
                       </div>)}
@@ -407,12 +414,36 @@ export default function StudentCalendarPage() {
     useState<CalendarEvent | null>(null);
 
   const [isMobileVip, setIsMobileVip] = useState(false);
+  const [extraClassStatusByDate, setExtraClassStatusByDate] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const check = () => setIsMobileVip(window.innerWidth <= 700);
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const username = localStorage.getItem("student_username") || localStorage.getItem("studentUsername") || localStorage.getItem("username");
+        if (!username) return;
+        const { data: student } = await supabase.from("students").select("id").ilike("student_username", username.trim()).maybeSingle();
+        if (!student?.id) return;
+        const { data, error } = await supabase.from("extra_class_attendance").select("extra_class_date,status").eq("student_id", student.id);
+        if (error) throw error;
+        const records: Record<string, string[]> = {};
+        for (const row of data || []) {
+          const date = String(row.extra_class_date || "").slice(0, 10);
+          if (/^\d{4}-\d{2}-\d{2}$/.test(date)) (records[date] ||= []).push(String(row.status || ""));
+        }
+        if (active) setExtraClassStatusByDate(Object.fromEntries(Object.entries(records).map(([date, statuses]) => [date, statuses.some((status) => status.toLowerCase() === "present") ? "Present" : "Absent"])));
+      } catch (error) {
+        console.error("Student calendar extra-class load failed:", error);
+      }
+    })();
+    return () => { active = false; };
   }, []);
 
   const year = currentMonth.getFullYear();
@@ -463,7 +494,22 @@ export default function StudentCalendarPage() {
   }
 
   function getDayInfo(date: Date): CalendarEvent | null {
-    return getStudentCalendarEvent(date);
+    const baseEvent = getStudentCalendarEvent(date);
+    const status = extraClassStatusByDate[dateKey(date)];
+    if (status && !studentCalendarHolidays.some((event) => event.date === dateKey(date)) && !baseEvent?.title.startsWith("Monthly ")) {
+      return { date: dateKey(date), title: `Extra Class · ${status}`, type: "class", description: `Teacher held an Extra Class; your attendance is ${status}.` };
+    }
+    return baseEvent;
+  }
+
+  function getDayEvents(date: Date): CalendarEvent[] {
+    const info = getDayInfo(date);
+    if (!info) return [];
+    const events = [info];
+    if (info.title === "Monthly Result" && date.getDay() === 1 && dateKey(date) >= "2026-08-31") {
+      events.push({ date: dateKey(date), title: "Monday Off", type: "holiday", description: "Monday is the weekly tuition holiday from 31 August 2026 onward." });
+    }
+    return events;
   }
 
   const yearlyHolidays = studentCalendarHolidays.filter(
@@ -484,6 +530,7 @@ export default function StudentCalendarPage() {
         nextMonth={nextMonth}
         goToday={goToday}
         getDayInfo={getDayInfo}
+        getDayEvents={getDayEvents}
       />
     );
   }
@@ -656,7 +703,7 @@ export default function StudentCalendarPage() {
                 }
 
                 const info = getDayInfo(date);
-                const dayEvents = getStudentCalendarEvents(date);
+                const dayEvents = getDayEvents(date);
 
                 const sunday = isSunday(date);
                 const monday = isMonday(date);
@@ -667,6 +714,7 @@ export default function StudentCalendarPage() {
                   isMondayOffDate(date);
                 const holiday = getHoliday(date);
                 const monthlyEvent = info?.type === "test" && info.title.startsWith("Monthly ") ? info : null;
+                const extraClassEvent = info?.title.startsWith("Extra Class") ? info : null;
 
                 const todayDate =
                   dateKey(date) ===
@@ -705,6 +753,7 @@ export default function StudentCalendarPage() {
                         : {}),
                       ...(monthlyEvent?.title === "Monthly MahaTest" ? styles.monthlyMahaTestDay : {}),
                       ...(monthlyEvent?.title === "Monthly Result" ? styles.monthlyResultDay : {}),
+                      ...(extraClassEvent ? { background: "linear-gradient(145deg,#e3fbff,#b9edf0)", border: "1px solid #49b6bc", color: "#086b75" } : {}),
                       ...(holiday
                         ? styles.holiday
                         : {}),
@@ -744,6 +793,11 @@ export default function StudentCalendarPage() {
                         <div style={{...styles.testLabel,...(monthlyEvent.title === "Monthly Result" ? styles.monthlyResultLabel : styles.monthlyMahaTestLabel)}} className={`student-calendar-test-label ${monthlyEvent.title === "Monthly Result" ? "student-calendar-monthly-result" : "student-calendar-monthly-mahatest"}`}>{monthlyEvent.title === "Monthly Result" ? "📢 MONTHLY RESULT" : "📝 MONTHLY MAHATEST"}</div>
                         <div style={styles.smallText} className="student-calendar-small-text">{monthlyEvent.title}</div>
                         {dayEvents.some((event) => event.title === "Monday Off") && <div style={{ ...styles.holidayLabel, marginTop: 3, color: "#c84e61", background: "#ffe9f0" }}>× OFF · MONDAY</div>}
+                      </>
+                    ) : extraClassEvent ? (
+                      <>
+                        <div style={{ ...styles.classLabel, color: "#087e8b", background: "linear-gradient(110deg,#d9f7f5,#b5e7ee)", border: "1px solid #5eb8c0" }}>✨ EXTRA CLASS</div>
+                        <div style={{ ...styles.smallText, color: "#086b75" }}>{info.title.replace("Extra Class · ", "")}</div>
                       </>
                     ) : sundayClass ? (
                       <>
