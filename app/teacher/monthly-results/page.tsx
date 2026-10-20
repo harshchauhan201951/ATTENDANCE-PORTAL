@@ -17,6 +17,7 @@ import {
   safeNumber,
   type MonthlyResultSnapshot,
 } from "../../../lib/monthly-result";
+import styles from "./monthly-results.module.css";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -135,7 +136,7 @@ function pdfSnapshot(snapshot: MonthlyResultSnapshot) {
 }
 
 export default function MonthlyResultsPage() {
-  const [monthKey, setMonthKey] = useState("");
+  const [monthKey, setMonthKey] = useState(currentMonth());
   const [releaseInput, setReleaseInput] = useState("");
   const [passPercentage, setPassPercentage] = useState("");
   const [mahaDate, setMahaDate] = useState("");
@@ -148,6 +149,10 @@ export default function MonthlyResultsPage() {
   const [tests, setTests] = useState<any[]>([]);
   const [snapshots, setSnapshots] = useState<MonthlyResultSnapshot[]>([]);
   const [savedPeriods, setSavedPeriods] = useState<any[]>([]);
+  const [archiveMonthKey, setArchiveMonthKey] = useState("");
+  const [archiveResults, setArchiveResults] = useState<MonthlyResultSnapshot[]>([]);
+  const [archiveLoading, setArchiveLoading] = useState(false);
+  const [archiveError, setArchiveError] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -177,7 +182,7 @@ export default function MonthlyResultsPage() {
       const listData = await listRes.json();
       if (listRes.ok && listData.success) setSavedPeriods(listData.periods || []);
       const [studentsRes, quizzesRes, testsRes, mahaHistoryRes] = await Promise.all([
-        supabase.from("students").select("id,student_name,student_username,class_name,father_name,admission_date").order("class_name").order("student_name"),
+        supabase.from("students").select("id,student_name,student_username,class_name,father_name,admission_date,is_active").order("class_name").order("student_name"),
         supabase.from("quiz_tests").select("id,title,subject,class_name,target_classes,scheduled_date,created_at").order("scheduled_date"),
         supabase.from("academy_assessments").select("id,test_name,test_date,total_marks,student_id,obtained_marks,subject,attendance_status,remarks").order("test_date"),
         supabase.from("monthly_mahatests").select("month_key,test_date").order("test_date"),
@@ -191,7 +196,8 @@ export default function MonthlyResultsPage() {
         if (!batch || batch.length < quizPageSize) break;
       }
       for (const r of [studentsRes, quizzesRes, testsRes, mahaHistoryRes]) if (r.error) throw r.error;
-      const ss = (studentsRes.data || []).filter((s: any) => !assigned || assigned.includes(Number(s.id)));
+      // Deactivated students stay in the published archive, but are excluded from new/current result rosters.
+      const ss = (studentsRes.data || []).filter((s: any) => s.is_active !== false && (!assigned || assigned.includes(Number(s.id))));
 
       const savedMahaDate = String(savedData.mahatest?.test_date || "").slice(0, 10);
       const effectiveMahaDate = savedMahaDate || (monthKey ? getMonthlyMahaTestDate(monthKey) : "");
@@ -343,6 +349,19 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
   async function scheduleOnly(){ await persistMonthly("schedule"); }
   async function publishNow(){ await persistMonthly("publish"); }
 
+  async function openArchive(key: string) {
+    if (archiveMonthKey === key) { setArchiveMonthKey(""); return; }
+    setArchiveMonthKey(key); setArchiveLoading(true); setArchiveError(""); setArchiveResults([]);
+    try {
+      const response = await fetch(`/api/monthly-results/publish?monthKey=${encodeURIComponent(key)}`);
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || "Could not load this result folder.");
+      const saved = (data.results || []).map((row: any) => row.snapshot).filter(Boolean);
+      setArchiveResults(saved);
+    } catch (e) { setArchiveError(e instanceof Error ? e.message : "Could not load this result folder."); }
+    finally { setArchiveLoading(false); }
+  }
+
 
   function downloadPdf(snapshot: MonthlyResultSnapshot) {
     try {
@@ -360,27 +379,43 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
     const ws = XLSX.utils.json_to_sheet(rows); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Monthly Result"); XLSX.writeFile(wb, `RACER_ACADEMY_${monthKey}_MONTHLY_RESULT.xlsx`);
   }
 
-  return <main data-racer-vip-module="monthly-results"  style={{padding:"16px",maxWidth:1200,margin:"0 auto",fontFamily:"Arial,sans-serif"}}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:16}}><div><h1 style={{margin:0,color:"#0b3d7a"}}>Monthly Result</h1><p style={{margin:"5px 0",color:"#64748b"}}>Quiz + Saturday Weekly Tests + 100-Mark MahaTest</p></div><a href="/teacher/dashboard" style={{padding:"9px 13px",borderRadius:9,background:"#0b57a3",color:"#fff",textDecoration:"none",fontWeight:700}}>Dashboard</a></div>
-    <section style={{background:"#fff",border:"1px solid #dbe7f5",borderRadius:14,padding:14,marginBottom:14}}>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:10}}>
-        <label>Result Month<input type="month" value={monthKey} onChange={e=>setMonthKey(e.target.value)} style={inputStyle}/></label>
-        <label>Result Announcement Time / Release Date & Time (IST)<input type="datetime-local" value={releaseInput} onChange={e=>setReleaseInput(e.target.value)} style={inputStyle}/></label>
-        <label>Pass Percentage<input type="number" min="0" max="100" value={passPercentage} onChange={e=>setPassPercentage(e.target.value)} style={inputStyle}/></label>
-        <label>MahaTest Date<input type="date" value={mahaDate} onChange={e=>{const value=e.target.value;setMahaDate(value);setReleaseInput(defaultReleaseInput(value));}} style={inputStyle}/></label>
+  const publishedPeriods = savedPeriods.filter((period) => period.is_released);
+  const passCount = displaySnapshots.filter((snapshot) => snapshot.totals.status === "PASS").length;
+  return <main className={styles.page} data-racer-vip-module="monthly-results">
+    <header className={styles.hero}>
+      <div className={styles.heroTop}><a className={styles.backLink} href="/teacher/dashboard">← Dashboard</a><span className={styles.heroBadge}>ACADEMIC PERFORMANCE</span></div>
+      <div className={styles.heroContent}><div><p className={styles.eyebrow}>RACER ACADEMY · TEACHER CONSOLE</p><h1>Monthly Results</h1><p className={styles.heroSub}>Every assessment, one clear picture of each student’s progress.</p></div><div className={styles.heroIcon}>✦</div></div>
+      <div className={styles.stats}><div><span>Students</span><strong>{loading ? "—" : displaySnapshots.length}</strong></div><div><span>Passing</span><strong>{loading || !displaySnapshots.length ? "—" : `${Math.round((passCount / displaySnapshots.length) * 100)}%`}</strong></div><div><span>Published folders</span><strong>{publishedPeriods.length}</strong></div><div><span>Assessment mix</span><strong>Quiz · Weekly · MahaTest</strong></div></div>
+    </header>
+
+    <section className={styles.section}>
+      <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>RESULT WORKSPACE</p><h2>Prepare a monthly result</h2><p>Enter MahaTest marks, review the complete calculation, then save, schedule, or publish.</p></div><span className={`${styles.statusPill} ${savedPeriods.find((period) => period.month_key === monthKey)?.is_released ? styles.published : styles.draft}`}>{savedPeriods.find((period) => period.month_key === monthKey)?.is_released ? "● Published" : "● Draft workspace"}</span></div>
+      <div className={styles.formGrid}>
+        <label className={styles.field}>Result month<input type="month" value={monthKey} onChange={e=>setMonthKey(e.target.value)} /></label>
+        <label className={styles.field}>Release date & time (IST)<input type="datetime-local" value={releaseInput} onChange={e=>setReleaseInput(e.target.value)} /></label>
+        <label className={styles.field}>Pass percentage<input type="number" min="0" max="100" value={passPercentage} onChange={e=>setPassPercentage(e.target.value)} /></label>
+        <label className={styles.field}>MahaTest date<input type="date" value={mahaDate} onChange={e=>{const value=e.target.value;setMahaDate(value);setReleaseInput(defaultReleaseInput(value));}} /></label>
       </div>
-      <div style={{marginTop:10,padding:10,borderRadius:10,background:"#eef7ff",color:"#124d83",fontWeight:700}}>MahaTest: 2 Hours - 100 Marks - Month-end schedule; result the next day</div>
-      <div style={{marginTop:8,fontSize:12,color:"#475569"}}>Included academic period: {periodStart || "All available dates"} to {mahaDate || "---"} — later results include only records after the previous MahaTest, so data is not repeated.</div>
-      {error && <div style={{marginTop:10,padding:10,borderRadius:8,background:"#fff1f2",color:"#b91c1c"}}>{error}</div>}
-      {message && <div style={{marginTop:10,padding:10,borderRadius:8,background:"#ecfdf5",color:"#047857"}}>{message}</div>}
-      <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:12}}><button type="button" onClick={calculateOnly} style={buttonStyle}>CALCULATE</button><button type="button" onClick={saveOnly} style={buttonStyle}>SAVE / UPDATE ALL STUDENT RESULTS</button><button type="button" onClick={scheduleOnly} style={buttonStyle}>SCHEDULE RESULT</button><button type="button" onClick={publishNow} style={{...buttonStyle,background:"#047857"}}>POST / PUBLISH RESULT</button></div>
+      <div className={styles.periodNote}><span>✦</span><div><strong>2 hours · 100 marks · Result declared the next day</strong><small>Included period: {periodStart || "All available dates"} to {mahaDate || "—"}. Records from earlier monthly results are not repeated.</small></div></div>
+      {error && <div className={styles.error}>{error}</div>}{message && <div className={styles.success}>{message}</div>}
+      <div className={styles.actions}><button type="button" onClick={calculateOnly} className={styles.buttonSoft}>Recalculate</button><button type="button" onClick={saveOnly} disabled={saving} className={styles.buttonSoft}>Save all results</button><button type="button" onClick={scheduleOnly} disabled={saving} className={styles.buttonSoft}>Schedule release</button><button type="button" onClick={publishNow} disabled={saving} className={styles.buttonPrimary}>{saving ? "Saving…" : "Publish results ↗"}</button><button type="button" onClick={downloadExcel} className={styles.buttonExcel}>↓ Excel</button></div>
     </section>
-    <section style={{background:"#fff",border:"1px solid #dbe7f5",borderRadius:14,padding:14,marginBottom:14}}>
-      <h2 style={{margin:"0 0 8px",fontSize:18}}>MahaTest Marks Entry</h2><p style={{margin:"0 0 10px",fontSize:12,color:"#64748b"}}>Blank marks are not counted as zero. They remain pending until entered.</p>
-      <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}><thead><tr><th style={th}>Student</th><th style={th}>Class</th><th style={th}>Marks /100</th><th style={th}>Remarks</th></tr></thead><tbody>{students.map(s=><tr key={s.id}><td style={td}><b>{s.student_name||s.student_username}</b><br/><small>{s.student_username}</small></td><td style={td}>{s.class_name||"---"}</td><td style={td}><input type="number" min="0" max="100" value={mahaMarks[s.id]??""} onChange={e=>setMahaMarks(x=>({...x,[s.id]:e.target.value}))} style={{...inputStyle,width:110}}/></td><td style={td}><input value={mahaRemarks[s.id]??""} onChange={e=>setMahaRemarks(x=>({...x,[s.id]:e.target.value}))} style={{...inputStyle,minWidth:220}}/></td></tr>)}</tbody></table></div>
+
+    <section className={styles.section}>
+      <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>MARKS ENTRY</p><h2>MahaTest · {monthKey ? monthLabelFromKey(monthKey) : "Choose a month"}</h2><p>Blank marks stay pending; they are never treated as zero.</p></div><span className={styles.countPill}>{students.length} students</span></div>
+      {loading ? <div className={styles.empty}>Loading student and assessment data…</div> : <div className={styles.studentGrid}>{students.map((student,index)=><article className={styles.studentCard} key={student.id}><div className={styles.studentIdentity}><span className={styles.avatar}>{(student.student_name||student.student_username||"S").slice(0,1).toUpperCase()}</span><div><strong>{student.student_name||student.student_username}</strong><small>{student.class_name||"Class not set"} · #{String(index+1).padStart(2,"0")}</small></div></div><label className={styles.markField}>MARKS <span>/100</span><input aria-label={`${student.student_name} MahaTest marks`} type="number" min="0" max="100" value={mahaMarks[student.id]??""} placeholder="—" onChange={e=>setMahaMarks(x=>({...x,[student.id]:e.target.value}))}/></label><input className={styles.remarkInput} aria-label={`${student.student_name} remarks`} placeholder="Teacher remark (optional)" value={mahaRemarks[student.id]??""} onChange={e=>setMahaRemarks(x=>({...x,[student.id]:e.target.value}))}/></article>)}</div>}
     </section>
-    
-    <section style={{background:"#fff",border:"1px solid #dbe7f5",borderRadius:14,padding:14}}><h2 style={{margin:"0 0 10px",fontSize:18}}>Complete Monthly Results ({displaySnapshots.length})</h2>{loading?<p>Loading...</p>:<div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}><thead><tr><th style={th}>Student</th><th style={th}>Quizzes</th><th style={th}>Weekly Tests</th><th style={th}>MahaTest</th><th style={th}>Grand Total</th><th style={th}>%</th><th style={th}>Status</th><th style={th}>PDF</th></tr></thead><tbody>{displaySnapshots.map(s=><tr key={s.student.id}><td style={td}><b>{s.student.name}</b><br/>{s.student.className}</td><td style={td}>{s.quizzes.length} - {s.totals.quizObtained}/{s.totals.quizTotal}</td><td style={td}>{s.weeklyTests.length} - {s.totals.weeklyObtained}/{s.totals.weeklyTotal}</td><td style={td}>{s.mahaTest.obtained===null?"Pending":`${s.mahaTest.obtained}/100`}</td><td style={td}><b>{s.totals.grandObtained}/{s.totals.grandTotal}</b></td><td style={td}>{s.totals.percentage.toFixed(2)}%</td><td style={{...td,fontWeight:800,color:s.totals.status==="PASS"?"#047857":"#b91c1c"}}>{s.totals.status}</td><td style={td}><button onClick={()=>downloadPdf(s)} style={{...smallButton}}>PDF</button></td></tr>)}</tbody></table></div>}</section>
+
+    <section className={styles.section}>
+      <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>LIVE CALCULATION</p><h2>Complete monthly results</h2><p>All eligible submitted quizzes, Saturday tests and MahaTest marks.</p></div><span className={styles.countPill}>{displaySnapshots.length} records</span></div>
+      <div className={styles.resultGrid}>{displaySnapshots.map((snapshot,index)=><article className={styles.resultCard} key={snapshot.student.id}><div className={styles.resultStudent}><span className={styles.rank}>{String(index+1).padStart(2,"0")}</span><div><strong>{snapshot.student.name}</strong><small>{snapshot.student.className||"Class not set"} · {snapshot.quizzes.length} quizzes · {snapshot.weeklyTests.length} weekly tests</small></div><span className={`${styles.statusPill} ${snapshot.totals.status === "PASS" ? styles.published : styles.fail}`}>{snapshot.totals.status}</span></div><div className={styles.scoreStrip}><div><span>Quiz</span><strong>{snapshot.totals.quizObtained}<small>/{snapshot.totals.quizTotal}</small></strong></div><div><span>Weekly</span><strong>{snapshot.totals.weeklyObtained}<small>/{snapshot.totals.weeklyTotal}</small></strong></div><div><span>MahaTest</span><strong>{snapshot.mahaTest.obtained===null?"—":snapshot.mahaTest.obtained}<small>{snapshot.mahaTest.obtained===null?" pending":"/100"}</small></strong></div><div className={styles.totalScore}><span>Overall · {snapshot.totals.percentage.toFixed(1)}%</span><strong>{snapshot.totals.grandObtained}<small>/{snapshot.totals.grandTotal}</small></strong></div></div><button className={styles.pdfButton} onClick={()=>downloadPdf(snapshot)}>↓ Download student PDF</button></article>)}</div>
+    </section>
+
+    <section className={styles.archiveSection}>
+      <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>RESULT LIBRARY</p><h2>Published result folders</h2><p>Each folder keeps the complete saved student roster and its declared result.</p></div><span className={styles.countPill}>{publishedPeriods.length} published</span></div>
+      {publishedPeriods.length ? <div className={styles.folderGrid}>{publishedPeriods.map((period)=><button key={period.month_key} className={`${styles.folderCard} ${archiveMonthKey===period.month_key?styles.folderActive:""}`} onClick={()=>void openArchive(period.month_key)}><span className={styles.folderIcon}>▰</span><span className={styles.folderInfo}><strong>{period.month_label||monthLabelFromKey(period.month_key)}</strong><small>Published {period.released_at?formatDate(String(period.released_at).slice(0,10)):"result"} · Open student records</small></span><span className={styles.folderArrow}>{archiveMonthKey===period.month_key?"−":"↗"}</span></button>)}</div> : <div className={styles.empty}>Published monthly results will appear here as folders.</div>}
+      {archiveMonthKey && <div className={styles.archiveDetail}><div className={styles.archiveTitle}><div><p className={styles.eyebrow}>ARCHIVED RESULT FOLDER</p><h3>{monthLabelFromKey(archiveMonthKey)}</h3></div><button className={styles.closeButton} onClick={()=>setArchiveMonthKey("")}>Close folder ×</button></div>{archiveLoading?<div className={styles.empty}>Opening saved student results…</div>:archiveError?<div className={styles.error}>{archiveError}</div>:archiveResults.length?<div className={styles.archiveList}>{archiveResults.map((snapshot)=><article className={styles.archiveRow} key={snapshot.student.id}><span className={styles.avatar}>{snapshot.student.name.slice(0,1).toUpperCase()}</span><div className={styles.archiveStudent}><strong>{snapshot.student.name}</strong><small>{snapshot.student.className||"Class not set"} · {snapshot.quizzes.length} quizzes · {snapshot.weeklyTests.length} weekly tests</small></div><div className={styles.archiveScore}><strong>{snapshot.totals.grandObtained}/{snapshot.totals.grandTotal}</strong><small>{snapshot.totals.percentage.toFixed(1)}%</small></div><span className={`${styles.statusPill} ${snapshot.totals.status === "PASS" ? styles.published : styles.fail}`}>{snapshot.totals.status}</span><button className={styles.pdfButton} onClick={()=>downloadPdf(snapshot)}>↓ PDF</button></article>)}</div>:<div className={styles.empty}>No saved student snapshots were found in this folder.</div>}</div>}
+    </section>
   </main>;
 }
 const inputStyle: React.CSSProperties={width:"100%",marginTop:5,padding:"9px 10px",border:"1px solid #cbd5e1",borderRadius:8,boxSizing:"border-box"};
