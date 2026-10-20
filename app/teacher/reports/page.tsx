@@ -163,6 +163,7 @@ export default function TeacherReportsPage() {
 
   const [loading, setLoading] = useState(true);
   const [assessmentLoading, setAssessmentLoading] = useState(false);
+  const [assessmentPdfLoading, setAssessmentPdfLoading] = useState("");
 
   const [error, setError] = useState("");
   const [assessmentMessage, setAssessmentMessage] = useState("");
@@ -1261,37 +1262,145 @@ export default function TeacherReportsPage() {
     URL.revokeObjectURL(url);
   }
 
-  function downloadStudentResult(studentId: number, testNameValue: string, testDateValue: string) {
-    const rows = assessments.filter((item) => item.student_id === studentId && item.test_name === testNameValue && item.test_date === testDateValue);
-    if (!rows.length) { window.alert("Is student ka result nahi mila."); return; }
-    const student = students.find((item) => item.id === studentId);
+  async function loadAssessmentPhoto(url: string): Promise<{ data: string; width: number; height: number }> {
+    const response = await fetch(url, { mode: "cors", credentials: "omit" });
+    if (!response.ok) throw new Error(`Photo could not be loaded (${response.status}).`);
+    const objectUrl = URL.createObjectURL(await response.blob());
     try {
+      const image = new Image();
+      image.decoding = "async";
+      image.src = objectUrl;
+      await image.decode();
+      const scale = Math.min(1, 1400 / Math.max(image.naturalWidth, image.naturalHeight));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Could not prepare a checked-paper photo for the PDF.");
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      return { data: canvas.toDataURL("image/jpeg", 0.88), width: canvas.width, height: canvas.height };
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+
+  async function downloadOverallAssessmentPdf(testNameValue: string, testDateValue: string, includeImages: boolean) {
+    const loadingKey = `${testNameValue}__${testDateValue}__${includeImages ? "images" : "no-images"}`;
+    setAssessmentPdfLoading(loadingKey);
+    setAssessmentError("");
+    setAssessmentMessage("");
+    try {
+      const rows = assessments
+        .filter((item) => item.test_name === testNameValue && item.test_date === testDateValue)
+        .sort((a, b) => (students.find((student) => student.id === a.student_id)?.student_name || "").localeCompare(students.find((student) => student.id === b.student_id)?.student_name || "") || String(a.subject || "").localeCompare(String(b.subject || "")));
+      if (!rows.length) throw new Error("Is test ke saved results nahi mile.");
+
       const doc = new jsPDF({ unit: "mm", format: "a4" });
-      doc.setFillColor(12, 76, 145); doc.rect(0, 0, 210, 38, "F");
-      doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(17); doc.text("RACER ACADEMY", 15, 17);
-      doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text("STUDENT TEST RESULT", 15, 27);
-      doc.setTextColor(25, 43, 68); doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text(student?.student_name || student?.student_username || "Student", 15, 50);
-      doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.text(`Username: ${student?.student_username || "—"}`, 15, 57); doc.text(`Test: ${testNameValue}`, 15, 64); doc.text(`Date: ${testDateValue}`, 15, 71);
-      let y = 86; doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.text("SUBJECT", 15, y); doc.text("ATTENDANCE", 54, y); doc.text("MARKS", 86, y); doc.text("%", 112, y); doc.text("GRADE / RESULT", 127, y); doc.text("REMARKS", 166, y); doc.line(15, y + 3, 195, y + 3); y += 10;
-      let imageIndex = 0;
-      rows.forEach((item) => {
-        const absent = item.attendance_status === "ABSENT"; const noTest = item.attendance_status === "NO_TEST";
-        const percentage = !absent && !noTest ? getPercentage(Number(item.obtained_marks), Number(item.total_marks)) : 0;
-        const subjectLines = doc.splitTextToSize(String(item.subject || "—"), 36); const remarkLines = doc.splitTextToSize(String(item.remarks || "—"), 27);
-        const height = Math.max(subjectLines.length, remarkLines.length, 1) * 4 + 4;
-        if (y + height > 270) { doc.addPage(); y = 20; }
-        doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.text(subjectLines, 15, y); doc.text(absent ? "ABSENT" : noTest ? "NO TEST" : "PRESENT", 54, y);
-        doc.text(absent || noTest ? "—" : `${item.obtained_marks}/${item.total_marks}`, 86, y); doc.text(absent || noTest ? "—" : `${percentage.toFixed(1)}%`, 112, y);
-        doc.text(absent || noTest ? (absent ? "ABSENT" : "NO TEST") : `${getGrade(percentage)} / ${isPass(percentage) ? "PASS" : "FAIL"}`, 127, y); doc.text(remarkLines, 166, y); y += height;
-        const imageUrls = getImageUrls(item.test_images);
-        imageUrls.forEach((imageUrl) => { if (y > 276) { doc.addPage(); y = 20; } doc.setTextColor(37, 99, 235); doc.text(`Open checked-paper photo ${++imageIndex}`, 18, y); doc.link(18, y - 3, 45, 5, { url: imageUrl }); doc.setTextColor(25, 43, 68); y += 6; });
-        doc.setDrawColor(225, 232, 240); doc.line(15, y, 195, y); y += 5;
-      });
-      doc.setFontSize(8); doc.setTextColor(100, 116, 139); doc.text(`Subjects: ${rows.length} · Checked-paper photos: ${imageIndex}`, 15, Math.min(y + 5, 284));
-      const safeName = (student?.student_name || student?.student_username || "STUDENT").replace(/[^a-z0-9]+/gi, "_");
+      const pageWidth = 210;
+      const bottom = 278;
+      let y = 43;
+      const pageHeader = (continuation: boolean) => {
+        doc.setFillColor(12, 76, 145);
+        doc.rect(0, 0, pageWidth, continuation ? 24 : 34, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(continuation ? 11 : 15);
+        doc.text("RACER ACADEMY · SATURDAY WEEKLY TEST", 13, continuation ? 15 : 15);
+        if (!continuation) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(9);
+          doc.text(`${testNameValue} · ${testDateValue} · ${new Set(rows.map((item) => item.student_id)).size} students`, 13, 25);
+          doc.setTextColor(31, 55, 84);
+        }
+        y = continuation ? 33 : 43;
+      };
+      const nextPage = () => { doc.addPage(); pageHeader(true); };
+      pageHeader(false);
+
+      const studentIds = Array.from(new Set(rows.map((item) => Number(item.student_id))));
+      for (const studentId of studentIds) {
+        const studentRows = rows.filter((item) => Number(item.student_id) === studentId);
+        const student = students.find((item) => Number(item.id) === studentId);
+        const displayName = student?.student_name || student?.student_username || `Student ${studentId}`;
+        if (y + 40 > bottom) nextPage();
+
+        doc.setFillColor(237, 244, 252);
+        doc.roundedRect(12, y, 186, 9, 2, 2, "F");
+        doc.setTextColor(26, 54, 91);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.text(displayName, 15, y + 6);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.text(student?.student_username || `ID ${studentId}`, 195, y + 6, { align: "right" });
+        y += 14;
+
+        doc.setFont("helvetica", "bold"); doc.setFontSize(6.5); doc.setTextColor(100, 116, 139);
+        doc.text("SUBJECT", 15, y); doc.text("ATTENDANCE", 52, y); doc.text("MARKS", 83, y); doc.text("SCORE", 111, y); doc.text("RESULT", 130, y); doc.text("REMARKS", 158, y);
+        y += 4;
+
+        for (const item of studentRows) {
+          const absent = item.attendance_status === "ABSENT";
+          const noTest = item.attendance_status === "NO_TEST";
+          const percentage = !absent && !noTest ? getPercentage(Number(item.obtained_marks), Number(item.total_marks)) : 0;
+          const result = absent ? "ABSENT" : noTest ? "NO TEST" : `${getGrade(percentage)} / ${isPass(percentage) ? "PASS" : "FAIL"}`;
+          const remarkLines = doc.splitTextToSize(String(item.remarks || "—"), 38);
+          const rowHeight = Math.max(10, remarkLines.length * 3.5 + 4);
+          if (y + rowHeight > bottom) nextPage();
+          doc.setFont("helvetica", "bold"); doc.setFontSize(7.5); doc.setTextColor(61, 78, 101);
+          doc.text(String(item.subject || "—"), 15, y + 3);
+          doc.setFont("helvetica", "normal"); doc.setTextColor(30, 47, 71);
+          doc.text(absent ? "ABSENT" : noTest ? "NO TEST" : "PRESENT", 55, y + 3);
+          doc.text(absent || noTest ? "—" : `${item.obtained_marks}/${item.total_marks}`, 86, y + 3);
+          doc.text(absent || noTest ? "—" : `${percentage.toFixed(1)}%`, 116, y + 3);
+          doc.text(result, 137, y + 3);
+          doc.text(remarkLines, 158, y + 3);
+          y += rowHeight;
+        }
+
+        if (includeImages) {
+          const photos = studentRows.flatMap((item) => getImageUrls(item.test_images).map((url) => ({ url, subject: item.subject || "Test work" })));
+          for (let index = 0; index < photos.length; index += 1) {
+            const photo = photos[index];
+            const loaded = await loadAssessmentPhoto(photo.url);
+            const boxWidth = 82;
+            const boxHeight = 56;
+            const scale = Math.min(boxWidth / loaded.width, boxHeight / loaded.height);
+            const imageWidth = loaded.width * scale;
+            const imageHeight = loaded.height * scale;
+            if (y + boxHeight + 12 > bottom) nextPage();
+            const column = index % 2;
+            const x = 15 + column * 91;
+            doc.setFont("helvetica", "bold"); doc.setFontSize(7); doc.setTextColor(77, 94, 116);
+            doc.text(`${displayName} · ${photo.subject} · Photo ${index + 1}`, x, y + 3);
+            doc.addImage(loaded.data, "JPEG", x, y + 6, imageWidth, imageHeight);
+            if (column === 1 || index === photos.length - 1) y += boxHeight + 10;
+          }
+        }
+
+        doc.setDrawColor(220, 229, 239);
+        doc.line(12, y + 1, 198, y + 1);
+        y += 6;
+      }
+
+      for (let page = 1; page <= doc.getNumberOfPages(); page += 1) {
+        doc.setPage(page);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(110, 125, 144);
+        doc.text(`Overall result · ${page}/${doc.getNumberOfPages()}`, 195, 288, { align: "right" });
+      }
       const safeTest = testNameValue.replace(/[^a-z0-9]+/gi, "_");
-      downloadPdfFile(doc, `RACER_ACADEMY_${safeName}_${safeTest}_${testDateValue}_RESULT.pdf`);
-    } catch (error) { setError(error instanceof Error ? error.message : "Result PDF could not be downloaded."); }
+      const imageSuffix = includeImages ? "WITH_IMAGES" : "WITHOUT_IMAGES";
+      downloadPdfFile(doc, `RACER_ACADEMY_${safeTest}_${testDateValue}_OVERALL_RESULTS_${imageSuffix}.pdf`);
+      setAssessmentMessage(`Overall ${includeImages ? "with-images" : "without-images"} PDF downloaded for ${studentIds.length} students.`);
+    } catch (error) {
+      setAssessmentError(error instanceof Error ? error.message : "Overall result PDF could not be downloaded.");
+    } finally {
+      setAssessmentPdfLoading("");
+    }
   }
 
 
@@ -2566,6 +2675,7 @@ export default function TeacherReportsPage() {
                     {expandedTestWeek === week.startDate && <div className="saved-week-tests">
                       {week.groups.map((group) => {
                     const first = group[0];
+                    const overallPdfBusy = assessmentPdfLoading.startsWith(`${first.test_name}__${first.test_date}__`);
 
                     const total =
                       Number(
@@ -2652,7 +2762,7 @@ export default function TeacherReportsPage() {
                             {total}
                             {" • "}
                             Students:{" "}
-                            {group.length}
+                            {new Set(group.map((item) => item.student_id)).size}
                             {" • "}
                             Average:{" "}
                             {average.toFixed(
@@ -2741,19 +2851,12 @@ export default function TeacherReportsPage() {
                             Edit
                           </button>
 
-                          <button
-                            onClick={() =>
-                              downloadStudentResult(
-                                first.student_id,
-                                first.test_name,
-                                first.test_date
-                              )
-                            }
-                            style={
-                              styles.pdfButton
-                            }
-                          >
-                            Result PDF
+                          <button type="button" disabled={Boolean(assessmentPdfLoading)} onClick={() => void downloadOverallAssessmentPdf(first.test_name, first.test_date, true)} style={{ ...styles.pdfButton, opacity: assessmentPdfLoading && !overallPdfBusy ? 0.55 : 1, cursor: assessmentPdfLoading ? "wait" : "pointer" }}>
+                            {overallPdfBusy && assessmentPdfLoading.endsWith("__images") ? "Building PDF…" : "Overall PDF · Images"}
+                          </button>
+
+                          <button type="button" disabled={Boolean(assessmentPdfLoading)} onClick={() => void downloadOverallAssessmentPdf(first.test_name, first.test_date, false)} style={{ ...styles.pdfButton, background: "#e0f2fe", color: "#075985", opacity: assessmentPdfLoading && !overallPdfBusy ? 0.55 : 1, cursor: assessmentPdfLoading ? "wait" : "pointer" }}>
+                            {overallPdfBusy && assessmentPdfLoading.endsWith("__no-images") ? "Building PDF…" : "Overall PDF · No Images"}
                           </button>
 
                           <button
