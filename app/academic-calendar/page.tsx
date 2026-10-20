@@ -498,7 +498,7 @@ export default function AcademicCalendarPage() {
                           : {}),
                       }}
                     >
-                      {event.title === "Monthly MahaTest" ? "MAHATEST" : event.title === "Monthly Result" ? "RESULT" : event.type}
+                      {event.title === "Monthly MahaTest" ? "MONTHLY MAHATEST" : event.title === "Monthly Result" ? "MONTHLY RESULT" : event.type}
                     </div>
                   </button>
                 ))}
@@ -865,6 +865,9 @@ const styles: {
     lineHeight: "1.2",
     fontWeight: "900",
     marginTop: "3px",
+    whiteSpace: "normal",
+    overflowWrap: "anywhere",
+    textAlign: "center",
   },
 
   holidayTag: {

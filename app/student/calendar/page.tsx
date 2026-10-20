@@ -739,7 +739,7 @@ export default function StudentCalendarPage() {
                       </>
                     ) : monthlyEvent ? (
                       <>
-                        <div style={{...styles.testLabel,...(monthlyEvent.title === "Monthly Result" ? styles.monthlyResultLabel : styles.monthlyMahaTestLabel)}} className={`student-calendar-test-label ${monthlyEvent.title === "Monthly Result" ? "student-calendar-monthly-result" : "student-calendar-monthly-mahatest"}`}>{monthlyEvent.title === "Monthly Result" ? "📢 RESULT" : "📝 MONTHLY MAHATEST"}</div>
+                        <div style={{...styles.testLabel,...(monthlyEvent.title === "Monthly Result" ? styles.monthlyResultLabel : styles.monthlyMahaTestLabel)}} className={`student-calendar-test-label ${monthlyEvent.title === "Monthly Result" ? "student-calendar-monthly-result" : "student-calendar-monthly-mahatest"}`}>{monthlyEvent.title === "Monthly Result" ? "📢 MONTHLY RESULT" : "📝 MONTHLY MAHATEST"}</div>
                         <div style={styles.smallText} className="student-calendar-small-text">{monthlyEvent.title}</div>
                       </>
                     ) : sundayClass ? (
@@ -1671,6 +1671,11 @@ const styles: {
   },
 
   monthlyMahaTestLabel: {
+    whiteSpace: "normal",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
+    lineHeight: 1.2,
+    textAlign: "center",
     background: "linear-gradient(130deg,#321160,#6c3fb5)",
     color: "#fff2b2",
     border: "1px solid #e4bd52",
@@ -1678,6 +1683,11 @@ const styles: {
   },
 
   monthlyResultLabel: {
+    whiteSpace: "normal",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
+    lineHeight: 1.2,
+    textAlign: "center",
     background: "linear-gradient(130deg,#06466c,#128b91)",
     color: "#e7ffff",
     border: "1px solid #70d2d0",
