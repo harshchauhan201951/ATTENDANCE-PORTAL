@@ -5,7 +5,6 @@ import { supabase } from "../../lib/supabase";
 import * as XLSX from "xlsx"; // RACER_FEES_EXCEL_EXPORT_V1
 import jsPDF from "jspdf";
 import { downloadPdfFile } from "../../../lib/download-pdf";
-import { isFeePeriodOnOrAfterAdmission } from "../../../lib/admission-date";
 
 type Student = {
   id: number;
@@ -641,6 +640,8 @@ function isAutomaticFee(
 export default function TeacherFeesPage() {
   const [students, setStudents] =
     useState<Student[]>([]);
+  const [allStudents, setAllStudents] =
+    useState<Student[]>([]);
 
   const [fees, setFees] =
     useState<Fee[]>([]);
@@ -1134,23 +1135,32 @@ export default function TeacherFeesPage() {
         assignedStudentIds = (assignedData || []).map((item: { student_id: number }) => Number(item.student_id));
       }
 
+      // Keep inactive students in the historical lookup so their old fee rows retain names.
+      let allStudentsQuery = supabase.from("students").select("*").order("student_name", { ascending: true });
       let studentsQuery = supabase.from("students").select("*").eq("is_active", true).order("student_name", { ascending: true });
       if (savedTeacherId !== 1) {
         if (assignedStudentIds.length === 0) {
           setStudents([]);
+          setAllStudents([]);
           setFees([]);
           return;
         }
         studentsQuery = studentsQuery.in("id", assignedStudentIds);
+        allStudentsQuery = allStudentsQuery.in("id", assignedStudentIds);
       }
 
-      const { data: studentsData, error: studentsError } = await studentsQuery;
+      const [{ data: studentsData, error: studentsError }, { data: allStudentsData, error: allStudentsError }] = await Promise.all([studentsQuery, allStudentsQuery]);
       if (studentsError) {
         setError(studentsError.message);
         return;
       }
+      if (allStudentsError) {
+        setError(allStudentsError.message);
+        return;
+      }
 
       const studentList = (studentsData || []) as Student[];
+      const allStudentList = (allStudentsData || []) as Student[];
 
       let feesQuery = supabase
         .from("fees")
@@ -1190,9 +1200,10 @@ export default function TeacherFeesPage() {
         existingFees = (refreshedFees || []) as Fee[];
       }
 
-      const admissionDates = new Map(studentList.map((student) => [Number(student.id), student.admission_date]));
       setStudents(studentList);
-      setFees(existingFees.filter((fee) => isFeePeriodOnOrAfterAdmission(admissionDates.get(Number(fee.student_id)), fee.year, fee.month)));
+      setAllStudents(allStudentList);
+      // Existing fee rows are history and must survive deactivation/readmission unchanged.
+      setFees(existingFees);
     } catch (err) {
       console.error(err);
       setError(
@@ -1629,7 +1640,7 @@ export default function TeacherFeesPage() {
     id: number
   ) {
     const student =
-      students.find(
+      allStudents.find(
         (item) =>
           Number(item.id) ===
           Number(id)
@@ -1649,7 +1660,7 @@ export default function TeacherFeesPage() {
     id: number
   ) {
     const student =
-      students.find(
+      allStudents.find(
         (item) =>
           Number(item.id) ===
           Number(id)
@@ -1714,7 +1725,7 @@ export default function TeacherFeesPage() {
       const normalized = String(fee.status || "").toUpperCase();
       const isPaid = ["SUBMITTED", "PAID", "PAID ONLINE"].includes(normalized);
       const amountValue = Number(fee.amount || 0);
-      const student = students.find((item) => Number(item.id) === Number(fee.student_id));
+      const student = allStudents.find((item) => Number(item.id) === Number(fee.student_id));
       return {
         "S.No.": index + 1,
         "Student Name": getStudentName(fee.student_id),
@@ -1836,7 +1847,7 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
     const exportRows = rows.map((fee, index) => {
       const normalized = String(fee.status || "").toUpperCase();
       const isPaid = ["SUBMITTED", "PAID", "PAID ONLINE"].includes(normalized);
-      const student = students.find((item) => Number(item.id) === Number(fee.student_id));
+      const student = allStudents.find((item) => Number(item.id) === Number(fee.student_id));
       return {
         "S.No.": index + 1,
         "Student Name": getStudentName(fee.student_id),
@@ -2001,14 +2012,14 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
   const monthlyReportTotalAmount = monthlyReportFeeRecords.reduce((sum, fee) => sum + Number(fee.amount || 0), 0);
   const monthlyReportSubmittedAmount = monthlyReportSubmittedFees.reduce((sum, fee) => sum + Number(fee.amount || 0), 0);
   const monthlyReportPendingAmount = monthlyReportPendingFees.reduce((sum, fee) => sum + Number(fee.amount || 0), 0);
-  const monthlyReportRows = students.flatMap((student) => {
+  const monthlyReportRows = allStudents.flatMap((student) => {
     const studentRecords = monthlyReportFeeRecords.filter((fee) => Number(fee.student_id) === Number(student.id));
     if (studentRecords.length === 0) {
       return [{ key: `student-${student.id}-no-entry`, student, fee: null as Fee | null }];
     }
     return studentRecords.map((fee) => ({ key: `fee-${fee.id}`, student, fee: fee as Fee | null }));
   });
-  const monthlyReportNoEntryCount = students.filter((student) =>
+  const monthlyReportNoEntryCount = allStudents.filter((student) =>
     !monthlyReportFeeRecords.some((fee) => Number(fee.student_id) === Number(student.id))
   ).length;
   const monthlyReportVisibleRows = monthlyReportRows.filter((row) => {
@@ -2046,7 +2057,7 @@ if (loading) {
               </div>
               <div style={{ fontSize: "14px", fontWeight: 900, marginBottom: "10px", color: "#0c54b8" }}>{getMonthName(Number(monthlyReportMonth))} {monthlyReportYear} · Monthly overview</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "8px", marginBottom: "12px" }}>
-                <div style={{ padding: "10px", borderRadius: "12px", border: "1px solid #c9e1ff", background: "#eaf4ff" }}><small style={{ display: "block", color: "#476c9c", fontSize: "10px", fontWeight: 800 }}>ALL STUDENTS</small><strong style={{ display: "block", fontSize: "23px", color: "#1557bd" }}>{students.length}</strong><small>{monthlyReportFeeRecords.length} fee records</small></div>
+                <div style={{ padding: "10px", borderRadius: "12px", border: "1px solid #c9e1ff", background: "#eaf4ff" }}><small style={{ display: "block", color: "#476c9c", fontSize: "10px", fontWeight: 800 }}>ALL STUDENTS</small><strong style={{ display: "block", fontSize: "23px", color: "#1557bd" }}>{allStudents.length}</strong><small>{monthlyReportFeeRecords.length} fee records</small></div>
                 <div style={{ padding: "10px", borderRadius: "12px", border: "1px solid #b9efd6", background: "#e9fff4" }}><small style={{ display: "block", color: "#287454", fontSize: "10px", fontWeight: 800 }}>SUBMITTED / PAID</small><strong style={{ display: "block", fontSize: "20px", color: "#07834c" }}>₹{monthlyReportSubmittedAmount.toLocaleString("en-IN")}</strong><small>{monthlyReportSubmittedFees.length} records</small></div>
                 <div style={{ padding: "10px", borderRadius: "12px", border: "1px solid #ffdca8", background: "#fff6e8" }}><small style={{ display: "block", color: "#a75b00", fontSize: "10px", fontWeight: 800 }}>TOTAL PENDING</small><strong style={{ display: "block", fontSize: "20px", color: "#d16a00" }}>₹{monthlyReportPendingAmount.toLocaleString("en-IN")}</strong><small>{monthlyReportPendingFees.length} records</small></div>
                 <div style={{ padding: "10px", borderRadius: "12px", border: "1px solid #d8c8ff", background: "#f3edff" }}><small style={{ display: "block", color: "#7150b2", fontSize: "10px", fontWeight: 800 }}>NO FEE ENTRY</small><strong style={{ display: "block", fontSize: "23px", color: "#7041c7" }}>{monthlyReportNoEntryCount}</strong><small>Students without an entry</small></div>
@@ -2122,7 +2133,7 @@ if (loading) {
                   <div className="racer-vip-fee-grid" key={fee.id}>
                     <span>{(safeFeePage - 1) * feePageSize + index + 1}</span>
                     <span className="fee-student"><strong>{getStudentName(fee.student_id)}</strong><small>{getStudentUsername(fee.student_id)} - {getMonthName(fee.month)} {fee.year}</small></span>
-                    <span>{getStudentClass(students.find((student) => student.id === fee.student_id) || ({} as Student)) || "-"}</span>
+                    <span>{getStudentClass(allStudents.find((student) => student.id === fee.student_id) || ({} as Student)) || "-"}</span>
                     <span>Rs. {amountValue.toLocaleString("en-IN")}</span>
                     <span className="money paid">Rs. {paidValue.toLocaleString("en-IN")}</span>
                     <span className="money due">Rs. {dueValue.toLocaleString("en-IN")}</span>

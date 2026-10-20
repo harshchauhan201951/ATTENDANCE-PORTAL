@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { getStudentCalendarEvent } from "../../../lib/student-calendar-events";
 import { isHiddenStudentTimetableTeacher } from "../../../lib/student-timetable";
-import { isFeePeriodOnOrAfterAdmission, isOnOrAfterAdmission } from "../../../lib/admission-date";
+import { isOnOrAfterAdmission } from "../../../lib/admission-date";
 import { filterMonthlySnapshotByAdmission } from "../../../lib/monthly-result";
 import StudentRacerSaathi from "./student-racer-saathi";
 
@@ -173,7 +173,7 @@ export default function StudentDashboardPage() {
       } catch {}
 
       /* Use only the next published/scheduled class, never a class already over. */
-      const attendanceRows = (attendanceResult.data || []).filter((row: any) => isOnOrAfterAdmission(admissionDate, row.attendance_date));
+      const attendanceRows = attendanceResult.data || [];
       const countedAttendance = attendanceRows.filter((row) => !["holiday", "off", "not applicable"].includes(String(row.status || "").trim().toLowerCase()));
       const presentCount = countedAttendance.filter((row) => String(row.status || "").trim().toLowerCase() === "present").length;
       const absentCount = countedAttendance.filter((row) => String(row.status || "").trim().toLowerCase() === "absent").length;
@@ -181,7 +181,7 @@ export default function StudentDashboardPage() {
       const attendancePercentage = totalClasses ? Math.round((presentCount / totalClasses) * 100) : 0;
       const todayAttendance = attendanceRows.find((row) => row.attendance_date === today);
       const overallAttendance = `Overall ${attendancePercentage}% · ${presentCount}/${totalClasses} present · ${absentCount} absent.`;
-      const extraAttendanceRows = (extraAttendanceResult.data || []).filter((row: { extra_class_date: string; status: string | null; subject: string | null }) => isOnOrAfterAdmission(admissionDate, row.extra_class_date));
+      const extraAttendanceRows = extraAttendanceResult.data || [];
       const todayExtraAttendanceRows = extraAttendanceRows.filter((row) => row.extra_class_date === today);
       const todayExtraAttendanceFact = extraAttendanceResult.error
         ? "Extra-class status unavailable."
@@ -196,8 +196,7 @@ export default function StudentDashboardPage() {
           ? `Latest: ${String(latestExtraAttendance.status || "Marked")} · ${latestExtraAttendance.subject || "Extra Class"} · ${dashboardDate(latestExtraAttendance.extra_class_date)}. ${extraAttendanceRows.length} extra class record${extraAttendanceRows.length === 1 ? "" : "s"} total.`
           : "No extra-class attendance has been marked yet.";
 
-      const eligibleFees = (feeResult.data || []).filter((fee: any) => isFeePeriodOnOrAfterAdmission(admissionDate, fee.year, fee.month));
-      const pendingFees = eligibleFees.filter((fee) => String(fee.status || "").toUpperCase() === "PENDING");
+      const pendingFees = (feeResult.data || []).filter((fee: any) => String(fee.status || "").toUpperCase() === "PENDING");
       const pendingTotal = pendingFees.reduce((sum, fee) => sum + Number(fee.amount || 0), 0);
       const pendingPeriods = pendingFees.slice(0, 3).map((fee) => new Date(Number(fee.year), Number(fee.month) - 1, 1).toLocaleDateString("en-IN", { month: "short", year: "numeric" })).join(", ");
       const feesFact = pendingFees.length

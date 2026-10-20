@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import jsPDF from "jspdf";
 import { downloadPdfFile } from "../../../lib/download-pdf";
-import { isFeePeriodOnOrAfterAdmission } from "../../../lib/admission-date";
 
 type Student = {
   id: number;
   student_name: string | null;
   student_username: string;
   admission_date?: string | null;
+  is_active?: boolean | null;
   [key: string]: unknown;
 };
 
@@ -814,10 +814,9 @@ export default function StudentFeesPage() {
        * Create automatic fee ONLY for
        * the logged-in student.
        */
-      await ensureAutomaticFeeForStudent(
-        currentStudent,
-        existingFees
-      );
+      if (currentStudent.is_active !== false) {
+        await ensureAutomaticFeeForStudent(currentStudent, existingFees);
+      }
 
       /*
        * Reload ONLY this student's fees.
@@ -848,9 +847,9 @@ export default function StudentFeesPage() {
           finalFeeError
         );
 
-        setFees(existingFees.filter((fee) => isFeePeriodOnOrAfterAdmission(currentStudent.admission_date, fee.year, fee.month)));
+        setFees(existingFees);
       } else {
-        setFees(((finalFeeData || []) as Fee[]).filter((fee) => isFeePeriodOnOrAfterAdmission(currentStudent.admission_date, fee.year, fee.month)));
+        setFees((finalFeeData || []) as Fee[]);
       }
     } catch (err) {
       console.error(

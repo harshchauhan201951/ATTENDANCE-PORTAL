@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
-import { isOnOrAfterAdmission } from "../../../lib/admission-date";
 import { getStudentCalendarEvent, getStudentCalendarEventEmoji } from "../../../lib/student-calendar-events";
 import { getManagedAttendanceDate, getVisibleManagedAttendanceRemarks } from "../../../lib/managed-attendance";
 
@@ -240,12 +239,9 @@ export default function StudentAttendancePage() {
         );
       }
 
-      setRecords(
-        ((regularAttendanceResult.data || []) as AttendanceRecord[]).filter((record) => isOnOrAfterAdmission(studentData.admission_date, record.attendance_date))
-      );
+      setRecords((regularAttendanceResult.data || []) as AttendanceRecord[]);
 
-      const loadedExtraClassRecords =
-        ((extraClassAttendanceResult.data || []) as ExtraClassAttendanceRecord[]).filter((record) => isOnOrAfterAdmission(studentData.admission_date, record.extra_class_date));
+      const loadedExtraClassRecords = (extraClassAttendanceResult.data || []) as ExtraClassAttendanceRecord[];
       setExtraClassRecords(loadedExtraClassRecords);
       setManagedAttendanceDates(
         Array.from(new Set(loadedExtraClassRecords

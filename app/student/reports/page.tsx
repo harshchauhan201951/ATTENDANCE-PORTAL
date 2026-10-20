@@ -5,7 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import jsPDF from "jspdf";
 import { downloadPdfFile } from "../../../lib/download-pdf";
-import { isFeePeriodOnOrAfterAdmission, isOnOrAfterAdmission } from "../../../lib/admission-date";
+import { isOnOrAfterAdmission } from "../../../lib/admission-date";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -1350,13 +1350,9 @@ export default function StudentReportsPage() {
         );
       }
 
-      setAttendance(
-        ((attendanceResult.data || []) as AttendanceRecord[]).filter((record) => isOnOrAfterAdmission(studentData.admission_date, record.attendance_date))
-      );
+      setAttendance((attendanceResult.data || []) as AttendanceRecord[]);
 
-      setFees(
-        ((feeResult.data || []) as FeeRecord[]).filter((record) => isFeePeriodOnOrAfterAdmission(studentData.admission_date, record.year, record.month))
-      );
+      setFees((feeResult.data || []) as FeeRecord[]);
 
       setAssessments(
         ((assessmentResult.data || []) as AssessmentRecord[]).filter((record) => isOnOrAfterAdmission(studentData.admission_date, record.test_date))

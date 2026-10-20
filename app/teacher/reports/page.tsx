@@ -224,7 +224,7 @@ export default function TeacherReportsPage() {
         if (detailError) setError(detailError.message);
         else {
           const enrollment = students.find((item) => Number(item.id) === Number(selectedReportStudentId));
-          setStudentDetailAttendance(((data || []) as Attendance[]).filter((record) => isOnOrAfterAdmission(enrollment?.admission_date, record.attendance_date)));
+          setStudentDetailAttendance((data || []) as Attendance[]);
         }
       } finally { if (active) setStudentDetailLoading(false); }
     })();
@@ -305,8 +305,7 @@ export default function TeacherReportsPage() {
 
     setStudents(loadedStudents);
 
-    const admissionDateByStudent = new Map(loadedStudents.map((student) => [Number(student.id), student.admission_date]));
-    setAttendance(((attendanceData || []) as Attendance[]).filter((record) => isOnOrAfterAdmission(admissionDateByStudent.get(Number(record.student_id)), record.attendance_date)));
+    setAttendance((attendanceData || []) as Attendance[]);
 
     setStudentMarks(
       loadedStudents.map((student) => ({

@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
-import { isFeePeriodOnOrAfterAdmission, isOnOrAfterAdmission } from "../../../lib/admission-date";
+import { isOnOrAfterAdmission } from "../../../lib/admission-date";
 import { getStudentCalendarEvent } from "../../../lib/student-calendar-events";
 import { filterMonthlySnapshotByAdmission } from "../../../lib/monthly-result";
 
@@ -689,8 +689,7 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
     const rows = [
       ...(regular.data || []).map((row) => ({ date: row.attendance_date, status: row.status })),
       ...(extra.data || []).map((row) => ({ date: row.extra_class_date, status: row.status })),
-    ].filter((row) => isOnOrAfterAdmission(student?.admission_date, row.date))
-      .filter((row) => period === "today" ? row.date === todayKey() : period === "month" ? monthOf(row.date) === monthKey() : period === "date" ? row.date === exactDate : true);
+    ].filter((row) => period === "today" ? row.date === todayKey() : period === "month" ? monthOf(row.date) === monthKey() : period === "date" ? row.date === exactDate : true);
     const present = rows.filter((row) => String(row.status || "").toLowerCase() === "present").length;
     const absent = rows.filter((row) => String(row.status || "").toLowerCase() === "absent").length;
     const recorded = present + absent;
@@ -708,7 +707,7 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
     if (!studentId) throw new Error("Student session not found.");
     const { data, error } = await supabase.from("fees").select("month,year,amount,status").eq("student_id", studentId).order("year", { ascending: false }).order("month", { ascending: false }).limit(100);
     if (error) throw error;
-    const rows = (data || []).filter((row) => isFeePeriodOnOrAfterAdmission(student?.admission_date, Number(row.year), Number(row.month)));
+    const rows = data || [];
     const paidRows = rows.filter((row) => ["paid", "paid online", "submitted", "complete", "completed"].includes(String(row.status || "").toLowerCase()));
     const dueRows = rows.filter((row) => String(row.status || "").toLowerCase() === "pending");
     const amount = (values: typeof rows) => values.reduce((sum, row) => sum + Number(row.amount || 0), 0);
