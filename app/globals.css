@@ -8938,6 +8938,8 @@ main[data-racer-vip-module="homework"] .homeworkList .deleteButton { border-radi
 @media (max-width: 1024px) {
   .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] {
     background: #f5f7fa !important;
+    padding-bottom: calc(92px + env(safe-area-inset-bottom)) !important;
+    scroll-padding-bottom: calc(92px + env(safe-area-inset-bottom));
   }
   .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-screen {
     min-height: 0 !important;
@@ -8949,32 +8951,85 @@ main[data-racer-vip-module="homework"] .homeworkList .deleteButton { border-radi
     background: transparent !important;
   }
   .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-canvas > header {
-    background: #fff !important;
+    background: #ffffff !important;
     color: #18324f !important;
-    border: 1px solid #e7ebf1 !important;
+    border: 1px solid #dbe4ef !important;
     border-radius: 14px !important;
-    box-shadow: 0 5px 18px rgba(20, 42, 70, .06) !important;
+    box-shadow: 0 6px 18px rgba(20, 42, 70, .08) !important;
+  }
+  .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-header-content {
+    padding: 10px 12px 8px !important;
   }
   .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-canvas > header h1 {
     color: #17314f !important;
   }
   .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-canvas > header p,
   .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-canvas > header > div > div:last-child {
-    color: #738198 !important;
+    color: #53677f !important;
+  }
+  .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-meta {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    margin-top: 3px !important;
+    padding: 3px 8px !important;
+    border: 1px solid #dce5ef !important;
+    border-radius: 999px !important;
+    background: #f1f5fa !important;
+    color: #53677f !important;
+    font-size: 9px !important;
+    font-weight: 800 !important;
+    letter-spacing: .35px !important;
+  }
+  .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-timer-badge {
+    min-width: 76px !important;
+    padding: 7px 10px !important;
+    border: 1px solid #e5d6ad !important;
+    border-radius: 14px !important;
+    background: linear-gradient(145deg, #fffaf0, #f5ecd5) !important;
+    color: #5f481c !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8) !important;
+  }
+  .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-timer-badge.is-urgent {
+    border-color: #efb8b8 !important;
+    background: #fff0f0 !important;
+    color: #a12d37 !important;
+  }
+  .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-timer-label {
+    color: inherit !important;
+    opacity: .78 !important;
+    letter-spacing: .65px !important;
+  }
+  .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-timer-value {
+    color: inherit !important;
+    font-size: 19px !important;
+    line-height: 1.05 !important;
   }
   .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-progress-track {
-    background: #edf1f6 !important;
+    height: 6px !important;
+    margin-top: 8px !important;
+    background: #e6ecf3 !important;
   }
   .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-progress-value {
     background: linear-gradient(90deg, #aa8237, #e2c57c) !important;
   }
   .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-question-card {
-    padding: 18px !important;
-    border: 1px solid #e6eaf0 !important;
+    position: relative !important;
+    overflow: hidden !important;
+    padding: 14px !important;
+    border: 1px solid #dbe4ef !important;
     border-radius: 19px !important;
-    background: #fff !important;
+    background: linear-gradient(155deg, #ffffff 0%, #fbfcfe 100%) !important;
     color: #233650 !important;
-    box-shadow: 0 10px 28px rgba(25, 45, 72, .07) !important;
+    box-shadow: 0 10px 25px rgba(25, 45, 72, .09), inset 0 3px 0 #d8bd7b !important;
+  }
+  .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-body {
+    padding: 10px 12px 16px !important;
+  }
+  .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-stats {
+    margin-top: 6px !important;
+    color: #5e7087 !important;
+    font-size: 9px !important;
   }
   .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-question-number {
     border: 1px solid #ead9ad !important;
@@ -8989,22 +9044,35 @@ main[data-racer-vip-module="homework"] .homeworkList .deleteButton { border-radi
   }
   .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-question-text {
     color: #172b45 !important;
-    font-size: 21px !important;
-    line-height: 1.55 !important;
-    letter-spacing: -.15px !important;
+    margin-top: 12px !important;
+    font-size: 19px !important;
+    line-height: 1.38 !important;
+    letter-spacing: -.2px !important;
+  }
+  .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-options {
+    display: grid !important;
+    gap: 8px !important;
+    margin-top: 12px !important;
   }
   .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-option {
-    min-height: 66px !important;
+    min-height: 54px !important;
     align-items: center !important;
-    border: 1px solid #e5eaf0 !important;
-    border-radius: 15px !important;
-    background: #fff !important;
-    color: #293b53 !important;
-    box-shadow: 0 3px 10px rgba(27, 47, 74, .035) !important;
+    gap: 10px !important;
+    padding: 9px 11px !important;
+    border: 1px solid #dbe5f0 !important;
+    border-radius: 14px !important;
+    background: #f5f8fc !important;
+    color: #263b55 !important;
+    box-shadow: 0 2px 7px rgba(27, 47, 74, .035) !important;
+  }
+  .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-option > span:last-child {
+    padding-top: 0 !important;
+    font-size: 13px !important;
+    line-height: 1.38 !important;
   }
   .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-option:hover {
     border-color: #d9c58f !important;
-    background: #fffdf8 !important;
+    background: #fffbf1 !important;
   }
   .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-option.is-selected {
     border-color: #b28b43 !important;
@@ -9012,16 +9080,35 @@ main[data-racer-vip-module="homework"] .homeworkList .deleteButton { border-radi
     box-shadow: 0 0 0 2px rgba(178, 139, 67, .11), 0 5px 14px rgba(35, 48, 67, .06) !important;
   }
   .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-option-letter {
-    width: 36px !important;
-    height: 36px !important;
-    border: 1px solid #e4eaf2 !important;
-    border-radius: 12px !important;
-    background: #f1f5f9 !important;
-    color: #536780 !important;
+    width: 30px !important;
+    height: 30px !important;
+    border: 1px solid #dce5ef !important;
+    border-radius: 10px !important;
+    background: #eaf0f7 !important;
+    color: #435a76 !important;
   }
   .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-option.is-selected .quiz-attempt-option-letter {
     border-color: #b28b43 !important;
     background: #b28b43 !important;
+    color: #fff !important;
+  }
+  .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-controls {
+    flex-direction: row !important;
+    gap: 10px !important;
+    margin-top: 14px !important;
+  }
+  .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-controls > button {
+    min-height: 40px !important;
+    flex: 1 1 0 !important;
+    padding: 9px 12px !important;
+    border: 1px solid #d9e2ed !important;
+    border-radius: 12px !important;
+    background: #eef3f9 !important;
+    color: #34506f !important;
+  }
+  .racer-student-shell .racer-student-content-area[data-student-route="quiz-attempt"] .quiz-attempt-controls > button:last-child {
+    border-color: #1b5d9c !important;
+    background: linear-gradient(135deg, #155f9f, #0f477e) !important;
     color: #fff !important;
   }
 }

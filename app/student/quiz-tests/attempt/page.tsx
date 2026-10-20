@@ -1249,14 +1249,14 @@ const [isReattempt, setIsReattempt] =
     <main className="quiz-attempt-screen min-h-screen bg-slate-950 text-white">
       <div className="quiz-attempt-canvas min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
         <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-950/95 backdrop-blur">
-          <div className="mx-auto max-w-6xl px-3 py-3 sm:px-4">
+          <div className="quiz-attempt-header-content mx-auto max-w-6xl px-3 py-3 sm:px-4">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <h1 className="truncate text-base font-black sm:text-xl">
                   {quiz.title}
                 </h1>
 
-                <p className="text-[10px] text-slate-400 sm:text-xs">
+                <p className="quiz-attempt-meta text-[10px] text-slate-400 sm:text-xs">
                   RACER ACADEMY
                   {isReattempt
                     ? " • RE-ATTEMPT"
@@ -1265,17 +1265,15 @@ const [isReattempt, setIsReattempt] =
               </div>
 
               <div
-                className={`shrink-0 rounded-xl px-3 py-2 text-center ${
-                  timeLeft <= 60
-                    ? "bg-red-500/20 text-red-300"
-                    : "bg-indigo-500/20 text-indigo-300"
+                className={`quiz-attempt-timer-badge shrink-0 rounded-xl px-3 py-2 text-center ${
+                  timeLeft <= 60 ? "is-urgent" : ""
                 }`}
               >
-                <div className="text-[9px] font-bold">
+                <div className="quiz-attempt-timer-label text-[9px] font-bold">
                   TIME LEFT
                 </div>
 
-                <div className="text-lg font-black tabular-nums sm:text-2xl">
+                <div className="quiz-attempt-timer-value text-lg font-black tabular-nums sm:text-2xl">
                   {formatTime(
                     timeLeft
                   )}
@@ -1299,7 +1297,7 @@ const [isReattempt, setIsReattempt] =
               />
             </div>
 
-            <div className="mt-2 flex items-center justify-between text-[10px] font-bold text-slate-500 sm:text-xs">
+            <div className="quiz-attempt-stats mt-2 flex items-center justify-between text-[10px] font-bold text-slate-500 sm:text-xs">
               <span>
                 Question{" "}
                 {currentIndex + 1}{" "}
@@ -1316,7 +1314,7 @@ const [isReattempt, setIsReattempt] =
           </div>
         </header>
 
-        <div className="mx-auto max-w-6xl px-3 py-4 pb-28 sm:px-4 sm:py-8">
+        <div className="quiz-attempt-body mx-auto max-w-6xl px-3 py-4 pb-28 sm:px-4 sm:py-8">
           <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
             <section className="quiz-attempt-question-card rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl sm:p-7">
               <div className="flex items-start justify-between gap-3">
@@ -1337,7 +1335,7 @@ const [isReattempt, setIsReattempt] =
                 }
               </h2>
 
-              <div className="mt-6 space-y-3">
+              <div className="quiz-attempt-options mt-6 space-y-3">
                 {currentQuestion.options.map(
                   (
                     option,
@@ -1396,7 +1394,7 @@ const [isReattempt, setIsReattempt] =
                 )}
               </div>
 
-              <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:justify-between">
+              <div className="quiz-attempt-controls mt-7 flex flex-col gap-3 sm:flex-row sm:justify-between">
                 <button
                   type="button"
                   disabled={
