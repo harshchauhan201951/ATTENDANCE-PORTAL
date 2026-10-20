@@ -496,15 +496,21 @@ export default function StudentCalendarPage() {
   function getDayInfo(date: Date): CalendarEvent | null {
     const baseEvent = getStudentCalendarEvent(date);
     const status = extraClassStatusByDate[dateKey(date)];
-    if (status && !studentCalendarHolidays.some((event) => event.date === dateKey(date)) && !baseEvent?.title.startsWith("Monthly ")) {
+    if (status && (!baseEvent || baseEvent.title === "Monday Off")) {
       return { date: dateKey(date), title: `Extra Class · ${status}`, type: "class", description: `Teacher held an Extra Class; your attendance is ${status}.` };
     }
     return baseEvent;
   }
 
   function getDayEvents(date: Date): CalendarEvent[] {
+    const baseEvent = getStudentCalendarEvent(date);
     const info = getDayInfo(date);
     if (!info) return [];
+    const status = extraClassStatusByDate[dateKey(date)];
+    if (status && baseEvent && baseEvent.title !== "Monday Off") {
+      return [baseEvent, { date: dateKey(date), title: `Extra Class · ${status}`, type: "class", description: `Teacher held an Extra Class; your attendance is ${status}.` }];
+    }
+    if (status && info.title.startsWith("Extra Class")) return [info];
     const events = [info];
     if (info.title === "Monthly Result" && date.getDay() === 1 && dateKey(date) >= "2026-08-31") {
       events.push({ date: dateKey(date), title: "Monday Off", type: "holiday", description: "Monday is the weekly tuition holiday from 31 August 2026 onward." });
@@ -715,6 +721,7 @@ export default function StudentCalendarPage() {
                 const holiday = getHoliday(date);
                 const monthlyEvent = info?.type === "test" && info.title.startsWith("Monthly ") ? info : null;
                 const extraClassEvent = info?.title.startsWith("Extra Class") ? info : null;
+                const extraClassStatus = extraClassStatusByDate[dateKey(date)];
 
                 const todayDate =
                   dateKey(date) ===
@@ -753,7 +760,7 @@ export default function StudentCalendarPage() {
                         : {}),
                       ...(monthlyEvent?.title === "Monthly MahaTest" ? styles.monthlyMahaTestDay : {}),
                       ...(monthlyEvent?.title === "Monthly Result" ? styles.monthlyResultDay : {}),
-                      ...(extraClassEvent ? { background: "linear-gradient(145deg,#e3fbff,#b9edf0)", border: "1px solid #49b6bc", color: "#086b75" } : {}),
+                      ...(extraClassStatus ? { background: "linear-gradient(145deg,#e3fbff,#b9edf0)", border: "1px solid #49b6bc", color: "#086b75" } : {}),
                       ...(holiday
                         ? styles.holiday
                         : {}),
@@ -787,20 +794,23 @@ export default function StudentCalendarPage() {
                         >
                           {holiday.title}
                         </div>
+                        {extraClassStatus && <div style={{ ...styles.classLabel, marginTop: 3, color: "#087e8b", background: "linear-gradient(110deg,#d9f7f5,#b5e7ee)", border: "1px solid #5eb8c0" }}>✨ EXTRA CLASS · {extraClassStatus.toUpperCase()}</div>}
                       </>
                     ) : monthlyEvent ? (
                       <>
                         <div style={{...styles.testLabel,...(monthlyEvent.title === "Monthly Result" ? styles.monthlyResultLabel : styles.monthlyMahaTestLabel)}} className={`student-calendar-test-label ${monthlyEvent.title === "Monthly Result" ? "student-calendar-monthly-result" : "student-calendar-monthly-mahatest"}`}>{monthlyEvent.title === "Monthly Result" ? "📢 MONTHLY RESULT" : "📝 MONTHLY MAHATEST"}</div>
                         <div style={styles.smallText} className="student-calendar-small-text">{monthlyEvent.title}</div>
                         {dayEvents.some((event) => event.title === "Monday Off") && <div style={{ ...styles.holidayLabel, marginTop: 3, color: "#c84e61", background: "#ffe9f0" }}>× OFF · MONDAY</div>}
+                        {extraClassStatus && <div style={{ ...styles.classLabel, marginTop: 3, color: "#087e8b", background: "linear-gradient(110deg,#d9f7f5,#b5e7ee)", border: "1px solid #5eb8c0" }}>✨ EXTRA CLASS · {extraClassStatus.toUpperCase()}</div>}
                       </>
                     ) : extraClassEvent ? (
                       <>
                         <div style={{ ...styles.classLabel, color: "#087e8b", background: "linear-gradient(110deg,#d9f7f5,#b5e7ee)", border: "1px solid #5eb8c0" }}>✨ EXTRA CLASS</div>
-                        <div style={{ ...styles.smallText, color: "#086b75" }}>{info.title.replace("Extra Class · ", "")}</div>
+                        <div style={{ ...styles.smallText, color: "#086b75" }}>{extraClassEvent.title.replace("Extra Class · ", "")}</div>
                       </>
                     ) : sundayClass ? (
                       <>
+                        {extraClassStatus && <div style={{ ...styles.classLabel, marginBottom: 3, color: "#087e8b", background: "linear-gradient(110deg,#d9f7f5,#b5e7ee)", border: "1px solid #5eb8c0" }}>✨ EXTRA CLASS · {extraClassStatus.toUpperCase()}</div>}
                         <div
                           style={styles.classLabel}
                           className="student-calendar-class-label"
@@ -849,6 +859,7 @@ export default function StudentCalendarPage() {
                       </>
                     ) : saturday ? (
                       <>
+                        {extraClassStatus && <div style={{ ...styles.classLabel, marginBottom: 3, color: "#087e8b", background: "linear-gradient(110deg,#d9f7f5,#b5e7ee)", border: "1px solid #5eb8c0" }}>✨ EXTRA CLASS · {extraClassStatus.toUpperCase()}</div>}
                         <div
                           style={styles.testLabel}
                           className="student-calendar-test-label"

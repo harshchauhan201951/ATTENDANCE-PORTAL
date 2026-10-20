@@ -469,6 +469,9 @@ export default function AcademicCalendarPage() {
                   {event?.title === "Monthly Result" && date.getDay() === 1 && dateKey(date) >= "2026-08-31" && (
                     <div style={{ ...styles.closed, marginTop: 2 }}>× OFF · MONDAY</div>
                   )}
+                  {extraClassByDate[dateKey(date)] && !event?.title.startsWith("Extra Class") && (
+                    <div style={{ ...styles.extraClassTag, marginTop: 3, padding: "3px 4px", borderRadius: 7, fontSize: 7, fontWeight: 900, textAlign: "center" }}>✨ EXTRA CLASS · {extraClassByDate[dateKey(date)].toUpperCase()}</div>
+                  )}
 
                   {!event &&
                     !isSunday && (
