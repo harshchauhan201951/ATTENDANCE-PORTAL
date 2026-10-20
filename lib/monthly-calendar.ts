@@ -21,9 +21,9 @@ export function getMonthlyMahaTestDate(monthKey: string) {
   const monthIndex = month - 1;
   const daysInMonth = new Date(year, month, 0).getDate();
 
-  // Look for Saturday among the month's final three dates: 29, 30 and 31.
+  // Look for Saturday among the final dates from the 27th through month end.
   if (daysInMonth >= 29) {
-    for (let day = Math.max(29, daysInMonth - 2); day <= daysInMonth; day += 1) {
+    for (let day = Math.max(27, daysInMonth - 4); day <= daysInMonth; day += 1) {
       if (new Date(year, monthIndex, day).getDay() === 6) {
         return dateKey(year, monthIndex, day);
       }

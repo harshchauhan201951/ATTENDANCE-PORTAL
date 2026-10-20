@@ -190,3 +190,22 @@ export function getStudentCalendarEvent(date: Date): CalendarEvent | null {
   }
   return null;
 }
+
+/** Returns calendar entries that share a date, such as a Monday off and a monthly result. */
+export function getStudentCalendarEvents(date: Date): CalendarEvent[] {
+  const primary = getStudentCalendarEvent(date);
+  if (!primary) return [];
+
+  const events = [primary];
+  const key = dateKey(date);
+  const isMondayOff = key >= "2026-08-31" && date.getDay() === 1;
+  if (isMondayOff && primary.title === "Monthly Result") {
+    events.push({
+      date: key,
+      title: "Monday Off",
+      type: "holiday",
+      description: "Monday is the weekly tuition holiday from 31 August 2026 onward.",
+    });
+  }
+  return events;
+}

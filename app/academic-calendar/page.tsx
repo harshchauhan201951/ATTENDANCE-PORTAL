@@ -202,6 +202,9 @@ export default function AcademicCalendarPage() {
     );
     }),
     ...getMonthlyCalendarEvents(year, month),
+    ...getMonthlyCalendarEvents(year, month)
+      .filter((event) => event.title === "Monthly Result" && new Date(`${event.date}T00:00:00`).getDay() === 1 && event.date >= "2026-08-31")
+      .map((event) => ({ date: event.date, title: "Monday Off", type: "holiday" as const, description: "Monday is the weekly tuition holiday; the Monthly Result is also scheduled for this date." })),
   ];
 
   function previousMonth() {
@@ -418,6 +421,10 @@ export default function AcademicCalendarPage() {
                         : "⭐"}{" "}
                       {event.title}
                     </div>
+                  )}
+
+                  {event?.title === "Monthly Result" && date.getDay() === 1 && dateKey(date) >= "2026-08-31" && (
+                    <div style={{ ...styles.closed, marginTop: 2 }}>× OFF · MONDAY</div>
                   )}
 
                   {!event &&

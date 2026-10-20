@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { getStudentCalendarEvent, getStudentCalendarEventEmoji, studentCalendarHolidays, type CalendarEvent } from "../../../lib/student-calendar-events";
+import { getStudentCalendarEvent, getStudentCalendarEvents, getStudentCalendarEventEmoji, studentCalendarHolidays, type CalendarEvent } from "../../../lib/student-calendar-events";
 
 const monthNames = [
   "January",
@@ -242,6 +242,7 @@ function CalendarReferenceVip({
               }
 
               const info = getDayInfo(date);
+              const dayEvents = getStudentCalendarEvents(date);
               const key = dateKey(date);
               const selected = key === todayKey;
 
@@ -268,13 +269,13 @@ function CalendarReferenceVip({
 
                   {info ? (
                     <>
-                      <div style={{ width: 7, height: 7, borderRadius: "50%", background: eventColor(info.type, info.title), marginBottom: 4 }} />
-                      <div style={{ fontSize: 5.5, fontWeight: 900, color: eventColor(info.type, info.title), background: info.title === "Monthly MahaTest" ? "linear-gradient(110deg,#fff5d6,#f7d77a)" : info.title === "Monthly Result" ? "linear-gradient(110deg,#d9f7f5,#b5e7ee)" : "transparent", border: info.title.startsWith("Monthly ") ? `1px solid ${info.title === "Monthly Result" ? "#5eb8c0" : "#d7aa35"}` : "0", borderRadius: 999, padding: info.title.startsWith("Monthly ") ? "2px 3px" : 0, lineHeight: 1.15, overflowWrap: "anywhere" }}>
-                        {info.type === "holiday" ? `${getStudentCalendarEventEmoji(info)} Holiday` : info.type === "test" ? info.title : "Class"}
-                      </div>
-                      <div style={{ marginTop: 2, fontSize: 5.5, color: "#6f819f", lineHeight: 1.15, overflowWrap: "anywhere" }}>
-                        {info.title}
-                      </div>
+                      {dayEvents.map((event) => <div key={event.title} style={{ marginBottom: 2 }}>
+                        <div style={{ width: 7, height: 7, borderRadius: "50%", background: eventColor(event.type, event.title), marginBottom: 2 }} />
+                        <div style={{ fontSize: 5.5, fontWeight: 900, color: eventColor(event.type, event.title), background: event.title === "Monthly MahaTest" ? "linear-gradient(110deg,#fff5d6,#f7d77a)" : event.title === "Monthly Result" ? "linear-gradient(110deg,#d9f7f5,#b5e7ee)" : event.title === "Monday Off" ? "#ffe9f0" : "transparent", border: event.title.startsWith("Monthly ") ? `1px solid ${event.title === "Monthly Result" ? "#5eb8c0" : "#d7aa35"}` : "0", borderRadius: 999, padding: event.title.startsWith("Monthly ") ? "2px 3px" : 0, lineHeight: 1.15, overflowWrap: "anywhere" }}>
+                          {event.type === "holiday" ? `${getStudentCalendarEventEmoji(event)} OFF` : event.type === "test" ? event.title : "Class"}
+                        </div>
+                        <div style={{ marginTop: 1, fontSize: 5.5, color: "#6f819f", lineHeight: 1.15, overflowWrap: "anywhere" }}>{event.title}</div>
+                      </div>)}
                     </>
                   ) : (
                     <div style={{ fontSize: 5.5, color: "#b0bacb", marginTop: 12 }}>—</div>
@@ -655,6 +656,7 @@ export default function StudentCalendarPage() {
                 }
 
                 const info = getDayInfo(date);
+                const dayEvents = getStudentCalendarEvents(date);
 
                 const sunday = isSunday(date);
                 const monday = isMonday(date);
@@ -741,6 +743,7 @@ export default function StudentCalendarPage() {
                       <>
                         <div style={{...styles.testLabel,...(monthlyEvent.title === "Monthly Result" ? styles.monthlyResultLabel : styles.monthlyMahaTestLabel)}} className={`student-calendar-test-label ${monthlyEvent.title === "Monthly Result" ? "student-calendar-monthly-result" : "student-calendar-monthly-mahatest"}`}>{monthlyEvent.title === "Monthly Result" ? "📢 MONTHLY RESULT" : "📝 MONTHLY MAHATEST"}</div>
                         <div style={styles.smallText} className="student-calendar-small-text">{monthlyEvent.title}</div>
+                        {dayEvents.some((event) => event.title === "Monday Off") && <div style={{ ...styles.holidayLabel, marginTop: 3, color: "#c84e61", background: "#ffe9f0" }}>× OFF · MONDAY</div>}
                       </>
                     ) : sundayClass ? (
                       <>

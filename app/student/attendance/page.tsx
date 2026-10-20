@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
-import { getStudentCalendarEvent, getStudentCalendarEventEmoji } from "../../../lib/student-calendar-events";
+import { getStudentCalendarEvent, getStudentCalendarEvents, getStudentCalendarEventEmoji } from "../../../lib/student-calendar-events";
 import { getManagedAttendanceDate, getVisibleManagedAttendanceRemarks } from "../../../lib/managed-attendance";
 
 const supabase = createClient(
@@ -811,6 +811,7 @@ export default function StudentAttendancePage() {
                 );
                 const isManagedAttendanceDate = managedAttendanceDates.includes(key);
                 const calendarEvent = getStudentCalendarEvent(date);
+                const calendarEvents = getStudentCalendarEvents(date);
                 const isOffDate = Boolean(
                   calendarEvent?.type === "holiday" &&
                   calendarEvent.title.toLowerCase().includes("off")
@@ -867,6 +868,9 @@ export default function StudentAttendancePage() {
                       >
                         {calendarEvent.title}
                       </small>
+                    )}
+                    {calendarEvents.some((event) => event.title === "Monday Off") && (
+                      <small className="vip-week-event-name" title="Monday Off · Monthly Result" style={{ color: "#b45309", fontWeight: 800 }}>× OFF · Monthly Result</small>
                     )}
                     {isManagedAttendanceDate ? (
                       <b className="vip-managed-attendance-marker" title="Managed Attendance">↻</b>
