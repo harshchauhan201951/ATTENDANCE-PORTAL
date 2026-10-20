@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { getMonthlyCalendarEvent } from "../../../lib/monthly-calendar";
 
 type CalendarEvent = {
   date: string;
@@ -807,6 +808,9 @@ export default function TeacherCalendarPage() {
       return holiday;
     }
 
+    const monthlyEvent = getMonthlyCalendarEvent(date);
+    if (monthlyEvent) return monthlyEvent;
+
     // FROM 30 AUGUST 2026:
     // Sunday becomes a regular CLASS day.
     if (isSundayClassDate(date)) {
@@ -912,6 +916,7 @@ export default function TeacherCalendarPage() {
               if (!date) return <div key={`empty-${index}`} className="racer-vip-cal-day empty" />;
               const info = getDayInfo(date);
               const holiday = getHoliday(date);
+              const monthlyEvent = info?.type === "test" && info.title.startsWith("Monthly ") ? info : null;
               const sundayClass = isSundayClassDate(date);
               const mondayOff = isMondayOffDate(date);
               const saturday = isSaturday(date);
@@ -920,11 +925,11 @@ export default function TeacherCalendarPage() {
                 <button
                   type="button"
                   key={dateKey(date)}
-                  className={`racer-vip-cal-day ${todayDate ? "today" : ""} ${holiday ? "holiday" : ""} ${sundayClass ? "sunday-class" : ""} ${mondayOff && !holiday ? "monday-off" : ""} ${saturday && !holiday ? "test" : ""}`}
+                  className={`racer-vip-cal-day ${todayDate ? "today" : ""} ${holiday ? "holiday" : ""} ${sundayClass && !monthlyEvent ? "sunday-class" : ""} ${mondayOff && !holiday && !monthlyEvent ? "monday-off" : ""} ${(saturday || monthlyEvent) && !holiday ? "test" : ""}`}
                   onClick={() => info && setSelectedEvent(info)}
                 >
                   <span className="racer-vip-cal-number">{date.getDate()}</span>
-                  {holiday ? <span className="racer-vip-cal-pill holiday-pill">{holiday.title}</span> : sundayClass ? <span className="racer-vip-cal-pill class-pill">CLASS</span> : mondayOff ? <span className="racer-vip-cal-pill off-pill">OFF</span> : saturday ? <span className="racer-vip-cal-pill test-pill">TEST</span> : <span className="racer-vip-cal-small">Tuition</span>}
+                  {holiday ? <span className="racer-vip-cal-pill holiday-pill">{holiday.title}</span> : monthlyEvent ? <span className="racer-vip-cal-pill test-pill">{monthlyEvent.title}</span> : sundayClass ? <span className="racer-vip-cal-pill class-pill">CLASS</span> : mondayOff ? <span className="racer-vip-cal-pill off-pill">OFF</span> : saturday ? <span className="racer-vip-cal-pill test-pill">TEST</span> : <span className="racer-vip-cal-small">Tuition</span>}
                 </button>
               );
             })}

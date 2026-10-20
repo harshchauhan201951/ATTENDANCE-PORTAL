@@ -266,7 +266,7 @@ function CalendarReferenceVip({
                     <>
                       <div style={{ width: 7, height: 7, borderRadius: "50%", background: eventColor(info.type), marginBottom: 4 }} />
                       <div style={{ fontSize: 5.5, fontWeight: 900, color: eventColor(info.type), lineHeight: 1.15, overflowWrap: "anywhere" }}>
-                        {info.type === "holiday" ? `${getStudentCalendarEventEmoji(info)} Holiday` : info.type === "test" ? "Weekly Test" : "Class"}
+                        {info.type === "holiday" ? `${getStudentCalendarEventEmoji(info)} Holiday` : info.type === "test" ? info.title : "Class"}
                       </div>
                       <div style={{ marginTop: 2, fontSize: 5.5, color: "#6f819f", lineHeight: 1.15, overflowWrap: "anywhere" }}>
                         {info.title}
@@ -660,6 +660,7 @@ export default function StudentCalendarPage() {
                 const mondayOff =
                   isMondayOffDate(date);
                 const holiday = getHoliday(date);
+                const monthlyEvent = info?.type === "test" && info.title.startsWith("Monthly ") ? info : null;
 
                 const todayDate =
                   dateKey(date) ===
@@ -730,6 +731,11 @@ export default function StudentCalendarPage() {
                           {holiday.title}
                         </div>
                       </>
+                    ) : monthlyEvent ? (
+                      <>
+                        <div style={styles.testLabel} className="student-calendar-test-label">{monthlyEvent.title === "Monthly Result" ? "📢 RESULT" : "📝 TEST"}</div>
+                        <div style={styles.smallText} className="student-calendar-small-text">{monthlyEvent.title}</div>
+                      </>
                     ) : sundayClass ? (
                       <>
                         <div
@@ -791,7 +797,7 @@ export default function StudentCalendarPage() {
                           style={styles.smallText}
                           className="student-calendar-small-text"
                         >
-                          Weekly Test
+                          {monthlyEvent ? "Weekly + Monthly MahaTest" : "Weekly Test"}
                         </div>
                       </>
                     ) : (

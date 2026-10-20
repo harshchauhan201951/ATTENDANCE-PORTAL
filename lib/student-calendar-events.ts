@@ -1,3 +1,5 @@
+import { getMonthlyCalendarEvent } from "./monthly-calendar";
+
 export type CalendarEvent = {
   date: string;
   title: string;
@@ -169,6 +171,9 @@ export function getStudentCalendarEvent(date: Date): CalendarEvent | null {
   const key = dateKey(date);
   const holiday = studentCalendarHolidays.find((event) => event.date === key);
   if (holiday) return holiday;
+
+  const monthlyEvent = getMonthlyCalendarEvent(date);
+  if (monthlyEvent) return monthlyEvent;
 
   const day = date.getDay();
   if (key >= "2026-08-30" && day === 0) {

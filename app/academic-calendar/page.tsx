@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { getMonthlyCalendarEvents, getMonthlyCalendarEvent } from "../../lib/monthly-calendar";
 
 type CalendarEvent = {
   date: string;
@@ -90,73 +91,6 @@ const events: CalendarEvent[] = [
   },
 
   {
-    date: "2026-02-14",
-    title: "Monthly Test",
-    type: "test",
-    description: "Regular tuition monthly test.",
-  },
-  {
-    date: "2026-03-14",
-    title: "Monthly Test",
-    type: "test",
-    description: "Regular tuition monthly test.",
-  },
-  {
-    date: "2026-04-18",
-    title: "Monthly Test",
-    type: "test",
-    description: "Regular tuition monthly test.",
-  },
-  {
-    date: "2026-05-16",
-    title: "Monthly Test",
-    type: "test",
-    description: "Regular tuition monthly test.",
-  },
-  {
-    date: "2026-06-13",
-    title: "Monthly Test",
-    type: "test",
-    description: "Regular tuition monthly test.",
-  },
-  {
-    date: "2026-07-18",
-    title: "Monthly Test",
-    type: "test",
-    description: "Regular tuition monthly test.",
-  },
-  {
-    date: "2026-08-15",
-    title: "Monthly Test",
-    type: "test",
-    description: "Monthly test schedule.",
-  },
-  {
-    date: "2026-09-19",
-    title: "Monthly Test",
-    type: "test",
-    description: "Regular tuition monthly test.",
-  },
-  {
-    date: "2026-10-17",
-    title: "Monthly Test",
-    type: "test",
-    description: "Regular tuition monthly test.",
-  },
-  {
-    date: "2026-11-14",
-    title: "Monthly Test",
-    type: "test",
-    description: "Regular tuition monthly test.",
-  },
-  {
-    date: "2026-12-12",
-    title: "Monthly Test",
-    type: "test",
-    description: "Final monthly test of the year.",
-  },
-
-  {
     date: "2026-05-25",
     title: "Summer Break Begins",
     type: "break",
@@ -221,7 +155,7 @@ function dateKey(date: Date) {
 }
 
 function getEvent(date: Date) {
-  return events.find((event) => event.date === dateKey(date));
+  return events.find((event) => event.date === dateKey(date)) || getMonthlyCalendarEvent(date) || undefined;
 }
 
 export default function AcademicCalendarPage() {
@@ -258,14 +192,17 @@ export default function AcademicCalendarPage() {
     return days;
   }, [year, month, firstDay, daysInMonth]);
 
-  const monthEvents = events.filter((event) => {
+  const monthEvents = [
+    ...events.filter((event) => {
     const date = new Date(event.date);
 
     return (
       date.getFullYear() === year &&
       date.getMonth() === month
     );
-  });
+    }),
+    ...getMonthlyCalendarEvents(year, month),
+  ];
 
   function previousMonth() {
     setCurrentMonth(

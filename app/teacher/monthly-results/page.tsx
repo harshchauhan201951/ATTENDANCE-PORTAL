@@ -6,6 +6,7 @@ import jsPDF from "jspdf";
 import { downloadPdfFile } from "../../../lib/download-pdf";
 import * as XLSX from "xlsx";
 import { isOnOrAfterAdmission } from "../../../lib/admission-date";
+import { getMonthlyMahaTestDate } from "../../../lib/monthly-calendar";
 import {
   calculateMonthlyTotals,
   isSaturday,
@@ -43,23 +44,16 @@ function isoToISTInput(value: string) {
   const ist = new Date(d.getTime() + 330 * 60 * 1000);
   return `${ist.getUTCFullYear()}-${String(ist.getUTCMonth()+1).padStart(2,"0")}-${String(ist.getUTCDate()).padStart(2,"0")}T${String(ist.getUTCHours()).padStart(2,"0")}:${String(ist.getUTCMinutes()).padStart(2,"0")}`;
 }
-function defaultReleaseInput(key: string) {
-  const [y, m] = key.split("-").map(Number);
-  const last = new Date(y, m, 0);
-  return `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, "0")}-${String(last.getDate()).padStart(2, "0")}T09:00`;
-}
-function getLastSaturday(key: string) {
-  const [y, m] = key.split("-").map(Number);
-  const d = new Date(y, m, 0);
-  while (d.getDay() !== 6) d.setDate(d.getDate() - 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 function addOneDay(value: string) {
   if (!value) return "";
   const d = new Date(`${String(value).slice(0, 10)}T00:00:00`);
   if (Number.isNaN(d.getTime())) return "";
   d.setDate(d.getDate() + 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function defaultReleaseInput(testDate: string) {
+  const resultDate = addOneDay(testDate);
+  return resultDate ? `${resultDate}T09:00` : "";
 }
 function cutoffDate(value: string) {
   return String(value || "").slice(0, 10);
@@ -200,7 +194,7 @@ export default function MonthlyResultsPage() {
       const ss = (studentsRes.data || []).filter((s: any) => !assigned || assigned.includes(Number(s.id)));
 
       const savedMahaDate = String(savedData.mahatest?.test_date || "").slice(0, 10);
-      const effectiveMahaDate = savedMahaDate || (monthKey ? getLastSaturday(monthKey) : "");
+      const effectiveMahaDate = savedMahaDate || (monthKey ? getMonthlyMahaTestDate(monthKey) : "");
       const previousMahaDates = (mahaHistoryRes.data || [])
         .map((r: any) => String(r.test_date || "").slice(0, 10))
         .filter((d: string) => d && d < effectiveMahaDate)
@@ -214,7 +208,9 @@ export default function MonthlyResultsPage() {
       const period = savedData.period as any;
       if (period) {
         setPassPercentage(String(period.pass_percentage ?? 40));
-        if (period.scheduled_release_at) setReleaseInput(isoToISTInput(String(period.scheduled_release_at)));
+        setReleaseInput(period.scheduled_release_at ? isoToISTInput(String(period.scheduled_release_at)) : defaultReleaseInput(effectiveMahaDate));
+      } else {
+        setReleaseInput(defaultReleaseInput(effectiveMahaDate));
       }
       const mm: Record<number,string> = {}; const mr: Record<number,string> = {};
       for (const row of (savedData.marks || [])) { mm[Number(row.student_id)] = row.obtained_marks == null ? "" : String(row.obtained_marks); mr[Number(row.student_id)] = row.remarks || ""; }
@@ -370,9 +366,9 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
         <label>Result Month<input type="month" value={monthKey} onChange={e=>setMonthKey(e.target.value)} style={inputStyle}/></label>
         <label>Result Announcement Time / Release Date & Time (IST)<input type="datetime-local" value={releaseInput} onChange={e=>setReleaseInput(e.target.value)} style={inputStyle}/></label>
         <label>Pass Percentage<input type="number" min="0" max="100" value={passPercentage} onChange={e=>setPassPercentage(e.target.value)} style={inputStyle}/></label>
-        <label>MahaTest Saturday<input type="date" value={mahaDate} onChange={e=>setMahaDate(e.target.value)} style={inputStyle}/></label>
+        <label>MahaTest Date<input type="date" value={mahaDate} onChange={e=>{const value=e.target.value;setMahaDate(value);setReleaseInput(defaultReleaseInput(value));}} style={inputStyle}/></label>
       </div>
-      <div style={{marginTop:10,padding:10,borderRadius:10,background:"#eef7ff",color:"#124d83",fontWeight:700}}>MahaTest: 2 Hours - 100 Marks - Only one monthly Saturday test</div>
+      <div style={{marginTop:10,padding:10,borderRadius:10,background:"#eef7ff",color:"#124d83",fontWeight:700}}>MahaTest: 2 Hours - 100 Marks - Month-end schedule; result the next day</div>
       <div style={{marginTop:8,fontSize:12,color:"#475569"}}>Included academic period: {periodStart || "---"} to {mahaDate || "---"} — data after the MahaTest date is excluded from this result.</div>
       {error && <div style={{marginTop:10,padding:10,borderRadius:8,background:"#fff1f2",color:"#b91c1c"}}>{error}</div>}
       {message && <div style={{marginTop:10,padding:10,borderRadius:8,background:"#ecfdf5",color:"#047857"}}>{message}</div>}
