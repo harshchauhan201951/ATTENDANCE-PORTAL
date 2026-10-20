@@ -5,6 +5,9 @@ export type MonthlyCalendarEvent = {
   description: string;
 };
 
+const MONTHLY_MAHATEST_START_MONTH = "2026-10";
+const FIRST_MONTHLY_MAHATEST_DATE = "2026-10-03";
+
 function dateKey(year: number, monthIndex: number, day: number) {
   return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
@@ -12,6 +15,8 @@ function dateKey(year: number, monthIndex: number, day: number) {
 export function getMonthlyMahaTestDate(monthKey: string) {
   const [year, month] = monthKey.split("-").map(Number);
   if (!Number.isInteger(year) || !Number.isInteger(month) || year < 1 || month < 1 || month > 12) return "";
+  if (monthKey < MONTHLY_MAHATEST_START_MONTH) return "";
+  if (monthKey === MONTHLY_MAHATEST_START_MONTH) return FIRST_MONTHLY_MAHATEST_DATE;
 
   const monthIndex = month - 1;
   const daysInMonth = new Date(year, month, 0).getDate();
@@ -45,6 +50,9 @@ export function getMonthlyResultDate(monthKey: string) {
 
 export function getMonthlyCalendarEvents(year: number, monthIndex: number): MonthlyCalendarEvent[] {
   const monthKey = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
+  const testDate = getMonthlyMahaTestDate(monthKey);
+  if (!testDate) return [];
+  const resultDate = getMonthlyResultDate(monthKey);
   const previousMonth = new Date(year, monthIndex - 1, 1);
   const previousKey = `${previousMonth.getFullYear()}-${String(previousMonth.getMonth() + 1).padStart(2, "0")}`;
   const previousResultDate = getMonthlyResultDate(previousKey);
@@ -59,13 +67,13 @@ export function getMonthlyCalendarEvents(year: number, monthIndex: number): Mont
   }
   events.push(
     {
-      date: getMonthlyMahaTestDate(monthKey),
+      date: testDate,
       title: "Monthly MahaTest",
       type: "test",
       description: "Monthly MahaTest is scheduled at month end. The monthly result is scheduled for the following day.",
     },
     {
-      date: getMonthlyResultDate(monthKey),
+      date: resultDate,
       title: "Monthly Result",
       type: "test",
       description: "Monthly result is scheduled for the day after the MahaTest.",
