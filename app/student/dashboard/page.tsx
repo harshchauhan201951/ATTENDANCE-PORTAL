@@ -52,6 +52,13 @@ function dashboardDate(value: string | null | undefined) {
   return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
 
+function attendanceStatusLabel(value: unknown) {
+  const status = String(value || "Marked").trim().toLowerCase();
+  if (status === "present" || status === "p") return "Present";
+  if (status === "absent" || status === "a") return "Absent";
+  return status ? status.charAt(0).toUpperCase() + status.slice(1) : "Marked";
+}
+
 export default function StudentDashboardPage() {
       const [monthlyResultPeriod,setMonthlyResultPeriod]=useState<any>(null);
       useEffect(()=>{let active=true; const loadMonthlyResultAnnouncement=async()=>{try{const r=await fetch("/api/monthly-results/publish?list=1",{cache:"no-store"}); const d=await r.json(); const periods=Array.isArray(d?.periods)?d.periods:[]; periods.sort((a:any,b:any)=>String(b?.month_key||"").localeCompare(String(a?.month_key||""))); if(active)setMonthlyResultPeriod(periods[0]||null);}catch{}}; loadMonthlyResultAnnouncement(); const timer=setInterval(loadMonthlyResultAnnouncement,30000); return()=>{active=false;clearInterval(timer)};},[]);
@@ -174,10 +181,14 @@ export default function StudentDashboardPage() {
       const attendancePercentage = totalClasses ? Math.round((presentCount / totalClasses) * 100) : 0;
       const todayAttendance = attendanceRows.find((row) => row.attendance_date === today);
       const overallAttendance = `Overall ${attendancePercentage}% · ${presentCount}/${totalClasses} present · ${absentCount} absent.`;
-      const attendanceFact = todayAttendance
-        ? `Today ${String(todayAttendance.status || "Marked")} · ${overallAttendance}`
-        : `Not marked today · ${overallAttendance}`;
       const extraAttendanceRows = (extraAttendanceResult.data || []).filter((row: { extra_class_date: string; status: string | null; subject: string | null }) => isOnOrAfterAdmission(admissionDate, row.extra_class_date));
+      const todayExtraAttendanceRows = extraAttendanceRows.filter((row) => row.extra_class_date === today);
+      const todayExtraAttendanceFact = extraAttendanceResult.error
+        ? "Extra-class status unavailable."
+        : todayExtraAttendanceRows.length
+          ? `Extra class: ${todayExtraAttendanceRows.map((row) => `${row.subject || "Extra Class"} — ${attendanceStatusLabel(row.status)}`).join(", ")}.`
+          : "No extra class marked today.";
+      const attendanceFact = `${todayAttendance ? `Today: ${attendanceStatusLabel(todayAttendance.status)}` : "Regular attendance not marked today"} · ${todayExtraAttendanceFact} · ${overallAttendance}`;
       const latestExtraAttendance = extraAttendanceRows[0];
       const extraAttendanceFact = extraAttendanceResult.error
         ? "Extra-class attendance is unavailable right now."
@@ -985,7 +996,7 @@ export default function StudentDashboardPage() {
   ).length;
 
   const dashboardUpdates = [
-    { type: "attendance", eyebrow: "ATTENDANCE • TODAY", title: dashboardFacts.attendance.startsWith("Today: Present") ? "Present today" : "Attendance today", detail: dashboardFacts.attendance, icon: "✓", metric: dashboardFacts.attendance.startsWith("Today: Present") ? "HERE" : dashboardFacts.attendance.includes("Absent") ? "ABSENT" : "—", href: "/student/attendance" },
+    { type: "attendance", eyebrow: "DAILY ATTENDANCE", title: "Attendance today", detail: dashboardFacts.attendance, icon: "✓", metric: dashboardFacts.attendance.includes("Present") && dashboardFacts.attendance.includes("Absent") ? "MIXED" : dashboardFacts.attendance.includes("Present") ? "PRESENT" : dashboardFacts.attendance.includes("Absent") ? "ABSENT" : "VIEW", href: "/student/attendance" },
     { type: "extra-attendance", eyebrow: "EXTRA CLASS ATTENDANCE", title: "Extra class attendance", detail: dashboardFacts.extraAttendance, icon: "★", metric: dashboardFacts.extraAttendance.match(/(\d+) extra class record/)?.[1] || "VIEW", href: "/student/attendance-history" },
     { type: "fees", eyebrow: "FEES", title: dashboardFacts.fees.includes("pending") ? "Fee payment pending" : "Fee status", detail: dashboardFacts.fees, icon: "₹", metric: dashboardFacts.fees.match(/₹[\d,]+/)?.[0] || (dashboardFacts.fees.includes("pending") ? "DUE" : "CLEAR"), href: "/student/fees" },
     { type: "performance", eyebrow: "MONTHLY PERFORMANCE", title: "Your latest performance", detail: dashboardFacts.performance, icon: "↗", metric: dashboardFacts.performance.match(/[\d.]+%/)?.[0] || "—", href: "/student/reports" },
