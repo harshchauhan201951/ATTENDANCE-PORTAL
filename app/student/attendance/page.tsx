@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { isOnOrAfterAdmission } from "../../../lib/admission-date";
+import { getStudentCalendarEvent, getStudentCalendarEventEmoji } from "../../../lib/student-calendar-events";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -469,24 +470,8 @@ export default function StudentAttendancePage() {
     const monthStart = new Date(year, monthIndex, 1);
     const monthEnd = new Date(year, monthIndex + 1, 0);
 
-    const monthRecords = unifiedAttendance
-      .filter((record) =>
-        String(record.attendance_date || "").startsWith(
-          mobileCalendarMonthKey
-        )
-      )
-      .map((record) =>
-        new Date(String(record.attendance_date) + "T00:00:00")
-      )
-      .filter((date) => !Number.isNaN(date.getTime()))
-      .sort((a, b) => b.getTime() - a.getTime());
-
-    // Never show future dates. For the selected month, the last visible date
-    // is exactly the latest date for which attendance exists.
-    if (monthRecords.length === 0) return [];
-
     const endDate = new Date(
-      Math.min(monthRecords[0].getTime(), monthEnd.getTime())
+      Math.min(new Date().setHours(0, 0, 0, 0), monthEnd.getTime())
     );
 
     const dates = [];
@@ -499,7 +484,7 @@ export default function StudentAttendancePage() {
     }
 
     return dates;
-  }, [mobileCalendarMonthKey, unifiedAttendance]);
+  }, [mobileCalendarMonthKey]);
 
   const mobileCalendarMonthName = useMemo(() => {
     const [yearText, monthText] = mobileCalendarMonthKey.split("-");
@@ -809,6 +794,14 @@ export default function StudentAttendancePage() {
                 const hasExtra = dayRecords.some(
                   (record) => record.attendance_type === "extra"
                 );
+                const calendarEvent = getStudentCalendarEvent(date);
+                const isOffDate = Boolean(
+                  calendarEvent?.type === "holiday" &&
+                  calendarEvent.title.toLowerCase().includes("off")
+                );
+                const holidayEmoji = calendarEvent?.type === "holiday" && !isOffDate
+                  ? getStudentCalendarEventEmoji(calendarEvent)
+                  : "";
 
                 const status = hasPresent
                   ? "P"
@@ -824,6 +817,10 @@ export default function StudentAttendancePage() {
                         ? "is-absent"
                         : status === "P"
                         ? "is-present"
+                        : isOffDate
+                        ? "is-off-day"
+                        : holidayEmoji
+                        ? "is-holiday-day"
                         : "is-empty")
                     }
                     key={key}
@@ -834,7 +831,19 @@ export default function StudentAttendancePage() {
                       })}
                     </span>
                     <strong>{date.getDate()}</strong>
-                    <em>{status || "•"}</em>
+                    <em>
+                      {status || (isOffDate ? <><span className="vip-off-cross">×</span> OFF</> : holidayEmoji || "•")}
+                    </em>
+                    {calendarEvent?.type === "holiday" && (
+                      <small className="vip-week-event-name" title={calendarEvent.title}>
+                        {calendarEvent.title}
+                      </small>
+                    )}
+                    {holidayEmoji && status && (
+                      <b className="vip-week-holiday-marker" title={calendarEvent?.title}>
+                        {holidayEmoji}
+                      </b>
+                    )}
                     {hasExtra && <i title="Extra Class">★</i>}
                   </div>
                 );
@@ -2095,6 +2104,7 @@ export default function StudentAttendancePage() {
             margin-top: 16px;
           }
           .vip-week-day {
+            position: relative;
             min-width: 0;
             padding: 12px 4px;
             border-radius: 13px;
@@ -2128,6 +2138,13 @@ export default function StudentAttendancePage() {
           }
           .vip-week-day.is-absent { background: #fff1f3; color: #903244; }
           .vip-week-day.is-absent em { background: #ff586b; }
+          .vip-week-day.is-off-day { background: #fff8e9; color: #8c5700; border-color: #f4d99c; }
+          .vip-week-day.is-off-day em { display: flex !important; width: auto !important; min-width: 35px !important; height: 19px !important; padding: 0 5px !important; align-items: center; justify-content: center; gap: 2px; background: linear-gradient(135deg,#ffe49a,#ffc94f) !important; color: #765000 !important; border: 1px solid #e6ad2e; border-radius: 999px !important; font-size: 7px !important; }
+          .vip-off-cross { color: #e53935; font-size: 11px; font-weight: 1000; line-height: 1; }
+          .vip-week-day.is-holiday-day { background: #fff8f1; color: #8c5700; border-color: #f4d8b8; }
+          .vip-week-day.is-holiday-day em { background: #fff; color: #805000; }
+          .vip-week-event-name { display: block; width: 100%; margin-top: 3px; overflow: hidden; color: #6b7280; font-size: 6px; font-weight: 700; line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
+          .vip-week-holiday-marker { position: absolute; top: 3px; left: 3px; z-index: 2; font-size: 9px; line-height: 1; }
           .vip-week-day.is-empty { background: #f3f7fd; color: #7184a7; }
           .vip-week-day.is-empty em { background: #d9e2f0; color: #7184a7; }
 
@@ -3211,9 +3228,16 @@ export default function StudentAttendancePage() {
           .vip-panel-heading h2, .vip-calendar-title-block h2 { color: #17365e !important; font-size: 14px !important; }
           .vip-panel-heading p, .vip-calendar-title-block p { color: #75869b !important; font-size: 9px !important; }
           .vip-week-grid { gap: 5px !important; }
-          .vip-week-day { min-height: 62px !important; border: 1px solid #e2ebf5 !important; border-radius: 12px !important; background: #f9fbfe !important; }
+          .vip-week-day { position: relative !important; min-height: 62px !important; border: 1px solid #e2ebf5 !important; border-radius: 12px !important; background: #f9fbfe !important; }
           .vip-week-day.is-present { border-color: #b9ecd9 !important; background: #effbf6 !important; }
           .vip-week-day.is-absent { border-color: #f4c9d0 !important; background: #fff5f6 !important; }
+          .vip-week-day.is-off-day { border-color: #f4d99c !important; background: #fff8e9 !important; color: #8c5700 !important; }
+          .vip-week-day.is-off-day em { display: flex !important; width: auto !important; min-width: 35px !important; height: 19px !important; padding: 0 5px !important; align-items: center !important; justify-content: center !important; gap: 2px !important; border-radius: 999px !important; border: 1px solid #e6ad2e !important; background: linear-gradient(135deg,#ffe49a,#ffc94f) !important; color: #765000 !important; font-size: 7px !important; }
+          .vip-off-cross { color: #e53935 !important; font-size: 11px !important; font-weight: 1000 !important; line-height: 1 !important; }
+          .vip-week-day.is-holiday-day { border-color: #f4d8b8 !important; background: #fff8f1 !important; color: #8c5700 !important; }
+          .vip-week-day.is-holiday-day em { background: #fff !important; color: #805000 !important; }
+          .vip-week-event-name { margin-top: 2px !important; color: #725d45 !important; font-size: 5px !important; line-height: 1 !important; }
+          .vip-week-holiday-marker { position: absolute !important; top: 3px !important; left: 3px !important; z-index: 2 !important; font-size: 9px !important; line-height: 1 !important; }
           .vip-recent-list { gap: 7px !important; }
           .vip-recent-row { min-height: 62px !important; padding: 9px !important; border: 1px solid #e4ebf4 !important; border-radius: 13px !important; background: #fff !important; }
           .vip-recent-date { border-radius: 10px !important; background: #eef5fd !important; }

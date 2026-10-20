@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { getStudentCalendarEvent, studentCalendarHolidays, type CalendarEvent } from "../../../lib/student-calendar-events";
+import { getStudentCalendarEvent, getStudentCalendarEventEmoji, studentCalendarHolidays, type CalendarEvent } from "../../../lib/student-calendar-events";
 
 const monthNames = [
   "January",
@@ -266,7 +266,7 @@ function CalendarReferenceVip({
                     <>
                       <div style={{ width: 7, height: 7, borderRadius: "50%", background: eventColor(info.type), marginBottom: 4 }} />
                       <div style={{ fontSize: 5.5, fontWeight: 900, color: eventColor(info.type), lineHeight: 1.15, overflowWrap: "anywhere" }}>
-                        {info.type === "holiday" ? "Holiday" : info.type === "test" ? "Weekly Test" : "Class"}
+                        {info.type === "holiday" ? `${getStudentCalendarEventEmoji(info)} Holiday` : info.type === "test" ? "Weekly Test" : "Class"}
                       </div>
                       <div style={{ marginTop: 2, fontSize: 5.5, color: "#6f819f", lineHeight: 1.15, overflowWrap: "anywhere" }}>
                         {info.title}
@@ -372,7 +372,7 @@ function CalendarReferenceVip({
             >
               <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
                 <div style={{ width: 38, height: 38, borderRadius: 12, background: eventBg(selectedEvent.type), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>
-                  {selectedEvent.type === "test" ? "📝" : selectedEvent.type === "class" ? "📚" : "🎉"}
+                  {selectedEvent.type === "test" ? "📝" : selectedEvent.type === "class" ? "📚" : getStudentCalendarEventEmoji(selectedEvent)}
                 </div>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <strong style={{ display: "block", fontSize: 13, color: "#19366f" }}>{selectedEvent.title}</strong>
@@ -720,7 +720,7 @@ export default function StudentCalendarPage() {
                           style={styles.holidayLabel}
                           className="student-calendar-holiday-label"
                         >
-                          🎉 HOLIDAY
+                          {getStudentCalendarEventEmoji(holiday)} HOLIDAY
                         </div>
 
                         <div
@@ -915,7 +915,7 @@ export default function StudentCalendarPage() {
                 </strong>
 
                 <span>
-                  🎉 {holiday.title}
+                  {getStudentCalendarEventEmoji(holiday)} {holiday.title}
                 </span>
               </button>
             ))}
@@ -944,7 +944,7 @@ export default function StudentCalendarPage() {
                   ? "📝"
                   : selectedEvent.type === "class"
                   ? "📚"
-                  : "🎉"}
+                  : getStudentCalendarEventEmoji(selectedEvent)}
               </div>
 
               <h2 style={styles.modalTitle}>

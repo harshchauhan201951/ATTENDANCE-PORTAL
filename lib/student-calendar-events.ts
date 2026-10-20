@@ -5,6 +5,30 @@ export type CalendarEvent = {
   description: string;
 };
 
+export function getStudentCalendarEventEmoji(event: CalendarEvent | null | undefined) {
+  if (!event) return "";
+  const title = event.title.toLowerCase();
+
+  if (title.includes("gandhi jayanti")) return "👓";
+  if (title.includes("republic day") || title.includes("independence day")) return "🇮🇳";
+  if (title.includes("raksha bandhan")) return "🎀";
+  if (title.includes("bhai dooj")) return "🎁";
+  if (title.includes("diwali") || title.includes("govardhan")) return "🪔";
+  if (title.includes("holi")) return "🎨";
+  if (title.includes("christmas")) return "🎄";
+  if (title.includes("janmashtami")) return "🪈";
+  if (title.includes("ganesh")) return "🐘";
+  if (title.includes("shivratri")) return "🔱";
+  if (title.includes("guru nanak")) return "🙏";
+  if (title.includes("basant") || title.includes("sankranti")) return "🪁";
+  if (title.includes("ram navami")) return "🏹";
+  if (title.includes("mahavir")) return "🙏";
+  if (title.includes("buddha")) return "☸️";
+  if (title.includes("dussehra")) return "🏹";
+  if (title.includes("new year's day")) return "🎊";
+  return "🎉";
+}
+
 export const studentCalendarHolidays: CalendarEvent[] = [
   // =========================
   // 2025
