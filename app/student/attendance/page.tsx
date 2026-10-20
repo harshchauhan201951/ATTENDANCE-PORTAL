@@ -2149,7 +2149,7 @@ export default function StudentAttendancePage() {
           .vip-week-event-name { display: block; width: 100%; margin-top: 3px; overflow: hidden; color: #6b7280; font-size: 6px; font-weight: 700; line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
           .vip-week-day.is-present .vip-week-event-name.has-attendance { color: #087d59; font-weight: 900; }
           .vip-week-day.is-absent .vip-week-event-name.has-attendance { color: #bd3047; font-weight: 900; }
-          .vip-week-holiday-marker { position: absolute; top: 3px; left: 3px; z-index: 2; font-size: 9px; line-height: 1; }
+          .vip-week-holiday-marker { position: absolute; top: 29px; left: 50%; z-index: 3; display: grid; width: 10px; height: 10px; place-items: center; transform: translateX(-13px); border: 1px solid #e7c5a1; border-radius: 50%; background: #fff; font-size: 7px; line-height: 1; }
           .vip-week-day.is-empty { background: #f3f7fd; color: #7184a7; }
           .vip-week-day.is-empty em { background: #d9e2f0; color: #7184a7; }
 
@@ -3244,7 +3244,7 @@ export default function StudentAttendancePage() {
           .vip-week-event-name { margin-top: 2px !important; color: #725d45 !important; font-size: 5px !important; line-height: 1 !important; }
           .vip-week-day.is-present .vip-week-event-name.has-attendance { color: #087d59 !important; font-size: 5.5px !important; font-weight: 900 !important; }
           .vip-week-day.is-absent .vip-week-event-name.has-attendance { color: #bd3047 !important; font-size: 5.5px !important; font-weight: 900 !important; }
-          .vip-week-holiday-marker { position: absolute !important; top: 3px !important; left: 3px !important; z-index: 2 !important; font-size: 9px !important; line-height: 1 !important; }
+          .vip-week-holiday-marker { position: absolute !important; top: 29px !important; left: 50% !important; z-index: 3 !important; display: grid !important; width: 10px !important; height: 10px !important; place-items: center !important; transform: translateX(-13px) !important; border: 1px solid #e7c5a1 !important; border-radius: 50% !important; background: #fff !important; font-size: 7px !important; line-height: 1 !important; }
           .vip-recent-list { gap: 7px !important; }
           .vip-recent-row { min-height: 62px !important; padding: 9px !important; border: 1px solid #e4ebf4 !important; border-radius: 13px !important; background: #fff !important; }
           .vip-recent-date { border-radius: 10px !important; background: #eef5fd !important; }
