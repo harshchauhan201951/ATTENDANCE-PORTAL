@@ -11,8 +11,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const indiaHour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", hourCycle: "h23" }).format(new Date()));
-    const reminderSlot = indiaHour < 12 ? "07:00" : "19:00";
+    const reminderSlot = "07:00";
     const reminders = await sendAllPendingFeeReminders(request.url, reminderSlot);
     return NextResponse.json({ success: true, reminderSlot, checkedAt: new Date().toISOString(), studentsWithPendingFees: reminders.length, reminders });
   } catch (error) {

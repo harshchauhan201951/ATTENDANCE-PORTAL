@@ -6,7 +6,11 @@
     },
     {
       "path": "/api/cron/fee-reminders",
-      "schedule": "30 1,13 * * *"
+      "schedule": "30 1 * * *"
+    },
+    {
+      "path": "/api/cron/fee-reminders-evening",
+      "schedule": "30 13 * * *"
     },
     {
       "path": "/api/cron/student-upcoming-events",
