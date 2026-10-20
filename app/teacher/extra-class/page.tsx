@@ -491,6 +491,20 @@ export default function ExtraClassPage() {
         throw new Error(attendanceInsertError.message);
       }
 
+      await Promise.allSettled(attendanceRows.map((row) => fetch("/api/push/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: row.student_id,
+          category: "attendance",
+          title: "Extra Class Attendance Updated",
+          message: `Your extra class attendance for ${formatDate(classDate)} has been marked ${row.status}.`,
+          url: "/student/attendance-history",
+          notificationKey: `extra-attendance:${classId}:${row.student_id}:${classDate}:${String(row.status).toLowerCase()}`,
+          metadata: { source: "teacher_extra_class_attendance", extraClassId: classId, attendanceDate: classDate, status: row.status },
+        }),
+      })));
+
       showMessage(
         isEditing
           ? "Extra Class updated successfully."

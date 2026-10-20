@@ -224,7 +224,7 @@ export async function POST(
               token: subscription.token,
               notification: { title, body: message },
               data: { url, category, notificationKey },
-              android: { priority: "high", notification: { channelId: "racer_academy_v3", sound: "racer_notification" } },
+              android: { priority: "high", notification: { channelId: "racer_academy_v4", sound: "racer_notification" } },
             });
             sent++;
           } catch (pushError: unknown) {
@@ -271,7 +271,7 @@ export async function POST(
       recipientStudentIds = Array.from(new Set((matchingStudents || []).filter((student: { id: number; class_name: string | null }) => targetClasses.includes(normalized(student.class_name))).map((student: { id: number }) => Number(student.id))));
     } else if (category === "announcement") {
       // Announcements are school-wide content; they contain no student-specific data.
-      const { data: allStudents, error: studentsError } = await supabaseAdmin.from("students").select("id");
+      const { data: allStudents, error: studentsError } = await supabaseAdmin.from("students").select("id").or("is_active.eq.true,is_active.is.null");
       if (studentsError) return NextResponse.json({ success: false, error: studentsError.message }, { status: 500 });
       recipientStudentIds = (allStudents || []).map((student: { id: number }) => Number(student.id)).filter((id: number) => Number.isInteger(id) && id > 0);
     }
@@ -387,7 +387,7 @@ export async function POST(
           continue;
         }
         try {
-          await getMessaging(firebaseAdminApp).send({token,notification:{title,body:message},data:{url,category,announcementId:announcementId ? String(announcementId) : ""},android:{priority:"high",notification:{channelId:"racer_academy_v3",sound:"racer_notification"}}});
+          await getMessaging(firebaseAdminApp).send({token,notification:{title,body:message},data:{url,category,announcementId:announcementId ? String(announcementId) : ""},android:{priority:"high",notification:{channelId:"racer_academy_v4",sound:"racer_notification"}}});
           sent++;
           console.log("Native FCM notification sent successfully:", row.id);
         } catch (pushError:any) {

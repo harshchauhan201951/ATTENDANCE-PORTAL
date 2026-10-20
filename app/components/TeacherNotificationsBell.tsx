@@ -149,7 +149,7 @@ export default function TeacherNotificationsBell({ className = "" }: { className
       try {
         if (Capacitor.getPlatform() === "android") {
           await PushNotifications.createChannel({
-            id: "racer_academy_v3",
+            id: "racer_academy_v4",
             name: "RACER Academy alerts",
             description: "Quiz submissions and school updates.",
             importance: 4,

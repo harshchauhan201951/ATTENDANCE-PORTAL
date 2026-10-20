@@ -29,6 +29,7 @@ export default function StudentNotificationCenter() {
   const [busy, setBusy] = useState(false);
   const [nativeApp, setNativeApp] = useState(false);
   const audioContext = useRef<AudioContext | null>(null);
+  const notificationAudio = useRef<HTMLAudioElement | null>(null);
   const lastId = useRef<number | null>(null);
 
   const refresh = useCallback(async (allowPopup = true) => {
@@ -48,19 +49,24 @@ export default function StudentNotificationCenter() {
         const arriving = latest.find((item) => Number(item.id) > (lastId.current || 0));
         if (arriving) {
           setNotice(arriving);
-          const context = audioContext.current;
-          if (context?.state === "running") {
-            const oscillator = context.createOscillator();
-            const gain = context.createGain();
-            oscillator.type = "sine";
-            oscillator.frequency.value = 880;
-            gain.gain.setValueAtTime(0.0001, context.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.11, context.currentTime + 0.02);
-            gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.2);
-            oscillator.connect(gain);
-            gain.connect(context.destination);
-            oscillator.start();
-            oscillator.stop(context.currentTime + 0.21);
+          const audio = notificationAudio.current;
+          if (audio) {
+            audio.currentTime = 0;
+            void audio.play().catch(() => {
+              const context = audioContext.current;
+              if (!context || context.state !== "running") return;
+              const oscillator = context.createOscillator();
+              const gain = context.createGain();
+              oscillator.type = "sine";
+              oscillator.frequency.value = 880;
+              gain.gain.setValueAtTime(0.0001, context.currentTime);
+              gain.gain.exponentialRampToValueAtTime(0.11, context.currentTime + 0.02);
+              gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.22);
+              oscillator.connect(gain);
+              gain.connect(context.destination);
+              oscillator.start();
+              oscillator.stop(context.currentTime + 0.23);
+            });
           }
           window.setTimeout(() => setNotice((current) => current?.id === arriving.id ? null : current), 9000);
         }
@@ -85,6 +91,8 @@ export default function StudentNotificationCenter() {
       if (!cancelled) setNativeApp(Capacitor.isNativePlatform());
     })();
     setPermission("Notification" in window ? Notification.permission : "unsupported");
+    notificationAudio.current = new Audio("/racer-notification.mp3");
+    notificationAudio.current.preload = "auto";
     const unlockSound = () => {
       const Context = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!Context) return;
@@ -97,6 +105,8 @@ export default function StudentNotificationCenter() {
       cancelled = true;
       window.removeEventListener("pointerdown", unlockSound);
       window.removeEventListener("keydown", unlockSound);
+      notificationAudio.current?.pause();
+      notificationAudio.current = null;
     };
   }, []);
 
@@ -124,7 +134,7 @@ export default function StudentNotificationCenter() {
       try {
         if (Capacitor.getPlatform() === "android") {
           await PushNotifications.createChannel({
-            id: "racer_academy_v3",
+            id: "racer_academy_v4",
             name: "RACER Academy alerts",
             description: "School updates, attendance, homework, results and fee notices.",
             importance: 4,
@@ -157,7 +167,7 @@ export default function StudentNotificationCenter() {
           console.error("FCM registration error:", error);
         }));
         listeners.push(await PushNotifications.addListener("pushNotificationReceived", () => {
-          void refresh(false);
+          void refresh(true);
         }));
         listeners.push(await PushNotifications.addListener("pushNotificationActionPerformed", (event) => {
           const data = event.notification?.data || {};

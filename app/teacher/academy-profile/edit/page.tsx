@@ -1089,6 +1089,20 @@ export default function AcademyProfileEditPage() {
       ]
     );
 
+    void fetch("/api/push/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        category: "announcement",
+        title: `New Announcement: ${newAnnouncement.title.trim()}`,
+        message: newAnnouncement.content.trim() || "Your teacher has posted a new academy announcement.",
+        url: "/student/notifications",
+        announcementId: (data as Announcement).id,
+        notificationKey: `announcement:${(data as Announcement).id}`,
+        metadata: { source: "teacher_announcement", announcementDate: newAnnouncement.announcement_date },
+      }),
+    }).catch((notificationError) => console.error("Announcement notification failed:", notificationError));
+
     setNewAnnouncement({
       title: "",
       content: "",

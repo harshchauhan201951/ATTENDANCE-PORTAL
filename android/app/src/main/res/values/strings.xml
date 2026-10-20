@@ -4,7 +4,7 @@
     <string name="title_activity_main">RACER ACADEMY</string>
     <string name="package_name">com.raceracademy.app</string>
     <string name="custom_url_scheme">com.raceracademy.app</string>
-    <string name="default_notification_channel_id">racer_academy_v3</string>
+    <string name="default_notification_channel_id">racer_academy_v4</string>
 </resources>
 
 

@@ -10,7 +10,11 @@ export function indiaDateKey(date = new Date()) {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
-export async function sendPendingFeeReminder(requestUrl: string, studentId: number) {
+export async function sendPendingFeeReminder(requestUrl: string, studentId: number, reminderSlot = "daily") {
+  const { data: student, error: studentError } = await supabaseAdmin.from("students").select("is_active").eq("id", studentId).maybeSingle();
+  if (studentError) throw studentError;
+  if (!student || student.is_active === false) return { studentId, pending: 0, sent: false, inactive: true };
+
   const { data: fees, error } = await supabaseAdmin.from("fees")
     .select("id,student_id,month,year,amount,status")
     .eq("student_id", studentId);
@@ -20,7 +24,7 @@ export async function sendPendingFeeReminder(requestUrl: string, studentId: numb
 
   const total = pending.reduce((sum: number, fee: any) => sum + (Number(fee.amount) || 0), 0);
   const periods = pending.map((fee: any) => `${new Date(2000, Number(fee.month) - 1, 1).toLocaleString("en-IN", { month: "long" })} ${fee.year}`).join(", ");
-  const notificationKey = `fee-reminder:${studentId}:${indiaDateKey()}`;
+  const notificationKey = `fee-reminder:${studentId}:${indiaDateKey()}:${reminderSlot}`;
   const response = await fetch(new URL("/api/push/send", requestUrl), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -31,7 +35,7 @@ export async function sendPendingFeeReminder(requestUrl: string, studentId: numb
       message: `Your fee payment of ₹${total.toLocaleString("en-IN")} is pending for ${periods}. Please check your Fees page.`,
       url: "/student/fees",
       notificationKey,
-      metadata: { source: "daily_fee_reminder", pendingFeeIds: pending.map((fee: any) => Number(fee.id)), reminderDate: indiaDateKey() },
+      metadata: { source: "daily_fee_reminder", pendingFeeIds: pending.map((fee: any) => Number(fee.id)), reminderDate: indiaDateKey(), reminderSlot },
     }),
   });
   const result = await response.json().catch(() => null);
@@ -39,7 +43,7 @@ export async function sendPendingFeeReminder(requestUrl: string, studentId: numb
   return { studentId, pending: pending.length, total, sent: !result?.duplicate, duplicate: Boolean(result?.duplicate) };
 }
 
-export async function sendAllPendingFeeReminders(requestUrl: string) {
+export async function sendAllPendingFeeReminders(requestUrl: string, reminderSlot = "daily") {
   const { data: fees, error } = await supabaseAdmin.from("fees").select("student_id,status");
   if (error) throw error;
   const studentIds = Array.from(new Set((fees || [])
@@ -48,7 +52,7 @@ export async function sendAllPendingFeeReminders(requestUrl: string) {
     .filter((id: number) => Number.isInteger(id) && id > 0)));
   const results = [];
   for (const studentId of studentIds) {
-    results.push(await sendPendingFeeReminder(requestUrl, studentId));
+    results.push(await sendPendingFeeReminder(requestUrl, studentId, reminderSlot));
   }
   return results;
 }
