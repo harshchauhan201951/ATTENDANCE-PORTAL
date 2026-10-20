@@ -714,18 +714,18 @@ export default function StudentQuizHistoryPage() {
                 Back to Quiz Tests
               </button>
 
-              <h1 className="text-2xl font-black tracking-tight sm:text-4xl">
+              <h1 className="quiz-history-title text-2xl font-black tracking-tight sm:text-4xl">
                 Quiz History
               </h1>
 
-              <p className="mt-2 text-sm text-slate-400 sm:text-base">
+              <p className="quiz-history-subtitle mt-2 text-sm sm:text-base">
                 {studentName
                   ? `${studentName}'s completed quiz history`
                   : "Your completed quiz history"}
               </p>
 
               {studentClass && (
-                <div className="mt-3 inline-flex rounded-full border border-indigo-400/20 bg-indigo-500/10 px-3 py-1.5 text-xs font-bold text-indigo-300">
+                <div className="quiz-history-class mt-3 inline-flex rounded-full px-3 py-1.5 text-xs font-bold">
                   Class {studentClass}
                 </div>
               )}
