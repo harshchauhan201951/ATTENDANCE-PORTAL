@@ -1369,8 +1369,8 @@ const [isReattempt, setIsReattempt] =
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
+    <main className="quiz-attempt-screen min-h-screen bg-slate-950 text-white">
+      <div className="quiz-attempt-canvas min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
         <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-950/95 backdrop-blur">
           <div className="mx-auto max-w-6xl px-3 py-3 sm:px-4">
             <div className="flex items-center justify-between gap-3">
@@ -1406,9 +1406,9 @@ const [isReattempt, setIsReattempt] =
               </div>
             </div>
 
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+            <div className="quiz-attempt-progress-track mt-3 h-2 overflow-hidden rounded-full bg-white/10">
               <div
-                className="h-full rounded-full bg-indigo-500 transition-all"
+                className="quiz-attempt-progress-value h-full rounded-full bg-indigo-500 transition-all"
                 style={{
                   width: `${
                     questions.length
@@ -1441,20 +1441,20 @@ const [isReattempt, setIsReattempt] =
 
         <div className="mx-auto max-w-6xl px-3 py-4 pb-28 sm:px-4 sm:py-8">
           <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
-            <section className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl sm:p-7">
+            <section className="quiz-attempt-question-card rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl sm:p-7">
               <div className="flex items-start justify-between gap-3">
-                <span className="rounded-full bg-indigo-500/15 px-3 py-1 text-xs font-black text-indigo-300">
+                <span className="quiz-attempt-question-number rounded-full bg-indigo-500/15 px-3 py-1 text-xs font-black text-indigo-300">
                   Q{" "}
                   {currentIndex + 1}
                 </span>
 
-                <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-bold text-slate-400">
+                <span className="quiz-attempt-question-marks rounded-full bg-white/5 px-3 py-1 text-xs font-bold text-slate-400">
                   {currentQuestion.marks}{" "}
                   mark
                 </span>
               </div>
 
-              <h2 className="mt-5 text-lg font-black leading-relaxed sm:text-2xl">
+              <h2 className="quiz-attempt-question-text mt-5 text-lg font-black leading-relaxed sm:text-2xl">
                 {
                   currentQuestion.question_text
                 }
@@ -1489,14 +1489,14 @@ const [isReattempt, setIsReattempt] =
                             option.id
                           )
                         }
-                        className={`flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition ${
+                        className={`quiz-attempt-option flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition ${
                           selected
-                            ? "border-indigo-400 bg-indigo-500/15"
+                            ? "is-selected border-indigo-400 bg-indigo-500/15"
                             : "border-white/10 bg-white/[0.03] hover:bg-white/[0.07]"
                         }`}
                       >
                         <span
-                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-black ${
+                          className={`quiz-attempt-option-letter flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-black ${
                             selected
                               ? "bg-indigo-500 text-white"
                               : "bg-white/10 text-slate-400"
