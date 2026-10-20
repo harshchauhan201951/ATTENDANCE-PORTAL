@@ -65,6 +65,24 @@ export function getMonthlyCalendarEvents(year: number, monthIndex: number): Mont
       description: "Monthly result is scheduled for the day after the previous month's MahaTest.",
     });
   }
+  // October 2026 keeps the academy's initial 3 October session and also
+  // has the month-end MahaTest requested for 31 October, with its result on 1 November.
+  if (monthKey === "2026-10") {
+    events.push({
+      date: "2026-10-31",
+      title: "Monthly MahaTest",
+      type: "test",
+      description: "Monthly MahaTest scheduled for 31 October 2026. The result is scheduled for 1 November 2026.",
+    });
+  }
+  if (monthKey === "2026-11") {
+    events.push({
+      date: "2026-11-01",
+      title: "Monthly Result",
+      type: "test",
+      description: "Monthly result for the 31 October 2026 MahaTest.",
+    });
+  }
   events.push(
     {
       date: testDate,
