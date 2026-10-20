@@ -31,14 +31,29 @@ async function notifySubmittedQuiz(requestUrl: string, result: any, quiz: any, s
     if (!response.ok) console.warn("Quiz result notification was not delivered:", await response.json().catch(() => null));
     const { data: student } = await supabaseAdmin.from("students").select("student_name,student_username").eq("id", studentId).maybeSingle();
     const studentName = String(student?.student_name || student?.student_username || `Student #${studentId}`).trim();
-    const teacherId = Number(quiz?.created_by);
+    const studentUsername = String(student?.student_username || "Not available").trim();
+    const teacherIds = new Set<number>([1]);
+    const quizTeacherId = Number(quiz?.created_by);
+    if (Number.isInteger(quizTeacherId) && quizTeacherId > 0) teacherIds.add(quizTeacherId);
+    const { data: assignments, error: assignmentsError } = await supabaseAdmin
+      .from("teacher_student_assignments")
+      .select("teacher_id")
+      .eq("student_id", studentId);
+    if (assignmentsError) throw assignmentsError;
+    for (const assignment of assignments || []) {
+      const assignedTeacherId = Number(assignment.teacher_id);
+      if (Number.isInteger(assignedTeacherId) && assignedTeacherId > 0) teacherIds.add(assignedTeacherId);
+    }
+    const score = safeNumber(result.obtained_marks);
+    const total = safeNumber(result.total_marks);
+    const percentage = safeNumber(result.percentage);
     await createTeacherNotifications({
-      teacherIds: Number.isInteger(teacherId) && teacherId > 0 ? [teacherId] : undefined,
-      title: "Quiz Submitted",
-      message: `${studentName} submitted ${quiz?.title || "a quiz"}: ${safeNumber(result.obtained_marks)}/${safeNumber(result.total_marks)} marks (${safeNumber(result.percentage).toFixed(1)}%).`,
+      teacherIds: Array.from(teacherIds),
+      title: `Quiz Submitted: ${studentName}`,
+      message: `${studentName} (ID: ${studentId}, Username: ${studentUsername}) submitted ${quiz?.title || "a quiz"}: ${score}/${total} marks (${percentage.toFixed(1)}%).`,
       category: "quiz_submission",
       url: `/teacher/quiz-tests/results?quizId=${Number(result.quiz_id)}&studentId=${studentId}`,
-      metadata: { source: "quiz_submission", studentId, studentName, quizId: Number(result.quiz_id), resultId: Number(result.id), percentage: safeNumber(result.percentage), obtainedMarks: safeNumber(result.obtained_marks), totalMarks: safeNumber(result.total_marks), resultStatus: String(result.result_status || "COMPLETED") },
+      metadata: { source: "quiz_submission", studentId, studentName, studentUsername, quizId: Number(result.quiz_id), resultId: Number(result.id), percentage, obtainedMarks: score, totalMarks: total, resultStatus: String(result.result_status || "COMPLETED") },
       notificationKey: `teacher-quiz-submission:${Number(result.id)}`,
     });
   } catch (error) {
