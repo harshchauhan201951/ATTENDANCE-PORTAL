@@ -28,6 +28,7 @@ type Announcement = {
 
 type DashboardFacts = {
   attendance: string;
+  extraAttendance: string;
   fees: string;
   performance: string;
   quiz: string;
@@ -95,6 +96,7 @@ export default function StudentDashboardPage() {
   const updateSwipeStartX = useRef<number | null>(null);
   const [dashboardFacts, setDashboardFacts] = useState<DashboardFacts>({
     attendance: "Loading today's attendance…",
+    extraAttendance: "Loading extra-class attendance…",
     fees: "Loading fee status…",
     performance: "Loading performance…",
     quiz: "Loading quiz result…",
@@ -111,8 +113,9 @@ export default function StudentDashboardPage() {
       const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
       const { data: studentMeta } = await supabase.from("students").select("class_name,admission_date").eq("id", studentId).maybeSingle();
       const admissionDate = studentMeta?.admission_date || null;
-      const [attendanceResult, feeResult, quizResult, weeklyRecordsResult] = await Promise.all([
+      const [attendanceResult, extraAttendanceResult, feeResult, quizResult, weeklyRecordsResult] = await Promise.all([
         supabase.from("attendance").select("attendance_date,status").eq("student_id", studentId).order("attendance_date", { ascending: false }).order("id", { ascending: false }),
+        supabase.from("extra_class_attendance").select("extra_class_date,status,subject").eq("student_id", studentId).order("extra_class_date", { ascending: false }).order("id", { ascending: false }),
         supabase.from("fees").select("month,year,amount,status").eq("student_id", studentId).order("year", { ascending: false }).order("month", { ascending: false }).limit(12),
         supabase.from("quiz_results").select("quiz_id,total_marks,obtained_marks,percentage,submitted_at,created_at").eq("student_id", studentId).not("submitted_at", "is", null).order("submitted_at", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false }).limit(100),
         supabase.from("academy_assessments").select("id,test_name,test_date,total_marks,obtained_marks,subject,attendance_status").eq("student_id", studentId).order("id", { ascending: false }).limit(100),
@@ -174,6 +177,13 @@ export default function StudentDashboardPage() {
       const attendanceFact = todayAttendance
         ? `Today ${String(todayAttendance.status || "Marked")} · ${overallAttendance}`
         : `Not marked today · ${overallAttendance}`;
+      const extraAttendanceRows = (extraAttendanceResult.data || []).filter((row: { extra_class_date: string; status: string | null; subject: string | null }) => isOnOrAfterAdmission(admissionDate, row.extra_class_date));
+      const latestExtraAttendance = extraAttendanceRows[0];
+      const extraAttendanceFact = extraAttendanceResult.error
+        ? "Extra-class attendance is unavailable right now."
+        : latestExtraAttendance
+          ? `Latest: ${String(latestExtraAttendance.status || "Marked")} · ${latestExtraAttendance.subject || "Extra Class"} · ${dashboardDate(latestExtraAttendance.extra_class_date)}. ${extraAttendanceRows.length} extra class record${extraAttendanceRows.length === 1 ? "" : "s"} total.`
+          : "No extra-class attendance has been marked yet.";
 
       const eligibleFees = (feeResult.data || []).filter((fee: any) => isFeePeriodOnOrAfterAdmission(admissionDate, fee.year, fee.month));
       const pendingFees = eligibleFees.filter((fee) => String(fee.status || "").toUpperCase() === "PENDING");
@@ -226,7 +236,7 @@ export default function StudentDashboardPage() {
         }
       } catch {}
 
-      if (!cancelled) setDashboardFacts({ attendance: attendanceFact, fees: feesFact, performance: performanceFact, quiz: quizFact, weeklyTest: weeklyTestFact, timetable: timetableFact, calendar: calendarFact });
+      if (!cancelled) setDashboardFacts({ attendance: attendanceFact, extraAttendance: extraAttendanceFact, fees: feesFact, performance: performanceFact, quiz: quizFact, weeklyTest: weeklyTestFact, timetable: timetableFact, calendar: calendarFact });
     };
     void loadFacts();
     const refreshTimer = window.setInterval(() => void loadFacts(), 60000);
@@ -976,6 +986,7 @@ export default function StudentDashboardPage() {
 
   const dashboardUpdates = [
     { type: "attendance", eyebrow: "ATTENDANCE • TODAY", title: dashboardFacts.attendance.startsWith("Today: Present") ? "Present today" : "Attendance today", detail: dashboardFacts.attendance, icon: "✓", metric: dashboardFacts.attendance.startsWith("Today: Present") ? "HERE" : dashboardFacts.attendance.includes("Absent") ? "ABSENT" : "—", href: "/student/attendance" },
+    { type: "extra-attendance", eyebrow: "EXTRA CLASS ATTENDANCE", title: "Extra class attendance", detail: dashboardFacts.extraAttendance, icon: "★", metric: dashboardFacts.extraAttendance.match(/(\d+) extra class record/)?.[1] || "VIEW", href: "/student/attendance-history" },
     { type: "fees", eyebrow: "FEES", title: dashboardFacts.fees.includes("pending") ? "Fee payment pending" : "Fee status", detail: dashboardFacts.fees, icon: "₹", metric: dashboardFacts.fees.match(/₹[\d,]+/)?.[0] || (dashboardFacts.fees.includes("pending") ? "DUE" : "CLEAR"), href: "/student/fees" },
     { type: "performance", eyebrow: "MONTHLY PERFORMANCE", title: "Your latest performance", detail: dashboardFacts.performance, icon: "↗", metric: dashboardFacts.performance.match(/[\d.]+%/)?.[0] || "—", href: "/student/reports" },
     { type: "quiz", eyebrow: "LATEST QUIZ", title: "Your latest quiz result", detail: dashboardFacts.quiz, icon: "✎", metric: dashboardFacts.quiz.match(/[\d.]+%/)?.[0] || "—", href: "/student/quiz-tests" },

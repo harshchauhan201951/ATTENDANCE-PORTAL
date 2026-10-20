@@ -118,27 +118,27 @@ function MobileAttendanceHistoryVIP({
     }
   }, [monthKeys, selectedMonth, setSelectedMonth]);
 
-  const presentCount = records.filter((record) => statusPresent(record.status)).length;
-  const absentCount = records.filter((record) => !statusPresent(record.status)).length;
-  const totalCount = records.length;
+  const presentCount = [...records, ...extraRecords].filter((record) => statusPresent(record.status)).length;
+  const absentCount = [...records, ...extraRecords].filter((record) => !statusPresent(record.status)).length;
+  const totalCount = records.length + extraRecords.length;
   const percentage = totalCount ? Math.round((presentCount / totalCount) * 100) : 0;
 
   const selectedRegular = records.filter((record) => monthKey(record.attendance_date) === selectedMonth);
   const selectedExtra = extraRecords.filter((record) => monthKey(record.extra_class_date) === selectedMonth);
-  const selectedPresent = selectedRegular.filter((record) => statusPresent(record.status)).length;
-  const selectedTotal = selectedRegular.length;
+  const selectedPresent = [...selectedRegular, ...selectedExtra].filter((record) => statusPresent(record.status)).length;
+  const selectedTotal = selectedRegular.length + selectedExtra.length;
   const selectedPercentage = selectedTotal ? Math.round((selectedPresent / selectedTotal) * 100) : 0;
 
   const monthSummaries = monthKeys.map((key) => {
     const regular = records.filter((record) => monthKey(record.attendance_date) === key);
     const extra = extraRecords.filter((record) => monthKey(record.extra_class_date) === key);
-    const present = regular.filter((record) => statusPresent(record.status)).length;
+    const present = [...regular, ...extra].filter((record) => statusPresent(record.status)).length;
     return {
       key,
-      total: regular.length,
+      total: regular.length + extra.length,
       present,
       extra: extra.length,
-      percentage: regular.length ? Math.round((present / regular.length) * 100) : 0,
+      percentage: regular.length + extra.length ? Math.round((present / (regular.length + extra.length)) * 100) : 0,
     };
   });
 
@@ -377,9 +377,9 @@ export default function StudentAttendanceHistoryPage() {
   if (isMobile) return mobile;
 
   // Desktop keeps the module functional and compact; the approved VIP redesign is focused on the phone app view.
-  const presentCount = records.filter((record) => statusPresent(record.status)).length;
-  const absentCount = records.filter((record) => !statusPresent(record.status)).length;
-  const totalCount = records.length;
+  const presentCount = [...records, ...extraRecords].filter((record) => statusPresent(record.status)).length;
+  const absentCount = [...records, ...extraRecords].filter((record) => !statusPresent(record.status)).length;
+  const totalCount = records.length + extraRecords.length;
   const percentage = totalCount ? Math.round((presentCount / totalCount) * 100) : 0;
 
   return (
@@ -405,8 +405,8 @@ export default function StudentAttendanceHistoryPage() {
         </section>
         <section style={desktopStyles.card}>
           <h2 style={desktopStyles.sectionTitle}>Attendance History</h2>
-          <div style={{overflowX:"auto"}}><table style={desktopStyles.table}><thead><tr><th>Date</th><th>Status</th></tr></thead><tbody>
-            {loading ? <tr><td colSpan={2} style={desktopStyles.td}>Loading...</td></tr> : records.map((record) => <tr key={`${record.student_id}-${record.id ?? record.attendance_date}`}><td style={desktopStyles.td}>{safeDate(record.attendance_date)?.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"})}</td><td style={desktopStyles.td}><span style={{...desktopStyles.badge,background:statusPresent(record.status)?"#dcfce7":"#fee2e2",color:statusPresent(record.status)?"#166534":"#991b1b"}}>{statusPresent(record.status)?"Present":"Absent"}</span></td></tr>)}</tbody></table></div>
+          <div style={{overflowX:"auto"}}><table style={desktopStyles.table}><thead><tr><th>Date</th><th>Class</th><th>Status</th></tr></thead><tbody>
+            {loading ? <tr><td colSpan={3} style={desktopStyles.td}>Loading...</td></tr> : [...records.map((record) => ({id:`regular-${record.id ?? record.attendance_date}`, date:record.attendance_date, status:record.status, label:"Regular Class"})), ...extraRecords.map((record) => ({id:`extra-${record.id}`, date:record.extra_class_date, status:record.status, label:`${record.subject || "Extra Class"} · Extra Class`}))].sort((a,b)=>b.date.localeCompare(a.date)).map((record) => <tr key={record.id}><td style={desktopStyles.td}>{safeDate(record.date)?.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"})}</td><td style={desktopStyles.td}>{record.label}</td><td style={desktopStyles.td}><span style={{...desktopStyles.badge,background:statusPresent(record.status)?"#dcfce7":"#fee2e2",color:statusPresent(record.status)?"#166534":"#991b1b"}}>{statusPresent(record.status)?"Present":"Absent"}</span></td></tr>)}</tbody></table></div>
         </section>
       </div>
     </main>
