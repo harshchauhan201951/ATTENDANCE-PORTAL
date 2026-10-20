@@ -50,8 +50,9 @@ async function notifySubmittedQuiz(requestUrl: string, result: any, quiz: any, s
   const score = safeNumber(result.obtained_marks);
   const total = safeNumber(result.total_marks);
   const percentage = safeNumber(result.percentage);
+  let teacherNoticeInserted = false;
   try {
-    await createTeacherNotifications({
+    const savedNotifications = await createTeacherNotifications({
       teacherIds: Array.from(teacherIds),
       title: `Quiz Submitted: ${studentName}`,
       message: `${studentName} (ID: ${studentId}, Username: ${studentUsername}) submitted ${quiz?.title || "a quiz"}: ${score}/${total} marks (${percentage.toFixed(1)}%).`,
@@ -60,9 +61,36 @@ async function notifySubmittedQuiz(requestUrl: string, result: any, quiz: any, s
       metadata: { source: "quiz_submission", studentId, studentName, studentUsername, quizId: Number(result.quiz_id), resultId: Number(result.id), percentage, obtainedMarks: score, totalMarks: total, resultStatus: String(result.result_status || "COMPLETED") },
       notificationKey: `teacher-quiz-submission:${Number(result.id)}`,
     });
+    teacherNoticeInserted = savedNotifications.inserted > 0;
   } catch (error) {
     console.error("Teacher quiz notification could not be saved:", error);
   }
+
+  const teacherPushTitle = `Quiz Submitted: ${studentName}`;
+  const teacherPushMessage = `${studentName} (ID: ${studentId}, Username: ${studentUsername}) submitted ${quiz?.title || "a quiz"}: ${score}/${total} marks (${percentage.toFixed(1)}%).`;
+  if (teacherNoticeInserted) await Promise.all(Array.from(teacherIds, async (teacherId) => {
+    try {
+      const response = await fetch(new URL("/api/push/send", requestUrl), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify({
+          teacherId,
+          category: "quiz_submission",
+          title: teacherPushTitle,
+          message: teacherPushMessage,
+          url: `/teacher/quiz-tests/results?quizId=${Number(result.quiz_id)}&studentId=${studentId}`,
+          notificationKey: `teacher-quiz-submission:${Number(result.id)}`,
+          metadata: { studentId, studentName, studentUsername, quizId: Number(result.quiz_id), resultId: Number(result.id), percentage, obtainedMarks: score, totalMarks: total },
+        }),
+      });
+      if (!response.ok) console.warn(`Teacher quiz push failed for teacher ${teacherId}:`, await response.json().catch(() => null));
+    } catch (error) {
+      console.error(`Teacher quiz push request failed for teacher ${teacherId}:`, error);
+    }
+  }));
 
   try {
     const response = await fetch(new URL("/api/push/send", requestUrl), {

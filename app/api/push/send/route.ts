@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import webpush from "web-push";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type PostgrestError } from "@supabase/supabase-js";
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getMessaging } from "firebase-admin/messaging";
 
@@ -60,7 +60,7 @@ webpush.setVapidDetails(
 
 type PushSubscriptionRow = {
   id: number;
-  student_id: number;
+  student_id?: number;
   endpoint: string;
   subscription: {
     endpoint?: string;
@@ -89,6 +89,18 @@ export async function POST(
 
     const studentId =
       body?.studentId ?? null;
+    const teacherId = Number(body?.teacherId || 0);
+    const isTeacherTarget = Number.isInteger(teacherId) && teacherId > 0;
+
+    if (isTeacherTarget) {
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (!serviceRoleKey || request.headers.get("authorization") !== `Bearer ${serviceRoleKey}`) {
+        return NextResponse.json({ success: false, error: "Unauthorized teacher push request." }, { status: 401 });
+      }
+      const { data: teacher, error: teacherError } = await supabaseAdmin.from("teachers").select("id").eq("id", teacherId).maybeSingle();
+      if (teacherError) return NextResponse.json({ success: false, error: teacherError.message }, { status: 500 });
+      if (!teacher) return NextResponse.json({ success: false, error: "Teacher not found." }, { status: 404 });
+    }
 
     const announcementId = body?.announcementId ?? null;
     // RACER_PUSH_TARGETS_V3
@@ -111,67 +123,56 @@ export async function POST(
       }
     }
 
-    let query = supabaseAdmin
-      .from("push_subscriptions")
-      .select(
-        "id, student_id, endpoint, subscription"
-      );
+    let subscriptions: PushSubscriptionRow[] | null = null;
+    let subscriptionsError: PostgrestError | null = null;
+    if (isTeacherTarget) {
+      const result = await supabaseAdmin.from("teacher_push_subscriptions").select("id, teacher_id, endpoint, subscription").eq("teacher_id", teacherId);
+      subscriptions = result.data as PushSubscriptionRow[] | null;
+      subscriptionsError = result.error;
+    } else {
+      let query = supabaseAdmin.from("push_subscriptions").select("id, student_id, endpoint, subscription");
 
-    if (studentId !== null) {
-      const numericStudentId =
-        Number(studentId);
+      if (studentId !== null) {
+        const numericStudentId = Number(studentId);
 
-      if (
-        Number.isNaN(numericStudentId) ||
-        numericStudentId <= 0
-      ) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Invalid studentId.",
-          },
-          { status: 400 }
-        );
+        if (Number.isNaN(numericStudentId) || numericStudentId <= 0) {
+          return NextResponse.json({ success: false, error: "Invalid studentId." }, { status: 400 });
+        }
+
+        query = query.eq("student_id", numericStudentId);
       }
 
-      query = query.eq(
-        "student_id",
-        numericStudentId
-      );
+      if (studentId === null && Array.isArray(body?.studentIds)) {
+        if (requestedStudentIds.length === 0) {
+          return NextResponse.json({ success: true, message: "No valid target students were supplied.", sent: 0, failed: 0 });
+        }
+        query = query.in("student_id", requestedStudentIds);
+      } else if (studentId === null && Array.isArray(body?.targetClasses)) {
+        if (targetClasses.length === 0) {
+          return NextResponse.json({ success: true, message: "No target classes were supplied.", sent: 0, failed: 0 });
+        }
+        const { data: targetStudents, error: targetStudentsError } = await supabaseAdmin
+          .from("students")
+          .select("id,class_name")
+          .or("is_active.eq.true,is_active.is.null");
+        if (targetStudentsError) {
+          return NextResponse.json({ success: false, error: targetStudentsError.message }, { status: 500 });
+        }
+        const normalizeTargetClass = (value: unknown) => String(value ?? "").trim().replace(/\s+/g, " ").toUpperCase();
+        const targetStudentIds = Array.from(new Set((targetStudents || [])
+          .filter((student: { id: number; class_name: string | null }) => targetClasses.includes(normalizeTargetClass(student.class_name)))
+          .map((student: { id: number }) => Number(student.id))
+          .filter((id: number) => Number.isInteger(id) && id > 0)));
+        if (targetStudentIds.length === 0) {
+          return NextResponse.json({ success: true, message: "No students matched the target classes.", sent: 0, failed: 0 });
+        }
+        query = query.in("student_id", targetStudentIds);
+      }
+
+      const result = await query;
+      subscriptions = result.data as PushSubscriptionRow[] | null;
+      subscriptionsError = result.error;
     }
-
-    if (studentId === null && Array.isArray(body?.studentIds)) {
-      if (requestedStudentIds.length === 0) {
-        return NextResponse.json({ success: true, message: "No valid target students were supplied.", sent: 0, failed: 0 });
-      }
-      query = query.in("student_id", requestedStudentIds);
-    } else if (studentId === null && Array.isArray(body?.targetClasses)) {
-      if (targetClasses.length === 0) {
-        return NextResponse.json({ success: true, message: "No target classes were supplied.", sent: 0, failed: 0 });
-      }
-      const { data: targetStudents, error: targetStudentsError } = await supabaseAdmin
-        .from("students")
-        .select("id,class_name")
-        .or("is_active.eq.true,is_active.is.null");
-      if (targetStudentsError) {
-        return NextResponse.json({ success: false, error: targetStudentsError.message }, { status: 500 });
-      }
-      const normalizeTargetClass = (value: unknown) => String(value ?? "").trim().replace(/\s+/g, " ").toUpperCase();
-      const targetStudentIds = Array.from(new Set((targetStudents || [])
-        .filter((student: { id: number; class_name: string | null }) => targetClasses.includes(normalizeTargetClass(student.class_name)))
-        .map((student: { id: number }) => Number(student.id))
-        .filter((id: number) => Number.isInteger(id) && id > 0)));
-      if (targetStudentIds.length === 0) {
-        return NextResponse.json({ success: true, message: "No students matched the target classes.", sent: 0, failed: 0 });
-      }
-      query = query.in("student_id", targetStudentIds);
-    }
-
-    const {
-      data: subscriptions,
-      error: subscriptionsError,
-    } = await query;
 
     if (subscriptionsError) {
       console.error(
@@ -191,6 +192,71 @@ export async function POST(
         },
         { status: 500 }
       );
+    }
+
+    if (isTeacherTarget) {
+      const rows = (subscriptions || []) as PushSubscriptionRow[];
+      const notificationKey = typeof body?.notificationKey === "string" ? body.notificationKey : "";
+      const payload = JSON.stringify({
+        title,
+        message,
+        category,
+        tag: notificationKey || `racer-academy-${category}-${Date.now()}`,
+        notificationKey,
+        body: message,
+        icon: "/icon-192.png",
+        badge: "/icon-192.png",
+        url,
+        silent: false,
+        renotify: true,
+      });
+      let sent = 0;
+      let failed = 0;
+      for (const row of rows) {
+        const subscription = row.subscription;
+        if (subscription?.type === "fcm") {
+          if (!firebaseAdminApp || !subscription.token) {
+            failed++;
+            continue;
+          }
+          try {
+            await getMessaging(firebaseAdminApp).send({
+              token: subscription.token,
+              notification: { title, body: message },
+              data: { url, category, notificationKey },
+              android: { priority: "high", notification: { channelId: "racer_academy_v3", sound: "racer_notification" } },
+            });
+            sent++;
+          } catch (pushError: unknown) {
+            failed++;
+            console.error("Teacher FCM notification error:", pushError);
+            const pushErrorCode = (pushError as { code?: string } | null)?.code;
+            if (pushErrorCode === "messaging/registration-token-not-registered" || pushErrorCode === "messaging/invalid-registration-token") {
+              await supabaseAdmin.from("push_subscriptions").delete().eq("id", row.id);
+            }
+          }
+          continue;
+        }
+        const endpoint = row.endpoint || subscription?.endpoint;
+        const p256dh = subscription?.keys?.p256dh;
+        const auth = subscription?.keys?.auth;
+        if (!endpoint || !p256dh || !auth) {
+          failed++;
+          continue;
+        }
+        try {
+          await webpush.sendNotification({ endpoint, keys: { p256dh, auth } }, payload);
+          sent++;
+        } catch (pushError: unknown) {
+          failed++;
+          const statusCode = (pushError as { statusCode?: number } | null)?.statusCode;
+          if (statusCode === 404 || statusCode === 410) {
+            await supabaseAdmin.from("push_subscriptions").delete().eq("id", row.id);
+          }
+          console.error("Teacher web push notification error:", pushError);
+        }
+      }
+      return NextResponse.json({ success: sent > 0, sent, failed, total: rows.length, message: sent ? "Teacher push notification sent." : "No registered teacher device received the push." });
     }
 
     // Keep the in-app inbox in sync with push messages. Recipients come only from the

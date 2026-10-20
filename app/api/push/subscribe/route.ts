@@ -35,20 +35,20 @@ export async function POST(
   try {
     const body = await request.json();
 
-    const studentId = Number(body?.studentId);
+    const teacherId = Number(body?.teacherId || 0);
+    const studentId = Number(body?.studentId || 0);
+    const isTeacherSubscription = Number.isInteger(teacherId) && teacherId > 0;
 
     const subscription = body?.subscription;
     const isNativeFcm = subscription?.type === "fcm" && typeof subscription?.token === "string" && subscription.token.length > 0;
 
     if (
-      !studentId ||
-      Number.isNaN(studentId) ||
-      studentId <= 0
+      (!isTeacherSubscription && (!studentId || !Number.isInteger(studentId) || studentId <= 0))
     ) {
       return NextResponse.json(
         {
           success: false,
-          error: "Valid studentId is required.",
+          error: "A valid studentId or teacherId is required.",
         },
         { status: 400 }
       );
@@ -65,38 +65,29 @@ export async function POST(
       );
     }
 
-    /*
-     * Check that the student exists.
-     */
-    const {
-      data: student,
-      error: studentError,
-    } = await supabaseAdmin
-      .from("students")
+    const { data: account, error: accountError } = await supabaseAdmin
+      .from(isTeacherSubscription ? "teachers" : "students")
       .select("id")
-      .eq("id", studentId)
+      .eq("id", isTeacherSubscription ? teacherId : studentId)
       .maybeSingle();
 
-    if (studentError) {
-      console.error(
-        "Student verification error:",
-        studentError
-      );
+    if (accountError) {
+      console.error("Push account verification error:", accountError);
 
       return NextResponse.json(
         {
           success: false,
-          error: studentError.message,
+          error: accountError.message,
         },
         { status: 500 }
       );
     }
 
-    if (!student) {
+    if (!account) {
       return NextResponse.json(
         {
           success: false,
-          error: "Student not found.",
+          error: isTeacherSubscription ? "Teacher not found." : "Student not found.",
         },
         { status: 404 }
       );
@@ -127,8 +118,9 @@ export async function POST(
      * This also repairs duplicate legacy rows when the endpoint constraint
      * was not present in an older database version.
      */
+    const subscriptionTable = isTeacherSubscription ? "teacher_push_subscriptions" : "push_subscriptions";
     const { error: staleBindingError } = await supabaseAdmin
-      .from("push_subscriptions")
+      .from(subscriptionTable)
       .delete()
       .eq("endpoint", endpoint);
     if (staleBindingError) {
@@ -137,8 +129,8 @@ export async function POST(
     }
 
     const { data, error } = await supabaseAdmin
-      .from("push_subscriptions")
-      .insert({ student_id: studentId, endpoint, subscription })
+      .from(subscriptionTable)
+      .insert(isTeacherSubscription ? { teacher_id: teacherId, endpoint, subscription } : { student_id: studentId, endpoint, subscription })
       .select()
       .single();
 

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Capacitor } from "@capacitor/core";
+import { PushNotifications } from "@capacitor/push-notifications";
 
 type TeacherNotice = { id: number; title: string; message: string; category: string; url: string; metadata?: Record<string, unknown>; is_read: boolean; created_at: string };
 
@@ -137,6 +139,61 @@ export default function TeacherNotificationsBell({ className = "" }: { className
       audioContextRef.current = null;
     };
   }, [load]);
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const id = teacherId();
+    if (!id) return;
+    let cancelled = false;
+    const listeners: Array<{ remove: () => Promise<void> }> = [];
+    void (async () => {
+      try {
+        if (Capacitor.getPlatform() === "android") {
+          await PushNotifications.createChannel({
+            id: "racer_academy_v3",
+            name: "RACER Academy alerts",
+            description: "Quiz submissions and school updates.",
+            importance: 4,
+            sound: "racer_notification",
+            visibility: 1,
+            vibration: true,
+          });
+        }
+        const permission = await PushNotifications.checkPermissions();
+        const granted = permission.receive === "granted" ||
+          (permission.receive === "prompt" && (await PushNotifications.requestPermissions()).receive === "granted");
+        if (!granted || cancelled) return;
+        listeners.push(await PushNotifications.addListener("registration", async ({ value }) => {
+          try {
+            const response = await fetch("/api/push/subscribe", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ teacherId: id, subscription: { type: "fcm", token: value } }),
+            });
+            if (!response.ok) console.error("Teacher FCM subscription error:", await response.text());
+          } catch (error) {
+            console.error("Teacher FCM subscription save error:", error);
+          }
+        }));
+        listeners.push(await PushNotifications.addListener("registrationError", (error) => {
+          console.error("Teacher FCM registration error:", error);
+        }));
+        listeners.push(await PushNotifications.addListener("pushNotificationReceived", () => {
+          void load();
+        }));
+        listeners.push(await PushNotifications.addListener("pushNotificationActionPerformed", (event) => {
+          const targetUrl = event.notification?.data?.url;
+          if (typeof targetUrl === "string" && targetUrl.startsWith("/")) router.push(targetUrl);
+        }));
+        await PushNotifications.register();
+      } catch (error) {
+        console.error("Teacher native push setup failed:", error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      listeners.forEach((listener) => { void listener.remove(); });
+    };
+  }, [load, router]);
   useEffect(() => {
     const close = (event: MouseEvent) => { if (panelRef.current && !panelRef.current.contains(event.target as Node)) setOpen(false); };
     document.addEventListener("mousedown", close); return () => document.removeEventListener("mousedown", close);
