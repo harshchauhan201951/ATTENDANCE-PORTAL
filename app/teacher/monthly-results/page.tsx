@@ -200,7 +200,9 @@ export default function MonthlyResultsPage() {
         .filter((d: string) => d && d < effectiveMahaDate)
         .sort();
       const previousMahaDate = previousMahaDates.length ? previousMahaDates[previousMahaDates.length - 1] : "";
-      const effectivePeriodStart = effectiveMahaDate === "2026-10-03" ? "2026-08-01" : (previousMahaDate ? addOneDay(previousMahaDate) : "2026-08-01");
+      // The first MahaTest includes every eligible record before its date.
+      // Later tests start the day after the previous MahaTest to prevent repeats.
+      const effectivePeriodStart = previousMahaDate ? addOneDay(previousMahaDate) : "";
 
       setStudents(ss); setQuizzes(quizzesRes.data || []); setQuizResults(allQuizResults); setTests(testsRes.data || []);
       setMahaDate(effectiveMahaDate);
@@ -230,11 +232,10 @@ export default function MonthlyResultsPage() {
       .filter((r) => Number(r.student_id) === Number(student.id))
       .filter((r) => {
         const completedDate = String(r.submitted_at || r.created_at || "").slice(0, 10);
-        if (!isSubmittedQuizResult(r) || !completedDate || (cutoff && completedDate > cutoff)) return false;
+        if (!isSubmittedQuizResult(r) || !completedDate || (start && completedDate < start) || (cutoff && completedDate > cutoff)) return false;
         const q = quizMap.get(Number(r.quiz_id));
         if (!q) return false;
-        const quizDate = String(q.scheduled_date || q.created_at || "").slice(0, 10);
-        if (!quizDate || !cutoff || quizDate > cutoff || (start && quizDate < start) || !isOnOrAfterAdmission(student.admission_date, quizDate)) return false;
+        if (!cutoff || !isOnOrAfterAdmission(student.admission_date, completedDate)) return false;
         return quizTargetsStudent(q, student.class_name || "");
       })
       .sort((a, b) => {
@@ -369,10 +370,10 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
         <label>MahaTest Date<input type="date" value={mahaDate} onChange={e=>{const value=e.target.value;setMahaDate(value);setReleaseInput(defaultReleaseInput(value));}} style={inputStyle}/></label>
       </div>
       <div style={{marginTop:10,padding:10,borderRadius:10,background:"#eef7ff",color:"#124d83",fontWeight:700}}>MahaTest: 2 Hours - 100 Marks - Month-end schedule; result the next day</div>
-      <div style={{marginTop:8,fontSize:12,color:"#475569"}}>Included academic period: {periodStart || "---"} to {mahaDate || "---"} — data after the MahaTest date is excluded from this result.</div>
+      <div style={{marginTop:8,fontSize:12,color:"#475569"}}>Included academic period: {periodStart || "All available dates"} to {mahaDate || "---"} — later results include only records after the previous MahaTest, so data is not repeated.</div>
       {error && <div style={{marginTop:10,padding:10,borderRadius:8,background:"#fff1f2",color:"#b91c1c"}}>{error}</div>}
       {message && <div style={{marginTop:10,padding:10,borderRadius:8,background:"#ecfdf5",color:"#047857"}}>{message}</div>}
-      <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:12}}><button type="button" onClick={calculateOnly} style={buttonStyle}>CALCULATE</button><button type="button" onClick={saveOnly} style={buttonStyle}>SAVE</button><button type="button" onClick={scheduleOnly} style={buttonStyle}>SCHEDULE RESULT</button><button type="button" onClick={publishNow} style={{...buttonStyle,background:"#047857"}}>POST / PUBLISH RESULT</button></div>
+      <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:12}}><button type="button" onClick={calculateOnly} style={buttonStyle}>CALCULATE</button><button type="button" onClick={saveOnly} style={buttonStyle}>SAVE / UPDATE ALL STUDENT RESULTS</button><button type="button" onClick={scheduleOnly} style={buttonStyle}>SCHEDULE RESULT</button><button type="button" onClick={publishNow} style={{...buttonStyle,background:"#047857"}}>POST / PUBLISH RESULT</button></div>
     </section>
     <section style={{background:"#fff",border:"1px solid #dbe7f5",borderRadius:14,padding:14,marginBottom:14}}>
       <h2 style={{margin:"0 0 8px",fontSize:18}}>MahaTest Marks Entry</h2><p style={{margin:"0 0 10px",fontSize:12,color:"#64748b"}}>Blank marks are not counted as zero. They remain pending until entered.</p>
