@@ -917,6 +917,7 @@ export default function TeacherCalendarPage() {
               const info = getDayInfo(date);
               const holiday = getHoliday(date);
               const monthlyEvent = info?.type === "test" && info.title.startsWith("Monthly ") ? info : null;
+              const monthlyTone = monthlyEvent?.title === "Monthly Result" ? "monthly-result" : monthlyEvent ? "monthly-mahatest" : "";
               const sundayClass = isSundayClassDate(date);
               const mondayOff = isMondayOffDate(date);
               const saturday = isSaturday(date);
@@ -925,11 +926,12 @@ export default function TeacherCalendarPage() {
                 <button
                   type="button"
                   key={dateKey(date)}
-                  className={`racer-vip-cal-day ${todayDate ? "today" : ""} ${holiday ? "holiday" : ""} ${sundayClass && !monthlyEvent ? "sunday-class" : ""} ${mondayOff && !holiday && !monthlyEvent ? "monday-off" : ""} ${(saturday || monthlyEvent) && !holiday ? "test" : ""}`}
+                  className={`racer-vip-cal-day ${todayDate ? "today" : ""} ${holiday ? "holiday" : ""} ${sundayClass && !monthlyEvent ? "sunday-class" : ""} ${mondayOff && !holiday && !monthlyEvent ? "monday-off" : ""} ${(saturday || monthlyEvent) && !holiday ? "test" : ""} ${!holiday ? monthlyTone : ""}`}
+                  style={monthlyEvent ? { background: monthlyEvent.title === "Monthly Result" ? "linear-gradient(145deg,#e0fbfa,#b8e6ec)" : "linear-gradient(145deg,#fff8e5,#f4d778)", boxShadow: monthlyEvent.title === "Monthly Result" ? "inset 0 0 0 1px #52b8bd" : "inset 0 0 0 1px #d4a72c" } : undefined}
                   onClick={() => info && setSelectedEvent(info)}
                 >
                   <span className="racer-vip-cal-number">{date.getDate()}</span>
-                  {holiday ? <span className="racer-vip-cal-pill holiday-pill">{holiday.title}</span> : monthlyEvent ? <span className="racer-vip-cal-pill test-pill">{monthlyEvent.title}</span> : sundayClass ? <span className="racer-vip-cal-pill class-pill">CLASS</span> : mondayOff ? <span className="racer-vip-cal-pill off-pill">OFF</span> : saturday ? <span className="racer-vip-cal-pill test-pill">TEST</span> : <span className="racer-vip-cal-small">Tuition</span>}
+                  {holiday ? <span className="racer-vip-cal-pill holiday-pill">{holiday.title}</span> : monthlyEvent ? <span className={`racer-vip-cal-pill ${monthlyTone}-pill`} style={monthlyEvent.title === "Monthly Result" ? { background: "linear-gradient(120deg,#075985,#0f8b8d)", color: "#f0ffff", border: "1px solid #70d3d0", boxShadow: "0 2px 6px rgba(7,89,133,.24)" } : { background: "linear-gradient(120deg,#3c176b,#7042b5)", color: "#fff3bd", border: "1px solid #e7bf50", boxShadow: "0 2px 6px rgba(60,23,107,.24)" }}>{monthlyEvent.title === "Monthly Result" ? "📢 RESULT" : "⭐ MONTHLY MAHATEST"}</span> : sundayClass ? <span className="racer-vip-cal-pill class-pill">CLASS</span> : mondayOff ? <span className="racer-vip-cal-pill off-pill">OFF</span> : saturday ? <span className="racer-vip-cal-pill test-pill">TEST</span> : <span className="racer-vip-cal-small">Tuition</span>}
                 </button>
               );
             })}

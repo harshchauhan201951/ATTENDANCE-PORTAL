@@ -96,13 +96,17 @@ function CalendarReferenceVip({
   const month = currentMonth.getMonth();
   const todayKey = dateKey(today);
 
-  const eventColor = (type: CalendarEvent["type"]) => {
+  const eventColor = (type: CalendarEvent["type"], title = "") => {
+    if (title === "Monthly MahaTest") return "#9a6700";
+    if (title === "Monthly Result") return "#087e8b";
     if (type === "holiday") return "#f43f75";
     if (type === "test") return "#7c55e8";
     return "#16a37d";
   };
 
-  const eventBg = (type: CalendarEvent["type"]) => {
+  const eventBg = (type: CalendarEvent["type"], title = "") => {
+    if (title === "Monthly MahaTest") return "#fff4d6";
+    if (title === "Monthly Result") return "#d9f7f5";
     if (type === "holiday") return "#ffe9f0";
     if (type === "test") return "#f0eaff";
     return "#e6f9f2";
@@ -264,8 +268,8 @@ function CalendarReferenceVip({
 
                   {info ? (
                     <>
-                      <div style={{ width: 7, height: 7, borderRadius: "50%", background: eventColor(info.type), marginBottom: 4 }} />
-                      <div style={{ fontSize: 5.5, fontWeight: 900, color: eventColor(info.type), lineHeight: 1.15, overflowWrap: "anywhere" }}>
+                      <div style={{ width: 7, height: 7, borderRadius: "50%", background: eventColor(info.type, info.title), marginBottom: 4 }} />
+                      <div style={{ fontSize: 5.5, fontWeight: 900, color: eventColor(info.type, info.title), background: info.title === "Monthly MahaTest" ? "linear-gradient(110deg,#fff5d6,#f7d77a)" : info.title === "Monthly Result" ? "linear-gradient(110deg,#d9f7f5,#b5e7ee)" : "transparent", border: info.title.startsWith("Monthly ") ? `1px solid ${info.title === "Monthly Result" ? "#5eb8c0" : "#d7aa35"}` : "0", borderRadius: 999, padding: info.title.startsWith("Monthly ") ? "2px 3px" : 0, lineHeight: 1.15, overflowWrap: "anywhere" }}>
                         {info.type === "holiday" ? `${getStudentCalendarEventEmoji(info)} Holiday` : info.type === "test" ? info.title : "Class"}
                       </div>
                       <div style={{ marginTop: 2, fontSize: 5.5, color: "#6f819f", lineHeight: 1.15, overflowWrap: "anywhere" }}>
@@ -338,7 +342,7 @@ function CalendarReferenceVip({
                 onClick={() => setSelectedEvent(event)}
                 style={{ width: "100%", border: 0, borderTop: "1px solid #edf1f6", background: "#fff", padding: "8px 0", display: "flex", alignItems: "center", gap: 8, textAlign: "left" }}
               >
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: eventColor(event.type), flex: "none" }} />
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: eventColor(event.type, event.title), flex: "none" }} />
                 <span style={{ minWidth: 0, flex: 1 }}>
                   <strong style={{ display: "block", fontSize: 8.5, color: "#1b356e" }}>{event.title}</strong>
                   <span style={{ display: "block", marginTop: 2, fontSize: 6.5, color: "#7182a1" }}>{formatDate(new Date(event.date + "T00:00:00"))}</span>
@@ -371,8 +375,8 @@ function CalendarReferenceVip({
               onClick={(event) => event.stopPropagation()}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                <div style={{ width: 38, height: 38, borderRadius: 12, background: eventBg(selectedEvent.type), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>
-                  {selectedEvent.type === "test" ? "📝" : selectedEvent.type === "class" ? "📚" : getStudentCalendarEventEmoji(selectedEvent)}
+                <div style={{ width: 38, height: 38, borderRadius: 12, background: eventBg(selectedEvent.type, selectedEvent.title), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>
+                  {selectedEvent.title === "Monthly Result" ? "📢" : selectedEvent.type === "test" ? "📝" : selectedEvent.type === "class" ? "📚" : getStudentCalendarEventEmoji(selectedEvent)}
                 </div>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <strong style={{ display: "block", fontSize: 13, color: "#19366f" }}>{selectedEvent.title}</strong>
@@ -691,12 +695,14 @@ export default function StudentCalendarPage() {
                         : {}),
                       ...(monday &&
                       mondayOff &&
-                      !holiday
+                      !holiday && !monthlyEvent
                         ? styles.mondayOff
                         : {}),
                       ...(saturday
-                        ? styles.saturday
+                        && !monthlyEvent ? styles.saturday
                         : {}),
+                      ...(monthlyEvent?.title === "Monthly MahaTest" ? styles.monthlyMahaTestDay : {}),
+                      ...(monthlyEvent?.title === "Monthly Result" ? styles.monthlyResultDay : {}),
                       ...(holiday
                         ? styles.holiday
                         : {}),
@@ -733,7 +739,7 @@ export default function StudentCalendarPage() {
                       </>
                     ) : monthlyEvent ? (
                       <>
-                        <div style={styles.testLabel} className="student-calendar-test-label">{monthlyEvent.title === "Monthly Result" ? "📢 RESULT" : "📝 TEST"}</div>
+                        <div style={{...styles.testLabel,...(monthlyEvent.title === "Monthly Result" ? styles.monthlyResultLabel : styles.monthlyMahaTestLabel)}} className={`student-calendar-test-label ${monthlyEvent.title === "Monthly Result" ? "student-calendar-monthly-result" : "student-calendar-monthly-mahatest"}`}>{monthlyEvent.title === "Monthly Result" ? "📢 RESULT" : "📝 MONTHLY MAHATEST"}</div>
                         <div style={styles.smallText} className="student-calendar-small-text">{monthlyEvent.title}</div>
                       </>
                     ) : sundayClass ? (
@@ -1652,6 +1658,30 @@ const styles: {
     fontSize: "9px",
     fontWeight: "900",
     maxWidth: "100%",
+  },
+
+  monthlyMahaTestDay: {
+    background: "linear-gradient(145deg,#fff9e8,#f5dc91)",
+    border: "1px solid #d4a72c",
+  },
+
+  monthlyResultDay: {
+    background: "linear-gradient(145deg,#e5fbfa,#c0edf0)",
+    border: "1px solid #51b8bf",
+  },
+
+  monthlyMahaTestLabel: {
+    background: "linear-gradient(130deg,#321160,#6c3fb5)",
+    color: "#fff2b2",
+    border: "1px solid #e4bd52",
+    boxShadow: "0 2px 8px rgba(76,39,128,.24)",
+  },
+
+  monthlyResultLabel: {
+    background: "linear-gradient(130deg,#06466c,#128b91)",
+    color: "#e7ffff",
+    border: "1px solid #70d2d0",
+    boxShadow: "0 2px 8px rgba(8,105,122,.22)",
   },
 
   offLabel: {

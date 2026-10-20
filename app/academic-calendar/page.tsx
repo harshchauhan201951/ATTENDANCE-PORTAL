@@ -394,6 +394,8 @@ export default function AcademicCalendarPage() {
                         "test"
                           ? styles.testTag
                           : {}),
+                        ...(event.title === "Monthly MahaTest" ? styles.monthlyMahaTestTag : {}),
+                        ...(event.title === "Monthly Result" ? styles.monthlyResultTag : {}),
                         ...(event.type ===
                         "event"
                           ? styles.eventTagBlue
@@ -484,6 +486,8 @@ export default function AcademicCalendarPage() {
                         "test"
                           ? styles.typeTest
                           : {}),
+                        ...(event.title === "Monthly MahaTest" ? styles.monthlyMahaTestBadge : {}),
+                        ...(event.title === "Monthly Result" ? styles.monthlyResultBadge : {}),
                         ...(event.type ===
                         "event"
                           ? styles.typeEvent
@@ -494,7 +498,7 @@ export default function AcademicCalendarPage() {
                           : {}),
                       }}
                     >
-                      {event.type}
+                      {event.title === "Monthly MahaTest" ? "MAHATEST" : event.title === "Monthly Result" ? "RESULT" : event.type}
                     </div>
                   </button>
                 ))}
@@ -873,6 +877,20 @@ const styles: {
     color: "#166534",
   },
 
+  monthlyMahaTestTag: {
+    background: "linear-gradient(120deg,#3c176b,#7042b5)",
+    color: "#fff3bd",
+    border: "1px solid #e7bf50",
+    boxShadow: "0 3px 9px rgba(60,23,107,.22)",
+  },
+
+  monthlyResultTag: {
+    background: "linear-gradient(120deg,#075985,#0f8b8d)",
+    color: "#f0ffff",
+    border: "1px solid #70d3d0",
+    boxShadow: "0 3px 9px rgba(7,89,133,.2)",
+  },
+
   eventTagBlue: {
     background: "#dbeafe",
     color: "#1d4ed8",
@@ -948,6 +966,18 @@ const styles: {
   typeTest: {
     background: "#dcfce7",
     color: "#166534",
+  },
+
+  monthlyMahaTestBadge: {
+    background: "linear-gradient(120deg,#3c176b,#7042b5)",
+    color: "#fff3bd",
+    border: "1px solid #e7bf50",
+  },
+
+  monthlyResultBadge: {
+    background: "linear-gradient(120deg,#075985,#0f8b8d)",
+    color: "#f0ffff",
+    border: "1px solid #70d3d0",
   },
 
   typeEvent: {
