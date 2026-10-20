@@ -242,7 +242,7 @@ export default function AcademicCalendarPage() {
     const extraStatus = extraClassByDate[key];
     if (extraStatus) return { date: key, title: `Extra Class · ${extraStatus}`, type: "class", description: `Teacher held an Extra Class; your attendance is ${extraStatus}.` };
     if (key >= "2026-08-31" && date.getDay() === 1) {
-      return { date: key, title: "Monday Off", type: "holiday", description: "Monday is the weekly tuition holiday from 31 August 2026 onward." };
+      return { date: key, title: "Monday Off", type: "holiday", description: "Weekly tuition holiday." };
     }
     return events.find((event) => event.date === key);
   }

@@ -513,7 +513,7 @@ export default function StudentCalendarPage() {
     if (status && info.title.startsWith("Extra Class")) return [info];
     const events = [info];
     if (info.title === "Monthly Result" && date.getDay() === 1 && dateKey(date) >= "2026-08-31") {
-      events.push({ date: dateKey(date), title: "Monday Off", type: "holiday", description: "Monday is the weekly tuition holiday from 31 August 2026 onward." });
+      events.push({ date: dateKey(date), title: "Monday Off", type: "holiday", description: "Weekly tuition holiday." });
     }
     return events;
   }

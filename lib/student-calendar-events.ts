@@ -177,13 +177,13 @@ export function getStudentCalendarEvent(date: Date): CalendarEvent | null {
 
   const day = date.getDay();
   if (key >= "2026-08-30" && day === 0) {
-    return { date: key, title: "Sunday Class", type: "class", description: "Sunday classes are open from 30 August 2026 onward." };
+    return { date: key, title: "Sunday Class", type: "class", description: "Regular Sunday class." };
   }
   if (key >= "2026-08-31" && day === 1) {
-    return { date: key, title: "Monday Off", type: "holiday", description: "Monday is the weekly tuition holiday from 31 August 2026 onward." };
+    return { date: key, title: "Monday Off", type: "holiday", description: "Weekly tuition holiday." };
   }
   if (day === 0) {
-    return { date: key, title: "Sunday Off", type: "holiday", description: "Sunday was a weekly tuition holiday before 30 August 2026." };
+    return { date: key, title: "Sunday Off", type: "holiday", description: "Weekly tuition holiday." };
   }
   if (day === 6) {
     return { date: key, title: "Weekly Test", type: "test", description: "Weekly test for tuition students." };
@@ -204,7 +204,7 @@ export function getStudentCalendarEvents(date: Date): CalendarEvent[] {
       date: key,
       title: "Monday Off",
       type: "holiday",
-      description: "Monday is the weekly tuition holiday from 31 August 2026 onward.",
+      description: "Weekly tuition holiday.",
     });
   }
   return events;
