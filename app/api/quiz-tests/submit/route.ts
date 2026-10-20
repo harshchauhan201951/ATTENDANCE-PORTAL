@@ -14,39 +14,43 @@ const supabaseAdmin = createClient(
 );
 
 async function notifySubmittedQuiz(requestUrl: string, result: any, quiz: any, studentId: number) {
+  let student: { student_name?: string | null; student_username?: string | null } | null = null;
   try {
-    const response = await fetch(new URL("/api/push/send", requestUrl), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        studentId,
-        category: "quiz",
-        title: "Quiz Result Ready",
-        message: `${quiz?.title || "Your quiz"} is submitted. Score: ${safeNumber(result.percentage).toFixed(1)}% (${safeNumber(result.obtained_marks)} / ${safeNumber(result.total_marks)} marks), ${String(result.result_status || "COMPLETED").toUpperCase()}.`,
-        url: `/student/quiz-tests/results?quizId=${Number(result.quiz_id)}&resultId=${Number(result.id)}`,
-        notificationKey: `quiz-result:${Number(result.id)}`,
-        metadata: { source: "quiz_submission", quizId: Number(result.quiz_id), resultId: Number(result.id), percentage: safeNumber(result.percentage), resultStatus: String(result.result_status || "COMPLETED") },
-      }),
-    });
-    if (!response.ok) console.warn("Quiz result notification was not delivered:", await response.json().catch(() => null));
-    const { data: student } = await supabaseAdmin.from("students").select("student_name,student_username").eq("id", studentId).maybeSingle();
-    const studentName = String(student?.student_name || student?.student_username || `Student #${studentId}`).trim();
-    const studentUsername = String(student?.student_username || "Not available").trim();
-    const teacherIds = new Set<number>([1]);
-    const quizTeacherId = Number(quiz?.created_by);
-    if (Number.isInteger(quizTeacherId) && quizTeacherId > 0) teacherIds.add(quizTeacherId);
-    const { data: assignments, error: assignmentsError } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
+      .from("students")
+      .select("student_name,student_username")
+      .eq("id", studentId)
+      .maybeSingle();
+    if (error) console.error("Quiz submit student lookup failed:", error);
+    student = data;
+  } catch (error) {
+    console.error("Quiz submit student lookup failed:", error);
+  }
+
+  const studentName = String(student?.student_name || student?.student_username || `Student #${studentId}`).trim();
+  const studentUsername = String(student?.student_username || "Not available").trim();
+  const teacherIds = new Set<number>([1]);
+  const quizTeacherId = Number(quiz?.created_by);
+  if (Number.isInteger(quizTeacherId) && quizTeacherId > 0) teacherIds.add(quizTeacherId);
+
+  try {
+    const { data: assignments, error } = await supabaseAdmin
       .from("teacher_student_assignments")
       .select("teacher_id")
       .eq("student_id", studentId);
-    if (assignmentsError) throw assignmentsError;
+    if (error) throw error;
     for (const assignment of assignments || []) {
       const assignedTeacherId = Number(assignment.teacher_id);
       if (Number.isInteger(assignedTeacherId) && assignedTeacherId > 0) teacherIds.add(assignedTeacherId);
     }
-    const score = safeNumber(result.obtained_marks);
-    const total = safeNumber(result.total_marks);
-    const percentage = safeNumber(result.percentage);
+  } catch (error) {
+    console.error("Quiz submit teacher assignment lookup failed:", error);
+  }
+
+  const score = safeNumber(result.obtained_marks);
+  const total = safeNumber(result.total_marks);
+  const percentage = safeNumber(result.percentage);
+  try {
     await createTeacherNotifications({
       teacherIds: Array.from(teacherIds),
       title: `Quiz Submitted: ${studentName}`,
@@ -57,7 +61,26 @@ async function notifySubmittedQuiz(requestUrl: string, result: any, quiz: any, s
       notificationKey: `teacher-quiz-submission:${Number(result.id)}`,
     });
   } catch (error) {
-    console.error("Quiz result notification request failed:", error);
+    console.error("Teacher quiz notification could not be saved:", error);
+  }
+
+  try {
+    const response = await fetch(new URL("/api/push/send", requestUrl), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        studentId,
+        category: "quiz",
+        title: "Quiz Result Ready",
+        message: `${quiz?.title || "Your quiz"} is submitted. Score: ${percentage.toFixed(1)}% (${score} / ${total} marks), ${String(result.result_status || "COMPLETED").toUpperCase()}.`,
+        url: `/student/quiz-tests/results?quizId=${Number(result.quiz_id)}&resultId=${Number(result.id)}`,
+        notificationKey: `quiz-result:${Number(result.id)}`,
+        metadata: { source: "quiz_submission", quizId: Number(result.quiz_id), resultId: Number(result.id), percentage, resultStatus: String(result.result_status || "COMPLETED") },
+      }),
+    });
+    if (!response.ok) console.warn("Student quiz result notification was not delivered:", await response.json().catch(() => null));
+  } catch (error) {
+    console.error("Student quiz result notification request failed:", error);
   }
 }
 

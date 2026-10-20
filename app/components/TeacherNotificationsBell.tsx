@@ -7,7 +7,16 @@ type TeacherNotice = { id: number; title: string; message: string; category: str
 
 function teacherId() {
   if (typeof window === "undefined") return 0;
-  return Number(localStorage.getItem("attendance_teacher_id") || localStorage.getItem("teacher_id") || sessionStorage.getItem("attendance_teacher_id") || sessionStorage.getItem("teacher_id") || "0");
+  const savedId = Number(localStorage.getItem("attendance_teacher_id") || localStorage.getItem("teacher_id") || localStorage.getItem("teacherId") || sessionStorage.getItem("attendance_teacher_id") || sessionStorage.getItem("teacher_id") || sessionStorage.getItem("teacherId") || "0");
+  if (Number.isInteger(savedId) && savedId > 0) return savedId;
+  for (const key of ["teacher", "racer_academy_teacher"]) {
+    try {
+      const savedTeacher = JSON.parse(localStorage.getItem(key) || "null");
+      const parsedId = Number(savedTeacher?.id);
+      if (Number.isInteger(parsedId) && parsedId > 0) return parsedId;
+    } catch {}
+  }
+  return 0;
 }
 
 function timeLabel(value: string) {
@@ -23,35 +32,67 @@ export default function TeacherNotificationsBell({ className = "" }: { className
   const [incoming, setIncoming] = useState<TeacherNotice | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const lastNotificationId = useRef<number | null>(null);
+  const mountedAt = useRef(Date.now());
+  const loadInFlight = useRef(false);
+  const notifiedKeys = useRef(new Set<string>());
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const toastTimer = useRef<number | null>(null);
 
   const load = useCallback(async () => {
+    if (loadInFlight.current) return;
     const id = teacherId();
     if (!id) return;
-    const response = await fetch(`/api/teacher/notifications?teacherId=${encodeURIComponent(String(id))}`, { cache: "no-store" }).catch(() => null);
-    const result = response ? await response.json().catch(() => null) : null;
-    if (response?.ok && result?.success) {
+    loadInFlight.current = true;
+    try {
+      const response = await fetch(`/api/teacher/notifications?teacherId=${encodeURIComponent(String(id))}`, { cache: "no-store" });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) return;
       const notifications = (result.notifications || []) as TeacherNotice[];
-      const newestId = notifications.reduce((maximum, item) => Math.max(maximum, Number(item.id) || 0), 0);
-      if (lastNotificationId.current === null) {
-        lastNotificationId.current = newestId;
-      } else if (newestId > lastNotificationId.current) {
-        const nextNotification = notifications.find((item) => Number(item.id) > (lastNotificationId.current || 0));
-        lastNotificationId.current = newestId;
-        if (nextNotification?.category === "quiz_submission") {
+      const previousId = lastNotificationId.current;
+      const newestId = notifications.reduce((maximum, item) => Math.max(maximum, Number(item.id) || 0), previousId || 0);
+      const arrivingQuizNotices = notifications.filter((item) => {
+        if (item.category !== "quiz_submission") return false;
+        if (previousId !== null) return Number(item.id) > previousId;
+        const createdAt = new Date(item.created_at).getTime();
+        return Number.isFinite(createdAt) && createdAt >= mountedAt.current;
+      }).sort((first, second) => Number(first.id) - Number(second.id));
+      const nextNotification = arrivingQuizNotices[0];
+      lastNotificationId.current = nextNotification ? Number(nextNotification.id) : newestId;
+      if (nextNotification) {
+        const noticeKey = String(nextNotification.metadata?.notificationKey || nextNotification.id);
+        if (!notifiedKeys.current.has(noticeKey)) {
+          notifiedKeys.current.add(noticeKey);
           setIncoming(nextNotification);
           if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
-          toastTimer.current = window.setTimeout(() => setIncoming(null), 10000);
+          toastTimer.current = window.setTimeout(() => setIncoming(null), 12000);
           const audio = audioRef.current;
           if (audio) {
             audio.currentTime = 0;
-            void audio.play().catch(() => undefined);
+            void audio.play().catch(() => {
+              const context = audioContextRef.current;
+              if (!context || context.state !== "running") return;
+              const oscillator = context.createOscillator();
+              const gain = context.createGain();
+              oscillator.type = "sine";
+              oscillator.frequency.value = 880;
+              gain.gain.setValueAtTime(0.0001, context.currentTime);
+              gain.gain.exponentialRampToValueAtTime(0.12, context.currentTime + 0.02);
+              gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.3);
+              oscillator.connect(gain);
+              gain.connect(context.destination);
+              oscillator.start();
+              oscillator.stop(context.currentTime + 0.31);
+            });
           }
         }
       }
       setItems(notifications);
       setUnread(Number(result.unreadCount || 0));
+    } catch (error) {
+      console.error("Teacher notifications could not be refreshed:", error);
+    } finally {
+      loadInFlight.current = false;
     }
   }, []);
 
@@ -66,18 +107,34 @@ export default function TeacherNotificationsBell({ className = "" }: { className
         audio.currentTime = 0;
         audio.muted = false;
       }).catch(() => { audio.muted = false; });
+      const Context = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (Context) {
+        audioContextRef.current ||= new Context();
+        void audioContextRef.current.resume();
+      }
     };
     window.addEventListener("pointerdown", unlockAudio, { once: true });
     window.addEventListener("keydown", unlockAudio, { once: true });
     void load();
-    const timer = window.setInterval(() => void load(), 15000);
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void load();
+    }, 4000);
+    const refreshWhenActive = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    window.addEventListener("focus", refreshWhenActive);
+    document.addEventListener("visibilitychange", refreshWhenActive);
     return () => {
       window.clearInterval(timer);
+      window.removeEventListener("focus", refreshWhenActive);
+      document.removeEventListener("visibilitychange", refreshWhenActive);
       window.removeEventListener("pointerdown", unlockAudio);
       window.removeEventListener("keydown", unlockAudio);
       if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
       audio.pause();
       audioRef.current = null;
+      void audioContextRef.current?.close();
+      audioContextRef.current = null;
     };
   }, [load]);
   useEffect(() => {
