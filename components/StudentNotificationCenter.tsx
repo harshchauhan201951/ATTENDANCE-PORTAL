@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Capacitor } from "@capacitor/core";
+import { PushNotifications } from "@capacitor/push-notifications";
 import { supabase } from "../lib/supabase";
 
 type StudentNotice = {
@@ -113,6 +114,70 @@ export default function StudentNotificationCenter() {
       navigator.serviceWorker?.removeEventListener("message", onWorkerMessage);
     };
   }, [identity, refresh]);
+
+  useEffect(() => {
+    if (!identity || !nativeApp) return;
+    let cancelled = false;
+    const listeners: Array<{ remove: () => Promise<void> }> = [];
+
+    void (async () => {
+      try {
+        if (Capacitor.getPlatform() === "android") {
+          await PushNotifications.createChannel({
+            id: "racer_academy_v3",
+            name: "RACER Academy alerts",
+            description: "School updates, attendance, homework, results and fee notices.",
+            importance: 4,
+            sound: "racer_notification",
+            visibility: 1,
+            lights: true,
+            lightColor: "#FFD43B",
+            vibration: true,
+          });
+        }
+
+        const permission = await PushNotifications.checkPermissions();
+        const granted = permission.receive === "granted" ||
+          (permission.receive === "prompt" && (await PushNotifications.requestPermissions()).receive === "granted");
+        if (!granted || cancelled) return;
+
+        listeners.push(await PushNotifications.addListener("registration", async (token) => {
+          try {
+            const response = await fetch("/api/push/subscribe", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ studentId: identity.id, subscription: { type: "fcm", token: token.value } }),
+            });
+            if (!response.ok) console.error("FCM subscription API error:", await response.text());
+          } catch (error) {
+            console.error("FCM subscription save error:", error);
+          }
+        }));
+        listeners.push(await PushNotifications.addListener("registrationError", (error) => {
+          console.error("FCM registration error:", error);
+        }));
+        listeners.push(await PushNotifications.addListener("pushNotificationReceived", () => {
+          void refresh(false);
+        }));
+        listeners.push(await PushNotifications.addListener("pushNotificationActionPerformed", (event) => {
+          const data = event.notification?.data || {};
+          const targetUrl = typeof data.url === "string" && data.url.startsWith("/")
+            ? data.url
+            : "/student/notifications" + (data.announcementId ? "?announcementId=" + encodeURIComponent(String(data.announcementId)) : "");
+          router.push(targetUrl);
+        }));
+
+        await PushNotifications.register();
+      } catch (error) {
+        console.error("Student native push setup failed:", error);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      listeners.forEach((listener) => { void listener.remove(); });
+    };
+  }, [identity, nativeApp, refresh, router]);
 
   async function enableNotifications() {
     if (!identity || !("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) return;

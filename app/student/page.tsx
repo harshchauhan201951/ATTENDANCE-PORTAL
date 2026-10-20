@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Capacitor } from "@capacitor/core";
 import { supabase } from "../../lib/supabase";
 
 type DashboardCard = {
@@ -177,6 +178,7 @@ export default function StudentDashboardPage() {
     currentStudentId: number
   ) {
     try {
+      if (Capacitor.isNativePlatform()) return;
       if (typeof window === "undefined") {
         return;
       }
