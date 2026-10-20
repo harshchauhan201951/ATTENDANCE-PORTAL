@@ -835,7 +835,10 @@ export default function StudentAttendancePage() {
                       {status || (isOffDate ? <><span className="vip-off-cross">×</span> OFF</> : holidayEmoji || "•")}
                     </em>
                     {calendarEvent?.type === "holiday" && (
-                      <small className="vip-week-event-name" title={calendarEvent.title}>
+                      <small
+                        className={"vip-week-event-name" + (status ? " has-attendance" : "")}
+                        title={calendarEvent.title}
+                      >
                         {calendarEvent.title}
                       </small>
                     )}
@@ -2144,6 +2147,8 @@ export default function StudentAttendancePage() {
           .vip-week-day.is-holiday-day { background: #fff8f1; color: #8c5700; border-color: #f4d8b8; }
           .vip-week-day.is-holiday-day em { background: #fff; color: #805000; }
           .vip-week-event-name { display: block; width: 100%; margin-top: 3px; overflow: hidden; color: #6b7280; font-size: 6px; font-weight: 700; line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
+          .vip-week-day.is-present .vip-week-event-name.has-attendance { color: #087d59; font-weight: 900; }
+          .vip-week-day.is-absent .vip-week-event-name.has-attendance { color: #bd3047; font-weight: 900; }
           .vip-week-holiday-marker { position: absolute; top: 3px; left: 3px; z-index: 2; font-size: 9px; line-height: 1; }
           .vip-week-day.is-empty { background: #f3f7fd; color: #7184a7; }
           .vip-week-day.is-empty em { background: #d9e2f0; color: #7184a7; }
@@ -3237,6 +3242,8 @@ export default function StudentAttendancePage() {
           .vip-week-day.is-holiday-day { border-color: #f4d8b8 !important; background: #fff8f1 !important; color: #8c5700 !important; }
           .vip-week-day.is-holiday-day em { background: #fff !important; color: #805000 !important; }
           .vip-week-event-name { margin-top: 2px !important; color: #725d45 !important; font-size: 5px !important; line-height: 1 !important; }
+          .vip-week-day.is-present .vip-week-event-name.has-attendance { color: #087d59 !important; font-size: 5.5px !important; font-weight: 900 !important; }
+          .vip-week-day.is-absent .vip-week-event-name.has-attendance { color: #bd3047 !important; font-size: 5.5px !important; font-weight: 900 !important; }
           .vip-week-holiday-marker { position: absolute !important; top: 3px !important; left: 3px !important; z-index: 2 !important; font-size: 9px !important; line-height: 1 !important; }
           .vip-recent-list { gap: 7px !important; }
           .vip-recent-row { min-height: 62px !important; padding: 9px !important; border: 1px solid #e4ebf4 !important; border-radius: 13px !important; background: #fff !important; }
