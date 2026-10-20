@@ -20,9 +20,12 @@ type Student = {
 };
 
 type AttendanceRecord = {
+  id: number;
   student_id: number;
   attendance_date: string;
   status: string;
+  source: "regular" | "extra";
+  subject?: string | null;
 };
 
 type HistoryRow = {
@@ -78,19 +81,27 @@ export default function AttendanceHistoryPage() {
         studentQuery = studentQuery.in("id", assignedStudentIds);
       }
 
-      let attendanceQuery = supabase.from("attendance").select("student_id, attendance_date, status").order("attendance_date", { ascending: false });
+      let attendanceQuery = supabase.from("attendance").select("id, student_id, attendance_date, status").order("attendance_date", { ascending: false });
+      let extraAttendanceQuery = supabase.from("extra_class_attendance").select("id, student_id, extra_class_date, status, subject").order("extra_class_date", { ascending: false });
       if (savedTeacherId !== 1 && assignedStudentIds.length > 0) { attendanceQuery = attendanceQuery.in("student_id", assignedStudentIds); }
+      if (savedTeacherId !== 1 && assignedStudentIds.length > 0) { extraAttendanceQuery = extraAttendanceQuery.in("student_id", assignedStudentIds); }
 
-      const [studentsResult, attendanceResult] = await Promise.all([studentQuery, attendanceQuery]);
+      const [studentsResult, attendanceResult, extraAttendanceResult] = await Promise.all([studentQuery, attendanceQuery, extraAttendanceQuery]);
       if (studentsResult.error) throw new Error(studentsResult.error.message);
       if (attendanceResult.error) throw new Error(attendanceResult.error.message);
+      if (extraAttendanceResult.error) throw new Error(`Extra class attendance could not be loaded: ${extraAttendanceResult.error.message}`);
       setStudents(studentsResult.data || []);
       const activeStudents = (studentsResult.data || []) as Student[];
       const studentById = new Map(activeStudents.map((student) => [Number(student.id), student]));
-      setRecords((attendanceResult.data || []).filter((record) => {
+      const regularRecords: AttendanceRecord[] = (attendanceResult.data || []).filter((record) => {
         const student = studentById.get(Number(record.student_id));
         return Boolean(student) && isOnOrAfterAdmission(student?.admission_date, record.attendance_date);
-      }));
+      }).map((record) => ({ ...record, source: "regular" as const }));
+      const extraRecords: AttendanceRecord[] = (extraAttendanceResult.data || []).filter((record) => {
+        const student = studentById.get(Number(record.student_id));
+        return Boolean(student) && isOnOrAfterAdmission(student?.admission_date, record.extra_class_date);
+      }).map((record) => ({ id: record.id, student_id: record.student_id, attendance_date: record.extra_class_date, status: record.status, subject: record.subject, source: "extra" as const }));
+      setRecords([...regularRecords, ...extraRecords].sort((a, b) => b.attendance_date.localeCompare(a.attendance_date) || b.id - a.id));
     } catch (error) {
       console.error("Load attendance history error:", error);
       setErrorMessage(error instanceof Error ? error.message : "Failed to load attendance history.");
@@ -99,10 +110,8 @@ export default function AttendanceHistoryPage() {
     }
   }
 
-  async function deleteAttendance(
-    studentId: number,
-    attendanceDate: string
-  ) {
+  async function deleteAttendance(record: AttendanceRecord) {
+    const { student_id: studentId, attendance_date: attendanceDate } = record;
     const savedTeacherId = Number(localStorage.getItem("attendance_teacher_id") || "0");
 
     if (!savedTeacherId) {
@@ -131,13 +140,10 @@ export default function AttendanceHistoryPage() {
       }
     }
 
-    const deleteKey =
-      `${studentId}-${attendanceDate}`;
+    const deleteKey = `${record.source}-${record.id}`;
 
     const confirmed = window.confirm(
-      `Kya aap ${formatDate(
-        attendanceDate
-      )} ki attendance delete karna chahte hain?\n\nIsse is student ki us din ki attendance permanently delete ho jayegi.`
+      `Kya aap ${formatDate(attendanceDate)} ki ${record.source === "extra" ? "extra class " : ""}attendance delete karna chahte hain?\n\nIsse is student ki attendance permanently delete ho jayegi.`
     );
 
     if (!confirmed) {
@@ -149,10 +155,9 @@ export default function AttendanceHistoryPage() {
     setSuccessMessage("");
 
     const { error } = await supabase
-      .from("attendance")
+      .from(record.source === "extra" ? "extra_class_attendance" : "attendance")
       .delete()
-      .eq("student_id", studentId)
-      .eq("attendance_date", attendanceDate);
+      .eq("id", record.id);
 
     if (error) {
       console.error(
@@ -170,13 +175,7 @@ export default function AttendanceHistoryPage() {
     }
 
     setRecords((currentRecords) =>
-      currentRecords.filter(
-        (record) =>
-          !(
-            record.student_id === studentId &&
-            record.attendance_date === attendanceDate
-          )
-      )
+      currentRecords.filter((item) => !(item.source === record.source && item.id === record.id))
     );
 
     setSuccessMessage(
@@ -795,10 +794,10 @@ export default function AttendanceHistoryPage() {
               </div>
               <div style={{ display: "grid", gap: 8 }}>
                 {selectedStudentRecords.length === 0 ? <p style={{ color: "#64748b" }}>No attendance records for this month.</p> : selectedStudentRecords.map((record) => (
-                  <div key={`${record.student_id}-${record.attendance_date}`} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", alignItems: "center", gap: 10, padding: "11px 12px", border: "1px solid #e5ebf3", borderRadius: 12 }}>
-                    <strong style={{ color: "#334b68", fontSize: 13 }}>{formatDate(record.attendance_date)}</strong>
+                  <div key={`${record.source}-${record.id}`} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", alignItems: "center", gap: 10, padding: "11px 12px", border: "1px solid #e5ebf3", borderRadius: 12 }}>
+                    <strong style={{ color: "#334b68", fontSize: 13 }}>{formatDate(record.attendance_date)}{record.source === "extra" ? <small style={{ display: "block", color: "#a15b12", marginTop: 3 }}>{record.subject || "Extra Class"} · Extra Class</small> : <small style={{ display: "block", color: "#64748b", marginTop: 3 }}>Regular Class</small>}</strong>
                     <span style={{ color: record.status.toLowerCase() === "present" ? "#16804c" : "#c43d45", fontSize: 12, fontWeight: 800 }}>{record.status}</span>
-                    <button type="button" disabled={deleting === `${record.student_id}-${record.attendance_date}`} onClick={() => void deleteAttendance(record.student_id, record.attendance_date)} style={{ border: "1px solid #f0d0d0", borderRadius: 8, padding: "6px 9px", background: "#fff7f7", color: "#b4232d", cursor: "pointer" }}>Delete</button>
+                    <button type="button" disabled={deleting === `${record.source}-${record.id}`} onClick={() => void deleteAttendance(record)} style={{ border: "1px solid #f0d0d0", borderRadius: 8, padding: "6px 9px", background: "#fff7f7", color: "#b4232d", cursor: "pointer" }}>Delete</button>
                   </div>
                 ))}
               </div>

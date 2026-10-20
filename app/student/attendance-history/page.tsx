@@ -346,8 +346,13 @@ export default function StudentAttendanceHistoryPage() {
         .eq("student_id", student.id)
         .order("extra_class_date", { ascending: false })
         .order("id", { ascending: false });
-      if (!extraError) setExtraRecords(((extra || []) as ExtraAttendanceRecord[]).filter((record) => isOnOrAfterAdmission(student.admission_date, record.extra_class_date)));
-      else setExtraRecords([]);
+      if (!extraError) {
+        setExtraRecords(((extra || []) as ExtraAttendanceRecord[]).filter((record) => isOnOrAfterAdmission(student.admission_date, record.extra_class_date)));
+      } else {
+        console.error("Student extra-class attendance history error:", extraError);
+        setExtraRecords([]);
+        setErrorMessage(`Regular attendance loaded, but extra-class attendance could not be loaded: ${extraError.message}`);
+      }
     } catch (error) {
       console.error("Student attendance history error:", error);
       setErrorMessage(error instanceof Error ? error.message : "Attendance history load nahi ho paayi.");
