@@ -6,6 +6,7 @@ export type FestivalCelebration = {
   title: string;
   emoji: string;
   kind: "diwali" | "holi" | "navratri" | "new-year" | "general";
+  dayNumber?: number;
 };
 
 function shiftDate(dateKey: string, amount: number) {
@@ -34,38 +35,58 @@ export function indiaTodayKey(date = new Date()) {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
+const navratriForms = [
+  "माँ शैलपुत्री", "माँ ब्रह्मचारिणी", "माँ चंद्रघंटा", "माँ कूष्मांडा", "माँ स्कंदमाता",
+  "माँ कात्यायनी", "माँ कालरात्रि", "माँ महागौरी", "माँ सिद्धिदात्री", "विजयादशमी · दशहरा",
+];
+
 export function getActiveFestivalCelebrations(today = indiaTodayKey()): (FestivalCelebration & { dateRange: string; daysUntilStart: number; daysAfterEnd: number })[] {
   const holidays = studentCalendarHolidays.filter((event) =>
     event.type === "holiday" && !/weekly|monday off|sunday off/i.test(`${event.title} ${event.description}`)
   );
   const celebrations: FestivalCelebration[] = [];
   const groupedFestivalDates = new Set<string>();
+  const addEvent = (event: FestivalCelebration) => celebrations.push(event);
 
-  for (const diwali of holidays.filter((event) => /\bdiwali\b/i.test(event.title))) {
+  // Keep each observance as its own dated slide so its name always matches its day.
+  for (const diwali of holidays.filter((event) => /^diwali$/i.test(event.title.trim()))) {
     const year = diwali.date.slice(0, 4);
     const diwaliGroup = holidays.filter((event) =>
       event.date.startsWith(`${year}-`) && /diwali|govardhan|bhai dooj/i.test(event.title)
     );
-    const lastFestivalDay = diwaliGroup.reduce((latest, event) => event.date > latest ? event.date : latest, diwali.date);
+    const dateFor = (pattern: RegExp, fallback: string) =>
+      diwaliGroup.find((event) => pattern.test(event.title))?.date ?? fallback;
+    const observances = [
+      { date: shiftDate(diwali.date, -2), title: "धनतेरस", emoji: "🪙" },
+      { date: dateFor(/chhoti diwali|narak chaturdashi|kali chaudas/i, shiftDate(diwali.date, -1)), title: "छोटी दीपावली · नरक चतुर्दशी", emoji: "🪔" },
+      { date: diwali.date, title: "लक्ष्मी पूजन · बड़ी दीपावली · दीपावली", emoji: "🪷" },
+      { date: dateFor(/govardhan/i, shiftDate(diwali.date, 1)), title: "गोवर्धन पूजा", emoji: "⛰️" },
+      { date: dateFor(/bhai dooj/i, shiftDate(diwali.date, 3)), title: "भाई दूज", emoji: "🎁" },
+    ];
+    for (const day of observances) {
+      addEvent({ startDate: day.date, endDate: day.date, title: day.title, emoji: day.emoji, kind: "diwali" });
+    }
     diwaliGroup.forEach((event) => groupedFestivalDates.add(`${event.date}|${event.title}`));
-    celebrations.push({ startDate: shiftDate(diwali.date, -2), endDate: lastFestivalDay, title: "दीपावली उत्सव", emoji: "🪔", kind: "diwali" });
   }
 
   for (const holi of holidays.filter((event) => /^holi$/i.test(event.title.trim()))) {
     groupedFestivalDates.add(`${holi.date}|${holi.title}`);
-    celebrations.push({ startDate: shiftDate(holi.date, -1), endDate: holi.date, title: "होली और होलिका दहन", emoji: "🎨", kind: "holi" });
+    addEvent({ startDate: shiftDate(holi.date, -1), endDate: holi.date, title: "होली और होलिका दहन", emoji: "🎨", kind: "holi" });
   }
 
   for (const dussehra of holidays.filter((event) => /dussehra|vijayadashami/i.test(event.title))) {
     groupedFestivalDates.add(`${dussehra.date}|${dussehra.title}`);
-    celebrations.push({ startDate: shiftDate(dussehra.date, -9), endDate: dussehra.date, title: "नवरात्रि और विजयादशमी", emoji: "🌺", kind: "navratri" });
+    navratriForms.forEach((title, index) => {
+      const date = shiftDate(dussehra.date, index - 9);
+      addEvent({ startDate: date, endDate: date, title, emoji: index === 9 ? "🏹" : "🌺", kind: "navratri", dayNumber: index + 1 });
+    });
   }
 
   for (const holiday of holidays) {
     if (groupedFestivalDates.has(`${holiday.date}|${holiday.title}`)) continue;
     const title = /new year's day/i.test(holiday.title) ? "Happy New Year · नववर्ष" : holiday.title;
     const kind: FestivalCelebration["kind"] = /new year's day/i.test(holiday.title) ? "new-year" : "general";
-    celebrations.push({ startDate: holiday.date, endDate: holiday.date, title, emoji: kind === "new-year" ? "🎊" : "🎉", kind });
+    addEvent({ startDate: holiday.date, endDate: holiday.date, title, emoji: kind === "new-year" ? "🎊" : "🎉", kind });
   }
 
   return celebrations
@@ -74,7 +95,7 @@ export function getActiveFestivalCelebrations(today = indiaTodayKey()): (Festiva
       const windowEnd = shiftDate(event.endDate, 10);
       return {
         ...event,
-        dateRange: event.startDate === event.endDate ? dateLabel(event.startDate) : `${dateLabel(event.startDate)} – ${dateLabel(event.endDate)}`,
+        dateRange: dateLabel(event.startDate),
         daysUntilStart: daysBetween(today, event.startDate),
         daysAfterEnd: daysBetween(event.endDate, today),
         windowStart,
@@ -84,4 +105,3 @@ export function getActiveFestivalCelebrations(today = indiaTodayKey()): (Festiva
     .filter((event) => today >= event.windowStart && today <= event.windowEnd)
     .sort((left, right) => left.startDate.localeCompare(right.startDate) || left.title.localeCompare(right.title));
 }
-

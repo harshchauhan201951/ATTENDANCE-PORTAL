@@ -65,12 +65,28 @@ export default function FestivalCelebrationSlides({ audience }: { audience: "stu
   const eventIndex = Math.floor(slide / slidesPerEvent) % events.length;
   const event = events[eventIndex];
   const eventMessages = messages[event.kind] || messages.general;
-  const message = eventMessages[slide % eventMessages.length];
+  const navratriBlessings = [
+    "माँ शैलपुत्री आपको दृढ़ता और नए आरंभ का आशीर्वाद दें।",
+    "माँ ब्रह्मचारिणी आपके जीवन में ज्ञान, संयम और सफलता भरें।",
+    "माँ चंद्रघंटा आपके परिवार को साहस, शांति और सुरक्षा दें।",
+    "माँ कूष्मांडा आपके घर में स्वास्थ्य, ऊर्जा और खुशियाँ लाएँ।",
+    "माँ स्कंदमाता बच्चों को बुद्धि, प्रेम और उज्ज्वल भविष्य दें।",
+    "माँ कात्यायनी आपके संकल्पों को शक्ति और सफलता दें।",
+    "माँ कालरात्रि हर भय और कठिनाई से आपकी रक्षा करें।",
+    "माँ महागौरी आपके जीवन में सुख, शांति और पवित्रता भरें।",
+    "माँ सिद्धिदात्री आपकी मेहनत सफल करें और मनोकामनाएँ पूरी करें।",
+    "विजयादशमी पर अच्छाई की जीत हो और आपके हर प्रयास में विजय मिले।",
+  ];
+  const message = event.kind === "navratri" && event.dayNumber
+    ? `${navratriBlessings[event.dayNumber - 1]} ${eventMessages[slide % eventMessages.length]}`
+    : eventMessages[slide % eventMessages.length];
   const status = event.daysUntilStart > 0
-    ? `उत्सव शुरू होने में ${event.daysUntilStart} दिन शेष`
+    ? `${event.kind === "navratri" ? `नवरात्रि का दिन ${event.dayNumber}` : event.title} · ${event.daysUntilStart} दिन शेष`
     : event.daysAfterEnd > 0
-      ? "उत्सव के बाद की शुभकामनाएँ"
-      : "उत्सव का पावन समय";
+      ? `${event.title} · उत्सव के बाद की शुभकामनाएँ`
+      : event.kind === "navratri"
+        ? `आज नवरात्रि का दिन ${event.dayNumber} · ${event.title}`
+        : `आज · ${event.title}`;
 
   return (
     <section className={`festival-slide festival-slide--${event.kind}`} aria-label={`${event.title} की शुभकामनाएँ`}>
