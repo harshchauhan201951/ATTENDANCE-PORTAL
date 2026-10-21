@@ -379,6 +379,7 @@ export default function StudentHomeworkPage() {
       : homework;
 
   function logout() {
+    void fetch("/api/student/session", { method: "DELETE", credentials: "same-origin", keepalive: true }).catch(() => undefined);
     sessionStorage.removeItem("studentLoggedIn");
     localStorage.removeItem("studentLoggedIn");
     localStorage.removeItem("student_username");

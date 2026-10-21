@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 export const STUDENT_SESSION_COOKIE = "racer_student_session";
 export const STUDENT_SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 
-export type StudentSession = { studentId: number; username: string; expiresAt: number };
+export type StudentSession = { studentId: number; username: string; expiresAt: number; sessionId?: string; deviceType?: "Mobile" | "Desktop" };
 
 function secret() {
   const value = process.env.RACER_STUDENT_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -11,10 +11,12 @@ function secret() {
   return value;
 }
 
-export function createStudentSessionToken(studentId: number, username: string) {
+export function createStudentSessionToken(studentId: number, username: string, sessionId?: string, deviceType?: "Mobile" | "Desktop") {
   const payload = Buffer.from(JSON.stringify({
     studentId,
     username,
+    sessionId,
+    deviceType,
     expiresAt: Math.floor(Date.now() / 1000) + STUDENT_SESSION_MAX_AGE_SECONDS,
   })).toString("base64url");
   const signature = createHmac("sha256", secret()).update(payload).digest("base64url");
@@ -33,7 +35,7 @@ export function readStudentSession(request: Request): StudentSession | null {
     if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) return null;
     const value = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as Partial<StudentSession>;
     if (!Number.isInteger(value.studentId) || Number(value.studentId) <= 0 || typeof value.username !== "string" || !value.username || !Number.isInteger(value.expiresAt) || Number(value.expiresAt) <= Math.floor(Date.now() / 1000)) return null;
-    return { studentId: Number(value.studentId), username: value.username, expiresAt: Number(value.expiresAt) };
+    return { studentId: Number(value.studentId), username: value.username, expiresAt: Number(value.expiresAt), sessionId: typeof value.sessionId === "string" ? value.sessionId : undefined, deviceType: value.deviceType === "Mobile" || value.deviceType === "Desktop" ? value.deviceType : undefined };
   } catch {
     return null;
   }

@@ -671,6 +671,7 @@ export default function StudentAttendancePage() {
    * ---------------------------------------------------------
    */
   function logout() {
+    void fetch("/api/student/session", { method: "DELETE", credentials: "same-origin", keepalive: true }).catch(() => undefined);
     const keys = [
       "student_username",
       "studentUsername",

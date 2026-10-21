@@ -94,6 +94,16 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
     const timer = setInterval(updateHeaderTime, 1000);
     return () => { clearInterval(timer); if (reminderTimer) window.clearTimeout(reminderTimer); };
   }, []);
+  useEffect(() => {
+    const isSignedIn = () => localStorage.getItem("studentLoggedIn") === "true" || sessionStorage.getItem("studentLoggedIn") === "true";
+    const ping = () => {
+      if (!isSignedIn()) return;
+      void fetch("/api/student/session/ping", { method: "POST", credentials: "same-origin" }).catch(() => undefined);
+    };
+    ping();
+    const timer = window.setInterval(ping, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
   // STUDENT ACCOUNT STATUS CHECK
   useEffect(() => {
     let cancelled = false;
@@ -131,7 +141,7 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
   const desktopModule = getStudentDesktopModule(pathname);
 
   const handleDesktopLogout = () => {
-    void fetch("/api/student/session", { method: "DELETE", credentials: "same-origin" }).catch(() => undefined);
+    void fetch("/api/student/session", { method: "DELETE", credentials: "same-origin", keepalive: true }).catch(() => undefined);
     ["student_username", "studentUsername", "studentLoggedIn", "attendance_student_id", "studentId", "student_id", "attendance_student_name", "studentName", "student_name"].forEach((key) => {
       localStorage.removeItem(key);
       sessionStorage.removeItem(key);

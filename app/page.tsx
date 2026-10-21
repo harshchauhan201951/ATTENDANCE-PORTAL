@@ -745,24 +745,11 @@ export default function HomePage() {
           ) &&
           currentStudentId > 0
         ) {
-          const {
-            error: activityError,
-          } = await supabase
-            .from(
-              "student_login_activity"
-            )
-            .insert({
-              student_id:
-                currentStudentId,
-              login_at:
-                new Date().toISOString(),
-            });
-
-          if (activityError) {
-            console.error(
-              "Student login activity error:",
-              activityError
-            );
+          if (!secureSessionResult?.activityRecorded) {
+            const { error: activityError } = await supabase
+              .from("student_login_activity")
+              .insert({ student_id: currentStudentId, login_at: new Date().toISOString() });
+            if (activityError) console.error("Student login activity error:", activityError);
           }
 
           void fetch("/api/teacher/notifications/ingest", {
@@ -772,7 +759,7 @@ export default function HomePage() {
             body: JSON.stringify({
               eventType: "student_login",
               studentId: currentStudentId,
-              deviceType: /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) ? "mobile/tablet" : "desktop/browser",
+              deviceType: /Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent) ? "Mobile" : "Desktop",
             }),
           }).catch((notificationError) => console.error("Teacher student-login notification error:", notificationError));
         }

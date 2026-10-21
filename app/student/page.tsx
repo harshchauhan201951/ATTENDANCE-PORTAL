@@ -660,6 +660,7 @@ export default function StudentDashboardPage() {
   }
 
   function logout() {
+    void fetch("/api/student/session", { method: "DELETE", credentials: "same-origin", keepalive: true }).catch(() => undefined);
     localStorage.removeItem(
       "studentLoggedIn"
     );

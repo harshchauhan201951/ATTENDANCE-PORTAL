@@ -20,6 +20,10 @@ type LoginActivity = {
   student_id: number | string | null;
   login_at: string;
   created_at?: string | null;
+  device_type?: string | null;
+  event_type?: "login" | "logout" | string | null;
+  session_id?: string | null;
+  last_seen_at?: string | null;
 };
 
 type StudentSummary = {
@@ -29,6 +33,8 @@ type StudentSummary = {
   username: string;
   totalLogins: number;
   lastLogin: string | null;
+  lastDevice: string;
+  isLoggedIn: boolean;
   activities: LoginActivity[];
 };
 
@@ -134,6 +140,26 @@ function getDateFilterStart(filter: DateFilter): Date | null {
   return null;
 }
 
+function isLoginEvent(activity: LoginActivity) {
+  return String(activity.event_type || "login").toLowerCase() !== "logout";
+}
+
+function hasLiveSession(activities: LoginActivity[]) {
+  const latestBySession = new Map<string, LoginActivity>();
+  for (const activity of activities) {
+    if (!activity.session_id) continue;
+    const current = latestBySession.get(activity.session_id);
+    if (!current || new Date(activity.login_at).getTime() > new Date(current.login_at).getTime()) {
+      latestBySession.set(activity.session_id, activity);
+    }
+  }
+  const now = Date.now();
+  return [...latestBySession.values()].some((activity) => {
+    const lastSeen = new Date(activity.last_seen_at || activity.login_at).getTime();
+    return isLoginEvent(activity) && Number.isFinite(lastSeen) && now - lastSeen <= 3 * 60 * 1000;
+  });
+}
+
 export default function StudentLoginActivityPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [activities, setActivities] = useState<LoginActivity[]>([]);
@@ -169,18 +195,37 @@ export default function StudentLoginActivityPage() {
           .order("id", { ascending: true });
       let activitiesQuery = supabase
           .from("student_login_activity")
-          .select("id, student_id, login_at, created_at")
+          .select("id, student_id, login_at, created_at, device_type, event_type, session_id, last_seen_at")
           .order("login_at", { ascending: false });
       if (assignedStudentIds !== null) {
         studentsQuery = studentsQuery.in("id", assignedStudentIds);
         activitiesQuery = activitiesQuery.in("student_id", assignedStudentIds);
       }
 
-      const [studentsResult, activitiesResult] = await Promise.all([
+      const [studentsResult, initialActivitiesResult] = await Promise.all([
         studentsQuery,
 
         activitiesQuery,
       ]);
+
+      let activitiesResult = initialActivitiesResult;
+      let migrationMissing = false;
+      if (activitiesResult.error) {
+        let legacyActivitiesQuery = supabase
+          .from("student_login_activity")
+          .select("id, student_id, login_at, created_at")
+          .order("login_at", { ascending: false });
+        if (assignedStudentIds !== null) legacyActivitiesQuery = legacyActivitiesQuery.in("student_id", assignedStudentIds);
+        const legacyActivitiesResult = await legacyActivitiesQuery;
+        if (!legacyActivitiesResult.error) {
+          activitiesResult = {
+            ...legacyActivitiesResult,
+            data: (legacyActivitiesResult.data || []).map((activity) => ({ ...activity, device_type: "Unknown", event_type: "login", session_id: null, last_seen_at: null })),
+            error: null,
+          };
+          migrationMissing = true;
+        }
+      }
 
       if (studentsResult.error) {
         throw new Error(
@@ -196,6 +241,7 @@ export default function StudentLoginActivityPage() {
 
       setStudents((studentsResult.data || []) as Student[]);
       setActivities((activitiesResult.data || []) as LoginActivity[]);
+      if (migrationMissing) setError("Device and current login status tracking needs the 2026-10-21 Supabase login activity migration. Existing login history is shown until it is applied.");
     } catch (err) {
       console.error("Student login activity loading error:", err);
 
@@ -212,6 +258,8 @@ export default function StudentLoginActivityPage() {
 
   useEffect(() => {
     loadData();
+    const refreshTimer = window.setInterval(() => void loadData(), 60_000);
+    return () => window.clearInterval(refreshTimer);
   }, [loadData]);
 
   const handleRefresh = async () => {
@@ -263,17 +311,20 @@ export default function StudentLoginActivityPage() {
       );
 
       const lastLogin =
-        studentActivities.length > 0
-          ? studentActivities[0].login_at
+        studentActivities.some(isLoginEvent)
+          ? studentActivities.find(isLoginEvent)!.login_at
           : null;
+      const latestLogin = studentActivities.find(isLoginEvent);
 
       return {
         databaseId,
         studentId: getStudentId(student),
         studentName: getStudentName(student),
         username: student.student_username?.trim() || "",
-        totalLogins: studentActivities.length,
+        totalLogins: studentActivities.filter(isLoginEvent).length,
         lastLogin,
+        lastDevice: latestLogin?.device_type || "Unknown",
+        isLoggedIn: hasLiveSession(studentActivities),
         activities: studentActivities,
       };
     });
@@ -297,15 +348,13 @@ export default function StudentLoginActivityPage() {
         return new Date(activity.login_at) >= filterStart;
       });
 
-      const lastLogin =
-        filteredActivities.length > 0
-          ? filteredActivities[0].login_at
-          : null;
+      const filteredLogins = filteredActivities.filter(isLoginEvent);
+      const lastLogin = filteredLogins[0]?.login_at || null;
 
       return {
         ...student,
         activities: filteredActivities,
-        totalLogins: filteredActivities.length,
+        totalLogins: filteredLogins.length,
         lastLogin,
       };
     });
@@ -332,17 +381,17 @@ export default function StudentLoginActivityPage() {
    */
   const totalStudents = students.length;
 
-  const totalLogins = activities.length;
+  const totalLogins = activities.filter(isLoginEvent).length;
 
   const loggedInToday = useMemo(() => {
-    return activities.filter((activity) => isToday(activity.login_at)).length;
+    return activities.filter((activity) => isLoginEvent(activity) && isToday(activity.login_at)).length;
   }, [activities]);
 
   const studentsLoggedInToday = useMemo(() => {
     const uniqueIds = new Set<string>();
 
     for (const activity of activities) {
-      if (isToday(activity.login_at) && activity.student_id !== null) {
+      if (isLoginEvent(activity) && isToday(activity.login_at) && activity.student_id !== null) {
         uniqueIds.add(String(activity.student_id));
       }
     }
@@ -394,6 +443,12 @@ export default function StudentLoginActivityPage() {
       icon: "🔵",
     };
   };
+
+  const getLoginState = (student: StudentSummary) => student.isLoggedIn
+    ? { label: "Login Now", className: "session-online" }
+    : student.totalLogins > 0
+      ? { label: "Logged Out", className: "session-offline" }
+      : { label: "Never Logged In", className: "session-never" };
 
   return (
     <main data-racer-vip-module="login-activity"  className="login-activity-page racer-module-page racer-login-activity-page">
@@ -614,6 +669,8 @@ export default function StudentLoginActivityPage() {
                         <th>Student</th>
                         <th>Student ID</th>
                         <th>Last Login</th>
+                        <th>Device</th>
+                        <th>Login State</th>
                         <th>Total Logins</th>
                         <th>Status</th>
                         <th>History</th>
@@ -623,6 +680,7 @@ export default function StudentLoginActivityPage() {
                     <tbody>
                       {filteredSummaries.map((student, index) => {
                         const status = getStatus(student);
+                        const loginState = getLoginState(student);
 
                         return (
                           <tr key={student.databaseId}>
@@ -681,6 +739,10 @@ export default function StudentLoginActivityPage() {
                                 </span>
                               )}
                             </td>
+
+                            <td><span className={`device-badge ${student.lastDevice === "Mobile" ? "device-mobile" : student.lastDevice === "Desktop" ? "device-desktop" : "device-unknown"}`}>{student.lastDevice === "Mobile" ? "📱 Mobile" : student.lastDevice === "Desktop" ? "🖥️ Desktop" : "Unknown"}</span></td>
+
+                            <td><span className={`session-badge ${loginState.className}`}>● {loginState.label}</span></td>
 
                             <td>
                               <span className="login-count">
@@ -743,6 +805,7 @@ export default function StudentLoginActivityPage() {
               ) : (
                 filteredSummaries.map((student, index) => {
                   const status = getStatus(student);
+                  const loginState = getLoginState(student);
 
                   return (
                     <article
@@ -796,6 +859,14 @@ export default function StudentLoginActivityPage() {
                           <strong>
                             {student.totalLogins}
                           </strong>
+                        </div>
+                        <div className="mobile-detail">
+                          <span>Device</span>
+                          <strong>{student.lastDevice === "Mobile" ? "📱 Mobile" : student.lastDevice === "Desktop" ? "🖥️ Desktop" : "Unknown"}</strong>
+                        </div>
+                        <div className="mobile-detail">
+                          <span>Login State</span>
+                          <strong><span className={`session-badge ${loginState.className}`}>{`● ${loginState.label}`}</span></strong>
                         </div>
                       </div>
 
@@ -907,10 +978,7 @@ export default function StudentLoginActivityPage() {
                 <div>
                   <h3>Complete Login Records</h3>
 
-                  <p>
-                    Every successful login recorded for this
-                    student.
-                  </p>
+                  <p>Every login and logout recorded for this student.</p>
                 </div>
               </div>
 
@@ -938,13 +1006,13 @@ export default function StudentLoginActivityPage() {
                             index}
                         </div>
 
-                        <div className="history-icon">
-                          🔐
+                          <div className={`history-icon ${isLoginEvent(activity) ? "history-icon-login" : "history-icon-logout"}`}>
+                          {isLoginEvent(activity) ? "🔐" : "↪"}
                         </div>
 
                         <div className="history-record">
                           <strong>
-                            Successful Login
+                            {isLoginEvent(activity) ? "Login" : "Logged Out"}
                           </strong>
 
                           <span>
@@ -958,11 +1026,10 @@ export default function StudentLoginActivityPage() {
                           </small>
                         </div>
 
-                        {isToday(activity.login_at) && (
-                          <span className="today-badge">
-                            Today
-                          </span>
-                        )}
+                        <div className="history-event-badges">
+                          <span className={`event-badge ${isLoginEvent(activity) ? "event-login" : "event-logout"}`}>{isLoginEvent(activity) ? "Login" : "Logged Out"}</span>
+                          <span className={`device-badge ${activity.device_type === "Mobile" ? "device-mobile" : activity.device_type === "Desktop" ? "device-desktop" : "device-unknown"}`}>{activity.device_type || "Unknown"}</span>
+                        </div>
                       </div>
                     )
                   )}
@@ -1543,6 +1610,30 @@ export default function StudentLoginActivityPage() {
           font-weight: 750;
           white-space: nowrap;
         }
+
+        .device-badge,
+        .session-badge,
+        .event-badge {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
+          padding: 6px 9px;
+          border-radius: 999px;
+          font-size: 10px;
+          font-weight: 850;
+          white-space: nowrap;
+        }
+
+        .device-mobile { color: #075985; background: #e0f2fe; }
+        .device-desktop { color: #5b21b6; background: #ede9fe; }
+        .device-unknown { color: #475467; background: #f2f4f7; }
+        .session-online, .event-login { color: #047857; background: #d1fae5; }
+        .session-offline, .event-logout { color: #be123c; background: #ffe4e6; }
+        .session-never { color: #475467; background: #f2f4f7; }
+        .history-event-badges { display: flex; flex-wrap: wrap; gap: 5px; margin-left: auto; }
+        .history-icon-login { color: #047857; background: #d1fae5; }
+        .history-icon-logout { color: #be123c; background: #ffe4e6; }
 
         .status-active {
           color: #027a48;
