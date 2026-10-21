@@ -1131,11 +1131,15 @@ export default function StudentDashboardPage() {
         .party-balloon.balloon-3{background:radial-gradient(circle at 32% 27%,rgba(255,255,255,.86),transparent 19%),linear-gradient(135deg,#a9f5c2,#32ae83)}
         .party-glitter{position:absolute;width:5px;height:5px;border-radius:50%;background:#fff2a8;box-shadow:0 0 8px 3px rgba(255,224,130,.62);animation:glitter-twinkle 1.5s ease-in-out infinite alternate}
         .party-burst{position:absolute;z-index:2;width:1px;height:1px}
-        .party-fragment{position:absolute;left:0;top:0;width:7px;height:11px;border-radius:2px;background:linear-gradient(180deg,#fff6be,#ff8caa);box-shadow:0 0 8px rgba(255,220,150,.65);animation:party-blast 1.15s cubic-bezier(.15,.75,.3,1) both}
+        .party-burst:before{position:absolute;left:-17px;top:-17px;width:34px;height:34px;border-radius:50%;background:radial-gradient(circle,#fff 0 4%,#fff2a8 9%,rgba(255,207,95,.72) 25%,rgba(255,142,198,.22) 52%,transparent 72%);content:"";animation:party-flash .8s ease-out both;animation-delay:var(--burst-delay,0s)}
+        .party-fragment{position:absolute;left:0;top:0;width:7px;height:11px;border-radius:2px;background:linear-gradient(180deg,#fff6be,#ff8caa);box-shadow:0 0 9px rgba(255,220,150,.8);animation:party-blast 1.45s cubic-bezier(.15,.75,.3,1) both}
         .party-fragment:nth-child(2n){background:linear-gradient(180deg,#fff,#70e6ff)}
         .party-fragment:nth-child(3n){background:linear-gradient(180deg,#fff0a8,#a78bfa)}
-        .party-fragment:nth-child(1){--burst-angle:0deg}.party-fragment:nth-child(2){--burst-angle:45deg}.party-fragment:nth-child(3){--burst-angle:90deg}.party-fragment:nth-child(4){--burst-angle:135deg}.party-fragment:nth-child(5){--burst-angle:180deg}.party-fragment:nth-child(6){--burst-angle:225deg}.party-fragment:nth-child(7){--burst-angle:270deg}.party-fragment:nth-child(8){--burst-angle:315deg}
-        @keyframes party-blast{0%{opacity:1;transform:rotate(var(--burst-angle)) translateY(0) scale(.5)}25%{opacity:1;transform:rotate(var(--burst-angle)) translateY(-23px) scale(1.1)}100%{opacity:0;transform:rotate(var(--burst-angle)) translateY(-52px) scale(.45)}}
+        .party-fragment:nth-child(4n){background:linear-gradient(180deg,#fff4bd,#ffad42)}
+        .party-fragment:nth-child(5n){background:linear-gradient(180deg,#eafff4,#36bd91)}
+        .party-fragment:nth-child(7n){background:linear-gradient(180deg,#fff,#f26bb2)}
+        @keyframes party-flash{0%{opacity:0;transform:scale(.25)}18%{opacity:1;transform:scale(1.8)}100%{opacity:0;transform:scale(3.2)}}
+        @keyframes party-blast{0%{opacity:1;transform:rotate(var(--burst-angle)) translateY(0) scale(.45)}22%{opacity:1;transform:rotate(var(--burst-angle)) translateY(-30px) scale(1.25)}100%{opacity:0;transform:rotate(var(--burst-angle)) translateY(-110px) scale(.55)}}
         @keyframes balloon-rise{0%{opacity:0;transform:translateY(0) rotate(-8deg)}12%{opacity:.82}100%{opacity:0;transform:translateY(-125vh) rotate(12deg)}}
         @keyframes glitter-twinkle{from{opacity:.12;transform:scale(.5)}to{opacity:.9;transform:scale(1.35)}}
         @media(prefers-reduced-motion:reduce){.birthday-celebration-overlay,.party-balloon,.party-glitter,.party-fragment{animation:none!important}}

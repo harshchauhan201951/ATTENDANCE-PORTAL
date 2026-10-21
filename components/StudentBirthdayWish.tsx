@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 
 function indiaDateParts(date: Date) {
@@ -66,8 +66,8 @@ export default function StudentBirthdayWish({
       {portalReady && createPortal(<div className="birthday-celebration-overlay" aria-hidden="true">
         {Array.from({ length: 8 }, (_, index) => <span key={`balloon-${index}`} className={`party-balloon balloon-${index % 4}`} style={{ left: `${7 + ((index * 37) % 87)}%`, animationDelay: `${index * 1.1}s` }} />)}
         {Array.from({ length: 18 }, (_, index) => <span key={`glitter-${index}`} className="party-glitter" style={{ left: `${(index * 47 + 11) % 98}%`, top: `${(index * 31 + 9) % 94}%`, animationDelay: `${(index % 7) * 0.19}s` }} />)}
-        {Array.from({ length: 4 }, (_, index) => <span key={`burst-${index}`} className="party-burst" style={{ left: `${14 + ((index * 29) % 73)}%`, top: `${12 + ((index * 17) % 45)}%` }}>
-          {Array.from({ length: 8 }, (_, ray) => <i key={ray} className="party-fragment" style={{ animationDelay: `${index * 0.22 + ray * 0.018}s` }} />)}
+        {Array.from({ length: 9 }, (_, index) => <span key={`burst-${index}`} className="party-burst" style={{ left: `${7 + ((index * 31) % 87)}%`, top: `${10 + ((index * 19) % 55)}%`, "--burst-delay": `${index * 0.15}s` } as CSSProperties & { "--burst-delay": string }}>
+          {Array.from({ length: 16 }, (_, ray) => <i key={ray} className="party-fragment" style={{ "--burst-angle": `${ray * 22.5}deg`, width: ray % 4 === 0 ? "12px" : "8px", height: ray % 4 === 0 ? "19px" : "13px", animationDelay: `${index * 0.15 + ray * 0.012}s` } as CSSProperties & { "--burst-angle": string }} />)}
         </span>)}
       </div>, document.body)}
       <div className="birthday-scene">
@@ -135,12 +135,12 @@ export default function StudentBirthdayWish({
         .birthday-scene{overflow:visible;margin-inline:-12px}
         .birthday-card{z-index:1;margin-inline:12px}
         .birthday-valance{display:none}
-        .birthday-curtain{top:-8px;bottom:0;width:24px;z-index:0;border:1px solid rgba(255,239,215,.72);border-radius:12px 12px 8px 8px;clip-path:polygon(0 0,100% 0,94% 12%,74% 23%,88% 34%,65% 47%,86% 60%,72% 73%,100% 100%,0 100%);background:repeating-linear-gradient(90deg,#b82f78 0 4px,#f4a0b4 4px 7px,#126d68 7px 11px,#16a47c 11px 15px,#3943a8 15px 19px,#f2be5c 19px 22px,#7a4197 22px 25px);box-shadow:inset -5px 0 8px rgba(255,235,245,.23),inset 5px 0 8px rgba(0,20,14,.32),0 5px 14px rgba(8,59,48,.3);filter:drop-shadow(0 0 6px rgba(187,96,210,.48));animation:curtain-shimmer 4s ease-in-out infinite}
+        .birthday-curtain{top:-8px;bottom:0;width:28px;z-index:2;border:1px solid rgba(255,239,215,.72);border-radius:12px 12px 8px 8px;clip-path:polygon(0 0,100% 0,94% 12%,74% 23%,88% 34%,65% 47%,86% 60%,72% 73%,100% 100%,0 100%);background:repeating-linear-gradient(90deg,#b82f78 0 4px,#f4a0b4 4px 7px,#126d68 7px 11px,#16a47c 11px 15px,#3943a8 15px 19px,#f2be5c 19px 22px,#7a4197 22px 25px);box-shadow:inset -5px 0 8px rgba(255,235,245,.23),inset 5px 0 8px rgba(0,20,14,.32),0 5px 14px rgba(8,59,48,.3);filter:drop-shadow(0 0 6px rgba(187,96,210,.48));animation:curtain-shimmer 4s ease-in-out infinite}
         .birthday-curtain:before{top:0;left:3px;width:calc(100% - 6px);height:clamp(34px,7vw,62px);border-radius:50% 50% 38% 38%;background:radial-gradient(circle at 9% 26%,#fff4de 0 4px,transparent 5px),radial-gradient(circle at 23% 58%,#f4b2c6 0 5px,transparent 6px),radial-gradient(circle at 39% 20%,#f2dca2 0 4px,transparent 5px),radial-gradient(circle at 55% 65%,#fff 0 4px,transparent 5px),radial-gradient(circle at 72% 30%,#e9b1ca 0 5px,transparent 6px),radial-gradient(circle at 90% 57%,#f5dda4 0 4px,transparent 5px),radial-gradient(circle at 18% 88%,#fff 0 3px,transparent 4px),radial-gradient(circle at 83% 92%,#f1b8c9 0 4px,transparent 5px);filter:drop-shadow(0 1px 4px rgba(255,238,192,.55))}
         .birthday-curtain:after{top:45%;bottom:auto;left:15%;width:18px;height:10px;border:1px solid rgba(255,244,207,.8);border-radius:50%;background:linear-gradient(90deg,#f3ce63,#fb91be,#a78bfa);box-shadow:0 0 7px rgba(255,234,181,.8);transform:rotate(-12deg)}
-        .birthday-curtain-left{left:0}
-        .birthday-curtain-right{right:0;transform:scaleX(-1)}
-        @media(max-width:480px){.birthday-card{margin-inline:12px}.birthday-curtain{width:24px}.birthday-curtain:before{height:38px}}
+        .birthday-curtain-left{left:-6px}
+        .birthday-curtain-right{right:-6px;transform:scaleX(-1)}
+        @media(max-width:480px){.birthday-card{margin-inline:12px}.birthday-curtain{width:28px}.birthday-curtain:before{height:38px}}
       `}</style>
     </>
   );
