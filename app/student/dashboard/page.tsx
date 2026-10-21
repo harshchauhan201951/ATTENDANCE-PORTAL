@@ -7,6 +7,7 @@ import { getStudentCalendarEvent } from "../../../lib/student-calendar-events";
 import { isHiddenStudentTimetableTeacher } from "../../../lib/student-timetable";
 import { isOnOrAfterAdmission } from "../../../lib/admission-date";
 import { filterMonthlySnapshotByAdmission } from "../../../lib/monthly-result";
+import StudentBirthdayWish from "../../../components/StudentBirthdayWish";
 import StudentRacerSaathi from "./student-racer-saathi";
 
 type DashboardCard = {
@@ -92,6 +93,8 @@ export default function StudentDashboardPage() {
   const router = useRouter(); const [headerTime,setHeaderTime]=useState(""); useEffect(()=>{const updateHeaderTime=()=>setHeaderTime(new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:true})); updateHeaderTime(); const timer=setInterval(updateHeaderTime,1000); return ()=>clearInterval(timer);},[]);
 
   const [studentName, setStudentName] = useState("Student");
+  const [studentDateOfBirth, setStudentDateOfBirth] = useState<string | null>(null);
+  const [birthdayPreview, setBirthdayPreview] = useState(false);
   const [username, setUsername] = useState("");
   const [studentId, setStudentId] = useState<number | null>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -111,6 +114,10 @@ export default function StudentDashboardPage() {
     timetable: "Loading today's class schedule…",
     calendar: "Checking upcoming calendar dates…",
   });
+
+  useEffect(() => {
+    setBirthdayPreview(process.env.NODE_ENV === "development" && new URLSearchParams(window.location.search).get("birthdayPreview") === "1");
+  }, []);
 
   useEffect(() => {
     if (!studentId) return;
@@ -375,7 +382,7 @@ export default function StudentDashboardPage() {
     try {
       let query = supabase
         .from("students")
-        .select("profile_image_url");
+        .select("profile_image_url,student_name,date_of_birth");
 
       if (currentStudentId) {
         query = query.eq("id", currentStudentId);
@@ -413,6 +420,8 @@ export default function StudentDashboardPage() {
           : null;
 
       setProfileImage(imageUrl);
+      setStudentDateOfBirth(typeof data.date_of_birth === "string" ? data.date_of_birth : null);
+      if (typeof data.student_name === "string" && data.student_name.trim()) setStudentName(data.student_name.trim());
     } catch (error) {
       console.error(
         "Unexpected student profile image loading error:",
@@ -1110,6 +1119,27 @@ export default function StudentDashboardPage() {
           box-sizing: border-box;
         }
 
+        .racer-student-shell .student-dashboard-page .birthday-content h2 {
+          color: #fff9ed !important;
+        }
+
+        .birthday-celebration-overlay{position:fixed;z-index:9500;inset:0;overflow:hidden;pointer-events:none}
+        .party-balloon{position:absolute;bottom:-70px;width:23px;height:30px;border-radius:52% 52% 48% 48%;opacity:0;background:radial-gradient(circle at 32% 27%,rgba(255,255,255,.86),transparent 19%),linear-gradient(135deg,#ff8aab,#d84291);box-shadow:inset -4px -5px 8px rgba(44,20,78,.18),0 0 16px rgba(255,180,220,.3);animation:balloon-rise 8s linear infinite}
+        .party-balloon:after{position:absolute;top:28px;left:11px;width:1px;height:35px;background:rgba(255,244,210,.7);content:""}
+        .party-balloon.balloon-1{background:radial-gradient(circle at 32% 27%,rgba(255,255,255,.86),transparent 19%),linear-gradient(135deg,#ffd979,#ee9c36)}
+        .party-balloon.balloon-2{background:radial-gradient(circle at 32% 27%,rgba(255,255,255,.86),transparent 19%),linear-gradient(135deg,#7ee9ff,#2685ed)}
+        .party-balloon.balloon-3{background:radial-gradient(circle at 32% 27%,rgba(255,255,255,.86),transparent 19%),linear-gradient(135deg,#a9f5c2,#32ae83)}
+        .party-glitter{position:absolute;width:5px;height:5px;border-radius:50%;background:#fff2a8;box-shadow:0 0 8px 3px rgba(255,224,130,.62);animation:glitter-twinkle 1.5s ease-in-out infinite alternate}
+        .party-burst{position:absolute;z-index:2;width:1px;height:1px}
+        .party-fragment{position:absolute;left:0;top:0;width:7px;height:11px;border-radius:2px;background:linear-gradient(180deg,#fff6be,#ff8caa);box-shadow:0 0 8px rgba(255,220,150,.65);animation:party-blast 1.15s cubic-bezier(.15,.75,.3,1) both}
+        .party-fragment:nth-child(2n){background:linear-gradient(180deg,#fff,#70e6ff)}
+        .party-fragment:nth-child(3n){background:linear-gradient(180deg,#fff0a8,#a78bfa)}
+        .party-fragment:nth-child(1){--burst-angle:0deg}.party-fragment:nth-child(2){--burst-angle:45deg}.party-fragment:nth-child(3){--burst-angle:90deg}.party-fragment:nth-child(4){--burst-angle:135deg}.party-fragment:nth-child(5){--burst-angle:180deg}.party-fragment:nth-child(6){--burst-angle:225deg}.party-fragment:nth-child(7){--burst-angle:270deg}.party-fragment:nth-child(8){--burst-angle:315deg}
+        @keyframes party-blast{0%{opacity:1;transform:rotate(var(--burst-angle)) translateY(0) scale(.5)}25%{opacity:1;transform:rotate(var(--burst-angle)) translateY(-23px) scale(1.1)}100%{opacity:0;transform:rotate(var(--burst-angle)) translateY(-52px) scale(.45)}}
+        @keyframes balloon-rise{0%{opacity:0;transform:translateY(0) rotate(-8deg)}12%{opacity:.82}100%{opacity:0;transform:translateY(-125vh) rotate(12deg)}}
+        @keyframes glitter-twinkle{from{opacity:.12;transform:scale(.5)}to{opacity:.9;transform:scale(1.35)}}
+        @media(prefers-reduced-motion:reduce){.birthday-celebration-overlay,.party-balloon,.party-glitter,.party-fragment{animation:none!important}}
+
         html,
         body {
           margin: 0;
@@ -1737,6 +1767,7 @@ export default function StudentDashboardPage() {
         style={styles.page}
       >
         <div style={styles.container}>
+          <StudentBirthdayWish studentName={studentName} dateOfBirth={studentDateOfBirth} profileImage={profileImage} preview={birthdayPreview} />
           <nav
             className="student-navbar"
             style={styles.navbar}
