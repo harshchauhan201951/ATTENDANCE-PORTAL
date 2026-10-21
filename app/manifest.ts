@@ -8,8 +8,8 @@ export default function manifest(): MetadataRoute.Manifest {
       "Racer Academy Student and Teacher Portal",
     start_url: "/",
     display: "standalone",
-    background_color: "#f8fafc",
-    theme_color: "#2563eb",
+    background_color: "#06123f",
+    theme_color: "#06123f",
     orientation: "portrait",
     icons: [
       { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },

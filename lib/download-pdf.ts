@@ -17,34 +17,53 @@ export function downloadPdfFile(pdf: jsPDF, filename: string) {
 
   void (async () => {
     try {
-      const permission = await Filesystem.checkPermissions();
-      if (permission.publicStorage !== "granted") {
-        const requested = await Filesystem.requestPermissions();
-        if (requested.publicStorage !== "granted") {
-          throw new Error("Storage permission was not granted.");
+      let directory = Directory.Documents;
+      try {
+        const permission = await Filesystem.checkPermissions();
+        if (permission.publicStorage !== "granted") {
+          const requested = await Filesystem.requestPermissions();
+          if (requested.publicStorage !== "granted") directory = Directory.Cache;
         }
+      } catch {
+        // Android 11+ uses scoped storage. If legacy public storage is unavailable,
+        // keep the PDF in app cache and still hand it to the system share sheet.
+        directory = Directory.Cache;
       }
 
       const base64 = pdf.output("datauristring").split(",", 2)[1];
       if (!base64) throw new Error("The PDF could not be prepared.");
 
-      const saved = await Filesystem.writeFile({
-        path: `RACER Academy/${pdfFilename}`,
-        data: base64,
-        directory: Directory.Documents,
-        recursive: true,
-      });
+      let saved;
+      try {
+        saved = await Filesystem.writeFile({
+          path: `RACER Academy/${pdfFilename}`,
+          data: base64,
+          directory,
+          recursive: true,
+        });
+      } catch (error) {
+        if (directory !== Directory.Documents) throw error;
+        directory = Directory.Cache;
+        saved = await Filesystem.writeFile({
+          path: `RACER Academy/${pdfFilename}`,
+          data: base64,
+          directory,
+          recursive: true,
+        });
+      }
 
       // The document is already persisted, so dismissing the share sheet won't lose it.
       await Share.share({
         title: pdfFilename,
-        text: `PDF saved in Documents/RACER Academy: ${pdfFilename}`,
+        text: directory === Directory.Documents
+          ? `PDF saved in Documents/RACER Academy: ${pdfFilename}`
+          : `Choose an app or Downloads to save this PDF: ${pdfFilename}`,
         files: [saved.uri],
         dialogTitle: "Open or share PDF",
       });
     } catch (error) {
       console.error("Could not save PDF in the RACER Academy app:", error);
-      window.alert("PDF save nahi ho payi. Storage permission check karke dobara try karein.");
+      window.alert("PDF tayyar nahi ho payi. Dobara try karein.");
     }
   })();
 }
