@@ -4,13 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { getMonthlyCalendarEvent } from "../../../lib/monthly-calendar";
 import { getTeacherAssignedStudentIds } from "../../../lib/teacher-assigned-students";
+import { studentCalendarBirthdays } from "../../../lib/student-calendar-events";
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
 type CalendarEvent = {
   date: string;
   title: string;
-  type: "holiday" | "test" | "class";
+  type: "holiday" | "test" | "class" | "birthday";
   description: string;
 };
 
@@ -695,6 +696,10 @@ function getHoliday(date: Date) {
   );
 }
 
+function getBirthday(date: Date) {
+  return studentCalendarBirthdays.find((event) => event.date === dateKey(date));
+}
+
 function isSunday(date: Date) {
   return date.getDay() === 0;
 }
@@ -831,6 +836,8 @@ export default function TeacherCalendarPage() {
   function getDayInfo(
     date: Date
   ): CalendarEvent | null {
+    const birthday = getBirthday(date);
+    if (birthday) return birthday;
     const holiday = getHoliday(date);
 
     // Special holidays always have priority.
@@ -898,6 +905,7 @@ export default function TeacherCalendarPage() {
 
   const vipCalendarDates = calendarDays.filter((date): date is Date => Boolean(date));
   const vipHolidayCount = holidays.filter((holiday) => holiday.date.startsWith(`${year}-${String(month + 1).padStart(2, "0")}-`)).length;
+  const birthdaysThisYear = studentCalendarBirthdays.filter((event) => event.date.startsWith(String(year)));
   const vipTestCount = vipCalendarDates.filter((date) => getDayInfo(date)?.type === "test").length;
   const vipWorkingDays = vipCalendarDates.filter((date) => getDayInfo(date)?.type !== "holiday").length;
 
@@ -951,6 +959,7 @@ export default function TeacherCalendarPage() {
               if (!date) return <div key={`empty-${index}`} className="racer-vip-cal-day empty" />;
               const info = getDayInfo(date);
               const holiday = getHoliday(date);
+              const birthday = getBirthday(date);
               const monthlyEvent = info?.type === "test" && info.title.startsWith("Monthly ") ? info : null;
               const extraClass = info?.title === "Extra Class" ? info : null;
               const recordedExtraCount = extraClassCounts[dateKey(date)] || 0;
@@ -963,12 +972,12 @@ export default function TeacherCalendarPage() {
                 <button
                   type="button"
                   key={dateKey(date)}
-                  className={`racer-vip-cal-day ${todayDate ? "today" : ""} ${holiday ? "holiday" : ""} ${sundayClass && !monthlyEvent && !extraClass ? "sunday-class" : ""} ${mondayOff && !holiday && !monthlyEvent && !extraClass ? "monday-off" : ""} ${(saturday || monthlyEvent) && !holiday && !extraClass ? "test" : ""} ${extraClass ? "extra-class-day" : !holiday ? monthlyTone : ""}`}
-                  style={recordedExtraCount ? { background: "linear-gradient(145deg,#d9fbff,#9ee1e6)", boxShadow: "inset 0 0 0 2px #1596a4" } : monthlyEvent ? { background: monthlyEvent.title === "Monthly Result" ? "linear-gradient(145deg,#e0fbfa,#b8e6ec)" : "linear-gradient(145deg,#fff8e5,#f4d778)", boxShadow: monthlyEvent.title === "Monthly Result" ? "inset 0 0 0 1px #52b8bd" : "inset 0 0 0 1px #d4a72c" } : undefined}
+                  className={`racer-vip-cal-day ${todayDate ? "today" : ""} ${holiday ? "holiday" : ""} ${birthday ? "birthday-day" : ""} ${sundayClass && !monthlyEvent && !extraClass ? "sunday-class" : ""} ${mondayOff && !holiday && !monthlyEvent && !extraClass ? "monday-off" : ""} ${(saturday || monthlyEvent) && !holiday && !extraClass ? "test" : ""} ${extraClass ? "extra-class-day" : !holiday ? monthlyTone : ""}`}
+                  style={birthday ? { background: "linear-gradient(145deg,#fff2fb,#f4c9e9)", boxShadow: "inset 0 0 0 2px #c33ba8" } : recordedExtraCount ? { background: "linear-gradient(145deg,#d9fbff,#9ee1e6)", boxShadow: "inset 0 0 0 2px #1596a4" } : monthlyEvent ? { background: monthlyEvent.title === "Monthly Result" ? "linear-gradient(145deg,#e0fbfa,#b8e6ec)" : "linear-gradient(145deg,#fff8e5,#f4d778)", boxShadow: monthlyEvent.title === "Monthly Result" ? "inset 0 0 0 1px #52b8bd" : "inset 0 0 0 1px #d4a72c" } : undefined}
                   onClick={() => info && setSelectedEvent(info)}
                 >
                   <span className="racer-vip-cal-number">{date.getDate()}</span>
-                  {holiday ? <><span className="racer-vip-cal-pill holiday-pill">{holiday.title}</span>{recordedExtraCount > 0 && <span className="racer-vip-cal-pill" style={{ background: "linear-gradient(120deg,#087f8c,#20b9b0)", color: "#fff", border: "1px solid #6ad9d2", whiteSpace: "normal", overflowWrap: "anywhere" }}>✨ EXTRA CLASS ({recordedExtraCount})</span>}</> : monthlyEvent ? <><span className={`racer-vip-cal-pill ${monthlyTone}-pill`} style={monthlyEvent.title === "Monthly Result" ? { background: "linear-gradient(120deg,#075985,#0f8b8d)", color: "#f0ffff", border: "1px solid #70d3d0", boxShadow: "0 2px 6px rgba(7,89,133,.24)", whiteSpace: "normal", overflow: "visible", textOverflow: "clip", overflowWrap: "anywhere" } : { background: "linear-gradient(120deg,#3c176b,#7042b5)", color: "#fff3bd", border: "1px solid #e7bf50", boxShadow: "0 2px 6px rgba(60,23,107,.24)", whiteSpace: "normal", overflow: "visible", textOverflow: "clip", overflowWrap: "anywhere" }}>{monthlyEvent.title === "Monthly Result" ? "📢 Monthly Result" : "⭐ Monthly MahaTest"}</span>{monthlyEvent.title === "Monthly Result" && mondayOff && recordedExtraCount === 0 && <span className="racer-vip-cal-pill off-pill">OFF · Monday</span>}{recordedExtraCount > 0 && <span className="racer-vip-cal-pill" style={{ background: "linear-gradient(120deg,#087f8c,#20b9b0)", color: "#fff", border: "1px solid #6ad9d2", whiteSpace: "normal", overflowWrap: "anywhere" }}>✨ EXTRA CLASS ({recordedExtraCount})</span>}</> : extraClass ? <span className="racer-vip-cal-pill" style={{ background: "linear-gradient(120deg,#087f8c,#20b9b0)", color: "#fff", border: "1px solid #6ad9d2", whiteSpace: "normal", overflowWrap: "anywhere" }}>✨ EXTRA CLASS ({extraClassCounts[dateKey(date)]})</span> : sundayClass ? <span className="racer-vip-cal-pill class-pill">CLASS</span> : mondayOff ? <span className="racer-vip-cal-pill off-pill">OFF</span> : saturday ? <span className="racer-vip-cal-pill test-pill">TEST</span> : <span className="racer-vip-cal-small">Tuition</span>}
+                  {birthday ? <span className="racer-vip-cal-pill birthday-pill">🎂 {birthday.title}</span> : holiday ? <><span className="racer-vip-cal-pill holiday-pill">{holiday.title}</span>{recordedExtraCount > 0 && <span className="racer-vip-cal-pill" style={{ background: "linear-gradient(120deg,#087f8c,#20b9b0)", color: "#fff", border: "1px solid #6ad9d2", whiteSpace: "normal", overflowWrap: "anywhere" }}>✨ EXTRA CLASS ({recordedExtraCount})</span>}</> : monthlyEvent ? <><span className={`racer-vip-cal-pill ${monthlyTone}-pill`} style={monthlyEvent.title === "Monthly Result" ? { background: "linear-gradient(120deg,#075985,#0f8b8d)", color: "#f0ffff", border: "1px solid #70d3d0", boxShadow: "0 2px 6px rgba(7,89,133,.24)", whiteSpace: "normal", overflow: "visible", textOverflow: "clip", overflowWrap: "anywhere" } : { background: "linear-gradient(120deg,#3c176b,#7042b5)", color: "#fff3bd", border: "1px solid #e7bf50", boxShadow: "0 2px 6px rgba(60,23,107,.24)", whiteSpace: "normal", overflow: "visible", textOverflow: "clip", overflowWrap: "anywhere" }}>{monthlyEvent.title === "Monthly Result" ? "📢 Monthly Result" : "⭐ Monthly MahaTest"}</span>{monthlyEvent.title === "Monthly Result" && mondayOff && recordedExtraCount === 0 && <span className="racer-vip-cal-pill off-pill">OFF · Monday</span>}{recordedExtraCount > 0 && <span className="racer-vip-cal-pill" style={{ background: "linear-gradient(120deg,#087f8c,#20b9b0)", color: "#fff", border: "1px solid #6ad9d2", whiteSpace: "normal", overflowWrap: "anywhere" }}>✨ EXTRA CLASS ({recordedExtraCount})</span>}</> : extraClass ? <span className="racer-vip-cal-pill" style={{ background: "linear-gradient(120deg,#087f8c,#20b9b0)", color: "#fff", border: "1px solid #6ad9d2", whiteSpace: "normal", overflowWrap: "anywhere" }}>✨ EXTRA CLASS ({extraClassCounts[dateKey(date)]})</span> : sundayClass ? <span className="racer-vip-cal-pill class-pill">CLASS</span> : mondayOff ? <span className="racer-vip-cal-pill off-pill">OFF</span> : saturday ? <span className="racer-vip-cal-pill test-pill">TEST</span> : <span className="racer-vip-cal-small">Tuition</span>}
                 </button>
               );
             })}
@@ -976,6 +985,7 @@ export default function TeacherCalendarPage() {
 
           <div className="racer-vip-calendar-legend">
             <span><i className="holiday-dot" />Holiday</span>
+            <span><i className="birthday-dot" />Birthday</span>
             <span><i className="test-dot" />Weekly Test</span>
             <span><i className="class-dot" />Sunday Class</span>
             <span><i className="off-dot" />Monday Off</span>
@@ -1015,6 +1025,13 @@ export default function TeacherCalendarPage() {
               ))}
             </div>
           )}
+        </section>
+
+        <section className="racer-vip-holiday-list birthday-list">
+          <div className="racer-vip-info-title">🎂 Academy Birthdays</div>
+          <div className="racer-vip-holiday-rows">
+            {birthdaysThisYear.map((event) => <button type="button" key={event.date} onClick={() => setSelectedEvent(event)}><span>{formatDate(new Date(`${event.date}T00:00:00`))}</span><strong>{event.title}</strong></button>)}
+          </div>
         </section>
 
         {selectedEvent && (

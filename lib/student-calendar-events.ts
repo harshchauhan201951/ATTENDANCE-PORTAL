@@ -3,7 +3,7 @@ import { getMonthlyCalendarEvent } from "./monthly-calendar";
 export type CalendarEvent = {
   date: string;
   title: string;
-  type: "holiday" | "test" | "class";
+  type: "holiday" | "test" | "class" | "birthday";
   description: string;
 };
 
@@ -28,8 +28,24 @@ export function getStudentCalendarEventEmoji(event: CalendarEvent | null | undef
   if (title.includes("buddha")) return "☸️";
   if (title.includes("dussehra")) return "🏹";
   if (title.includes("new year's day")) return "🎊";
+  if (event.type === "birthday") return "🎂";
   return "🎉";
 }
+
+const birthdayDefinitions = [
+  { month: "09", day: "24", name: "Lakshita" },
+  { month: "10", day: "22", name: "Harsh" },
+  { month: "03", day: "07", name: "Durgesh" },
+  { month: "09", day: "15", name: "Bhumika (Shobha)" },
+];
+
+export const studentCalendarBirthdays: CalendarEvent[] = Array.from({ length: 16 }, (_, index) => 2025 + index)
+  .flatMap((year) => birthdayDefinitions.map(({ month, day, name }) => ({
+    date: `${year}-${month}-${day}`,
+    title: `${name}'s Birthday`,
+    type: "birthday" as const,
+    description: `Celebrate ${name}'s birthday at Racer Academy.`,
+  })));
 
 export const studentCalendarHolidays: CalendarEvent[] = [
   // =========================
@@ -169,6 +185,8 @@ function dateKey(date: Date) {
 
 export function getStudentCalendarEvent(date: Date): CalendarEvent | null {
   const key = dateKey(date);
+  const birthday = studentCalendarBirthdays.find((event) => event.date === key);
+  if (birthday) return birthday;
   const holiday = studentCalendarHolidays.find((event) => event.date === key);
   if (holiday) return holiday;
 

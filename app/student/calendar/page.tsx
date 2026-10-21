@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-import { getStudentCalendarEvent, getStudentCalendarEventEmoji, studentCalendarHolidays, type CalendarEvent } from "../../../lib/student-calendar-events";
+import { getStudentCalendarEvent, getStudentCalendarEventEmoji, studentCalendarBirthdays, studentCalendarHolidays, type CalendarEvent } from "../../../lib/student-calendar-events";
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
@@ -102,6 +102,7 @@ function CalendarReferenceVip({
   const todayKey = dateKey(today);
 
   const eventColor = (type: CalendarEvent["type"], title = "") => {
+    if (type === "birthday") return "#b423a5";
     if (title.startsWith("Extra Class")) return "#087e8b";
     if (title === "Monthly MahaTest") return "#9a6700";
     if (title === "Monthly Result") return "#087e8b";
@@ -111,6 +112,7 @@ function CalendarReferenceVip({
   };
 
   const eventBg = (type: CalendarEvent["type"], title = "") => {
+    if (type === "birthday") return "#fce7f6";
     if (title.startsWith("Extra Class")) return "#d9f7f5";
     if (title === "Monthly MahaTest") return "#fff4d6";
     if (title === "Monthly Result") return "#d9f7f5";
@@ -522,6 +524,7 @@ export default function StudentCalendarPage() {
     (holiday) =>
       holiday.date.startsWith(String(year))
   );
+  const yearlyBirthdays = studentCalendarBirthdays.filter((event) => event.date.startsWith(String(year)));
 
   if (isMobileVip) {
     return (
@@ -719,6 +722,7 @@ export default function StudentCalendarPage() {
                 const mondayOff =
                   isMondayOffDate(date);
                 const holiday = getHoliday(date);
+                const birthday = info?.type === "birthday" ? info : null;
                 const monthlyEvent = info?.type === "test" && info.title.startsWith("Monthly ") ? info : null;
                 const extraClassEvent = info?.title.startsWith("Extra Class") ? info : null;
                 const extraClassStatus = extraClassStatusByDate[dateKey(date)];
@@ -764,6 +768,7 @@ export default function StudentCalendarPage() {
                       ...(holiday
                         ? styles.holiday
                         : {}),
+                      ...(birthday ? styles.birthday : {}),
                     }}
                     className="student-calendar-day"
                   >
@@ -779,7 +784,12 @@ export default function StudentCalendarPage() {
                       {date.getDate()}
                     </div>
 
-                    {holiday ? (
+                    {birthday ? (
+                      <>
+                        <div style={styles.birthdayLabel}>🎂 BIRTHDAY</div>
+                        <div style={styles.birthdayName}>{birthday.title}</div>
+                      </>
+                    ) : holiday ? (
                       <>
                         <div
                           style={styles.holidayLabel}
@@ -1005,6 +1015,18 @@ export default function StudentCalendarPage() {
                 No special holidays added for this year.
               </div>
             )}
+          </div>
+        </section>
+
+        <section style={styles.holidayCard}>
+          <h2 style={styles.sectionTitle}>🎂 Academy Birthdays</h2>
+          <div style={styles.holidayList}>
+            {yearlyBirthdays.map((event) => (
+              <button type="button" key={event.date} onClick={() => setSelectedEvent(event)} style={{ ...styles.holidayRow, background: "#fff7fd", borderColor: "#f4c7e9" }}>
+                <strong>{formatDate(new Date(`${event.date}T00:00:00`))}</strong>
+                <span style={{ color: "#a51b8f" }}>🎂 {event.title}</span>
+              </button>
+            ))}
           </div>
         </section>
 
@@ -1693,6 +1715,31 @@ const styles: {
   holiday: {
     background: "#fffaf5",
     borderColor: "#fed7aa",
+  },
+
+  birthday: {
+    background: "#fff7fd",
+    borderColor: "#e9a8d9",
+  },
+
+  birthdayLabel: {
+    display: "inline-block",
+    background: "#fce7f6",
+    color: "#a51b8f",
+    padding: "5px 6px",
+    borderRadius: "6px",
+    fontSize: "9px",
+    fontWeight: "900",
+    maxWidth: "100%",
+  },
+
+  birthdayName: {
+    marginTop: "6px",
+    color: "#861477",
+    fontSize: "9px",
+    fontWeight: "800",
+    lineHeight: 1.3,
+    overflowWrap: "anywhere",
   },
 
   dayNumber: {

@@ -9135,3 +9135,5 @@ main[data-racer-vip-module="homework"] .homeworkList .deleteButton { border-radi
   .racer-vip-module-page .racer-vip-cal-day { min-height: 72px; }
   .racer-vip-module-page .racer-vip-cal-pill { font-size: 5.8px; padding: 3px 3px; }
 }
+
+.racer-vip-module-page .birthday-pill{background:linear-gradient(120deg,#a51b8f,#d64fb7);color:#fff;border:1px solid #f0a1de;box-shadow:0 2px 6px rgba(165,27,143,.2);white-space:normal;overflow-wrap:anywhere}.racer-vip-module-page .birthday-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#c33ba8;margin-right:5px}.racer-vip-module-page .birthday-list .racer-vip-holiday-rows button{background:#fff7fd;border-color:#f4c7e9}.racer-vip-module-page .birthday-list .racer-vip-holiday-rows strong{color:#a51b8f}
