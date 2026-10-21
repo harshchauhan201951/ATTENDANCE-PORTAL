@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import jsPDF from "jspdf";
 import { downloadPdfFile } from "../../../lib/download-pdf";
+import { buildMonthlyResultPdf } from "../../../lib/monthly-result-pdf";
 import * as XLSX from "xlsx";
 import { isOnOrAfterAdmission } from "../../../lib/admission-date";
 import { getMonthlyMahaTestDate } from "../../../lib/monthly-calendar";
@@ -58,81 +58,6 @@ function defaultReleaseInput(testDate: string) {
 }
 function cutoffDate(value: string) {
   return String(value || "").slice(0, 10);
-}
-
-function drawHeader(doc: jsPDF, title: string) {
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(20);
-  doc.text("RACER ACADEMY", 105, 18, { align: "center" });
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.text("Monthly Academic Result", 105, 25, { align: "center" });
-  doc.line(15, 29, 195, 29);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(13);
-  doc.text(title, 105, 38, { align: "center" });
-}
-function pdfSnapshot(snapshot: MonthlyResultSnapshot) {
-  const pdfText = (value: unknown) => value === null || value === undefined ? "" : String(value);
-  const doc = new jsPDF({ unit: "mm", format: "a4" });
-  drawHeader(doc, `${snapshot.monthLabel} - ${snapshot.student.name}`);
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
-  doc.text("STUDENT DETAILS", 15, 50);
-  doc.setFont("helvetica", "normal");
-  const details = [
-    ["Student Name", snapshot.student.name, "Father / Guardian", snapshot.student.fatherName || "---"],
-    ["Class", snapshot.student.className || "---"],
-    ["Student ID", String(snapshot.student.id), "Medium", snapshot.student.medium || "---"],
-    ["Academic Session", snapshot.student.academicSession || "---"],
-  ];
-  let y = 58;
-  for (const row of details) {
-    doc.setFont("helvetica", "bold"); doc.text(pdfText(row[0]), 15, y);
-    doc.setFont("helvetica", "normal"); doc.text(String(row[1]), 55, y);
-    doc.setFont("helvetica", "bold"); doc.text(pdfText(row[2]), 110, y);
-    doc.setFont("helvetica", "normal"); doc.text(String(row[3]), 150, y);
-    y += 7;
-  }
-  y += 5;
-  doc.setFont("helvetica", "bold"); doc.text("1. QUIZ PERFORMANCE", 15, y); y += 7;
-  doc.setFontSize(8);
-  doc.text("Quiz", 15, y); doc.text("Date", 80, y); doc.text("Marks", 125, y); doc.text("%", 155, y); doc.text("Status", 175, y); y += 5;
-  doc.setFont("helvetica", "normal");
-  for (const q of snapshot.quizzes) {
-    if (y > 280) { doc.addPage(); drawHeader(doc, "Quiz Performance (continued)"); y = 48; }
-    doc.text(String(q.title).slice(0, 32), 15, y); doc.text(formatDate(q.date), 80, y); doc.text(`${q.obtained}/${q.total}`, 125, y); doc.text(`${q.percentage.toFixed(1)}%`, 155, y); doc.text(q.percentage >= snapshot.totals.passPercentage ? "PASS" : "FAIL", 175, y); y += 5;
-  }
-  if (!snapshot.quizzes.length) { doc.text("No submitted / eligible quiz was included.", 15, y); y += 5; }
-  y += 5; doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text("2. SATURDAY WEEKLY TESTS", 15, y); y += 7;
-  doc.setFontSize(8); doc.text("Test", 15, y); doc.text("Date", 80, y); doc.text("Marks", 125, y); doc.text("%", 155, y); y += 5; doc.setFont("helvetica", "normal");
-  for (const t of snapshot.weeklyTests) {
-    if (y > 280) { doc.addPage(); drawHeader(doc, "Saturday Weekly Tests (continued)"); y = 48; }
-    doc.text(String(t.name).slice(0, 32), 15, y); doc.text(formatDate(t.date), 80, y); doc.text(`${t.obtained}/${t.total}`, 125, y); doc.text(`${t.percentage.toFixed(1)}%`, 155, y); y += 5;
-  }
-  if (!snapshot.weeklyTests.length) { doc.text("No applicable Saturday weekly test was recorded.", 15, y); y += 5; }
-  y += 6; doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text("3. MONTHLY MAHATEST", 15, y); y += 8;
-  doc.setFontSize(9); doc.setFont("helvetica", "normal");
-  doc.text(`Test Date: ${formatDate(snapshot.mahaTest.date)}`, 15, y); doc.text(`Duration: ${snapshot.mahaTest.durationMinutes} minutes`, 90, y); y += 7;
-  doc.text(`Maximum Marks: ${snapshot.mahaTest.total}`, 15, y); doc.text(`Obtained: ${snapshot.mahaTest.obtained === null ? "Not entered" : snapshot.mahaTest.obtained}`, 90, y); y += 10;
-  if (y > 260) { doc.addPage(); drawHeader(doc, "Final Calculation"); y = 50; }
-  doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text("4. FINAL CALCULATION", 15, y); y += 8;
-  doc.setFontSize(10); doc.setFont("helvetica", "normal");
-  const calc = [
-    ["Quiz Marks", `${snapshot.totals.quizObtained} / ${snapshot.totals.quizTotal}`],
-    ["Weekly Test Marks", `${snapshot.totals.weeklyObtained} / ${snapshot.totals.weeklyTotal}`],
-    ["MahaTest Marks", `${snapshot.totals.mahaObtained} / ${snapshot.totals.mahaTotal}`],
-    ["GRAND TOTAL", `${snapshot.totals.grandObtained} / ${snapshot.totals.grandTotal}`],
-    ["PERCENTAGE", `${snapshot.totals.percentage.toFixed(2)}%`],
-    ["FINAL STATUS", snapshot.totals.status],
-  ];
-  for (const [a,b] of calc) { doc.setFont("helvetica", "bold"); doc.text(pdfText(a), 25, y); doc.setFont("helvetica", "normal"); doc.text(pdfText(b), 105, y); y += 8; }
-  y += 8; doc.setFontSize(12); doc.setFont("helvetica", "bold"); doc.text("OFFICIAL RESULT", 105, y, { align: "center" }); y += 9;
-  doc.setFontSize(16); doc.text(pdfText(snapshot.totals.status), 105, y, { align: "center" }); y += 9;
-  doc.setFontSize(9); doc.setFont("helvetica", "normal"); doc.text(`Result declared: ${new Date().toLocaleString("en-IN")}`, 105, y, { align: "center" });
-  doc.setFontSize(8); doc.text("Teacher Remarks: Monthly performance calculated only from eligible, recorded and submitted academic work.", 15, 285);
-  doc.text("RACER ACADEMY", 195, 292, { align: "right" });
-  return doc;
 }
 
 export default function MonthlyResultsPage() {
@@ -449,7 +374,7 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
 
   function downloadPdf(snapshot: MonthlyResultSnapshot) {
     try {
-      const doc = pdfSnapshot(snapshot);
+      const doc = buildMonthlyResultPdf(snapshot);
       downloadPdfFile(doc, "RACER_ACADEMY_" + snapshot.student.name.replace(/[^a-z0-9]+/gi,"_") + "_" + snapshot.monthKey + "_MONTHLY_RESULT.pdf");
     } catch (e) {
       setError(e instanceof Error ? "PDF download failed: " + e.message : "PDF download failed.");
