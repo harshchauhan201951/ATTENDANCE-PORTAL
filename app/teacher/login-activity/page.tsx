@@ -167,6 +167,7 @@ export default function StudentLoginActivityPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [migrationNotice, setMigrationNotice] = useState(false);
 
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
@@ -179,6 +180,7 @@ export default function StudentLoginActivityPage() {
   const loadData = useCallback(async () => {
     try {
       setError("");
+      setMigrationNotice(false);
 
       const assignedStudentIds = await getTeacherAssignedStudentIds(supabase);
       if (assignedStudentIds !== null && assignedStudentIds.length === 0) {
@@ -241,7 +243,7 @@ export default function StudentLoginActivityPage() {
 
       setStudents((studentsResult.data || []) as Student[]);
       setActivities((activitiesResult.data || []) as LoginActivity[]);
-      if (migrationMissing) setError("Device and current login status tracking needs the 2026-10-21 Supabase login activity migration. Existing login history is shown until it is applied.");
+      setMigrationNotice(migrationMissing);
     } catch (err) {
       console.error("Student login activity loading error:", err);
 
@@ -481,7 +483,7 @@ export default function StudentLoginActivityPage() {
           </button>
         </header>
 
-        {/* ERROR */}
+        {/* LOAD ERROR */}
         {error && (
           <div className="error-box">
             <div className="error-icon">⚠️</div>
@@ -494,6 +496,18 @@ export default function StudentLoginActivityPage() {
             <button type="button" onClick={handleRefresh}>
               Retry
             </button>
+          </div>
+        )}
+
+        {migrationNotice && !error && (
+          <div className="migration-notice" role="status">
+            <div className="migration-notice-icon">ℹ️</div>
+            <div>
+              <strong>Login history is available; live status needs setup</strong>
+              <p>
+                Apply the 2026-10-21 login activity migration in Supabase to enable device and current login status tracking.
+              </p>
+            </div>
           </div>
         )}
 
@@ -1223,6 +1237,33 @@ export default function StudentLoginActivityPage() {
           padding: 8px 13px;
           font-weight: 700;
           cursor: pointer;
+        }
+
+        .migration-notice {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          padding: 14px 16px;
+          margin-bottom: 20px;
+          border: 1px solid #bfdbfe;
+          border-radius: 14px;
+          background: #eff6ff;
+          color: #1e3a8a;
+        }
+
+        .migration-notice-icon {
+          font-size: 20px;
+        }
+
+        .migration-notice strong {
+          font-size: 13px;
+        }
+
+        .migration-notice p {
+          margin: 4px 0 0;
+          color: #1d4ed8;
+          font-size: 12px;
+          line-height: 1.5;
         }
 
         .stats-grid {
