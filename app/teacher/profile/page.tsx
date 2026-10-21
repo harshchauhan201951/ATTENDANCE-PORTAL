@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
+import { getTeacherBirthday } from "../../../lib/teacher-birthdays";
 
 type TeacherData = {
   id?: number | string;
@@ -29,6 +30,7 @@ export default function TeacherProfilePage() {
   const [teacherName, setTeacherName] = useState("Teacher");
   const [teacherUsername, setTeacherUsername] =
     useState("");
+  const [teacherDateOfBirth, setTeacherDateOfBirth] = useState<string | null>(null);
   const [profileImage, setProfileImage] =
     useState<string | null>(null);
 
@@ -88,6 +90,7 @@ export default function TeacherProfilePage() {
 
       let username = "";
       let id = "";
+      let teacherIdentityName = "";
 
       if (savedTeacher) {
         try {
@@ -110,6 +113,7 @@ export default function TeacherProfilePage() {
             parsed.teacher_name ||
             parsed.name ||
             "";
+          teacherIdentityName = possibleName;
 
           if (possibleName && !savedName) {
             setTeacherName(possibleName);
@@ -187,6 +191,15 @@ export default function TeacherProfilePage() {
       );
 
       setTeacherUsername(finalUsername);
+      const birthday = getTeacherBirthday(
+        cleanName,
+        teacherIdentityName,
+        finalUsername,
+        username,
+        savedName,
+        savedTeacher,
+      );
+      setTeacherDateOfBirth(birthday?.dateOfBirth ?? null);
       setUsernameInput(
         finalUsername === "Teacher Account"
           ? ""
@@ -860,6 +873,23 @@ export default function TeacherProfilePage() {
                         "Not available"}
                     </strong>
                   </div>
+
+                  {teacherDateOfBirth && (
+                    <div className="detail-row">
+                      <span>
+                        <i>🎂</i>
+                        Date of Birth
+                      </span>
+                      <strong>
+                        {new Intl.DateTimeFormat("en-IN", {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                          timeZone: "Asia/Kolkata",
+                        }).format(new Date(`${teacherDateOfBirth}T12:00:00+05:30`))}
+                      </strong>
+                    </div>
+                  )}
 
                   <div className="detail-row">
                     <span>

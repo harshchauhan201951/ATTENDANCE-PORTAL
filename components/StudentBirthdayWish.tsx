@@ -27,11 +27,13 @@ export default function StudentBirthdayWish({
   dateOfBirth,
   profileImage,
   preview = false,
+  audience = "student",
 }: {
   studentName: string;
   dateOfBirth: string | null;
   profileImage?: string | null;
   preview?: boolean;
+  audience?: "student" | "teacher";
 }) {
   const [slide, setSlide] = useState(0);
   const [portalReady, setPortalReady] = useState(false);
@@ -59,7 +61,7 @@ export default function StudentBirthdayWish({
   const birthDateLabel = hasDob
     ? new Intl.DateTimeFormat("hi-IN", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kolkata" }).format(new Date(Date.UTC(dob[0], dob[1] - 1, dob[2], 12)))
     : "";
-  const displayName = studentName.trim() || "प्यारे विद्यार्थी";
+  const displayName = studentName.trim() || (audience === "teacher" ? "आदरणीय शिक्षक" : "प्यारे विद्यार्थी");
 
   return (
     <>

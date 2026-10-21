@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import TeacherNotificationsBell from "../../components/TeacherNotificationsBell";
+import StudentBirthdayWish from "../../../components/StudentBirthdayWish";
+import { getTeacherBirthday } from "../../../lib/teacher-birthdays";
 import "../../teacher-dashboard-vip.css";
 import "../../teacher-dashboard-refresh.css";
 
@@ -132,6 +134,7 @@ function currentTimeLabel() {
 export default function TeacherDashboard() {
   const router = useRouter();
   const [teacherName, setTeacherName] = useState("Teacher");
+  const [teacherDateOfBirth, setTeacherDateOfBirth] = useState<string | null>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const [watchTime, setWatchTime] = useState(currentTimeLabel());
@@ -148,6 +151,20 @@ export default function TeacherDashboard() {
       localStorage.getItem("teacher_username") ||
       "Teacher";
     setTeacherName(savedTeacherName);
+    const storedTeacher = localStorage.getItem("teacher");
+    let storedTeacherName = "";
+    let storedTeacherUsername = "";
+    if (storedTeacher) {
+      try {
+        const parsed = JSON.parse(storedTeacher) as { teacher_name?: string; name?: string; teacher_username?: string; username?: string };
+        storedTeacherName = parsed.teacher_name || parsed.name || "";
+        storedTeacherUsername = parsed.teacher_username || parsed.username || "";
+      } catch {
+        storedTeacherUsername = storedTeacher;
+      }
+    }
+    const birthday = getTeacherBirthday(savedTeacherName, storedTeacherName, storedTeacherUsername, localStorage.getItem("teacherUsername"), localStorage.getItem("teacher_username"));
+    setTeacherDateOfBirth(birthday?.dateOfBirth ?? null);
     setProfileImage(localStorage.getItem("teacherProfileImage"));
     setTodayLabel(new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short" }).format(new Date()));
     setGreeting(vipGreeting());
@@ -287,6 +304,8 @@ export default function TeacherDashboard() {
             </div>
           </div>
         </section>
+
+        {teacherDateOfBirth && <StudentBirthdayWish studentName={displayName} dateOfBirth={teacherDateOfBirth} profileImage={profileImage} audience="teacher" />}
 
         <section className="vip-td-quick" aria-label="Quick actions">
           {vipQuick.map((path) => {

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
-import { getStudentCalendarEvent } from "../../../lib/student-calendar-events";
+import { getStudentCalendarEvents, type CalendarEvent } from "../../../lib/student-calendar-events";
 import { isHiddenStudentTimetableTeacher } from "../../../lib/student-timetable";
 import { isOnOrAfterAdmission } from "../../../lib/admission-date";
 import { filterMonthlySnapshotByAdmission } from "../../../lib/monthly-result";
@@ -103,6 +103,7 @@ export default function StudentDashboardPage() {
   const [announcementLoading, setAnnouncementLoading] = useState(true);
   const [likingId, setLikingId] = useState<number | null>(null);
   const [activeUpdateSlide, setActiveUpdateSlide] = useState(0);
+  const [upcomingCalendarEvents, setUpcomingCalendarEvents] = useState<CalendarEvent[]>([]);
   const updateSwipeStartX = useRef<number | null>(null);
   const [dashboardFacts, setDashboardFacts] = useState<DashboardFacts>({
     attendance: "Loading today's attendance…",
@@ -135,6 +136,20 @@ export default function StudentDashboardPage() {
         supabase.from("academy_assessments").select("id,test_name,test_date,total_marks,obtained_marks,subject,attendance_status").eq("student_id", studentId).order("id", { ascending: false }).limit(100),
       ]);
 
+      let birthdayEvents: CalendarEvent[] = [];
+      if (username) {
+        try {
+          const birthdayParams = new URLSearchParams({ studentId: String(studentId), studentUsername: username });
+          const birthdayResponse = await fetch(`/api/birthdays/calendar-slides?${birthdayParams.toString()}`, { cache: "no-store" });
+          if (birthdayResponse.ok) {
+            const birthdayResult = await birthdayResponse.json();
+            birthdayEvents = Array.isArray(birthdayResult.events)
+              ? birthdayResult.events.filter((event: CalendarEvent) => event.type === "birthday")
+              : [];
+          }
+        } catch {}
+      }
+
       const quizIds = Array.from(new Set((quizResult.data || []).map((row: any) => Number(row.quiz_id)).filter((id: number) => id > 0)));
       const { data: quizInfos } = quizIds.length ? await supabase.from("quiz_tests").select("id,title,subject,scheduled_date").in("id", quizIds) : { data: [] as any[] };
       const quizInfoById = new Map((quizInfos || []).map((item: any) => [Number(item.id), item]));
@@ -142,6 +157,7 @@ export default function StudentDashboardPage() {
 
       let timetableFact = "No upcoming class is listed in your timetable.";
       let calendarFact = "No upcoming calendar event is listed.";
+      let upcomingCalendarEntries: CalendarEvent[] = [];
       try {
         const className = String(studentMeta?.class_name || "").trim().toLowerCase();
         if (className) {
@@ -169,13 +185,34 @@ export default function StudentDashboardPage() {
           }
         }
 
-        for (let offset = 1; offset <= 90; offset += 1) {
+        for (let offset = 0; offset < 90 && upcomingCalendarEntries.length < 5; offset += 1) {
           const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
-          const event = getStudentCalendarEvent(date);
-          if (event && (event.type === "holiday" || event.type === "test")) {
-            calendarFact = `${event.title} · ${dashboardDate(event.date)} · ${event.description}`;
-            break;
+          const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+          const baseEvents = getStudentCalendarEvents(date);
+          const extraClass = (extraAttendanceResult.data || []).find((row: any) => String(row.extra_class_date || "").slice(0, 10) === dateKey);
+          const extraEvent: CalendarEvent | null = extraClass
+            ? { date: dateKey, title: `Extra Class · ${attendanceStatusLabel(extraClass.status)}`, type: "class", description: `Teacher held an Extra Class; your attendance is ${attendanceStatusLabel(extraClass.status)}.` }
+            : null;
+          const dayEvents = extraEvent && (!baseEvents.length || baseEvents[0].title === "Monday Off")
+            ? [extraEvent]
+            : extraEvent ? [...baseEvents, extraEvent] : baseEvents;
+          const events = dayEvents.filter((event) => !event.title.toLowerCase().includes("off"));
+          for (const event of events) {
+            if (!upcomingCalendarEntries.some((entry) => entry.date === event.date && entry.title === event.title)) {
+              upcomingCalendarEntries.push(event);
+              if (upcomingCalendarEntries.length === 5) break;
+            }
           }
+        }
+        const birthdayTitles = new Set(birthdayEvents.map((event) => event.title.toLocaleLowerCase("en-IN")));
+        const birthdayDates = new Set(birthdayEvents.map((event) => event.date));
+        upcomingCalendarEntries = [
+          ...birthdayEvents,
+          ...upcomingCalendarEntries.filter((event) => !(event.type === "birthday" && birthdayDates.has(event.date)) && !birthdayTitles.has(event.title.toLocaleLowerCase("en-IN"))),
+        ];
+        if (upcomingCalendarEntries[0]) {
+          const nextEvent = upcomingCalendarEntries[0];
+          calendarFact = `${nextEvent.title} · ${dashboardDate(nextEvent.date)} · ${nextEvent.description}`;
         }
       } catch {}
 
@@ -253,12 +290,15 @@ export default function StudentDashboardPage() {
         }
       } catch {}
 
-      if (!cancelled) setDashboardFacts({ attendance: attendanceFact, extraAttendance: extraAttendanceFact, fees: feesFact, performance: performanceFact, quiz: quizFact, weeklyTest: weeklyTestFact, timetable: timetableFact, calendar: calendarFact });
+      if (!cancelled) {
+        setDashboardFacts({ attendance: attendanceFact, extraAttendance: extraAttendanceFact, fees: feesFact, performance: performanceFact, quiz: quizFact, weeklyTest: weeklyTestFact, timetable: timetableFact, calendar: calendarFact });
+        setUpcomingCalendarEvents(upcomingCalendarEntries);
+      }
     };
     void loadFacts();
     const refreshTimer = window.setInterval(() => void loadFacts(), 60000);
     return () => { cancelled = true; window.clearInterval(refreshTimer); };
-  }, [studentId]);
+  }, [studentId, username]);
 
   useEffect(() => {
     const savedStatus = localStorage.getItem("studentAccountActive");
@@ -1004,15 +1044,52 @@ export default function StudentDashboardPage() {
     isWithinLatest24Hours(announcement.created_at)
   ).length;
 
+  const calendarSlides = upcomingCalendarEvents.map((event) => {
+    const eventDate = new Date(`${event.date}T00:00:00`);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const daysUntil = Math.round((eventDate.getTime() - today.getTime()) / 86_400_000);
+    const when = daysUntil === 0 ? "Today" : daysUntil === 1 ? "Tomorrow" : dashboardDate(event.date);
+    const icon = event.type === "birthday" ? "🎂" : event.type === "holiday" ? "🎉" : event.type === "test" ? "📝" : "📚";
+    const birthdaySlide = event.type === "birthday";
+    const birthdayBlessing = "माता रानी और सभी देवी-देवताओं का आशीर्वाद सदा बना रहे। नया वर्ष खुशियों, अच्छे स्वास्थ्य और सफलता से भरा हो।";
+    const birthdayDetail = daysUntil === 1
+      ? `कल ${event.title} है। जन्मदिन की अग्रिम शुभकामनाएँ! ${birthdayBlessing}`
+      : daysUntil === 0
+        ? `आज ${event.title} है। जन्मदिन की हार्दिक शुभकामनाएँ! ${birthdayBlessing}`
+        : `${dashboardDate(event.date)} · ${event.title}. ${birthdayBlessing}`;
+    return {
+      type: "calendar",
+      eyebrow: birthdaySlide
+        ? daysUntil === 1 ? "🎂 BIRTHDAY TOMORROW · जन्मदिन कल" : daysUntil === 0 ? "🎂 TODAY’S BIRTHDAY · आज जन्मदिन" : "🎂 UPCOMING BIRTHDAY · आने वाला जन्मदिन"
+        : `ACADEMIC CALENDAR · ${event.type.toUpperCase()}`,
+      title: event.title,
+      detail: birthdaySlide ? birthdayDetail : `${when} · ${dashboardDate(event.date)} · ${event.description}`,
+      icon,
+      metric: dashboardDate(event.date),
+      href: "/student/calendar",
+    };
+  });
+  // Show only birthdays for today and tomorrow. Keep one slide per person so
+  // multiple birthdays on the same date remain separate slides.
+  const birthdaySlides = calendarSlides.filter((slide) =>
+    slide.icon === "🎂" && (slide.eyebrow.includes("TODAY’S BIRTHDAY") || slide.eyebrow.includes("BIRTHDAY TOMORROW"))
+  ).map((slide) => ({ ...slide, type: "birthday" }));
+  const academicCalendarSlides = calendarSlides.filter((slide) => slide.icon !== "🎂");
+  const todayAttendanceStatus = dashboardFacts.attendance.match(/^Today:\s*(Present|Absent)\b/i)?.[1]?.toUpperCase() || "";
+  const attendanceMetric = todayAttendanceStatus ? `${todayAttendanceStatus} TODAY` : "NOT MARKED";
+
   const dashboardUpdates = [
-    { type: "attendance", eyebrow: "DAILY ATTENDANCE", title: "Attendance today", detail: dashboardFacts.attendance, icon: "✓", metric: dashboardFacts.attendance.includes("Present") && dashboardFacts.attendance.includes("Absent") ? "MIXED" : dashboardFacts.attendance.includes("Present") ? "PRESENT" : dashboardFacts.attendance.includes("Absent") ? "ABSENT" : "VIEW", href: "/student/attendance" },
+    // Keep birthdays first so they are visible immediately in the rotating dashboard.
+    ...birthdaySlides,
+    { type: "attendance", eyebrow: "DAILY ATTENDANCE", title: "Attendance today", detail: dashboardFacts.attendance, icon: "✓", metric: attendanceMetric, href: "/student/attendance" },
     { type: "extra-attendance", eyebrow: "EXTRA CLASS ATTENDANCE", title: "Extra class attendance", detail: dashboardFacts.extraAttendance, icon: "★", metric: dashboardFacts.extraAttendance.match(/(\d+) extra class record/)?.[1] || "VIEW", href: "/student/attendance-history" },
     { type: "fees", eyebrow: "FEES", title: dashboardFacts.fees.includes("pending") ? "Fee payment pending" : "Fee status", detail: dashboardFacts.fees, icon: "₹", metric: dashboardFacts.fees.match(/₹[\d,]+/)?.[0] || (dashboardFacts.fees.includes("pending") ? "DUE" : "CLEAR"), href: "/student/fees" },
     { type: "performance", eyebrow: "MONTHLY PERFORMANCE", title: "Your latest performance", detail: dashboardFacts.performance, icon: "↗", metric: dashboardFacts.performance.match(/[\d.]+%/)?.[0] || "—", href: "/student/reports" },
     { type: "quiz", eyebrow: "LATEST QUIZ", title: "Your latest quiz result", detail: dashboardFacts.quiz, icon: "✎", metric: dashboardFacts.quiz.match(/[\d.]+%/)?.[0] || "—", href: "/student/quiz-tests" },
     { type: "weekly-test", eyebrow: "LATEST WEEKLY TEST", title: "Weekly test result", detail: dashboardFacts.weeklyTest, icon: "★", metric: dashboardFacts.weeklyTest.match(/[\d.]+%/)?.[0] || "—", href: "/student/monthly-result" },
     { type: "timetable", eyebrow: "UPCOMING TIMETABLE", title: "Your next class", detail: dashboardFacts.timetable, icon: "◷", metric: dashboardFacts.timetable.match(/\d{1,2}:\d{2} ?[AP]M/i)?.[0] || "VIEW", href: "/student/timetable" },
-    { type: "calendar", eyebrow: "UPCOMING CALENDAR", title: "Next important date", detail: dashboardFacts.calendar, icon: "▦", metric: dashboardFacts.calendar.match(/\d{1,2} [A-Za-z]{3}/)?.[0] || "VIEW", href: "/student/calendar" },
+    ...(academicCalendarSlides.length ? academicCalendarSlides : [{ type: "calendar", eyebrow: "UPCOMING CALENDAR", title: "Next important date", detail: dashboardFacts.calendar, icon: "▦", metric: dashboardFacts.calendar.match(/\d{1,2} [A-Za-z]{3}/)?.[0] || "VIEW", href: "/student/calendar" }]),
   ];
   const updateCount = dashboardUpdates.length;
   const currentDashboardUpdate = dashboardUpdates[activeUpdateSlide % dashboardUpdates.length];
@@ -2000,6 +2077,7 @@ export default function StudentDashboardPage() {
           <section
             className="student-announcement-section"
             data-update-type={currentDashboardUpdate.type}
+            data-attendance-status={currentDashboardUpdate.type === "attendance" ? todayAttendanceStatus.toLowerCase() : undefined}
             style={
               styles.announcementSection
             }
