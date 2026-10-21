@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import TeacherNotificationsBell from "../../components/TeacherNotificationsBell";
 import StudentBirthdayWish from "../../../components/StudentBirthdayWish";
+import FestivalCelebrationSlides from "../../../components/FestivalCelebrationSlides";
 import { getTeacherBirthday } from "../../../lib/teacher-birthdays";
 import "../../teacher-dashboard-vip.css";
 import "../../teacher-dashboard-refresh.css";
@@ -306,6 +307,7 @@ export default function TeacherDashboard() {
         </section>
 
         {teacherDateOfBirth && <StudentBirthdayWish studentName={displayName} dateOfBirth={teacherDateOfBirth} profileImage={profileImage} audience="teacher" />}
+        <FestivalCelebrationSlides audience="teacher" />
 
         <section className="vip-td-quick" aria-label="Quick actions">
           {vipQuick.map((path) => {

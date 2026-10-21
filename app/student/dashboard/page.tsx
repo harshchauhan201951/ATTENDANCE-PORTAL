@@ -8,6 +8,7 @@ import { isHiddenStudentTimetableTeacher } from "../../../lib/student-timetable"
 import { isOnOrAfterAdmission } from "../../../lib/admission-date";
 import { filterMonthlySnapshotByAdmission } from "../../../lib/monthly-result";
 import StudentBirthdayWish from "../../../components/StudentBirthdayWish";
+import FestivalCelebrationSlides from "../../../components/FestivalCelebrationSlides";
 import StudentRacerSaathi from "./student-racer-saathi";
 
 type DashboardCard = {
@@ -1849,6 +1850,7 @@ export default function StudentDashboardPage() {
       >
         <div style={styles.container}>
           <StudentBirthdayWish studentName={studentName} dateOfBirth={studentDateOfBirth} profileImage={profileImage} preview={birthdayPreview} />
+          <FestivalCelebrationSlides audience="student" />
           <nav
             className="student-navbar"
             style={styles.navbar}
