@@ -73,6 +73,9 @@ export default function MonthlyResultsPage() {
   const [quizzes, setQuizzes] = useState<any[]>([]);
   const [quizResults, setQuizResults] = useState<any[]>([]);
   const [tests, setTests] = useState<any[]>([]);
+  const [liveAddedAssessments, setLiveAddedAssessments] = useState<Record<number, { quizzes: any[]; weeklyTests: any[] }>>({});
+  const [liveExcludedAssessments, setLiveExcludedAssessments] = useState<Record<number, { quizzes: string[]; weeklyTests: number[] }>>({});
+  const [openLiveAssessmentPanel, setOpenLiveAssessmentPanel] = useState("");
   const [mahaHistory, setMahaHistory] = useState<any[]>([]);
   const [snapshots, setSnapshots] = useState<MonthlyResultSnapshot[]>([]);
   const [savedPeriods, setSavedPeriods] = useState<any[]>([]);
@@ -91,6 +94,9 @@ export default function MonthlyResultsPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    setLiveAddedAssessments({});
+    setLiveExcludedAssessments({});
+    setOpenLiveAssessmentPanel("");
     setReleaseInput("");
     setMahaDate("");
     setPeriodStart("");
@@ -215,6 +221,15 @@ export default function MonthlyResultsPage() {
           percentage: total > 0 ? (obtained / total) * 100 : 0,
         };
       });
+    const added = liveAddedAssessments[Number(student.id)];
+    const includedQuizKeys = new Set(qEntries.map((entry) => `${entry.quizId}|${entry.title}|${entry.date}`));
+    for (const entry of added?.quizzes || []) {
+      const key = `${entry.quizId}|${entry.title}|${entry.date}`;
+      if (!includedQuizKeys.has(key)) { qEntries.push(entry); includedQuizKeys.add(key); }
+    }
+    const excluded = liveExcludedAssessments[Number(student.id)];
+    const excludedQuizKeys = new Set(excluded?.quizzes || []);
+    const includedQuizzes = qEntries.filter((entry) => !excludedQuizKeys.has(`${entry.quizId}|${entry.title}|${entry.date}`));
     const tEntries = tests.filter((t) => {
       const testDate = String(t.test_date || "").slice(0, 10);
       return Number(t.student_id) === Number(student.id)
@@ -229,13 +244,19 @@ export default function MonthlyResultsPage() {
       const obtained = safeNumber(t.obtained_marks), total = safeNumber(t.total_marks);
       return { id: Number(t.id), name: t.test_name || "Saturday Test", subject: t.subject || "", date: t.test_date, obtained, total, percentage: total > 0 ? (obtained/total)*100 : 0 };
     });
+    const includedTestIds = new Set(tEntries.map((entry) => Number(entry.id)));
+    for (const entry of added?.weeklyTests || []) {
+      if (!includedTestIds.has(Number(entry.id))) { tEntries.push(entry); includedTestIds.add(Number(entry.id)); }
+    }
+    const excludedTestIds = new Set(excluded?.weeklyTests || []);
+    const includedWeeklyTests = tEntries.filter((entry) => !excludedTestIds.has(Number(entry.id)));
     const mahaEligible = isOnOrAfterAdmission(student.admission_date, mahaDate);
     const mahaValue = !mahaEligible || mahaMarks[Number(student.id)] === undefined || mahaMarks[Number(student.id)] === "" ? null : Math.max(0, Math.min(100, Number(mahaMarks[Number(student.id)])));
-    const totals = calculateMonthlyTotals({ quizzes: qEntries, weeklyTests: tEntries, mahaObtained: mahaValue, passPercentage: Number(passPercentage) || 40 });
+    const totals = calculateMonthlyTotals({ quizzes: includedQuizzes, weeklyTests: includedWeeklyTests, mahaObtained: mahaValue, passPercentage: Number(passPercentage) || 40 });
     return {
       monthKey, monthLabel: monthLabelFromKey(monthKey),
       student: { id: Number(student.id), name: student.student_name || student.student_username || "Student", username: student.student_username || "", className: student.class_name || "", fatherName: student.father_name || "", rollNo: "", medium: "", academicSession: "2026-27" },
-      quizzes: qEntries, weeklyTests: tEntries,
+      quizzes: includedQuizzes, weeklyTests: includedWeeklyTests,
       mahaTest: { date: mahaDate, durationMinutes: 120, total: 100, obtained: mahaValue, remarks: mahaRemarks[Number(student.id)] || "" },
       totals, generatedAt: new Date().toISOString(),
     };
@@ -258,7 +279,91 @@ export default function MonthlyResultsPage() {
   return result;
 }
 
-const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [students, quizzes, quizResults, tests, mahaMarks, mahaRemarks, mahaDate, periodStart, passPercentage, monthKey]); const displaySnapshots = preview;
+const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [students, quizzes, quizResults, tests, liveAddedAssessments, liveExcludedAssessments, mahaMarks, mahaRemarks, mahaDate, periodStart, passPercentage, monthKey]); const displaySnapshots = preview;
+
+  function availableLiveAssessments(snapshot: MonthlyResultSnapshot) {
+    const cutoff = cutoffDate(mahaDate);
+    const start = cutoffDate(periodStart);
+    const quizMap = new Map(quizzes.map((quiz: any) => [Number(quiz.id), quiz]));
+    const presentQuizKeys = new Set(snapshot.quizzes.map((entry) => `${entry.quizId}|${entry.title}|${entry.date}`));
+    const availableQuizzes = quizResults.filter((row: any) => {
+      const date = String(row.submitted_at || row.created_at || "").slice(0, 10);
+      const quiz = quizMap.get(Number(row.quiz_id));
+      return Number(row.student_id) === Number(snapshot.student.id) && isSubmittedQuizResult(row)
+        && row.obtained_marks != null && row.total_marks != null && date && (!start || date >= start) && (!cutoff || date <= cutoff)
+        && quiz && quizTargetsStudent(quiz, snapshot.student.className || "")
+        && isOnOrAfterAdmission((allStudents.find((student: any) => Number(student.id) === Number(snapshot.student.id)) || {}).admission_date, date);
+    }).map((row: any) => {
+      const quiz = quizMap.get(Number(row.quiz_id));
+      const attempt = Number(row.attempt_number || 1);
+      const title = attempt > 1 ? `${quiz?.title || "Quiz"} (Attempt #${attempt})` : quiz?.title || "Quiz";
+      const date = String(row.submitted_at || row.created_at || quiz?.scheduled_date || "").slice(0, 10);
+      const obtained = safeNumber(row.obtained_marks), total = safeNumber(row.total_marks);
+      return { quizId: Number(row.quiz_id), title, subject: quiz?.subject || "", date, obtained, total, percentage: total > 0 ? obtained / total * 100 : 0 };
+    }).filter((entry: any) => !presentQuizKeys.has(`${entry.quizId}|${entry.title}|${entry.date}`));
+    const presentTestIds = new Set(snapshot.weeklyTests.map((entry) => Number(entry.id)));
+    const availableTests = tests.filter((test: any) => {
+      const date = String(test.test_date || "").slice(0, 10);
+      return Number(test.student_id) === Number(snapshot.student.id) && test.obtained_marks != null && test.total_marks != null
+        && date && (!start || date >= start) && (!cutoff || date <= cutoff) && isSaturday(date)
+        && !/maha\s*test/i.test(String(test.test_name || ""))
+        && String(test.attendance_status || "PRESENT").toUpperCase() === "PRESENT"
+        && isOnOrAfterAdmission((allStudents.find((student: any) => Number(student.id) === Number(snapshot.student.id)) || {}).admission_date, date)
+        && !presentTestIds.has(Number(test.id));
+    }).map((test: any) => {
+      const obtained = safeNumber(test.obtained_marks), total = safeNumber(test.total_marks);
+      return { id: Number(test.id), name: test.test_name || "Saturday Test", subject: test.subject || "", date: String(test.test_date).slice(0, 10), obtained, total, percentage: total > 0 ? obtained / total * 100 : 0 };
+    });
+    return { quizzes: availableQuizzes, weeklyTests: availableTests };
+  }
+
+  function addLiveAssessment(studentId: number, kind: "quiz" | "weekly", entry: any) {
+    setLiveExcludedAssessments((current) => {
+      const existing = current[studentId] || { quizzes: [], weeklyTests: [] };
+      return { ...current, [studentId]: kind === "quiz"
+        ? { ...existing, quizzes: existing.quizzes.filter((key) => key !== `${entry.quizId}|${entry.title}|${entry.date}`) }
+        : { ...existing, weeklyTests: existing.weeklyTests.filter((id) => id !== Number(entry.id)) } };
+    });
+    setLiveAddedAssessments((current) => {
+      const existing = current[studentId] || { quizzes: [], weeklyTests: [] };
+      if (kind === "quiz") {
+        if (existing.quizzes.some((item) => item.quizId === entry.quizId && item.title === entry.title && item.date === entry.date)) return current;
+        return { ...current, [studentId]: { ...existing, quizzes: [...existing.quizzes, entry] } };
+      }
+      if (existing.weeklyTests.some((item) => item.id === entry.id)) return current;
+      return { ...current, [studentId]: { ...existing, weeklyTests: [...existing.weeklyTests, entry] } };
+    });
+  }
+
+  function removeLiveAssessment(studentId: number, kind: "quiz" | "weekly", entry: any) {
+    setLiveExcludedAssessments((current) => {
+      const existing = current[studentId] || { quizzes: [], weeklyTests: [] };
+      const next = kind === "quiz"
+        ? { ...existing, quizzes: [...new Set([...existing.quizzes, `${entry.quizId}|${entry.title}|${entry.date}`])] }
+        : { ...existing, weeklyTests: [...new Set([...existing.weeklyTests, Number(entry.id)])] };
+      return { ...current, [studentId]: next };
+    });
+    setLiveAddedAssessments((current) => {
+      const existing = current[studentId];
+      if (!existing) return current;
+      return { ...current, [studentId]: kind === "quiz"
+        ? { ...existing, quizzes: existing.quizzes.filter((item) => !(item.quizId === entry.quizId && item.title === entry.title && item.date === entry.date)) }
+        : { ...existing, weeklyTests: existing.weeklyTests.filter((item) => Number(item.id) !== Number(entry.id)) } };
+    });
+  }
+
+  function renderLiveAssessmentOptions(snapshot: MonthlyResultSnapshot, kind: "quiz" | "weekly") {
+    const key = `${snapshot.student.id}|${kind}`;
+    if (openLiveAssessmentPanel !== key) return null;
+    const options = availableLiveAssessments(snapshot);
+    const entries = kind === "quiz" ? options.quizzes : options.weeklyTests;
+    return <div className={styles.availableGroup}><strong>Available {kind === "quiz" ? "quiz attempts" : "Saturday weekly tests"} · {entries.length}</strong>
+      {entries.length ? entries.map((entry: any) => <div className={styles.availableAssessment} key={kind === "quiz" ? `${entry.quizId}-${entry.title}-${entry.date}` : entry.id}>
+        <span>{kind === "quiz" ? entry.title : entry.name}<small>{entry.subject || (kind === "quiz" ? "Quiz" : "Weekly test")} · {formatDate(entry.date)} · {entry.obtained}/{entry.total}</small></span>
+        <button type="button" onClick={() => addLiveAssessment(snapshot.student.id, kind, entry)}>Add</button>
+      </div>) : <small>No additional eligible {kind === "quiz" ? "quiz attempts" : "Saturday tests"} with recorded marks.</small>}
+    </div>;
+  }
 
   function calculatedSnapshots() {
     if (!students.length) return [];
@@ -504,8 +609,13 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
     </section>
 
     <section className={styles.section}>
-      <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>LIVE CALCULATION</p><h2>Complete monthly results</h2><p>All eligible submitted quizzes, Saturday tests and MahaTest marks.</p></div><span className={styles.countPill}>{displaySnapshots.length} records</span></div>
-      <div className={styles.resultGrid}>{displaySnapshots.map((snapshot,index)=><article className={styles.resultCard} key={snapshot.student.id}><div className={styles.resultStudent}><span className={styles.rank}>{String(index+1).padStart(2,"0")}</span><div><strong>{snapshot.student.name}</strong><small>{snapshot.student.className||"Class not set"} · {snapshot.quizzes.length} quizzes · {snapshot.weeklyTests.length} weekly tests</small></div><span className={`${styles.statusPill} ${snapshot.totals.status === "PASS" ? styles.published : styles.fail}`}>{snapshot.totals.status}</span></div><div className={styles.scoreStrip}><div><span>Quiz</span><strong>{snapshot.totals.quizObtained}<small>/{snapshot.totals.quizTotal}</small></strong></div><div><span>Weekly</span><strong>{snapshot.totals.weeklyObtained}<small>/{snapshot.totals.weeklyTotal}</small></strong></div><div><span>MahaTest</span><strong>{snapshot.mahaTest.obtained===null?"—":snapshot.mahaTest.obtained}<small>{snapshot.mahaTest.obtained===null?" pending":"/100"}</small></strong></div><div className={styles.totalScore}><span>Overall · {snapshot.totals.percentage.toFixed(1)}%</span><strong>{snapshot.totals.grandObtained}<small>/{snapshot.totals.grandTotal}</small></strong></div></div><button className={styles.pdfButton} onClick={()=>downloadPdf(snapshot)}>↓ Download student PDF</button></article>)}</div>
+      <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>LIVE CALCULATION</p><h2>Complete monthly results</h2><p>Choose which recorded quiz attempts and Saturday weekly tests count for each student.</p></div><span className={styles.countPill}>{displaySnapshots.length} records</span></div>
+      <div className={styles.resultGrid}>{displaySnapshots.map((snapshot,index)=><article className={styles.resultCard} key={snapshot.student.id}><div className={styles.resultStudent}><span className={styles.rank}>{String(index+1).padStart(2,"0")}</span><div><strong>{snapshot.student.name}</strong><small>{snapshot.student.className||"Class not set"} · {snapshot.quizzes.length} quizzes · {snapshot.weeklyTests.length} weekly tests</small></div><span className={`${styles.statusPill} ${snapshot.totals.status === "PASS" ? styles.published : styles.fail}`}>{snapshot.totals.status}</span></div><div className={styles.scoreStrip}><div><span>Quiz</span><strong>{snapshot.totals.quizObtained}<small>/{snapshot.totals.quizTotal}</small></strong></div><div><span>Weekly</span><strong>{snapshot.totals.weeklyObtained}<small>/{snapshot.totals.weeklyTotal}</small></strong></div><div><span>MahaTest</span><strong>{snapshot.mahaTest.obtained===null?"—":snapshot.mahaTest.obtained}<small>{snapshot.mahaTest.obtained===null?" pending":"/100"}</small></strong></div><div className={styles.totalScore}><span>Overall · {snapshot.totals.percentage.toFixed(1)}%</span><strong>{snapshot.totals.grandObtained}<small>/{snapshot.totals.grandTotal}</small></strong></div></div>
+        <div className={styles.assessmentEditGrid}>
+          <div className={styles.assessmentGroup}><div className={styles.assessmentGroupHeading}><strong>Included quizzes</strong><button type="button" onClick={()=>setOpenLiveAssessmentPanel((current)=>current===`${snapshot.student.id}|quiz`?"":`${snapshot.student.id}|quiz`)}>{openLiveAssessmentPanel===`${snapshot.student.id}|quiz`?"Hide options":"Choose quizzes"} ({availableLiveAssessments(snapshot).quizzes.length})</button></div>{snapshot.quizzes.length?snapshot.quizzes.map((entry,index)=><label key={`${entry.quizId}-${entry.title}-${index}`}><span>{entry.title}<small>{formatDate(entry.date)} · {entry.obtained}/{entry.total}</small></span><button type="button" onClick={()=>removeLiveAssessment(snapshot.student.id,"quiz",entry)}>Remove</button></label>):<small>No quizzes included.</small>}{renderLiveAssessmentOptions(snapshot,"quiz")}</div>
+          <div className={styles.assessmentGroup}><div className={styles.assessmentGroupHeading}><strong>Saturday weekly tests</strong><button type="button" onClick={()=>setOpenLiveAssessmentPanel((current)=>current===`${snapshot.student.id}|weekly`?"":`${snapshot.student.id}|weekly`)}>{openLiveAssessmentPanel===`${snapshot.student.id}|weekly`?"Hide options":"Choose tests"} ({availableLiveAssessments(snapshot).weeklyTests.length})</button></div>{snapshot.weeklyTests.length?snapshot.weeklyTests.map((entry)=><label key={entry.id}><span>{entry.name}<small>{formatDate(entry.date)} · {entry.obtained}/{entry.total}</small></span><button type="button" onClick={()=>removeLiveAssessment(snapshot.student.id,"weekly",entry)}>Remove</button></label>):<small>No Saturday tests included.</small>}{renderLiveAssessmentOptions(snapshot,"weekly")}</div>
+        </div>
+        <button className={styles.pdfButton} onClick={()=>downloadPdf(snapshot)}>↓ Download student PDF</button></article>)}</div>
     </section>
 
     <section className={styles.archiveSection}>
