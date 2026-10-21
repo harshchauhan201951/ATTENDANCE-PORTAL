@@ -621,17 +621,23 @@ function TeacherQuizQuestionsContent() {
     let sequentialQuestion = 1;
 
     for (const line of lines) {
-      const numbered = line.match(/^(?:Q(?:UESTION)?\s*)?(\d+)\s*[\.\)\:\-]\s*([ABCD1-4])\b/i);
-
-      if (numbered) {
-        const answerIndex = normalizeAnswer(numbered[2]);
+      const answerLine = line.replace(/^(?:ANSWER\s*)?KEY\s*[:\-]?\s*/i, "");
+      const numberedPattern = /(?:^|[\s,;|])(?:Q(?:UESTION)?\s*)?(\d+)\s*[\.\)\:\-]\s*([ABCD1-4])(?=$|[\s,;|])/gi;
+      const numbered: Array<{ questionNumber: number; answerIndex: number }> = [];
+      let match: RegExpExecArray | null;
+      while ((match = numberedPattern.exec(answerLine)) !== null) {
+        const answerIndex = normalizeAnswer(match[2]);
         if (answerIndex !== null) {
-          answers.push({ questionNumber: Number(numbered[1]), answerIndex });
+          numbered.push({ questionNumber: Number(match[1]), answerIndex });
         }
+      }
+
+      if (numbered.length) {
+        answers.push(...numbered);
         continue;
       }
 
-      const named = line.match(/^(?:ANSWER|ANS|CORRECT\s+ANSWER|RIGHT\s+ANSWER)\s*(?:(?:Q(?:UESTION)?\s*)?(\d+)\s*)?[\:\-\.]?\s*([ABCD1-4])\b/i);
+      const named = answerLine.match(/^(?:ANSWER|ANS|CORRECT\s+ANSWER|RIGHT\s+ANSWER)\s*(?:(?:Q(?:UESTION)?\s*)?(\d+)\s*)?[\:\-\.]?\s*([ABCD1-4])\b/i);
 
       if (named) {
         const answerIndex = normalizeAnswer(named[2]);
@@ -645,9 +651,9 @@ function TeacherQuizQuestionsContent() {
         continue;
       }
 
-      const sequenceLine = line.match(/^(?:ANSWERS?|CORRECT\s+ANSWERS?)\s*[\:\-]\s*(.+)$/i);
+      const sequenceLine = answerLine.match(/^(?:(?:ANSWERS?|CORRECT\s+ANSWERS?)(?:\s+KEY)?\s*[\:\-]?\s*)?(.+)$/i);
       const sequenceText = sequenceLine ? sequenceLine[1] : line;
-      const tokens = sequenceText.split(/[\s,;]+/).filter(Boolean);
+      const tokens = sequenceText.split(/[\s,;|]+/).filter(Boolean);
 
       if (tokens.length > 1 && tokens.every((token) => normalizeAnswer(token) !== null)) {
         for (const token of tokens) {
@@ -992,11 +998,30 @@ function TeacherQuizQuestionsContent() {
         });
       }
 
+      const { data: publishedQuiz, error: publishError } = await supabase
+        .from("quiz_tests")
+        .update({ is_published: true })
+        .eq("id", quizId)
+        .select("id,is_published")
+        .maybeSingle();
+
+      if (publishError) {
+        throw new Error(
+          `Questions were saved, but the quiz could not be published: ${publishError.message}`
+        );
+      }
+      if (!publishedQuiz) {
+        throw new Error(
+          "Questions were saved, but the quiz could not be published. Check the teacher permissions and try again."
+        );
+      }
+
       setQuestions(finalQuestions);
+      setQuiz((current) => current ? { ...current, is_published: true } : current);
       setMessage(
         `${finalQuestions.length} question${
           finalQuestions.length === 1 ? "" : "s"
-        } and all options saved successfully.`
+        } and all answers saved. Quiz published for students.`
       );
     } catch (saveError) {
       console.error("Save questions error:", saveError);
@@ -1291,7 +1316,7 @@ D. Jupiter`}
                   </button>
 
                   <p className="text-xs text-slate-500">
-                    Supports 1. B, 2. C, Answer: A, or one answer per line.
+                  Supports 1. B, 2. C; 1-A, 2-B; Answer Key: A, B, C; or one answer per line.
                   </p>
                 </div>
               </div>
@@ -1602,7 +1627,7 @@ D. Jupiter`}
 
                   <p className="mt-1 text-xs text-slate-400">
                     Make sure every question has 4 options and exactly one
-                    correct answer.
+                    correct answer. Saving publishes the quiz for students.
                   </p>
                 </div>
 
