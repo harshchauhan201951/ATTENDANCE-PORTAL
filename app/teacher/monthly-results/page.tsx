@@ -73,12 +73,14 @@ export default function MonthlyResultsPage() {
   const [quizzes, setQuizzes] = useState<any[]>([]);
   const [quizResults, setQuizResults] = useState<any[]>([]);
   const [tests, setTests] = useState<any[]>([]);
+  const [mahaHistory, setMahaHistory] = useState<any[]>([]);
   const [snapshots, setSnapshots] = useState<MonthlyResultSnapshot[]>([]);
   const [savedPeriods, setSavedPeriods] = useState<any[]>([]);
   const [archiveMonthKey, setArchiveMonthKey] = useState("");
   const [archiveResults, setArchiveResults] = useState<MonthlyResultSnapshot[]>([]);
   const [archivePeriodData, setArchivePeriodData] = useState<any>(null);
   const [archiveEditMode, setArchiveEditMode] = useState(false);
+  const [openArchiveAssessmentPanel, setOpenArchiveAssessmentPanel] = useState("");
   const [archiveSaving, setArchiveSaving] = useState(false);
   const [archiveNotice, setArchiveNotice] = useState("");
   const [archiveLoading, setArchiveLoading] = useState(false);
@@ -111,12 +113,30 @@ export default function MonthlyResultsPage() {
       const listRes = await fetch("/api/monthly-results/publish?list=1");
       const listData = await listRes.json();
       if (listRes.ok && listData.success) setSavedPeriods(listData.periods || []);
-      const [studentsRes, quizzesRes, testsRes, mahaHistoryRes] = await Promise.all([
+      const [studentsRes, mahaHistoryRes] = await Promise.all([
         supabase.from("students").select("id,student_name,student_username,class_name,father_name,admission_date,is_active").order("class_name").order("student_name"),
-        supabase.from("quiz_tests").select("id,title,subject,class_name,target_classes,scheduled_date,created_at").order("scheduled_date"),
-        supabase.from("academy_assessments").select("id,test_name,test_date,total_marks,student_id,obtained_marks,subject,attendance_status,remarks").order("test_date"),
         supabase.from("monthly_mahatests").select("month_key,test_date").order("test_date"),
       ]);
+      const allQuizRows: any[] = [];
+      const quizTestsPageSize = 1000;
+      for (let from = 0; ; from += quizTestsPageSize) {
+        const { data: batch, error: batchError } = await supabase.from("quiz_tests")
+          .select("id,title,subject,class_name,target_classes,scheduled_date,created_at")
+          .order("scheduled_date").range(from, from + quizTestsPageSize - 1);
+        if (batchError) throw batchError;
+        allQuizRows.push(...(batch || []));
+        if (!batch || batch.length < quizTestsPageSize) break;
+      }
+      const allWeeklyTestRows: any[] = [];
+      const weeklyPageSize = 1000;
+      for (let from = 0; ; from += weeklyPageSize) {
+        const { data: batch, error: batchError } = await supabase.from("academy_assessments")
+          .select("id,test_name,test_date,total_marks,student_id,obtained_marks,subject,attendance_status,remarks")
+          .order("test_date").range(from, from + weeklyPageSize - 1);
+        if (batchError) throw batchError;
+        allWeeklyTestRows.push(...(batch || []));
+        if (!batch || batch.length < weeklyPageSize) break;
+      }
       const allQuizResults: any[] = [];
       const quizPageSize = 1000;
       for (let from = 0; ; from += quizPageSize) {
@@ -125,7 +145,7 @@ export default function MonthlyResultsPage() {
         allQuizResults.push(...(batch || []));
         if (!batch || batch.length < quizPageSize) break;
       }
-      for (const r of [studentsRes, quizzesRes, testsRes, mahaHistoryRes]) if (r.error) throw r.error;
+      for (const r of [studentsRes, mahaHistoryRes]) if (r.error) throw r.error;
       // Deactivated students stay in the published archive, but are excluded from new/current result rosters.
       const ss = (studentsRes.data || []).filter((s: any) => s.is_active !== false && (!assigned || assigned.includes(Number(s.id))));
 
@@ -140,7 +160,7 @@ export default function MonthlyResultsPage() {
       // Later tests start the day after the previous MahaTest to prevent repeats.
       const effectivePeriodStart = previousMahaDate ? addOneDay(previousMahaDate) : "";
 
-      setAllStudents(studentsRes.data || []); setStudents(ss); setQuizzes(quizzesRes.data || []); setQuizResults(allQuizResults); setTests(testsRes.data || []);
+      setAllStudents(studentsRes.data || []); setStudents(ss); setQuizzes(allQuizRows); setQuizResults(allQuizResults); setTests(allWeeklyTestRows); setMahaHistory(mahaHistoryRes.data || []);
       setMahaDate(effectiveMahaDate);
       setPeriodStart(effectivePeriodStart);
       const period = savedData.period as any;
@@ -281,7 +301,7 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
 
   async function openArchive(key: string) {
     if (archiveMonthKey === key) { setArchiveMonthKey(""); return; }
-    setArchiveMonthKey(key); setArchiveLoading(true); setArchiveError(""); setArchiveNotice(""); setArchiveEditMode(false); setArchiveResults([]);
+    setArchiveMonthKey(key); setArchiveLoading(true); setArchiveError(""); setArchiveNotice(""); setArchiveEditMode(false); setOpenArchiveAssessmentPanel(""); setArchiveResults([]);
     try {
       const response = await fetch(`/api/monthly-results/publish?monthKey=${encodeURIComponent(key)}`);
       const data = await response.json();
@@ -302,6 +322,74 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
       const mahaObtained = kind === "maha" ? value === null ? null : Math.min(100, value) : snapshot.mahaTest.obtained;
       return { ...snapshot, quizzes, weeklyTests, mahaTest: { ...snapshot.mahaTest, obtained: mahaObtained }, totals: calculateMonthlyTotals({ quizzes, weeklyTests, mahaObtained, passPercentage: snapshot.totals.passPercentage }) };
     }));
+  }
+
+  function availableArchivedAssessments(snapshot: MonthlyResultSnapshot) {
+    const endDate = cutoffDate(snapshot.mahaTest.date);
+    const priorDates = mahaHistory.map((row: any) => String(row.test_date || "").slice(0, 10)).filter((date: string) => date && date < endDate).sort();
+    const priorDate = priorDates.at(-1) || "";
+    const startDate = priorDate ? addOneDay(priorDate) : "";
+    const quizMap = new Map(quizzes.map((quiz: any) => [Number(quiz.id), quiz]));
+    const existingQuizKeys = new Set(snapshot.quizzes.map((entry) => `${entry.quizId}|${entry.title}|${entry.date}`));
+    const availableQuizzes = quizResults.filter((row: any) => {
+      const submitted = String(row.submitted_at || row.created_at || "").slice(0, 10);
+      const quiz = quizMap.get(Number(row.quiz_id));
+      return Number(row.student_id) === Number(snapshot.student.id) && isSubmittedQuizResult(row)
+        && row.obtained_marks != null && row.total_marks != null && (!startDate || submitted >= startDate) && submitted <= endDate
+        && quiz && quizTargetsStudent(quiz, snapshot.student.className || "")
+        && isOnOrAfterAdmission((allStudents.find((student: any) => Number(student.id) === Number(snapshot.student.id)) || {}).admission_date, submitted);
+    }).map((row: any) => {
+      const quiz = quizMap.get(Number(row.quiz_id));
+      const attempt = Number(row.attempt_number || 1);
+      const title = attempt > 1 ? `${quiz?.title || "Quiz"} (Attempt #${attempt})` : quiz?.title || "Quiz";
+      const date = String(row.submitted_at || row.created_at || quiz?.scheduled_date || "").slice(0, 10);
+      const obtained = safeNumber(row.obtained_marks), total = safeNumber(row.total_marks);
+      return { quizId: Number(row.quiz_id), title, subject: quiz?.subject || "", date, obtained, total, percentage: total > 0 ? obtained / total * 100 : 0 };
+    }).filter((entry: any) => !existingQuizKeys.has(`${entry.quizId}|${entry.title}|${entry.date}`));
+    const existingTestIds = new Set(snapshot.weeklyTests.map((entry) => Number(entry.id)));
+    const availableTests = tests.filter((test: any) => {
+      const date = String(test.test_date || "").slice(0, 10);
+      return Number(test.student_id) === Number(snapshot.student.id) && test.obtained_marks != null && test.total_marks != null
+        && (!startDate || date >= startDate) && date <= endDate && isSaturday(date) && !/maha\s*test/i.test(String(test.test_name || ""))
+        && String(test.attendance_status || "PRESENT").toUpperCase() === "PRESENT"
+        && isOnOrAfterAdmission((allStudents.find((student: any) => Number(student.id) === Number(snapshot.student.id)) || {}).admission_date, date)
+        && !existingTestIds.has(Number(test.id));
+    }).map((test: any) => {
+      const obtained = safeNumber(test.obtained_marks), total = safeNumber(test.total_marks);
+      return { id: Number(test.id), name: test.test_name || "Saturday Test", subject: test.subject || "", date: String(test.test_date).slice(0, 10), obtained, total, percentage: total > 0 ? obtained / total * 100 : 0 };
+    });
+    return { quizzes: availableQuizzes, weeklyTests: availableTests };
+  }
+
+  function archiveAssessmentKey(studentId: number, kind: "quiz" | "weekly") {
+    return `${studentId}|${kind}`;
+  }
+
+  function addArchivedAssessment(studentId: number, kind: "quiz" | "weekly", entry: any) {
+    setArchiveResults((current) => current.map((snapshot) => {
+      if (Number(snapshot.student.id) !== studentId) return snapshot;
+      const exists = kind === "quiz"
+        ? snapshot.quizzes.some((item) => item.quizId === entry.quizId && item.title === entry.title && item.date === entry.date)
+        : snapshot.weeklyTests.some((item) => item.id === entry.id);
+      if (exists) return snapshot;
+      const quizzes = kind === "quiz" ? [...snapshot.quizzes, entry] : snapshot.quizzes;
+      const weeklyTests = kind === "weekly" ? [...snapshot.weeklyTests, entry] : snapshot.weeklyTests;
+      return { ...snapshot, quizzes, weeklyTests, totals: calculateMonthlyTotals({ quizzes, weeklyTests, mahaObtained: snapshot.mahaTest.obtained, passPercentage: snapshot.totals.passPercentage }) };
+    }));
+  }
+
+  function renderArchivedAssessmentOptions(snapshot: MonthlyResultSnapshot, kind: "quiz" | "weekly") {
+    const options = availableArchivedAssessments(snapshot);
+    const entries = kind === "quiz" ? options.quizzes : options.weeklyTests;
+    if (openArchiveAssessmentPanel !== archiveAssessmentKey(snapshot.student.id, kind)) return null;
+    const isQuiz = kind === "quiz";
+    return <div className={styles.availableGroup}>
+      <strong>Available {isQuiz ? "quiz attempts" : "Saturday weekly tests"} · {entries.length}</strong>
+      {entries.length ? entries.map((entry: any) => <div className={styles.availableAssessment} key={isQuiz ? `${entry.quizId}-${entry.title}-${entry.date}` : entry.id}>
+        <span>{isQuiz ? entry.title : entry.name}<small>{entry.subject || (isQuiz ? "Quiz" : "Weekly test")} · {formatDate(entry.date)} · {entry.obtained}/{entry.total}</small></span>
+        <button type="button" disabled={archiveSaving} onClick={() => addArchivedAssessment(snapshot.student.id, kind, entry)}>Add</button>
+      </div>) : <small>All eligible {isQuiz ? "quiz attempts" : "Saturday tests"} are already included.</small>}
+    </div>;
   }
 
   async function saveArchiveEdits(results = archiveResults, note = "Saved edits for all student results.") {
@@ -423,7 +511,7 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
     <section className={styles.archiveSection}>
       <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>RESULT LIBRARY</p><h2>Published result folders</h2><p>Each folder keeps the complete saved student roster and its declared result.</p></div><span className={styles.countPill}>{publishedPeriods.length} published</span></div>
       {publishedPeriods.length ? <div className={styles.folderGrid}>{publishedPeriods.map((period)=><button key={period.month_key} className={`${styles.folderCard} ${archiveMonthKey===period.month_key?styles.folderActive:""}`} onClick={()=>void openArchive(period.month_key)}><span className={styles.folderIcon}>▰</span><span className={styles.folderInfo}><strong>{period.month_label||monthLabelFromKey(period.month_key)}</strong><small>Published {period.released_at?formatDate(String(period.released_at).slice(0,10)):"result"} · Open student records</small></span><span className={styles.folderArrow}>{archiveMonthKey===period.month_key?"−":"↗"}</span></button>)}</div> : <div className={styles.empty}>Published monthly results will appear here as folders.</div>}
-      {archiveMonthKey && <div className={styles.archiveDetail}><div className={styles.archiveTitle}><div><p className={styles.eyebrow}>ARCHIVED RESULT FOLDER</p><h3>{monthLabelFromKey(archiveMonthKey)}</h3><small className={styles.archiveHint}>Changes recalculate every total and save for the complete student list.</small></div><div className={styles.archiveTools}>{!archiveEditMode && <button className={styles.closeButton} onClick={()=>{setArchiveEditMode(true);setArchiveNotice("");}}>Edit overall results</button>}{archiveEditMode && <><button className={styles.closeButton} onClick={rebuildPreOctoberResults} disabled={archiveSaving}>Add missing marks before 03 Oct & save</button><button className={styles.saveArchiveButton} onClick={()=>void saveArchiveEdits()} disabled={archiveSaving}>{archiveSaving?"Saving all…":"Save all student results"}</button><button className={styles.closeButton} onClick={()=>setArchiveEditMode(false)} disabled={archiveSaving}>Cancel edit</button></>}<button className={styles.closeButton} onClick={()=>setArchiveMonthKey("")}>Close folder ×</button></div></div>{archiveNotice&&<div className={styles.success}>{archiveNotice}</div>}{archiveError&&<div className={styles.error}>{archiveError}</div>}{archiveLoading?<div className={styles.empty}>Opening saved student results…</div>:archiveResults.length?<div className={styles.archiveList}>{archiveResults.map((snapshot)=><article className={styles.archiveRow} key={snapshot.student.id}><span className={styles.avatar}>{snapshot.student.name.slice(0,1).toUpperCase()}</span><div className={styles.archiveStudent}><strong>{snapshot.student.name}</strong><small>{snapshot.student.className||"Class not set"} · {snapshot.quizzes.length} quizzes · {snapshot.weeklyTests.length} weekly tests</small></div><div className={styles.archiveScore}><strong>{snapshot.totals.grandObtained}/{snapshot.totals.grandTotal}</strong><small>{snapshot.totals.percentage.toFixed(1)}%</small></div><span className={`${styles.statusPill} ${snapshot.totals.status === "PASS" ? styles.published : styles.fail}`}>{snapshot.totals.status}</span>{!archiveEditMode&&<button className={styles.pdfButton} onClick={()=>downloadPdf(snapshot)}>↓ PDF</button>}{archiveEditMode&&<button className={styles.pdfButton} onClick={()=>downloadPdf(snapshot)}>PDF preview</button>}{archiveEditMode&&<div className={styles.assessmentEditGrid}><div className={styles.assessmentGroup}><strong>Quizzes</strong>{snapshot.quizzes.length?snapshot.quizzes.map((entry,index)=><label key={`${entry.quizId}-${entry.title}-${index}`}><span>{entry.title}<small>{formatDate(entry.date)} · max {entry.total}</small></span><input type="number" min="0" max={entry.total} value={entry.obtained} onChange={(event)=>updateArchivedScore(snapshot.student.id,"quiz",index,event.target.value)}/></label>):<small>No recorded quiz scores.</small>}</div><div className={styles.assessmentGroup}><strong>Saturday weekly tests</strong>{snapshot.weeklyTests.length?snapshot.weeklyTests.map((entry,index)=><label key={entry.id}><span>{entry.name}<small>{formatDate(entry.date)} · max {entry.total}</small></span><input type="number" min="0" max={entry.total} value={entry.obtained} onChange={(event)=>updateArchivedScore(snapshot.student.id,"weekly",index,event.target.value)}/></label>):<small>No recorded weekly test scores.</small>}</div><div className={styles.assessmentGroup}><strong>MahaTest</strong><label><span>{formatDate(snapshot.mahaTest.date)}<small>Maximum marks: {snapshot.mahaTest.total}</small></span><input type="number" min="0" max="100" placeholder="Pending" value={snapshot.mahaTest.obtained??""} onChange={(event)=>updateArchivedScore(snapshot.student.id,"maha",0,event.target.value)}/></label></div></div>}</article>)}</div>:<div className={styles.empty}>No saved student snapshots were found in this folder.</div>}</div>}
+      {archiveMonthKey && <div className={styles.archiveDetail}><div className={styles.archiveTitle}><div><p className={styles.eyebrow}>ARCHIVED RESULT FOLDER</p><h3>{monthLabelFromKey(archiveMonthKey)}</h3><small className={styles.archiveHint}>Changes recalculate every total and save for the complete student list.</small></div><div className={styles.archiveTools}>{!archiveEditMode && <button className={styles.closeButton} onClick={()=>{setArchiveEditMode(true);setArchiveNotice("");}}>Edit overall results</button>}{archiveEditMode && <><button className={styles.closeButton} onClick={rebuildPreOctoberResults} disabled={archiveSaving}>Add missing marks before 03 Oct & save</button><button className={styles.saveArchiveButton} onClick={()=>void saveArchiveEdits()} disabled={archiveSaving}>{archiveSaving?"Saving all…":"Save all student results"}</button><button className={styles.closeButton} onClick={()=>{setArchiveEditMode(false);setOpenArchiveAssessmentPanel("");}} disabled={archiveSaving}>Cancel edit</button></>}<button className={styles.closeButton} onClick={()=>setArchiveMonthKey("")}>Close folder ×</button></div></div>{archiveNotice&&<div className={styles.success}>{archiveNotice}</div>}{archiveError&&<div className={styles.error}>{archiveError}</div>}{archiveLoading?<div className={styles.empty}>Opening saved student results…</div>:archiveResults.length?<div className={styles.archiveList}>{archiveResults.map((snapshot)=><article className={styles.archiveRow} key={snapshot.student.id}><span className={styles.avatar}>{snapshot.student.name.slice(0,1).toUpperCase()}</span><div className={styles.archiveStudent}><strong>{snapshot.student.name}</strong><small>{snapshot.student.className||"Class not set"} · {snapshot.quizzes.length} quizzes · {snapshot.weeklyTests.length} weekly tests</small></div><div className={styles.archiveScore}><strong>{snapshot.totals.grandObtained}/{snapshot.totals.grandTotal}</strong><small>{snapshot.totals.percentage.toFixed(1)}%</small></div><span className={`${styles.statusPill} ${snapshot.totals.status === "PASS" ? styles.published : styles.fail}`}>{snapshot.totals.status}</span>{!archiveEditMode&&<button className={styles.pdfButton} onClick={()=>downloadPdf(snapshot)}>↓ PDF</button>}{archiveEditMode&&<button className={styles.pdfButton} onClick={()=>downloadPdf(snapshot)}>PDF preview</button>}{archiveEditMode&&<><div className={styles.assessmentEditGrid}><div className={styles.assessmentGroup}><div className={styles.assessmentGroupHeading}><strong>Quizzes</strong><button type="button" onClick={()=>setOpenArchiveAssessmentPanel((current)=>current===archiveAssessmentKey(snapshot.student.id,"quiz")?"":archiveAssessmentKey(snapshot.student.id,"quiz"))}>{openArchiveAssessmentPanel===archiveAssessmentKey(snapshot.student.id,"quiz")?"Hide options":"Add quizzes"} ({availableArchivedAssessments(snapshot).quizzes.length})</button></div>{snapshot.quizzes.length?snapshot.quizzes.map((entry,index)=><label key={`${entry.quizId}-${entry.title}-${index}`}><span>{entry.title}<small>{formatDate(entry.date)} · max {entry.total}</small></span><input type="number" min="0" max={entry.total} value={entry.obtained} onChange={(event)=>updateArchivedScore(snapshot.student.id,"quiz",index,event.target.value)}/></label>):<small>No recorded quiz scores.</small>}{renderArchivedAssessmentOptions(snapshot,"quiz")}</div><div className={styles.assessmentGroup}><div className={styles.assessmentGroupHeading}><strong>Saturday weekly tests</strong><button type="button" onClick={()=>setOpenArchiveAssessmentPanel((current)=>current===archiveAssessmentKey(snapshot.student.id,"weekly")?"":archiveAssessmentKey(snapshot.student.id,"weekly"))}>{openArchiveAssessmentPanel===archiveAssessmentKey(snapshot.student.id,"weekly")?"Hide options":"Add tests"} ({availableArchivedAssessments(snapshot).weeklyTests.length})</button></div>{snapshot.weeklyTests.length?snapshot.weeklyTests.map((entry,index)=><label key={entry.id}><span>{entry.name}<small>{formatDate(entry.date)} · max {entry.total}</small></span><input type="number" min="0" max={entry.total} value={entry.obtained} onChange={(event)=>updateArchivedScore(snapshot.student.id,"weekly",index,event.target.value)}/></label>):<small>No recorded weekly test scores.</small>}{renderArchivedAssessmentOptions(snapshot,"weekly")}</div><div className={styles.assessmentGroup}><strong>MahaTest</strong><label><span>{formatDate(snapshot.mahaTest.date)}<small>Maximum marks: {snapshot.mahaTest.total}</small></span><input type="number" min="0" max="100" placeholder="Pending" value={snapshot.mahaTest.obtained??""} onChange={(event)=>updateArchivedScore(snapshot.student.id,"maha",0,event.target.value)}/></label></div></div></>}</article>)}</div>:<div className={styles.empty}>No saved student snapshots were found in this folder.</div>}</div>}
     </section>
   </main>;
 }
