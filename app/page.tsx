@@ -402,9 +402,9 @@ export default function HomePage() {
   const studentUsernamePrefix = "STU10";
   const usernameRemainder = loginType === "student" ? username.slice(studentUsernamePrefix.length) : username;
   const usernameCharacters = Array.from(usernameRemainder);
-  const usernameBoxCount = Math.max(2, usernameCharacters.length);
+  const usernameBoxCount = Math.max(loginType === "teacher" ? 10 : 2, usernameCharacters.length);
   const passwordCharacters = Array.from(password);
-  const passwordBoxCount = Math.max(2, passwordCharacters.length);
+  const passwordBoxCount = Math.max(loginType === "teacher" ? 10 : 2, passwordCharacters.length);
   const [showPassword, setShowPassword] =
     useState(false);
   const [loading, setLoading] = useState(false);
