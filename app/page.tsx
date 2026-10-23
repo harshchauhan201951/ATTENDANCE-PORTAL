@@ -5377,6 +5377,15 @@ export default function HomePage() {
   .credential-cells { gap:2px!important; }
   .mobile-welcome-copy strong { font-size:18px!important; }
 }
+@media (min-width:701px) {
+  .racer-login-page { display:flex!important;align-items:center!important;justify-content:center!important;min-height:100vh!important;min-height:100svh!important;padding:44px!important;overflow-x:hidden!important; }
+  .page-shell { width:100%!important;max-width:1280px!important;margin:auto!important; }
+  .main-layout.login-only-layout { display:grid!important;width:100%!important;max-width:1280px!important;grid-template-columns:minmax(0,1fr)!important;justify-content:center!important;gap:0!important;margin:auto!important; }
+  .login-side { position:static!important;width:100%!important;max-width:1180px!important;margin:0 auto!important; }
+  .racer-login-card { width:100%!important;min-width:0!important;max-width:1180px!important;margin:0 auto!important;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr)!important;column-gap:clamp(30px,4vw,64px)!important;padding:clamp(32px,4vw,58px)!important;border-radius:32px!important; }
+  .mobile-welcome-panel .mobile-welcome-copy strong { color:#fff!important; }
+  .mobile-welcome-panel .mobile-welcome-copy span { color:rgba(255,255,255,.82)!important; }
+}
 
 `}</style>
     </>
