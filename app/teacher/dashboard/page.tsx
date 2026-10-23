@@ -278,6 +278,8 @@ export default function TeacherDashboard() {
           </div>
         </header>
 
+        <FestivalCelebrationSlides audience="teacher" />
+
         <section className="vip-td-hero">
           <div>
             <div className="vip-td-id">
@@ -307,8 +309,6 @@ export default function TeacherDashboard() {
         </section>
 
         {teacherDateOfBirth && <StudentBirthdayWish studentName={displayName} dateOfBirth={teacherDateOfBirth} profileImage={profileImage} audience="teacher" />}
-        <FestivalCelebrationSlides audience="teacher" />
-
         <section className="vip-td-quick" aria-label="Quick actions">
           {vipQuick.map((path) => {
             const m = vipModule(path);
