@@ -1204,11 +1204,12 @@ export default function TeacherFeesPage() {
 
       setStudents(studentList);
       setAllStudents(allStudentList);
-      // Keep all fee rows stored, but display them only for months in an active enrollment cycle.
+      // Pending dues remain visible after deactivation so staff can update the final balance.
       const studentById = new Map(allStudentList.map((student) => [Number(student.id), student]));
       setFees(existingFees.filter((fee) => {
         const student = studentById.get(Number(fee.student_id));
-        return !student || isStudentFeePeriodVisible(student.admission_date, student.admission_history, fee.year, fee.month);
+        const isPending = String(fee.status || "").trim().toUpperCase() === "PENDING";
+        return isPending || !student || isStudentFeePeriodVisible(student.admission_date, student.admission_history, fee.year, fee.month);
       }));
     } catch (err) {
       console.error(err);
@@ -2028,6 +2029,13 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
   const monthlyReportNoEntryCount = allStudents.filter((student) =>
     !monthlyReportFeeRecords.some((fee) => Number(fee.student_id) === Number(student.id))
   ).length;
+  const studentsWithPendingFees = new Set(
+    fees.filter((fee) => String(fee.status || "").trim().toUpperCase() === "PENDING")
+      .map((fee) => Number(fee.student_id))
+  );
+  const feeEntryStudents = allStudents.filter((student) =>
+    Boolean(student.is_active) || studentsWithPendingFees.has(Number(student.id))
+  );
   const monthlyReportVisibleRows = monthlyReportRows.filter((row) => {
     const statusValue = String(row.fee?.status || "").toUpperCase();
     if (monthlyReportFilter === "submitted") return ["SUBMITTED", "PAID", "PAID ONLINE"].includes(statusValue);
@@ -2101,7 +2109,7 @@ if (loading) {
           <summary><span>Add / Update Fee</span><span>+</span></summary>
           <form onSubmit={saveFee} className="racer-vip-fee-form">
             <div className="racer-vip-fee-form-grid">
-              <label><span>Student</span><select value={studentId} onChange={(e) => { const selectedId = e.target.value; setStudentId(selectedId); const selectedStudent = students.find((student) => String(student.id) === selectedId); if (selectedStudent) setAmount(String(getFeeAmount(selectedStudent))); }}><option value="">Select Student</option>{students.map((student) => <option key={student.id} value={student.id}>{student.student_name || student.student_username} ({student.student_username})</option>)}</select></label>
+              <label><span>Student</span><select value={studentId} onChange={(e) => { const selectedId = e.target.value; setStudentId(selectedId); const selectedStudent = allStudents.find((student) => String(student.id) === selectedId); if (selectedStudent) setAmount(String(getFeeAmount(selectedStudent))); }}><option value="">Select Student</option>{feeEntryStudents.map((student) => <option key={student.id} value={student.id}>{student.student_name || student.student_username} ({student.student_username}){!student.is_active ? " · DEACTIVATED — PENDING DUES" : ""}</option>)}</select></label>
               <label><span>Month</span><select value={month} onChange={(e) => setMonth(e.target.value)}>{months.map((monthName, index) => <option key={monthName} value={index + 1}>{monthName}</option>)}</select></label>
               <label><span>Year</span><input type="number" value={year} onChange={(e) => setYear(e.target.value)} /></label>
               <label><span>Amount</span><input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} /></label>
