@@ -39,12 +39,14 @@ const messages: Record<string, string[]> = {
 
 export default function FestivalCelebrationSlides({ audience }: { audience: "student" | "teacher" }) {
   const [today, setToday] = useState(() => indiaTodayKey());
-  const [preview, setPreview] = useState(false);
+  const [previewDate, setPreviewDate] = useState<string | null>(null);
   const [slide, setSlide] = useState(0);
-  const events = getActiveFestivalCelebrations(preview ? "2026-10-31" : today);
+  const events = getActiveFestivalCelebrations(previewDate ?? today);
 
   useEffect(() => {
-    setPreview(process.env.NODE_ENV === "development" && new URLSearchParams(window.location.search).get("festivalPreview") === "1");
+    const preview = new URLSearchParams(window.location.search).get("festivalPreview");
+    if (process.env.NODE_ENV !== "development" || !preview) return;
+    setPreviewDate(preview === "navratri" ? "2026-10-10" : preview === "diwali" ? "2026-11-03" : "2026-10-25");
   }, []);
 
   useEffect(() => {
@@ -69,14 +71,14 @@ export default function FestivalCelebrationSlides({ audience }: { audience: "stu
   const festivalStyle = isVijayadashami ? "vijayadashami" : event.kind;
   const eventMessages = messages[event.kind] || messages.general;
   const atmosphereSymbols = isVijayadashami
-    ? ["✦", "✨", "🏹", "✧", "🌟", "✨"]
+    ? ["✦", "✨", "✧", "🌟", "✨"]
     : event.kind === "navratri"
-      ? ["🌸", "🌼", "🌺", "🌷", "🌼", "🌸"]
+      ? ["", "", "", "", ""]
       : event.kind === "diwali"
-        ? ["🪔", "✨", "🪙", "🪔", "✦", "✨"]
+        ? ["🪔", "✨", "🪙", "🪔", "✦"]
         : event.kind === "holi"
-          ? ["●", "●", "●", "●", "●", "●"]
-          : ["✦", "✨", "🌟", "✧", "✨", "✦"];
+          ? ["●", "●", "●", "●", "●"]
+          : ["✦", "✨", "🌟", "✧", "✨"];
   const navratriBlessings = [
     "माँ शैलपुत्री आपको दृढ़ता और नए आरंभ का आशीर्वाद दें।",
     "माँ ब्रह्मचारिणी आपके जीवन में ज्ञान, संयम और सफलता भरें।",
@@ -103,20 +105,28 @@ export default function FestivalCelebrationSlides({ audience }: { audience: "stu
   return (
     <>
       <div className={`festival-atmosphere festival-atmosphere--${festivalStyle}`} aria-hidden="true">
-        {Array.from({ length: 24 }, (_, index) => <span
+        {Array.from({ length: event.kind === "navratri" && !isVijayadashami ? 17 : 12 }, (_, index) => <span
           key={index}
           style={{
-            left: `${2 + ((index * 37) % 96)}%`,
-            animationDelay: `${-((index * 1.73) % 14)}s`,
-            animationDuration: `${12 + ((index * 7) % 9)}s`,
+            left: `${5 + ((index * 47) % 90)}%`,
+            top: `${(index * 23) % 96}vh`,
+            animationDelay: `${-((index * 2.17) % 17)}s`,
+            animationDuration: `${15 + ((index * 7) % 8)}s`,
             "--particle-hue": `${(index * 47) % 360}`,
           } as CSSProperties}
-        >{atmosphereSymbols[index % atmosphereSymbols.length]}</span>)}
+        >{event.kind === "navratri" && !isVijayadashami ? "" : atmosphereSymbols[index % atmosphereSymbols.length]}</span>)}
+        {isVijayadashami && <div className="festival-arrow-rain">{Array.from({ length: 5 }, (_, index) =>
+          <span key={index} style={{ top: `${10 + index * 17}%`, animationDelay: `${index * 1.1}s` }}>➤</span>
+        )}</div>}
       </div>
       <section className={`festival-slide festival-slide--${festivalStyle}`} aria-label={`${event.title} की शुभकामनाएँ`}>
         {event.kind === "navratri" && !isVijayadashami
           ? <span className="festival-art"><Image src="/navratri-mata-rani.png" alt="माँ दुर्गा" width={185} height={140} priority /></span>
-          : <span className="festival-lamp" aria-hidden="true">{isVijayadashami ? "🏹" : event.emoji}</span>}
+          : <div className={`festival-artwork festival-artwork--${festivalStyle}`} aria-hidden="true">
+              <span className="festival-artwork-main">{isVijayadashami ? "🏹" : event.emoji}</span>
+              <span className="festival-artwork-detail">{isVijayadashami ? "🔥" : event.kind === "diwali" ? "✨" : event.kind === "holi" ? "🌈" : "✦"}</span>
+              {isVijayadashami && <span className="festival-artwork-flame">🪔</span>}
+            </div>}
         <div className="festival-copy" key={`${event.title}-${slide}`}>
           <span className="festival-eyebrow">{audience === "teacher" ? "रेसर अकादमी · शिक्षक परिवार" : "रेसर अकादमी · विद्यार्थी परिवार"} · {status}</span>
           <h2>{event.title} की हार्दिक शुभकामनाएँ</h2>
@@ -126,33 +136,42 @@ export default function FestivalCelebrationSlides({ audience }: { audience: "stu
         {events.length > 1 && <div className="festival-dots" aria-label="उत्सव स्लाइड्स">
           {events.map((item, index) => <span key={`${item.startDate}-${item.title}`} className={index === eventIndex ? "active" : ""} />)}
         </div>}
-      <style jsx>{`
+      <style jsx global>{`
         .festival-atmosphere{position:fixed;z-index:3;inset:0;overflow:hidden;pointer-events:none;contain:strict}
-        .festival-atmosphere span{--particle-hue:45;position:absolute;top:-32px;display:block;color:#fff5bb;font-size:18px;opacity:0;filter:drop-shadow(0 1px 5px rgba(44,20,60,.28));animation:atmosphere-drift 17s linear infinite;will-change:transform,opacity}
+        .festival-atmosphere>span{--particle-hue:45;position:absolute;display:block;color:#fff5bb;font-size:16px;opacity:.5;filter:drop-shadow(0 1px 5px rgba(44,20,60,.24));animation:atmosphere-drift 19s linear infinite;will-change:transform,opacity}
+        .festival-atmosphere--navratri>span{width:9px;height:13px;border-radius:75% 18% 75% 18%;background:linear-gradient(145deg,hsl(var(--particle-hue) 100% 87%),hsl(var(--particle-hue) 88% 58%));box-shadow:0 1px 4px rgba(75,31,71,.22);font-size:0}
         .festival-atmosphere--holi span{width:8px;height:8px;border-radius:50%;background:hsl(var(--particle-hue) 92% 65%);box-shadow:0 0 12px hsl(var(--particle-hue) 100% 70% / .48);font-size:0}
-        .festival-slide{position:relative;isolation:isolate;display:grid;grid-template-columns:clamp(88px,25vw,124px) minmax(0,1fr);align-items:center;gap:15px;overflow:hidden;width:100%;min-height:190px;margin:0 0 15px;padding:18px 20px 30px;border:1px solid rgba(255,255,255,.72);border-radius:22px;color:#fff;background:radial-gradient(ellipse at 92% 0,rgba(255,236,162,.26),transparent 36%),linear-gradient(125deg,#4b164f,#a51f59 52%,#df603d);box-shadow:0 14px 34px rgba(49,22,73,.25),inset 0 1px rgba(255,255,255,.34)}
+        .festival-arrow-rain{position:absolute;inset:0;overflow:hidden}
+        .festival-arrow-rain span{position:absolute;left:-12%;color:#ffdf8c;font-size:24px;text-shadow:0 0 12px #ff8b38;animation:arrow-flight 3.8s cubic-bezier(.3,.1,.7,.9) infinite}
+        .festival-slide{position:relative;isolation:isolate;display:grid;grid-template-columns:clamp(70px,19vw,100px) minmax(0,1fr);align-items:center;gap:12px;overflow:hidden;width:100%;min-height:136px;margin:0 0 11px;padding:12px 15px 22px;border:1px solid rgba(255,255,255,.72);border-radius:18px;color:#fff;background:radial-gradient(ellipse at 92% 0,rgba(255,236,162,.26),transparent 36%),linear-gradient(125deg,#4b164f,#a51f59 52%,#df603d);box-shadow:0 9px 22px rgba(49,22,73,.2),inset 0 1px rgba(255,255,255,.34)}
         .festival-slide:before{position:absolute;z-index:-1;inset:0;content:"";opacity:.38;background-image:radial-gradient(rgba(255,245,196,.8) 1px,transparent 1.6px),radial-gradient(rgba(255,255,255,.55) 1px,transparent 1.6px);background-size:35px 35px,53px 53px;background-position:0 0,17px 19px;mask-image:linear-gradient(90deg,transparent,#000)}
-        .festival-lamp,.festival-copy,.festival-dots{position:relative;z-index:1}
-        .festival-art{position:relative;display:block;align-self:center;aspect-ratio:1;width:100%;overflow:hidden;border:2px solid rgba(255,233,174,.9);border-radius:22px;background:#311147;box-shadow:0 8px 22px rgba(33,10,40,.36),0 0 0 5px rgba(255,255,255,.11)}
-        .festival-art :global(img){width:100%;height:100%;object-fit:cover;object-position:center;}
+        .festival-copy,.festival-dots{position:relative;z-index:1}
+        .festival-art{position:relative;display:block;align-self:center;width:100%;aspect-ratio:1.15;overflow:visible;filter:drop-shadow(0 7px 14px rgba(35,11,39,.32));}
+        .festival-art :global(img){width:100%;height:100%;object-fit:contain;object-position:center;mask-image:radial-gradient(ellipse at center,#000 55%,transparent 100%);}
+        .festival-artwork{position:relative;display:grid;place-items:center;align-self:center;width:100%;aspect-ratio:1;filter:drop-shadow(0 8px 12px rgba(38,12,40,.3));}
+        .festival-artwork-main{font-size:clamp(46px,11vw,68px);line-height:1;animation:festival-float 4s ease-in-out infinite}
+        .festival-artwork-detail{position:absolute;top:8%;right:0;font-size:clamp(20px,5vw,29px);animation:festival-glint 3s ease-in-out infinite}
+        .festival-artwork-flame{position:absolute;bottom:10%;left:5%;font-size:22px;animation:festival-glint 3.4s ease-in-out infinite}
         .festival-slide--diwali{background:radial-gradient(ellipse at 92% 0,rgba(255,242,158,.32),transparent 38%),linear-gradient(125deg,#54200c,#a94b10 52%,#db8c17)}
         .festival-slide--holi{background:radial-gradient(ellipse at 100% 0,rgba(255,255,255,.25),transparent 38%),linear-gradient(125deg,#372582,#a1248b 52%,#de4c63)}
-        .festival-slide--vijayadashami{background:radial-gradient(ellipse at 100% 0,rgba(255,232,154,.3),transparent 38%),linear-gradient(125deg,#65223c,#b53832 52%,#df7a28)}
+        .festival-slide--vijayadashami{background:radial-gradient(ellipse at 100% 0,rgba(255,232,154,.3),transparent 38%),linear-gradient(125deg,#54232f,#a52d27 52%,#ed7b20)}
         .festival-slide--new-year{background:radial-gradient(ellipse at 100% 0,rgba(255,255,255,.24),transparent 38%),linear-gradient(125deg,#123a78,#3454af 52%,#6d49ae)}
-        .festival-lamp{display:grid;place-items:center;width:56px;height:56px;border:1px solid rgba(255,255,255,.54);border-radius:18px;background:linear-gradient(145deg,rgba(255,255,255,.25),rgba(255,255,255,.09));box-shadow:0 0 0 5px rgba(255,255,255,.08),inset 0 1px rgba(255,255,255,.34);font-size:31px;animation:festival-glow 2.8s ease-in-out infinite}
-        .festival-copy{display:flex;min-width:0;flex-direction:column;align-items:flex-start;gap:7px;animation:festival-in .4s ease both}
-        .festival-eyebrow{max-width:100%;color:#fff1be;font-size:10px;font-weight:900;letter-spacing:.45px;line-height:1.45;overflow-wrap:anywhere}
-        .festival-copy h2{margin:0;color:#fff!important;font-size:clamp(17px,2.2vw,22px);font-weight:950;line-height:1.22;text-wrap:balance;text-shadow:0 2px 10px rgba(48,13,55,.34)}
-        .festival-date{display:inline-flex;align-items:center;min-height:24px;padding:3px 10px;border:1px solid rgba(255,255,255,.28);border-radius:999px;background:rgba(255,255,255,.13);color:#fff9e9;font-size:11px;font-weight:850}
-        .festival-copy p{max-width:76ch;margin:0;color:#fff;font-size:13px;font-weight:650;line-height:1.55;overflow-wrap:anywhere;text-shadow:0 1px 4px rgba(36,15,49,.16)}
+        .festival-copy{display:flex;min-width:0;flex-direction:column;align-items:flex-start;gap:4px;animation:festival-in .4s ease both}
+        .festival-eyebrow{max-width:100%;color:#fff1be;font-size:9px;font-weight:900;letter-spacing:.38px;line-height:1.4;overflow-wrap:anywhere}
+        .festival-copy h2{margin:0;color:#fff!important;font-size:clamp(16px,2vw,20px);font-weight:950;line-height:1.2;text-wrap:balance;text-shadow:0 2px 10px rgba(48,13,55,.34)}
+        .festival-date{display:inline-flex;align-items:center;min-height:21px;padding:2px 9px;border:1px solid rgba(255,255,255,.28);border-radius:999px;background:rgba(255,255,255,.13);color:#fff9e9;font-size:10px;font-weight:850}
+        .festival-copy p{max-width:76ch;margin:0;color:#fff;font-size:11.5px;font-weight:650;line-height:1.36;overflow-wrap:anywhere;text-shadow:0 1px 4px rgba(36,15,49,.16)}
         .festival-dots{position:absolute;right:14px;bottom:9px;left:14px;display:flex;justify-content:center;gap:5px}
         .festival-dots span{width:6px;height:6px;border-radius:9px;background:#fff;opacity:.38;transition:all .25s ease}
         .festival-dots span.active{width:18px;background:#ffe49a;opacity:1}
         @keyframes festival-in{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:translateX(0)}}
         @keyframes festival-glow{0%,100%{transform:translateY(0) rotate(-3deg);box-shadow:0 0 0 5px rgba(255,255,255,.06),0 0 14px rgba(255,227,137,.18)}50%{transform:translateY(-3px) rotate(3deg);box-shadow:0 0 0 7px rgba(255,255,255,.09),0 0 25px rgba(255,227,137,.48)}}
-        @keyframes atmosphere-drift{0%{opacity:0;transform:translate3d(0,-8vh,0) rotate(0deg)}12%{opacity:.75}78%{opacity:.62}100%{opacity:0;transform:translate3d(5vw,108vh,0) rotate(340deg)}}
-        @media(max-width:520px){.festival-slide{grid-template-columns:clamp(82px,25vw,104px) minmax(0,1fr);align-items:center;gap:11px;min-height:190px;padding:15px 13px 29px;border-radius:18px}.festival-lamp{width:100%;height:auto;aspect-ratio:1;border-radius:20px;font-size:30px}.festival-art{border-radius:18px}.festival-copy{gap:6px}.festival-eyebrow{font-size:9px;letter-spacing:.18px;line-height:1.4}.festival-copy h2{font-size:16px;line-height:1.25}.festival-copy p{font-size:12px;line-height:1.5}.festival-date{min-height:22px;padding:2px 9px;font-size:10px}}
-        @media(prefers-reduced-motion:reduce){.festival-lamp,.festival-copy,.festival-atmosphere span{animation:none;opacity:.35}}
+        @keyframes festival-float{0%,100%{transform:translateY(2px) rotate(-3deg)}50%{transform:translateY(-4px) rotate(3deg)}}
+        @keyframes festival-glint{0%,100%{opacity:.7;transform:scale(.9) rotate(-7deg)}50%{opacity:1;transform:scale(1.08) rotate(7deg)}}
+        @keyframes atmosphere-drift{0%{opacity:.14;transform:translate3d(0,-8vh,0) rotate(0deg)}15%{opacity:.62}76%{opacity:.54}100%{opacity:.08;transform:translate3d(5vw,112vh,0) rotate(340deg)}}
+        @keyframes arrow-flight{0%{transform:translate3d(-5vw,0,0) rotate(-18deg);opacity:0}12%{opacity:.86}84%{opacity:.78}100%{transform:translate3d(120vw,-34vh,0) rotate(-18deg);opacity:0}}
+        @media(max-width:520px){.festival-slide{grid-template-columns:clamp(64px,18vw,82px) minmax(0,1fr);align-items:center;gap:9px;min-height:128px;padding:11px 11px 21px;border-radius:17px}.festival-artwork-main{font-size:clamp(42px,12vw,57px)}.festival-artwork-detail{font-size:21px}.festival-artwork-flame{font-size:18px}.festival-copy{gap:3px}.festival-eyebrow{font-size:8px;letter-spacing:.15px;line-height:1.35}.festival-copy h2{font-size:15px;line-height:1.2}.festival-copy p{font-size:10.5px;line-height:1.32}.festival-date{min-height:19px;padding:1px 8px;font-size:9px}}
+        @media(prefers-reduced-motion:reduce){.festival-artwork-main,.festival-artwork-detail,.festival-artwork-flame,.festival-copy,.festival-atmosphere span{animation:none;opacity:.75}}
       `}</style>
       </section>
     </>
