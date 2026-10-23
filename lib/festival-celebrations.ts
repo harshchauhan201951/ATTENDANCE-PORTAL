@@ -91,7 +91,7 @@ export function getActiveFestivalCelebrations(today = indiaTodayKey()): (Festiva
 
   return celebrations
     .map((event) => {
-      const windowStart = shiftDate(event.startDate, -7);
+      const windowStart = shiftDate(event.startDate, -5);
       const windowEnd = shiftDate(event.endDate, 5);
       return {
         ...event,

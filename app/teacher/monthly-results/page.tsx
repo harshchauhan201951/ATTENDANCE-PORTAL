@@ -432,19 +432,16 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
   }
 
   function availableArchivedAssessments(snapshot: MonthlyResultSnapshot) {
-    const endDate = cutoffDate(snapshot.mahaTest.date);
-    const priorDates = mahaHistory.map((row: any) => String(row.test_date || "").slice(0, 10)).filter((date: string) => date && date < endDate).sort();
-    const priorDate = priorDates.at(-1) || "";
-    const startDate = priorDate ? addOneDay(priorDate) : "";
+    const student = allStudents.find((row: any) => Number(row.id) === Number(snapshot.student.id));
     const quizMap = new Map(quizzes.map((quiz: any) => [Number(quiz.id), quiz]));
     const existingQuizKeys = new Set(snapshot.quizzes.map((entry) => `${entry.quizId}|${entry.title}|${entry.date}`));
     const availableQuizzes = quizResults.filter((row: any) => {
       const submitted = String(row.submitted_at || row.created_at || "").slice(0, 10);
       const quiz = quizMap.get(Number(row.quiz_id));
       return Number(row.student_id) === Number(snapshot.student.id) && isSubmittedQuizResult(row)
-        && row.obtained_marks != null && row.total_marks != null && (!startDate || submitted >= startDate) && submitted <= endDate
+        && row.obtained_marks != null && row.total_marks != null && submitted
         && quiz && quizTargetsStudent(quiz, snapshot.student.className || "")
-        && isOnOrAfterAdmission((allStudents.find((student: any) => Number(student.id) === Number(snapshot.student.id)) || {}).admission_date, submitted);
+        && isOnOrAfterAdmission(student?.admission_date, submitted);
     }).map((row: any) => {
       const quiz = quizMap.get(Number(row.quiz_id));
       const attempt = Number(row.attempt_number || 1);
@@ -452,19 +449,20 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
       const date = String(row.submitted_at || row.created_at || quiz?.scheduled_date || "").slice(0, 10);
       const obtained = safeNumber(row.obtained_marks), total = safeNumber(row.total_marks);
       return { quizId: Number(row.quiz_id), title, subject: quiz?.subject || "", date, obtained, total, percentage: total > 0 ? obtained / total * 100 : 0 };
-    }).filter((entry: any) => !existingQuizKeys.has(`${entry.quizId}|${entry.title}|${entry.date}`));
+    }).filter((entry: any) => !existingQuizKeys.has(`${entry.quizId}|${entry.title}|${entry.date}`))
+      .sort((left: any, right: any) => right.date.localeCompare(left.date));
     const existingTestIds = new Set(snapshot.weeklyTests.map((entry) => Number(entry.id)));
     const availableTests = tests.filter((test: any) => {
       const date = String(test.test_date || "").slice(0, 10);
       return Number(test.student_id) === Number(snapshot.student.id) && test.obtained_marks != null && test.total_marks != null
-        && (!startDate || date >= startDate) && date <= endDate && isSaturday(date) && !/maha\s*test/i.test(String(test.test_name || ""))
+        && date && isSaturday(date) && !/maha\s*test/i.test(String(test.test_name || ""))
         && String(test.attendance_status || "PRESENT").toUpperCase() === "PRESENT"
-        && isOnOrAfterAdmission((allStudents.find((student: any) => Number(student.id) === Number(snapshot.student.id)) || {}).admission_date, date)
+        && isOnOrAfterAdmission(student?.admission_date, date)
         && !existingTestIds.has(Number(test.id));
     }).map((test: any) => {
       const obtained = safeNumber(test.obtained_marks), total = safeNumber(test.total_marks);
       return { id: Number(test.id), name: test.test_name || "Saturday Test", subject: test.subject || "", date: String(test.test_date).slice(0, 10), obtained, total, percentage: total > 0 ? obtained / total * 100 : 0 };
-    });
+    }).sort((left: any, right: any) => String(right.date).localeCompare(String(left.date)));
     return { quizzes: availableQuizzes, weeklyTests: availableTests };
   }
 
@@ -491,11 +489,11 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
     if (openArchiveAssessmentPanel !== archiveAssessmentKey(snapshot.student.id, kind)) return null;
     const isQuiz = kind === "quiz";
     return <div className={styles.availableGroup}>
-      <strong>Available {isQuiz ? "quiz attempts" : "Saturday weekly tests"} · {entries.length}</strong>
+      <strong>All {isQuiz ? "eligible quiz attempts" : "eligible Saturday weekly tests"} · {entries.length}</strong>
       {entries.length ? entries.map((entry: any) => <div className={styles.availableAssessment} key={isQuiz ? `${entry.quizId}-${entry.title}-${entry.date}` : entry.id}>
         <span>{isQuiz ? entry.title : entry.name}<small>{entry.subject || (isQuiz ? "Quiz" : "Weekly test")} · {formatDate(entry.date)} · {entry.obtained}/{entry.total}</small></span>
         <button type="button" disabled={archiveSaving} onClick={() => addArchivedAssessment(snapshot.student.id, kind, entry)}>Add</button>
-      </div>) : <small>All eligible {isQuiz ? "quiz attempts" : "Saturday tests"} are already included.</small>}
+      </div>) : <small>All recorded eligible {isQuiz ? "quiz attempts" : "Saturday tests"} so far are already included.</small>}
     </div>;
   }
 
