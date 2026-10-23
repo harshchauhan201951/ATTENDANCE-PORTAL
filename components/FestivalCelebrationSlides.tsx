@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties } from "react";
+import Image from "next/image";
 import { getActiveFestivalCelebrations, indiaTodayKey } from "../lib/festival-celebrations";
 
 const messages: Record<string, string[]> = {
@@ -113,7 +114,9 @@ export default function FestivalCelebrationSlides({ audience }: { audience: "stu
         >{atmosphereSymbols[index % atmosphereSymbols.length]}</span>)}
       </div>
       <section className={`festival-slide festival-slide--${festivalStyle}`} aria-label={`${event.title} की शुभकामनाएँ`}>
-        <span className="festival-lamp" aria-hidden="true">{event.emoji}</span>
+        {event.kind === "navratri" && !isVijayadashami
+          ? <span className="festival-art"><Image src="/navratri-mata-rani.png" alt="माँ दुर्गा" width={185} height={140} priority /></span>
+          : <span className="festival-lamp" aria-hidden="true">{isVijayadashami ? "🏹" : event.emoji}</span>}
         <div className="festival-copy" key={`${event.title}-${slide}`}>
           <span className="festival-eyebrow">{audience === "teacher" ? "रेसर अकादमी · शिक्षक परिवार" : "रेसर अकादमी · विद्यार्थी परिवार"} · {status}</span>
           <h2>{event.title} की हार्दिक शुभकामनाएँ</h2>
@@ -127,9 +130,11 @@ export default function FestivalCelebrationSlides({ audience }: { audience: "stu
         .festival-atmosphere{position:fixed;z-index:3;inset:0;overflow:hidden;pointer-events:none;contain:strict}
         .festival-atmosphere span{--particle-hue:45;position:absolute;top:-32px;display:block;color:#fff5bb;font-size:18px;opacity:0;filter:drop-shadow(0 1px 5px rgba(44,20,60,.28));animation:atmosphere-drift 17s linear infinite;will-change:transform,opacity}
         .festival-atmosphere--holi span{width:8px;height:8px;border-radius:50%;background:hsl(var(--particle-hue) 92% 65%);box-shadow:0 0 12px hsl(var(--particle-hue) 100% 70% / .48);font-size:0}
-        .festival-slide{position:relative;isolation:isolate;display:grid;grid-template-columns:60px minmax(0,1fr);align-items:start;gap:14px;overflow:hidden;width:100%;min-height:158px;margin:0 0 15px;padding:19px 21px 29px;border:1px solid rgba(255,255,255,.72);border-radius:22px;color:#fff;background:radial-gradient(ellipse at 92% 0,rgba(255,236,162,.26),transparent 36%),linear-gradient(125deg,#4b164f,#a51f59 52%,#df603d);box-shadow:0 14px 34px rgba(49,22,73,.25),inset 0 1px rgba(255,255,255,.34)}
+        .festival-slide{position:relative;isolation:isolate;display:grid;grid-template-columns:clamp(88px,25vw,124px) minmax(0,1fr);align-items:center;gap:15px;overflow:hidden;width:100%;min-height:190px;margin:0 0 15px;padding:18px 20px 30px;border:1px solid rgba(255,255,255,.72);border-radius:22px;color:#fff;background:radial-gradient(ellipse at 92% 0,rgba(255,236,162,.26),transparent 36%),linear-gradient(125deg,#4b164f,#a51f59 52%,#df603d);box-shadow:0 14px 34px rgba(49,22,73,.25),inset 0 1px rgba(255,255,255,.34)}
         .festival-slide:before{position:absolute;z-index:-1;inset:0;content:"";opacity:.38;background-image:radial-gradient(rgba(255,245,196,.8) 1px,transparent 1.6px),radial-gradient(rgba(255,255,255,.55) 1px,transparent 1.6px);background-size:35px 35px,53px 53px;background-position:0 0,17px 19px;mask-image:linear-gradient(90deg,transparent,#000)}
         .festival-lamp,.festival-copy,.festival-dots{position:relative;z-index:1}
+        .festival-art{position:relative;display:block;align-self:center;aspect-ratio:1;width:100%;overflow:hidden;border:2px solid rgba(255,233,174,.9);border-radius:22px;background:#311147;box-shadow:0 8px 22px rgba(33,10,40,.36),0 0 0 5px rgba(255,255,255,.11)}
+        .festival-art :global(img){width:100%;height:100%;object-fit:cover;object-position:center;}
         .festival-slide--diwali{background:radial-gradient(ellipse at 92% 0,rgba(255,242,158,.32),transparent 38%),linear-gradient(125deg,#54200c,#a94b10 52%,#db8c17)}
         .festival-slide--holi{background:radial-gradient(ellipse at 100% 0,rgba(255,255,255,.25),transparent 38%),linear-gradient(125deg,#372582,#a1248b 52%,#de4c63)}
         .festival-slide--vijayadashami{background:radial-gradient(ellipse at 100% 0,rgba(255,232,154,.3),transparent 38%),linear-gradient(125deg,#65223c,#b53832 52%,#df7a28)}
@@ -146,7 +151,7 @@ export default function FestivalCelebrationSlides({ audience }: { audience: "stu
         @keyframes festival-in{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:translateX(0)}}
         @keyframes festival-glow{0%,100%{transform:translateY(0) rotate(-3deg);box-shadow:0 0 0 5px rgba(255,255,255,.06),0 0 14px rgba(255,227,137,.18)}50%{transform:translateY(-3px) rotate(3deg);box-shadow:0 0 0 7px rgba(255,255,255,.09),0 0 25px rgba(255,227,137,.48)}}
         @keyframes atmosphere-drift{0%{opacity:0;transform:translate3d(0,-8vh,0) rotate(0deg)}12%{opacity:.75}78%{opacity:.62}100%{opacity:0;transform:translate3d(5vw,108vh,0) rotate(340deg)}}
-        @media(max-width:520px){.festival-slide{grid-template-columns:44px minmax(0,1fr);align-items:start;gap:11px;min-height:158px;padding:15px 13px 29px;border-radius:18px}.festival-lamp{width:42px;height:42px;border-radius:13px;font-size:24px}.festival-copy{gap:6px}.festival-eyebrow{font-size:9px;letter-spacing:.18px;line-height:1.4}.festival-copy h2{font-size:16px;line-height:1.25}.festival-copy p{font-size:12px;line-height:1.5}.festival-date{min-height:22px;padding:2px 9px;font-size:10px}}
+        @media(max-width:520px){.festival-slide{grid-template-columns:clamp(82px,25vw,104px) minmax(0,1fr);align-items:center;gap:11px;min-height:190px;padding:15px 13px 29px;border-radius:18px}.festival-lamp{width:100%;height:auto;aspect-ratio:1;border-radius:20px;font-size:30px}.festival-art{border-radius:18px}.festival-copy{gap:6px}.festival-eyebrow{font-size:9px;letter-spacing:.18px;line-height:1.4}.festival-copy h2{font-size:16px;line-height:1.25}.festival-copy p{font-size:12px;line-height:1.5}.festival-date{min-height:22px;padding:2px 9px;font-size:10px}}
         @media(prefers-reduced-motion:reduce){.festival-lamp,.festival-copy,.festival-atmosphere span{animation:none;opacity:.35}}
       `}</style>
       </section>
