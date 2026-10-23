@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -396,8 +397,14 @@ export default function HomePage() {
   const [loginType, setLoginType] =
     useState<LoginType>("student");
 
-  const [username, setUsername] = useState("");
+  const [username, setUsername] = useState("STU10");
   const [password, setPassword] = useState("");
+  const studentUsernamePrefix = "STU10";
+  const usernameRemainder = loginType === "student" ? username.slice(studentUsernamePrefix.length) : username;
+  const usernameCharacters = Array.from(usernameRemainder);
+  const usernameBoxCount = Math.max(2, usernameCharacters.length);
+  const passwordCharacters = Array.from(password);
+  const passwordBoxCount = Math.max(2, passwordCharacters.length);
   const [showPassword, setShowPassword] =
     useState(false);
   const [loading, setLoading] = useState(false);
@@ -1081,7 +1088,7 @@ export default function HomePage() {
     type: LoginType
   ) => {
     setLoginType(type);
-    setUsername("");
+    setUsername(type === "student" ? studentUsernamePrefix : "");
     setPassword("");
     setError("");
     setShowPassword(false);
@@ -2450,12 +2457,12 @@ export default function HomePage() {
             </div>
             )}
             <aside className="login-side">
-              <section className="racer-login-card">
+              <section className={`racer-login-card racer-login-card--${loginType}`}>
                 <div className="login-top-decoration" />
 
                 <div className="login-logo">
                   <div className="login-logo-icon">
-                    
+                    <Image src="/racer-academy-icon.png" alt="Racer Academy app icon" width={58} height={58} priority />
                   </div>
 
                   <div>
@@ -2486,7 +2493,7 @@ export default function HomePage() {
                     </span>
                   </div>
                   <div className="mobile-welcome-art" aria-hidden="true">
-                    {loginType === "student" ? "✦" : "▤"}
+                    <Image src="/racer-academy-icon.png" alt="" width={92} height={92} />
                   </div>
                 </div>
 
@@ -2506,9 +2513,7 @@ export default function HomePage() {
                     }
                     disabled={loading}
                   >
-                    <span>
-                      
-                    </span>
+                    <span aria-hidden="true">🎓</span>
 
                     STUDENT
                   </button>
@@ -2528,7 +2533,8 @@ export default function HomePage() {
                     }
                     disabled={loading}
                   >
-                    <span>TEACHER</span>
+                    <span aria-hidden="true">🧑‍🏫</span>
+                    TEACHER
                   </button>
                 </div>
 
@@ -2561,27 +2567,45 @@ export default function HomePage() {
                       Username
                     </label>
 
-                    <div className="input-box">
+                    <div className="input-box credential-box">
                       <span>
                         
                       </span>
+
+                      <div className={`credential-cells credential-cells--username credential-cells--${loginType}`} aria-hidden="true">
+                        {loginType === "student" && Array.from(studentUsernamePrefix, (character, index) => (
+                          <span key={`prefix-${index}`} className="credential-cell is-fixed">{character}</span>
+                        ))}
+                        {Array.from({ length: usernameBoxCount }, (_, index) => (
+                          <span key={`user-${index}`} className="credential-cell">{usernameCharacters[index] ?? ""}</span>
+                        ))}
+                      </div>
 
                       <input
                         id="username"
                         name="username"
                         type="text"
                         value={username}
-                        onChange={(e) =>
-                          setUsername(
-                            e.target.value
-                          )
-                        }
-                        placeholder={
-                          loginType ===
-                          "student"
-                            ? "Enter student username"
-                            : "Enter teacher username"
-                        }
+                        onChange={(event) => {
+                          const typedValue = event.target.value;
+                          if (loginType === "student") {
+                            const suffix = typedValue.toUpperCase().startsWith(studentUsernamePrefix)
+                              ? typedValue.slice(studentUsernamePrefix.length)
+                              : typedValue.replace(/^STU10/i, "");
+                            setUsername(studentUsernamePrefix + suffix);
+                          } else {
+                            setUsername(typedValue);
+                          }
+                          const cells = event.currentTarget.closest(".credential-box")?.querySelector(".credential-cells");
+                          window.requestAnimationFrame(() => cells?.lastElementChild?.scrollIntoView({ block: "nearest", inline: "nearest" }));
+                        }}
+                        onKeyDown={(event) => {
+                          if (loginType === "student" && event.key === "Backspace" && event.currentTarget.selectionStart === studentUsernamePrefix.length && event.currentTarget.selectionEnd === studentUsernamePrefix.length) event.preventDefault();
+                        }}
+                        onFocus={(event) => event.currentTarget.setSelectionRange(event.currentTarget.value.length, event.currentTarget.value.length)}
+                        onClick={(event) => event.currentTarget.setSelectionRange(event.currentTarget.value.length, event.currentTarget.value.length)}
+                        className="credential-native-input"
+                        aria-label={loginType === "student" ? "Username, STU10 is fixed" : "Teacher username"}
                         autoComplete="username"
                         autoCapitalize="none"
                         spellCheck={false}
@@ -2590,6 +2614,7 @@ export default function HomePage() {
                         }
                       />
                     </div>
+                    <small className="credential-hint">{loginType === "student" ? "STU10 fixed · apne username ke baaki characters likhein" : "Har character ke saath username box badhega"}</small>
                   </div>
 
                   <div className="input-group">
@@ -2597,10 +2622,19 @@ export default function HomePage() {
                       Password
                     </label>
 
-                    <div className="input-box">
+                    <div className="input-box credential-box">
                       <span>
                         
                       </span>
+
+                      <div className="credential-cells credential-cells--password" aria-hidden="true">
+                        {Array.from({ length: passwordBoxCount }, (_, index) => {
+                          const character = passwordCharacters[index];
+                          return <span key={index} className="credential-cell">
+                            {character ? (showPassword ? character : "•") : ""}
+                          </span>;
+                        })}
+                      </div>
 
                       <input
                         id="password"
@@ -2611,12 +2645,15 @@ export default function HomePage() {
                             : "password"
                         }
                         value={password}
-                        onChange={(e) =>
-                          setPassword(
-                            e.target.value
-                          )
-                        }
-                        placeholder="Enter your password"
+                        onChange={(event) => {
+                          setPassword(event.target.value);
+                          const cells = event.currentTarget.closest(".credential-box")?.querySelector(".credential-cells");
+                          window.requestAnimationFrame(() => cells?.lastElementChild?.scrollIntoView({ block: "nearest", inline: "nearest" }));
+                        }}
+                        onFocus={(event) => event.currentTarget.setSelectionRange(event.currentTarget.value.length, event.currentTarget.value.length)}
+                        onClick={(event) => event.currentTarget.setSelectionRange(event.currentTarget.value.length, event.currentTarget.value.length)}
+                        className="credential-native-input"
+                        aria-label="Password"
                         autoComplete="current-password"
                         disabled={
                           loading
@@ -2645,9 +2682,10 @@ export default function HomePage() {
                       >
                         {showPassword
                           ? "🙈"
-                          : ""}
+                          : "👁"}
                       </button>
                     </div>
+                    <small className="credential-hint">Password type karte hi boxes badhenge</small>
                   </div>
 
                   {error && (
@@ -5249,6 +5287,95 @@ export default function HomePage() {
   .saved-student-text { display: flex !important; align-items: center !important; gap: 5px !important; }
   .saved-student-text strong, .saved-student-text small { font-size: 9px !important; }
   .academy-more-link { display: inline-flex !important; min-height: 32px !important; margin-top: 3px !important; }
+}
+
+.credential-box { position: relative !important; display: flex !important; align-items: center !important; gap: 6px !important; overflow: hidden !important; }
+.credential-box > span { flex: 0 0 0 !important; }
+.credential-cells { display: flex !important; min-width: 0 !important; flex: 1 1 auto !important; align-items: center !important; gap: 4px !important; overflow-x: auto !important; overflow-y: hidden !important; scrollbar-width: none !important; pointer-events: none !important; }
+.credential-cells::-webkit-scrollbar { display: none !important; }
+.credential-cell { display: grid !important; width: 26px !important; height: 31px !important; flex: 0 0 26px !important; place-items: center !important; border: 1px solid rgba(90, 120, 152, .24) !important; border-radius: 7px !important; color: #18344d !important; background: linear-gradient(180deg, #fff, #f4f7fa) !important; font-size: 13px !important; font-weight: 800 !important; line-height: 1 !important; box-shadow: inset 0 1px 2px rgba(25, 52, 77, .04) !important; }
+.credential-cell.is-hint { color: #6c8195 !important; border-style: dashed !important; background: #f0f4f8 !important; }
+.credential-native-input { position: absolute !important; z-index: 2 !important; inset: 0 !important; width: 100% !important; height: 100% !important; padding: 0 !important; border: 0 !important; opacity: .015 !important; color: transparent !important; -webkit-text-fill-color: transparent !important; caret-color: transparent !important; background: transparent !important; cursor: text !important; }
+.credential-box .password-toggle { position: relative !important; z-index: 4 !important; flex: 0 0 auto !important; }
+@media (max-width: 700px) {
+  .credential-cells { gap: 3px !important; }
+  .credential-cell { width: 24px !important; height: 29px !important; flex-basis: 24px !important; border-radius: 6px !important; font-size: 12px !important; }
+}
+
+.credential-hint { display:block!important; margin:5px 2px 0!important; color:#90a7c4!important; font-size:10px!important; line-height:1.35!important; }
+.credential-cell.is-fixed { color:#fff!important; border-color:rgba(255,255,255,.42)!important; background:linear-gradient(150deg,#3275e8,#2147a0)!important; box-shadow:0 5px 12px rgba(31,93,194,.24)!important; }
+.credential-cells--student .credential-cell:not(.is-fixed):not(:empty) { color:#fff!important; border-color:rgba(255,255,255,.42)!important; background:linear-gradient(150deg,#3275e8,#2147a0)!important; box-shadow:0 5px 12px rgba(31,93,194,.2)!important; }
+.credential-cells--teacher .credential-cell:not(:empty) { color:#fff!important; border-color:rgba(255,255,255,.42)!important; background:linear-gradient(150deg,#3275e8,#2147a0)!important; box-shadow:0 5px 12px rgba(31,93,194,.2)!important; }
+.credential-cells--password .credential-cell { color:#6c4c09!important; border-color:rgba(210,158,37,.45)!important; background:linear-gradient(155deg,#fff6d7,#f8dc84)!important; box-shadow:inset 0 1px 2px rgba(155,105,10,.08),0 3px 9px rgba(183,135,29,.12)!important; }
+.credential-cells--password .credential-cell:not(:empty) { border-color:#e6bd50!important; background:linear-gradient(155deg,#ffe99e,#f4c94e)!important; }
+.credential-box:focus-within .credential-cell:not(.is-fixed) { border-color:rgba(103,166,255,.62)!important; }
+.login-logo-icon { overflow:hidden!important; padding:0!important; }
+.login-logo-icon img { display:block!important; width:100%!important; height:100%!important; object-fit:cover!important; border-radius:inherit!important; }
+.login-logo-icon::after { content:none!important; }
+.login-side { max-width:940px!important; width:100%!important; }
+.racer-login-card { display:grid!important; grid-template-columns:minmax(280px,.92fr) minmax(360px,1.08fr)!important; grid-template-rows:auto auto auto auto auto auto auto!important; column-gap:34px!important; row-gap:0!important; padding:28px!important; border-radius:30px!important; }
+.login-logo { grid-column:1/-1!important; grid-row:1!important; margin-bottom:24px!important; }
+.mobile-welcome-panel { grid-column:1!important; grid-row:2/8!important; display:flex!important; min-height:100%!important; flex-direction:column!important; align-items:flex-start!important; justify-content:space-between!important; gap:22px!important; margin:0!important; padding:30px!important; border:1px solid rgba(255,255,255,.13)!important; border-radius:24px!important; background:radial-gradient(circle at 15% 10%,rgba(255,255,255,.2),transparent 32%),linear-gradient(150deg,#2c75ed,#142f76 66%,#101d4e)!important; }
+.mobile-welcome-student::before,.mobile-welcome-teacher::before { content:"RACER ACADEMY  /  LEARNING PORTAL"; position:relative; z-index:1; color:rgba(255,255,255,.68); font-size:10px; font-weight:900; letter-spacing:1.5px; }
+.mobile-welcome-copy { max-width:100%!important; gap:12px!important; }
+.mobile-welcome-copy strong { font-size:clamp(27px,3vw,40px)!important; line-height:1.12!important; }
+.mobile-welcome-copy span { font-size:15px!important; }
+.mobile-welcome-art { width:112px!important; height:112px!important; flex-basis:112px!important; align-self:flex-end!important; border:1px solid rgba(255,255,255,.6)!important; border-radius:30px!important; background:#101957!important; box-shadow:0 16px 35px rgba(3,11,38,.3)!important; }
+.mobile-welcome-art img { width:100%!important;height:100%!important;object-fit:cover!important;border-radius:inherit!important; }
+.login-switch { grid-column:2!important;grid-row:2!important;margin:0 0 19px!important; }
+.login-heading { grid-column:2!important;grid-row:3!important; }
+.racer-form { grid-column:2!important;grid-row:4!important; }
+.secure-footer { grid-column:2!important;grid-row:5!important; }
+.login-help { grid-column:2!important;grid-row:6!important; }
+.academy-more-link { grid-column:2!important;grid-row:7!important; }
+.racer-login-card--student { border-color:rgba(80,139,249,.44)!important; }
+.racer-login-card--teacher { border-color:rgba(245,199,84,.5)!important; }
+.racer-login-card--teacher .mobile-welcome-panel { background:radial-gradient(circle at 15% 10%,rgba(255,255,255,.18),transparent 32%),linear-gradient(150deg,#234566,#122d49 68%,#101a32)!important; }
+.racer-login-card--teacher .mobile-welcome-art { border-color:rgba(245,199,84,.68)!important; box-shadow:0 16px 35px rgba(3,11,38,.3),0 0 28px rgba(245,199,84,.12)!important; }
+.racer-login-card--teacher .credential-cell.is-fixed { background:linear-gradient(150deg,#d7a936,#9c6f19)!important; }
+
+@media (max-width:700px) {
+  .racer-login-page { padding:14px 12px 24px!important; align-items:center!important; background:radial-gradient(circle at 0% 0%,rgba(51,119,231,.18),transparent 35%),linear-gradient(180deg,#07172a,#0a203a)!important; }
+  .page-shell,.main-layout.login-only-layout { width:100%!important;max-width:500px!important; }
+  .main-layout.login-only-layout { display:block!important; }
+  .login-side { width:100%!important;max-width:none!important; }
+  .racer-login-card { display:flex!important;flex-direction:column!important;gap:0!important;padding:18px 16px!important;border-radius:25px!important; }
+  .login-logo { margin-bottom:14px!important;padding-bottom:13px!important; }
+  .login-brand { font-size:19px!important; }
+  .login-subtitle { font-size:9px!important; }
+  .mobile-welcome-panel { display:flex!important;min-height:116px!important;flex-direction:row!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;margin:0 0 17px!important;padding:17px!important;border-radius:19px!important; }
+  .mobile-welcome-student::before,.mobile-welcome-teacher::before { display:none!important; }
+  .mobile-welcome-copy { max-width:calc(100% - 66px)!important;gap:6px!important; }
+  .mobile-welcome-copy strong { font-size:20px!important; }
+  .mobile-welcome-copy span { display:block!important;font-size:11px!important;line-height:1.4!important; }
+  .mobile-welcome-art { width:60px!important;height:60px!important;flex:0 0 60px!important;border-radius:17px!important; }
+  .racer-login-card--teacher .mobile-welcome-panel { background:radial-gradient(circle at 15% 10%,rgba(255,255,255,.18),transparent 32%),linear-gradient(150deg,#31566f,#142f49 68%,#101a32)!important; }
+  .login-switch { margin:0 0 17px!important; }
+  .login-heading { margin-bottom:14px!important; }
+  .login-heading p { display:block!important;font-size:11px!important; }
+  .portal-badge { font-size:8px!important; }
+  .login-heading h2 { font-size:25px!important; }
+  .racer-form { gap:12px!important; }
+  .input-group label { font-size:10px!important; }
+  .input-box { min-height:48px!important; }
+  .credential-cell { width:25px!important;height:31px!important;flex-basis:25px!important; }
+  .credential-hint { font-size:9px!important; }
+  .login-button { min-height:48px!important;font-size:12px!important; }
+  .racer-login-card--student .login-button { color:#fff!important;background:linear-gradient(135deg,#3177ef,#2448be)!important;box-shadow:0 9px 20px rgba(39,91,202,.23)!important; }
+  .racer-login-card--student .login-button span { color:#fff!important; }
+  .racer-login-card--teacher .login-button { color:#18263a!important;background:linear-gradient(135deg,#f4ce69,#d9a32f)!important;box-shadow:0 9px 20px rgba(193,145,39,.22)!important; }
+  .racer-login-card--teacher .login-button span { color:#18263a!important; }
+  .racer-login-card--student .switch-button.active { color:#fff!important;background:linear-gradient(135deg,#3177ef,#2448be)!important; }
+  .racer-login-card--teacher .switch-button.active { color:#202b3a!important;background:linear-gradient(135deg,#f4ce69,#d9a32f)!important; }
+  .secure-footer { display:block!important;font-size:9px!important; }
+  .login-help { display:block!important;font-size:9px!important; }
+  .academy-more-link { display:none!important; }
+}
+@media (max-width:380px) {
+  .racer-login-card { padding:15px 12px!important; }
+  .credential-cell { width:22px!important;height:29px!important;flex-basis:22px!important; }
+  .credential-cells { gap:2px!important; }
+  .mobile-welcome-copy strong { font-size:18px!important; }
 }
 
 `}</style>
