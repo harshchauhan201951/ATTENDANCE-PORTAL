@@ -23,6 +23,7 @@ type Student = {
   student_username: string;
   admission_date: string | null;
   admission_history?: { date?: string | null; type?: string | null }[] | null;
+  is_active?: boolean | null;
 };
 
 type Attendance = {
@@ -97,6 +98,17 @@ function getGrade(percentage: number) {
 
 function isPass(percentage: number) {
   return percentage >= 40;
+}
+
+function isStudentInactiveOnDate(student: Student, date: string) {
+  const history = Array.isArray(student.admission_history) ? student.admission_history : [];
+  const events = history
+    .map((entry, order) => ({ date: String(entry?.date || "").slice(0, 10), type: String(entry?.type || "").toLowerCase(), order }))
+    .filter((entry) => /^\d{4}-\d{2}-\d{2}$/.test(entry.date) && (entry.type.includes("deactiv") || entry.type.includes("admission") || entry.type.includes("reactiv")))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.order - b.order);
+  const latest = events.filter((entry) => entry.date <= date).at(-1);
+  if (latest) return latest.type.includes("deactiv") && date > latest.date;
+  return false;
 }
 
 function getImageUrls(value: unknown): string[] {
@@ -272,7 +284,7 @@ export default function TeacherReportsPage() {
     let studentsQuery = supabase
       .from("students")
       .select(
-        "id, student_name, student_username, admission_date, admission_history"
+        "id, student_name, student_username, admission_date, admission_history, is_active"
       )
       .order("student_name", {
         ascending: true,
@@ -347,9 +359,9 @@ export default function TeacherReportsPage() {
       .order("test_date", { ascending: false })
       .order("test_name", { ascending: true });
     if (assignedStudentIds !== null) assessmentsQuery = assessmentsQuery.in("student_id", assignedStudentIds);
-    let studentsQuery = supabase.from("students").select("id,admission_date");
+    let studentsQuery = supabase.from("students").select("id,admission_date,admission_history,is_active");
     if (assignedStudentIds !== null) studentsQuery = studentsQuery.in("id", assignedStudentIds);
-    const [{ data, error: assessmentFetchError }, { data: studentRows }] = await Promise.all([assessmentsQuery, studentsQuery]);
+    const [{ data, error: assessmentFetchError }, { data: studentRows, error: studentFetchError }] = await Promise.all([assessmentsQuery, studentsQuery]);
 
     if (assessmentFetchError) {
       setAssessmentError(
@@ -357,17 +369,39 @@ export default function TeacherReportsPage() {
       );
       return;
     }
+    if (studentFetchError) {
+      setAssessmentError(`Could not check student activation history: ${studentFetchError.message}`);
+      return;
+    }
 
-    const admissionDateByStudent = new Map((studentRows || []).map((student: any) => [Number(student.id), student.admission_date]));
-    setAssessments(((data || []) as AssessmentRow[]).filter((record) => isOnOrAfterAdmission(admissionDateByStudent.get(Number(record.student_id)), record.test_date)));
+    const studentById = new Map((studentRows || []).map((student: any) => [Number(student.id), student]));
+    const validAssessments = ((data || []) as AssessmentRow[]).filter((record) => {
+      const student = studentById.get(Number(record.student_id));
+      const oldAdmissionRule = !student || isOnOrAfterAdmission(student.admission_date, record.test_date);
+      const isSaturdayTest = new Date(`${record.test_date}T00:00:00`).getDay() === 6 && !/maha\s*test/i.test(String(record.test_name || ""));
+      return oldAdmissionRule && (!student || !isSaturdayTest || !isStudentInactiveOnDate(student, record.test_date));
+    });
+    const staleIds = ((data || []) as AssessmentRow[]).filter((record) => {
+      const student = studentById.get(Number(record.student_id));
+      const isSaturdayTest = new Date(`${record.test_date}T00:00:00`).getDay() === 6 && !/maha\s*test/i.test(String(record.test_name || ""));
+      return Boolean(student && isSaturdayTest && isStudentInactiveOnDate(student, record.test_date));
+    }).map((record) => Number(record.id));
+    if (staleIds.length) {
+      const { error: cleanupError } = await supabase.from("academy_assessments").delete().in("id", staleIds);
+      if (cleanupError) setAssessmentError(`Could not remove weekly test marks dated during deactivation: ${cleanupError.message}`);
+    }
+    setAssessments(validAssessments);
   }
 
   function isStudentEligibleForTest(
     student: Student,
     date: string
   ) {
-    if (!student.admission_date) return true;
-    return student.admission_date <= date;
+    const hasDeactivationHistory = (student.admission_history || []).some((entry) => {
+      return String(entry?.type || "").toLowerCase().includes("deactiv");
+    });
+    return isStudentRecordVisibleOnDate(student.admission_date, student.admission_history, date)
+      && (student.is_active !== false || hasDeactivationHistory);
   }
 
   const eligibleStudents = useMemo(() => {
