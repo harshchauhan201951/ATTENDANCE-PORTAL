@@ -16,6 +16,7 @@ type Student = {
   password_hash: string | null;
   created_at: string | null;
   student_name: string | null;
+  roll_number: string | null;
   admission_date: string | null;
   admission_history?: AdmissionHistoryEntry[];
   date_of_birth: string | null;
@@ -48,6 +49,7 @@ export default function TeacherStudentsPage() {
   const router = useRouter();
 
   const [students, setStudents] = useState<Student[]>([]);
+  const [rollNumberSchemaReady, setRollNumberSchemaReady] = useState(false);
   const [admissionHistoryMigrationMissing, setAdmissionHistoryMigrationMissing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -88,6 +90,7 @@ export default function TeacherStudentsPage() {
   const [editMotherPhone, setEditMotherPhone] =
     useState("");
 
+  const [editRollNumber, setEditRollNumber] = useState("");
   const [editClassName, setEditClassName] = useState("");
   const [editSection, setEditSection] = useState("");
   const [editGender, setEditGender] = useState("");
@@ -198,6 +201,19 @@ export default function TeacherStudentsPage() {
         setStudents([]);
         return;
       }
+      const rollNumberQuery = await supabase
+        .from("students")
+        .select("id,roll_number")
+        .in("id", studentRows.map((student) => student.id));
+      const rollNumberById = new Map<number, string>();
+      if (!rollNumberQuery.error) {
+        setRollNumberSchemaReady(true);
+        (rollNumberQuery.data || []).forEach((row: { id: number; roll_number: string | null }) => {
+          if (row.roll_number) rollNumberById.set(Number(row.id), row.roll_number);
+        });
+      } else {
+        setRollNumberSchemaReady(false);
+      }
       const historyQuery = await supabase
         .from("students")
         .select("id,admission_history")
@@ -214,7 +230,7 @@ export default function TeacherStudentsPage() {
       } else {
         setAdmissionHistoryMigrationMissing(/admission_history/i.test(historyQuery.error.message));
       }
-      setStudents(studentRows.map((student) => ({ ...student, admission_history: historyById.get(student.id) || [] })));
+      setStudents(studentRows.map((student) => ({ ...student, roll_number: rollNumberById.get(student.id) || null, admission_history: historyById.get(student.id) || [] })));
     } catch (error) {
       console.error("Students loading error:", error);
       setError(error instanceof Error ? error.message : "Unable to load students.");
@@ -457,6 +473,7 @@ export default function TeacherStudentsPage() {
       student.mother_phone || ""
     );
 
+    setEditRollNumber(student.roll_number || "");
     setEditClassName(student.class_name || "");
     setEditSection(student.section || "");
     setEditGender(student.gender || "");
@@ -493,6 +510,7 @@ export default function TeacherStudentsPage() {
     setEditMotherMobile("");
     setEditFatherPhone("");
     setEditMotherPhone("");
+    setEditRollNumber("");
     setEditClassName("");
     setEditSection("");
     setEditGender("");
@@ -568,6 +586,8 @@ export default function TeacherStudentsPage() {
         editFatherPhone.trim() || null,
       mother_phone:
         editMotherPhone.trim() || null,
+      roll_number:
+        editRollNumber.trim().toUpperCase() || null,
       class_name:
         editClassName.trim() || null,
       section:
@@ -587,6 +607,8 @@ export default function TeacherStudentsPage() {
       profile_image_url:
         editProfileImageUrl.trim() || null,
     };
+
+    if (!rollNumberSchemaReady) delete updateData.roll_number;
 
     if (editPassword.trim()) {
       updateData.password_hash =
@@ -626,6 +648,7 @@ export default function TeacherStudentsPage() {
     setEditMotherMobile("");
     setEditFatherPhone("");
     setEditMotherPhone("");
+    setEditRollNumber("");
     setEditClassName("");
     setEditSection("");
     setEditGender("");
@@ -636,9 +659,9 @@ export default function TeacherStudentsPage() {
     setEditNotes("");
     setEditProfileImageUrl("");
 
-    setSuccess(
-      `${updatedName} profile updated successfully.`
-    );
+    setSuccess(rollNumberSchemaReady
+      ? `${updatedName} profile updated successfully.`
+      : `${updatedName} profile updated, but the roll number was not saved. Apply the student roll-number database migration first.`);
 
     setSaving(false);
 
@@ -959,6 +982,10 @@ export default function TeacherStudentsPage() {
                     </th>
 
                     <th style={styles.th}>
+                      RACER ACADEMY STUDENTS ROLL NUMBERS
+                    </th>
+
+                    <th style={styles.th}>
                       Username
                     </th>
 
@@ -1013,6 +1040,10 @@ export default function TeacherStudentsPage() {
                             {student.student_name ||
                               "Unnamed Student"}
                           </div>
+                        </td>
+
+                        <td className="students-cell students-cell-roll-number" data-label="RACER ACADEMY STUDENTS ROLL NUMBERS" style={styles.td}>
+                          <strong>{student.roll_number || "—"}</strong>
                         </td>
 
                         <td
@@ -2621,6 +2652,29 @@ export default function TeacherStudentsPage() {
                         styles.formGrid
                       }
                     >
+                      <div
+                        style={
+                          styles.field
+                        }
+                      >
+                        <label style={styles.label}>
+                          RACER ACADEMY STUDENTS ROLL NUMBERS
+                        </label>
+
+                        <input
+                          type="text"
+                          value={editRollNumber}
+                          onChange={(e) => setEditRollNumber(e.target.value)}
+                          placeholder="Example: RACER-AC01"
+                          style={styles.input}
+                        />
+                        {!rollNumberSchemaReady && (
+                          <span style={styles.helpText}>
+                            Apply the student roll-number database migration before saving this value.
+                          </span>
+                        )}
+                      </div>
+
                       <div
                         style={
                           styles.field

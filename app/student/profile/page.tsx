@@ -13,6 +13,7 @@ type Student = {
   id: number;
   student_name: string | null;
   student_username: string;
+  roll_number: string | null;
   admission_date: string | null;
   admission_history?: { date: string; type?: string }[];
   is_active?: boolean;
@@ -172,6 +173,12 @@ export default function StudentProfilePage() {
       }
 
       const loadedStudent = data as Student;
+      const { data: rollNumberData, error: rollNumberError } = await supabase
+        .from("students")
+        .select("roll_number")
+        .eq("id", loadedStudent.id)
+        .maybeSingle();
+      if (!rollNumberError) loadedStudent.roll_number = rollNumberData?.roll_number || null;
       const { data: admissionData } = await supabase
         .from("students")
         .select("admission_history")
@@ -1221,6 +1228,12 @@ export default function StudentProfilePage() {
             <Detail
               label="Username"
               value={student.student_username}
+              locked
+            />
+
+            <Detail
+              label="RACER ACADEMY STUDENTS ROLL NUMBERS"
+              value={displayValue(student.roll_number)}
               locked
             />
 
