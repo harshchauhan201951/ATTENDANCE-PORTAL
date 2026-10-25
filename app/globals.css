@@ -8748,12 +8748,13 @@ main[data-racer-vip-module="homework"] .homeworkList .deleteButton { border-radi
   text-transform: uppercase !important;
   white-space: normal !important;
 }
-.racer-students-page .students-table th:nth-child(1) { width: 12%; }
-.racer-students-page .students-table th:nth-child(2) { width: 21%; }
-.racer-students-page .students-table th:nth-child(3) { width: 14%; }
-.racer-students-page .students-table th:nth-child(4) { width: 20%; }
-.racer-students-page .students-table th:nth-child(5) { width: 14%; }
-.racer-students-page .students-table th:nth-child(6) { width: 19%; }
+.racer-students-page .students-table th:nth-child(1) { width: 9%; }
+.racer-students-page .students-table th:nth-child(2) { width: 17%; }
+.racer-students-page .students-table th:nth-child(3) { width: 17%; }
+.racer-students-page .students-table th:nth-child(4) { width: 12%; }
+.racer-students-page .students-table th:nth-child(5) { width: 17%; }
+.racer-students-page .students-table th:nth-child(6) { width: 11%; }
+.racer-students-page .students-table th:nth-child(7) { width: 17%; }
 .racer-students-page .students-table tbody tr:nth-child(even) { background: #f9fbfe !important; }
 .racer-students-page .students-table tbody tr:hover { background: #f1f7ff !important; }
 .racer-students-page .students-table .students-cell { color: #334a65 !important; font-size: 12px !important; }
@@ -8779,7 +8780,7 @@ main[data-racer-vip-module="homework"] .homeworkList .deleteButton { border-radi
   .racer-students-page .students-table tbody tr {
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
-    grid-template-areas: "name name" "id username" "admission admission" "status actions" !important;
+    grid-template-areas: "name name" "id username" "roll roll" "admission admission" "status status" "actions actions" !important;
     gap: 8px 12px !important;
     min-width: 0 !important;
     position: relative !important;
@@ -8815,6 +8816,7 @@ main[data-racer-vip-module="homework"] .homeworkList .deleteButton { border-radi
   .racer-students-page .students-table .students-cell-actions { grid-column: 1 / -1 !important; }
   .racer-students-page .students-table .students-cell-id { grid-area: id !important; }
   .racer-students-page .students-table .students-cell-username { grid-area: username !important; }
+  .racer-students-page .students-table .students-cell-roll-number { grid-area: roll !important; }
   .racer-students-page .students-table .students-cell-name { grid-area: name !important; padding-bottom: 8px !important; border-bottom: 1px solid #edf2f7 !important; }
   .racer-students-page .students-table .students-cell-admission { grid-area: admission !important; }
   .racer-students-page .students-table .students-cell-status { grid-area: status !important; }
@@ -8822,7 +8824,9 @@ main[data-racer-vip-module="homework"] .homeworkList .deleteButton { border-radi
   .racer-students-page .students-table .students-cell-name > div { color: #152d4a !important; font-size: 15px !important; font-weight: 850 !important; }
   .racer-students-page .students-table .students-cell-id .idBadge { width: max-content !important; max-width: 100% !important; padding: 5px 9px !important; border: 1px solid #d8e7ff !important; border-radius: 9px !important; background: #edf4ff !important; color: #1558bd !important; }
   .racer-students-page .students-table .students-cell-status > div { flex-direction: row !important; align-items: center !important; flex-wrap: wrap !important; gap: 7px !important; }
-  .racer-students-page .students-table .students-cell-actions > div { display: flex !important; align-items: center !important; flex-wrap: wrap !important; gap: 7px !important; }
+  .racer-students-page .students-table .students-cell-actions { grid-column: 1 / -1 !important; min-width: 0 !important; }
+  .racer-students-page .students-table .students-cell-actions > div { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; width: 100% !important; min-width: 0 !important; align-items: stretch !important; gap: 7px !important; }
+  .racer-students-page .students-table .students-cell-actions > div button { width: 100% !important; min-width: 0 !important; max-width: 100% !important; box-sizing: border-box !important; white-space: normal !important; overflow-wrap: anywhere !important; }
   .racer-students-page .students-status-action { min-height: 34px !important; padding: 7px 10px !important; font-size: 10px !important; }
 }
 
