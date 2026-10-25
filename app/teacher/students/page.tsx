@@ -777,18 +777,6 @@ export default function TeacherStudentsPage() {
     router.push("/");
   }
 
-  const studentsByClass = students.reduce<Record<string, Student[]>>((groups, student) => {
-    const className = student.class_name?.trim();
-    const groupName = className ? className.toUpperCase() : "CLASS NOT SET";
-    (groups[groupName] ||= []).push(student);
-    return groups;
-  }, {});
-  const classGroups = Object.entries(studentsByClass).sort(([classA], [classB]) => {
-    if (classA === "CLASS NOT SET") return 1;
-    if (classB === "CLASS NOT SET") return -1;
-    return classA.localeCompare(classB, undefined, { numeric: true, sensitivity: "base" });
-  });
-
   return (
     <main
       className="students-management-page racer-module-page racer-students-page"
@@ -988,13 +976,8 @@ export default function TeacherStudentsPage() {
                 </thead>
 
                 <tbody>
-                  {classGroups.flatMap(([className, classStudents]) => [
-                    <tr className="students-class-group-row" key={`class-${className}`}>
-                      <th colSpan={6} scope="rowgroup" style={{ ...styles.th, textAlign: "left", background: "#eff6ff", color: "#1e3a8a", fontSize: "13px", letterSpacing: "0.04em" }}>
-                        {className} - STUDENTS NAMES ({classStudents.length})
-                      </th>
-                    </tr>,
-                    ...classStudents.map((student) => (
+                  {students.map(
+                    (student) => (
                       <tr
                         className="students-table-row"
                         key={
@@ -1027,7 +1010,8 @@ export default function TeacherStudentsPage() {
                               styles.studentName
                             }
                           >
-                            {`${student.class_name?.trim()?.toUpperCase() || "CLASS NOT SET"} - ${student.student_name || "Unnamed Student"}`}
+                            {student.student_name ||
+                              "Unnamed Student"}
                           </div>
                         </td>
 
@@ -1114,8 +1098,8 @@ export default function TeacherStudentsPage() {
                           </div>
                         </td>
                       </tr>
-                    ))
-                  ])}
+                    )
+                  )}
                 </tbody>
               </table>
             </div>
