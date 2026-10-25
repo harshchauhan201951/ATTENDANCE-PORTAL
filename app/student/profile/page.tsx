@@ -13,6 +13,7 @@ type Student = {
   id: number;
   student_name: string | null;
   student_username: string;
+  roll_number: string | null;
   admission_date: string | null;
   admission_history?: { date: string; type?: string }[];
   is_active?: boolean;
@@ -53,6 +54,12 @@ const emptyForm: FormData = {
   class_name: "",
   blood_group: "",
 };
+
+function formatClassAndFirstName(className: string | null, studentName: string | null) {
+  const classLabel = className?.trim().toUpperCase() || "CLASS NOT SET";
+  const firstName = studentName?.trim().split(/\s+/)[0]?.toUpperCase() || "STUDENT";
+  return `${classLabel}-${firstName}`;
+}
 
 export default function StudentProfilePage() {
   const [student, setStudent] = useState<Student | null>(null);
@@ -172,6 +179,12 @@ export default function StudentProfilePage() {
       }
 
       const loadedStudent = data as Student;
+      const { data: rollNumberData, error: rollNumberError } = await supabase
+        .from("students")
+        .select("roll_number")
+        .eq("id", loadedStudent.id)
+        .maybeSingle();
+      if (!rollNumberError) loadedStudent.roll_number = rollNumberData?.roll_number || null;
       const { data: admissionData } = await supabase
         .from("students")
         .select("admission_history")
@@ -1036,16 +1049,14 @@ export default function StudentProfilePage() {
                 <AdmissionDateTimeline currentDate={student.admission_date} history={student.admission_history} isActive={student.is_active !== false} />
               </div>
 
-              <Field
-                label="Class"
-                value={form.class_name}
-                onChange={(value) =>
-                  updateField(
-                    "class_name",
-                    value
-                  )
-                }
-              />
+              <div style={styles.field}>
+                <label style={styles.label}>Class</label>
+                <input
+                  value={formatClassAndFirstName(student.class_name, student.student_name)}
+                  readOnly
+                  style={styles.input}
+                />
+              </div>
 
               <div style={styles.field}>
                 <label style={styles.label}>
@@ -1225,6 +1236,12 @@ export default function StudentProfilePage() {
             />
 
             <Detail
+              label="RACER ACADEMY STUDENTS ROLL NUMBERS"
+              value={displayValue(student.roll_number)}
+              locked
+            />
+
+            <Detail
               label="Date of Birth"
               value={formatDate(
                 student.date_of_birth
@@ -1239,9 +1256,7 @@ export default function StudentProfilePage() {
 
             <Detail
               label="Class"
-              value={displayValue(
-                student.class_name
-              )}
+              value={formatClassAndFirstName(student.class_name, student.student_name)}
             />
 
             <Detail

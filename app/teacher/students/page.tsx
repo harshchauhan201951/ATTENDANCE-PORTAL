@@ -10,12 +10,19 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+function formatClassAndFirstName(className: string | null, studentName: string | null) {
+  const classLabel = className?.trim().toUpperCase() || "CLASS NOT SET";
+  const firstName = studentName?.trim().split(/\s+/)[0]?.toUpperCase() || "STUDENT";
+  return `${classLabel}-${firstName}`;
+}
+
 type Student = {
   id: number;
   student_username: string;
   password_hash: string | null;
   created_at: string | null;
   student_name: string | null;
+  roll_number: string | null;
   admission_date: string | null;
   admission_history?: AdmissionHistoryEntry[];
   date_of_birth: string | null;
@@ -198,6 +205,16 @@ export default function TeacherStudentsPage() {
         setStudents([]);
         return;
       }
+      const rollNumberQuery = await supabase
+        .from("students")
+        .select("id,roll_number")
+        .in("id", studentRows.map((student) => student.id));
+      const rollNumberById = new Map<number, string>();
+      if (!rollNumberQuery.error) {
+        (rollNumberQuery.data || []).forEach((row: { id: number; roll_number: string | null }) => {
+          if (row.roll_number) rollNumberById.set(Number(row.id), row.roll_number);
+        });
+      }
       const historyQuery = await supabase
         .from("students")
         .select("id,admission_history")
@@ -214,7 +231,7 @@ export default function TeacherStudentsPage() {
       } else {
         setAdmissionHistoryMigrationMissing(/admission_history/i.test(historyQuery.error.message));
       }
-      setStudents(studentRows.map((student) => ({ ...student, admission_history: historyById.get(student.id) || [] })));
+      setStudents(studentRows.map((student) => ({ ...student, roll_number: rollNumberById.get(student.id) || null, admission_history: historyById.get(student.id) || [] })));
     } catch (error) {
       console.error("Students loading error:", error);
       setError(error instanceof Error ? error.message : "Unable to load students.");
@@ -971,6 +988,10 @@ export default function TeacherStudentsPage() {
                     </th>
 
                     <th style={styles.th}>
+                      RACER ACADEMY STUDENTS ROLL NUMBERS
+                    </th>
+
+                    <th style={styles.th}>
                       Username
                     </th>
 
@@ -990,7 +1011,7 @@ export default function TeacherStudentsPage() {
                 <tbody>
                   {classGroups.flatMap(([className, classStudents]) => [
                     <tr className="students-class-group-row" key={`class-${className}`}>
-                      <th colSpan={6} scope="rowgroup" style={{ ...styles.th, textAlign: "left", background: "#eff6ff", color: "#1e3a8a", fontSize: "13px", letterSpacing: "0.04em" }}>
+                      <th colSpan={7} scope="rowgroup" style={{ ...styles.th, textAlign: "left", background: "#eff6ff", color: "#1e3a8a", fontSize: "13px", letterSpacing: "0.04em" }}>
                         {className} - STUDENTS NAMES ({classStudents.length})
                       </th>
                     </tr>,
@@ -1027,8 +1048,12 @@ export default function TeacherStudentsPage() {
                               styles.studentName
                             }
                           >
-                            {`${student.class_name?.trim()?.toUpperCase() || "CLASS NOT SET"} - ${student.student_name || "Unnamed Student"}`}
+                            {formatClassAndFirstName(student.class_name, student.student_name)}
                           </div>
+                        </td>
+
+                        <td className="students-cell students-cell-roll-number" data-label="RACER ACADEMY STUDENTS ROLL NUMBERS" style={styles.td}>
+                          <strong>{student.roll_number || "—"}</strong>
                         </td>
 
                         <td
