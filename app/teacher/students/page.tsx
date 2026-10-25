@@ -2665,7 +2665,6 @@ export default function TeacherStudentsPage() {
                           type="text"
                           value={editRollNumber}
                           onChange={(e) => setEditRollNumber(e.target.value)}
-                          placeholder="Example: RACER-AC01"
                           style={styles.input}
                         />
                         {!rollNumberSchemaReady && (
