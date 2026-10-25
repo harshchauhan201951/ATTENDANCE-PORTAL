@@ -13,7 +13,9 @@ import {
   isSubmittedQuizResult,
   latestSubmittedQuizResult,
   monthLabelFromKey,
+  attemptedQuizDate,
   quizTargetsStudent,
+  scheduledQuizDate,
   safeNumber,
   type MonthlyResultSnapshot,
 } from "../../../lib/monthly-result";
@@ -195,17 +197,19 @@ export default function MonthlyResultsPage() {
     const qEntries = quizResults
       .filter((r) => Number(r.student_id) === Number(student.id))
       .filter((r) => {
-        const completedDate = String(r.submitted_at || r.created_at || "").slice(0, 10);
-        if (!isSubmittedQuizResult(r) || !completedDate || (start && completedDate < start) || (cutoff && completedDate > cutoff)) return false;
         const q = quizMap.get(Number(r.quiz_id));
         if (!q) return false;
-        if (!cutoff || !isOnOrAfterAdmission(student.admission_date, completedDate)) return false;
+        const scheduledDate = scheduledQuizDate(q, r);
+        if (!isSubmittedQuizResult(r) || !scheduledDate || (start && scheduledDate < start) || (cutoff && scheduledDate > cutoff)) return false;
+        if (!cutoff || !isOnOrAfterAdmission(student.admission_date, scheduledDate)) return false;
         return quizTargetsStudent(q, student.class_name || "");
       })
       .sort((a, b) => {
-        const ad = String(a.submitted_at || a.created_at || "");
-        const bd = String(b.submitted_at || b.created_at || "");
-        return ad.localeCompare(bd) || Number(a.quiz_id) - Number(b.quiz_id) || Number(a.attempt_number || 1) - Number(b.attempt_number || 1);
+        const aq = quizMap.get(Number(a.quiz_id));
+        const bq = quizMap.get(Number(b.quiz_id));
+        const ad = scheduledQuizDate(aq, a);
+        const bd = scheduledQuizDate(bq, b);
+        return ad.localeCompare(bd) || String(a.submitted_at || a.created_at || "").localeCompare(String(b.submitted_at || b.created_at || "")) || Number(a.quiz_id) - Number(b.quiz_id) || Number(a.attempt_number || 1) - Number(b.attempt_number || 1);
       })
       .map((r) => {
         const q = quizMap.get(Number(r.quiz_id));
@@ -217,7 +221,8 @@ export default function MonthlyResultsPage() {
           quizId: Number(r.quiz_id),
           title: attemptNumber > 1 ? `${baseTitle} (Attempt #${attemptNumber})` : baseTitle,
           subject: q?.subject || "",
-          date: String(r.submitted_at || r.created_at || q?.scheduled_date || "").slice(0, 10),
+          date: scheduledQuizDate(q, r),
+          attemptedDate: attemptedQuizDate(r),
           obtained,
           total,
           percentage: total > 0 ? (obtained / total) * 100 : 0,
@@ -289,8 +294,8 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
     const quizMap = new Map(quizzes.map((quiz: any) => [Number(quiz.id), quiz]));
     const presentQuizKeys = new Set(snapshot.quizzes.map((entry) => `${entry.quizId}|${entry.title}|${entry.date}`));
     const availableQuizzes = quizResults.filter((row: any) => {
-      const date = String(row.submitted_at || row.created_at || "").slice(0, 10);
       const quiz = quizMap.get(Number(row.quiz_id));
+      const date = scheduledQuizDate(quiz, row);
       return Number(row.student_id) === Number(snapshot.student.id) && isSubmittedQuizResult(row)
         && row.obtained_marks != null && row.total_marks != null && date && (!start || date >= start) && (!cutoff || date <= cutoff)
         && quiz && quizTargetsStudent(quiz, snapshot.student.className || "")
@@ -299,9 +304,9 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
       const quiz = quizMap.get(Number(row.quiz_id));
       const attempt = Number(row.attempt_number || 1);
       const title = attempt > 1 ? `${quiz?.title || "Quiz"} (Attempt #${attempt})` : quiz?.title || "Quiz";
-      const date = String(row.submitted_at || row.created_at || quiz?.scheduled_date || "").slice(0, 10);
+      const date = scheduledQuizDate(quiz, row);
       const obtained = safeNumber(row.obtained_marks), total = safeNumber(row.total_marks);
-      return { quizId: Number(row.quiz_id), title, subject: quiz?.subject || "", date, obtained, total, percentage: total > 0 ? obtained / total * 100 : 0 };
+      return { quizId: Number(row.quiz_id), title, subject: quiz?.subject || "", date, attemptedDate: attemptedQuizDate(row), obtained, total, percentage: total > 0 ? obtained / total * 100 : 0 };
     }).filter((entry: any) => !presentQuizKeys.has(`${entry.quizId}|${entry.title}|${entry.date}`));
     const presentTestIds = new Set(snapshot.weeklyTests.map((entry) => Number(entry.id)));
     const availableTests = tests.filter((test: any) => {
@@ -361,7 +366,7 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
     const entries = kind === "quiz" ? options.quizzes : options.weeklyTests;
     return <div className={styles.availableGroup}><strong>Available {kind === "quiz" ? "quiz attempts" : "Saturday weekly tests"} · {entries.length}</strong>
       {entries.length ? entries.map((entry: any) => <div className={styles.availableAssessment} key={kind === "quiz" ? `${entry.quizId}-${entry.title}-${entry.date}` : entry.id}>
-        <span>{kind === "quiz" ? entry.title : entry.name}<small>{entry.subject || (kind === "quiz" ? "Quiz" : "Weekly test")} · {formatDate(entry.date)} · {entry.obtained}/{entry.total}</small></span>
+        <span>{kind === "quiz" ? entry.title : entry.name}<small>{entry.subject || (kind === "quiz" ? "Quiz" : "Weekly test")} · {kind === "quiz" ? `Scheduled ${formatDate(entry.date)}${entry.attemptedDate ? ` · Attempted ${formatDate(entry.attemptedDate)}` : ""}` : formatDate(entry.date)} · {entry.obtained}/{entry.total}</small></span>
         <button type="button" onClick={() => addLiveAssessment(snapshot.student.id, kind, entry)}>Add</button>
       </div>) : <small>No additional eligible {kind === "quiz" ? "quiz attempts" : "Saturday tests"} with recorded marks.</small>}
     </div>;
@@ -436,19 +441,19 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
     const quizMap = new Map(quizzes.map((quiz: any) => [Number(quiz.id), quiz]));
     const existingQuizKeys = new Set(snapshot.quizzes.map((entry) => `${entry.quizId}|${entry.title}|${entry.date}`));
     const availableQuizzes = quizResults.filter((row: any) => {
-      const submitted = String(row.submitted_at || row.created_at || "").slice(0, 10);
       const quiz = quizMap.get(Number(row.quiz_id));
+      const scheduled = scheduledQuizDate(quiz, row);
       return Number(row.student_id) === Number(snapshot.student.id) && isSubmittedQuizResult(row)
-        && row.obtained_marks != null && row.total_marks != null && submitted
+        && row.obtained_marks != null && row.total_marks != null && scheduled
         && quiz && quizTargetsStudent(quiz, snapshot.student.className || "")
-        && isOnOrAfterAdmission(student?.admission_date, submitted);
+        && isOnOrAfterAdmission(student?.admission_date, scheduled);
     }).map((row: any) => {
       const quiz = quizMap.get(Number(row.quiz_id));
       const attempt = Number(row.attempt_number || 1);
       const title = attempt > 1 ? `${quiz?.title || "Quiz"} (Attempt #${attempt})` : quiz?.title || "Quiz";
-      const date = String(row.submitted_at || row.created_at || quiz?.scheduled_date || "").slice(0, 10);
+      const date = scheduledQuizDate(quiz, row);
       const obtained = safeNumber(row.obtained_marks), total = safeNumber(row.total_marks);
-      return { quizId: Number(row.quiz_id), title, subject: quiz?.subject || "", date, obtained, total, percentage: total > 0 ? obtained / total * 100 : 0 };
+      return { quizId: Number(row.quiz_id), title, subject: quiz?.subject || "", date, attemptedDate: attemptedQuizDate(row), obtained, total, percentage: total > 0 ? obtained / total * 100 : 0 };
     }).filter((entry: any) => !existingQuizKeys.has(`${entry.quizId}|${entry.title}|${entry.date}`))
       .sort((left: any, right: any) => right.date.localeCompare(left.date));
     const existingTestIds = new Set(snapshot.weeklyTests.map((entry) => Number(entry.id)));
@@ -529,13 +534,13 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
       const id = Number(student.id);
       const current = existingByStudent.get(id);
       const quizEntries = quizResults.filter((row: any) => {
-        const submitted = String(row.submitted_at || row.created_at || "").slice(0, 10);
         const quiz = quizMap.get(Number(row.quiz_id));
+        const scheduled = scheduledQuizDate(quiz, row);
         return Number(row.student_id) === id && row.obtained_marks != null && row.total_marks != null && isSubmittedQuizResult(row)
-          && submitted && submitted < cutoff && isOnOrAfterAdmission(student.admission_date, submitted) && quiz && quizTargetsStudent(quiz, student.class_name || "");
+          && scheduled && scheduled < cutoff && isOnOrAfterAdmission(student.admission_date, scheduled) && quiz && quizTargetsStudent(quiz, student.class_name || "");
       }).map((row: any) => {
         const quiz = quizMap.get(Number(row.quiz_id)); const obtained = safeNumber(row.obtained_marks); const total = safeNumber(row.total_marks); const attempt = Number(row.attempt_number || 1);
-        return { quizId: Number(row.quiz_id), title: attempt > 1 ? `${quiz?.title || "Quiz"} (Attempt #${attempt})` : quiz?.title || "Quiz", subject: quiz?.subject || "", date: String(row.submitted_at || row.created_at || quiz?.scheduled_date || "").slice(0, 10), obtained, total, percentage: total > 0 ? obtained / total * 100 : 0 };
+        return { quizId: Number(row.quiz_id), title: attempt > 1 ? `${quiz?.title || "Quiz"} (Attempt #${attempt})` : quiz?.title || "Quiz", subject: quiz?.subject || "", date: scheduledQuizDate(quiz, row), attemptedDate: attemptedQuizDate(row), obtained, total, percentage: total > 0 ? obtained / total * 100 : 0 };
       });
       const testEntries = tests.filter((test: any) => {
         const date = String(test.test_date || "").slice(0, 10);
@@ -613,7 +618,7 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
       <div className={styles.resultGrid}>{displaySnapshots.map((snapshot,index)=><article className={styles.resultCard} key={snapshot.student.id}><div className={styles.resultStudent}><span className={styles.rank}>{String(index+1).padStart(2,"0")}</span><div><strong>{snapshot.student.name}</strong><small>{snapshot.student.className||"Class not set"} · {snapshot.quizzes.length} quizzes · {snapshot.weeklyTests.length} weekly tests</small></div><span className={`${styles.statusPill} ${snapshot.totals.status === "PASS" ? styles.published : styles.fail}`}>{snapshot.totals.status}</span></div><div className={styles.scoreStrip}><div><span>Quiz</span><strong>{snapshot.totals.quizObtained}<small>/{snapshot.totals.quizTotal}</small></strong></div><div><span>Weekly</span><strong>{snapshot.totals.weeklyObtained}<small>/{snapshot.totals.weeklyTotal}</small></strong></div><div><span>MahaTest</span><strong>{snapshot.mahaTest.obtained===null?"—":snapshot.mahaTest.obtained}<small>{snapshot.mahaTest.obtained===null?" pending":"/100"}</small></strong></div><div className={styles.totalScore}><span>Overall · {snapshot.totals.percentage.toFixed(1)}%</span><strong>{snapshot.totals.grandObtained}<small>/{snapshot.totals.grandTotal}</small></strong></div></div>
         <button type="button" className={styles.desktopDetailsToggle} aria-expanded={Boolean(openLiveStudentDetails[snapshot.student.id])} onClick={()=>setOpenLiveStudentDetails(current=>({...current,[snapshot.student.id]:!current[snapshot.student.id]}))}>{openLiveStudentDetails[snapshot.student.id]?"Hide entries":"Show entries"} · {snapshot.quizzes.length} quizzes, {snapshot.weeklyTests.length} Saturday tests <span>{openLiveStudentDetails[snapshot.student.id]?"⌃":"⌄"}</span></button>
         <div className={`${styles.assessmentEditGrid} ${styles.desktopAssessmentDetails} ${openLiveStudentDetails[snapshot.student.id]?styles.desktopAssessmentDetailsOpen:styles.desktopAssessmentDetailsCollapsed}`}>
-          <div className={styles.assessmentGroup}><div className={styles.assessmentGroupHeading}><strong>Included quizzes</strong><button type="button" onClick={()=>setOpenLiveAssessmentPanel((current)=>current===`${snapshot.student.id}|quiz`?"":`${snapshot.student.id}|quiz`)}>{openLiveAssessmentPanel===`${snapshot.student.id}|quiz`?"Hide options":"Choose quizzes"} ({availableLiveAssessments(snapshot).quizzes.length})</button></div>{snapshot.quizzes.length?snapshot.quizzes.map((entry,index)=><label key={`${entry.quizId}-${entry.title}-${index}`}><span>{entry.title}<small>{formatDate(entry.date)} · {entry.obtained}/{entry.total}</small></span><button type="button" onClick={()=>removeLiveAssessment(snapshot.student.id,"quiz",entry)}>Remove</button></label>):<small>No quizzes included.</small>}{renderLiveAssessmentOptions(snapshot,"quiz")}</div>
+          <div className={styles.assessmentGroup}><div className={styles.assessmentGroupHeading}><strong>Included quizzes</strong><button type="button" onClick={()=>setOpenLiveAssessmentPanel((current)=>current===`${snapshot.student.id}|quiz`?"":`${snapshot.student.id}|quiz`)}>{openLiveAssessmentPanel===`${snapshot.student.id}|quiz`?"Hide options":"Choose quizzes"} ({availableLiveAssessments(snapshot).quizzes.length})</button></div>{snapshot.quizzes.length?snapshot.quizzes.map((entry,index)=><label key={`${entry.quizId}-${entry.title}-${index}`}><span>{entry.title}<small>Scheduled {formatDate(entry.date)}{entry.attemptedDate?` · Attempted ${formatDate(entry.attemptedDate)}`:""} · {entry.obtained}/{entry.total}</small></span><button type="button" onClick={()=>removeLiveAssessment(snapshot.student.id,"quiz",entry)}>Remove</button></label>):<small>No quizzes included.</small>}{renderLiveAssessmentOptions(snapshot,"quiz")}</div>
           <div className={styles.assessmentGroup}><div className={styles.assessmentGroupHeading}><strong>Saturday weekly tests</strong><button type="button" onClick={()=>setOpenLiveAssessmentPanel((current)=>current===`${snapshot.student.id}|weekly`?"":`${snapshot.student.id}|weekly`)}>{openLiveAssessmentPanel===`${snapshot.student.id}|weekly`?"Hide options":"Choose tests"} ({availableLiveAssessments(snapshot).weeklyTests.length})</button></div>{snapshot.weeklyTests.length?snapshot.weeklyTests.map((entry)=><label key={entry.id}><span>{entry.name}<small>{formatDate(entry.date)} · {entry.obtained}/{entry.total}</small></span><button type="button" onClick={()=>removeLiveAssessment(snapshot.student.id,"weekly",entry)}>Remove</button></label>):<small>No Saturday tests included.</small>}{renderLiveAssessmentOptions(snapshot,"weekly")}</div>
         </div>
         <button className={styles.pdfButton} onClick={()=>downloadPdf(snapshot)}>↓ Download student PDF</button></article>)}</div>

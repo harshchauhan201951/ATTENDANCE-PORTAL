@@ -6,10 +6,19 @@ export type MonthlyQuizEntry = {
   title: string;
   subject: string;
   date: string;
+  attemptedDate?: string;
   obtained: number;
   total: number;
   percentage: number;
 };
+
+export function scheduledQuizDate(quiz: any, result: any): string {
+  return String(quiz?.scheduled_date || result?.submitted_at || result?.created_at || "").slice(0, 10);
+}
+
+export function attemptedQuizDate(result: any): string {
+  return String(result?.submitted_at || result?.created_at || "").slice(0, 10);
+}
 
 export type MonthlyTestEntry = {
   id: number;

@@ -1444,9 +1444,14 @@ function ResultsContent() {
 
                           </div>
 
-                          <div className="mt-4 rounded-xl bg-white/5 p-3">
+                          {item.quiz?.scheduled_date && <div className="mt-4 rounded-xl bg-indigo-500/10 p-3">
+                            <p className="text-[9px] font-bold text-indigo-300">SCHEDULED</p>
+                            <p className="mt-1 text-xs font-semibold text-slate-300">{dateText(item.quiz.scheduled_date)}</p>
+                          </div>}
+
+                          <div className="mt-3 rounded-xl bg-white/5 p-3">
                             <p className="text-[9px] font-bold text-slate-500">
-                              SUBMITTED
+                              ATTEMPTED / SUBMITTED
                             </p>
 
                             <p className="mt-1 text-xs font-semibold text-slate-300">

@@ -3265,7 +3265,7 @@ function TeacherQuizResultsContent() {
                                                     }
                                                   >
                                                     <span>
-                                                      Date
+                                                      Scheduled date
                                                     </span>
 
                                                     <strong>
