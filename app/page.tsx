@@ -392,7 +392,6 @@ function withoutPasswordFields(value: any): any {
 export default function HomePage() {
   const router = useRouter();
   const [sessionChecked, setSessionChecked] = useState(false);
-  const [academyDataReady, setAcademyDataReady] = useState(false);
 
   const [loginType, setLoginType] =
     useState<LoginType>("student");
@@ -626,8 +625,6 @@ export default function HomePage() {
           "Academy profile loading error:",
           err
         );
-      } finally {
-        setAcademyDataReady(true);
       }
     }
 
@@ -2083,7 +2080,7 @@ export default function HomePage() {
     return null;
   };
 
-  if (!sessionChecked || !academyDataReady) {
+  if (!sessionChecked) {
     return (
       <main className="racer-login-boot" aria-live="polite" aria-busy="true">
         <div className="racer-login-boot-mark" aria-hidden="true">RA</div>
