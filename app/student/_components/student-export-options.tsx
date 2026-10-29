@@ -62,8 +62,8 @@ export default function StudentExportOptions({
 
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }} aria-label={`Download ${title}`}>
-      {formats.includes("excel") && <button type="button" onClick={downloadExcel} disabled={disabled} style={buttonStyle("#16734b", disabled)}>↓ Excel</button>}
-      {formats.includes("pdf") && <button type="button" onClick={downloadPdf} disabled={disabled} style={buttonStyle("#a83a3a", disabled)}>↓ PDF</button>}
+      {formats.includes("excel") && <button type="button" onClick={downloadExcel} disabled={disabled} style={buttonStyle("#16734b", disabled)}>Export Excel</button>}
+      {formats.includes("pdf") && <button type="button" onClick={downloadPdf} disabled={disabled} style={buttonStyle("#a83a3a", disabled)}>Download PDF</button>}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 import { getTeacherAssignedStudentIds } from "../../../lib/teacher-assigned-students";
 import { AdmissionDateTimeline } from "../../../components/admission-date-timeline";
+import StudentExportOptions from "../../student/_components/student-export-options";
 
 type Student = {
   id: number;
@@ -16,6 +17,7 @@ type Student = {
   date_of_birth: string | null;
   father_name: string | null;
   mother_name: string | null;
+  class_name?: string | null;
 };
 
 export default function StudentDirectoryPage() {
@@ -53,7 +55,8 @@ export default function StudentDirectoryPage() {
           is_active,
           date_of_birth,
           father_name,
-          mother_name
+          mother_name,
+          class_name
         `
         )
         .order("id", { ascending: true });
@@ -233,6 +236,21 @@ export default function StudentDirectoryPage() {
             >
               📥 Export CSV
             </button>
+            <StudentExportOptions
+              title="Student Directory"
+              fileName={`RACER_ACADEMY_STUDENTS_${new Date().toISOString().slice(0, 10)}`}
+              headers={["Student ID", "Student Name", "Class", "Status", "Admission Date", "Date of Birth", "Father Name", "Mother Name"]}
+              rows={filteredStudents.map((student) => [
+                getStudentId(student),
+                getStudentName(student),
+                student.class_name || "—",
+                student.is_active ? "Active" : "Deactivated",
+                formatDate(student.admission_date),
+                formatDate(student.date_of_birth),
+                student.father_name || "—",
+                student.mother_name || "—",
+              ])}
+            />
           </div>
         </header>
 
