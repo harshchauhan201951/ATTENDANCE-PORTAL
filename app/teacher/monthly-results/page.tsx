@@ -40,6 +40,10 @@ function isoForISTDateTime(input: string) {
   if (!date || !time) return null;
   return new Date(`${date}T${time}:00+05:30`).toISOString();
 }
+function isFutureISTDateTime(input: string) {
+  const iso = isoForISTDateTime(input);
+  return Boolean(iso && new Date(iso).getTime() > Date.now());
+}
 function isoToISTInput(value: string) {
   if (!value) return "";
   const d = new Date(value);
@@ -57,6 +61,13 @@ function addOneDay(value: string) {
 function defaultReleaseInput(testDate: string) {
   const resultDate = addOneDay(testDate);
   return resultDate ? `${resultDate}T09:00` : "";
+}
+function defaultFutureReleaseInput(testDate: string) {
+  const fromTestDate = defaultReleaseInput(testDate);
+  if (isFutureISTDateTime(fromTestDate)) return fromTestDate;
+  const tomorrowInIndia = new Date(Date.now() + 330 * 60_000);
+  tomorrowInIndia.setUTCDate(tomorrowInIndia.getUTCDate() + 1);
+  return `${tomorrowInIndia.getUTCFullYear()}-${String(tomorrowInIndia.getUTCMonth() + 1).padStart(2, "0")}-${String(tomorrowInIndia.getUTCDate()).padStart(2, "0")}T09:00`;
 }
 function cutoffDate(value: string) {
   return String(value || "").slice(0, 10);
@@ -94,6 +105,7 @@ export default function MonthlyResultsPage() {
   const [archiveError, setArchiveError] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -377,12 +389,13 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
     return applyMonthlyAwards(students.map(buildSnapshot));
   }
 
-  async function persistMonthly(action:"save"|"schedule"|"publish") {
+  async function persistMonthly(action:"save"|"schedule"|"publish"): Promise<boolean> {
     setSaving(true); setError(""); setMessage("");
     try {
       if (!isSaturday(mahaDate)) throw new Error("MahaTest date must be a Saturday.");
       const releaseIso = releaseInput ? isoForISTDateTime(releaseInput) : null;
       if ((action === "schedule" || action === "publish") && !releaseIso) throw new Error("Please select a valid release date/time.");
+      if (action === "schedule" && releaseIso && new Date(releaseIso).getTime() <= Date.now()) throw new Error("Choose a future date and time for the student result announcement.");
       const teacherId = Number(localStorage.getItem("attendance_teacher_id") || localStorage.getItem("teacher_id") || "0");
       const finalSnapshots = calculatedSnapshots();
       if (!finalSnapshots.length) throw new Error("No student result data is available. Click Calculate first.");
@@ -396,7 +409,8 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
       const label=monthLabelFromKey(monthKey);
       setMessage(action==="publish"?`${label} monthly result is published now.`:action==="schedule"?`${label} monthly result is scheduled for ${new Date(releaseIso || "").toLocaleString("en-IN")}.`:`${label} monthly result data saved successfully.`);
       const listRes=await fetch("/api/monthly-results/publish?list=1"); const listData=await listRes.json(); if(listRes.ok&&listData.success)setSavedPeriods(listData.periods||[]);
-    } catch (e) { setError(e instanceof Error ? e.message : "Could not save monthly result."); }
+      return true;
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not save monthly result."); return false; }
     finally { setSaving(false); }
   }
 
@@ -408,7 +422,7 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
   }
 
   async function saveOnly(){ await persistMonthly("save"); }
-  async function scheduleOnly(){ await persistMonthly("schedule"); }
+  async function scheduleOnly(){ const scheduled = await persistMonthly("schedule"); if (scheduled) setShowScheduleDialog(false); }
   async function publishNow(){ await persistMonthly("publish"); }
 
   async function openArchive(key: string) {
@@ -599,10 +613,12 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
   const passCount = displaySnapshots.filter((snapshot) => snapshot.totals.status === "PASS").length;
   return <main className={styles.page} data-racer-vip-module="monthly-results">
     <header className={styles.hero}>
-      <div className={styles.heroTop}><a className={styles.backLink} href="/teacher/dashboard">← Dashboard</a><span className={styles.heroBadge}>ACADEMIC PERFORMANCE</span></div>
+      <div className={styles.heroTop}><a className={styles.backLink} href="/teacher/dashboard">← Dashboard</a><div className={styles.heroHeaderActions}><button type="button" className={styles.headerScheduleButton} onClick={()=>{setError("");setReleaseInput(current=>isFutureISTDateTime(current)?current:defaultFutureReleaseInput(mahaDate));setShowScheduleDialog(true);}} disabled={loading||saving}>Show Monthly MahaTests</button><span className={styles.heroBadge}>ACADEMIC PERFORMANCE</span></div></div>
       <div className={styles.heroContent}><div><p className={styles.eyebrow}>RACER ACADEMY · TEACHER CONSOLE</p><h1>Monthly Results</h1><p className={styles.heroSub}>Every assessment, one clear picture of each student’s progress.</p></div><div className={styles.heroIcon}>✦</div></div>
       <div className={styles.stats}><div><span>Students</span><strong>{loading ? "—" : displaySnapshots.length}</strong></div><div><span>Passing</span><strong>{loading || !displaySnapshots.length ? "—" : `${Math.round((passCount / displaySnapshots.length) * 100)}%`}</strong></div><div><span>Published folders</span><strong>{publishedPeriods.length}</strong></div><div><span>Assessment mix</span><strong>Quiz · Weekly · MahaTest</strong></div></div>
     </header>
+
+    {showScheduleDialog && <div className={styles.scheduleOverlay} role="presentation" onMouseDown={(event)=>{if(event.target===event.currentTarget&&!saving)setShowScheduleDialog(false);}}><section className={styles.scheduleDialog} role="dialog" aria-modal="true" aria-labelledby="monthly-result-schedule-title"><span className={styles.scheduleEyebrow}>STUDENT DASHBOARD ANNOUNCEMENT</span><h2 id="monthly-result-schedule-title">Show Monthly MahaTests</h2><p>Choose when this result announcement should go live. Students will see the scheduled notice on their dashboard, and the result will be published at the same time.</p><label className={styles.scheduleField}>Result announcement date &amp; time (IST)<input type="datetime-local" value={releaseInput} onChange={event=>setReleaseInput(event.target.value)} /></label>{error&&<div className={styles.error}>{error}</div>}<div className={styles.scheduleDialogActions}><button type="button" className={styles.buttonSoft} onClick={()=>setShowScheduleDialog(false)} disabled={saving}>Cancel</button><button type="button" className={styles.buttonPrimary} onClick={()=>void scheduleOnly()} disabled={saving}>{saving?"Scheduling…":"Schedule result display"}</button></div></section></div>}
 
     <section className={styles.section}>
       <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>RESULT WORKSPACE</p><h2>Prepare a monthly result</h2><p>Enter MahaTest marks, review the complete calculation, then save, schedule, or publish.</p></div><span className={`${styles.statusPill} ${savedPeriods.find((period) => period.month_key === monthKey)?.is_released ? styles.published : styles.draft}`}>{savedPeriods.find((period) => period.month_key === monthKey)?.is_released ? "● Published" : "● Draft workspace"}</span></div>

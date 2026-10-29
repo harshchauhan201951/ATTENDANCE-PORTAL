@@ -63,7 +63,17 @@ function attendanceStatusLabel(value: unknown) {
 
 export default function StudentDashboardPage() {
       const [monthlyResultPeriod,setMonthlyResultPeriod]=useState<any>(null);
-      useEffect(()=>{let active=true; const loadMonthlyResultAnnouncement=async()=>{try{const r=await fetch("/api/monthly-results/publish?list=1",{cache:"no-store"}); const d=await r.json(); const periods=Array.isArray(d?.periods)?d.periods:[]; periods.sort((a:any,b:any)=>String(b?.month_key||"").localeCompare(String(a?.month_key||""))); if(active)setMonthlyResultPeriod(periods[0]||null);}catch{}}; loadMonthlyResultAnnouncement(); const timer=setInterval(loadMonthlyResultAnnouncement,30000); return()=>{active=false;clearInterval(timer)};},[]);
+      useEffect(()=>{
+        let active=true;
+        if(process.env.NODE_ENV==="development"&&new URLSearchParams(window.location.search).get("preview")==="monthly-mahatest-release"){
+          setMonthlyResultPeriod({month_key:"2026-10",month_label:"OCTOBER MONTHLY MAHATEST",is_released:false,scheduled_release_at:new Date(Date.now()+2*24*60*60*1000).toISOString()});
+          return()=>{active=false;};
+        }
+        const loadMonthlyResultAnnouncement=async()=>{try{const r=await fetch("/api/monthly-results/publish?list=1",{cache:"no-store"}); const d=await r.json(); const periods=Array.isArray(d?.periods)?d.periods:[]; periods.sort((a:any,b:any)=>String(b?.month_key||"").localeCompare(String(a?.month_key||""))); if(active)setMonthlyResultPeriod(periods[0]||null);}catch{}};
+        loadMonthlyResultAnnouncement();
+        const timer=setInterval(loadMonthlyResultAnnouncement,30000);
+        return()=>{active=false;clearInterval(timer)};
+      },[]);
       
   const [accountActive, setAccountActive] = useState(true);
 
