@@ -224,7 +224,7 @@ export async function POST(
               token: subscription.token,
               notification: { title, body: message },
               data: { url, category, notificationKey },
-              android: { priority: "high", notification: { channelId: "racer_academy_v4", sound: "racer_notification", ...(category === "quiz_submission" ? { priority: "max" as const } : {}) } },
+              android: { priority: "high", notification: { channelId: "racer_academy_v4", sound: "racer_notification", ...(category === "quiz_submission" || category === "fee_paid" ? { priority: "max" as const } : {}) } },
             });
             sent++;
           } catch (pushError: unknown) {
@@ -387,7 +387,7 @@ export async function POST(
           continue;
         }
         try {
-          await getMessaging(firebaseAdminApp).send({token,notification:{title,body:message},data:{url,category,announcementId:announcementId ? String(announcementId) : ""},android:{priority:"high",notification:{channelId:"racer_academy_v4",sound:"racer_notification",...(category === "quiz_submission" ? {priority:"max" as const} : {})}}});
+          await getMessaging(firebaseAdminApp).send({token,notification:{title,body:message},data:{url,category,announcementId:announcementId ? String(announcementId) : ""},android:{priority:"high",notification:{channelId:"racer_academy_v4",sound:"racer_notification",...(category === "quiz_submission" || category === "fee_paid" ? {priority:"max" as const} : {})}}});
           sent++;
           console.log("Native FCM notification sent successfully:", row.id);
         } catch (pushError:any) {

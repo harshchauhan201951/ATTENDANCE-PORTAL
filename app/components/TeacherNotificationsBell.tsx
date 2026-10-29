@@ -55,7 +55,7 @@ export default function TeacherNotificationsBell({ className = "" }: { className
       const previousId = lastNotificationId.current;
       const newestId = notifications.reduce((maximum, item) => Math.max(maximum, Number(item.id) || 0), previousId || 0);
       const arrivingQuizNotices = notifications.filter((item) => {
-        if (item.category !== "quiz_submission") return false;
+        if (item.category !== "quiz_submission" && item.category !== "fee_paid") return false;
         if (previousId !== null) return Number(item.id) > previousId;
         const createdAt = new Date(item.created_at).getTime();
         return Number.isFinite(createdAt) && createdAt >= mountedAt.current;

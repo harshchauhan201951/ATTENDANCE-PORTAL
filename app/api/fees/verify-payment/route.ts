@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
+import { createTeacherNotifications } from "../../../../lib/server/teacher-notifications";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceRoleKey =
@@ -130,6 +131,8 @@ export async function POST(
       student_id: number;
       amount: number;
       status: string;
+      month?: number;
+      year?: number;
     } | null = null;
 
     /*
@@ -147,7 +150,7 @@ export async function POST(
       } = await supabaseAdmin
         .from("fees")
         .select(
-          "id, student_id, amount, status"
+          "id, student_id, amount, status, month, year"
         )
         .eq(
           "id",
@@ -187,7 +190,7 @@ export async function POST(
       } = await supabaseAdmin
         .from("fees")
         .select(
-          "id, student_id, amount, status"
+          "id, student_id, amount, status, month, year"
         )
         .eq(
           "student_id",
@@ -235,7 +238,7 @@ export async function POST(
       } = await supabaseAdmin
         .from("fees")
         .select(
-          "id, student_id, amount, status"
+          "id, student_id, amount, status, month, year"
         )
         .eq(
           "student_id",
@@ -354,6 +357,62 @@ export async function POST(
       if (!notification.ok) console.error("Online fee payment notification failed:", await notification.json().catch(() => null));
     } catch (notificationError) {
       console.error("Online fee notification request failed:", notificationError);
+    }
+
+    try {
+      const studentIdNumber = Number(updatedFee.student_id);
+      const [{ data: student, error: studentError }, { data: assignments, error: assignmentsError }] = await Promise.all([
+        supabaseAdmin.from("students").select("student_name,student_username").eq("id", studentIdNumber).maybeSingle(),
+        supabaseAdmin.from("teacher_student_assignments").select("teacher_id").eq("student_id", studentIdNumber),
+      ]);
+      if (studentError) throw studentError;
+      if (assignmentsError) throw assignmentsError;
+
+      const studentName = String(student?.student_name || student?.student_username || `Student #${studentIdNumber}`).trim();
+      const teacherIds = Array.from(new Set([1, ...(assignments || []).map((assignment: { teacher_id: number }) => Number(assignment.teacher_id))]
+        .filter((teacherId) => Number.isInteger(teacherId) && teacherId > 0)));
+      const feeMonth = Number(updatedFee.month ?? feeRecord.month ?? month);
+      const feeYear = Number(updatedFee.year ?? feeRecord.year ?? year);
+      const monthLabel = Number.isInteger(feeMonth) && feeMonth >= 1 && feeMonth <= 12
+        ? new Intl.DateTimeFormat("en-IN", { month: "long", timeZone: "Asia/Kolkata" }).format(new Date(Date.UTC(2026, feeMonth - 1, 15)))
+        : "monthly";
+      const paidOn = new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }).format(new Date());
+      const notificationKey = `fee-online-paid:${razorpay_payment_id}`;
+      const message = `${studentName} paid ₹${Number(updatedFee.amount).toLocaleString("en-IN")} for ${monthLabel} ${feeYear} fee on ${paidOn}.`;
+      const saved = await createTeacherNotifications({
+        teacherIds,
+        title: `Fee Paid: ${studentName}`,
+        message,
+        category: "fee_paid",
+        url: "/teacher/fees",
+        metadata: { source: "verified_online_fee_payment", studentId: studentIdNumber, studentName, feeId: Number(updatedFee.id), month: feeMonth, year: feeYear, amount: Number(updatedFee.amount), paymentId: String(razorpay_payment_id) },
+        notificationKey,
+      });
+
+      if (saved.inserted > 0) {
+        await Promise.all(teacherIds.map(async (teacherId) => {
+          try {
+            const response = await fetch(new URL("/api/push/send", request.url), {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseServiceRoleKey}` },
+              body: JSON.stringify({
+                teacherId,
+                category: "fee_paid",
+                title: `Fee Paid: ${studentName}`,
+                message,
+                url: "/teacher/fees",
+                notificationKey,
+                metadata: { studentId: studentIdNumber, studentName, feeId: Number(updatedFee.id), month: feeMonth, year: feeYear, amount: Number(updatedFee.amount), paymentId: String(razorpay_payment_id) },
+              }),
+            });
+            if (!response.ok) console.error(`Teacher fee push failed for teacher ${teacherId}:`, await response.json().catch(() => null));
+          } catch (pushError) {
+            console.error(`Teacher fee push request failed for teacher ${teacherId}:`, pushError);
+          }
+        }));
+      }
+    } catch (teacherNotificationError) {
+      console.error("Teacher fee payment notification could not be saved:", teacherNotificationError);
     }
 
     /*
