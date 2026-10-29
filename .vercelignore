@@ -1,4 +1,5 @@
 android/
 .gradle/
 *.apk
+.next*/
 .next-local-preview/
