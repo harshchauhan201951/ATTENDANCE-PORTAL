@@ -13,6 +13,7 @@ type Student = {
   mother_name?: string | null;
   admission_date?: string | null;
   date_of_birth?: string | null;
+  is_active?: boolean | null;
 };
 
 type Status = "Present" | "Absent";
@@ -128,6 +129,7 @@ export default function ExtraClassPage() {
       let studentsQuery = supabase
         .from("students")
         .select("*")
+        .eq("is_active", true)
         .order("id", { ascending: true });
       let attendanceQuery = supabase
         .from("extra_class_attendance")
@@ -272,9 +274,10 @@ export default function ExtraClassPage() {
   const filteredStudents = useMemo(() => {
     const query = studentSearch.trim().toLowerCase();
 
-    if (!query) return students;
-
     return students.filter((student) => {
+      if (student.is_active !== true) return false;
+      if (!query) return true;
+
       const name = getStudentName(student).toLowerCase();
 
       const username = (
