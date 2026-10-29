@@ -17,7 +17,21 @@ type Student = {
   date_of_birth: string | null;
   father_name: string | null;
   mother_name: string | null;
-  class_name?: string | null;
+  class_name: string | null;
+  roll_number: string | null;
+  section: string | null;
+  gender: string | null;
+  blood_group: string | null;
+  email: string | null;
+  student_mobile: string | null;
+  father_mobile: string | null;
+  mother_mobile: string | null;
+  father_phone: string | null;
+  mother_phone: string | null;
+  address: string | null;
+  city: string | null;
+  notes: string | null;
+  profile_image_url: string | null;
 };
 
 export default function StudentDirectoryPage() {
@@ -56,7 +70,21 @@ export default function StudentDirectoryPage() {
           date_of_birth,
           father_name,
           mother_name,
-          class_name
+          class_name,
+          roll_number,
+          section,
+          gender,
+          blood_group,
+          email,
+          student_mobile,
+          father_mobile,
+          mother_mobile,
+          father_phone,
+          mother_phone,
+          address,
+          city,
+          notes,
+          profile_image_url
         `
         )
         .order("id", { ascending: true });
@@ -236,21 +264,6 @@ export default function StudentDirectoryPage() {
             >
               📥 Export CSV
             </button>
-            <StudentExportOptions
-              title="Student Directory"
-              fileName={`RACER_ACADEMY_STUDENTS_${new Date().toISOString().slice(0, 10)}`}
-              headers={["Student ID", "Student Name", "Class", "Status", "Admission Date", "Date of Birth", "Father Name", "Mother Name"]}
-              rows={filteredStudents.map((student) => [
-                getStudentId(student),
-                getStudentName(student),
-                student.class_name || "—",
-                student.is_active ? "Active" : "Deactivated",
-                formatDate(student.admission_date),
-                formatDate(student.date_of_birth),
-                student.father_name || "—",
-                student.mother_name || "—",
-              ])}
-            />
           </div>
         </header>
 
@@ -293,6 +306,45 @@ export default function StudentDirectoryPage() {
               <strong>Live</strong>
             </div>
           </div>
+        </section>
+
+        <section className="control-card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div>
+            <strong style={{ display: "block", color: "#1e293b", fontSize: 16, fontWeight: 900 }}>Download complete student directory</strong>
+            <span style={{ display: "block", marginTop: 4, color: "#64748b", fontSize: 12 }}>Excel and PDF include all students and profile details. Search filters do not limit these downloads.</span>
+          </div>
+          <StudentExportOptions
+            title="Complete Student Directory"
+            fileName={`RACER_ACADEMY_ALL_STUDENT_DETAILS_${new Date().toISOString().slice(0, 10)}`}
+            pdfLayout="profile"
+            headers={["Student ID", "Student Name", "Class", "Roll Number", "Section", "Status", "Gender", "Blood Group", "Admission Date", "Date of Birth", "Admission History", "Student Mobile", "Father Name", "Father Mobile", "Father Phone", "Mother Name", "Mother Mobile", "Mother Phone", "Email", "City", "Address", "Notes", "Profile Image URL", "Account Created"]}
+            rows={students.map((student) => [
+              getStudentId(student),
+              getStudentName(student),
+              student.class_name || "—",
+              student.roll_number || "—",
+              student.section || "—",
+              student.is_active ? "Active" : "Deactivated",
+              student.gender || "—",
+              student.blood_group || "—",
+              formatDate(student.admission_date),
+              formatDate(student.date_of_birth),
+              student.admission_history?.map((entry) => `${formatDate(entry.date)}${entry.type ? ` (${entry.type})` : ""}`).join("; ") || "—",
+              student.student_mobile || "—",
+              student.father_name || "—",
+              student.father_mobile || "—",
+              student.father_phone || "—",
+              student.mother_name || "—",
+              student.mother_mobile || "—",
+              student.mother_phone || "—",
+              student.email || "—",
+              student.city || "—",
+              student.address || "—",
+              student.notes || "—",
+              student.profile_image_url || "—",
+              formatDate(student.created_at),
+            ])}
+          />
         </section>
 
         {/* SEARCH */}

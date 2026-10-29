@@ -10,6 +10,7 @@ type StudentExportOptionsProps = {
   headers: string[];
   rows: Array<Array<string | number>>;
   formats?: Array<"excel" | "pdf">;
+  pdfLayout?: "rows" | "profile";
 };
 
 export default function StudentExportOptions({
@@ -18,6 +19,7 @@ export default function StudentExportOptions({
   headers,
   rows,
   formats = ["excel", "pdf"],
+  pdfLayout = "rows",
 }: StudentExportOptionsProps) {
   const disabled = rows.length === 0;
 
@@ -42,21 +44,55 @@ export default function StudentExportOptions({
     pdf.setFontSize(15);
     pdf.text(title, left, y);
     y += 9;
-    pdf.setFontSize(8);
-    rows.forEach((row, rowIndex) => {
-      const lines = row.map((value, index) => `${headers[index]}: ${String(value ?? "—")}`);
-      const wrapped = pdf.splitTextToSize(`${rowIndex + 1}. ${lines.join("   |   ")}`, width);
-      const blockHeight = wrapped.length * 4 + 4;
-      if (y + blockHeight > 282) {
-        pdf.addPage();
-        y = 16;
-      }
-      pdf.setFont("helvetica", "normal");
-      pdf.text(wrapped, left, y);
-      y += blockHeight;
-      pdf.setDrawColor(225, 232, 240);
-      pdf.line(left, y - 2, left + width, y - 2);
-    });
+    if (pdfLayout === "profile") {
+      rows.forEach((row, rowIndex) => {
+        if (y > 266) {
+          pdf.addPage();
+          y = 16;
+        }
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(11);
+        pdf.text(pdf.splitTextToSize(String(row[1] || `Student ${rowIndex + 1}`), 125), left, y);
+        pdf.setFontSize(8);
+        pdf.text(`ID: ${String(row[0] ?? "—")}`, left + 130, y, { maxWidth: 52, align: "right" });
+        y += 7;
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(7.5);
+        for (let index = 2; index < headers.length; index += 2) {
+          const cells = [index, index + 1].filter((cellIndex) => cellIndex < headers.length);
+          const cellLines = cells.map((cellIndex) => pdf.splitTextToSize(`${headers[cellIndex]}: ${String(row[cellIndex] ?? "—")}`, 86));
+          const blockHeight = Math.max(...cellLines.map((lines) => lines.length)) * 3.7 + 3;
+          if (y + blockHeight > 282) {
+            pdf.addPage();
+            y = 16;
+          }
+          cells.forEach((cellIndex, cellPosition) => {
+            pdf.text(cellLines[cellPosition], left + (cellPosition * 94), y);
+          });
+          y += blockHeight;
+        }
+        y += 2;
+        pdf.setDrawColor(225, 232, 240);
+        pdf.line(left, y - 1, left + width, y - 1);
+        y += 3;
+      });
+    } else {
+      pdf.setFontSize(8);
+      rows.forEach((row, rowIndex) => {
+        const lines = row.map((value, index) => `${headers[index]}: ${String(value ?? "—")}`);
+        const wrapped = pdf.splitTextToSize(`${rowIndex + 1}. ${lines.join("   |   ")}`, width);
+        const blockHeight = wrapped.length * 4 + 4;
+        if (y + blockHeight > 282) {
+          pdf.addPage();
+          y = 16;
+        }
+        pdf.setFont("helvetica", "normal");
+        pdf.text(wrapped, left, y);
+        y += blockHeight;
+        pdf.setDrawColor(225, 232, 240);
+        pdf.line(left, y - 2, left + width, y - 2);
+      });
+    }
     downloadPdfFile(pdf, `${fileName}.pdf`);
   }
 
