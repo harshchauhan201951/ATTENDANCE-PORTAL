@@ -8,6 +8,7 @@ type Material = {
   title: string;
   description: string | null;
   class_name: string;
+  class_names?: string[];
   file_name: string;
   file_size: number;
   content_type: string;
@@ -29,6 +30,7 @@ export default function TeacherStudyMaterialPage() {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [classMembers, setClassMembers] = useState<Array<{ name: string; class_name: string }>>([]);
   const [selectedClass, setSelectedClass] = useState("");
+  const [selectedUploadClasses, setSelectedUploadClasses] = useState<string[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -51,6 +53,7 @@ export default function TeacherStudyMaterialPage() {
       setClassMembers(data.classMembers || []);
       setSetupRequired(Boolean(data.setupRequired));
       setSelectedClass((current) => current && classOptions.includes(current) ? current : "");
+      setSelectedUploadClasses((current) => current.filter((className) => classOptions.includes(className)));
       setMaterials(data.materials || []);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not load study material.");
@@ -71,13 +74,14 @@ export default function TeacherStudyMaterialPage() {
   }, [loadMaterials]);
 
   const visibleMaterials = useMemo(
-    () => selectedClass ? materials.filter((item) => item.class_name === selectedClass) : materials,
+    () => selectedClass ? materials.filter((item) => (item.class_names || [item.class_name]).includes(selectedClass)) : materials,
     [materials, selectedClass]
   );
   const visibleMembers = useMemo(
     () => selectedClass ? classMembers.filter((student) => student.class_name === selectedClass) : classMembers,
     [classMembers, selectedClass]
   );
+  const allClassesSelected = classes.length > 0 && selectedUploadClasses.length === classes.length;
 
   const onFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const next = event.target.files?.[0] || null;
@@ -92,8 +96,8 @@ export default function TeacherStudyMaterialPage() {
 
   const uploadMaterial = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!teacherId || !selectedClass || !title.trim() || !file) {
-      setError("Choose a class, add a title and select a file.");
+    if (!teacherId || selectedUploadClasses.length === 0 || !title.trim() || !file) {
+      setError("Choose one or more classes, add a title and select a file.");
       return;
     }
     setSaving(true);
@@ -102,7 +106,7 @@ export default function TeacherStudyMaterialPage() {
     try {
       const form = new FormData();
       form.set("teacherId", String(teacherId));
-      form.set("className", selectedClass);
+      form.set("classNames", JSON.stringify(selectedUploadClasses));
       form.set("title", title.trim());
       form.set("description", description.trim());
       form.set("file", file);
@@ -114,7 +118,8 @@ export default function TeacherStudyMaterialPage() {
       setFile(null);
       const input = document.getElementById("study-material-file") as HTMLInputElement | null;
       if (input) input.value = "";
-      setNotice(`Material added to Class ${selectedClass}.`);
+      setSelectedUploadClasses([]);
+      setNotice(`Material added to ${selectedUploadClasses.map((className) => `Class ${className}`).join(", ")}.`);
       await loadMaterials(teacherId);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Upload failed.");
@@ -173,14 +178,14 @@ export default function TeacherStudyMaterialPage() {
           {setupRequired && <div className="study-setup-note"><b>One-time database setup needed</b><span>Run <code>database/migrations/20261029_study_materials.sql</code> in the connected Supabase SQL editor to turn on uploads and class libraries. The class roster is already loaded below.</span></div>}
 
           <section className="study-panel study-upload-panel">
-            <div className="study-panel-heading"><span className="study-panel-icon">＋</span><div><h2>Add to class library</h2><p>Choose a class and share one file.</p></div></div>
+            <div className="study-panel-heading"><span className="study-panel-icon">＋</span><div><h2>Add to class library</h2><p>Choose one or more classes and share one file.</p></div></div>
             {classes.length === 0 && !loading ? <div className="study-empty-inline">No active student classes are available for this account.</div> : (
               <form className="study-form" onSubmit={uploadMaterial}>
-                <label>Class<select value={selectedClass} onChange={(event) => setSelectedClass(event.target.value)} required><option value="">Select Class</option>{classes.map((className) => <option key={className} value={className}>Class {className}</option>)}</select></label>
+                <fieldset className="study-multi-class"><legend>Classes <span className="study-optional">SELECT ONE OR MORE</span></legend><div className="study-class-options">{classes.map((className) => <label className="study-class-option" key={className}><input type="checkbox" checked={selectedUploadClasses.includes(className)} onChange={(event) => setSelectedUploadClasses((current) => event.target.checked ? [...current, className] : current.filter((item) => item !== className))} /><span>Class {className}</span></label>)}</div><button type="button" className="study-select-all" disabled={classes.length === 0} onClick={() => setSelectedUploadClasses(allClassesSelected ? [] : classes)}>{allClassesSelected ? "Clear selection" : "Select all classes"}</button></fieldset>
                 <label>Material title<input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. Fractions · Chapter 4 Notes" maxLength={120} required /></label>
                 <label>Short note <span className="study-optional">OPTIONAL</span><textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Tell students what this file covers" rows={3} maxLength={500} /></label>
                 <label className="study-file-label">File <span className="study-optional">PDF · DOC · PPT · IMAGE · UP TO 20 MB</span><input id="study-material-file" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,image/jpeg,image/png" onChange={onFileChange} required /><span className="study-file-hint">{file ? `Selected: ${file.name} · ${readableSize(file.size)}` : "Choose a PDF or class resource from your device"}</span></label>
-                <button className="study-upload-button" type="submit" disabled={saving || loading || setupRequired || !selectedClass || classes.length === 0}>{saving ? <><span className="study-spinner" /> Uploading…</> : <>Upload to Class {selectedClass || "—"} <span>↗</span></>}</button>
+                <button className="study-upload-button" type="submit" disabled={saving || loading || setupRequired || selectedUploadClasses.length === 0 || classes.length === 0}>{saving ? <><span className="study-spinner" /> Uploading…</> : <>Upload to {selectedUploadClasses.length === 1 ? `Class ${selectedUploadClasses[0]}` : selectedUploadClasses.length ? `${selectedUploadClasses.length} Classes` : "Class —"} <span>↗</span></>}</button>
               </form>
             )}
           </section>
@@ -193,7 +198,7 @@ export default function TeacherStudyMaterialPage() {
             {loading ? <div className="study-loading"><span className="study-spinner" /> Loading class library…</div> : visibleMaterials.length === 0 ? <div className="study-empty"><span>▤</span><h3>No materials here yet</h3><p>Upload the first resource for {selectedClass ? `Class ${selectedClass}` : "your classes"} and it will appear here.</p></div> : (
               <div className="study-material-list">{visibleMaterials.map((material) => <article className="study-material-card" key={material.id}>
                 <div className={`study-file-icon ${material.content_type === "application/pdf" ? "is-pdf" : ""}`}>{material.content_type === "application/pdf" ? "PDF" : "DOC"}</div>
-                <div className="study-material-copy"><div className="study-material-tags"><span>CLASS {material.class_name}</span><span>{new Date(material.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span></div><h3>{material.title}</h3>{material.description && <p>{material.description}</p>}<small>{material.file_name} · {readableSize(material.file_size)}</small></div>
+                <div className="study-material-copy"><div className="study-material-tags"><span>{(material.class_names || [material.class_name]).map((className) => `CLASS ${className}`).join(" · ")}</span><span>{new Date(material.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span></div><h3>{material.title}</h3>{material.description && <p>{material.description}</p>}<small>{material.file_name} · {readableSize(material.file_size)}</small></div>
                 <div className="study-material-actions">{material.downloadUrl && <a href={material.downloadUrl} target="_blank" rel="noreferrer" className="study-open-link">Open file ↗</a>}<button type="button" className="study-delete-button" onClick={() => void deleteMaterial(material)} disabled={busyId === material.id}>{busyId === material.id ? "Removing…" : "Remove"}</button></div>
               </article>)}</div>
             )}
@@ -212,6 +217,7 @@ export default function TeacherStudyMaterialPage() {
         .study-roster{margin-top:13px;padding:12px;border:1px solid #e6edf2;border-radius:13px;background:#f8fbfc}.study-roster-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.study-roster-head>span{color:#198b78;font-size:7px;font-weight:950;letter-spacing:.12em}.study-roster-head b{color:#3d5571;font-size:8px}.study-roster-head small{margin-left:auto;color:#8b98a8;font-size:8px}.study-roster-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.study-student-chip{display:flex;align-items:center;gap:5px;padding:4px 7px 4px 4px;border:1px solid #e6edf2;border-radius:999px;background:#fff;color:#53677f;font-size:8px;font-weight:750}.study-student-chip i{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:#e8f4f1;color:#188773;font-size:8px;font-style:normal;font-weight:950}.study-student-chip small{color:#98a4b2;font-size:7px}.study-roster-empty{color:#8996a6;font-size:9px}
         @media(max-width:900px){.study-content-grid{grid-template-columns:1fr}.study-upload-panel{order:0}.study-library-panel{order:1}}
         @media(max-width:600px){.study-page{padding:14px 11px 22px}.study-topbar{margin-bottom:13px}.study-back{padding:9px 11px;font-size:10px}.study-brand{gap:7px}.study-brand-icon{width:32px;height:32px}.study-brand b{font-size:8px}.study-brand small{font-size:6px}.study-hero{min-height:185px;padding:23px 20px;border-radius:20px}.study-hero h1{font-size:34px}.study-hero p{max-width:260px;font-size:11px}.study-eyebrow{font-size:7px;letter-spacing:.13em}.study-hero-mark{width:82px;height:82px;position:absolute;right:17px;bottom:16px;border-radius:25px;opacity:.8}.study-hero-mark b{font-size:21px}.study-hero-mark small{font-size:5px}.study-hero-mark span{font-size:12px}.study-hero-orbit{right:-190px;top:-90px}.study-stats{gap:7px;margin:10px 0}.study-stats>div{grid-template-columns:1fr;justify-items:start;gap:6px;padding:10px;border-radius:13px}.study-stat-icon{grid-row:auto;width:29px;height:29px;font-size:14px}.study-stats small{font-size:6px;letter-spacing:.07em}.study-stats strong{font-size:16px}.study-content-grid{gap:10px}.study-panel{border-radius:17px}.study-upload-panel,.study-library-panel{padding:15px}.study-library-heading{align-items:flex-end}.study-library-heading h2{font-size:16px}.study-class-filter{min-width:115px}.study-material-card{grid-template-columns:35px minmax(0,1fr);gap:9px;padding:11px}.study-file-icon{width:34px;height:38px}.study-material-actions{grid-column:2;display:flex;justify-content:flex-start;justify-items:start;gap:13px}.study-footer{flex-wrap:wrap;font-size:7px}.study-footer span{width:100%;text-align:center}}
+        .study-multi-class{min-width:0;margin:0;padding:0;border:0}.study-multi-class legend{display:flex;width:100%;align-items:center;gap:8px;margin-bottom:7px;color:#4a617d;font-size:10px;font-weight:900;letter-spacing:.035em}.study-class-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:7px}.study-form .study-class-option{display:flex!important;min-width:0;align-items:center;gap:7px!important;padding:9px 10px;border:1px solid #dfe7f0;border-radius:10px;background:#fbfcfe;color:#334e6d;font-size:10px;font-weight:800;letter-spacing:0;cursor:pointer}.study-form .study-class-option:has(input:checked){border-color:#69b9a6;background:#eaf8f4;color:#126e65}.study-form .study-class-option input[type=checkbox]{flex:0 0 16px;width:16px!important;height:16px;margin:0;padding:0;border:0;accent-color:#168a78;box-shadow:none}.study-select-all{margin-top:8px;padding:0;border:0;background:transparent;color:#178b78;font-size:9px;font-weight:900;text-align:left;cursor:pointer}.study-material-tags span:first-child{max-width:100%;overflow-wrap:anywhere}
       `}</style>
     </main>
   );

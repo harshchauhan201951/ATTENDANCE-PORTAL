@@ -31,6 +31,19 @@ function normalizeClass(value: unknown) {
     : "";
 }
 
+function materialClasses(value: unknown) {
+  if (typeof value !== "string") return [];
+  const text = value.trim();
+  if (text.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) return Array.from(new Set(parsed.map(normalizeClass).filter(Boolean)));
+    } catch {}
+  }
+  const singleClass = normalizeClass(text);
+  return singleClass ? [singleClass] : [];
+}
+
 function positiveInt(value: unknown) {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
@@ -105,9 +118,8 @@ export async function GET(request: NextRequest) {
     }
 
     if (!classes.length) return NextResponse.json({ success: true, classes, materials: [], className, studentName, classMembers });
-    const { data: materials, error } = await admin.from("study_materials")
+    const { data: allMaterials, error } = await admin.from("study_materials")
       .select("id,title,description,class_name,file_name,file_path,file_size,content_type,uploaded_by,created_at")
-      .in("class_name", classes)
       .order("created_at", { ascending: false });
     if (error) {
       if (isMissingMaterialTable(error)) {
@@ -116,11 +128,31 @@ export async function GET(request: NextRequest) {
       throw new Error(error.message);
     }
 
+    const materials = (allMaterials || []).filter((material) => materialClasses(material.class_name).some((assignedClass) => classes.includes(assignedClass)));
+
     const signedMaterials = await Promise.all((materials || []).map(async (material) => {
       const { data, error: signedUrlError } = await admin!.storage.from(BUCKET).createSignedUrl(material.file_path, 60 * 60);
-      return { ...material, downloadUrl: signedUrlError ? null : data.signedUrl };
+      return { ...material, class_names: materialClasses(material.class_name), downloadUrl: signedUrlError ? null : data.signedUrl };
     }));
-    return NextResponse.json({ success: true, classes, materials: signedMaterials, className, studentName, classMembers }, { headers: { "Cache-Control": "no-store" } });
+    if (!teacherId) {
+      const studentMaterials = signedMaterials.map((material) => ({ ...material, class_name: className, class_names: [className] }));
+      return NextResponse.json({ success: true, classes, materials: studentMaterials, className, studentName, classMembers }, { headers: { "Cache-Control": "no-store" } });
+    }
+
+    const grouped = new Map<string, (typeof signedMaterials)[number] & { class_names: string[] }>();
+    for (const material of signedMaterials) {
+      const existing = grouped.get(material.file_path);
+      if (existing) {
+        for (const className of material.class_names) if (!existing.class_names.includes(className)) existing.class_names.push(className);
+      } else {
+        grouped.set(material.file_path, { ...material, class_names: [...material.class_names] });
+      }
+    }
+    const libraryMaterials = Array.from(grouped.values()).map((material) => ({
+      ...material,
+      class_names: material.class_names.sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
+    }));
+    return NextResponse.json({ success: true, classes, materials: libraryMaterials, className, studentName, classMembers }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (isMissingMaterialTable(error)) {
       return NextResponse.json({ success: true, classes, classMembers, materials: [], className, studentName, setupRequired: true }, { headers: { "Cache-Control": "no-store" } });
@@ -130,34 +162,47 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  let uploadedPath: string | null = null;
+  const uploadedPaths: string[] = [];
   try {
     if (!admin) return errorResponse(null, "Supabase service configuration is missing.");
     const form = await request.formData();
     const teacherId = positiveInt(form.get("teacherId"));
-    const className = normalizeClass(form.get("className"));
+    let requestedClasses: unknown[] = [];
+    const classNamesField = form.get("classNames");
+    if (typeof classNamesField === "string" && classNamesField.trim()) {
+      try {
+        const parsed = JSON.parse(classNamesField);
+        requestedClasses = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return errorResponse(new Error("Select valid classes."), "Invalid class selection.", 400);
+      }
+    } else if (form.get("className")) {
+      requestedClasses = [form.get("className")];
+    }
+    const classNames = Array.from(new Set(requestedClasses.map(normalizeClass).filter(Boolean)));
     const title = String(form.get("title") || "").trim();
     const description = String(form.get("description") || "").trim();
     const file = form.get("file");
 
-    if (!teacherId || !className || !title) return errorResponse(new Error("Choose a class and enter a title."), "Class and title are required.", 400);
+    if (!teacherId || classNames.length === 0 || !title) return errorResponse(new Error("Choose one or more classes and enter a title."), "Classes and title are required.", 400);
     if (!(file instanceof File) || file.size === 0) return errorResponse(new Error("Select a file to upload."), "A file is required.", 400);
     if (file.size > MAX_FILE_SIZE) return errorResponse(new Error("Files must be 20 MB or smaller."), "File is too large.", 413);
     if (!ALLOWED_TYPES.has(file.type)) return errorResponse(new Error("Upload a PDF, Word document, PowerPoint, JPG or PNG file."), "Unsupported file type.", 415);
 
     const { classes } = await teacherContext(teacherId);
-    if (!classes.includes(className)) return errorResponse(new Error("You do not have access to this class."), "Class access denied.", 403);
+    if (classNames.some((className) => !classes.includes(className))) return errorResponse(new Error("You can upload material only to active classes assigned to your account."), "Class access denied.", 403);
 
     await ensureBucket();
     const extension = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "file";
-    uploadedPath = `${encodeURIComponent(className)}/${randomUUID()}.${extension}`;
+    const uploadedPath = `shared/${randomUUID()}.${extension}`;
     const { error: uploadError } = await admin.storage.from(BUCKET).upload(uploadedPath, file, { contentType: file.type, upsert: false, cacheControl: "3600" });
     if (uploadError) throw new Error(uploadError.message);
+    uploadedPaths.push(uploadedPath);
 
     const { data, error } = await admin.from("study_materials").insert({
       title,
       description: description || null,
-      class_name: className,
+      class_name: classNames.length === 1 ? classNames[0] : JSON.stringify(classNames),
       file_path: uploadedPath,
       file_name: file.name,
       file_size: file.size,
@@ -165,9 +210,9 @@ export async function POST(request: NextRequest) {
       uploaded_by: teacherId,
     }).select("id").single();
     if (error) throw new Error(error.message);
-    return NextResponse.json({ success: true, id: data.id });
+    return NextResponse.json({ success: true, id: data.id, classes: classNames });
   } catch (error) {
-    if (uploadedPath && admin) await admin.storage.from(BUCKET).remove([uploadedPath]).catch(() => undefined);
+    if (uploadedPaths.length && admin) await admin.storage.from(BUCKET).remove(uploadedPaths).catch(() => undefined);
     return errorResponse(error, "Unable to upload study material.");
   }
 }
@@ -184,7 +229,7 @@ export async function DELETE(request: NextRequest) {
     const { data: material, error: loadError } = await admin.from("study_materials").select("id,class_name,file_path").eq("id", materialId).maybeSingle();
     if (loadError) throw new Error(loadError.message);
     if (!material) return errorResponse(new Error("This material was already removed."), "Material not found.", 404);
-    if (!classes.includes(normalizeClass(material.class_name))) return errorResponse(new Error("You do not have access to this class."), "Class access denied.", 403);
+    if (materialClasses(material.class_name).some((className) => !classes.includes(className))) return errorResponse(new Error("You do not have access to every class this material was shared with."), "Class access denied.", 403);
 
     const { error: removeError } = await admin.storage.from(BUCKET).remove([material.file_path]);
     if (removeError) throw new Error(removeError.message);
