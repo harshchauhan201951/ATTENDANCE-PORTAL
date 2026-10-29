@@ -5384,6 +5384,14 @@ export default function HomePage() {
   .mobile-welcome-panel .mobile-welcome-copy span { color:rgba(255,255,255,.82)!important; }
 }
 
+/* Keep login controls fixed to the form width as the character cells grow. */
+.racer-login-card .racer-form { width:100%!important; min-width:0!important; }
+.racer-login-card .racer-form > .input-group,
+.racer-login-card .racer-form > .login-button,
+.racer-login-card .racer-form > .login-error { width:100%!important; min-width:0!important; max-width:100%!important; box-sizing:border-box!important; }
+.racer-login-card .input-box { width:100%!important; min-width:0!important; max-width:100%!important; box-sizing:border-box!important; }
+.racer-login-card .credential-cells { min-width:0!important; max-width:100%!important; }
+
 `}</style>
     </>
   );
