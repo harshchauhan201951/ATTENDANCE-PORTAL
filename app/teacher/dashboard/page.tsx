@@ -25,6 +25,7 @@ const menuItems = [
   ["Fees", "/teacher/fees", "fees"],
   ["Payments", "/teacher/payments", "payments"],
   ["Homework", "/teacher/homework", "homework"],
+  ["Study Samagri", "/teacher/study-material", "homework"],
   ["Announcements", "/teacher/announcements", "announcement"],
   ["Student Login Activity", "/teacher/login-activity", "activity"],
   ["Profile", "/teacher/profile", "profile"],
@@ -112,7 +113,7 @@ function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
 const VIP_THEME: "gold" | "royal" = "gold";
 
 const vipGroups = [
-  { title: "Academics", sub: "Classes & learning", paths: ["/teacher/attendance", "/teacher/attendance-history", "/teacher/calendar", "/teacher/timetable", "/teacher/homework", "/teacher/extra-class", "/teacher/quiz-tests", "/teacher/monthly-results"] },
+  { title: "Academics", sub: "Classes & learning", paths: ["/teacher/attendance", "/teacher/attendance-history", "/teacher/calendar", "/teacher/timetable", "/teacher/homework", "/teacher/study-material", "/teacher/extra-class", "/teacher/quiz-tests", "/teacher/monthly-results"] },
   { title: "Students", sub: "People & communication", paths: ["/teacher/student-directory", "/teacher/login-activity", "/teacher/reports", "/teacher/announcements"] },
   { title: "Finance", sub: "Fees & payments", paths: ["/teacher/fees", "/teacher/payments"] },
   { title: "Manage", sub: "Account & tools", paths: ["/teacher/voice-call", "/teacher/teachers", "/teacher/profile", "/teacher/settings"] },

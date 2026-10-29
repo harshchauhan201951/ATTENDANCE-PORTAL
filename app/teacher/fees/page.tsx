@@ -89,26 +89,21 @@ function getStudentClass(student: Student): string {
   return "";
 }
 
-function isClassNineOrTen(student: Student): boolean {
-  const studentClass =
-    normalizeText(getStudentClass(student));
+function getFeeAmount(student: Student, year: number, month: number): number {
+  const studentClass = normalizeText(getStudentClass(student))
+    .replace(/^(?:class|grade)\s*/, "")
+    .replace(/[.\s_-]/g, "");
+  const effectiveFromOctober = year > 2026 || (year === 2026 && month >= 10);
 
-  return (
-    studentClass === "9" ||
-    studentClass === "9th" ||
-    studentClass === "class 9" ||
-    studentClass === "class 9th" ||
-    studentClass === "ninth" ||
-    studentClass === "10" ||
-    studentClass === "10th" ||
-    studentClass === "class 10" ||
-    studentClass === "class 10th" ||
-    studentClass === "tenth"
-  );
-}
+  if (/^(?:9|9th|ninth|10|10th|tenth)(?:class)?(?:[a-z])?$/.test(studentClass)) return 300;
 
-function getFeeAmount(student: Student): number {
-  return isClassNineOrTen(student) ? 300 : 200;
+  if (effectiveFromOctober) {
+    if (/^(nursery|nur|lkg|lowerkg|lowerkindergarten|ukg|upperkg|upperkindergarten)(?:[a-z])?$/.test(studentClass)) return 200;
+    if (/^(?:[1-8](?:st|nd|rd|th)?|first|second|third|fourth|fifth|sixth|seventh|eighth|i|ii|iii|iv|v|vi|vii|viii)(?:class|grade)?(?:[a-z])?$/.test(studentClass)) return 250;
+  }
+
+  // Keep the historic rate for periods before October 2026 and unrecognized class labels.
+  return 200;
 }
 
 function getAdmissionDate(student: Student): string {
@@ -848,6 +843,11 @@ export default function TeacherFeesPage() {
           continue;
         }
 
+        // October 2026 onward is the new fee policy period; preserve those rows here.
+        if (Number(fee.year) > 2026 || (Number(fee.year) === 2026 && Number(fee.month) >= 10)) {
+          continue;
+        }
+
         /*
          * Any future automatic record
          * produced by an older buggy version
@@ -967,6 +967,29 @@ export default function TeacherFeesPage() {
         existingFees
       );
 
+    const studentById = new Map(
+      studentList.map((student) => [Number(student.id), student])
+    );
+    const automaticFeeUpdates = cleanedFees
+      .filter((fee) => {
+        const isOctoberOrLater = Number(fee.year) > 2026 || (Number(fee.year) === 2026 && Number(fee.month) >= 10);
+        return isOctoberOrLater && isAutomaticFee(fee) && String(fee.status || "").trim().toUpperCase() === "PENDING";
+      })
+      .map(async (fee) => {
+        const student = studentById.get(Number(fee.student_id));
+        if (!student) return;
+        const expectedAmount = getFeeAmount(student, Number(fee.year), Number(fee.month));
+        if (Number(fee.amount) === expectedAmount) return;
+
+        const { error } = await supabase
+          .from("fees")
+          .update({ amount: expectedAmount })
+          .eq("id", fee.id)
+          .eq("status", "PENDING");
+        if (error) console.error("Automatic fee amount update error:", error);
+      });
+    await Promise.all(automaticFeeUpdates);
+
     const inserts: Array<{
       student_id: number;
       month: number;
@@ -1012,6 +1035,11 @@ export default function TeacherFeesPage() {
         );
 
       if (!cycle) {
+        continue;
+      }
+
+      // The revised class-wise rates begin with October 2026 fees.
+      if (cycle.feeYear < 2026 || (cycle.feeYear === 2026 && cycle.feeMonth < 10)) {
         continue;
       }
 
@@ -1075,7 +1103,9 @@ export default function TeacherFeesPage() {
 
         amount:
           getFeeAmount(
-            student
+            student,
+            cycle.feeYear,
+            cycle.feeMonth
           ),
 
         status:
@@ -1290,7 +1320,7 @@ export default function TeacherFeesPage() {
       } =
         await supabase
           .from("fees")
-          .select("id,status")
+          .select("id,status,amount,remarks")
           .eq(
             "student_id",
             Number(studentId)
@@ -1318,6 +1348,15 @@ export default function TeacherFeesPage() {
         );
         return;
       }
+
+      const existingFee = existingFees && existingFees.length > 0
+        ? existingFees[0]
+        : null;
+      const teacherChangedAutomaticAmount = Boolean(
+        existingFee &&
+        String(existingFee.remarks || "").trim() === AUTOMATIC_FEE_REMARK &&
+        Number(existingFee.amount) !== Number(amount)
+      );
 
       const feeData = {
         student_id:
@@ -1348,9 +1387,9 @@ export default function TeacherFeesPage() {
           transactionId.trim() ||
           null,
 
-        remarks:
-          remarks.trim() ||
-          null,
+        remarks: teacherChangedAutomaticAmount
+          ? [remarks.trim(), `${AUTOMATIC_FEE_REMARK} Teacher adjusted.`].filter(Boolean).join(" | ")
+          : remarks.trim() || null,
 
         payment_mode:
           status ===
@@ -1360,12 +1399,6 @@ export default function TeacherFeesPage() {
             ? "CASH"
             : null,
       };
-
-      const existingFee =
-        existingFees &&
-        existingFees.length > 0
-          ? existingFees[0]
-          : null;
 
       if (
         existingFee
@@ -1970,7 +2003,12 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
     setTransactionId(fee.transaction_id || "");
     setRemarks(fee.remarks || "");
     setPaymentMode(fee.payment_mode || "");
-    window.setTimeout(() => document.getElementById("racer-fee-entry")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+    window.setTimeout(() => {
+      const feeEntry = document.getElementById("racer-fee-entry") as HTMLDetailsElement | null;
+      if (!feeEntry) return;
+      feeEntry.open = true;
+      feeEntry.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
   }
 
   function viewFeeRecord(fee: Fee) {
@@ -2109,7 +2147,7 @@ if (loading) {
           <summary><span>Add / Update Fee</span><span>+</span></summary>
           <form onSubmit={saveFee} className="racer-vip-fee-form">
             <div className="racer-vip-fee-form-grid">
-              <label><span>Student</span><select value={studentId} onChange={(e) => { const selectedId = e.target.value; setStudentId(selectedId); const selectedStudent = allStudents.find((student) => String(student.id) === selectedId); if (selectedStudent) setAmount(String(getFeeAmount(selectedStudent))); }}><option value="">Select Student</option>{feeEntryStudents.map((student) => <option key={student.id} value={student.id}>{student.student_name || student.student_username} ({student.student_username}){!student.is_active ? " · DEACTIVATED — PENDING DUES" : ""}</option>)}</select></label>
+              <label><span>Student</span><select value={studentId} onChange={(e) => { const selectedId = e.target.value; setStudentId(selectedId); const selectedStudent = allStudents.find((student) => String(student.id) === selectedId); if (selectedStudent) setAmount(String(getFeeAmount(selectedStudent, Number(year), Number(month)))); }}><option value="">Select Student</option>{feeEntryStudents.map((student) => <option key={student.id} value={student.id}>{student.student_name || student.student_username} ({student.student_username}){!student.is_active ? " · DEACTIVATED — PENDING DUES" : ""}</option>)}</select></label>
               <label><span>Month</span><select value={month} onChange={(e) => setMonth(e.target.value)}>{months.map((monthName, index) => <option key={monthName} value={index + 1}>{monthName}</option>)}</select></label>
               <label><span>Year</span><input type="number" value={year} onChange={(e) => setYear(e.target.value)} /></label>
               <label><span>Amount</span><input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} /></label>

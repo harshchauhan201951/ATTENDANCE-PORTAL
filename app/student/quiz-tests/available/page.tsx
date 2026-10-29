@@ -159,26 +159,14 @@ function getISTDateTime() {
 }
 
 function getQuizStatus(quiz: Quiz) {
-  const now = new Date();
+  const ist = getISTDateTime();
+  if (ist.date < quiz.scheduled_date) return "UPCOMING";
+  if (ist.date > quiz.scheduled_date) return "ENDED";
 
-  if (quiz.access_mode === "any_time") {
-    const ist = getISTDateTime();
-    if (ist.date < quiz.scheduled_date) return "UPCOMING";
-    if (ist.date > quiz.scheduled_date) return "ENDED";
-
-    const currentMinutes = ist.hour * 60 + ist.minute;
-    if (currentMinutes < 5 * 60) return "UPCOMING";
-    if (currentMinutes >= 21 * 60) return "ENDED";
-    return "LIVE";
-  }
-
-  const scheduledStart = new Date(`${quiz.scheduled_date}T${String(quiz.scheduled_time || "00:00").slice(0, 5)}:00+05:30`);
-  const durationMs = Number(quiz.duration_minutes || 0) * 60 * 1000;
-  const scheduledEnd = new Date(scheduledStart.getTime() + durationMs);
-
-  if (now < scheduledStart) return "UPCOMING";
-  if (now <= scheduledEnd) return "LIVE";
-  return "ENDED";
+  const currentMinutes = ist.hour * 60 + ist.minute;
+  if (currentMinutes < 5 * 60) return "UPCOMING";
+  if (currentMinutes >= 21 * 60) return "ENDED";
+  return "LIVE";
 }
 
 function formatDate(
@@ -196,35 +184,6 @@ function formatDate(
       day: "2-digit",
       month: "short",
       year: "numeric",
-    }
-  );
-}
-
-function formatTime(
-  value: string
-) {
-  const [
-    hour,
-    minute,
-  ] =
-    value.split(":");
-
-  const date =
-    new Date();
-
-  date.setHours(
-    Number(hour),
-    Number(minute),
-    0,
-    0
-  );
-
-  return date.toLocaleTimeString(
-    "en-IN",
-    {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
     }
   );
 }
@@ -792,7 +751,7 @@ export default function StudentAvailableQuizzesPage() {
 
                   <div className="available-quiz-meta">
                     <div><small>DATE</small><strong>{formatDate(quiz.scheduled_date)}</strong></div>
-                    <div><small>TIME</small><strong>{formatTime(quiz.scheduled_time)}</strong></div>
+                    <div><small>AVAILABLE</small><strong>5:00 AM – 9:00 PM IST</strong></div>
                     <div><small>DURATION</small><strong>{quiz.duration_minutes} min</strong></div>
                     <div><small>PASS MARK</small><strong>{quiz.pass_percentage}%</strong></div>
                   </div>

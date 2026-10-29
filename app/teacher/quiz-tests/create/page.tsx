@@ -20,10 +20,6 @@ export default function CreateQuizPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
-  const [accessMode, setAccessMode] = useState<
-    "scheduled" | "any_time"
-  >("scheduled");
 
   const [marks, setMarks] = useState("1");
   const [negative, setNegative] = useState("0");
@@ -60,6 +56,7 @@ export default function CreateQuizPage() {
       const { data, error } = await supabase
         .from("students")
         .select("class_name")
+        .eq("is_active", true)
         .not("class_name", "is", null);
 
       if (error) {
@@ -161,11 +158,6 @@ export default function CreateQuizPage() {
       return;
     }
 
-    if (accessMode === "scheduled" && !time) {
-      setMessage("Please select scheduled start time.");
-      return;
-    }
-
     const marksNumber = Number(marks);
     const negativeNumber = Number(negative);
     const passNumber = Number(passPercentage);
@@ -199,22 +191,9 @@ export default function CreateQuizPage() {
       )
     );
 
-    /*
-     * scheduled_time is NOT NULL in quiz_tests.
-     *
-     * Scheduled mode:
-     * Save the teacher-selected time.
-     *
-     * Any Time mode:
-     * Save 05:00:00 as the database fallback.
-     *
-     * access_mode remains the actual source of truth
-     * for scheduled vs Any Time behavior.
-     */
-    const scheduledTimeForDatabase =
-      accessMode === "scheduled"
-        ? time
-        : "05:00:00";
+    // The selected date is open to students from 5:00 AM to 9:00 PM IST.
+    // Keep the database's required time field aligned with that window.
+    const scheduledTimeForDatabase = "05:00:00";
 
     const { data, error } = await supabase
       .from("quiz_tests")
@@ -231,7 +210,7 @@ export default function CreateQuizPage() {
         scheduled_date: date,
         scheduled_time: scheduledTimeForDatabase,
 
-        access_mode: accessMode,
+        access_mode: "any_time",
 
         duration_minutes: 30,
 
@@ -457,104 +436,16 @@ export default function CreateQuizPage() {
                 />
               </div>
 
-              {/* ACCESS MODE */}
-              <div>
-                <label className="text-sm font-bold">
-                  Test Access
-                </label>
-
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setAccessMode("scheduled")
-                    }
-                    className={`rounded-2xl border p-4 text-left transition ${
-                      accessMode === "scheduled"
-                        ? "border-indigo-400 bg-indigo-600 text-white"
-                        : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
-                    }`}
-                  >
-                    <div className="font-black">
-                      Scheduled Time
-                    </div>
-
-                    <div className="mt-1 text-xs opacity-80">
-                      Student can start the test only at
-                      the scheduled time.
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setAccessMode("any_time")
-                    }
-                    className={`rounded-2xl border p-4 text-left transition ${
-                      accessMode === "any_time"
-                        ? "border-emerald-400 bg-emerald-600 text-white"
-                        : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
-                    }`}
-                  >
-                    <div className="font-black">
-                      Any Time
-                    </div>
-
-                    <div className="mt-1 text-xs opacity-80">
-                      Student can start once anytime from
-                      5:00 AM to 9:00 PM on the selected
-                      date.
-                    </div>
-                  </button>
-                </div>
+              <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-4">
+                <p className="text-sm font-bold text-emerald-300">
+                  Quiz availability
+                </p>
+                <p className="mt-1 text-xs leading-5 text-slate-300">
+                  Once published, students can start this quiz on the selected date from{" "}
+                  <span className="font-bold text-white">5:00 AM to 9:00 PM IST</span>.
+                  After 9:00 PM, the quiz window closes. The attempt duration remains 30 minutes.
+                </p>
               </div>
-
-              {/* SCHEDULED TIME */}
-              {accessMode === "scheduled" && (
-                <div>
-                  <label className="text-sm font-bold">
-                    Start Time
-                  </label>
-
-                  <input
-                    type="time"
-                    value={time}
-                    onChange={(e) =>
-                      setTime(e.target.value)
-                    }
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none focus:border-indigo-400"
-                  />
-
-                  <p className="mt-1 text-xs text-slate-500">
-                    Student can start the quiz at this
-                    scheduled time.
-                  </p>
-                </div>
-              )}
-
-              {/* ANY TIME INFO */}
-              {accessMode === "any_time" && (
-                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-4">
-                  <p className="text-sm font-bold text-emerald-300">
-                    Any Time Mode
-                  </p>
-
-                  <p className="mt-1 text-xs leading-5 text-slate-300">
-                    Students can start this quiz once
-                    anytime between{" "}
-                    <span className="font-bold text-white">
-                      5:00 AM and 9:00 PM
-                    </span>{" "}
-                    on the selected date.
-                    <br />
-                    The quiz duration remains fixed at{" "}
-                    <span className="font-bold text-white">
-                      30 minutes
-                    </span>
-                    .
-                  </p>
-                </div>
-              )}
 
               {/* MARKS */}
               <div className="grid gap-5 sm:grid-cols-3">

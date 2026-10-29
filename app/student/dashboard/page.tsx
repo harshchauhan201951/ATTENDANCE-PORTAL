@@ -1167,6 +1167,13 @@ export default function StudentDashboardPage() {
         className: "indigo",
       },
       {
+        icon: "📖",
+        title: "Study Samagri",
+        description: "अपनी कक्षा के लिए साझा की गई पढ़ाई की सामग्री और PDF देखें।",
+        path: "/student/study-material",
+        className: "green",
+      },
+      {
         icon: "⚙",
         title: "Settings",
         description:
@@ -1192,10 +1199,39 @@ export default function StudentDashboardPage() {
 
   return (
     <>
-      <>{monthlyResultPeriod && ((!monthlyResultPeriod.is_released && monthlyResultPeriod.scheduled_release_at) || (monthlyResultPeriod.is_released && monthlyResultPeriod.released_at && (Date.now()-new Date(monthlyResultPeriod.released_at).getTime())<86400000)) && <div style={{margin:"0 0 14px",padding:"14px 16px",borderRadius:14,border:"1px solid #bfdbfe",background:monthlyResultPeriod.is_released?"#ecfdf5":"#eff6ff",boxShadow:"0 2px 8px rgba(0,0,0,.05)"}}>{monthlyResultPeriod.is_released?<><div style={{fontWeight:800,fontSize:17,color:"#047857"}}>RESULT ANNOUNCED</div><div style={{marginTop:4,color:"#166534",fontWeight:700}}>Your monthly result has been announced. Click below to check your final result.</div><a href="/student/monthly-result" style={{display:"inline-block",marginTop:10,padding:"9px 14px",borderRadius:9,background:"#047857",color:"#fff",textDecoration:"none",fontWeight:800}}>CLICK TO CHECK RESULT</a></>:<><div style={{fontWeight:800,fontSize:17,color:"#0b57a3"}}>RESULT ANNOUNCEMENT</div><div style={{marginTop:4,color:"#124d83",fontWeight:700}}>Your result will be announced at {new Date(monthlyResultPeriod.scheduled_release_at).toLocaleTimeString("en-IN",{timeZone:"Asia/Kolkata",hour:"2-digit",minute:"2-digit",hour12:true})}.</div></>}</div>}</>          <style jsx global>{`
+      {monthlyResultPeriod && ((!monthlyResultPeriod.is_released && monthlyResultPeriod.scheduled_release_at) || (monthlyResultPeriod.is_released && monthlyResultPeriod.released_at && (Date.now()-new Date(monthlyResultPeriod.released_at).getTime())<86400000)) && <section className={`monthly-result-broadcast ${monthlyResultPeriod.is_released ? "is-live" : "is-scheduled"}`} role="status" aria-live="polite" aria-atomic="true">
+        <div className="monthly-result-broadcast-strip"><span className="monthly-result-broadcast-dot" />{monthlyResultPeriod.is_released ? "LIVE RESULT ALERT" : "RESULT DESK UPDATE"}<span className="monthly-result-broadcast-brand">RACER ACADEMY</span></div>
+        <div className="monthly-result-broadcast-body"><div className="monthly-result-broadcast-icon" aria-hidden="true">{monthlyResultPeriod.is_released ? "★" : "◷"}</div><div className="monthly-result-broadcast-copy"><div className="monthly-result-broadcast-kicker">{monthlyResultPeriod.is_released ? "MONTHLY RESULT IS LIVE" : "UPCOMING MONTHLY RESULT"}</div><h2>{monthlyResultPeriod.month_label || "Monthly MahaTest Result"}</h2><p>{monthlyResultPeriod.is_released ? <>Your result was announced on <strong>{new Date(monthlyResultPeriod.released_at).toLocaleDateString("en-IN",{timeZone:"Asia/Kolkata",day:"2-digit",month:"short",year:"numeric"})} · {new Date(monthlyResultPeriod.released_at).toLocaleTimeString("en-IN",{timeZone:"Asia/Kolkata",hour:"2-digit",minute:"2-digit",hour12:true})}</strong>. Open your personal result below.</> : <>Your result will be announced on <strong>{new Date(monthlyResultPeriod.scheduled_release_at).toLocaleDateString("en-IN",{timeZone:"Asia/Kolkata",day:"2-digit",month:"short",year:"numeric"})} · {new Date(monthlyResultPeriod.scheduled_release_at).toLocaleTimeString("en-IN",{timeZone:"Asia/Kolkata",hour:"2-digit",minute:"2-digit",hour12:true})}</strong>.</>}</p></div><a className="monthly-result-broadcast-cta" href="/student/monthly-result">{monthlyResultPeriod.is_released ? "VIEW MY RESULT" : "CLICK HERE TO VIEW RESULT"} <span aria-hidden="true">↗</span></a></div>
+        <div className="monthly-result-broadcast-ticker"><span>{monthlyResultPeriod.is_released ? "RESULTS PUBLISHED" : "RESULT RELEASE SCHEDULED"}</span><i aria-hidden="true">•</i>{monthlyResultPeriod.month_label || "RACER ACADEMY MONTHLY MAHATEST"}<i aria-hidden="true">•</i>{monthlyResultPeriod.is_released ? "TAP TO VIEW YOUR SCORE" : "WATCH THIS SPACE FOR YOUR RESULT"}</div>
+      </section>}
+      <style jsx global>{`
         * {
           box-sizing: border-box;
         }
+
+        .monthly-result-broadcast{position:relative;overflow:hidden;margin:0 0 14px;border:1px solid #dbe5f3;border-radius:17px;background:linear-gradient(120deg,#102d55 0%,#174c83 55%,#146078 100%);color:#fff;box-shadow:0 10px 28px rgba(15,43,78,.2);isolation:isolate}
+        .monthly-result-broadcast:after{position:absolute;inset:0;z-index:-1;background:radial-gradient(ellipse at 92% 10%,rgba(255,255,255,.18),transparent 36%),linear-gradient(115deg,transparent 0 68%,rgba(255,255,255,.07) 68% 69%,transparent 69%);content:"";pointer-events:none}
+        .monthly-result-broadcast-strip{display:flex;align-items:center;gap:8px;min-height:34px;padding:8px 14px;background:linear-gradient(90deg,#d62436,#f04438 62%,#f47738);font-size:10px;font-weight:950;letter-spacing:.12em;text-transform:uppercase}
+        .monthly-result-broadcast-dot{width:8px;height:8px;flex:none;border-radius:50%;background:#fff;box-shadow:0 0 0 4px rgba(255,255,255,.2);animation:monthly-result-pulse 1.5s ease-out infinite}
+        .monthly-result-broadcast-brand{margin-left:auto;opacity:.87;font-size:9px;letter-spacing:.08em}
+        .monthly-result-broadcast-body{display:flex;align-items:center;gap:12px;padding:15px 16px}
+        .monthly-result-broadcast-icon{display:grid;width:43px;height:43px;flex:none;place-items:center;border:1px solid rgba(255,255,255,.38);border-radius:14px;background:rgba(255,255,255,.13);font-size:23px;font-weight:900}
+        .monthly-result-broadcast-copy{min-width:0;flex:1}
+        .monthly-result-broadcast-kicker{margin-bottom:3px;color:#ffe293;font-size:9px;font-weight:950;letter-spacing:.12em}
+        .monthly-result-broadcast-copy h2{margin:0;color:#fff;font-size:17px;line-height:1.2;font-weight:900}
+        .monthly-result-broadcast-copy p{margin:5px 0 0;color:#e5efff;font-size:12px;line-height:1.45}
+        .monthly-result-broadcast-copy p strong{color:#fff5ba;font-size:14px}
+        .monthly-result-broadcast-cta{display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:none;min-height:40px;padding:0 13px;border:1px solid rgba(255,255,255,.7);border-radius:10px;background:#fff;color:#123a68;text-decoration:none;font-size:10px;font-weight:950;letter-spacing:.04em;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+        .monthly-result-broadcast-cta:hover{background:#fff5cb;transform:translateY(-1px)}
+        .monthly-result-broadcast-ticker{display:flex;align-items:center;gap:8px;min-height:28px;padding:6px 14px;background:rgba(4,20,43,.32);color:#deebff;font-size:9px;font-weight:750;letter-spacing:.035em}
+        .monthly-result-broadcast-ticker span{color:#ffe293;font-weight:950;letter-spacing:.08em}
+        .monthly-result-broadcast-ticker i{color:#ff9d68;font-style:normal}
+        .monthly-result-broadcast.is-live{border-color:#ffb35c}
+        .monthly-result-broadcast.is-live .monthly-result-broadcast-strip{background:linear-gradient(90deg,#b9122b,#e51e39 62%,#f66a35)}
+        @keyframes monthly-result-pulse{0%{box-shadow:0 0 0 0 rgba(255,255,255,.58)}70%{box-shadow:0 0 0 7px rgba(255,255,255,0)}100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}}
+        @media(max-width:600px){.monthly-result-broadcast{border-radius:14px}.monthly-result-broadcast-strip{min-height:31px;padding:7px 11px;font-size:9px}.monthly-result-broadcast-body{align-items:flex-start;gap:9px;padding:12px 11px;flex-wrap:wrap}.monthly-result-broadcast-icon{width:35px;height:35px;border-radius:11px;font-size:19px}.monthly-result-broadcast-copy{flex:1 1 calc(100% - 46px)}.monthly-result-broadcast-copy h2{font-size:15px}.monthly-result-broadcast-copy p{font-size:11px}.monthly-result-broadcast-cta{min-height:36px;margin-left:44px;padding:0 9px;font-size:9px;flex:1 1 auto}.monthly-result-broadcast-ticker{gap:5px;padding:6px 10px;font-size:8px;flex-wrap:wrap}}
+        @media(max-width:380px){.monthly-result-broadcast-body{flex-wrap:wrap}.monthly-result-broadcast-cta{margin-left:44px}}
+        @media(prefers-reduced-motion:reduce){.monthly-result-broadcast-dot{animation:none}}
 
         .racer-student-shell .student-dashboard-page .birthday-content h2 {
           color: #fff9ed !important;
@@ -2211,7 +2247,7 @@ export default function StudentDashboardPage() {
                         style={
                           styles.cardIcon
                         }
-                      >{card.title === "My Attendance" ? "✅" : card.title === "Attendance History" ? "🕘" : card.title === "Academic Calendar" ? "📅" : card.title === "Reports" ? "📊" : card.title === "Fees" ? "💰" : card.title === "Homework" ? "📚" : card.title === "Settings" ? "⚙️" : card.title === "Exams" ? "📝" : card.title === "Timetable" ? "🗓️" : "⭐"}
+                      >{card.title === "My Attendance" ? "✅" : card.title === "Attendance History" ? "🕘" : card.title === "Academic Calendar" ? "📅" : card.title === "Reports" ? "📊" : card.title === "Fees" ? "💰" : card.title === "Homework" ? "📚" : card.title === "Study Samagri" ? "📖" : card.title === "Settings" ? "⚙️" : card.title === "Exams" ? "📝" : card.title === "Timetable" ? "🗓️" : "⭐"}
                       </div>
 
                       <div

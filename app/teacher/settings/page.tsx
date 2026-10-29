@@ -10,7 +10,6 @@ export default function TeacherSettingsPage() {
   const [teacherUsername, setTeacherUsername] = useState("");
 
   const [portalName, setPortalName] = useState("Attendance Portal");
-  const [monthlyFee, setMonthlyFee] = useState("200");
   const [className, setClassName] = useState("");
   const [academicYear, setAcademicYear] = useState("2026-27");
 
@@ -49,10 +48,6 @@ export default function TeacherSettingsPage() {
       localStorage.getItem("portalName") ||
       "Attendance Portal";
 
-    const savedMonthlyFee =
-      localStorage.getItem("monthlyFee") ||
-      "200";
-
     const savedClassName =
       localStorage.getItem("className") || "";
 
@@ -63,7 +58,6 @@ export default function TeacherSettingsPage() {
     setTeacherName(savedTeacherName);
     setTeacherUsername(savedUsername);
     setPortalName(savedPortalName);
-    setMonthlyFee(savedMonthlyFee);
     setClassName(savedClassName);
     setAcademicYear(savedAcademicYear);
   }, []);
@@ -75,7 +69,6 @@ export default function TeacherSettingsPage() {
     localStorage.setItem("teacher_name", teacherName);
 
     localStorage.setItem("portalName", portalName);
-    localStorage.setItem("monthlyFee", monthlyFee);
     localStorage.setItem("className", className);
     localStorage.setItem("academicYear", academicYear);
 
@@ -94,12 +87,10 @@ export default function TeacherSettingsPage() {
     if (!confirmReset) return;
 
     setPortalName("Attendance Portal");
-    setMonthlyFee("200");
     setClassName("");
     setAcademicYear("2026-27");
 
     localStorage.setItem("portalName", "Attendance Portal");
-    localStorage.setItem("monthlyFee", "200");
     localStorage.setItem("className", "");
     localStorage.setItem("academicYear", "2026-27");
 
@@ -266,19 +257,12 @@ export default function TeacherSettingsPage() {
               </div>
 
               <div>
-                <label style={styles.label}>
-                  Monthly Fee (₹)
-                </label>
-
-                <input
-                  type="number"
-                  min="0"
-                  value={monthlyFee}
-                  onChange={(e) =>
-                    setMonthlyFee(e.target.value)
-                  }
-                  style={styles.input}
-                />
+                <label style={styles.label}>Monthly Fees - Effective October 2026</label>
+                <div style={{ ...styles.input, height: "auto", display: "grid", gap: 5, color: "#17345c", fontWeight: 700 }}>
+                  <span>Nursery, LKG, UKG - Rs 200</span>
+                  <span>Classes 1-8 - Rs 250</span>
+                  <span>Classes 9-10 - Rs 300</span>
+                </div>
               </div>
 
               <div>
@@ -364,16 +348,8 @@ export default function TeacherSettingsPage() {
             </div>
 
             <div style={styles.infoItem}>
-              <span style={styles.infoLabel}>
-                Monthly Fee
-              </span>
-
-              <strong style={styles.infoValue}>
-                ₹
-                {Number(monthlyFee || 0).toLocaleString(
-                  "en-IN"
-                )}
-              </strong>
+              <span style={styles.infoLabel}>Monthly Fees from October 2026</span>
+              <strong style={styles.infoValue}>Nursery-UKG Rs 200 | Classes 1-8 Rs 250 | Classes 9-10 Rs 300</strong>
             </div>
 
             <div style={styles.infoItem}>

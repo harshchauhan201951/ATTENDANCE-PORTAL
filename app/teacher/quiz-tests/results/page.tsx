@@ -1566,7 +1566,8 @@ function TeacherQuizResultsContent() {
   };
 
   const allowAllReattemptForDate = async (
-    date: string
+    date: string,
+    onlyWithoutSubmittedAttempt = false
   ) => {
     if (!date || date === "unknown") {
       setReattemptMessage(
@@ -1670,6 +1671,15 @@ function TeacherQuizResultsContent() {
 
           const key = `${numericQuizId}__${numericStudentId}`;
 
+          if (
+            onlyWithoutSubmittedAttempt &&
+            hasSubmittedResult(
+              resultByQuizStudent.get(key) || []
+            )
+          ) {
+            return;
+          }
+
           /*
            * Skip only permissions already known to be active.
            * A student DOES NOT need a previous attempt.
@@ -1698,7 +1708,9 @@ function TeacherQuizResultsContent() {
 
       if (allowedPairs.length === 0) {
         setReattemptMessage(
-          "No students need re-attempt access for this date. Students already authorized are skipped."
+          onlyWithoutSubmittedAttempt
+            ? "All students for this date have already submitted, or already have re-attempt access."
+            : "No students need re-attempt access for this date. Students already authorized are skipped."
         );
         return;
       }
@@ -1838,7 +1850,7 @@ function TeacherQuizResultsContent() {
         let message =
           `Re-attempt access allowed for ${totalProcessed} student${
             totalProcessed !== 1 ? "s" : ""
-          } across all quizzes on ${formatDate(date)}.`;
+          } ${onlyWithoutSubmittedAttempt ? "without a submitted attempt" : "across all quizzes"} on ${formatDate(date)}.`;
 
         if (newlyAuthorizedCount > 0) {
           message +=
@@ -2880,6 +2892,29 @@ function TeacherQuizResultsContent() {
                           dateGroup.date
                             ? "ALLOWING..."
                             : "ALLOW ALL RE-ATTEMPT"}
+                        </button>
+                      ) : null}
+
+                      {dateGroup.date !== "unknown" ? (
+                        <button
+                          type="button"
+                          style={{
+                            ...styles.dateBulkButton,
+                            background: "#0f766e",
+                          }}
+                          disabled={
+                            dateReattemptLoading === dateGroup.date
+                          }
+                          onClick={() =>
+                            allowAllReattemptForDate(
+                              dateGroup.date,
+                              true
+                            )
+                          }
+                        >
+                          {dateReattemptLoading === dateGroup.date
+                            ? "ALLOWING..."
+                            : "ALLOW RE-ATTEMPT · NOT SUBMITTED"}
                         </button>
                       ) : null}
                     </div>

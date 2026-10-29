@@ -442,20 +442,13 @@ export default function StudentQuizTestsPage() {
   function getStartTime(
     quiz: Quiz
   ): Date {
-    return new Date(`${quiz.scheduled_date}T${String(quiz.scheduled_time || "00:00").slice(0,5)}:00+05:30`);
+    return new Date(`${quiz.scheduled_date}T05:00:00+05:30`);
   }
 
   function getEndTime(
     quiz: Quiz
   ): Date {
-    return new Date(
-      getStartTime(
-        quiz
-      ).getTime() +
-        quiz.duration_minutes *
-          60 *
-          1000
-    );
+    return new Date(`${quiz.scheduled_date}T21:00:00+05:30`);
   }
 
   function getStatus(
@@ -1101,7 +1094,7 @@ const start =
 
                 <div className="quiz-live-meta">
                   <span>{formatQuizDate(activeLiveQuiz.scheduled_date)}</span>
-                  <span>{formatQuizTime(activeLiveQuiz.scheduled_time)}</span>
+                  <span>5:00 AM – 9:00 PM IST</span>
                   <span>{activeLiveQuiz.duration_minutes} min</span>
                   {reattemptQuizIds.has(activeLiveQuiz.id) && (
                     <span className="quiz-live-reattempt-tag">TEACHER RE-ATTEMPT</span>
@@ -1123,7 +1116,7 @@ const start =
                 >
                   {activeLiveQuizCanStart
                     ? reattemptQuizIds.has(activeLiveQuiz.id) ? "Start Re-attempt" : "Start Quiz"
-                    : activeLiveQuizStatus === "UPCOMING" ? `Opens at ${formatQuizTime(activeLiveQuiz.scheduled_time)}` : "Quiz window ended"}
+                    : activeLiveQuizStatus === "UPCOMING" ? "Opens at 5:00 AM IST" : "Quiz window ended"}
                   {activeLiveQuizCanStart && <span aria-hidden="true">→</span>}
                 </button>
 
@@ -2634,9 +2627,7 @@ function QuizCard({
 
         <span>
           Time:{" "}
-          {formatQuizTime(
-            quiz.scheduled_time
-          )}
+          5:00 AM – 9:00 PM IST
         </span>
 
         <span>
@@ -2687,7 +2678,7 @@ function QuizCard({
           }
         >
           {status === "UPCOMING"
-            ? `Opens at ${formatQuizTime(quiz.scheduled_time)}.`
+            ? "Opens at 5:00 AM IST."
             : "The quiz window has ended."}
         </div>
       )}
@@ -2727,32 +2718,6 @@ function formatQuizDate(
       year: "numeric",
     }
   );
-}
-
-function formatQuizTime(
-  time: string
-): string {
-  if (!time) {
-    return "";
-  }
-
-  const [
-    hourText,
-    minute = "00",
-  ] = time.split(":");
-
-  let hour =
-    Number(hourText);
-
-  const period =
-    hour >= 12
-      ? "PM"
-      : "AM";
-
-  hour =
-    hour % 12 || 12;
-
-  return `${hour}:${minute} ${period}`;
 }
 
 const styles: Record<
