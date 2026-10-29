@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import jsPDF from "jspdf";
 import { downloadPdfFile } from "../../../lib/download-pdf";
+import StudentExportOptions from "../_components/student-export-options";
 
 type Student = {
   id: number;
@@ -496,6 +497,14 @@ function FeesReferenceVip({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <div><span style={{ display: 'block', fontSize: 7, color: '#6478aa', fontWeight: 900 }}>TRANSACTION RECORDS</span><h2 style={{ margin: '2px 0 0', fontSize: 14, color: '#18336d' }}>Payment History</h2></div>
             <span style={{ fontSize: 7, color: '#2461d2', fontWeight: 900 }}>{fees.length} Records</span>
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <StudentExportOptions
+              title="Student Fee History"
+              fileName="RACER_ACADEMY_STUDENT_FEE_HISTORY"
+              headers={["Month", "Year", "Amount (INR)", "Status", "Payment Date", "Payment Mode", "Transaction ID", "Remarks"]}
+              rows={fees.map((fee) => [formatMonth(fee), fee.year, Number(fee.amount || 0), statusText(fee), fee.payment_date || "—", fee.payment_mode || "—", fee.transaction_id || "—", fee.remarks || "—"])}
+            />
           </div>
 
           {fees.length === 0 ? <div style={{ padding: 16, textAlign: 'center', color: '#7284a4', fontSize: 8 }}>No payment history yet.</div> : fees.map((fee) => <article key={fee.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 8, borderTop: '1px solid #eef2f7' }}><div style={{ width: 31, height: 31, borderRadius: 10, background: String(fee.status).toUpperCase() === 'PENDING' ? '#fff3d8' : '#e4fbef', color: String(fee.status).toUpperCase() === 'PENDING' ? '#a56b00' : '#0a9662', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 10 }}>₹</div><div style={{ minWidth: 0, flex: 1 }}><strong style={{ display: 'block', fontSize: 8.5, color: '#1b356e' }}>{formatMonth(fee)} {fee.year}</strong><span style={{ display: 'block', marginTop: 2, fontSize: 6.5, color: '#7485a4' }}>{fee.payment_mode || '—'} • {fee.payment_date || 'Not paid'}</span></div><div style={{ textAlign: 'right' }}><strong style={{ display: 'block', fontSize: 9, color: '#1b356e' }}>{formatAmount(Number(fee.amount || 0))}</strong><span style={{ display: 'inline-block', marginTop: 2, padding: '4px 5px', borderRadius: 999, background: statusBg(fee), color: statusColor(fee), fontSize: 5.5, fontWeight: 900 }}>{statusText(fee)}</span></div></article>)}
@@ -1330,6 +1339,15 @@ export default function StudentFeesPage() {
             >
               🔄 Refresh
             </button>
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <StudentExportOptions
+              title="Student Fee History"
+              fileName="RACER_ACADEMY_STUDENT_FEE_HISTORY"
+              headers={["Month", "Year", "Amount (INR)", "Status", "Payment Date", "Payment Mode", "Transaction ID", "Remarks"]}
+              rows={fees.map((fee) => [months[fee.month] || `Month ${fee.month}`, fee.year, Number(fee.amount || 0), String(fee.status || "—"), fee.payment_date || "—", fee.payment_mode || "—", fee.transaction_id || "—", fee.remarks || "—"])}
+            />
           </div>
 
           {error && (

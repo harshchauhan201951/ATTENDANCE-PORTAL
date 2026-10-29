@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import StudentExportOptions from "../_components/student-export-options";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -226,6 +227,12 @@ function MobileAttendanceHistoryVIP({
             </div>
             <span>{selectedPercentage}%</span>
           </div>
+          <StudentExportOptions
+            title={`${selectedMonth ? monthLabel(selectedMonth) : "All"} Attendance History`}
+            fileName={`RACER_ACADEMY_ATTENDANCE_${selectedMonth || "ALL"}`}
+            headers={["Date", "Class Type", "Subject", "Status"]}
+            rows={selectedDays.map((item) => [item.date, item.extra ? "Extra Class" : "Regular Class", "subject" in item ? String(item.subject || "") : "", statusPresent(item.status) ? "Present" : "Absent"])}
+          />
 
           {loading ? (
             <div className="rah-vip-empty">Loading your attendance...</div>
@@ -402,6 +409,14 @@ export default function StudentAttendanceHistoryPage() {
           <div style={desktopStyles.stat}><span>Absent</span><strong style={{color:"#dc2626"}}>{absentCount}</strong></div>
           <div style={desktopStyles.stat}><span>Percentage</span><strong>{percentage}%</strong></div>
         </section>
+        <div style={{ marginBottom: 14 }}>
+          <StudentExportOptions
+            title="Attendance History"
+            fileName="RACER_ACADEMY_ATTENDANCE_HISTORY"
+            headers={["Date", "Class Type", "Subject", "Status"]}
+            rows={[...records.map((record) => [record.attendance_date, "Regular Class", "—", statusPresent(record.status) ? "Present" : "Absent"] as Array<string | number>), ...extraRecords.map((record) => [record.extra_class_date, "Extra Class", record.subject || "—", statusPresent(record.status) ? "Present" : "Absent"] as Array<string | number>)]}
+          />
+        </div>
         <section style={desktopStyles.card}>
           <h2 style={desktopStyles.sectionTitle}>Attendance History</h2>
           <div style={{overflowX:"auto"}}><table style={desktopStyles.table}><thead><tr><th>Date</th><th>Class</th><th>Status</th></tr></thead><tbody>

@@ -9,6 +9,7 @@ import {
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
 import { isStudentEligibleForDate } from "../../../../lib/admission-date";
+import StudentExportOptions from "../../_components/student-export-options";
 
 type Quiz = {
   id: string;
@@ -729,6 +730,14 @@ export default function StudentQuizHistoryPage() {
                   Class {studentClass}
                 </div>
               )}
+              <div className="mt-4">
+                <StudentExportOptions
+                  title="Quiz History"
+                  fileName="RACER_ACADEMY_QUIZ_HISTORY"
+                  headers={["Quiz", "Subject", "Quiz Date", "Submitted", "Score", "Total Marks", "Percentage", "Result"]}
+                  rows={history.map(({ result, quiz }) => [quiz.title || "Untitled Quiz", quiz.subject || "—", quiz.scheduled_date || "—", result.submitted_at || "—", Number(result.obtained_marks ?? 0), Number(result.total_marks ?? 0), `${Number(result.percentage ?? 0).toFixed(1)}%`, result.result_status || "—"])}
+                />
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-2">

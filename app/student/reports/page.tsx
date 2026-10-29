@@ -6,6 +6,7 @@ import Link from "next/link";
 import jsPDF from "jspdf";
 import { downloadPdfFile } from "../../../lib/download-pdf";
 import { isOnOrAfterAdmission } from "../../../lib/admission-date";
+import StudentExportOptions from "../_components/student-export-options";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -716,7 +717,16 @@ function ReportsMobileVIP({
                 <h2>My Weekly Tests</h2>
                 <p>Test marks, grades, remarks and teacher uploads</p>
               </div>
-              <button type="button" className="rac-reports-vip-download" onClick={downloadAllResults} disabled={filteredAssessments.length === 0}>Download All PDF</button>
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+                <button type="button" className="rac-reports-vip-download" onClick={downloadAllResults} disabled={filteredAssessments.length === 0}>Download All PDF</button>
+                <StudentExportOptions
+                  title="Saturday Weekly Test Report"
+                  fileName="RACER_ACADEMY_WEEKLY_TEST_REPORT"
+                  headers={["Test", "Subject", "Date", "Obtained Marks", "Total Marks", "Percentage", "Grade", "Remarks"]}
+                  rows={filteredAssessments.map((test) => { const percentage = getPercentage(Number(test.obtained_marks) || 0, Number(test.total_marks) || 0); return [test.test_name, test.subject || "—", formatDate(test.test_date), Number(test.obtained_marks) || 0, Number(test.total_marks) || 0, `${percentage.toFixed(1)}%`, getGrade(percentage), test.remarks || "—"]; })}
+                  formats={["excel"]}
+                />
+              </div>
             </div>
 
             <div className="rac-reports-vip-filter-single">
