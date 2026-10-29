@@ -50,15 +50,27 @@ async function notifySubmittedQuiz(requestUrl: string, result: any, quiz: any, s
   const score = safeNumber(result.obtained_marks);
   const total = safeNumber(result.total_marks);
   const percentage = safeNumber(result.percentage);
+  const quizTitle = String(quiz?.title || "Quiz").trim();
+  const topic = String(quiz?.subject || quizTitle).trim();
+  const rawQuizDate = String(quiz?.scheduled_date || result.submitted_at || result.started_at || "").trim();
+  const quizDate = rawQuizDate
+    ? new Date(`${rawQuizDate.slice(0, 10)}T00:00:00+05:30`).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        timeZone: "Asia/Kolkata",
+      })
+    : "Date not available";
+  const resultDetails = `${studentName} submitted ${quizTitle}. Topic: ${topic}. Quiz date: ${quizDate}. Score: ${score}/${total} (${percentage.toFixed(1)}%).`;
   let teacherNoticeInserted = false;
   try {
     const savedNotifications = await createTeacherNotifications({
       teacherIds: Array.from(teacherIds),
       title: `Quiz Submitted: ${studentName}`,
-      message: `${studentName} (ID: ${studentId}, Username: ${studentUsername}) submitted ${quiz?.title || "a quiz"}: ${score}/${total} marks (${percentage.toFixed(1)}%).`,
+      message: resultDetails,
       category: "quiz_submission",
       url: `/teacher/quiz-tests/results?quizId=${Number(result.quiz_id)}&studentId=${studentId}`,
-      metadata: { source: "quiz_submission", studentId, studentName, studentUsername, quizId: Number(result.quiz_id), resultId: Number(result.id), percentage, obtainedMarks: score, totalMarks: total, resultStatus: String(result.result_status || "COMPLETED") },
+      metadata: { source: "quiz_submission", studentId, studentName, studentUsername, quizId: Number(result.quiz_id), quizTitle, topic, quizDate, resultId: Number(result.id), percentage, obtainedMarks: score, totalMarks: total, resultStatus: String(result.result_status || "COMPLETED") },
       notificationKey: `teacher-quiz-submission:${Number(result.id)}`,
     });
     teacherNoticeInserted = savedNotifications.inserted > 0;
@@ -67,7 +79,7 @@ async function notifySubmittedQuiz(requestUrl: string, result: any, quiz: any, s
   }
 
   const teacherPushTitle = `Quiz Submitted: ${studentName}`;
-  const teacherPushMessage = `${studentName} (ID: ${studentId}, Username: ${studentUsername}) submitted ${quiz?.title || "a quiz"}: ${score}/${total} marks (${percentage.toFixed(1)}%).`;
+  const teacherPushMessage = resultDetails;
   if (teacherNoticeInserted) await Promise.all(Array.from(teacherIds, async (teacherId) => {
     try {
       const response = await fetch(new URL("/api/push/send", requestUrl), {
@@ -83,7 +95,7 @@ async function notifySubmittedQuiz(requestUrl: string, result: any, quiz: any, s
           message: teacherPushMessage,
           url: `/teacher/quiz-tests/results?quizId=${Number(result.quiz_id)}&studentId=${studentId}`,
           notificationKey: `teacher-quiz-submission:${Number(result.id)}`,
-          metadata: { studentId, studentName, studentUsername, quizId: Number(result.quiz_id), resultId: Number(result.id), percentage, obtainedMarks: score, totalMarks: total },
+          metadata: { studentId, studentName, studentUsername, quizId: Number(result.quiz_id), quizTitle, topic, quizDate, resultId: Number(result.id), percentage, obtainedMarks: score, totalMarks: total },
         }),
       });
       if (!response.ok) console.warn(`Teacher quiz push failed for teacher ${teacherId}:`, await response.json().catch(() => null));
@@ -315,6 +327,8 @@ export async function POST(
         `
         id,
         title,
+        subject,
+        scheduled_date,
         created_by,
         duration_minutes,
         marks_per_question,
