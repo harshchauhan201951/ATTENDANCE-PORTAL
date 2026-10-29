@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 import { Capacitor } from "@capacitor/core";
 import { PushNotifications } from "@capacitor/push-notifications";
 
@@ -216,10 +217,10 @@ export default function TeacherNotificationsBell({ className = "" }: { className
       <header><strong>Notifications</strong><button type="button" onClick={() => void markAll()} disabled={!unread}>Mark all read</button></header>
       {items.length === 0 ? <p className="teacher-notifications-empty">No notifications yet.</p> : <div className="teacher-notifications-list">{items.map((item) => <button type="button" key={item.id} className={`teacher-notification-item${item.is_read ? " read" : ""}`} onClick={() => void markRead(item)}><span className="teacher-notification-icon">{item.category === "quiz_submission" ? "✓" : "↗"}</span><span><strong>{item.title}</strong><small>{item.message}</small><em>{timeLabel(item.created_at)}</em></span></button>)}</div>}
     </section>}
-    {incoming && <button type="button" role="status" onClick={() => { setIncoming(null); if (incoming.url?.startsWith("/")) router.push(incoming.url); }} style={{ position: "fixed", zIndex: 10010, top: 18, right: 18, width: "min(420px, calc(100vw - 36px))", padding: "15px 17px", border: "1px solid #cbdcf0", borderLeft: "4px solid #1765b5", borderRadius: 14, background: "#fff", boxShadow: "0 12px 35px #17395830", color: "#203b5b", textAlign: "left", cursor: "pointer" }}>
+    {incoming && typeof document !== "undefined" && createPortal(<button type="button" role="status" onClick={() => { setIncoming(null); if (incoming.url?.startsWith("/")) router.push(incoming.url); }} style={{ position: "fixed", zIndex: 2147483647, top: "max(18px, env(safe-area-inset-top))", right: "max(18px, env(safe-area-inset-right))", width: "min(420px, calc(100vw - 36px))", padding: "15px 17px", border: "1px solid #cbdcf0", borderLeft: "4px solid #1765b5", borderRadius: 14, background: "#fff", boxShadow: "0 12px 35px #17395830", color: "#203b5b", textAlign: "left", cursor: "pointer" }}>
       <strong style={{ display: "block", fontSize: 14 }}>{incoming.title}</strong>
       <span style={{ display: "block", marginTop: 5, fontSize: 12, lineHeight: 1.45, color: "#586d84" }}>{incoming.message}</span>
       <span style={{ display: "block", marginTop: 7, fontSize: 11, color: "#71839a" }}>{timeLabel(incoming.created_at)} · Open quiz result</span>
-    </button>}
+    </button>, document.body)}
   </div>;
 }
