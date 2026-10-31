@@ -101,6 +101,28 @@ export async function GET(request: Request) {
       if(error) throw error;
       return NextResponse.json({success:true,periods:data||[]});
     }
+    if(monthKey&&url.searchParams.get("summary")==="top"){
+      const [periodRes,resultsRes]=await Promise.all([
+        supabaseAdmin.from("monthly_result_periods").select("is_released").eq("month_key",monthKey).maybeSingle(),
+        supabaseAdmin.from("monthly_results").select("percentage,grand_total,snapshot").eq("month_key",monthKey),
+      ]);
+      if(periodRes.error) throw periodRes.error;
+      if(resultsRes.error) throw resultsRes.error;
+      if(!periodRes.data?.is_released) return NextResponse.json({success:false,error:"Monthly result is not released."},{status:404});
+      const candidates=(resultsRes.data||[]).map((row:any)=>({
+        name:String(row.snapshot?.student?.name||"").trim(),
+        className:String(row.snapshot?.student?.className||"").trim(),
+        percentage:Number(row.percentage??row.snapshot?.totals?.percentage),
+        total:Number(row.grand_total??row.snapshot?.totals?.grandTotal),
+      })).filter((student:any)=>student.name&&Number.isFinite(student.percentage)&&Number.isFinite(student.total)&&student.total>0)
+        .sort((a:any,b:any)=>b.percentage-a.percentage||a.name.localeCompare(b.name,"en"));
+      let rank=0;
+      const leaders=candidates.slice(0,3).map((student:any,index:number,top:any[])=>{
+        if(index===0||student.percentage!==top[index-1].percentage) rank=index+1;
+        return {rank,name:student.name,className:student.className};
+      });
+      return NextResponse.json({success:true,monthKey,leaders});
+    }
     if(monthKey){
       const [periodRes,mahatestRes,marksRes,resultsRes]=await Promise.all([
         supabaseAdmin.from("monthly_result_periods").select("*").eq("month_key",monthKey).maybeSingle(),

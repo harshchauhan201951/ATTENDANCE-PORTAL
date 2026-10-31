@@ -11,8 +11,9 @@ import StudentExportOptions from "../_components/student-export-options";
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
 function dateText(v:string){ if(!v) return "-"; const d=new Date(`${String(v).slice(0,10)}T00:00:00`); return Number.isNaN(d.getTime())?v:d.toLocaleDateString("en-IN"); }
+type MonthlyAchiever={rank:number;name:string;className:string};
 export default function StudentMonthlyResultPage(){
- const [snapshot,setSnapshot]=useState<MonthlyResultSnapshot|null>(null);const [loading,setLoading]=useState(true);const [message,setMessage]=useState("");const [error,setError]=useState("");const [pdfMessage,setPdfMessage]=useState("");const [pendingPeriod,setPendingPeriod]=useState<any>(null);const [availablePeriods,setAvailablePeriods]=useState<any[]>([]);const [selectedPeriodKey,setSelectedPeriodKey]=useState("");const [latestOnly,setLatestOnly]=useState(false);const [historySelection,setHistorySelection]=useState(false);
+ const [snapshot,setSnapshot]=useState<MonthlyResultSnapshot|null>(null);const [topAchievers,setTopAchievers]=useState<MonthlyAchiever[]>([]);const [loading,setLoading]=useState(true);const [message,setMessage]=useState("");const [error,setError]=useState("");const [pdfMessage,setPdfMessage]=useState("");const [pendingPeriod,setPendingPeriod]=useState<any>(null);const [availablePeriods,setAvailablePeriods]=useState<any[]>([]);const [selectedPeriodKey,setSelectedPeriodKey]=useState("");const [latestOnly,setLatestOnly]=useState(false);const [historySelection,setHistorySelection]=useState(false);const [livePreviewMode,setLivePreviewMode]=useState(false);
   useEffect(()=>{void load();},[]);
   useEffect(()=>{if(historySelection)return;const timer=setInterval(()=>{void load();},30000);return()=>clearInterval(timer);},[historySelection]);
   async function fetchSnapshotForPeriod(monthKey:string,studentId:number){
@@ -25,14 +26,27 @@ export default function StudentMonthlyResultPage(){
    if(studentInfoError)throw studentInfoError;
    return filterMonthlySnapshotByAdmission(row.snapshot as MonthlyResultSnapshot,studentInfo?.admission_date);
   }
+  async function fetchTopAchieversForPeriod(monthKey:string):Promise<MonthlyAchiever[]>{
+   try{
+    const response=await fetch(`/api/monthly-results/publish?monthKey=${encodeURIComponent(monthKey)}&summary=top`,{cache:"no-store"});
+    const data=await response.json();
+    return response.ok&&data.success&&Array.isArray(data.leaders)?data.leaders:[];
+   }catch{return [];}
+  }
   async function load(){
-   setLoading(true);setError("");setPendingPeriod(null);
+   setLoading(true);setError("");setPendingPeriod(null);setTopAchievers([]);
    const latestOnlyMode=new URLSearchParams(window.location.search).get("latest")==="1";
    setLatestOnly(latestOnlyMode);
    try{
     if(process.env.NODE_ENV==="development"&&new URLSearchParams(window.location.search).get("preview")==="monthly-mahatest"){
      setSnapshot(null);setMessage("");setAvailablePeriods([]);setPendingPeriod({month_label:"OCTOBER MONTHLY MAHATEST",scheduled_release_at:"2026-10-26T09:00:00+05:30"});return;
     }
+    if(process.env.NODE_ENV==="development"&&new URLSearchParams(window.location.search).get("preview")==="monthly-result-live"){
+     const generatedAt="2026-11-01T10:00:00+05:30";
+     const demoSnapshot:MonthlyResultSnapshot={monthKey:"2026-10",monthLabel:"October 2026",student:{id:0,name:"Aditya Chauhan · Demo",username:"DEMO-STUDENT",className:"10th",fatherName:"Demo preview",rollNo:"01",medium:"English",academicSession:"2026-27"},quizzes:[{quizId:1,title:"Mathematics Quiz",subject:"Mathematics",date:"2026-10-10",attemptedDate:"2026-10-10",obtained:90,total:100,percentage:90},{quizId:2,title:"Science Quiz",subject:"Science",date:"2026-10-17",attemptedDate:"2026-10-17",obtained:84,total:100,percentage:84}],weeklyTests:[{id:1,name:"Saturday Weekly Test",subject:"Mathematics",date:"2026-10-10",obtained:42,total:50,percentage:84},{id:2,name:"Saturday Weekly Test",subject:"Science",date:"2026-10-24",obtained:45,total:50,percentage:90}],mahaTest:{date:"2026-10-31",durationMinutes:120,total:100,obtained:86,remarks:"Demo preview only"},totals:{quizObtained:174,quizTotal:200,weeklyObtained:87,weeklyTotal:100,mahaObtained:86,mahaTotal:100,grandObtained:347,grandTotal:400,percentage:86.75,passPercentage:40,status:"PASS"},generatedAt,position:4,award:"Consistent Performer",awardGroup:"Demo"};
+     setLivePreviewMode(true);setSnapshot(demoSnapshot);setTopAchievers([{rank:1,name:"Aarav Demo",className:"10th"},{rank:2,name:"Sia Demo",className:"9th"},{rank:3,name:"Vivaan Demo",className:"8th"}]);setAvailablePeriods([{month_key:"2026-10",month_label:"October 2026",is_released:true,released_at:generatedAt}]);setSelectedPeriodKey("2026-10");setPendingPeriod(null);setMessage("");return;
+    }
+    setLivePreviewMode(false);
     const id=Number(localStorage.getItem("studentId")||localStorage.getItem("attendance_student_id")||localStorage.getItem("student_id")||"0");
     if(!id)throw new Error("Student session not found. Please login again.");
     const res=await fetch("/api/monthly-results/publish?list=1",{cache:"no-store"});
@@ -51,7 +65,8 @@ export default function StudentMonthlyResultPage(){
     if(!latest.is_released&&(!Number.isFinite(latestScheduledAt)||now<latestScheduledAt)){
      setSnapshot(null);setSelectedPeriodKey("");setMessage("Monthly result has not been released yet.");return;
     }
-    const latestSnapshot=await fetchSnapshotForPeriod(String(latest.month_key),id);
+    const [latestSnapshot,leaders]=await Promise.all([fetchSnapshotForPeriod(String(latest.month_key),id),fetchTopAchieversForPeriod(String(latest.month_key))]);
+    setTopAchievers(leaders);
     if(!latestSnapshot){setSnapshot(null);setSelectedPeriodKey(String(latest.month_key));setMessage("Your latest result is not available yet.");return;}
     setSnapshot(latestSnapshot);setSelectedPeriodKey(String(latest.month_key));setMessage("");
    }catch(e){setError(e instanceof Error?e.message:"Result load failed.");}
@@ -63,9 +78,9 @@ export default function StudentMonthlyResultPage(){
    try{
     const id=Number(localStorage.getItem("studentId")||localStorage.getItem("attendance_student_id")||localStorage.getItem("student_id")||"0");
     if(!id)throw new Error("Student session not found. Please login again.");
-    const historicalSnapshot=await fetchSnapshotForPeriod(monthKey,id);
+    const [historicalSnapshot,leaders]=await Promise.all([fetchSnapshotForPeriod(monthKey,id),fetchTopAchieversForPeriod(monthKey)]);
     if(!historicalSnapshot)throw new Error("This monthly result is not available yet.");
-    setSnapshot(historicalSnapshot);setSelectedPeriodKey(monthKey);
+    setSnapshot(historicalSnapshot);setTopAchievers(leaders);setSelectedPeriodKey(monthKey);
    }catch(e){setError(e instanceof Error?e.message:"Result load failed.");}
    finally{setLoading(false);}
   }
@@ -76,7 +91,7 @@ export default function StudentMonthlyResultPage(){
     <div><div style={{color:"#0b58a5",fontSize:10,fontWeight:900,letterSpacing:1}}>STUDENT MODULE</div><h1>Monthly Final Result</h1><p>Official result and performance breakdown</p></div>
    </div>
    {!latestOnly&&availablePeriods.length>0&&<section className="monthly-result-card" aria-label="Monthly MahaTest result history" style={{padding:18,marginTop:12}}><div className="monthly-result-section-heading"><div><span>MONTHLY MAHATEST MODULE</span><h2>Released result history</h2></div><strong>{availablePeriods.length}</strong></div><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{availablePeriods.map((period:any)=><button key={period.month_key} type="button" className="monthly-result-download" aria-current={selectedPeriodKey===String(period.month_key)?"page":undefined} onClick={()=>void openHistoryPeriod(String(period.month_key))} style={{background:selectedPeriodKey===String(period.month_key)?"#0b57a3":"#eef4fb",color:selectedPeriodKey===String(period.month_key)?"#fff":"#21496f"}}>{period.month_label||period.month_key}{String(period.month_key)===String(availablePeriods[0]?.month_key)?" · LATEST":""}</button>)}</div></section>}
-   {snapshot && <div className="monthly-result-period"><span>{selectedPeriodKey&&selectedPeriodKey!==availablePeriods[0]?.month_key?"Selected result period":"Latest released period"}</span><strong>{snapshot.monthLabel}</strong></div>}
+   {snapshot && <div className="monthly-result-period"><span>{livePreviewMode?"LIVE RELEASE PREVIEW · DEMO DATA":selectedPeriodKey&&selectedPeriodKey!==availablePeriods[0]?.month_key?"Selected result period":"Latest released period"}</span><strong>{snapshot.monthLabel}</strong></div>}
    {loading ? <div className="monthly-result-card" role="status" style={{padding:18,marginTop:12}}>Loading your latest result…</div>
     : error ? <div className="monthly-result-card" role="alert" style={{padding:18,marginTop:12}}><strong>Result could not be loaded</strong><p style={{color:"#687b90",fontSize:12}}>{error}</p><button type="button" className="monthly-result-download" onClick={()=>void load()}>Try again</button></div>
     : !snapshot ? pendingPeriod ? <section className="monthly-result-card monthly-result-pending" role="status" style={{padding:18,marginTop:12,borderRadius:16,background:"linear-gradient(135deg,#102d55,#17628a)",color:"#fff"}}><div style={{fontSize:10,fontWeight:950,letterSpacing:1.2,color:"#ffe293"}}>RESULT RELEASE SCHEDULED</div><h2 style={{margin:"8px 0",fontSize:19,color:"#fff"}}>{pendingPeriod.month_label||"Monthly MahaTest Result"}</h2><p style={{margin:"0 0 12px",fontSize:13,lineHeight:1.55,color:"#e5efff"}}>Your result will be available on <strong style={{color:"#fff5ba"}}>{new Date(pendingPeriod.scheduled_release_at).toLocaleDateString("en-IN",{timeZone:"Asia/Kolkata",day:"2-digit",month:"short",year:"numeric"})} · {new Date(pendingPeriod.scheduled_release_at).toLocaleTimeString("en-IN",{timeZone:"Asia/Kolkata",hour:"2-digit",minute:"2-digit",hour12:true})}</strong>. This page checks again automatically when the result is released.</p><div style={{display:"inline-flex",alignItems:"center",gap:7,padding:"7px 10px",borderRadius:999,background:"rgba(255,255,255,.12)",fontSize:10,fontWeight:850}}><span aria-hidden="true">◷</span>RESULT LOCKED UNTIL RELEASE</div></section> : <div className="monthly-result-card" style={{padding:18,marginTop:12}}><strong>{message || "Your result is not available yet."}</strong><p style={{color:"#687b90",fontSize:12,lineHeight:1.5}}>This page updates automatically when the academy releases your monthly result.</p></div>
@@ -90,6 +105,7 @@ export default function StudentMonthlyResultPage(){
         <div style={{textAlign:"right"}}><strong style={{display:"block",fontSize:30,lineHeight:1}}>{snapshot.totals.percentage.toFixed(1)}%</strong><small style={{fontSize:10,fontWeight:800}}>{snapshot.totals.status}</small></div>
        </div>
       </section>
+      {topAchievers.length>0&&<section className="monthly-result-card monthly-result-achievers" aria-label={`${snapshot.monthLabel} top three achievers`}><div className="monthly-result-section-heading"><div><span>MONTHLY HONOURS</span><h2>Top 3 achievers</h2></div><strong>★</strong></div><p className="monthly-result-achievers-intro">Celebrating the students who led this month’s performance.</p><div className="monthly-result-achiever-grid">{topAchievers.map((student,index)=><article key={`${student.rank}-${student.name}-${index}`} className={`monthly-result-achiever monthly-result-achiever-${index+1}`}><span aria-hidden="true">{index===0?"🥇":index===1?"🥈":"🥉"}</span><div><small>{student.rank===1?"TOP ACHIEVER":`RANK ${student.rank}`}</small><strong>{student.name}</strong><em>{student.className||"RACER ACADEMY"}</em></div></article>)}</div></section>}
       <section className="monthly-result-card monthly-result-student-details">
        <div className="monthly-result-section-heading"><div><span>STUDENT INFORMATION</span><h2>Result profile</h2></div><strong>ID</strong></div>
        <div className="monthly-result-mahatest-grid">
