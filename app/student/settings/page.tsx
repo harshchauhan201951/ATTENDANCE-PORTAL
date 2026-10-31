@@ -58,13 +58,15 @@ const emptyForm: FormData = {
 };
 
 
-type SettingsReferenceVipProps = { username: string; form: FormData; newPassword: string; confirmPassword: string; setNewPassword: (value: string) => void; setConfirmPassword: (value: string) => void; saving: boolean; changingPassword: boolean; message: string; error: string; updateField: (field: keyof FormData, value: string) => void; saveProfile: (event: any) => any; changePassword: (event: any) => any; logout: () => void; };
+type SettingsReferenceVipProps = { username: string; form: FormData; currentPassword: string; newPassword: string; confirmPassword: string; setCurrentPassword: (value: string) => void; setNewPassword: (value: string) => void; setConfirmPassword: (value: string) => void; saving: boolean; changingPassword: boolean; message: string; error: string; updateField: (field: keyof FormData, value: string) => void; saveProfile: (event: any) => any; changePassword: (event: any) => any; logout: () => void; };
 
 function SettingsReferenceVip({
   username,
   form,
+  currentPassword,
   newPassword,
   confirmPassword,
+  setCurrentPassword,
   setNewPassword,
   setConfirmPassword,
   saving,
@@ -135,7 +137,7 @@ function SettingsReferenceVip({
 
         <section style={{ background: '#fff', border: '1px solid #e3dcfb', borderRadius: 17, padding: 11, marginBottom: 9, boxShadow: '0 6px 18px rgba(18,61,125,.05)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}><div style={{ width: 34, height: 34, borderRadius: 11, background: '#eee9ff', color: '#6c50db', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>🔒</div><div><strong style={{ display: 'block', fontSize: 12, color: '#18336d' }}>Change Password</strong><span style={{ display: 'block', marginTop: 2, fontSize: 7, color: '#7586a4' }}>Update your account password</span></div></div>
-          <form onSubmit={changePassword} style={{ display: 'grid', gap: 7 }}><input type="password" placeholder="New password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} style={inputStyle} /><input type="password" placeholder="Confirm new password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} style={inputStyle} /><button type="submit" disabled={changingPassword} style={{ border: 0, borderRadius: 10, padding: 9, background: '#eef3ff', color: '#3152cc', fontSize: 8, fontWeight: 900 }}>{changingPassword ? 'Updating...' : 'Update Password'}</button></form>
+          <form onSubmit={changePassword} style={{ display: 'grid', gap: 7 }}><input type="password" autoComplete="current-password" placeholder="Current password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} style={inputStyle} /><input type="password" autoComplete="new-password" placeholder="New password (at least 6 characters)" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} style={inputStyle} /><input type="password" autoComplete="new-password" placeholder="Confirm new password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} style={inputStyle} /><button type="submit" disabled={changingPassword} style={{ border: 0, borderRadius: 10, padding: 9, background: '#eef3ff', color: '#3152cc', fontSize: 8, fontWeight: 900 }}>{changingPassword ? 'Updating...' : 'Update Password'}</button></form>
         </section>
 
         <button type="button" onClick={logout} style={{ width: '100%', border: '1px solid #ffd5dc', borderRadius: 13, padding: 10, background: '#fff1f3', color: '#d8324f', fontSize: 8, fontWeight: 900 }}>Logout</button>
@@ -152,6 +154,7 @@ export default function StudentSettingsPage() {
   const [form, setForm] = useState<FormData>(emptyForm);
   const [studentRecord, setStudentRecord] = useState<Student | null>(null);
 
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
@@ -446,9 +449,9 @@ export default function StudentSettingsPage() {
       return;
     }
 
-    if (!newPassword || !confirmPassword) {
+    if (!currentPassword || !newPassword || !confirmPassword) {
       setError(
-        "Please enter new password and confirm password."
+        "Please enter your current password, new password, and confirmation."
       );
       return;
     }
@@ -470,18 +473,16 @@ export default function StudentSettingsPage() {
     setChangingPassword(true);
 
     try {
-      const { error } = await supabase.rpc(
-        "student_change_password",
-        {
-          p_username: username,
-          p_new_password: newPassword,
-        }
-      );
+      const response = await fetch("/api/account/password", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountType: "student", username, currentPassword, newPassword }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) throw new Error(result?.error || "Unable to change password.");
 
-      if (error) {
-        throw error;
-      }
-
+      setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
 
@@ -581,7 +582,7 @@ export default function StudentSettingsPage() {
   }
 
   if (isMobileVip && !loading) {
-    return <SettingsReferenceVip username={username} form={form} newPassword={newPassword} confirmPassword={confirmPassword} setNewPassword={setNewPassword} setConfirmPassword={setConfirmPassword} saving={saving} changingPassword={changingPassword} message={message} error={error} updateField={updateField} saveProfile={saveProfile} changePassword={changePassword} logout={logout} />;
+    return <SettingsReferenceVip username={username} form={form} currentPassword={currentPassword} newPassword={newPassword} confirmPassword={confirmPassword} setCurrentPassword={setCurrentPassword} setNewPassword={setNewPassword} setConfirmPassword={setConfirmPassword} saving={saving} changingPassword={changingPassword} message={message} error={error} updateField={updateField} saveProfile={saveProfile} changePassword={changePassword} logout={logout} />;
   }
 
   return (
@@ -1033,6 +1034,21 @@ export default function StudentSettingsPage() {
                 className="settings-form-grid"
                 style={styles.formGrid}
               >
+                <div style={styles.field}>
+                  <label style={styles.label}>
+                    Current Password
+                  </label>
+
+                  <input
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder="Enter current password"
+                    autoComplete="current-password"
+                    style={styles.input}
+                  />
+                </div>
+
                 <div style={styles.field}>
                   <label style={styles.label}>
                     Username

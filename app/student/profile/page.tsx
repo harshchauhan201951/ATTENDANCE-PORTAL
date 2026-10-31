@@ -66,6 +66,7 @@ export default function StudentProfilePage() {
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
   const [updatingPassword, setUpdatingPassword] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState("");
@@ -383,14 +384,21 @@ export default function StudentProfilePage() {
     const password = newPassword.trim();
     const confirm = confirmPassword.trim();
 
+    const current = currentPassword;
+
+    if (!current) {
+      setPasswordError("Current Password enter karein.");
+      return;
+    }
+
     if (!password) {
       setPasswordError("New Password enter karein.");
       return;
     }
 
-    if (password.length < 4) {
+    if (password.length < 6) {
       setPasswordError(
-        "Password minimum 4 characters ka hona chahiye."
+        "Password minimum 6 characters ka hona chahiye."
       );
       return;
     }
@@ -412,32 +420,16 @@ export default function StudentProfilePage() {
     setUpdatingPassword(true);
 
     try {
-      const { data, error } = await supabase.rpc(
-        "update_student_password",
-        {
-          p_student_id: student.id,
-          p_new_password: password,
-        }
-      );
+      const response = await fetch("/api/account/password", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountType: "student", username: student.student_username, currentPassword: current, newPassword: password }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) throw new Error(result?.error || "Password update nahi ho saka.");
 
-      if (error) {
-        console.error(
-          "Password update RPC error:",
-          error
-        );
-
-        throw new Error(
-          "Password update nahi hua: " +
-            error.message
-        );
-      }
-
-      if (data !== true) {
-        throw new Error(
-          "Password update confirm nahi ho saka."
-        );
-      }
-
+      setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
 
@@ -814,9 +806,7 @@ export default function StudentProfilePage() {
               </strong>
 
               <p style={styles.passwordNoticeText}>
-                Current password ki zaroorat nahi hai.
-                Apna new password aur confirm password
-                enter karke update karein.
+                Apna current password verify karein, phir naya password set karein.
               </p>
             </div>
           </div>
@@ -852,6 +842,22 @@ export default function StudentProfilePage() {
                   style={styles.lockedInput}
                 />
               </div>
+            </div>
+
+            <div style={styles.field}>
+              <label style={styles.label}>
+                Current Password *
+              </label>
+
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Enter current password"
+                autoComplete="current-password"
+                style={styles.input}
+                disabled={updatingPassword}
+              />
             </div>
 
             <div style={styles.field}>
@@ -897,6 +903,7 @@ export default function StudentProfilePage() {
               onClick={() => {
                 setNewPassword("");
                 setConfirmPassword("");
+                setCurrentPassword("");
                 setPasswordError("");
                 setPasswordSuccess("");
               }}

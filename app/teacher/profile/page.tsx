@@ -470,17 +470,45 @@ export default function TeacherProfilePage() {
     }
 
     setSavingPassword(true);
+    try {
+      let loginUsername = "";
+      for (const storageKey of ["racer_academy_teacher", "teacher"]) {
+        const savedTeacher = localStorage.getItem(storageKey);
+        if (!savedTeacher) continue;
+        try {
+          const parsed = JSON.parse(savedTeacher) as TeacherData;
+          loginUsername = String(parsed.teacher_username || parsed.username || "").trim();
+        } catch {
+          loginUsername = "";
+        }
+        if (loginUsername) break;
+      }
+      loginUsername = loginUsername || localStorage.getItem("attendance_username")?.trim() || "";
+      if (!loginUsername) throw new Error("Teacher login details are missing. Please sign in again.");
 
-    await new Promise((resolve) =>
-      setTimeout(resolve, 500)
-    );
+      const response = await fetch("/api/account/password", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accountType: "teacher",
+          username: loginUsername,
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword,
+        }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) throw new Error(result?.error || "Password could not be updated. Please try again.");
 
-    setPasswordMessage(
-      "Password form is ready. Connect it to your existing teacher password-update API/RPC to save the new password."
-    );
-
-    setPasswordMessageType("error");
-    setSavingPassword(false);
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      setPasswordMessage("Password changed successfully. Use your new password next time you sign in.");
+      setPasswordMessageType("success");
+    } catch (error) {
+      setPasswordMessage(error instanceof Error ? error.message : "Password could not be updated. Please try again.");
+      setPasswordMessageType("error");
+    } finally {
+      setSavingPassword(false);
+    }
   };
 
   const toggleNotifications = () => {
