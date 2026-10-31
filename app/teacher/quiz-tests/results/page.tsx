@@ -177,6 +177,12 @@ function isFinalizedResult(result: QuizResult): boolean {
   return Boolean(result.submitted_at) || ["PASS", "PASSED", "FAIL", "FAILED", "SUBMITTED", "COMPLETED"].includes(status);
 }
 
+function isAssignmentResult(result: QuizResult | null | undefined): boolean {
+  return Boolean(result)
+    && String(result?.submission_type || "").trim().toLowerCase() === "manual"
+    && Number(result?.total_questions) === 0;
+}
+
 function resultStatus(result: QuizResult, quiz?: { scheduled_date: string | null }): string {
   const status = String(result.result_status || "").trim().toUpperCase();
   const pendingStatuses = ["", "IN_PROGRESS", "IN PROGRESS", "PENDING", "NOT_ATTEMPT", "NOT_ATTEMPTED", "NOT_SUBMITTED"];
@@ -3164,7 +3170,7 @@ function TeacherQuizResultsContent() {
                                                           styles.summaryStatus
                                                         }
                                                       >
-                                                        {String(latest.submission_type || "").toLowerCase() === "assignment"
+                                                        {isAssignmentResult(latest)
                                                           ? `ASSIGNMENT · ${safeNumber(latest.obtained_marks)}/${safeNumber(latest.total_marks)}`
                                                           : resultStatus(latest)}
                                                       </span>
@@ -3209,7 +3215,7 @@ function TeacherQuizResultsContent() {
                                                     {reattemptLoading === allowedKey ? "ALLOWING..." : "ALLOW RE-ATTEMPT"}
                                                   </button>
                                                 )}
-                                                {(!hasSubmittedResult(row.results) || String(latest?.submission_type || "").toLowerCase() === "assignment") && (
+                                                {(!hasSubmittedResult(row.results) || isAssignmentResult(latest)) && (
                                                   <button
                                                     type="button"
                                                     style={{
@@ -3220,7 +3226,7 @@ function TeacherQuizResultsContent() {
                                                     }}
                                                     onClick={() => {
                                                       setAssignmentTarget(row);
-                                                      const existingAssignment = String(latest?.submission_type || "").toLowerCase() === "assignment";
+                                                      const existingAssignment = isAssignmentResult(latest);
                                                       setAssignmentObtainedMarks(existingAssignment ? String(latest?.obtained_marks ?? "") : "");
                                                       setAssignmentTotalMarks(existingAssignment ? String(latest?.total_marks ?? "") : "");
                                                       setAssignmentFormError("");
@@ -3228,7 +3234,7 @@ function TeacherQuizResultsContent() {
                                                     }}
                                                   >
                                                     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: "13px", height: "13px", verticalAlign: "-2px", marginRight: "4px" }}><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" /></svg>
-                                                    {String(latest?.submission_type || "").toLowerCase() === "assignment" ? "Edit assignment marks" : "Assignment marks"}
+                                                    {isAssignmentResult(latest) ? "Edit assignment marks" : "Assignment marks"}
                                                   </button>
                                                 )}
                                                 <button

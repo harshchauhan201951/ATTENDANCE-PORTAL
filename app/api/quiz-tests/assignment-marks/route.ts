@@ -65,15 +65,16 @@ export async function POST(request: Request) {
 
     const { data: existingResults, error: existingError } = await supabaseAdmin
       .from("quiz_results")
-      .select("id,attempt_number,submitted_at,submission_type")
+      .select("id,attempt_number,total_questions,submitted_at,submission_type")
       .eq("quiz_id", quizId)
       .eq("student_id", studentId)
       .order("attempt_number", { ascending: true });
     if (existingError) throw existingError;
 
     const rows = existingResults || [];
-    const assignmentResult = rows.find((row: any) => String(row.submission_type || "").toLowerCase() === "assignment");
-    const submittedAttempt = rows.find((row: any) => Boolean(row.submitted_at) && String(row.submission_type || "").toLowerCase() !== "assignment");
+    const isAssignmentResult = (row: any) => String(row.submission_type || "").toLowerCase() === "manual" && Number(row.total_questions) === 0;
+    const assignmentResult = rows.find(isAssignmentResult);
+    const submittedAttempt = rows.find((row: any) => Boolean(row.submitted_at) && !isAssignmentResult(row));
     if (submittedAttempt) {
       return NextResponse.json({ success: false, error: "This student already submitted the quiz, so assignment marks cannot replace that attempt." }, { status: 409 });
     }
@@ -100,7 +101,9 @@ export async function POST(request: Request) {
         result_status: percentage >= passThreshold ? "PASS" : "FAIL",
         started_at: submittedAt,
         submitted_at: submittedAt,
-        submission_type: "assignment",
+        // "manual" is an allowed database submission type. Zero questions is
+        // the durable marker for a teacher-entered assignment grade.
+        submission_type: "manual",
       };
     const saveQuery = targetResult
       ? supabaseAdmin.from("quiz_results").update(resultValues).eq("id", targetResult.id)
@@ -113,6 +116,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, result: savedResult });
   } catch (error) {
     console.error("Quiz assignment grading error:", error);
-    return NextResponse.json({ success: false, error: error instanceof Error ? error.message : "Could not save assignment marks." }, { status: 500 });
+    const message = error instanceof Error
+      ? error.message
+      : error && typeof error === "object" && "message" in error
+        ? String((error as { message?: unknown }).message || "Could not save assignment marks.")
+        : "Could not save assignment marks.";
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
