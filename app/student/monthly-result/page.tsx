@@ -12,16 +12,71 @@ const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env
 
 function dateText(v:string){ if(!v) return "-"; const d=new Date(`${String(v).slice(0,10)}T00:00:00`); return Number.isNaN(d.getTime())?v:d.toLocaleDateString("en-IN"); }
 export default function StudentMonthlyResultPage(){
- const [snapshot,setSnapshot]=useState<MonthlyResultSnapshot|null>(null);const [loading,setLoading]=useState(true);const [message,setMessage]=useState("");const [error,setError]=useState("");const [pdfMessage,setPdfMessage]=useState("");const [pendingPeriod,setPendingPeriod]=useState<any>(null);
-  useEffect(()=>{void load();const timer=setInterval(()=>{void load();},30000);return()=>clearInterval(timer);},[]);
-  async function load(){setLoading(true);setError("");setPendingPeriod(null);try{if(process.env.NODE_ENV==="development"&&new URLSearchParams(window.location.search).get("preview")==="monthly-mahatest"){setSnapshot(null);setMessage("");setPendingPeriod({month_label:"OCTOBER MONTHLY MAHATEST",scheduled_release_at:"2026-10-26T09:00:00+05:30"});return;}const id=Number(localStorage.getItem("studentId")||localStorage.getItem("attendance_student_id")||localStorage.getItem("student_id")||"0");if(!id)throw new Error("Student session not found. Please login again.");const res=await fetch("/api/monthly-results/publish?list=1");const listData=await res.json();if(!res.ok||!listData.success)throw new Error(listData.error||"Monthly result load failed.");const periods=listData.periods||[];const period=periods.find((p:any)=>Boolean(p.is_released)||(p.scheduled_release_at&&Date.now()>=new Date(p.scheduled_release_at).getTime()));if(!period){const upcoming=periods.find((p:any)=>p.scheduled_release_at&&Date.now()<new Date(p.scheduled_release_at).getTime());if(upcoming){setPendingPeriod(upcoming);setMessage("");return;}setMessage("Monthly result has not been released yet.");return;}const resultRes=await fetch("/api/monthly-results/publish?monthKey="+encodeURIComponent(period.month_key)+"&studentId="+encodeURIComponent(String(id)));const resultData=await resultRes.json();if(!resultRes.ok||!resultData.success)throw new Error(resultData.error||"Student result load failed.");const row=resultData.results?.[0];if(!row?.snapshot){setMessage("Your result is not available yet.");return;}const {data: studentInfo,error: studentInfoError}=await supabase.from("students").select("admission_date").eq("id",id).maybeSingle();if(studentInfoError)throw studentInfoError;setSnapshot(filterMonthlySnapshotByAdmission(row.snapshot as MonthlyResultSnapshot,studentInfo?.admission_date));}catch(e){setError(e instanceof Error?e.message:"Result load failed.");}finally{setLoading(false);}}
+ const [snapshot,setSnapshot]=useState<MonthlyResultSnapshot|null>(null);const [loading,setLoading]=useState(true);const [message,setMessage]=useState("");const [error,setError]=useState("");const [pdfMessage,setPdfMessage]=useState("");const [pendingPeriod,setPendingPeriod]=useState<any>(null);const [availablePeriods,setAvailablePeriods]=useState<any[]>([]);const [selectedPeriodKey,setSelectedPeriodKey]=useState("");const [latestOnly,setLatestOnly]=useState(false);const [historySelection,setHistorySelection]=useState(false);
+  useEffect(()=>{void load();},[]);
+  useEffect(()=>{if(historySelection)return;const timer=setInterval(()=>{void load();},30000);return()=>clearInterval(timer);},[historySelection]);
+  async function fetchSnapshotForPeriod(monthKey:string,studentId:number){
+   const resultRes=await fetch(`/api/monthly-results/publish?monthKey=${encodeURIComponent(monthKey)}&studentId=${encodeURIComponent(String(studentId))}`,{cache:"no-store"});
+   const resultData=await resultRes.json();
+   if(!resultRes.ok||!resultData.success)throw new Error(resultData.error||"Student result load failed.");
+   const row=resultData.results?.[0];
+   if(!row?.snapshot)return null;
+   const {data:studentInfo,error:studentInfoError}=await supabase.from("students").select("admission_date").eq("id",studentId).maybeSingle();
+   if(studentInfoError)throw studentInfoError;
+   return filterMonthlySnapshotByAdmission(row.snapshot as MonthlyResultSnapshot,studentInfo?.admission_date);
+  }
+  async function load(){
+   setLoading(true);setError("");setPendingPeriod(null);
+   const latestOnlyMode=new URLSearchParams(window.location.search).get("latest")==="1";
+   setLatestOnly(latestOnlyMode);
+   try{
+    if(process.env.NODE_ENV==="development"&&new URLSearchParams(window.location.search).get("preview")==="monthly-mahatest"){
+     setSnapshot(null);setMessage("");setAvailablePeriods([]);setPendingPeriod({month_label:"OCTOBER MONTHLY MAHATEST",scheduled_release_at:"2026-10-26T09:00:00+05:30"});return;
+    }
+    const id=Number(localStorage.getItem("studentId")||localStorage.getItem("attendance_student_id")||localStorage.getItem("student_id")||"0");
+    if(!id)throw new Error("Student session not found. Please login again.");
+    const res=await fetch("/api/monthly-results/publish?list=1",{cache:"no-store"});
+    const listData=await res.json();
+    if(!res.ok||!listData.success)throw new Error(listData.error||"Monthly result load failed.");
+    const periods=[...(listData.periods||[])].sort((a:any,b:any)=>String(b?.month_key||"").localeCompare(String(a?.month_key||"")));
+    const now=Date.now();
+    const releasedPeriods=periods.filter((period:any)=>Boolean(period.is_released)||(period.scheduled_release_at&&now>=new Date(period.scheduled_release_at).getTime()));
+    setAvailablePeriods(releasedPeriods);
+    const latest=periods.find((period:any)=>Boolean(period.is_released)||Boolean(period.scheduled_release_at));
+    if(!latest){setSnapshot(null);setSelectedPeriodKey("");setMessage("Monthly result has not been released yet.");return;}
+    const latestScheduledAt=latest.scheduled_release_at?new Date(latest.scheduled_release_at).getTime():NaN;
+    if(!latest.is_released&&Number.isFinite(latestScheduledAt)&&now<latestScheduledAt){
+     setSnapshot(null);setSelectedPeriodKey("");setPendingPeriod(latest);setMessage("");return;
+    }
+    if(!latest.is_released&&(!Number.isFinite(latestScheduledAt)||now<latestScheduledAt)){
+     setSnapshot(null);setSelectedPeriodKey("");setMessage("Monthly result has not been released yet.");return;
+    }
+    const latestSnapshot=await fetchSnapshotForPeriod(String(latest.month_key),id);
+    if(!latestSnapshot){setSnapshot(null);setSelectedPeriodKey(String(latest.month_key));setMessage("Your latest result is not available yet.");return;}
+    setSnapshot(latestSnapshot);setSelectedPeriodKey(String(latest.month_key));setMessage("");
+   }catch(e){setError(e instanceof Error?e.message:"Result load failed.");}
+   finally{setLoading(false);}
+  }
+  async function openHistoryPeriod(monthKey:string){
+   setHistorySelection(true);
+   setLoading(true);setError("");setMessage("");setPendingPeriod(null);
+   try{
+    const id=Number(localStorage.getItem("studentId")||localStorage.getItem("attendance_student_id")||localStorage.getItem("student_id")||"0");
+    if(!id)throw new Error("Student session not found. Please login again.");
+    const historicalSnapshot=await fetchSnapshotForPeriod(monthKey,id);
+    if(!historicalSnapshot)throw new Error("This monthly result is not available yet.");
+    setSnapshot(historicalSnapshot);setSelectedPeriodKey(monthKey);
+   }catch(e){setError(e instanceof Error?e.message:"Result load failed.");}
+   finally{setLoading(false);}
+  }
  function download(){if(!snapshot)return;try{downloadPdfFile(buildMonthlyResultPdf(snapshot),`RACER_ACADEMY_${snapshot.student.name.replace(/[^a-z0-9]+/gi,"_")}_${snapshot.monthKey}_MONTHLY_RESULT.pdf`);setPdfMessage("Your full result PDF has been downloaded.");}catch{setPdfMessage("PDF download could not start. Please try again.");}}
  return (
   <main className="monthly-result-page">
    <div className="monthly-result-heading">
     <div><div style={{color:"#0b58a5",fontSize:10,fontWeight:900,letterSpacing:1}}>STUDENT MODULE</div><h1>Monthly Final Result</h1><p>Official result and performance breakdown</p></div>
    </div>
-   {snapshot && <div className="monthly-result-period"><span>Latest released period</span><strong>{snapshot.monthLabel}</strong></div>}
+   {!latestOnly&&availablePeriods.length>0&&<section className="monthly-result-card" aria-label="Monthly MahaTest result history" style={{padding:18,marginTop:12}}><div className="monthly-result-section-heading"><div><span>MONTHLY MAHATEST MODULE</span><h2>Released result history</h2></div><strong>{availablePeriods.length}</strong></div><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{availablePeriods.map((period:any)=><button key={period.month_key} type="button" className="monthly-result-download" aria-current={selectedPeriodKey===String(period.month_key)?"page":undefined} onClick={()=>void openHistoryPeriod(String(period.month_key))} style={{background:selectedPeriodKey===String(period.month_key)?"#0b57a3":"#eef4fb",color:selectedPeriodKey===String(period.month_key)?"#fff":"#21496f"}}>{period.month_label||period.month_key}{String(period.month_key)===String(availablePeriods[0]?.month_key)?" · LATEST":""}</button>)}</div></section>}
+   {snapshot && <div className="monthly-result-period"><span>{selectedPeriodKey&&selectedPeriodKey!==availablePeriods[0]?.month_key?"Selected result period":"Latest released period"}</span><strong>{snapshot.monthLabel}</strong></div>}
    {loading ? <div className="monthly-result-card" role="status" style={{padding:18,marginTop:12}}>Loading your latest result…</div>
     : error ? <div className="monthly-result-card" role="alert" style={{padding:18,marginTop:12}}><strong>Result could not be loaded</strong><p style={{color:"#687b90",fontSize:12}}>{error}</p><button type="button" className="monthly-result-download" onClick={()=>void load()}>Try again</button></div>
     : !snapshot ? pendingPeriod ? <section className="monthly-result-card monthly-result-pending" role="status" style={{padding:18,marginTop:12,borderRadius:16,background:"linear-gradient(135deg,#102d55,#17628a)",color:"#fff"}}><div style={{fontSize:10,fontWeight:950,letterSpacing:1.2,color:"#ffe293"}}>RESULT RELEASE SCHEDULED</div><h2 style={{margin:"8px 0",fontSize:19,color:"#fff"}}>{pendingPeriod.month_label||"Monthly MahaTest Result"}</h2><p style={{margin:"0 0 12px",fontSize:13,lineHeight:1.55,color:"#e5efff"}}>Your result will be available on <strong style={{color:"#fff5ba"}}>{new Date(pendingPeriod.scheduled_release_at).toLocaleDateString("en-IN",{timeZone:"Asia/Kolkata",day:"2-digit",month:"short",year:"numeric"})} · {new Date(pendingPeriod.scheduled_release_at).toLocaleTimeString("en-IN",{timeZone:"Asia/Kolkata",hour:"2-digit",minute:"2-digit",hour12:true})}</strong>. This page checks again automatically when the result is released.</p><div style={{display:"inline-flex",alignItems:"center",gap:7,padding:"7px 10px",borderRadius:999,background:"rgba(255,255,255,.12)",fontSize:10,fontWeight:850}}><span aria-hidden="true">◷</span>RESULT LOCKED UNTIL RELEASE</div></section> : <div className="monthly-result-card" style={{padding:18,marginTop:12}}><strong>{message || "Your result is not available yet."}</strong><p style={{color:"#687b90",fontSize:12,lineHeight:1.5}}>This page updates automatically when the academy releases your monthly result.</p></div>

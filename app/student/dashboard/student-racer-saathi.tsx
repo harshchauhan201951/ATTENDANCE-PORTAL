@@ -766,7 +766,7 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
       if (!response.ok || !payload.success) throw new Error(payload.error || "Monthly results could not be loaded.");
       const periods = (payload.periods || []).filter((item: any) => Boolean(item.is_released) || (item.scheduled_release_at && Date.now() >= new Date(item.scheduled_release_at).getTime()));
       studentSaid("मंथली रिज़ल्ट");
-      menu(withMainMenu(periods.slice(0, 8).map((item: any) => ({ id: `monthly:${item.month_key}`, label: monthLabel(item.month_key), icon: "★" }))), periods.length ? "किस महीने का रिज़ल्ट खोलना है? सबसे नया महीना ऊपर है।" : "अभी कोई मंथली रिज़ल्ट जारी नहीं हुआ है।");
+      menu(withMainMenu(periods.map((item: any) => ({ id: `monthly:${item.month_key}`, label: monthLabel(item.month_key), icon: "★" }))), periods.length ? "किस महीने का रिज़ल्ट खोलना है? सबसे नया महीना ऊपर है।" : "अभी कोई मंथली रिज़ल्ट जारी नहीं हुआ है।");
     } catch (error) { reportError(error); }
     finally { setLoading(false); }
   };
