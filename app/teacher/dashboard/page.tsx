@@ -118,7 +118,6 @@ const vipGroups = [
   { title: "Finance", sub: "Fees & payments", paths: ["/teacher/fees", "/teacher/payments"] },
   { title: "Manage", sub: "Account & tools", paths: ["/teacher/voice-call", "/teacher/teachers", "/teacher/profile", "/teacher/settings"] },
 ];
-const vipQuick = ["/teacher/attendance", "/teacher/homework", "/teacher/fees", "/teacher/announcements"];
 const vipTones = ["blue", "violet", "green", "orange", "pink", "cyan"];
 const vipModule = (path: string) => menuItems.find((m) => m[1] === path)!;
 const vipTone = (path: string) => vipTones[menuItems.findIndex((m) => m[1] === path) % vipTones.length];
@@ -310,18 +309,6 @@ export default function TeacherDashboard() {
         </section>
 
         {teacherDateOfBirth && <StudentBirthdayWish studentName={displayName} dateOfBirth={teacherDateOfBirth} profileImage={profileImage} audience="teacher" />}
-        <section className="vip-td-quick" aria-label="Quick actions">
-          {vipQuick.map((path) => {
-            const m = vipModule(path);
-            return (
-              <button key={path} type="button" className="vip-td-q" data-tone={vipTone(path)} onPointerEnter={() => router.prefetch(path)} onFocus={() => router.prefetch(path)} onClick={() => router.push(path)}>
-                <span className="vip-td-q-ico"><Icon name={m[2]} size={21} /></span>
-                <span>{m[0]}</span>
-              </button>
-            );
-          })}
-        </section>
-
         <div id="teacher-modules">
           {vipGroups.map((group) => (
             <section key={group.title} className="vip-td-group">
