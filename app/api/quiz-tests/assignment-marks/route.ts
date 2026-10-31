@@ -65,23 +65,31 @@ export async function POST(request: Request) {
 
     const { data: existingResults, error: existingError } = await supabaseAdmin
       .from("quiz_results")
-      .select("id")
+      .select("id,attempt_number,submitted_at,submission_type")
       .eq("quiz_id", quizId)
       .eq("student_id", studentId)
-      .limit(1);
+      .order("attempt_number", { ascending: true });
     if (existingError) throw existingError;
-    if (existingResults?.length) return NextResponse.json({ success: false, error: "This student already has a quiz attempt or graded assignment." }, { status: 409 });
+
+    const rows = existingResults || [];
+    const assignmentResult = rows.find((row: any) => String(row.submission_type || "").toLowerCase() === "assignment");
+    const submittedAttempt = rows.find((row: any) => Boolean(row.submitted_at) && String(row.submission_type || "").toLowerCase() !== "assignment");
+    if (submittedAttempt) {
+      return NextResponse.json({ success: false, error: "This student already submitted the quiz, so assignment marks cannot replace that attempt." }, { status: 409 });
+    }
+
+    // Starting a quiz can create an unsubmitted placeholder result row. Reuse
+    // that row for assignment marks instead of rejecting the save as a duplicate.
+    const targetResult = assignmentResult || rows.find((row: any) => !row.submitted_at);
 
     const percentage = Math.round((obtainedMarks / totalMarks) * 10000) / 100;
     const configuredPassThreshold = quiz.pass_percentage == null ? 40 : Number(quiz.pass_percentage);
     const passThreshold = Number.isFinite(configuredPassThreshold) ? configuredPassThreshold : 40;
     const submittedAt = new Date().toISOString();
-    const { data: savedResult, error: saveError } = await supabaseAdmin
-      .from("quiz_results")
-      .insert({
+    const resultValues = {
         quiz_id: quizId,
         student_id: studentId,
-        attempt_number: 1,
+        attempt_number: targetResult?.attempt_number || 1,
         total_questions: 0,
         correct_answers: 0,
         wrong_answers: 0,
@@ -93,7 +101,11 @@ export async function POST(request: Request) {
         started_at: submittedAt,
         submitted_at: submittedAt,
         submission_type: "assignment",
-      })
+      };
+    const saveQuery = targetResult
+      ? supabaseAdmin.from("quiz_results").update(resultValues).eq("id", targetResult.id)
+      : supabaseAdmin.from("quiz_results").insert(resultValues);
+    const { data: savedResult, error: saveError } = await saveQuery
       .select("id,quiz_id,student_id,obtained_marks,total_marks,percentage,result_status,submitted_at,submission_type")
       .single();
 

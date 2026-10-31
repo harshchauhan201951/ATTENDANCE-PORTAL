@@ -3209,7 +3209,7 @@ function TeacherQuizResultsContent() {
                                                     {reattemptLoading === allowedKey ? "ALLOWING..." : "ALLOW RE-ATTEMPT"}
                                                   </button>
                                                 )}
-                                                {row.results.length === 0 && (
+                                                {(!hasSubmittedResult(row.results) || String(latest?.submission_type || "").toLowerCase() === "assignment") && (
                                                   <button
                                                     type="button"
                                                     style={{
@@ -3220,14 +3220,15 @@ function TeacherQuizResultsContent() {
                                                     }}
                                                     onClick={() => {
                                                       setAssignmentTarget(row);
-                                                      setAssignmentObtainedMarks("");
-                                                      setAssignmentTotalMarks("");
+                                                      const existingAssignment = String(latest?.submission_type || "").toLowerCase() === "assignment";
+                                                      setAssignmentObtainedMarks(existingAssignment ? String(latest?.obtained_marks ?? "") : "");
+                                                      setAssignmentTotalMarks(existingAssignment ? String(latest?.total_marks ?? "") : "");
                                                       setAssignmentFormError("");
                                                       setReattemptMessage("");
                                                     }}
                                                   >
                                                     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: "13px", height: "13px", verticalAlign: "-2px", marginRight: "4px" }}><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" /></svg>
-                                                    Assignment marks
+                                                    {String(latest?.submission_type || "").toLowerCase() === "assignment" ? "Edit assignment marks" : "Assignment marks"}
                                                   </button>
                                                 )}
                                                 <button
