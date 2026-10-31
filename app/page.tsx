@@ -401,12 +401,13 @@ export default function HomePage() {
   const studentUsernamePrefix = "STU10";
   const usernameRemainder = loginType === "student" ? username.slice(studentUsernamePrefix.length) : username;
   const usernameCharacters = Array.from(usernameRemainder);
-  const usernameBoxCount = Math.max(loginType === "teacher" ? 10 : 2, usernameCharacters.length);
+  const usernameBoxCount = Math.max(loginType === "teacher" ? 12 : 2, usernameCharacters.length);
   const passwordCharacters = Array.from(password);
-  const passwordBoxCount = Math.max(loginType === "teacher" ? 10 : 2, passwordCharacters.length);
+  const passwordBoxCount = Math.max(10, passwordCharacters.length);
   const [showPassword, setShowPassword] =
     useState(false);
   const [loading, setLoading] = useState(false);
+  const [loginVerified, setLoginVerified] = useState(false);
   const [error, setError] = useState("");
 
   const [academy, setAcademy] =
@@ -666,6 +667,7 @@ export default function HomePage() {
     }
 
     setError("");
+    setLoginVerified(false);
 
     const cleanUsername = username.trim();
     const cleanPassword = password;
@@ -815,6 +817,8 @@ export default function HomePage() {
             ""
         );
 
+        setLoginVerified(true);
+        await new Promise((resolve) => window.setTimeout(resolve, 850));
         setPassword("");
         router.push(
           "/student/dashboard"
@@ -1054,6 +1058,8 @@ export default function HomePage() {
       // Navigate directly to the teacher dashboard without a full page reload.
       // =========================================================
 
+      setLoginVerified(true);
+      await new Promise((resolve) => window.setTimeout(resolve, 850));
       setPassword("");
       router.replace("/teacher/dashboard");
 
@@ -1088,6 +1094,7 @@ export default function HomePage() {
     setUsername(type === "student" ? studentUsernamePrefix : "");
     setPassword("");
     setError("");
+    setLoginVerified(false);
     setShowPassword(false);
   };
 
@@ -2574,7 +2581,7 @@ export default function HomePage() {
                           <span key={`prefix-${index}`} className="credential-cell is-fixed">{character}</span>
                         ))}
                         {Array.from({ length: usernameBoxCount }, (_, index) => (
-                          <span key={`user-${index}`} className="credential-cell">{usernameCharacters[index] ?? ""}</span>
+                          <span key={`user-${index}`} className={`credential-cell${loginType === "student" && index < 2 ? " is-student-entry" : loginType === "teacher" && index < 12 ? " is-teacher-entry" : ""}`}>{usernameCharacters[index] ?? ""}</span>
                         ))}
                       </div>
 
@@ -2697,16 +2704,21 @@ export default function HomePage() {
                     </div>
                   )}
 
+                  {loginVerified && (
+                    <div className="login-verified" role="status" aria-live="polite">
+                      <span className="login-verified-mark" aria-hidden="true">✓</span>
+                      <span className="login-verified-copy"><strong>Verified successfully</strong><small>Opening your {loginType} dashboard…</small></span>
+                      <span className="login-verified-pill">VERIFIED</span>
+                    </div>
+                  )}
+
                   <button
                     type="submit"
                     className="login-button"
                     disabled={loading}
                   >
                     {loading ? (
-                      <>
-                        <span className="spinner" />
-                        Signing in...
-                      </>
+                      loginVerified ? <><span className="login-button-check" aria-hidden="true">✓</span> Verified · Opening dashboard…</> : <><span className="spinner" />Signing in...</>
                     ) : (
                       <>
                         Login as{" "}
@@ -5391,6 +5403,248 @@ export default function HomePage() {
 .racer-login-card .racer-form > .login-error { width:100%!important; min-width:0!important; max-width:100%!important; box-sizing:border-box!important; }
 .racer-login-card .input-box { width:100%!important; min-width:0!important; max-width:100%!important; box-sizing:border-box!important; }
 .racer-login-card .credential-cells { min-width:0!important; max-width:100%!important; }
+
+/* Premium login finish: richer desktop split panel, touch-friendly mobile form. */
+.racer-login-page {
+  isolation:isolate!important;
+  background:
+    radial-gradient(ellipse at 14% 14%,rgba(37,99,235,.23),transparent 34%),
+    radial-gradient(ellipse at 88% 82%,rgba(212,164,59,.12),transparent 31%),
+    linear-gradient(135deg,#061326 0%,#0a1d35 52%,#101b34 100%)!important;
+}
+.racer-login-page:before,.racer-login-page:after {
+  position:fixed;z-index:-1;border:1px solid rgba(232,193,97,.13);border-radius:50%;content:"";pointer-events:none;
+}
+.racer-login-page:before { top:-260px;right:-150px;width:620px;height:620px;box-shadow:0 0 0 26px rgba(232,193,97,.025),0 0 0 54px rgba(232,193,97,.02),0 0 110px rgba(41,114,220,.14); }
+.racer-login-page:after { bottom:-330px;left:-220px;width:660px;height:660px;box-shadow:0 0 0 25px rgba(113,164,235,.025),0 0 0 52px rgba(113,164,235,.02); }
+.background-grid { opacity:.16!important;background-size:42px 42px!important; }
+.orb-one { background:#1c63c4!important;opacity:.17!important;filter:blur(34px)!important; }
+.orb-two { background:#b98220!important;opacity:.12!important;filter:blur(42px)!important; }
+.page-shell { max-width:1280px!important; }
+.racer-login-card {
+  border:1px solid rgba(229,190,94,.38)!important;
+  border-radius:32px!important;
+  background:linear-gradient(145deg,rgba(9,26,48,.97),rgba(5,17,33,.985))!important;
+  box-shadow:0 34px 90px rgba(0,0,0,.46),0 0 0 7px rgba(255,255,255,.018),inset 0 1px rgba(255,255,255,.09)!important;
+}
+.racer-login-card:before { inset:-38% -10% auto auto!important;width:390px!important;height:390px!important;background:radial-gradient(circle,rgba(60,132,232,.25),rgba(62,120,205,.08) 38%,transparent 69%)!important; }
+.racer-login-card:after { width:340px!important;height:250px!important;background:radial-gradient(circle,rgba(226,180,72,.16),transparent 70%)!important; }
+.login-logo { align-items:center!important; }
+.login-logo-icon { border-radius:17px!important;box-shadow:0 0 0 4px rgba(232,190,89,.1),0 12px 28px rgba(222,169,50,.22)!important; }
+.login-brand { letter-spacing:1.5px!important; }
+.login-subtitle { color:#9db3d0!important;letter-spacing:.35px!important; }
+.mobile-welcome-panel {
+  position:relative!important;isolation:isolate!important;overflow:hidden!important;
+  border:1px solid rgba(255,255,255,.18)!important;
+  background:radial-gradient(circle at 20% 14%,rgba(255,255,255,.17),transparent 34%),radial-gradient(circle at 100% 100%,rgba(36,199,218,.22),transparent 38%),linear-gradient(145deg,#2364cd 0%,#183f91 52%,#111f58 100%)!important;
+  box-shadow:inset 0 1px rgba(255,255,255,.18),0 20px 48px rgba(0,0,0,.2)!important;
+}
+.mobile-welcome-panel:after { z-index:-1!important;top:auto!important;right:-58px!important;bottom:-110px!important;width:310px!important;height:310px!important;border-color:rgba(255,226,152,.28)!important;box-shadow:0 0 0 18px rgba(255,226,152,.045),0 0 0 39px rgba(255,226,152,.035),0 0 65px rgba(64,170,239,.16)!important; }
+.mobile-welcome-panel:before { position:relative!important;z-index:1!important;color:#ffe9ad!important;font-size:10px!important;font-weight:950!important;letter-spacing:1.7px!important; }
+.mobile-welcome-copy { position:relative!important;z-index:1!important; }
+.mobile-welcome-copy strong { text-wrap:balance!important;text-shadow:0 4px 18px rgba(2,15,50,.2)!important; }
+.mobile-welcome-art { position:relative!important;overflow:hidden!important;border:1px solid rgba(255,233,175,.66)!important;box-shadow:0 0 0 7px rgba(255,255,255,.06),0 20px 44px rgba(0,0,0,.28)!important; }
+.mobile-welcome-art:after { position:absolute;inset:0;border-radius:inherit;background:linear-gradient(145deg,rgba(255,255,255,.22),transparent 48%);content:"";pointer-events:none; }
+.racer-login-card--student .mobile-welcome-panel { background:radial-gradient(circle at 20% 14%,rgba(255,255,255,.17),transparent 34%),radial-gradient(circle at 100% 100%,rgba(36,199,218,.22),transparent 38%),linear-gradient(145deg,#2364cd 0%,#183f91 52%,#111f58 100%)!important; }
+.racer-login-card--teacher .mobile-welcome-panel { background:radial-gradient(circle at 20% 14%,rgba(255,255,255,.15),transparent 34%),radial-gradient(circle at 100% 100%,rgba(235,178,62,.2),transparent 38%),linear-gradient(145deg,#45647e 0%,#203c57 52%,#111f35 100%)!important; }
+.login-switch { border:1px solid rgba(255,255,255,.1)!important;background:rgba(255,255,255,.045)!important;box-shadow:inset 0 1px rgba(255,255,255,.035)!important; }
+.switch-button { transition:background .2s ease,color .2s ease,transform .2s ease,box-shadow .2s ease!important; }
+.switch-button:not(.active):hover { color:#e9f2ff!important;background:rgba(255,255,255,.06)!important; }
+.racer-login-card--student .switch-button.active { background:linear-gradient(135deg,#347bea,#2250b7)!important;box-shadow:0 8px 22px rgba(35,102,214,.27),inset 0 1px rgba(255,255,255,.18)!important; }
+.racer-login-card--teacher .switch-button.active { background:linear-gradient(135deg,#f3d17b,#c48a21)!important;box-shadow:0 8px 22px rgba(205,151,37,.2),inset 0 1px rgba(255,255,255,.28)!important; }
+.portal-badge { padding:6px 10px!important;border-color:rgba(138,183,249,.25)!important;background:rgba(63,120,206,.13)!important;color:#b4d4ff!important; }
+.racer-login-card--teacher .portal-badge { border-color:rgba(244,206,111,.25)!important;background:rgba(196,141,32,.13)!important;color:#ffdf91!important; }
+.login-heading h2 { letter-spacing:-.8px!important; }
+.login-heading p { color:#a2b4cd!important; }
+.input-group label { color:#d5e1f0!important;font-size:10px!important;letter-spacing:.65px!important; }
+.input-box { border-color:rgba(157,184,219,.24)!important;background:linear-gradient(135deg,rgba(255,255,255,.07),rgba(255,255,255,.035))!important;box-shadow:inset 0 1px rgba(255,255,255,.045)!important; }
+.input-box:focus-within { border-color:rgba(113,176,255,.85)!important;box-shadow:0 0 0 4px rgba(54,127,226,.15),inset 0 1px rgba(255,255,255,.08)!important; }
+.credential-cell { border-color:rgba(161,187,219,.28)!important;background:linear-gradient(180deg,rgba(28,53,82,.92),rgba(12,31,54,.94))!important;color:#d8e7fa!important; }
+.credential-cell.is-fixed,.credential-cells--student .credential-cell:not(.is-fixed):not(:empty),.credential-cells--teacher .credential-cell:not(:empty) { border-color:rgba(132,183,255,.65)!important;background:linear-gradient(150deg,#4388ed,#2458b4)!important;box-shadow:0 4px 12px rgba(35,103,210,.22)!important; }
+.credential-cells--password .credential-cell { border-color:rgba(238,202,119,.4)!important;background:linear-gradient(155deg,rgba(107,84,34,.72),rgba(65,48,22,.82))!important;color:#ffe5a2!important; }
+.credential-cells--password .credential-cell:not(:empty) { border-color:#f0cd72!important;background:linear-gradient(155deg,#ffe7a1,#dca83d)!important;color:#29200f!important; }
+.credential-hint { color:#8ea5c3!important;font-size:10px!important; }
+.login-button { position:relative!important;overflow:hidden!important;min-height:54px!important;border:1px solid rgba(255,235,183,.56)!important;border-radius:15px!important;background:linear-gradient(115deg,#ffe39a 0%,#e8bb56 48%,#ca8f29 100%)!important;color:#162238!important;font-size:14px!important;letter-spacing:.2px!important;box-shadow:0 12px 28px rgba(201,147,39,.23),inset 0 1px rgba(255,255,255,.48)!important;transition:transform .18s ease,filter .18s ease,box-shadow .18s ease!important; }
+.login-button:after { position:absolute;top:-80%;left:-30%;width:22%;height:260%;transform:rotate(22deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.38),transparent);content:"";transition:left .55s ease; }
+.login-button:hover:not(:disabled) { transform:translateY(-2px)!important;filter:brightness(1.04)!important;box-shadow:0 16px 30px rgba(201,147,39,.3),inset 0 1px rgba(255,255,255,.5)!important; }
+.login-button:hover:not(:disabled):after { left:115%; }
+.racer-login-card--student .login-button { color:#fff!important;border-color:rgba(153,196,255,.56)!important;background:linear-gradient(115deg,#4d94ff,#3470df 52%,#2447ac)!important;box-shadow:0 12px 28px rgba(38,99,212,.28),inset 0 1px rgba(255,255,255,.23)!important; }
+.racer-login-card--student .login-button span { color:#fff!important; }
+.racer-login-card--student .login-button:hover:not(:disabled) { box-shadow:0 16px 30px rgba(38,99,212,.36),inset 0 1px rgba(255,255,255,.25)!important; }
+.secure-footer { color:#a1b5d1!important;letter-spacing:.2px!important; }
+.login-help { border-top-color:rgba(255,255,255,.11)!important;color:#8da3c1!important; }
+.academy-more-link { color:#d0b46d!important; }
+.academy-more-link:hover { color:#ffe49c!important; }
+.page-footer { color:#a2b6d2!important; }
+.login-error { border-color:rgba(255,133,133,.3)!important;background:rgba(123,31,42,.25)!important;backdrop-filter:blur(10px)!important; }
+.racer-login-card :is(button,input):focus-visible { outline:3px solid rgba(135,190,255,.82)!important;outline-offset:3px!important; }
+@media(min-width:701px) {
+  .racer-login-page { padding:clamp(28px,5vw,72px)!important; }
+  .racer-login-card { min-height:600px!important;grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr)!important;column-gap:clamp(36px,5vw,76px)!important;padding:clamp(36px,5vw,68px)!important; }
+  .login-logo { margin-bottom:30px!important;padding-bottom:19px!important; }
+  .mobile-welcome-panel { min-height:490px!important;padding:clamp(30px,4vw,48px)!important;border-radius:28px!important; }
+  .mobile-welcome-copy { align-self:flex-start!important;margin-top:auto!important;margin-bottom:auto!important; }
+  .mobile-welcome-copy strong { font-size:clamp(34px,4vw,52px)!important; }
+  .mobile-welcome-copy span { max-width:330px!important;font-size:16px!important;line-height:1.65!important; }
+  .mobile-welcome-art { width:126px!important;height:126px!important;flex-basis:126px!important;border-radius:34px!important; }
+  .login-switch { margin-bottom:24px!important; }
+  .switch-button { min-height:52px!important;font-size:12px!important; }
+  .login-heading { margin-bottom:20px!important; }
+  .portal-badge { font-size:9px!important; }
+  .login-heading h2 { font-size:clamp(30px,3vw,38px)!important; }
+  .login-heading p { font-size:14px!important; }
+  .racer-form { gap:17px!important; }
+  .input-box { min-height:58px!important; }
+  .credential-cell { width:30px!important;height:36px!important;flex-basis:30px!important;border-radius:9px!important;font-size:14px!important; }
+}
+@media(max-width:700px) {
+  .racer-login-page { min-height:100svh!important;padding:14px 13px calc(20px + env(safe-area-inset-bottom))!important;background:radial-gradient(ellipse at 0% 0%,rgba(44,111,227,.21),transparent 42%),radial-gradient(ellipse at 100% 100%,rgba(213,157,43,.1),transparent 34%),linear-gradient(160deg,#061326,#0b203a 55%,#101a33)!important; }
+  .racer-login-card { border-radius:27px!important;padding:20px 17px 18px!important;box-shadow:0 24px 60px rgba(0,0,0,.38),0 0 0 5px rgba(255,255,255,.018),inset 0 1px rgba(255,255,255,.09)!important; }
+  .login-logo { margin-bottom:16px!important;padding-bottom:14px!important; }
+  .login-logo-icon { width:46px!important;height:46px!important;flex-basis:46px!important; }
+  .mobile-welcome-panel { min-height:126px!important;margin-bottom:17px!important;padding:17px!important;border-radius:20px!important; }
+  .mobile-welcome-copy { gap:7px!important; }
+  .mobile-welcome-copy strong { font-size:clamp(19px,5vw,23px)!important; }
+  .mobile-welcome-copy span { max-width:235px!important;font-size:12px!important; }
+  .mobile-welcome-art { width:62px!important;height:62px!important;flex-basis:62px!important;border-radius:18px!important; }
+  .login-switch { margin-bottom:18px!important; }
+  .switch-button { min-height:46px!important;font-size:11px!important; }
+  .login-heading { margin-bottom:15px!important; }
+  .login-heading h2 { font-size:26px!important; }
+  .login-heading p { font-size:12px!important; }
+  .racer-form { gap:14px!important; }
+  .input-group label { font-size:11px!important; }
+  .input-box { min-height:52px!important;border-radius:14px!important; }
+  .credential-cell { width:25px!important;height:32px!important;flex-basis:25px!important; }
+  .login-button { min-height:52px!important;font-size:13px!important; }
+  .secure-footer { margin-top:15px!important;font-size:9px!important; }
+  .login-help { margin-top:13px!important;padding-top:12px!important;font-size:9px!important; }
+  .page-footer { display:flex!important;gap:4px!important;padding:13px 4px 0!important;font-size:9px!important; }
+}
+@media(max-width:380px) {
+  .racer-login-page { padding-right:10px!important;padding-left:10px!important; }
+  .racer-login-card { padding:17px 13px!important; }
+  .mobile-welcome-panel { min-height:112px!important;padding:14px!important; }
+  .mobile-welcome-art { width:54px!important;height:54px!important;flex-basis:54px!important; }
+  .credential-cell { width:22px!important;height:29px!important;flex-basis:22px!important; }
+}
+@media(max-width:700px) and (max-height:760px) {
+  .racer-login-page { align-items:flex-start!important;padding-top:8px!important; }
+  .racer-login-card { padding:13px 14px!important; }
+  .mobile-welcome-panel { min-height:74px!important;margin-bottom:10px!important;padding:10px 13px!important; }
+  .mobile-welcome-copy span { display:block!important; }
+  .mobile-welcome-art { width:42px!important;height:42px!important;flex-basis:42px!important; }
+  .login-logo { margin-bottom:10px!important;padding-bottom:9px!important; }
+  .login-switch { margin-bottom:10px!important; }
+  .login-heading { margin-bottom:9px!important; }
+  .login-heading p { display:block!important; }
+  .racer-form { gap:9px!important; }
+  .input-box { min-height:44px!important; }
+  .login-button { min-height:46px!important; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .login-button,.switch-button { transition:none!important; }
+  .login-button:after { display:none!important; }
+}
+
+/* Bright, colorful academy palette requested for the login screen. */
+.racer-login-page {
+  background:
+    radial-gradient(ellipse at 12% 10%,rgba(255,196,113,.29),transparent 31%),
+    radial-gradient(ellipse at 88% 17%,rgba(124,143,255,.25),transparent 34%),
+    radial-gradient(ellipse at 76% 92%,rgba(92,221,212,.2),transparent 32%),
+    linear-gradient(135deg,#f8fbff 0%,#eef5ff 52%,#fff8ef 100%)!important;
+  color:#17324d!important;
+}
+.racer-login-page:before,.racer-login-page:after { border-color:rgba(70,128,225,.12)!important;box-shadow:0 0 0 26px rgba(109,151,235,.035),0 0 0 54px rgba(245,171,76,.03)!important; }
+.background-grid { opacity:.11!important;background-image:linear-gradient(rgba(38,76,122,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(38,76,122,.035) 1px,transparent 1px)!important; }
+.orb-one { background:#99baff!important;opacity:.3!important; }
+.orb-two { background:#ffd28a!important;opacity:.28!important; }
+.racer-login-card {
+  border:1px solid rgba(77,122,188,.17)!important;
+  background:rgba(255,255,255,.96)!important;
+  box-shadow:0 30px 85px rgba(42,78,122,.17),0 0 0 7px rgba(255,255,255,.5),inset 0 1px #fff!important;
+  color:#183650!important;
+}
+.racer-login-card:before { background:radial-gradient(circle,rgba(111,162,255,.18),rgba(255,207,133,.08) 45%,transparent 70%)!important; }
+.racer-login-card:after { background:radial-gradient(circle,rgba(255,187,99,.17),transparent 70%)!important; }
+.login-logo { border-bottom:1px solid #edf1f7!important; }
+.login-logo-icon { border-color:#fff!important;box-shadow:0 0 0 4px rgba(86,133,228,.08),0 12px 25px rgba(77,120,203,.2)!important; }
+.login-brand { color:#163b62!important; }
+.login-brand span { color:#4a78df!important; }
+.login-subtitle { color:#72859b!important; }
+.mobile-welcome-panel {
+  border-color:rgba(255,255,255,.65)!important;
+  background:radial-gradient(circle at 17% 12%,rgba(255,255,255,.38),transparent 34%),radial-gradient(circle at 93% 92%,rgba(255,220,118,.55),transparent 34%),linear-gradient(135deg,#458ef0 0%,#675cde 56%,#a64fb7 100%)!important;
+  box-shadow:inset 0 1px rgba(255,255,255,.52),0 20px 45px rgba(76,103,193,.2)!important;
+}
+.mobile-welcome-panel:after { border-color:rgba(255,255,255,.38)!important;box-shadow:0 0 0 18px rgba(255,255,255,.1),0 0 0 39px rgba(255,224,144,.12),0 0 65px rgba(255,255,255,.22)!important; }
+.mobile-welcome-panel:before { color:#fff2c8!important;text-shadow:0 2px 12px rgba(59,43,127,.25)!important; }
+.mobile-welcome-copy strong { color:#fff!important;text-shadow:0 3px 16px rgba(53,51,130,.18)!important; }
+.mobile-welcome-copy span { color:rgba(255,255,255,.91)!important; }
+.mobile-welcome-art { border-color:rgba(255,255,255,.82)!important;background:linear-gradient(145deg,#263f91,#572f9a)!important;box-shadow:0 0 0 7px rgba(255,255,255,.18),0 18px 36px rgba(50,45,115,.25)!important; }
+.racer-login-card--student .mobile-welcome-panel { background:radial-gradient(circle at 17% 12%,rgba(255,255,255,.38),transparent 34%),radial-gradient(circle at 93% 92%,rgba(255,224,128,.55),transparent 34%),linear-gradient(135deg,#438ef2 0%,#5969e7 53%,#8248c8 100%)!important; }
+.racer-login-card--teacher .mobile-welcome-panel { background:radial-gradient(circle at 17% 12%,rgba(255,255,255,.42),transparent 34%),radial-gradient(circle at 92% 92%,rgba(255,236,146,.56),transparent 35%),linear-gradient(135deg,#ffad51 0%,#f07869 50%,#ad5fc4 100%)!important; }
+.racer-login-card--teacher .mobile-welcome-art { background:linear-gradient(145deg,#a44e9c,#693eae)!important; }
+.login-switch { border-color:#e8edf5!important;background:#f4f6fb!important;box-shadow:inset 0 1px #fff!important; }
+.switch-button { color:#71839a!important; }
+.switch-button:not(.active):hover { color:#31577f!important;background:rgba(83,123,185,.07)!important; }
+.racer-login-card--student .switch-button.active { color:#fff!important;background:linear-gradient(120deg,#4e91f2,#6759da)!important;box-shadow:0 8px 18px rgba(76,112,216,.2),inset 0 1px rgba(255,255,255,.28)!important; }
+.racer-login-card--teacher .switch-button.active { color:#fff!important;background:linear-gradient(120deg,#ffad55,#ed776b)!important;box-shadow:0 8px 18px rgba(229,131,88,.2),inset 0 1px rgba(255,255,255,.32)!important; }
+.portal-badge { border-color:#dce8ff!important;background:#eff5ff!important;color:#4d73bf!important; }
+.racer-login-card--teacher .portal-badge { border-color:#ffe3cd!important;background:#fff4e9!important;color:#c06c3c!important; }
+.login-heading h2 { color:#183650!important; }
+.login-heading p { color:#71849a!important; }
+.input-group label { color:#405b76!important; }
+.input-box { border-color:#dce5f0!important;background:linear-gradient(135deg,#fff,#f8fbff)!important;box-shadow:inset 0 1px #fff!important; }
+.input-box:focus-within { border-color:#7da7ed!important;box-shadow:0 0 0 4px rgba(91,142,224,.12),inset 0 1px #fff!important; }
+.input-box input { color:#193c5d!important; }
+.input-box input::placeholder { color:#a0afc0!important; }
+.password-toggle { color:#607890!important; }
+.credential-cell { border-color:#d5e0ed!important;background:linear-gradient(180deg,#fff,#f1f6fc)!important;color:#294865!important;box-shadow:inset 0 1px 2px rgba(25,52,77,.035)!important; }
+.credential-cell.is-fixed,.credential-cells--student .credential-cell:not(.is-fixed):not(:empty),.credential-cells--teacher .credential-cell:not(:empty) { border-color:#9ebcf4!important;background:linear-gradient(150deg,#82b7ff,#547ee2)!important;color:#fff!important;box-shadow:0 4px 10px rgba(64,110,211,.16)!important; }
+.credential-cell.is-student-entry { border-color:#9ebcf4!important;background:linear-gradient(150deg,#82b7ff,#547ee2)!important;color:#fff!important;box-shadow:0 4px 10px rgba(64,110,211,.16)!important; }
+.credential-cells--teacher .credential-cell:not(:empty) { border-color:#ffc991!important;background:linear-gradient(150deg,#ffbe7b,#ee876d)!important; }
+.credential-cells--teacher .credential-cell.is-teacher-entry,.credential-cells--teacher .credential-cell:not(:empty) { border-color:#9ebcf4!important;background:linear-gradient(150deg,#82b7ff,#547ee2)!important;color:#fff!important;box-shadow:0 4px 10px rgba(64,110,211,.16)!important; }
+.credential-cells--password .credential-cell { border-color:#f5d999!important;background:linear-gradient(155deg,#fff8e3,#ffecbd)!important;color:#8b6416!important; }
+.credential-cells--password .credential-cell:not(:empty) { border-color:#edc86d!important;background:linear-gradient(155deg,#ffe79a,#ffc965)!important;color:#5d4110!important; }
+.credential-hint { color:#8495a8!important; }
+.login-button { color:#fff!important;border-color:rgba(255,255,255,.76)!important;background:linear-gradient(110deg,#ffb454 0%,#f78a68 48%,#dc69a1 100%)!important;box-shadow:0 12px 25px rgba(230,126,102,.22),inset 0 1px rgba(255,255,255,.45)!important; }
+.login-button span { color:#fff!important; }
+.login-button:hover:not(:disabled) { box-shadow:0 16px 30px rgba(230,126,102,.27),inset 0 1px rgba(255,255,255,.5)!important; }
+.racer-login-card--student .login-button { color:#fff!important;border-color:rgba(255,255,255,.72)!important;background:linear-gradient(110deg,#4b95f4,#596fe7 52%,#7854d3)!important;box-shadow:0 12px 25px rgba(82,113,219,.23),inset 0 1px rgba(255,255,255,.34)!important; }
+.racer-login-card--student .login-button span { color:#fff!important; }
+.racer-login-card--student .login-button:hover:not(:disabled) { box-shadow:0 16px 30px rgba(82,113,219,.3),inset 0 1px rgba(255,255,255,.4)!important; }
+.secure-footer { display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;text-align:center!important;color:#6e859c!important; }
+.footer-separator { color:#d1a04a!important; }
+.login-help { border-top-color:#edf1f6!important;color:#7d8fa3!important; }
+.academy-more-link,.academy-more-link:hover { color:#5878ca!important; }
+.page-footer { color:#70859a!important; }
+.login-error { border-color:#ffd1cf!important;background:#fff4f2!important;color:#a44642!important;box-shadow:0 5px 14px rgba(176,69,59,.07)!important; }
+.racer-login-card :is(button,input):focus-visible { outline:3px solid rgba(91,142,224,.55)!important;outline-offset:3px!important; }
+.login-logo { justify-content:center!important;text-align:center!important; }
+.login-logo > div:last-child { display:grid!important;justify-items:center!important;gap:5px!important; }
+.login-brand { white-space:nowrap!important; }
+.login-brand span { display:inline!important;margin-left:5px!important;font-size:.76em!important;letter-spacing:1.45px!important;vertical-align:baseline!important; }
+.login-subtitle { margin-top:0!important;text-align:center!important; }
+.login-verified { display:flex!important;align-items:center!important;gap:10px!important;width:100%!important;padding:11px 13px!important;border:1px solid #bce9d1!important;border-radius:14px!important;background:linear-gradient(110deg,#f0fff6,#e5fbef)!important;color:#145d3a!important;box-shadow:0 5px 14px rgba(28,133,79,.07)!important; }
+.login-verified-mark { display:grid!important;width:30px!important;height:30px!important;flex:0 0 30px!important;place-items:center!important;border-radius:50%!important;background:linear-gradient(140deg,#35bd7b,#178a5a)!important;color:#fff!important;font-size:17px!important;font-weight:1000!important;box-shadow:0 4px 10px rgba(27,144,87,.2)!important; }
+.login-verified-copy { display:grid!important;min-width:0!important;gap:2px!important; }
+.login-verified-copy strong { color:#145d3a!important;font-size:12px!important;font-weight:950!important; }
+.login-verified-copy small { color:#468065!important;font-size:10px!important; }
+.login-verified-pill { margin-left:auto!important;padding:5px 8px!important;border:1px solid #b4e5ca!important;border-radius:999px!important;background:#fff!important;color:#168153!important;font-size:8px!important;font-weight:1000!important;letter-spacing:.7px!important; }
+.login-button-check { display:inline-grid!important;width:22px!important;height:22px!important;place-items:center!important;margin-right:7px!important;border:1px solid rgba(255,255,255,.55)!important;border-radius:50%!important;background:rgba(255,255,255,.18)!important;color:inherit!important;font-size:14px!important;font-weight:1000!important; }
+@media(max-width:700px) {
+  .racer-login-page { background:radial-gradient(ellipse at 4% 2%,rgba(255,193,113,.3),transparent 35%),radial-gradient(ellipse at 100% 18%,rgba(117,144,255,.22),transparent 40%),linear-gradient(165deg,#f7faff,#f0f5ff 56%,#fff8ef)!important; }
+  .racer-login-card { border-color:rgba(88,126,184,.17)!important;background:rgba(255,255,255,.97)!important;box-shadow:0 24px 60px rgba(55,86,129,.16),0 0 0 5px rgba(255,255,255,.58),inset 0 1px #fff!important; }
+  .login-verified { gap:8px!important;padding:10px!important; }
+  .login-verified-pill { padding:4px 6px!important;font-size:7px!important; }
+  .login-logo { border-bottom-color:#edf1f7!important; }
+  .page-footer { color:#73879d!important; }
+}
+@media(max-width:700px) and (max-height:760px) {
+  .racer-login-page { background:linear-gradient(160deg,#f4f8ff,#edf3ff 58%,#fff7eb)!important; }
+}
 
 `}</style>
     </>
