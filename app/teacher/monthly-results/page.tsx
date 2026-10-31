@@ -6,7 +6,6 @@ import { downloadPdfFile } from "../../../lib/download-pdf";
 import { buildMonthlyResultPdf } from "../../../lib/monthly-result-pdf";
 import * as XLSX from "xlsx";
 import { isOnOrAfterAdmission } from "../../../lib/admission-date";
-import { getMonthlyMahaTestDate } from "../../../lib/monthly-calendar";
 import {
   calculateMonthlyTotals,
   isSaturday,
@@ -171,16 +170,19 @@ export default function MonthlyResultsPage() {
       // Deactivated students stay in the published archive, but are excluded from new/current result rosters.
       const ss = (studentsRes.data || []).filter((s: any) => s.is_active !== false && (!assigned || assigned.includes(Number(s.id))));
 
-      const savedMahaDate = String(savedData.mahatest?.test_date || "").slice(0, 10);
-      const effectiveMahaDate = savedMahaDate || (monthKey ? getMonthlyMahaTestDate(monthKey) : "");
-      const previousMahaDates = (mahaHistoryRes.data || [])
-        .map((r: any) => String(r.test_date || "").slice(0, 10))
-        .filter((d: string) => d && d < effectiveMahaDate)
-        .sort();
-      const previousMahaDate = previousMahaDates.length ? previousMahaDates[previousMahaDates.length - 1] : "";
-      // The first MahaTest includes every eligible record before its date.
-      // Later tests start the day after the previous MahaTest to prevent repeats.
+      const previousMahaRows = (mahaHistoryRes.data || [])
+        .filter((row: any) => String(row.month_key || "") < monthKey && String(row.test_date || "").slice(0, 10))
+        .sort((a: any, b: any) => String(a.month_key).localeCompare(String(b.month_key)) || String(a.test_date).localeCompare(String(b.test_date)));
+      const lastPreviousMahaDate = String(previousMahaRows.at(-1)?.test_date || "").slice(0, 10);
+      // The September 2026 MahaTest was held on 3 October; October results
+      // therefore begin with records dated 4 October, through the date chosen below.
+      const octoberBoundaryDate = monthKey === "2026-10" ? "2026-10-03" : "";
+      const previousMahaDate = [lastPreviousMahaDate, octoberBoundaryDate].filter(Boolean).sort().at(-1) || "";
       const effectivePeriodStart = previousMahaDate ? addOneDay(previousMahaDate) : "";
+      const savedMahaDate = String(savedData.mahatest?.test_date || "").slice(0, 10);
+      // Leave a new result's date blank. Keep a previously saved, valid choice
+      // when editing that same monthly result.
+      const effectiveMahaDate = savedMahaDate && (!effectivePeriodStart || savedMahaDate >= effectivePeriodStart) ? savedMahaDate : "";
 
       setAllStudents(studentsRes.data || []); setStudents(ss); setQuizzes(allQuizRows); setQuizResults(allQuizResults); setTests(allWeeklyTestRows); setMahaHistory(mahaHistoryRes.data || []);
       setMahaDate(effectiveMahaDate);
@@ -213,7 +215,7 @@ export default function MonthlyResultsPage() {
         if (!q) return false;
         const scheduledDate = scheduledQuizDate(q, r);
         if (!isSubmittedQuizResult(r) || !scheduledDate || (start && scheduledDate < start) || (cutoff && scheduledDate > cutoff)) return false;
-        if (!cutoff || !isOnOrAfterAdmission(student.admission_date, scheduledDate)) return false;
+        if (!isOnOrAfterAdmission(student.admission_date, scheduledDate)) return false;
         return quizTargetsStudent(q, student.class_name || "");
       })
       .sort((a, b) => {
@@ -269,7 +271,7 @@ export default function MonthlyResultsPage() {
     }
     const excludedTestIds = new Set(excluded?.weeklyTests || []);
     const includedWeeklyTests = tEntries.filter((entry) => !excludedTestIds.has(Number(entry.id)));
-    const mahaEligible = isOnOrAfterAdmission(student.admission_date, mahaDate);
+    const mahaEligible = Boolean(mahaDate) && isOnOrAfterAdmission(student.admission_date, mahaDate);
     const mahaValue = !mahaEligible || mahaMarks[Number(student.id)] === undefined || mahaMarks[Number(student.id)] === "" ? null : Math.max(0, Math.min(100, Number(mahaMarks[Number(student.id)])));
     const totals = calculateMonthlyTotals({ quizzes: includedQuizzes, weeklyTests: includedWeeklyTests, mahaObtained: mahaValue, passPercentage: Number(passPercentage) || 40 });
     return {
@@ -392,6 +394,8 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
   async function persistMonthly(action:"save"|"schedule"|"publish"): Promise<boolean> {
     setSaving(true); setError(""); setMessage("");
     try {
+      if (!mahaDate) throw new Error("Please select the MahaTest date first.");
+      if (periodStart && mahaDate < periodStart) throw new Error(`Choose a MahaTest date on or after ${formatDate(periodStart)}.`);
       if (!isSaturday(mahaDate)) throw new Error("MahaTest date must be a Saturday.");
       const releaseIso = releaseInput ? isoForISTDateTime(releaseInput) : null;
       if ((action === "schedule" || action === "publish") && !releaseIso) throw new Error("Please select a valid release date/time.");
@@ -626,9 +630,9 @@ const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [
         <label className={styles.field}>Result month<input type="month" value={monthKey} onChange={e=>setMonthKey(e.target.value)} /></label>
         <label className={styles.field}>Release date & time (IST)<input type="datetime-local" value={releaseInput} onChange={e=>setReleaseInput(e.target.value)} /></label>
         <label className={styles.field}>Pass percentage<input type="number" min="0" max="100" value={passPercentage} onChange={e=>setPassPercentage(e.target.value)} /></label>
-        <label className={styles.field}>MahaTest date<input type="date" value={mahaDate} onChange={e=>{const value=e.target.value;setMahaDate(value);setReleaseInput(defaultReleaseInput(value));}} /></label>
+        <label className={styles.field}>MahaTest date<input type="date" min={periodStart || undefined} value={mahaDate} onChange={e=>{const value=e.target.value;setMahaDate(value);setReleaseInput(defaultReleaseInput(value));}} /></label>
       </div>
-      <div className={styles.periodNote}><span>✦</span><div><strong>2 hours · 100 marks · Result declared the next day</strong><small>Included period: {periodStart || "All available dates"} to {mahaDate || "—"}. Records from earlier monthly results are not repeated.</small></div></div>
+      <div className={styles.periodNote}><span>✦</span><div><strong>2 hours · 100 marks · Result declared the next day</strong><small>Included records: {periodStart ? `from ${formatDate(periodStart)}` : "all available dates"} to {mahaDate ? formatDate(mahaDate) : "available dates (select a MahaTest date to set the cutoff)"}. Records from earlier monthly results are not repeated.</small></div></div>
       {error && <div className={styles.error}>{error}</div>}{message && <div className={styles.success}>{message}</div>}
       <div className={styles.actions}><button type="button" onClick={calculateOnly} className={styles.buttonSoft}>Recalculate</button><button type="button" onClick={saveOnly} disabled={saving} className={styles.buttonSoft}>Save all results</button><button type="button" onClick={scheduleOnly} disabled={saving} className={styles.buttonSoft}>Schedule release</button><button type="button" onClick={publishNow} disabled={saving} className={styles.buttonPrimary}>{saving ? "Saving…" : "Publish results ↗"}</button><button type="button" onClick={downloadExcel} className={styles.buttonExcel}>↓ Excel</button></div>
     </section>
