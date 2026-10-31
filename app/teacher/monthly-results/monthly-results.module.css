@@ -29,3 +29,37 @@
 .heroHeaderActions{display:flex;align-items:center;gap:9px}.headerScheduleButton{border:1px solid rgba(255,255,255,.55);border-radius:999px;padding:9px 13px;background:#fff;color:#384a9a;font-size:10px;font-weight:950;letter-spacing:.02em;cursor:pointer}.headerScheduleButton:hover{background:#f5f3ff}.headerScheduleButton:disabled{opacity:.5;cursor:wait}
 .scheduleOverlay{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:18px;background:rgba(14,22,45,.52);backdrop-filter:blur(5px)}.scheduleDialog{width:min(100%,460px);padding:24px;border:1px solid #e2e4f0;border-radius:22px;background:#fff;box-shadow:0 24px 70px rgba(16,27,58,.28)}.scheduleEyebrow{color:#5d52c5;font-size:9px;font-weight:950;letter-spacing:.13em}.scheduleDialog h2{margin:8px 0 0;color:#192747;font-size:22px;letter-spacing:-.4px}.scheduleDialog p{margin:9px 0 18px;color:#68758d;font-size:12px;line-height:1.6}.scheduleField{display:flex;flex-direction:column;gap:8px;color:#4e5c76;font-size:11px;font-weight:850}.scheduleField input{box-sizing:border-box;width:100%;min-height:44px;padding:10px 11px;border:1px solid #dce2ef;border-radius:11px;background:#fbfcff;color:#1d2b48;font:inherit}.scheduleDialogActions{display:flex;justify-content:flex-end;gap:9px;margin-top:19px}.scheduleDialogActions button{border:0;border-radius:10px;padding:11px 14px;font-size:11px;font-weight:850;cursor:pointer}.scheduleDialogActions button:disabled{opacity:.6;cursor:wait}
 @media(max-width:560px){.heroHeaderActions{align-items:flex-end;flex-direction:column;gap:6px}.headerScheduleButton{max-width:165px;padding:8px 9px;font-size:9px}.scheduleDialog{padding:19px;border-radius:18px}.scheduleDialog h2{font-size:19px}.scheduleDialogActions button{flex:1;padding:11px 8px;font-size:10px}}
+
+/* Desktop result entry: keep one student and all of their marks on a single row. */
+.studentTableHeader{display:none}
+@media(min-width:801px){
+  .page{width:100%;max-width:1680px;padding:26px clamp(22px,3vw,48px) 72px}
+  .studentGrid{grid-template-columns:minmax(0,1fr);gap:0;overflow:hidden;border:1px solid #e5e9f2;border-radius:15px;background:#fff}
+  .studentTableHeader,.studentCard{display:grid;grid-template-columns:minmax(190px,1.15fr) minmax(112px,.45fr) minmax(190px,1fr);align-items:center;column-gap:20px}
+  .studentTableHeader{display:grid;padding:11px 17px;background:#f7f8fc;color:#727d94;font-size:9px;font-weight:900;letter-spacing:.09em}
+  .studentCard{grid-template-rows:auto;padding:9px 17px;border:0;border-top:1px solid #edf0f5;border-radius:0;background:#fff}
+  .studentCard:hover{background:#fbfaff}
+  .studentIdentity{grid-column:1;grid-row:1;gap:11px}
+  .studentIdentity strong{font-size:13px}
+  .studentIdentity small{font-size:10px}
+  .markField{grid-column:2;grid-row:1;display:flex;align-items:center;gap:6px;white-space:nowrap;font-size:10px}
+  .markField input{width:76px;height:39px;margin:0;padding:8px}
+  .remarkInput{grid-column:3;grid-row:1;height:39px;padding:9px 12px}
+  .resultGrid{grid-template-columns:minmax(0,1fr);gap:9px}
+  .resultCard{display:grid;grid-template-columns:minmax(210px,1fr) minmax(390px,2fr) minmax(140px,.7fr);grid-template-rows:auto auto;align-items:center;column-gap:18px;row-gap:8px;padding:13px 16px;border-radius:15px}
+  .resultStudent{grid-column:1;grid-row:1;gap:9px}
+  .resultStudent>div strong{font-size:13px}
+  .resultStudent>div small{line-height:1.4}
+  .scoreStrip{grid-column:2;grid-row:1;gap:7px;margin-top:0}
+  .scoreStrip>div{gap:5px;padding:9px 10px}
+  .scoreStrip span{font-size:9px}
+  .scoreStrip strong{font-size:15px}
+  .resultCard>.pdfButton{grid-column:3;grid-row:1;justify-self:end;margin-top:0}
+  .resultCard>.desktopDetailsToggle{grid-column:1/3;grid-row:2;margin-top:0}
+  .resultCard>.assessmentEditGrid{grid-column:1/-1;grid-row:3}
+}
+@media(min-width:801px) and (max-width:1100px){
+  .resultCard{grid-template-columns:minmax(190px,.9fr) minmax(0,1.6fr);column-gap:14px}
+  .resultCard>.pdfButton{grid-column:1;grid-row:2;justify-self:start}
+  .resultCard>.desktopDetailsToggle{grid-column:2;grid-row:2}
+}
