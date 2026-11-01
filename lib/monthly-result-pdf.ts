@@ -14,7 +14,7 @@ function dateLabel(value: string) {
 }
 
 /** Shared premium monthly-result statement used by teacher and student downloads. */
-export function buildMonthlyResultPdf(snapshot: MonthlyResultSnapshot) {
+export function buildMonthlyResultPdf(snapshot: MonthlyResultSnapshot, paperPhotos: Array<{ name: string; dataUrl: string }> = []) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const width = doc.internal.pageSize.getWidth();
   const height = doc.internal.pageSize.getHeight();
@@ -188,6 +188,26 @@ export function buildMonthlyResultPdf(snapshot: MonthlyResultSnapshot) {
     const recognition = [snapshot.position ? `Class position: ${snapshot.position}` : "", snapshot.award ? `Award: ${snapshot.awardGroup ? `${snapshot.award} (${snapshot.awardGroup})` : snapshot.award}` : ""].filter(Boolean).join("   ·   ");
     ensure(10, "Recognition"); doc.setTextColor(...GOLD); doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text(wrapped(recognition, right - left), left + 2, y); y += 8;
   }
+  paperPhotos.forEach((photo, index) => {
+    newPage("MahaTest Paper Photos");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(...INK);
+    doc.text(`Paper photo ${index + 1} of ${paperPhotos.length}`, left, y);
+    y += 8;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(...MUTED);
+    doc.text(wrapped(photo.name || `Paper photo ${index + 1}`, right - left), left, y);
+    y += 7;
+    const image = doc.getImageProperties(photo.dataUrl);
+    const maxWidth = right - left;
+    const maxHeight = height - y - 24;
+    const ratio = Math.min(maxWidth / image.width, maxHeight / image.height);
+    const imageWidth = image.width * ratio;
+    const imageHeight = image.height * ratio;
+    doc.addImage(photo.dataUrl, "JPEG", left + (maxWidth - imageWidth) / 2, y, imageWidth, imageHeight, undefined, "FAST");
+  });
   footer();
   return doc;
 }

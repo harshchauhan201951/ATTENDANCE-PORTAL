@@ -11,6 +11,17 @@ import StudentExportOptions from "../_components/student-export-options";
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
 function dateText(v:string){ if(!v) return "-"; const d=new Date(`${String(v).slice(0,10)}T00:00:00`); return Number.isNaN(d.getTime())?v:d.toLocaleDateString("en-IN"); }
+async function paperPhotoAsJpeg(url: string): Promise<string> {
+ const image = new Image();
+ image.crossOrigin = "anonymous";
+ image.src = url;
+ await new Promise<void>((resolve,reject)=>{image.onload=()=>resolve();image.onerror=()=>reject(new Error("A paper photo could not be prepared for the PDF."));});
+ const scale=Math.min(1,1600/image.naturalWidth,2200/image.naturalHeight);
+ const canvas=document.createElement("canvas");canvas.width=Math.max(1,Math.round(image.naturalWidth*scale));canvas.height=Math.max(1,Math.round(image.naturalHeight*scale));
+ const context=canvas.getContext("2d");if(!context)throw new Error("Paper photo could not be prepared for the PDF.");
+ context.fillStyle="#fff";context.fillRect(0,0,canvas.width,canvas.height);context.drawImage(image,0,0);
+ return canvas.toDataURL("image/jpeg",0.9);
+}
 type MonthlyAchiever={rank:number;name:string;className:string};
 export default function StudentMonthlyResultPage(){
  const [snapshot,setSnapshot]=useState<MonthlyResultSnapshot|null>(null);const [topAchievers,setTopAchievers]=useState<MonthlyAchiever[]>([]);const [loading,setLoading]=useState(true);const [message,setMessage]=useState("");const [error,setError]=useState("");const [pdfMessage,setPdfMessage]=useState("");const [pendingPeriod,setPendingPeriod]=useState<any>(null);const [availablePeriods,setAvailablePeriods]=useState<any[]>([]);const [selectedPeriodKey,setSelectedPeriodKey]=useState("");const [latestOnly,setLatestOnly]=useState(false);const [historySelection,setHistorySelection]=useState(false);const [livePreviewMode,setLivePreviewMode]=useState(false);
@@ -24,7 +35,13 @@ export default function StudentMonthlyResultPage(){
    if(!row?.snapshot)return null;
    const {data:studentInfo,error:studentInfoError}=await supabase.from("students").select("admission_date").eq("id",studentId).maybeSingle();
    if(studentInfoError)throw studentInfoError;
-   return filterMonthlySnapshotByAdmission(row.snapshot as MonthlyResultSnapshot,studentInfo?.admission_date);
+   const filtered=filterMonthlySnapshotByAdmission(row.snapshot as MonthlyResultSnapshot,studentInfo?.admission_date);
+   try{
+    const photosResponse=await fetch(`/api/monthly-results/paper-photos?monthKey=${encodeURIComponent(monthKey)}`,{cache:"no-store"});
+    const photosData=await photosResponse.json();
+    if(photosResponse.ok&&photosData.success)return {...filtered,paperPhotos:photosData.photos||[]};
+   }catch{}
+   return {...filtered,paperPhotos:[]};
   }
   async function fetchTopAchieversForPeriod(monthKey:string):Promise<MonthlyAchiever[]>{
    try{
@@ -84,7 +101,7 @@ export default function StudentMonthlyResultPage(){
    }catch(e){setError(e instanceof Error?e.message:"Result load failed.");}
    finally{setLoading(false);}
   }
- function download(){if(!snapshot)return;try{downloadPdfFile(buildMonthlyResultPdf(snapshot),`RACER_ACADEMY_${snapshot.student.name.replace(/[^a-z0-9]+/gi,"_")}_${snapshot.monthKey}_MONTHLY_RESULT.pdf`);setPdfMessage("Your full result PDF has been downloaded.");}catch{setPdfMessage("PDF download could not start. Please try again.");}}
+ async function download(){if(!snapshot)return;setPdfMessage("");try{const paperPhotos=await Promise.all((snapshot.paperPhotos||[]).filter((photo:any)=>photo.signedUrl).map(async(photo:any)=>({name:photo.name,dataUrl:await paperPhotoAsJpeg(photo.signedUrl)})));downloadPdfFile(buildMonthlyResultPdf(snapshot,paperPhotos),`RACER_ACADEMY_${snapshot.student.name.replace(/[^a-z0-9]+/gi,"_")}_${snapshot.monthKey}_MONTHLY_RESULT.pdf`);setPdfMessage("Your full result PDF has been downloaded.");}catch(e){setPdfMessage(e instanceof Error?e.message:"PDF download could not start. Please try again.");}}
  return (
   <main className="monthly-result-page">
    <div className="monthly-result-heading">
@@ -129,7 +146,7 @@ export default function StudentMonthlyResultPage(){
        {snapshot.weeklyTests.length ? <div className="monthly-result-record-list">{snapshot.weeklyTests.map((test,index)=><article key={`${test.id}-${index}`}><div className="monthly-result-record-mark">W</div><div className="monthly-result-record-copy"><strong>{test.name}</strong><span>{test.subject||"Subject not specified"} · {dateText(test.date)}</span></div><div className="monthly-result-record-score"><strong>{test.obtained}/{test.total}</strong><span>{test.percentage.toFixed(1)}%</span></div></article>)}</div> : <p className="monthly-result-empty">No Saturday tests were recorded for this month.</p>}
       </section>
       <section className="monthly-result-card monthly-result-mahatest"><div><span>MONTHLY ASSESSMENT</span><h2>MahaTest details</h2></div><div className="monthly-result-mahatest-grid"><div><small>Date</small><strong>{dateText(snapshot.mahaTest.date)}</strong></div><div><small>Duration</small><strong>{snapshot.mahaTest.durationMinutes} minutes</strong></div><div><small>Maximum marks</small><strong>{snapshot.mahaTest.total}</strong></div><div><small>Obtained marks</small><strong>{snapshot.mahaTest.obtained===null?"Not entered":snapshot.mahaTest.obtained}</strong></div></div>{snapshot.mahaTest.remarks&&<p>{snapshot.mahaTest.remarks}</p>}</section>
-      <section className="monthly-result-card monthly-result-download-panel"><div><span>OFFICIAL STATEMENT</span><strong>Download full result</strong><p>Includes student details, every quiz and weekly test, MahaTest information, marks breakdown and final status.</p>{pdfMessage&&<p role="status" className="monthly-result-pdf-status">{pdfMessage}</p>}</div><div style={{display:"flex",flexWrap:"wrap",gap:8,alignItems:"center"}}><button type="button" className="monthly-result-download" onClick={download}>⬇ Download PDF</button><StudentExportOptions title={`${snapshot.monthLabel} Monthly Result`} fileName={`RACER_ACADEMY_${snapshot.monthKey}_MONTHLY_RESULT`} headers={["Section","Assessment","Subject","Date","Obtained","Total","Percentage","Details"]} rows={[["Student",snapshot.student.name,snapshot.student.className||"—","—","—","—","—",`${snapshot.monthLabel} · ${snapshot.student.academicSession||""}`],...snapshot.quizzes.map((quiz)=>["Quiz",quiz.title,quiz.subject||"—",dateText(quiz.date),quiz.obtained,quiz.total,`${quiz.percentage.toFixed(1)}%`,quiz.attemptedDate?`Attempted ${dateText(quiz.attemptedDate)}`:"—"]),...snapshot.weeklyTests.map((test)=>["Weekly Test",test.name,test.subject||"—",dateText(test.date),test.obtained,test.total,`${test.percentage.toFixed(1)}%`,"—"]),["MahaTest","Monthly MahaTest","—",dateText(snapshot.mahaTest.date),snapshot.mahaTest.obtained??"Not entered",snapshot.mahaTest.total,`${snapshot.totals.percentage.toFixed(1)}%`,snapshot.mahaTest.remarks||`${snapshot.mahaTest.durationMinutes} minutes`]]} formats={["excel"]}/></div></section>
+      {snapshot.paperPhotos && snapshot.paperPhotos.length>0&&<section className="monthly-result-card monthly-result-assessments"><div className="monthly-result-section-heading"><div><span>YOUR MAHATEST PAPERS</span><h2>Uploaded answer sheets</h2></div><strong>{snapshot.paperPhotos.length}</strong></div><p className="monthly-result-empty">These photos are included at the end of your downloaded PDF.</p><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10}}>{snapshot.paperPhotos.map((photo:any,index:number)=><a key={`${photo.path}-${index}`} href={photo.signedUrl} target="_blank" rel="noreferrer" style={{display:"block",padding:8,border:"1px solid #e1e8f2",borderRadius:12,background:"#fff",color:"#203852",textDecoration:"none"}}><img src={photo.signedUrl} alt={`MahaTest paper ${index+1}`} style={{display:"block",width:"100%",height:180,objectFit:"contain",background:"#f4f7fb",borderRadius:8}}/><strong style={{display:"block",marginTop:7,fontSize:11,overflowWrap:"anywhere"}}>{photo.name||`Paper photo ${index+1}`}</strong></a>)}</div></section>}      <section className="monthly-result-card monthly-result-download-panel"><div><span>OFFICIAL STATEMENT</span><strong>Download full result</strong><p>Includes student details, every quiz and weekly test, MahaTest information, marks breakdown and final status{snapshot.paperPhotos?.length?", plus uploaded answer sheet photos":""}.</p>{pdfMessage&&<p role="status" className="monthly-result-pdf-status">{pdfMessage}</p>}</div><div style={{display:"flex",flexWrap:"wrap",gap:8,alignItems:"center"}}><button type="button" className="monthly-result-download" onClick={()=>void download()}>⬇ Download PDF</button><StudentExportOptions title={`${snapshot.monthLabel} Monthly Result`} fileName={`RACER_ACADEMY_${snapshot.monthKey}_MONTHLY_RESULT`} headers={["Section","Assessment","Subject","Date","Obtained","Total","Percentage","Details"]} rows={[["Student",snapshot.student.name,snapshot.student.className||"—","—","—","—","—",`${snapshot.monthLabel} · ${snapshot.student.academicSession||""}`],...snapshot.quizzes.map((quiz)=>["Quiz",quiz.title,quiz.subject||"—",dateText(quiz.date),quiz.obtained,quiz.total,`${quiz.percentage.toFixed(1)}%`,quiz.attemptedDate?`Attempted ${dateText(quiz.attemptedDate)}`:"—"]),...snapshot.weeklyTests.map((test)=>["Weekly Test",test.name,test.subject||"—",dateText(test.date),test.obtained,test.total,`${test.percentage.toFixed(1)}%`,"—"]),["MahaTest","Monthly MahaTest","—",dateText(snapshot.mahaTest.date),snapshot.mahaTest.obtained??"Not entered",snapshot.mahaTest.total,`${snapshot.totals.percentage.toFixed(1)}%`,snapshot.mahaTest.remarks||`${snapshot.mahaTest.durationMinutes} minutes`]]} formats={["excel"]}/></div></section>
      </>}
   </main>
  );

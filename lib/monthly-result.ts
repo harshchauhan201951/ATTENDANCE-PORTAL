@@ -30,6 +30,13 @@ export type MonthlyTestEntry = {
   percentage: number;
 };
 
+export type MonthlyResultPaperPhoto = {
+  path: string;
+  name: string;
+  uploadedAt?: string;
+  signedUrl?: string;
+};
+
 export type MonthlyResultSnapshot = {
   monthKey: string;
   monthLabel: string;
@@ -69,6 +76,7 @@ export type MonthlyResultSnapshot = {
   position?: number;
   award?: string;
   awardGroup?: string;
+  paperPhotos?: MonthlyResultPaperPhoto[];
 };
 
 export function monthKeyFromDate(value: string): string {

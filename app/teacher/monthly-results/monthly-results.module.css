@@ -63,3 +63,5 @@
   .resultCard>.pdfButton{grid-column:1;grid-row:2;justify-self:start}
   .resultCard>.desktopDetailsToggle{grid-column:2;grid-row:2}
 }
+
+.paperPhotoTools{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:10px;padding:9px 10px;border:1px solid #e2e8f2;border-radius:11px;background:#f8faff}.paperPhotoButton{position:relative;display:inline-flex;align-items:center;justify-content:center;min-height:32px;padding:0 11px;overflow:hidden;border-radius:9px;background:#e9e7ff;color:#5146ab;font-size:10px;font-weight:900;cursor:pointer}.paperPhotoButton input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}.paperPhotoButton:has(input:disabled){opacity:.6;cursor:wait}.paperPhotoTools small{color:#748099;font-size:9px}.resultCard>.paperPhotoTools{grid-column:1/-1;grid-row:4;margin-top:0}.archiveRow>.paperPhotoTools{grid-column:1/-1;margin-top:0}@media(max-width:760px){.paperPhotoTools{width:100%;box-sizing:border-box}.resultCard>.paperPhotoTools{grid-row:auto}}
