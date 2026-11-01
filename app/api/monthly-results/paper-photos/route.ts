@@ -51,46 +51,66 @@ async function teacherCanAccessStudent(teacherId: number, studentId: number) {
 }
 
 export async function POST(request: Request) {
-  const uploadedPaths: string[] = [];
   try {
     if (!admin) return responseError("Supabase service configuration is missing.", 500);
-    const form = await request.formData();
-    const teacherId = positiveInt(form.get("teacherId"));
-    const studentId = positiveInt(form.get("studentId"));
-    const monthKey = form.get("monthKey");
-    const files = form.getAll("files").filter((file): file is File => file instanceof File && file.size > 0);
+    const body = await request.json();
+    const teacherId = positiveInt(body?.teacherId);
+    const studentId = positiveInt(body?.studentId);
+    const monthKey = body?.monthKey;
+    const action = String(body?.action || "prepare");
     if (!teacherId || !studentId || !validMonthKey(monthKey)) return responseError("Choose a valid student and result month.");
-    if (!files.length) return responseError("Choose at least one JPG, PNG, or WebP paper photo.");
-    if (files.length > MAX_PHOTOS_PER_STUDENT) return responseError(`Upload up to ${MAX_PHOTOS_PER_STUDENT} photos at a time.`);
-    if (files.some((file) => !ALLOWED_TYPES.has(file.type))) return responseError("Paper photos must be JPG, PNG, or WebP images.", 415);
-    if (files.some((file) => file.size > MAX_FILE_SIZE)) return responseError("Each paper photo must be 8 MB or smaller.", 413);
     if (!(await teacherCanAccessStudent(teacherId, studentId))) return responseError("This student is not assigned to your teacher account.", 403);
 
     const { data: row, error: rowError } = await admin.from("monthly_results").select("snapshot").eq("month_key", monthKey).eq("student_id", studentId).maybeSingle();
     if (rowError) throw new Error(rowError.message);
     if (!row?.snapshot) return responseError("Save this monthly result first, then upload the student's paper photos.", 409);
 
-    await ensureBucket();
     const current = Array.isArray((row.snapshot as MonthlyResultSnapshot).paperPhotos)
       ? (row.snapshot as MonthlyResultSnapshot).paperPhotos || []
       : [];
-    if (current.length + files.length > MAX_PHOTOS_PER_STUDENT) return responseError(`This student can have up to ${MAX_PHOTOS_PER_STUDENT} paper photos per monthly result.`);
-
-    const additions: MonthlyResultPaperPhoto[] = [];
-    for (const file of files) {
-      const extension = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
-      const path = `${monthKey}/${studentId}/${randomUUID()}.${extension}`;
-      const { error } = await admin.storage.from(BUCKET).upload(path, file, { contentType: file.type, upsert: false, cacheControl: "3600" });
-      if (error) throw new Error(error.message);
-      uploadedPaths.push(path);
-      additions.push({ path, name: file.name.slice(0, 160) || `Paper photo ${additions.length + 1}`, uploadedAt: new Date().toISOString() });
+    const storage = admin.storage.from(BUCKET);
+    if (action === "prepare") {
+      const files = Array.isArray(body?.files) ? body.files as Array<{ name?: unknown; type?: unknown; size?: unknown }> : [];
+      if (!files.length) return responseError("Choose at least one JPG, PNG, or WebP paper photo.");
+      if (files.length > MAX_PHOTOS_PER_STUDENT) return responseError(`Upload up to ${MAX_PHOTOS_PER_STUDENT} photos at a time.`);
+      if (files.some((file) => typeof file.type !== "string" || !ALLOWED_TYPES.has(file.type))) return responseError("Paper photos must be JPG, PNG, or WebP images.", 415);
+      if (files.some((file) => !Number.isFinite(Number(file.size)) || Number(file.size) <= 0 || Number(file.size) > MAX_FILE_SIZE)) return responseError("Each paper photo must be 8 MB or smaller.", 413);
+      if (current.length + files.length > MAX_PHOTOS_PER_STUDENT) return responseError(`This student can have up to ${MAX_PHOTOS_PER_STUDENT} paper photos per monthly result.`);
+      await ensureBucket();
+      const uploads = await Promise.all(files.map(async (file) => {
+        const type = String(file.type);
+        const extension = type === "image/png" ? "png" : type === "image/webp" ? "webp" : "jpg";
+        const path = `${monthKey}/${studentId}/${randomUUID()}.${extension}`;
+        const { data, error } = await storage.createSignedUploadUrl(path, { upsert: false });
+        if (error) throw new Error(error.message);
+        return { path, token: data.token, name: String(file.name || "Paper photo").slice(0, 160) };
+      }));
+      return NextResponse.json({ success: true, uploads });
     }
+
+    if (action !== "complete") return responseError("Unsupported paper photo action.");
+    const uploads = Array.isArray(body?.uploads) ? body.uploads as Array<{ path?: unknown; name?: unknown }> : [];
+    if (!uploads.length || uploads.length > MAX_PHOTOS_PER_STUDENT) return responseError("No uploaded paper photos were found.");
+    if (current.length + uploads.length > MAX_PHOTOS_PER_STUDENT) return responseError(`This student can have up to ${MAX_PHOTOS_PER_STUDENT} paper photos per monthly result.`);
+    const additions: MonthlyResultPaperPhoto[] = uploads.map((upload) => ({
+      path: String(upload.path || ""),
+      name: String(upload.name || "Paper photo").slice(0, 160),
+      uploadedAt: new Date().toISOString(),
+    }));
+    const folder = `${monthKey}/${studentId}`;
+    if (additions.some((photo) => !photo.path.startsWith(`${folder}/`) || photo.path.includes("..") || current.some((old) => old.path === photo.path))) {
+      return responseError("The uploaded photos do not belong to this student's result.", 403);
+    }
+    const { data: storedFiles, error: listError } = await storage.list(folder, { limit: 100 });
+    if (listError) throw new Error(listError.message);
+    const storedNames = new Set((storedFiles || []).map((file) => `${folder}/${file.name}`));
+    if (additions.some((photo) => !storedNames.has(photo.path))) return responseError("A paper photo did not finish uploading. Please try again.", 400);
+
     const nextSnapshot = { ...(row.snapshot as MonthlyResultSnapshot), paperPhotos: [...current, ...additions] };
     const { error: updateError } = await admin.from("monthly_results").update({ snapshot: nextSnapshot, updated_at: new Date().toISOString() }).eq("month_key", monthKey).eq("student_id", studentId);
     if (updateError) throw new Error(updateError.message);
     return NextResponse.json({ success: true, photos: nextSnapshot.paperPhotos });
   } catch (error) {
-    if (uploadedPaths.length && admin) await admin.storage.from(BUCKET).remove(uploadedPaths).catch(() => undefined);
     return responseError(error instanceof Error ? error.message : "Paper photo upload failed.", 500);
   }
 }

@@ -431,15 +431,34 @@ export default function MonthlyResultsPage() {
     if (archived) setArchiveError(""); else setError("");
     try {
       const teacherId = Number(localStorage.getItem("attendance_teacher_id") || localStorage.getItem("teacher_id") || "0");
-      const form = new FormData();
-      form.set("teacherId", String(teacherId));
-      form.set("studentId", String(studentId));
-      form.set("monthKey", archived ? archiveMonthKey : monthKey);
-      Array.from(files).forEach((file) => form.append("files", file));
-      const response = await fetch("/api/monthly-results/paper-photos", { method: "POST", body: form });
-      const payload = await response.json();
-      if (!response.ok || !payload.success) throw new Error(payload.error || "Could not upload paper photos.");
-      const photos = (payload.photos || []) as MonthlyResultPaperPhoto[];
+      const chosenFiles = Array.from(files);
+      const month = archived ? archiveMonthKey : monthKey;
+      const requestJson = async (response: Response) => {
+        const text = await response.text();
+        try { return JSON.parse(text); }
+        catch { throw new Error(text.trim().slice(0, 180) || `Upload service returned HTTP ${response.status}.`); }
+      };
+      const prepareResponse = await fetch("/api/monthly-results/paper-photos", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "prepare", teacherId, studentId, monthKey: month, files: chosenFiles.map((file) => ({ name: file.name, type: file.type, size: file.size })) }),
+      });
+      const preparePayload = await requestJson(prepareResponse);
+      if (!prepareResponse.ok || !preparePayload.success) throw new Error(preparePayload.error || "Could not prepare the paper photo upload.");
+      const uploaded: Array<{ path: string; name: string }> = [];
+      for (const [index, target] of (preparePayload.uploads || []).entries()) {
+        const file = chosenFiles[index];
+        if (!file || !target?.path || !target?.token) throw new Error("The upload service returned an incomplete photo target.");
+        const { error: uploadError } = await supabase.storage.from("monthly-result-paper-photos").uploadToSignedUrl(target.path, target.token, file, { contentType: file.type, cacheControl: "3600" });
+        if (uploadError) throw new Error(uploadError.message);
+        uploaded.push({ path: target.path, name: target.name || file.name });
+      }
+      const completeResponse = await fetch("/api/monthly-results/paper-photos", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "complete", teacherId, studentId, monthKey: month, uploads: uploaded }),
+      });
+      const completePayload = await requestJson(completeResponse);
+      if (!completeResponse.ok || !completePayload.success) throw new Error(completePayload.error || "Could not attach the photos to this student's result.");
+      const photos = (completePayload.photos || []) as MonthlyResultPaperPhoto[];
       setPaperPhotosByStudent((current) => ({ ...current, [studentId]: photos }));
       if (archived) {
         setArchiveResults((current) => current.map((snapshot) => Number(snapshot.student.id) === studentId ? { ...snapshot, paperPhotos: photos } : snapshot));
