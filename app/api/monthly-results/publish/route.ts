@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
-// RACER_MONTHLY_RESULT_PUSH_NOTIFICATION_V3
+// RACER_MONTHLY_RESULT_PUSH_NOTIFICATION_V4
 async function notifyMonthlyResult(request: Request, monthKey: string) {
   try {
     const { data: rows, error } = await supabaseAdmin
@@ -20,7 +20,7 @@ async function notifyMonthlyResult(request: Request, monthKey: string) {
     const studentIds = Array.from(new Set((rows || [])
       .map((row: { student_id: number }) => Number(row.student_id))
       .filter((id: number) => Number.isInteger(id) && id > 0)));
-    if (!studentIds.length) return;
+    if (!studentIds.length) return { success: false, sent: 0, failed: 0, total: 0, error: "No student result records were found." };
     const response = await fetch(new URL("/api/push/send", request.url), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -29,15 +29,21 @@ async function notifyMonthlyResult(request: Request, monthKey: string) {
         message: "Your monthly academic result is now available in RACER ACADEMY. Tap to view your result.",
         category: "result",
         url: "/student/monthly-result",
-        notificationKey: `monthly-result:${monthKey}`,
+        notificationKey: `monthly-result-announcement-v2:${monthKey}`,
         metadata: { source: "published_monthly_result", monthKey },
         studentIds,
       }),
     });
-    if (!response.ok) console.error("Monthly result notification was not sent:", await response.json().catch(() => null));
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      console.error("Monthly result notification was not sent:", result);
+      return { success: false, sent: Number(result.sent || 0), failed: Number(result.failed || 0), total: studentIds.length, error: result.error || "Notification dispatch failed." };
+    }
+    return { success: Boolean(result.success), recipients: studentIds.length, sent: Number(result.sent || 0), failed: Number(result.failed || 0), total: Number(result.total || 0), message: result.message || "Monthly result announcement processed." };
   } catch (error) {
     // Never fail a result save/release solely because push delivery failed.
     console.error("Monthly result notification request failed:", error);
+    return { success: false, sent: 0, failed: 0, total: 0, error: error instanceof Error ? error.message : "Notification dispatch failed." };
   }
 }
 
@@ -75,6 +81,21 @@ async function savePayload(body:any) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    if (String(body?.action || "") === "announce") {
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (!serviceRoleKey || request.headers.get("authorization") !== `Bearer ${serviceRoleKey}`) {
+        return NextResponse.json({ success: false, error: "Unauthorized result announcement request." }, { status: 401 });
+      }
+      const monthKey = String(body?.monthKey || "");
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(monthKey)) {
+        return NextResponse.json({ success: false, error: "Choose a valid result month." }, { status: 400 });
+      }
+      const { data: period, error: periodError } = await supabaseAdmin.from("monthly_result_periods").select("is_released").eq("month_key", monthKey).maybeSingle();
+      if (periodError) throw periodError;
+      if (!period?.is_released) return NextResponse.json({ success: false, error: "Only a published monthly result can be announced." }, { status: 409 });
+      const announcement = await notifyMonthlyResult(request, monthKey);
+      return NextResponse.json(announcement, { status: announcement.success ? 200 : 502 });
+    }
     const saved = await savePayload(body);
     if (String(body?.action || "save") === "publish" && body?.period?.month_key) {
       await notifyMonthlyResult(request, String(body.period.month_key));
