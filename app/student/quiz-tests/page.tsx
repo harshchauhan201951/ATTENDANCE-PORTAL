@@ -2625,6 +2625,13 @@ function QuizCard({
           )}
         </span>
 
+        {attempted && (result?.submitted_at || result?.started_at || result?.created_at) && (
+          <span>
+            Attempted:{" "}
+            {formatQuizDateTime(result.submitted_at || result.started_at || result.created_at || null)}
+          </span>
+        )}
+
         <span>
           Time:{" "}
           5:00 AM – 9:00 PM IST
@@ -2718,6 +2725,21 @@ function formatQuizDate(
       year: "numeric",
     }
   );
+}
+
+function formatQuizDateTime(value: string | null): string {
+  if (!value) return "Not available";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Not available";
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Kolkata",
+  });
 }
 
 const styles: Record<

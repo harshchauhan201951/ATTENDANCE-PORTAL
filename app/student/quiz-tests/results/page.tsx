@@ -1457,6 +1457,7 @@ function ResultsContent() {
                             <p className="mt-1 text-xs font-semibold text-slate-300">
                               {dateTimeText(
                                 item.submitted_at ||
+                                  item.started_at ||
                                   item.created_at
                               )}
                             </p>
@@ -2091,7 +2092,9 @@ function ResultsContent() {
 
                 <p className="mt-1 text-sm font-bold">
                   {dateTimeText(
-                    result.submitted_at
+                    result.submitted_at ||
+                      result.started_at ||
+                      result.created_at
                   )}
                 </p>
               </div>

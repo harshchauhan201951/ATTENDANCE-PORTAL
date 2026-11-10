@@ -735,7 +735,7 @@ export default function StudentQuizHistoryPage() {
                   title="Quiz History"
                   fileName="RACER_ACADEMY_QUIZ_HISTORY"
                   headers={["Quiz", "Subject", "Quiz Date", "Submitted", "Score", "Total Marks", "Percentage", "Result"]}
-                  rows={history.map(({ result, quiz }) => [quiz.title || "Untitled Quiz", quiz.subject || "—", quiz.scheduled_date || "—", result.submitted_at || "—", Number(result.obtained_marks ?? 0), Number(result.total_marks ?? 0), `${Number(result.percentage ?? 0).toFixed(1)}%`, result.result_status || "—"])}
+                  rows={history.map(({ result, quiz }) => [quiz.title || "Untitled Quiz", quiz.subject || "—", quiz.scheduled_date || "—", result.submitted_at || result.started_at || result.created_at || "—", Number(result.obtained_marks ?? 0), Number(result.total_marks ?? 0), `${Number(result.percentage ?? 0).toFixed(1)}%`, result.result_status || "—"])}
                 />
               </div>
             </div>
@@ -973,6 +973,7 @@ export default function StudentQuizHistoryPage() {
                               <p className="mt-1 font-bold text-slate-200">
                                 {dateTimeText(
                                   result.submitted_at ||
+                                    result.started_at ||
                                     result.created_at
                                 )}
                               </p>
@@ -1083,6 +1084,7 @@ export default function StudentQuizHistoryPage() {
                           Submitted{" "}
                           {dateTimeText(
                             result.submitted_at ||
+                              result.started_at ||
                               result.created_at
                           )}
                         </div>

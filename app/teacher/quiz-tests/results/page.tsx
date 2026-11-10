@@ -3411,9 +3411,9 @@ function TeacherQuizResultsContent() {
                                                                   styles.attemptTime
                                                                 }
                                                               >
-                                                                Submitted:{" "}
+                                                                Attempt date:{" "}
                                                                 {formatDateTime(
-                                                                  result.submitted_at
+                                                                  result.submitted_at || result.started_at || result.created_at
                                                                 )}
                                                               </div>
                                                             </div>

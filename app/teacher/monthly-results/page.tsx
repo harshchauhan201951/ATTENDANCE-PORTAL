@@ -81,6 +81,7 @@ export default function MonthlyResultsPage() {
   const [periodStart, setPeriodStart] = useState("");
   const [mahaMarks, setMahaMarks] = useState<Record<number, string>>({});
   const [mahaRemarks, setMahaRemarks] = useState<Record<number, string>>({});
+  const [mahaAbsentStudents, setMahaAbsentStudents] = useState<Set<number>>(() => new Set<number>());
   const [students, setStudents] = useState<any[]>([]);
   const [allStudents, setAllStudents] = useState<any[]>([]);
   const [quizzes, setQuizzes] = useState<any[]>([]);
@@ -120,6 +121,29 @@ export default function MonthlyResultsPage() {
     setPeriodStart("");
     void loadMonth();
   }, [monthKey]);
+
+  useEffect(() => {
+    let active = true;
+    if (!mahaDate || students.length === 0) {
+      setMahaAbsentStudents(new Set());
+      return () => { active = false; };
+    }
+    void (async () => {
+      const { data, error: attendanceError } = await supabase.from("attendance")
+        .select("student_id,status")
+        .eq("attendance_date", mahaDate);
+      if (!active) return;
+      if (attendanceError) {
+        setError(`Could not check attendance for ${mahaDate}: ${attendanceError.message}`);
+        setMahaAbsentStudents(new Set());
+        return;
+      }
+      setMahaAbsentStudents(new Set<number>((data || [])
+        .filter((row: any) => ["absent", "a"].includes(String(row.status || "").toLowerCase()))
+        .map((row: any) => Number(row.student_id))));
+    })();
+    return () => { active = false; };
+  }, [mahaDate, students]);
 
   async function loadMonth() {
     setLoading(true); setError(""); setMessage("");
@@ -208,7 +232,7 @@ export default function MonthlyResultsPage() {
     finally { setLoading(false); }
   }
 
-  function buildSnapshot(student: any): MonthlyResultSnapshot {
+  function buildSnapshot(student: any, absentStudentIds: Set<number> = mahaAbsentStudents): MonthlyResultSnapshot {
     const cutoff = cutoffDate(mahaDate);
     const start = cutoffDate(periodStart);
     const quizMap = new Map(quizzes.map((q: any) => [Number(q.id), q]));
@@ -276,13 +300,14 @@ export default function MonthlyResultsPage() {
     const excludedTestIds = new Set(excluded?.weeklyTests || []);
     const includedWeeklyTests = tEntries.filter((entry) => !excludedTestIds.has(Number(entry.id)));
     const mahaEligible = Boolean(mahaDate) && isOnOrAfterAdmission(student.admission_date, mahaDate);
-    const mahaValue = !mahaEligible || mahaMarks[Number(student.id)] === undefined || mahaMarks[Number(student.id)] === "" ? null : Math.max(0, Math.min(100, Number(mahaMarks[Number(student.id)])));
+    const mahaAbsent = absentStudentIds.has(Number(student.id));
+    const mahaValue = !mahaEligible || mahaAbsent || mahaMarks[Number(student.id)] === undefined || mahaMarks[Number(student.id)] === "" ? null : Math.max(0, Math.min(100, Number(mahaMarks[Number(student.id)])));
     const totals = calculateMonthlyTotals({ quizzes: includedQuizzes, weeklyTests: includedWeeklyTests, mahaObtained: mahaValue, passPercentage: Number(passPercentage) || 40 });
     return {
       monthKey, monthLabel: monthLabelFromKey(monthKey),
       student: { id: Number(student.id), name: student.student_name || student.student_username || "Student", username: student.student_username || "", className: student.class_name || "", fatherName: student.father_name || "", rollNo: "", medium: "", academicSession: "2026-27" },
       quizzes: includedQuizzes, weeklyTests: includedWeeklyTests,
-      mahaTest: { date: mahaDate, durationMinutes: 120, total: 100, obtained: mahaValue, remarks: mahaRemarks[Number(student.id)] || "" },
+      mahaTest: { date: mahaDate, durationMinutes: 120, total: 100, obtained: mahaValue, remarks: mahaRemarks[Number(student.id)] || "", attendanceStatus: !mahaEligible ? "PENDING" : mahaAbsent ? "ABSENT" : "PRESENT" },
       totals, generatedAt: new Date().toISOString(),
       paperPhotos: paperPhotosByStudent[Number(student.id)] || [],
     };
@@ -408,10 +433,20 @@ export default function MonthlyResultsPage() {
       const teacherId = Number(localStorage.getItem("attendance_teacher_id") || localStorage.getItem("teacher_id") || "0");
       const existingPeriod = savedPeriods.find((period) => period.month_key === monthKey);
       const scheduledReleaseAt = action === "save" ? (existingPeriod?.scheduled_release_at || null) : releaseIso;
-      const finalSnapshots = calculatedSnapshots();
+      const { data: dateAttendance, error: dateAttendanceError } = await supabase.from("attendance")
+        .select("student_id,status").eq("attendance_date", mahaDate);
+      if (dateAttendanceError) throw new Error(`Could not verify MahaTest attendance: ${dateAttendanceError.message}`);
+      const absentIds = new Set<number>((dateAttendance || [])
+        .filter((row: any) => ["absent", "a"].includes(String(row.status || "").toLowerCase()))
+        .map((row: any) => Number(row.student_id)));
+      setMahaAbsentStudents(absentIds);
+      const finalSnapshots = applyMonthlyAwards(students.map((student) => buildSnapshot(student, absentIds)));
       if (!finalSnapshots.length) throw new Error("No student result data is available. Click Calculate first.");
       const now = new Date().toISOString();
-      const markRows = students.map((s) => ({ month_key: monthKey, student_id: Number(s.id), obtained_marks: mahaMarks[Number(s.id)] === undefined || mahaMarks[Number(s.id)] === "" ? null : Math.max(0, Math.min(100, Number(mahaMarks[Number(s.id)]))), remarks: mahaRemarks[Number(s.id)] || null, updated_at: now }));
+      const markRows = students.map((s) => {
+        const absent = absentIds.has(Number(s.id));
+        return { month_key: monthKey, student_id: Number(s.id), obtained_marks: absent || mahaMarks[Number(s.id)] === undefined || mahaMarks[Number(s.id)] === "" ? null : Math.max(0, Math.min(100, Number(mahaMarks[Number(s.id)]))), remarks: mahaRemarks[Number(s.id)] || null, updated_at: now };
+      });
       const rows = finalSnapshots.map((s) => ({ month_key: monthKey, student_id: s.student.id, grand_obtained: s.totals.grandObtained, grand_total: s.totals.grandTotal, percentage: s.totals.percentage, result_status: s.totals.status, snapshot: s, generated_at: now, updated_at: now }));
       const response = await fetch("/api/monthly-results/publish",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,period:{month_key:monthKey,month_label:monthLabelFromKey(monthKey),scheduled_release_at:scheduledReleaseAt,pass_percentage:Number(passPercentage)||40,created_by:teacherId||null},mahatest:{month_key:monthKey,test_date:mahaDate,duration_minutes:120,total_marks:100,created_by:teacherId||null},marks:markRows,results:rows})});
       const result=await response.json();
@@ -593,7 +628,7 @@ export default function MonthlyResultsPage() {
       const response = await fetch("/api/monthly-results/publish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
         action: "save", period: { ...archivePeriodData.period, month_key: archiveMonthKey, month_label: archivePeriodData.period.month_label || monthLabelFromKey(archiveMonthKey) },
         mahatest: archivePeriodData.mahatest ? { ...archivePeriodData.mahatest, month_key: archiveMonthKey } : undefined,
-        marks: results.map((snapshot) => ({ month_key: archiveMonthKey, student_id: snapshot.student.id, obtained_marks: snapshot.mahaTest.obtained, remarks: snapshot.mahaTest.remarks || null, updated_at: now })),
+        marks: results.map((snapshot) => ({ month_key: archiveMonthKey, student_id: snapshot.student.id, obtained_marks: snapshot.mahaTest.attendanceStatus === "ABSENT" ? null : snapshot.mahaTest.obtained, remarks: snapshot.mahaTest.remarks || null, updated_at: now })),
         results: results.map((snapshot) => ({ month_key: archiveMonthKey, student_id: snapshot.student.id, grand_obtained: snapshot.totals.grandObtained, grand_total: snapshot.totals.grandTotal, percentage: snapshot.totals.percentage, result_status: snapshot.totals.status, snapshot, generated_at: snapshot.generatedAt || now, updated_at: now })),
       }) });
       const payload = await response.json();
@@ -642,7 +677,7 @@ export default function MonthlyResultsPage() {
       addedQuizzes += missingQuizzes.length; addedWeekly += missingTests.length;
       const snapshot: MonthlyResultSnapshot = current || {
         monthKey: periodKey, monthLabel: monthLabelFromKey(periodKey), student: { id, name: student.student_name || student.student_username || "Student", username: student.student_username || "", className: student.class_name || "", fatherName: student.father_name || "", rollNo: "", medium: "", academicSession: "2026-27" },
-        quizzes: [], weeklyTests: [], mahaTest: { date: String(archivePeriodData?.mahatest?.test_date || cutoff), durationMinutes: 120, total: 100, obtained: marksByStudent.get(id)?.obtained_marks ?? null, remarks: marksByStudent.get(id)?.remarks || "" },
+        quizzes: [], weeklyTests: [], mahaTest: { date: String(archivePeriodData?.mahatest?.test_date || cutoff), durationMinutes: 120, total: 100, obtained: marksByStudent.get(id)?.obtained_marks ?? null, attendanceStatus: marksByStudent.get(id)?.attendance_status || "PRESENT", remarks: marksByStudent.get(id)?.remarks || "" },
         totals: calculateMonthlyTotals({ quizzes: [], weeklyTests: [], mahaObtained: marksByStudent.get(id)?.obtained_marks ?? null, passPercentage: Number(archivePeriodData?.period?.pass_percentage) || 40 }), generatedAt: new Date().toISOString(),
       };
       return { ...snapshot, quizzes: [...priorQuizzes, ...missingQuizzes], weeklyTests: [...priorTests, ...missingTests], totals: calculateMonthlyTotals({ quizzes: [...priorQuizzes, ...missingQuizzes], weeklyTests: [...priorTests, ...missingTests], mahaObtained: snapshot.mahaTest.obtained, passPercentage: Number(archivePeriodData?.period?.pass_percentage) || snapshot.totals.passPercentage || 40 }) };
@@ -696,13 +731,13 @@ export default function MonthlyResultsPage() {
     </section>
 
     <section className={styles.section}>
-      <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>MARKS ENTRY</p><h2>MahaTest · {monthKey ? monthLabelFromKey(monthKey) : "Choose a month"}</h2><p>Blank marks stay pending; they are never treated as zero.</p></div><span className={styles.countPill}>{students.length} students</span></div>
-      {loading ? <div className={styles.empty}>Loading student and assessment data…</div> : <div className={styles.studentGrid}><div className={styles.studentTableHeader} aria-hidden="true"><span>STUDENT</span><span>MAHATEST MARKS</span><span>TEACHER REMARKS</span></div>{students.map((student,index)=><article className={styles.studentCard} key={student.id}><div className={styles.studentIdentity}><span className={styles.avatar}>{(student.student_name||student.student_username||"S").slice(0,1).toUpperCase()}</span><div><strong>{student.student_name||student.student_username}</strong><small>{student.class_name||"Class not set"} · #{String(index+1).padStart(2,"0")}</small></div></div><label className={styles.markField}>MARKS <span>/100</span><input aria-label={`${student.student_name} MahaTest marks`} type="number" min="0" max="100" value={mahaMarks[student.id]??""} placeholder="—" onChange={e=>setMahaMarks(x=>({...x,[student.id]:e.target.value}))}/></label><input className={styles.remarkInput} aria-label={`${student.student_name} remarks`} placeholder="Teacher remark (optional)" value={mahaRemarks[student.id]??""} onChange={e=>setMahaRemarks(x=>({...x,[student.id]:e.target.value}))}/></article>)}</div>}
+      <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>MARKS ENTRY</p><h2>MahaTest · {monthKey ? monthLabelFromKey(monthKey) : "Choose a month"}</h2><p>Blank marks stay pending; students absent in attendance are marked ABSENT automatically.</p></div><span className={styles.countPill}>{students.length} students</span></div>
+      {loading ? <div className={styles.empty}>Loading student and assessment data…</div> : <div className={styles.studentGrid}><div className={styles.studentTableHeader} aria-hidden="true"><span>STUDENT</span><span>MAHATEST MARKS</span><span>TEACHER REMARKS</span></div>{students.map((student,index)=>{const absent=mahaAbsentStudents.has(Number(student.id));return <article className={styles.studentCard} key={student.id}><div className={styles.studentIdentity}><span className={styles.avatar}>{(student.student_name||student.student_username||"S").slice(0,1).toUpperCase()}</span><div><strong>{student.student_name||student.student_username}</strong><small>{student.class_name||"Class not set"} · #{String(index+1).padStart(2,"0")}{absent&&<b style={{display:"inline-block",marginLeft:8,color:"#b42318",background:"#fff0ee",borderRadius:20,padding:"3px 8px"}}>ABSENT</b>}</small></div></div><label className={styles.markField}>MARKS <span>/100</span><input aria-label={`${student.student_name} MahaTest marks`} type="number" min="0" max="100" disabled={absent} value={absent?"":mahaMarks[student.id]??""} placeholder={absent?"Absent":"—"} onChange={e=>setMahaMarks(x=>({...x,[student.id]:e.target.value}))}/></label><input className={styles.remarkInput} aria-label={`${student.student_name} remarks`} placeholder="Teacher remark (optional)" value={mahaRemarks[student.id]??""} onChange={e=>setMahaRemarks(x=>({...x,[student.id]:e.target.value}))}/></article>})}</div>}
     </section>
 
     <section className={styles.section}>
       <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>LIVE CALCULATION</p><h2>Complete monthly results</h2><p>Choose which recorded quiz attempts and Saturday weekly tests count for each student.</p></div><span className={styles.countPill}>{displaySnapshots.length} records</span></div>
-      <div className={styles.resultGrid}>{displaySnapshots.map((snapshot,index)=><article className={styles.resultCard} key={snapshot.student.id}><div className={styles.resultStudent}><span className={styles.rank}>{String(index+1).padStart(2,"0")}</span><div><strong>{snapshot.student.name}</strong><small>{snapshot.student.className||"Class not set"} · {snapshot.quizzes.length} quizzes · {snapshot.weeklyTests.length} weekly tests</small></div><span className={`${styles.statusPill} ${snapshot.totals.status === "PASS" ? styles.published : styles.fail}`}>{snapshot.totals.status}</span></div><div className={styles.scoreStrip}><div><span>Quiz</span><strong>{snapshot.totals.quizObtained}<small>/{snapshot.totals.quizTotal}</small></strong></div><div><span>Weekly</span><strong>{snapshot.totals.weeklyObtained}<small>/{snapshot.totals.weeklyTotal}</small></strong></div><div><span>MahaTest</span><strong>{snapshot.mahaTest.obtained===null?"—":snapshot.mahaTest.obtained}<small>{snapshot.mahaTest.obtained===null?" pending":"/100"}</small></strong></div><div className={styles.totalScore}><span>Overall · {snapshot.totals.percentage.toFixed(1)}%</span><strong>{snapshot.totals.grandObtained}<small>/{snapshot.totals.grandTotal}</small></strong></div></div>
+      <div className={styles.resultGrid}>{displaySnapshots.map((snapshot,index)=><article className={styles.resultCard} key={snapshot.student.id}><div className={styles.resultStudent}><span className={styles.rank}>{String(index+1).padStart(2,"0")}</span><div><strong>{snapshot.student.name}</strong><small>{snapshot.student.className||"Class not set"} · {snapshot.quizzes.length} quizzes · {snapshot.weeklyTests.length} weekly tests</small></div><span className={`${styles.statusPill} ${snapshot.totals.status === "PASS" ? styles.published : styles.fail}`}>{snapshot.totals.status}</span></div><div className={styles.scoreStrip}><div><span>Quiz</span><strong>{snapshot.totals.quizObtained}<small>/{snapshot.totals.quizTotal}</small></strong></div><div><span>Weekly</span><strong>{snapshot.totals.weeklyObtained}<small>/{snapshot.totals.weeklyTotal}</small></strong></div><div><span>MahaTest</span><strong>{snapshot.mahaTest.attendanceStatus === "ABSENT" ? "Absent" : snapshot.mahaTest.obtained===null?"—":snapshot.mahaTest.obtained}<small>{snapshot.mahaTest.attendanceStatus === "ABSENT" ? " attendance" : snapshot.mahaTest.obtained===null?" pending":"/100"}</small></strong></div><div className={styles.totalScore}><span>Overall · {snapshot.totals.percentage.toFixed(1)}%</span><strong>{snapshot.totals.grandObtained}<small>/{snapshot.totals.grandTotal}</small></strong></div></div>
         <button type="button" className={styles.desktopDetailsToggle} aria-expanded={Boolean(openLiveStudentDetails[snapshot.student.id])} onClick={()=>setOpenLiveStudentDetails(current=>({...current,[snapshot.student.id]:!current[snapshot.student.id]}))}>{openLiveStudentDetails[snapshot.student.id]?"Hide entries":"Show entries"} · {snapshot.quizzes.length} quizzes, {snapshot.weeklyTests.length} Saturday tests <span>{openLiveStudentDetails[snapshot.student.id]?"⌃":"⌄"}</span></button>
         <div className={`${styles.assessmentEditGrid} ${styles.desktopAssessmentDetails} ${openLiveStudentDetails[snapshot.student.id]?styles.desktopAssessmentDetailsOpen:styles.desktopAssessmentDetailsCollapsed}`}>
           <div className={styles.assessmentGroup}><div className={styles.assessmentGroupHeading}><strong>Included quizzes</strong><button type="button" onClick={()=>setOpenLiveAssessmentPanel((current)=>current===`${snapshot.student.id}|quiz`?"":`${snapshot.student.id}|quiz`)}>{openLiveAssessmentPanel===`${snapshot.student.id}|quiz`?"Hide options":"Choose quizzes"} ({availableLiveAssessments(snapshot).quizzes.length})</button></div>{snapshot.quizzes.length?snapshot.quizzes.map((entry,index)=><label key={`${entry.quizId}-${entry.title}-${index}`}><span>{entry.title}<small>Scheduled {formatDate(entry.date)}{entry.attemptedDate?` · Attempted ${formatDate(entry.attemptedDate)}`:""} · {entry.obtained}/{entry.total}</small></span><button className={styles.removeAssessmentButton} type="button" aria-label={`Remove ${entry.title}`} title="Remove quiz" onClick={()=>removeLiveAssessment(snapshot.student.id,"quiz",entry)}>×</button></label>):<small>No quizzes included.</small>}{renderLiveAssessmentOptions(snapshot,"quiz")}</div>

@@ -154,7 +154,7 @@ export function buildMonthlyResultPdf(snapshot: MonthlyResultSnapshot, paperPhot
   sectionTitle("Monthly MahaTest");
   const maha = [
     ["Assessment date", dateLabel(snapshot.mahaTest.date)], ["Duration", `${snapshot.mahaTest.durationMinutes} minutes`],
-    ["Maximum marks", String(snapshot.mahaTest.total)], ["Obtained marks", snapshot.mahaTest.obtained === null ? "Pending" : String(snapshot.mahaTest.obtained)],
+    ["Maximum marks", String(snapshot.mahaTest.total)], ["Obtained marks", snapshot.mahaTest.attendanceStatus === "ABSENT" ? "Absent" : snapshot.mahaTest.obtained === null ? "Pending" : String(snapshot.mahaTest.obtained)],
   ];
   doc.setFontSize(8);
   maha.forEach(([label, value], index) => {

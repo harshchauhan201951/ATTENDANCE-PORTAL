@@ -190,6 +190,7 @@ export default function TeacherReportsPage() {
   const [totalMarks, setTotalMarks] = useState("");
 
   const [studentMarks, setStudentMarks] = useState<StudentMark[]>([]);
+  const [assessmentAbsentStudents, setAssessmentAbsentStudents] = useState<Set<number>>(() => new Set<number>());
 
   const [selectedAssessment, setSelectedAssessment] = useState("");
 
@@ -204,6 +205,31 @@ export default function TeacherReportsPage() {
   const [studentDetailAttendance, setStudentDetailAttendance] = useState<Attendance[]>([]);
   const [studentDetailLoading, setStudentDetailLoading] = useState(false);
   const [expandedTestWeek, setExpandedTestWeek] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    if (!testDate || students.length === 0) {
+      setAssessmentAbsentStudents(new Set());
+      return () => { active = false; };
+    }
+    void (async () => {
+      const { data, error: attendanceError } = await supabase
+        .from("attendance")
+        .select("student_id,status")
+        .eq("attendance_date", testDate);
+      if (!active) return;
+      if (attendanceError) {
+        setAssessmentError(`Could not check attendance for ${testDate}: ${attendanceError.message}`);
+        setAssessmentAbsentStudents(new Set());
+        return;
+      }
+      const absentIds = new Set<number>((data || [])
+        .filter((row: any) => isAbsent(String(row.status || "")))
+        .map((row: any) => Number(row.student_id)));
+      setAssessmentAbsentStudents(absentIds);
+    })();
+    return () => { active = false; };
+  }, [testDate, students]);
 
   async function getAssignedStudentIdsForCurrentTeacher(): Promise<number[] | null> {
     const teacherId = Number(localStorage.getItem("attendance_teacher_id") || localStorage.getItem("teacher_id") || "0");
@@ -679,10 +705,24 @@ export default function TeacherReportsPage() {
         .map((student) => student.id)
     );
 
-    const validMarks = studentMarks.filter(
-      (item) =>
-        eligibleIds.has(item.studentId)
-    );
+    const { data: dateAttendance, error: dateAttendanceError } = await supabase
+      .from("attendance")
+      .select("student_id,status")
+      .eq("attendance_date", testDate);
+    if (dateAttendanceError) {
+      setAssessmentError(`Could not verify attendance for ${testDate}: ${dateAttendanceError.message}`);
+      return;
+    }
+    const absentIds = new Set<number>((dateAttendance || [])
+      .filter((row: any) => isAbsent(String(row.status || "")))
+      .map((row: any) => Number(row.student_id)));
+    setAssessmentAbsentStudents(absentIds);
+
+    const validMarks = studentMarks
+      .filter((item) => eligibleIds.has(item.studentId))
+      .map((item) => absentIds.has(Number(item.studentId))
+        ? { ...item, attendanceStatus: "ABSENT" as const, obtainedMarks: "" }
+        : item);
 
     const invalidMarks = validMarks.find(
       (item) => {
@@ -2142,7 +2182,7 @@ export default function TeacherReportsPage() {
                 <strong>Automatic:</strong>{" "}
                 Admission date ke according students
                 automatically show honge. Test date se
-                baad admission wale students nahi dikhenge.
+                baad admission wale students nahi dikhenge. Test date par attendance mein absent bachhe automatically ABSENT honge.
               </div>
 
               {eligibleStudents.length === 0 ? (
@@ -2162,7 +2202,7 @@ export default function TeacherReportsPage() {
                 {eligibleStudents[assessmentStudentIndex] && (() => {
                   const student = eligibleStudents[assessmentStudentIndex];
                   const mark = studentMarks.find((item) => item.studentId === student.id);
-                  const isAbsent = mark?.attendanceStatus === "ABSENT";
+                  const isAbsent = assessmentAbsentStudents.has(Number(student.id)) || mark?.attendanceStatus === "ABSENT";
                   const isNoTest = mark?.attendanceStatus === "NO_TEST";
                   const score = Number(mark?.obtainedMarks || 0);
                   const total = Number(totalMarks || 0);
@@ -2171,7 +2211,7 @@ export default function TeacherReportsPage() {
                     <header><strong>{student.student_name || student.student_username}</strong><small>{student.student_username} · Joined {student.admission_date || "—"}</small></header>
                     <div className="mobile-assessment-fields">
                       <label>Subject<select aria-label={`Subject for ${student.student_name || student.student_username}`} value={mark?.subject || "Mathematics"} onChange={(event) => updateStudentSubject(student.id, event.target.value as "English" | "Mathematics")}><option value="English">English</option><option value="Mathematics">Mathematics</option></select></label>
-                      <label>Attendance<select aria-label={`Attendance for ${student.student_name || student.student_username}`} value={mark?.attendanceStatus || "PRESENT"} onChange={(event) => updateStudentAttendance(student.id, event.target.value as "PRESENT" | "ABSENT" | "NO_TEST")}><option value="PRESENT">Present</option><option value="ABSENT">Absent</option><option value="NO_TEST">No test</option></select></label>
+                      <label>Attendance<select aria-label={`Attendance for ${student.student_name || student.student_username}`} value={assessmentAbsentStudents.has(Number(student.id)) ? "ABSENT" : mark?.attendanceStatus || "PRESENT"} disabled={assessmentAbsentStudents.has(Number(student.id))} onChange={(event) => updateStudentAttendance(student.id, event.target.value as "PRESENT" | "ABSENT" | "NO_TEST")}><option value="PRESENT">Present</option><option value="ABSENT">Absent</option><option value="NO_TEST">No test</option></select></label>
                       <label>Marks<input aria-label={`Marks for ${student.student_name || student.student_username}`} type="number" min="0" max={totalMarks || undefined} value={mark?.obtainedMarks || ""} disabled={isAbsent || isNoTest} placeholder={isAbsent ? "Absent" : isNoTest ? "No test" : "Enter marks"} onChange={(event) => updateStudentMarks(student.id, event.target.value)} /></label>
                     </div>
                     <div className="mobile-assessment-result"><span>{total > 0 && !isAbsent && !isNoTest ? `${percentage.toFixed(1)}%` : "—"}<small>Score</small></span><span>{total > 0 && !isAbsent && !isNoTest ? getGrade(percentage) : "—"}<small>Grade</small></span><span>{isAbsent ? "Absent" : isNoTest ? "No test" : total > 0 ? isPass(percentage) ? "Pass" : "Fail" : "—"}<small>Result</small></span></div>
@@ -2250,8 +2290,7 @@ export default function TeacherReportsPage() {
                             );
 
                           const isAbsentStudent =
-                            mark?.attendanceStatus ===
-                            "ABSENT";
+                            assessmentAbsentStudents.has(Number(student.id)) || mark?.attendanceStatus === "ABSENT";
 
                           const isNoTestStudent =
                             mark?.attendanceStatus ===
@@ -2338,8 +2377,9 @@ export default function TeacherReportsPage() {
 
                               <td style={styles.td}>
                                 <select
+                                  disabled={assessmentAbsentStudents.has(Number(student.id))}
                                   value={
-                                    mark?.attendanceStatus ||
+                                    assessmentAbsentStudents.has(Number(student.id)) ? "ABSENT" : mark?.attendanceStatus ||
                                     "PRESENT"
                                   }
                                   onChange={(e) =>

@@ -58,6 +58,7 @@ export type MonthlyResultSnapshot = {
     total: number;
     obtained: number | null;
     remarks: string;
+    attendanceStatus?: "PRESENT" | "ABSENT" | "PENDING";
   };
   totals: {
     quizObtained: number;
@@ -170,7 +171,7 @@ export function filterMonthlySnapshotByAdmission(
     ...snapshot,
     quizzes,
     weeklyTests,
-    mahaTest: { ...snapshot.mahaTest, obtained: mahaObtained },
+    mahaTest: { ...snapshot.mahaTest, obtained: mahaObtained, attendanceStatus: mahaEligible ? snapshot.mahaTest.attendanceStatus : 'PENDING' },
     totals,
     award: undefined,
     awardGroup: undefined,
