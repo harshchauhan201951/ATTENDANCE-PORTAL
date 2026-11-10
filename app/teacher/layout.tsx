@@ -8,7 +8,7 @@ import type { ReactNode } from "react";
 import "../racer-teacher-desktop.css";
 import TeacherModuleHeaderCleaner from "../components/TeacherModuleHeaderCleaner";
 import TeacherNotificationsBell from "../components/TeacherNotificationsBell";
-import usePortalBack from "../components/usePortalBack";
+import usePortalBack from "../../components/usePortalBack";
 const items = [
   { href: "/teacher/dashboard", label: "Home", icon: "\u2302" },
   { href: "/teacher/attendance", label: "Attendance", icon: "\u25A6" },
