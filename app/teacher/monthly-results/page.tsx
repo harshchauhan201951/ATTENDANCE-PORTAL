@@ -330,7 +330,7 @@ export default function MonthlyResultsPage() {
   return result;
 }
 
-  const preview = useMemo(() => applyMonthlyAwards(students.map(buildSnapshot)), [students, quizzes, quizResults, tests, liveAddedAssessments, liveExcludedAssessments, mahaMarks, mahaRemarks, paperPhotosByStudent, mahaDate, periodStart, passPercentage, monthKey]); const displaySnapshots = preview;
+  const preview = useMemo(() => applyMonthlyAwards(students.map((student) => buildSnapshot(student))), [students, quizzes, quizResults, tests, liveAddedAssessments, liveExcludedAssessments, mahaMarks, mahaRemarks, paperPhotosByStudent, mahaDate, periodStart, passPercentage, monthKey]); const displaySnapshots = preview;
 
   function availableLiveAssessments(snapshot: MonthlyResultSnapshot) {
     const cutoff = cutoffDate(mahaDate);
@@ -418,7 +418,7 @@ export default function MonthlyResultsPage() {
 
   function calculatedSnapshots() {
     if (!students.length) return [];
-    return applyMonthlyAwards(students.map(buildSnapshot));
+    return applyMonthlyAwards(students.map((student) => buildSnapshot(student)));
   }
 
   async function persistMonthly(action:"save"|"schedule"|"publish"): Promise<boolean> {
