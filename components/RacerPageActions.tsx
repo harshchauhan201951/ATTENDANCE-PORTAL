@@ -1,11 +1,13 @@
 ﻿"use client";
 
 import usePortalBack from "./usePortalBack";
+import { useRouter } from "next/navigation";
 
 type RacerPageActionsProps = { dashboardPath: string };
 
 export default function RacerPageActions({ dashboardPath }: RacerPageActionsProps) {
   const { canGoBack, goBack } = usePortalBack("student");
+  const router = useRouter();
 
   const handleRefresh = () => {
     if (typeof window !== "undefined") {
