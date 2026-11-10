@@ -8,6 +8,7 @@ import type { ReactNode } from "react";
 import "../racer-teacher-desktop.css";
 import TeacherModuleHeaderCleaner from "../components/TeacherModuleHeaderCleaner";
 import TeacherNotificationsBell from "../components/TeacherNotificationsBell";
+import usePortalBack from "../components/usePortalBack";
 const items = [
   { href: "/teacher/dashboard", label: "Home", icon: "\u2302" },
   { href: "/teacher/attendance", label: "Attendance", icon: "\u25A6" },
@@ -63,6 +64,7 @@ function getTeacherModuleKey(pathname: string) {
 
 export default function TeacherLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const { canGoBack, goBack } = usePortalBack("teacher");
   const [headerName, setHeaderName] = useState("Teacher");
   const [headerTime, setHeaderTime] = useState(""); const [profileImage, setProfileImage] = useState<string | null>(null);
 
@@ -98,7 +100,7 @@ return () => clearInterval(timer);
         </Link>
         <div className="rtd-title">{getTeacherDesktopTitle(pathname)}</div>
         <div className="rtd-tools">
-          {!isDashboard && <button type="button" className="rtd-btn" onClick={() => router.back()}>Back</button>}
+          {!isDashboard && <button type="button" className="rtd-btn" onClick={goBack} disabled={!canGoBack} title={canGoBack ? "Go back one page" : "No previous page in this session"}>Back</button>}
           <button type="button" className="rtd-btn" onClick={() => window.location.reload()}>Refresh</button>
           <Link href="/teacher/profile" className="rtd-user">
             <span className="rtd-avatar">{profileImage ? <img src={profileImage} alt="" onError={() => setProfileImage(null)} /> : headerName.slice(0, 1).toUpperCase()}</span>
@@ -171,7 +173,7 @@ return () => clearInterval(timer);
           </div>
 
           <div className="racer-shared-fixed-actions" aria-label="Teacher page actions">
-            <button type="button" onClick={() => router.back()} className="racer-shared-action back">
+            <button type="button" onClick={goBack} disabled={!canGoBack} title={canGoBack ? "Go back one page" : "No previous page in this session"} className="racer-shared-action back">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M19 12H5M11 18l-6-6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>

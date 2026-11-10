@@ -1,26 +1,11 @@
 ﻿"use client";
 
-import { useRouter } from "next/navigation";
+import usePortalBack from "./usePortalBack";
 
-type RacerPageActionsProps = {
-  dashboardPath: string;
-};
+type RacerPageActionsProps = { dashboardPath: string };
 
-export default function RacerPageActions({
-  dashboardPath,
-}: RacerPageActionsProps) {
-  const router = useRouter();
-
-  const handleBack = () => {
-    if (
-      typeof window !== "undefined" &&
-      window.history.length > 1
-    ) {
-      router.back();
-    } else {
-      router.push(dashboardPath);
-    }
-  };
+export default function RacerPageActions({ dashboardPath }: RacerPageActionsProps) {
+  const { canGoBack, goBack } = usePortalBack("student");
 
   const handleRefresh = () => {
     if (typeof window !== "undefined") {
@@ -33,7 +18,9 @@ export default function RacerPageActions({
       <div className="racer-page-actions-inner">
         <button
           type="button"
-          onClick={handleBack}
+          onClick={goBack}
+          disabled={!canGoBack}
+          title={canGoBack ? "Go back one page" : "No previous page in this session"}
           className="racer-page-action-back"
         >
           ‹ <span>Back</span>

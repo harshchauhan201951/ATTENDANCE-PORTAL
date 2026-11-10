@@ -11,11 +11,15 @@ const supabaseAdmin = supabaseUrl && serviceKey
   : null;
 
 type AssessmentIdentity = { id: number; test_name: string | null; test_date: string | null };
-type WeeklyGroup = { testName: string; testDate: string; firstId: number; ids: number[] };
+type WeeklyGroup = { testName: string; testDate: string; firstId: number; ids: number[]; autoLabel: boolean };
 
 function positiveInteger(value: unknown) {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function isAutoWeeklyLabel(name: string) {
+  return /^saturday\s+(?:weeks?\s+)?tests?\s*[:-]\s*\d+$/i.test(name.trim());
 }
 
 export async function POST(request: NextRequest) {
@@ -48,15 +52,15 @@ export async function POST(request: NextRequest) {
       const key = JSON.stringify([testName, testDate]);
       const current = groups.get(key);
       if (current) current.ids.push(Number(row.id));
-      else groups.set(key, { testName, testDate, firstId: Number(row.id), ids: [Number(row.id)] });
+      else groups.set(key, { testName, testDate, firstId: Number(row.id), ids: [Number(row.id)], autoLabel: isAutoWeeklyLabel(testName) });
     }
     const ordered = Array.from(groups.values()).sort((a, b) => a.testDate.localeCompare(b.testDate) || a.firstId - b.firstId);
-    const alreadyNormalized = ordered.every((group, index) => group.testName === `Saturday Weeks Tests:-${index + 1}`);
+    const alreadyNormalized = ordered.every((group, index) => !group.autoLabel || group.testName === `Saturday Weeks Tests:-${index + 1}`);
     if (alreadyNormalized) {
       return NextResponse.json({
         success: true,
         totalTests: ordered.length,
-        tests: ordered.map((group, index) => ({ originalName: group.testName, name: group.testName, date: group.testDate, number: index + 1 })),
+        tests: ordered.map((group, index) => ({ originalName: group.testName, name: group.testName, date: group.testDate, number: index + 1, autoLabel: group.autoLabel })),
       });
     }
 
@@ -64,6 +68,7 @@ export async function POST(request: NextRequest) {
     // cannot accidentally merge marks from two tests. Assessment row IDs and marks stay intact.
     const staged: Array<{ group: WeeklyGroup; temporaryName: string; finalName: string }> = [];
     for (const [index, group] of ordered.entries()) {
+      if (!group.autoLabel) continue;
       const temporaryName = `__weekly_rename_${randomUUID()}__`;
       const { error } = await supabaseAdmin.from("academy_assessments")
         .update({ test_name: temporaryName }).in("id", group.ids);
@@ -79,7 +84,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       totalTests: ordered.length,
-      tests: staged.map(({ group, finalName }, index) => ({ originalName: group.testName, name: finalName, date: group.testDate, number: index + 1 })),
+      tests: ordered.map((group, index) => ({
+        originalName: group.testName,
+        name: group.autoLabel ? `Saturday Weeks Tests:-${index + 1}` : group.testName,
+        date: group.testDate,
+        number: index + 1,
+        autoLabel: group.autoLabel,
+      })),
     });
   } catch (error) {
     return NextResponse.json({ success: false, error: error instanceof Error ? error.message : "Unable to normalize Saturday weekly test names." }, { status: 500 });

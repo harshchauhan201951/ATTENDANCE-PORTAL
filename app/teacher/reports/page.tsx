@@ -392,7 +392,9 @@ export default function TeacherReportsPage() {
       const normalized = await normalizeResponse.json();
       if (!normalizeResponse.ok || !normalized?.success) throw new Error(normalized?.error || "Unable to rename Saturday weekly tests.");
       const numberMap = new Map<string, number>(
-        (normalized.tests || []).map((test: { name: string; date: string; number: number }) => [`${test.name}__${test.date}`, Number(test.number)])
+        (normalized.tests || [])
+          .filter((test: { autoLabel?: boolean }) => test.autoLabel)
+          .map((test: { name: string; date: string; number: number }) => [`${test.name}__${test.date}`, Number(test.number)])
       );
       saturdayAssessmentCount.current = Number(normalized.totalTests || numberMap.size);
       setSaturdayAssessmentNumbers(numberMap);
@@ -2791,13 +2793,13 @@ export default function TeacherReportsPage() {
             ) : (
               <div className="saved-week-list">
                 {assessmentWeeks.map((week) => {
-                  const weeklyNumbers = week.groups
-                    .map((group) => saturdayAssessmentNumbers.get(`${group[0].test_name}__${group[0].test_date}`))
-                    .filter((number): number is number => number !== undefined)
-                    .sort((a, b) => a - b);
-                  const weekTitle = weeklyNumbers.length
-                    ? `Saturday Weeks Tests:-${weeklyNumbers.join(", ")}`
-                    : week.groups.map((group) => group[0].test_name).join(" · ");
+                  const weekTitle = week.groups
+                    .map((group) => {
+                      const first = group[0];
+                      const number = saturdayAssessmentNumbers.get(`${first.test_name}__${String(first.test_date).slice(0, 10)}`);
+                      return number ? `Saturday Weeks Tests:-${number}` : first.test_name;
+                    })
+                    .join(" · ");
                   return (
                   <section className="saved-week" key={week.startDate}>
                     <button type="button" className="saved-week-toggle" aria-expanded={expandedTestWeek === week.startDate} onClick={() => setExpandedTestWeek(expandedTestWeek === week.startDate ? null : week.startDate)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 14px", border: 0, borderRadius: 12, background: "#f1f6fc", color: "#29466b", textAlign: "left", cursor: "pointer" }}>
