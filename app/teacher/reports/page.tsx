@@ -2743,9 +2743,7 @@ export default function TeacherReportsPage() {
                 </button>
 
                 <button
-                  onClick={
-                    resetAssessmentForm
-                  }
+                  onClick={() => resetAssessmentForm()}
                   style={styles.cancelButton}
                 >
                   Clear
