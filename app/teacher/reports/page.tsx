@@ -3,6 +3,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
 } from "react";
@@ -164,6 +165,8 @@ export default function TeacherReportsPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [assessments, setAssessments] = useState<AssessmentRow[]>([]);
+  const [saturdayAssessmentNumbers, setSaturdayAssessmentNumbers] = useState<Map<string, number>>(() => new Map());
+  const saturdayAssessmentCount = useRef(0);
 
   const [month, setMonth] = useState(
     String(currentDate.getMonth() + 1)
@@ -192,7 +195,7 @@ export default function TeacherReportsPage() {
   const [studentMarks, setStudentMarks] = useState<StudentMark[]>([]);
   const [assessmentAbsentStudents, setAssessmentAbsentStudents] = useState<Set<number>>(() => new Set<number>());
 
-  const [selectedAssessment, setSelectedAssessment] = useState("");
+  const [selectedAssessment, setSelectedAssessment] = useState<{ testName: string; testDate: string } | null>(null);
 
   const [showAssessmentForm, setShowAssessmentForm] = useState(true);
   const [activeReportSection, setActiveReportSection] = useState<"attendance-report" | "student-attendance" | "academy" | "assessment-create" | "saved-assessments" | "attendance-records">("attendance-report");
@@ -365,18 +368,38 @@ export default function TeacherReportsPage() {
     setLoading(false);
   }
 
-  async function loadAssessments() {
+  async function loadAssessments(): Promise<AssessmentRow[] | null> {
     let assignedStudentIds: number[] | null;
     try {
       assignedStudentIds = await getAssignedStudentIdsForCurrentTeacher();
     } catch (assignmentError) {
       setAssessmentError(assignmentError instanceof Error ? assignmentError.message : "Unable to check assigned students.");
       setAssessments([]);
-      return;
+      return null;
     }
     if (assignedStudentIds !== null && assignedStudentIds.length === 0) {
       setAssessments([]);
-      return;
+      return [];
+    }
+
+    const teacherId = Number(localStorage.getItem("attendance_teacher_id") || localStorage.getItem("teacher_id") || "0");
+    try {
+      const normalizeResponse = await fetch("/api/teacher/reports/normalize-weekly-tests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teacherId }),
+      });
+      const normalized = await normalizeResponse.json();
+      if (!normalizeResponse.ok || !normalized?.success) throw new Error(normalized?.error || "Unable to rename Saturday weekly tests.");
+      const numberMap = new Map<string, number>(
+        (normalized.tests || []).map((test: { name: string; date: string; number: number }) => [`${test.name}__${test.date}`, Number(test.number)])
+      );
+      saturdayAssessmentCount.current = Number(normalized.totalTests || numberMap.size);
+      setSaturdayAssessmentNumbers(numberMap);
+    } catch (normalizationError) {
+      setAssessmentError(normalizationError instanceof Error ? normalizationError.message : "Unable to rename Saturday weekly tests.");
+      saturdayAssessmentCount.current = 0;
+      setSaturdayAssessmentNumbers(new Map());
     }
 
     let assessmentsQuery = supabase
@@ -393,17 +416,20 @@ export default function TeacherReportsPage() {
       setAssessmentError(
         assessmentFetchError.message
       );
-      return;
+      return null;
     }
     if (studentFetchError) {
       setAssessmentError(`Could not check student activation history: ${studentFetchError.message}`);
-      return;
+      return null;
     }
 
     const studentById = new Map((studentRows || []).map((student: any) => [Number(student.id), student]));
     const validAssessments = ((data || []) as AssessmentRow[]).filter((record) => {
       const student = studentById.get(Number(record.student_id));
-      const oldAdmissionRule = !student || isOnOrAfterAdmission(student.admission_date, record.test_date);
+      const oldAdmissionRule = !student || (
+        isOnOrAfterAdmission(student.admission_date, record.test_date)
+        && isStudentRecordVisibleOnDate(student.admission_date, student.admission_history, record.test_date)
+      );
       const isSaturdayTest = new Date(`${record.test_date}T00:00:00`).getDay() === 6 && !/maha\s*test/i.test(String(record.test_name || ""));
       return oldAdmissionRule && (!student || !isSaturdayTest || !isStudentInactiveOnDate(student, record.test_date));
     });
@@ -417,6 +443,20 @@ export default function TeacherReportsPage() {
       if (cleanupError) setAssessmentError(`Could not remove weekly test marks dated during deactivation: ${cleanupError.message}`);
     }
     setAssessments(validAssessments);
+    return validAssessments;
+  }
+
+  function nextSaturdayAssessmentName(rows: AssessmentRow[] = assessments) {
+    const savedSaturdayTests = new Set(rows
+      .filter((row) => {
+        const date = String(row.test_date || "").slice(0, 10);
+        return Boolean(date)
+          && new Date(`${date}T00:00:00`).getDay() === 6
+          && !/maha\s*test/i.test(String(row.test_name || ""));
+      })
+      .map((row) => `${String(row.test_date).slice(0, 10)}|${String(row.test_name || "").trim().toLowerCase()}`));
+    const highestGlobalTestNumber = Math.max(saturdayAssessmentCount.current, ...Array.from(saturdayAssessmentNumbers.values()));
+    return `Saturday Weeks Tests:-${Math.max(highestGlobalTestNumber, savedSaturdayTests.size) + 1}`;
   }
 
   function isStudentEligibleForTest(
@@ -426,7 +466,8 @@ export default function TeacherReportsPage() {
     const hasDeactivationHistory = (student.admission_history || []).some((entry) => {
       return String(entry?.type || "").toLowerCase().includes("deactiv");
     });
-    return isStudentRecordVisibleOnDate(student.admission_date, student.admission_history, date)
+    return isOnOrAfterAdmission(student.admission_date, date)
+      && isStudentRecordVisibleOnDate(student.admission_date, student.admission_history, date)
       && (student.is_active !== false || hasDeactivationHistory);
   }
 
@@ -623,12 +664,12 @@ export default function TeacherReportsPage() {
     );
   }
 
-  function resetAssessmentForm() {
+  function resetAssessmentForm(assessmentRows: AssessmentRow[] = assessments) {
     const today = new Date()
       .toISOString()
       .split("T")[0];
 
-    setTestName("");
+    setTestName(nextSaturdayAssessmentName(assessmentRows));
     setAssessmentStudentIndex(0);
     setShowAssessmentRemark(false);
     setTestDate(today);
@@ -652,7 +693,7 @@ export default function TeacherReportsPage() {
         }))
     );
 
-    setSelectedAssessment("");
+    setSelectedAssessment(null);
     setAssessmentError("");
     setAssessmentMessage("");
   }
@@ -661,7 +702,7 @@ export default function TeacherReportsPage() {
     setAssessmentMessage("");
     setAssessmentError("");
 
-    const trimmedName = testName.trim();
+    const trimmedName = (testName.trim() || nextSaturdayAssessmentName()).trim();
     const total = Number(totalMarks);
 
     if (!trimmedName) {
@@ -765,14 +806,21 @@ export default function TeacherReportsPage() {
 
     setAssessmentLoading(true);
 
+    let originalAssessmentRows: AssessmentRow[] = [];
     try {
       if (selectedAssessment) {
-        const existingRows =
-          assessments.filter(
-            (item) =>
-              item.test_name === trimmedName &&
-              item.test_date === testDate
-          );
+        let existingRowsQuery = supabase
+          .from("academy_assessments")
+          .select("*")
+          .eq("test_name", selectedAssessment.testName)
+          .eq("test_date", selectedAssessment.testDate);
+        if (assignedStudentIds !== null) {
+          existingRowsQuery = existingRowsQuery.in("student_id", assignedStudentIds);
+        }
+        const { data: existingData, error: existingError } = await existingRowsQuery;
+        if (existingError) throw existingError;
+        const existingRows = (existingData || []) as AssessmentRow[];
+        originalAssessmentRows = existingRows;
 
         const deleteIds =
           existingRows.map(
@@ -827,6 +875,12 @@ export default function TeacherReportsPage() {
         .insert(rows);
 
       if (insertError) {
+        if (originalAssessmentRows.length > 0) {
+          const { error: restoreError } = await supabase.from("academy_assessments").insert(originalAssessmentRows);
+          if (restoreError) {
+            throw new Error(`Could not save the updated assessment (${insertError.message}); restoring the previous saved marks also failed (${restoreError.message}).`);
+          }
+        }
         throw insertError;
       }
 
@@ -857,9 +911,9 @@ export default function TeacherReportsPage() {
           : "Assessment successfully saved."
       );
 
-      await loadAssessments();
+      const refreshedAssessments = await loadAssessments();
 
-      resetAssessmentForm();
+      resetAssessmentForm(refreshedAssessments || assessments);
     } catch (err) {
       console.error(
         "Assessment save error:",
@@ -878,7 +932,8 @@ export default function TeacherReportsPage() {
 
   function editAssessment(
     assessmentName: string,
-    assessmentDate: string
+    assessmentDate: string,
+    displayName?: string
   ) {
     const rows = assessments.filter(
       (item) =>
@@ -890,7 +945,7 @@ export default function TeacherReportsPage() {
 
     const first = rows[0];
 
-    setTestName(first.test_name);
+    setTestName(displayName || first.test_name);
     setTestDate(first.test_date);
     setTotalMarks(
       String(first.total_marks)
@@ -940,9 +995,7 @@ export default function TeacherReportsPage() {
         })
     );
 
-    setSelectedAssessment(
-      `${assessmentName}__${assessmentDate}`
-    );
+    setSelectedAssessment({ testName: assessmentName, testDate: assessmentDate });
 
     setAssessmentStudentIndex(0);
     setShowAssessmentForm(true);
@@ -1031,10 +1084,6 @@ export default function TeacherReportsPage() {
     });
     return Array.from(weeks, ([startDate, groups]) => ({ startDate, groups })).sort((a, b) => b.startDate.localeCompare(a.startDate));
   }, [assessmentGroups]);
-
-  useEffect(() => {
-    if (expandedTestWeek === null && assessmentWeeks.length > 0) setExpandedTestWeek(assessmentWeeks[0].startDate);
-  }, [assessmentWeeks, expandedTestWeek]);
 
   const totalPresent = attendance.filter(
     (record) => isPresent(record.status)
@@ -2130,15 +2179,18 @@ export default function TeacherReportsPage() {
 
                   <input
                     type="text"
-                    value={testName}
+                    value={testName || nextSaturdayAssessmentName()}
                     onChange={(e) =>
                       setTestName(
                         e.target.value
                       )
                     }
-                    placeholder="Example: Saturday Test 01"
+                    placeholder="Saturday Weeks Tests:-12"
                     style={styles.input}
                   />
+                  <small style={{ display: "block", marginTop: 6, color: "#66758a", fontSize: 11 }}>
+                    New test name automatically uses the next Saturday test number. You can edit it if needed.
+                  </small>
                 </div>
 
                 <div>
@@ -2740,15 +2792,27 @@ export default function TeacherReportsPage() {
               </div>
             ) : (
               <div className="saved-week-list">
-                {assessmentWeeks.map((week) => (
+                {assessmentWeeks.map((week) => {
+                  const weeklyNumbers = week.groups
+                    .map((group) => saturdayAssessmentNumbers.get(`${group[0].test_name}__${group[0].test_date}`))
+                    .filter((number): number is number => number !== undefined)
+                    .sort((a, b) => a - b);
+                  const weekTitle = weeklyNumbers.length
+                    ? `Saturday Weeks Tests:-${weeklyNumbers.join(", ")}`
+                    : week.groups.map((group) => group[0].test_name).join(" · ");
+                  return (
                   <section className="saved-week" key={week.startDate}>
                     <button type="button" className="saved-week-toggle" aria-expanded={expandedTestWeek === week.startDate} onClick={() => setExpandedTestWeek(expandedTestWeek === week.startDate ? null : week.startDate)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 14px", border: 0, borderRadius: 12, background: "#f1f6fc", color: "#29466b", textAlign: "left", cursor: "pointer" }}>
-                      <strong>▸ Weekly Tests · Week of {new Date(`${week.startDate}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</strong>
-                      <span>{week.groups.length} {week.groups.length === 1 ? "test" : "tests"} {expandedTestWeek === week.startDate ? "−" : "+"}</span>
+                      <strong>{weekTitle}</strong>
+                      <span aria-hidden="true">{expandedTestWeek === week.startDate ? "−" : "+"}</span>
                     </button>
                     {expandedTestWeek === week.startDate && <div className="saved-week-tests">
                       {week.groups.map((group) => {
                     const first = group[0];
+                    const normalizedSaturdayNumber = saturdayAssessmentNumbers.get(`${first.test_name}__${String(first.test_date).slice(0, 10)}`);
+                    const displayTestName = normalizedSaturdayNumber
+                      ? `Saturday Weeks Tests:-${normalizedSaturdayNumber}`
+                      : first.test_name;
                     const overallPdfBusy = assessmentPdfLoading.startsWith(`${first.test_name}__${first.test_date}__`);
 
                     const total =
@@ -2822,7 +2886,7 @@ export default function TeacherReportsPage() {
                               styles.savedTestName
                             }
                           >
-                            {first.test_name}
+                            {displayTestName}
                           </h4>
 
                           <div
@@ -2915,7 +2979,8 @@ export default function TeacherReportsPage() {
                             onClick={() =>
                               editAssessment(
                                 first.test_name,
-                                first.test_date
+                                first.test_date,
+                                displayTestName
                               )
                             }
                             style={
@@ -2952,7 +3017,8 @@ export default function TeacherReportsPage() {
                       })}
                     </div>}
                   </section>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>}
