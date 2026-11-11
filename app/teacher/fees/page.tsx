@@ -2314,9 +2314,7 @@ if (loading) {
               <button type="button" className="racer-vip-refresh-fee racer-vip-pdf-export" onClick={() => downloadFeePdf("paid", "overall")}>Paid PDF (All)</button>
               <button type="button" className="racer-vip-refresh-fee racer-vip-pdf-export" onClick={() => downloadFeePdf("pending", "month")}>Pending PDF (Month)</button>
               <button type="button" className="racer-vip-refresh-fee racer-vip-pdf-export" onClick={() => downloadFeePdf("pending", "overall")}>Pending PDF (All)</button>
-              <button type="button" className="racer-vip-refresh-fee" onClick={() => loadData(true)}>Refresh</button>
               <button type="button" className="racer-vip-refresh-fee" onClick={() => setMonthlyReportOpen(true)}>Monthly-wise Fee</button>
-              <button type="button" className="racer-vip-refresh-fee" onClick={() => { const feeEntry = document.getElementById("racer-fee-entry") as HTMLDetailsElement | null; if (feeEntry) { feeEntry.open = true; feeEntry.scrollIntoView({ behavior: "smooth", block: "start" }); } }}>Add Fee</button>
             </div>
           </div>
           <div className="racer-vip-search-wrap"><Icon name="search" /><input value={feeSearch} onChange={(e) => { setFeeSearch(e.target.value); setFeePage(1); }} placeholder="Search student by name or ID..." /></div>
