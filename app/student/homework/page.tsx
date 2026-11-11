@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import jsPDF from "jspdf";
+import { downloadPdfFile } from "../../../lib/download-pdf";
 import { supabase } from "../../../lib/supabase";
 
 type Student = {
@@ -24,8 +26,74 @@ type Homework = {
 
 type HomeworkTab = "all" | "today";
 
+function normalizeHomeworkClass(value: unknown) {
+  return String(value ?? "").trim().replace(/^CLASS\s+/i, "").replace(/\s+/g, " ").toLowerCase();
+}
 
-type HomeworkReferenceVipProps = { student: Student | null; homework: Homework[]; todayHomework: Homework[]; activeTab: HomeworkTab; setActiveTab: (value: HomeworkTab) => void; loading: boolean; error: string; formatDate: (value: string) => string; formatPostedDate: (value: string | null) => string; formatPostedTime: (value: string | null) => string; isOverdue: (value: string) => boolean; };
+function homeworkClasses(value: unknown): string[] {
+  if (typeof value !== "string") return [];
+  const clean = value.trim();
+  if (clean.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(clean);
+      if (Array.isArray(parsed)) return parsed.map(normalizeHomeworkClass).filter(Boolean);
+    } catch {}
+  }
+  return clean.split(",").map(normalizeHomeworkClass).filter(Boolean);
+}
+
+function normalizeHomeworkInstructions(value: string) {
+  return String(value || "")
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line
+      .replace(/^\s*\\?#{1,6}\s*/, "")
+      .replace(/^(\s*\d+)\\?\.\s*/, "$1. ")
+      .replace(/\\([#*_\[\]()])/g, "$1")
+      .replace(/\*\*(.*?)\*\*/g, "$1")
+      .replace(/__(.*?)__/g, "$1")
+      .trimEnd())
+    .join("\n")
+    .trim();
+}
+
+async function registerHomeworkPdfFont(pdf: jsPDF) {
+  try {
+    const response = await fetch("/fonts/NotoSansDevanagari-Regular.ttf", { cache: "force-cache" });
+    if (!response.ok) return "helvetica";
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    // Only register actual TrueType data so a bad asset cannot break PDF downloads.
+    const isTrueType = bytes.length > 4 && bytes[0] === 0 && bytes[1] === 1 && bytes[2] === 0 && bytes[3] === 0;
+    if (!isTrueType) return "helvetica";
+    let binary = "";
+    for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+    }
+    pdf.addFileToVFS("RacerDevanagari.ttf", btoa(binary));
+    pdf.addFont("RacerDevanagari.ttf", "RacerDevanagari", "normal");
+    return "RacerDevanagari";
+  } catch {
+    return "helvetica";
+  }
+}
+
+
+type HomeworkReferenceVipProps = {
+  student: Student | null;
+  homework: Homework[];
+  todayHomework: Homework[];
+  activeTab: HomeworkTab;
+  setActiveTab: (value: HomeworkTab) => void;
+  loading: boolean;
+  error: string;
+  formatDate: (value: string) => string;
+  formatPostedDate: (value: string | null) => string;
+  formatPostedTime: (value: string | null) => string;
+  completedAtById: Record<number, string>;
+  markHomeworkDone: (item: Homework) => void;
+  downloadHomeworkPdf: (item: Homework) => void;
+  downloadAllHomeworkPdf: () => void;
+};
 
 function HomeworkReferenceVip({
   student,
@@ -38,9 +106,12 @@ function HomeworkReferenceVip({
   formatDate,
   formatPostedDate,
   formatPostedTime,
-  isOverdue,
+  completedAtById,
+  markHomeworkDone,
+  downloadHomeworkPdf,
+  downloadAllHomeworkPdf,
 }: HomeworkReferenceVipProps) {
-  const overdueCount = homework.filter((item) => isOverdue(item.due_date)).length;
+  const completedCount = homework.filter((item) => Boolean(completedAtById[item.id])).length;
   const todayCount = todayHomework.length;
 
   return (
@@ -70,12 +141,13 @@ function HomeworkReferenceVip({
           <button type="button" onClick={() => setActiveTab('today')} style={{ border: 0, borderRadius: 11, padding: 9, background: activeTab === 'today' ? '#4d3fe5' : '#f5f7fb', color: activeTab === 'today' ? '#fff' : '#5c6f94', fontSize: 8, fontWeight: 900 }}>Today's Homework <span style={{ opacity: .75 }}>({todayCount})</span></button>
           <button type="button" onClick={() => setActiveTab('all')} style={{ border: 0, borderRadius: 11, padding: 9, background: activeTab === 'all' ? '#4d3fe5' : '#f5f7fb', color: activeTab === 'all' ? '#fff' : '#5c6f94', fontSize: 8, fontWeight: 900 }}>All Homework <span style={{ opacity: .75 }}>({homework.length})</span></button>
         </section>
+        <button type="button" onClick={downloadAllHomeworkPdf} disabled={!homework.length} style={{ width: '100%', minHeight: 36, marginBottom: 9, border: 0, borderRadius: 10, background: homework.length ? '#143b77' : '#9aa8bf', color: '#fff', fontSize: 8, fontWeight: 900 }}>↓ Download All Homework PDF</button>
 
         <section style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 6, marginBottom: 9 }}>
           {[
             ['TOTAL', homework.length, '#1b61d4', '#eaf2ff'],
             ['TODAY', todayCount, '#0b9a66', '#e3fbef'],
-            ['OVERDUE', overdueCount, '#db3450', '#ffe9ee'],
+            ['DONE', completedCount, '#0b9a66', '#e3fbef'],
           ].map((item) => {
             const label = String(item[0]);
             const value = item[1];
@@ -102,7 +174,7 @@ function HomeworkReferenceVip({
         ) : (
           <section style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
             {(activeTab === 'today' ? todayHomework : homework).map((item) => {
-              const overdue = isOverdue(item.due_date);
+              const completedAt = completedAtById[item.id];
               const postedToday = todayHomework.some((x) => x.id === item.id);
               return (
                 <article key={item.id} style={{ background: '#fff', border: '1px solid #dbe6f7', borderRadius: 16, padding: 10, boxShadow: '0 5px 14px rgba(17,56,120,.045)' }}>
@@ -111,12 +183,17 @@ function HomeworkReferenceVip({
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, alignItems: 'flex-start' }}>
                         <div style={{ minWidth: 0 }}><span style={{ display: 'inline-block', padding: '4px 6px', borderRadius: 999, background: '#eef3ff', color: '#3154d4', fontSize: 6, fontWeight: 900 }}>{item.subject || 'Subject'}</span><strong style={{ display: 'block', marginTop: 4, fontSize: 11, color: '#18336d', lineHeight: 1.2 }}>{item.title}</strong></div>
-                        <span style={{ flex: 'none', padding: '4px 6px', borderRadius: 999, background: overdue ? '#ffe8ed' : '#e6faf1', color: overdue ? '#db3150' : '#0a9762', fontSize: 6, fontWeight: 900 }}>{overdue ? 'Overdue' : postedToday ? 'Today' : 'Upcoming'}</span>
+                        <span style={{ flex: 'none', padding: '4px 6px', borderRadius: 999, background: completedAt ? '#e6faf1' : '#eef3ff', color: completedAt ? '#0a9762' : '#3154d4', fontSize: 6, fontWeight: 900 }}>{completedAt ? 'DONE' : postedToday ? 'TODAY' : 'TO DO'}</span>
                       </div>
                       <p style={{ margin: '5px 0 0', fontSize: 8, lineHeight: 1.45, color: '#65799b' }}>{item.description || 'No description provided.'}</p>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 7 }}>
-                        <span style={{ padding: '5px 6px', borderRadius: 8, background: '#f7f9fd', color: '#63769a', fontSize: 6, fontWeight: 800 }}>Due: {formatDate(item.due_date)}</span>
+                        {item.due_date && <span style={{ padding: '5px 6px', borderRadius: 8, background: '#f7f9fd', color: '#63769a', fontSize: 6, fontWeight: 800 }}>Complete by: {formatDate(item.due_date)}</span>}
                         <span style={{ padding: '5px 6px', borderRadius: 8, background: '#f7f9fd', color: '#63769a', fontSize: 6, fontWeight: 800 }}>Posted: {formatPostedDate(item.created_at)}{formatPostedTime(item.created_at) ? ' • ' + formatPostedTime(item.created_at) : ''}</span>
+                      </div>
+                      {completedAt && <div style={{ marginTop: 6, color: '#0a9762', fontSize: 7, fontWeight: 900 }}>Completed: {formatPostedDate(completedAt)}</div>}
+                      <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                        <button type="button" onClick={() => downloadHomeworkPdf(item)} style={{ flex: 1, minHeight: 32, border: 0, borderRadius: 9, background: '#edf2ff', color: '#3447c7', fontSize: 7, fontWeight: 900 }}>↓ PDF</button>
+                        <button type="button" onClick={() => markHomeworkDone(item)} style={{ flex: 1, minHeight: 32, border: 0, borderRadius: 9, background: completedAt ? '#e6faf1' : '#4d3fe5', color: completedAt ? '#0a9762' : '#fff', fontSize: 7, fontWeight: 900 }}>{completedAt ? '✓ Done' : 'Mark Done'}</button>
                       </div>
                     </div>
                   </div>
@@ -137,8 +214,9 @@ export default function StudentHomeworkPage() {
 
   const [student, setStudent] = useState<Student | null>(null);
   const [homework, setHomework] = useState<Homework[]>([]);
+  const [completedAtById, setCompletedAtById] = useState<Record<number, string>>({});
   const [activeTab, setActiveTab] =
-    useState<HomeworkTab>("today");
+    useState<HomeworkTab>("all");
   const [loading, setLoading] = useState(true);
   const [isMobileVip, setIsMobileVip] = useState(false);
   useEffect(() => { const check = () => setIsMobileVip(window.innerWidth <= 700); check(); window.addEventListener('resize', check); return () => window.removeEventListener('resize', check); }, []);
@@ -192,6 +270,12 @@ export default function StudentHomeworkPage() {
       const currentStudent = studentData as Student;
 
       setStudent(currentStudent);
+      try {
+        const savedCompletions = localStorage.getItem(`racer_homework_done_${currentStudent.id}`);
+        setCompletedAtById(savedCompletions ? JSON.parse(savedCompletions) as Record<number, string> : {});
+      } catch {
+        setCompletedAtById({});
+      }
 
       const studentClass =
         currentStudent.class_name?.trim() || "";
@@ -234,16 +318,7 @@ export default function StudentHomeworkPage() {
         (homeworkData || []) as Homework[]
       ).filter((item) => {
         if (item.scheduled_at && new Date(item.scheduled_at).getTime() > Date.now()) return false;
-        const assignedClasses = item.class_name
-          .split(",")
-          .map((classItem) =>
-            classItem.trim().toLowerCase()
-          )
-          .filter(Boolean);
-
-        return assignedClasses.includes(
-          studentClass.toLowerCase()
-        );
+        return homeworkClasses(item.class_name).includes(normalizeHomeworkClass(studentClass));
       });
 
       setHomework(assignedHomework);
@@ -353,20 +428,107 @@ export default function StudentHomeworkPage() {
     });
   }
 
-  function isOverdue(date: string) {
-    if (!date) {
-      return false;
-    }
+  function markHomeworkDone(item: Homework) {
+    if (!student) return;
+    const next = { ...completedAtById };
+    if (next[item.id]) delete next[item.id];
+    else next[item.id] = new Date().toISOString();
+    setCompletedAtById(next);
+    localStorage.setItem(`racer_homework_done_${student.id}`, JSON.stringify(next));
+  }
 
-    const today = new Date();
+  async function downloadHomeworkPdf(item: Homework) {
+    const pdf = new jsPDF({ unit: "mm", format: "a4" });
+    const font = await registerHomeworkPdfFont(pdf);
+    const margin = 16;
+    const contentWidth = pdf.internal.pageSize.getWidth() - margin * 2;
+    pdf.setFillColor(20, 59, 119);
+    pdf.roundedRect(margin, 15, contentWidth, 29, 4, 4, "F");
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont(font, "normal");
+    pdf.setFontSize(16);
+    pdf.text("RACER ACADEMY", margin + 7, 27);
+    pdf.setFontSize(9);
+    pdf.text("HOMEWORK", margin + 7, 37);
+    let y = 59;
+    const field = (label: string, value: string, fontSize = 10) => {
+      pdf.setFont(font, "normal");
+      pdf.setFontSize(8);
+      pdf.setTextColor(98, 116, 145);
+      pdf.text(label.toUpperCase(), margin, y);
+      y += 6;
+      pdf.setFont(font, "normal");
+      pdf.setFontSize(fontSize);
+      pdf.setTextColor(27, 43, 70);
+      const lines = pdf.splitTextToSize(value || "—", contentWidth);
+      lines.forEach((line: string) => {
+        if (y > 270) {
+          pdf.addPage();
+          y = 18;
+        }
+        pdf.text(line, margin, y);
+        y += Math.max(5, fontSize * 0.5);
+      });
+      y += 7;
+    };
+    field("Title", item.title, 14);
+    field("Subject", item.subject);
+    field("Class", student?.class_name || "—");
+    if (item.due_date) field("Complete by", formatDate(item.due_date));
+    field("Instructions", normalizeHomeworkInstructions(item.description) || "No instructions provided.");
+    pdf.setFont(font, "normal");
+    pdf.setFontSize(8);
+    pdf.setTextColor(118, 132, 153);
+    pdf.text(`Prepared for ${student?.student_name || "Student"} · RACER ACADEMY`, margin, Math.min(y + 8, 285));
+    const fileTitle = item.title.replace(/[^a-z0-9]+/gi, "_").replace(/^_|_$/g, "") || `HOMEWORK_${item.id}`;
+    downloadPdfFile(pdf, `RACER_ACADEMY_${fileTitle}.pdf`);
+  }
 
-    today.setHours(0, 0, 0, 0);
-
-    const due = new Date(
-      `${date}T00:00:00`
-    );
-
-    return due < today;
+  async function downloadAllHomeworkPdf() {
+    if (!homework.length) return;
+    const pdf = new jsPDF({ unit: "mm", format: "a4" });
+    const font = await registerHomeworkPdfFont(pdf);
+    const margin = 16;
+    const width = pdf.internal.pageSize.getWidth() - margin * 2;
+    let y = 18;
+    const addHeading = (continued = false) => {
+      pdf.setFont(font, "normal");
+      pdf.setFontSize(15);
+      pdf.setTextColor(20, 59, 119);
+      pdf.text(`RACER ACADEMY · ALL HOMEWORK${continued ? " (CONTINUED)" : ""}`, margin, y);
+      y += 9;
+      pdf.setFont(font, "normal");
+      pdf.setFontSize(8);
+      pdf.setTextColor(95, 111, 136);
+      pdf.text(`Student: ${student?.student_name || "Student"} · Class: ${student?.class_name || "—"}`, margin, y);
+      y += 10;
+    };
+    addHeading();
+    homework.forEach((item, index) => {
+      const lines = [
+        ...pdf.splitTextToSize(`${index + 1}. ${item.title}`, width).map((line: string) => ({ line, style: "title" })),
+        ...pdf.splitTextToSize(`Subject: ${item.subject || "—"}${item.due_date ? ` · Complete by: ${formatDate(item.due_date)}` : ""} · Status: ${completedAtById[item.id] ? "DONE" : "TO DO"}`, width).map((line: string) => ({ line, style: "meta" })),
+        ...pdf.splitTextToSize(`Instructions: ${normalizeHomeworkInstructions(item.description) || "No instructions provided."}`, width).map((line: string) => ({ line, style: "body" })),
+      ];
+      for (const line of lines) {
+        if (y > 278) {
+          pdf.addPage();
+          y = 18;
+          addHeading(true);
+        }
+        pdf.setFont(font, "normal");
+        pdf.setFontSize(line.style === "title" ? 10 : 8);
+        pdf.setTextColor(line.style === "title" ? 27 : 83, line.style === "title" ? 43 : 99, line.style === "title" ? 70 : 122);
+        pdf.text(line.line, margin, y);
+        y += line.style === "title" ? 7 : 5;
+      }
+      y += 4;
+      pdf.setDrawColor(225, 232, 240);
+      pdf.line(margin, y, margin + width, y);
+      y += 5;
+    });
+    const studentName = (student?.student_name || "STUDENT").replace(/[^a-z0-9]+/gi, "_");
+    downloadPdfFile(pdf, `RACER_ACADEMY_${studentName}_ALL_HOMEWORK.pdf`);
   }
 
   const todayHomework = useMemo(() => {
@@ -396,7 +558,7 @@ export default function StudentHomeworkPage() {
   }
 
   if (isMobileVip && !loading) {
-    return <HomeworkReferenceVip student={student} homework={homework} todayHomework={todayHomework} activeTab={activeTab} setActiveTab={setActiveTab} loading={loading} error={error} formatDate={formatDate} formatPostedDate={formatPostedDate} formatPostedTime={formatPostedTime} isOverdue={isOverdue} />;
+    return <HomeworkReferenceVip student={student} homework={homework} todayHomework={todayHomework} activeTab={activeTab} setActiveTab={setActiveTab} loading={loading} error={error} formatDate={formatDate} formatPostedDate={formatPostedDate} formatPostedTime={formatPostedTime} completedAtById={completedAtById} markHomeworkDone={markHomeworkDone} downloadHomeworkPdf={downloadHomeworkPdf} downloadAllHomeworkPdf={downloadAllHomeworkPdf} />;
   }
 
   return (
@@ -652,7 +814,7 @@ export default function StudentHomeworkPage() {
                     </span>
 
                     <span>
-                      बाकी के Homework
+                      All Homework
                     </span>
 
                     <span
@@ -752,7 +914,7 @@ export default function StudentHomeworkPage() {
                       <h2 style={styles.sectionTitle}>
                         {activeTab === "today"
                           ? "आज का Homework"
-                          : "बाकी के Homework"}
+                          : "All Homework"}
                       </h2>
 
                       <p style={styles.sectionSubtitle}>
@@ -762,9 +924,7 @@ export default function StudentHomeworkPage() {
                       </p>
                     </div>
 
-                    <div style={styles.readOnlyBadge}>
-                      🔒 READ ONLY
-                    </div>
+                    {activeTab === "all" && <button type="button" onClick={downloadAllHomeworkPdf} style={{ minHeight: 40, padding: "9px 12px", border: 0, borderRadius: 11, background: "#143b77", color: "#fff", fontSize: 11, fontWeight: 900, cursor: "pointer" }}>↓ Download all PDF</button>}
                   </div>
 
                   <div
@@ -772,9 +932,7 @@ export default function StudentHomeworkPage() {
                     style={styles.homeworkList}
                   >
                     {visibleHomework.map((item) => {
-                      const overdue = isOverdue(
-                        item.due_date
-                      );
+                      const completedAt = completedAtById[item.id];
 
                       return (
                         <article
@@ -810,14 +968,10 @@ export default function StudentHomeworkPage() {
                             <div
                               style={{
                                 ...styles.statusBadge,
-                                ...(overdue
-                                  ? styles.overdueBadge
-                                  : styles.pendingBadge),
+                                ...(completedAt ? styles.pendingBadge : styles.todoBadge),
                               }}
                             >
-                              {overdue
-                                ? "OVERDUE"
-                                : "ACTIVE"}
+                              {completedAt ? "✓ DONE" : "TO DO"}
                             </div>
                           </div>
 
@@ -906,7 +1060,7 @@ export default function StudentHomeworkPage() {
                             className="homework-footer"
                             style={styles.homeworkFooter}
                           >
-                            <div
+                            {item.due_date && <div
                               className="homework-due-box"
                               style={styles.dueBox}
                             >
@@ -922,7 +1076,7 @@ export default function StudentHomeworkPage() {
                                     styles.dueLabel
                                   }
                                 >
-                                  DUE DATE
+                                  COMPLETE BY
                                 </div>
 
                                 <div
@@ -935,7 +1089,7 @@ export default function StudentHomeworkPage() {
                                   )}
                                 </div>
                               </div>
-                            </div>
+                            </div>}
 
                             <div
                               className="homework-class-visibility"
@@ -951,13 +1105,13 @@ export default function StudentHomeworkPage() {
                                 👥
                               </span>
 
-                              <span className="visibility-text">
-                                Assigned to your class{" "}
-                                <strong>
-                                  {student?.class_name}
-                                </strong>
-                              </span>
+                              <span className="visibility-text">Class <strong>{student?.class_name}</strong></span>
                             </div>
+                          </div>
+                          {completedAt && <div style={{ marginTop: 10, color: "#15803d", fontSize: 11, fontWeight: 850 }}>✓ Completed on {formatPostedDate(completedAt)}</div>}
+                          <div style={{ display: "flex", gap: 9, marginTop: 13, flexWrap: "wrap" }}>
+                            <button type="button" onClick={() => downloadHomeworkPdf(item)} style={{ minHeight: 42, flex: "1 1 150px", border: "1px solid #dbe5f2", borderRadius: 11, background: "#eff4ff", color: "#2549b8", fontSize: 12, fontWeight: 900, cursor: "pointer" }}>↓ Download PDF</button>
+                            <button type="button" onClick={() => markHomeworkDone(item)} style={{ minHeight: 42, flex: "1 1 150px", border: 0, borderRadius: 11, background: completedAt ? "#e8f8ef" : "#116b4e", color: completedAt ? "#117247" : "#fff", fontSize: 12, fontWeight: 900, cursor: "pointer" }}>{completedAt ? "✓ Done · Undo" : "✓ Mark as Done"}</button>
                           </div>
                         </article>
                       );
@@ -984,8 +1138,7 @@ export default function StudentHomeworkPage() {
                   <p style={styles.infoCardText}>
                     आज का Homework India Standard Time
                     (IST) के अनुसार दिखाया जाता है।
-                    Homework केवल आपकी class के लिए
-                    दिखाई देगा और यह page view-only है।
+                    Homework केवल आपकी class के लिए दिखेगा। PDF डाउनलोड कर सकते हैं और काम पूरा होने पर Done mark कर सकते हैं।
                   </p>
                 </div>
               </section>
@@ -2146,9 +2299,9 @@ const styles: {
     color: "#15803d",
   },
 
-  overdueBadge: {
-    background: "#fee2e2",
-    color: "#b91c1c",
+  todoBadge: {
+    background: "#eaf0ff",
+    color: "#3154d4",
   },
 
   homeworkTitle: {
