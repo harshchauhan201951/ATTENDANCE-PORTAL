@@ -2516,6 +2516,17 @@ export default function HomePage() {
                   </div>
                 </div>
 
+                <div className={`login-buddy-popup login-buddy-popup--${buddyMood}`} aria-live="polite">
+                  <span className="login-buddy-speech">
+                    {loginType === "student" && username.trim().length >= studentUsernamePrefix.length + 2
+                      ? `ID ${username.trim().toUpperCase()} ready · enter your password`
+                      : loginType === "teacher" && password
+                        ? "You’ve got this, teacher!"
+                        : "Hi there! Ready to begin?"}
+                  </span>
+                  <div className="login-buddy-popup-art" aria-hidden="true"><LearningBuddy mood={buddyMood} /></div>
+                </div>
+
                 <div className={`mobile-welcome-panel mobile-welcome-${loginType}`}>
                   <div className="mobile-welcome-copy">
                     <strong>
@@ -2528,9 +2539,6 @@ export default function HomePage() {
                         ? error ? "Check your details and give it another go." : password ? "Our buddy is cheering you on." : username.trim().length >= studentUsernamePrefix.length + 2 ? "Nice! Now enter your password." : "Big ideas, brave questions and fun learning start here."
                         : error ? "Double-check your details and try once more." : password ? "Your classroom is nearly ready." : "Make every class count, wherever you are."}
                     </span>
-                  </div>
-                  <div className="mobile-welcome-art" aria-hidden="true">
-                    <LearningBuddy mood={buddyMood} />
                   </div>
                 </div>
 
@@ -5742,6 +5750,15 @@ export default function HomePage() {
 @media(prefers-reduced-motion:reduce) { .student-id-reveal,.login-success-overlay,.login-success-card,.login-success-spark,.login-success-progress i { animation:none!important; } .login-success-progress i { width:100%!important; } }
 
 .learning-buddy { overflow:visible!important;transform-origin:center; }
+.login-buddy-popup { position:relative!important;z-index:2!important;display:flex!important;align-items:center!important;justify-content:center!important;min-height:80px!important;margin:4px auto 9px!important;animation:login-buddy-arrive .55s cubic-bezier(.16,1.15,.38,1) both; }
+.login-buddy-popup-art { display:grid!important;width:74px!important;height:74px!important;place-items:center!important;border:2px solid rgba(255,255,255,.95)!important;border-radius:24px!important;background:linear-gradient(145deg,#f4f8ff,#dce8ff)!important;box-shadow:0 10px 22px rgba(48,66,139,.2),inset 0 1px #fff!important;transform:rotate(-5deg)!important; }
+.login-buddy-popup-art .learning-buddy { width:67px!important;height:67px!important;filter:drop-shadow(0 4px 4px rgba(42,52,119,.2)); }
+.login-buddy-speech { position:absolute!important;left:calc(50% + 43px)!important;top:2px!important;max-width:min(220px,54vw)!important;padding:8px 11px!important;border:1px solid rgba(104,129,190,.19)!important;border-radius:13px 13px 13px 4px!important;background:#fff!important;box-shadow:0 5px 14px rgba(42,58,112,.1)!important;color:#475b82!important;font-size:10px!important;font-weight:800!important;line-height:1.35!important;animation:login-bubble-pop .42s .12s cubic-bezier(.16,1.15,.38,1) both; }
+.login-buddy-popup--checking .login-buddy-speech { color:#27836f!important; }
+.login-buddy-popup--oops .login-buddy-speech { color:#bb5c56!important; }
+.login-buddy-popup--success .login-buddy-speech { color:#27836f!important; }
+@keyframes login-buddy-arrive { from{opacity:0;transform:translateY(18px) scale(.65)} 72%{opacity:1;transform:translateY(-3px) scale(1.05)} to{opacity:1;transform:translateY(0) scale(1)} }
+@keyframes login-bubble-pop { from{opacity:0;transform:translate(-5px,5px) scale(.82)} to{opacity:1;transform:translate(0,0) scale(1)} }
 .learning-buddy .buddy-pupil { transform-box:fill-box;transform-origin:center;transition:transform .24s ease; }
 .learning-buddy[data-expression="id-ready"] .buddy-pupil { transform:translate(2px,1px); }
 .learning-buddy[data-expression="password"] .buddy-pupil { transform:translate(-1px,-2px) scale(.92); }
@@ -5771,7 +5788,7 @@ export default function HomePage() {
 @keyframes buddy-celebrate { 0%{transform:scale(.88) rotate(-8deg)} 65%{transform:scale(1.14) rotate(5deg)} 100%{transform:scale(1) rotate(0)} }
 @keyframes buddy-thumb-pop { from{opacity:0;transform:scale(.25) translateY(12px)} to{opacity:1;transform:scale(1) translateY(0)} }
 @keyframes fetch-pulse { from{opacity:.3;transform:scale(.75)} to{opacity:1;transform:scale(1.35)} }
-@media(prefers-reduced-motion:reduce) { .learning-buddy,.learning-buddy[data-expression],.learning-buddy .buddy-pupil,.learning-buddy .buddy-scan-ring,.buddy-thumbs-up,.fetch-activity i { animation:none!important;transition:none!important; } }
+@media(prefers-reduced-motion:reduce) { .login-buddy-popup,.login-buddy-speech,.learning-buddy,.learning-buddy[data-expression],.learning-buddy .buddy-pupil,.learning-buddy .buddy-scan-ring,.buddy-thumbs-up,.fetch-activity i { animation:none!important;transition:none!important; } }
 
 `}</style>
     </>
