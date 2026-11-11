@@ -2796,7 +2796,7 @@ export default function HomePage() {
                     : "Teachers: use your academy teacher credentials."}
                 </div>
 
-                <button type="button" className="academy-more-link" onClick={() => setShowAcademyInfo((previous) => !previous)}>{showAcademyInfo ? "Back to Login" : "RACER ACADEMY ke baare mein aur jaane ->"}</button>
+                <button type="button" className="academy-more-link" onClick={() => setShowAcademyInfo((previous) => !previous)}>{showAcademyInfo ? "Back to Login" : "Know more about RACER ACADEMY  →"}</button>
               </section>
 
               {showAcademyInfo && announcements.length > 0 && (
@@ -5771,6 +5771,8 @@ export default function HomePage() {
 .fetch-activity i { display:block!important;width:6px!important;height:6px!important;border-radius:50%!important;background:#59bda2!important;animation:fetch-pulse .9s ease-in-out infinite alternate; }
 .fetch-activity i:nth-child(2) { animation-delay:.2s; }.fetch-activity i:nth-child(3) { animation-delay:.4s;margin-right:5px!important; }
 .login-fetch-card > small { margin-top:9px!important;color:#8a98ac!important;font-size:9px!important; }
+.academy-more-link { position:relative!important;z-index:2!important;display:inline-flex!important;width:100%!important;min-height:38px!important;align-items:center!important;justify-content:center!important;margin:10px 0 0!important;padding:8px 12px!important;border:1px solid rgba(91,130,196,.2)!important;border-radius:11px!important;background:linear-gradient(120deg,rgba(232,241,255,.9),rgba(255,249,231,.88))!important;color:#45659a!important;font-size:11px!important;font-weight:850!important;letter-spacing:.15px!important;text-decoration:none!important;cursor:pointer!important;transition:transform .18s ease,box-shadow .18s ease,background .18s ease!important; }
+.academy-more-link:hover { transform:translateY(-1px)!important;background:#fff!important;box-shadow:0 6px 14px rgba(50,82,137,.1)!important;color:#244d8e!important;text-decoration:none!important; }
 @keyframes buddy-check-bob { to{transform:translateY(-4px) rotate(2deg)} }
 @keyframes buddy-eye-scan { from{transform:translateX(-2px)} to{transform:translateX(2px)} }
 @keyframes buddy-scan { to{transform:rotate(360deg)} }
