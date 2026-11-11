@@ -32,6 +32,8 @@ const menuItems = [
   ["Settings", "/teacher/settings", "settings"],
   ["Student Directory", "/teacher/student-directory", "directory"],
   ["Extra Classes", "/teacher/extra-class", "extra"],
+  ["Weekly Test", "/teacher/reports?section=assessment-create", "quiz"],
+  ["Monthly MahaTest", "/teacher/monthly-results?view=mahatest", "result"],
   ["Quiz Tests", "/teacher/quiz-tests", "quiz"],
   ["Monthly Result", "/teacher/monthly-results", "result"],
   ["Voice & Call Center", "/teacher/voice-call", "call"],
@@ -113,7 +115,8 @@ function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
 const VIP_THEME: "gold" | "royal" = "gold";
 
 const vipGroups = [
-  { title: "Academics", sub: "Classes & learning", paths: ["/teacher/attendance", "/teacher/attendance-history", "/teacher/calendar", "/teacher/timetable", "/teacher/homework", "/teacher/study-material", "/teacher/extra-class", "/teacher/quiz-tests", "/teacher/monthly-results"] },
+  { title: "Academics", sub: "Classes & learning", paths: ["/teacher/attendance", "/teacher/attendance-history", "/teacher/calendar", "/teacher/timetable", "/teacher/homework", "/teacher/study-material", "/teacher/extra-class", "/teacher/monthly-results"] },
+  { title: "Exam Centre", sub: "Tests, MahaTest & quizzes", paths: ["/teacher/reports?section=assessment-create", "/teacher/monthly-results?view=mahatest", "/teacher/quiz-tests"] },
   { title: "Students", sub: "People & communication", paths: ["/teacher/student-directory", "/teacher/login-activity", "/teacher/reports", "/teacher/announcements"] },
   { title: "Finance", sub: "Fees & payments", paths: ["/teacher/fees", "/teacher/payments"] },
   { title: "Manage", sub: "Account & tools", paths: ["/teacher/voice-call", "/teacher/teachers", "/teacher/profile", "/teacher/settings"] },

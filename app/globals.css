@@ -9155,3 +9155,16 @@ main[data-racer-vip-module="homework"] .homeworkList .deleteButton { border-radi
   .racer-student-shell .student-announcement-section[data-update-type="birthday"] .student-update-carousel { min-height: 122px !important; }
   .racer-student-shell .student-announcement-section[data-update-type="birthday"] .student-update-detail { font-size: 10px !important; line-height: 1.3 !important; }
 }
+
+/* Bring the timetable's own heading closer to the fixed teacher app header on mobile. */
+@media (max-width: 640px) {
+  .racer-teacher-shell .racer-shared-teacher-module-content[data-teacher-module="timetable"] {
+    padding-top: 44px !important;
+  }
+  .racer-teacher-shell .racer-shared-teacher-module-content[data-teacher-module="timetable"] > main[data-racer-vip-module="timetable"] {
+    padding-top: calc(35px + 7vh) !important;
+  }
+  .racer-teacher-shell .racer-shared-teacher-module-content[data-teacher-module="timetable"]:has(> main[data-racer-timetable-create="1"]) {
+    padding-top: 96px !important;
+  }
+}

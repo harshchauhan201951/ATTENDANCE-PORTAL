@@ -100,7 +100,7 @@ return () => clearInterval(timer);
         </Link>
         <div className="rtd-title">{getTeacherDesktopTitle(pathname)}</div>
         <div className="rtd-tools">
-          {!isDashboard && <button type="button" className="rtd-btn" onClick={goBack} disabled={!canGoBack} title={canGoBack ? "Go back one page" : "No previous page in this session"}>Back</button>}
+          {!isDashboard && <button type="button" className="rtd-btn" onClick={goBack} title={canGoBack ? "Go back one page" : "Return to the previous section"}>Back</button>}
           <button type="button" className="rtd-btn" onClick={() => window.location.reload()}>Refresh</button>
           <Link href="/teacher/profile" className="rtd-user">
             <span className="rtd-avatar">{profileImage ? <img src={profileImage} alt="" onError={() => setProfileImage(null)} /> : headerName.slice(0, 1).toUpperCase()}</span>
@@ -173,7 +173,7 @@ return () => clearInterval(timer);
           </div>
 
           <div className="racer-shared-fixed-actions" aria-label="Teacher page actions">
-            <button type="button" onClick={goBack} disabled={!canGoBack} title={canGoBack ? "Go back one page" : "No previous page in this session"} className="racer-shared-action back">
+            <button type="button" onClick={goBack} title={canGoBack ? "Go back one page" : "Return to the previous section"} className="racer-shared-action back">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M19 12H5M11 18l-6-6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>

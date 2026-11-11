@@ -38,6 +38,16 @@ const DAY_ORDER: Record<string, number> = {
   Sunday: 7,
 };
 
+const DAY_TONES = [
+  "border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100",
+  "border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100",
+  "border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100",
+  "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100",
+  "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100",
+  "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100",
+  "border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100",
+];
+
 function formatTime(time: string | null) {
   if (!time) return "-";
 
@@ -189,13 +199,6 @@ export default function TeacherTimetablePage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={loadTimetable}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50"
-          >
-            ↻ Refresh
-          </button>
-
-          <button
             onClick={() => router.push("/teacher")}
             className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50"
           >
@@ -237,20 +240,20 @@ export default function TeacherTimetablePage() {
           </div>
         </section>
 
-        <section className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <section className="mb-6 grid grid-cols-3 gap-2 sm:gap-3">
           {[
             { label: "Scheduled classes", value: entries.length - holidayCount, icon: "▦", tint: "bg-indigo-50 text-indigo-600", accent: "bg-indigo-500" },
             { label: "Teaching days", value: activeDayCount, icon: "◷", tint: "bg-cyan-50 text-cyan-700", accent: "bg-cyan-500" },
             { label: "Holiday entries", value: holidayCount, icon: "☼", tint: "bg-amber-50 text-amber-600", accent: "bg-amber-400" },
           ].map((stat) => (
-            <div key={stat.label} className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-5">
+            <div key={stat.label} className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-2.5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-5">
               <span className={`absolute inset-y-0 left-0 w-1 ${stat.accent}`} />
-              <div className="flex items-center justify-between gap-3 pl-2">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">{stat.label}</p>
-                  <p className="mt-1 text-2xl font-black text-slate-900">{loading ? "—" : stat.value}</p>
+              <div className="flex min-h-[78px] items-start justify-between gap-1 pl-1 sm:min-h-0 sm:items-center sm:gap-3 sm:pl-2">
+                <div className="min-w-0">
+                  <p className="text-[9px] font-bold uppercase leading-tight tracking-wide text-slate-500 sm:text-xs sm:leading-normal sm:tracking-wider">{stat.label}</p>
+                  <p className="mt-2 text-xl font-black leading-none text-slate-900 sm:mt-1 sm:text-2xl sm:leading-normal">{loading ? "—" : stat.value}</p>
                 </div>
-                <span className={`flex h-11 w-11 items-center justify-center rounded-xl text-xl font-black ${stat.tint}`}>{stat.icon}</span>
+                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-sm font-black sm:h-11 sm:w-11 sm:rounded-xl sm:text-xl ${stat.tint}`}>{stat.icon}</span>
               </div>
             </div>
           ))}
@@ -282,23 +285,31 @@ export default function TeacherTimetablePage() {
               )}
             </div>
           </div>
-          <div className="flex gap-2 overflow-x-auto px-1 pb-1 pt-1">
-          {["All", ...DAYS].map((day) => (
-            <button
-              key={day}
-              onClick={() => setSelectedDay(day)}
-              aria-pressed={selectedDay === day}
-              className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2.5 text-sm font-bold transition ${
-                selectedDay === day
-                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-200"
-                  : "border border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
-              }`}
-            >
-              <span>{day}</span>
-              {day === todayName && day !== "All" && <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide ${selectedDay === day ? "bg-white/20 text-white" : "bg-emerald-50 text-emerald-700"}`}>Today</span>}
-              <span className={`min-w-5 rounded-full px-1.5 py-0.5 text-[10px] font-black ${selectedDay === day ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>{getDayCount(day)}</span>
-            </button>
-          ))}
+          <div className="grid grid-cols-4 gap-1.5 px-1 pb-1 pt-1 sm:flex sm:flex-wrap sm:gap-2">
+          {["All", ...DAYS].map((day, dayIndex) => {
+            const selected = selectedDay === day;
+            const isToday = day === todayName && day !== "All";
+            const label = day === "All" ? "All" : day.slice(0, 3);
+            return (
+              <button
+                key={day}
+                onClick={() => setSelectedDay(day)}
+                aria-label={`${day === "All" ? "All days" : day}${isToday ? ", today" : ""}: ${getDayCount(day)} classes`}
+                aria-pressed={selected}
+                className={`flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-xl border px-2 py-2 text-xs font-extrabold transition duration-150 active:scale-[0.97] sm:min-h-11 sm:gap-2 sm:px-3 sm:text-sm ${
+                  selected
+                    ? "border-indigo-600 bg-indigo-600 text-white shadow-md shadow-indigo-200"
+                    : day === "All"
+                      ? "border-slate-200 bg-white text-slate-700 hover:border-indigo-200 hover:bg-indigo-50"
+                      : `${DAY_TONES[dayIndex - 1]} ${isToday ? "ring-2 ring-emerald-200 ring-offset-1" : ""}`
+                }`}
+              >
+                {isToday && <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${selected ? "bg-emerald-300" : "bg-emerald-500"}`} />}
+                <span>{label}</span>
+                <span className={`min-w-[18px] rounded-full px-1 py-0.5 text-[9px] font-black leading-none sm:min-w-5 sm:px-1.5 sm:py-1 sm:text-[10px] ${selected ? "bg-white/20 text-white" : "bg-white/80 text-slate-600"}`}>{getDayCount(day)}</span>
+              </button>
+            );
+          })}
         </div>
           <div className="mt-3 flex items-center justify-between border-t border-slate-100 px-1 pt-3">
             <span className="text-xs font-medium text-slate-500">{selectedDay === "All" ? "All days" : selectedDay}{searchText.trim() ? ` · “${searchText.trim()}”` : ""}</span>

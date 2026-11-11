@@ -210,6 +210,13 @@ export default function TeacherReportsPage() {
   const [expandedTestWeek, setExpandedTestWeek] = useState<string | null>(null);
 
   useEffect(() => {
+    const section = new URLSearchParams(window.location.search).get("section");
+    if (section === "assessment-create" || section === "saved-assessments") {
+      setActiveReportSection(section);
+    }
+  }, []);
+
+  useEffect(() => {
     let active = true;
     if (!testDate || students.length === 0) {
       setAssessmentAbsentStudents(new Set());

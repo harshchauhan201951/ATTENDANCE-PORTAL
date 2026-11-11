@@ -48,7 +48,13 @@ export default function usePortalBack(scope: PortalScope) {
   const goBack = useCallback(() => {
     const stack = readStack(key);
     if (pathname && stack[stack.length - 1] !== pathname) stack.push(pathname);
-    if (stack.length <= 1) return;
+    if (stack.length <= 1) {
+      const scopeRoot = scope === "teacher" ? "/teacher" : "/student";
+      const parentPath = pathname?.slice(0, pathname.lastIndexOf("/"));
+      const fallbackPath = parentPath && parentPath !== scopeRoot ? parentPath : `${scopeRoot}/dashboard`;
+      router.replace(fallbackPath);
+      return;
+    }
     stack.pop();
     const previousPath = stack[stack.length - 1];
     try {
@@ -58,7 +64,7 @@ export default function usePortalBack(scope: PortalScope) {
     }
     setCanGoBack(stack.length > 1);
     router.replace(previousPath);
-  }, [key, pathname, router]);
+  }, [key, pathname, router, scope]);
 
   return { canGoBack, goBack };
 }

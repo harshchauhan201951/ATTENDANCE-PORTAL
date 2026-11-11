@@ -193,13 +193,13 @@ function CreateTimetableContent() {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (classesToSave = selectedClasses) => {
     if (!teacherId) {
       alert("Teacher ID not found. Please login again.");
       return;
     }
 
-    if (selectedClasses.length === 0) {
+    if (classesToSave.length === 0) {
       alert("Please select at least one class.");
       return;
     }
@@ -229,7 +229,7 @@ function CreateTimetableContent() {
       const payload = {
         teacher_id: teacherId,
         teacher_name: teacherName,
-        class_names: selectedClasses,
+        class_names: classesToSave,
         day_of_week: dayOfWeek,
         is_holiday: isHoliday,
 
@@ -265,22 +265,22 @@ function CreateTimetableContent() {
       }
 
       try {
-        const classList = [...selectedClasses].sort().join(",");
+        const classList = [...classesToSave].sort().join(",");
         const title = isHoliday ? `Holiday Notice · ${dayOfWeek}` : `Timetable Updated · ${subject.trim()}`;
         const message = isHoliday
-          ? `There will be no classes on ${dayOfWeek} for your class. Please check the academic calendar for details.`
+          ? `There will be no classes on ${dayOfWeek}. Please check the academic calendar for details.`
           : `Your ${subject.trim()} class is scheduled on ${dayOfWeek}, ${startTime}–${endTime}.`;
         const notificationResponse = await fetch("/api/push/send", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            targetClasses: selectedClasses,
+            targetClasses: classesToSave,
             category: isHoliday ? "academic_calendar" : "timetable",
             title,
             message,
             url: isHoliday ? "/student/calendar" : "/student/timetable",
             notificationKey: `timetable:${editId || "new"}:${dayOfWeek}:${classList}:${isHoliday ? "holiday" : `${subject.trim()}:${startTime}:${endTime}`}`,
-            metadata: { source: "teacher_timetable_update", dayOfWeek, classNames: selectedClasses, isHoliday, subject: subject.trim() || null, startTime: startTime || null, endTime: endTime || null },
+            metadata: { source: "teacher_timetable_update", dayOfWeek, classNames: classesToSave, isHoliday, subject: subject.trim() || null, startTime: startTime || null, endTime: endTime || null },
           }),
         });
         if (!notificationResponse.ok) console.warn("Timetable notification failed:", await notificationResponse.json().catch(() => null));
@@ -322,27 +322,19 @@ function CreateTimetableContent() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+    <main data-racer-timetable-create="1" className="min-h-screen bg-slate-50">
+      <div className="mx-auto max-w-5xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+        <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
+            <h1 className="text-xl font-bold text-slate-900 sm:text-3xl">
               {editId ? "Edit Timetable" : "Create Timetable"}
             </h1>
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="mt-1 text-xs text-slate-500 sm:text-sm">
               Create the weekly timetable for your selected classes.
             </p>
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 font-medium hover:bg-slate-50"
-            >
-              Refresh
-            </button>
-
             <button
               type="button"
               onClick={() => router.push("/teacher/timetable")}
@@ -369,18 +361,18 @@ function CreateTimetableContent() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-7">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-7">
+          <div className="grid grid-cols-2 gap-3 sm:gap-5">
             {/* Day */}
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
+              <label className="mb-1.5 block text-xs font-semibold text-slate-700 sm:mb-2 sm:text-sm">
                 Day
               </label>
 
               <select
                 value={dayOfWeek}
                 onChange={(e) => setDayOfWeek(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 sm:px-4 sm:py-3 sm:text-base"
               >
                 {DAYS.map((day) => (
                   <option key={day} value={day}>
@@ -392,14 +384,14 @@ function CreateTimetableContent() {
 
             {/* Day Type */}
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
+              <label className="mb-1.5 block text-xs font-semibold text-slate-700 sm:mb-2 sm:text-sm">
                 Day Type
               </label>
 
               <select
                 value={isHoliday ? "holiday" : "class"}
                 onChange={(e) => handleHolidayChange(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 sm:px-4 sm:py-3 sm:text-base"
               >
                 <option value="class">Class Day</option>
                 <option value="holiday">Holiday</option>
@@ -409,7 +401,7 @@ function CreateTimetableContent() {
 
           {/* Holiday Notice */}
           {isHoliday && (
-            <div className="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-4">
+            <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 sm:mt-5 sm:p-4">
               <div className="font-semibold text-amber-900">
                 Holiday selected
               </div>
@@ -421,16 +413,16 @@ function CreateTimetableContent() {
 
           {/* Subject + Time */}
           {!isHoliday && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-5">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:mt-5 sm:gap-5 md:grid-cols-3">
+              <div className="col-span-2 md:col-span-1">
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700 sm:mb-2 sm:text-sm">
                   Subject
                 </label>
 
                 <select
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 sm:px-4 sm:py-3 sm:text-base"
                 >
                   <option value="">Select Subject</option>
 
@@ -443,7 +435,7 @@ function CreateTimetableContent() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700 sm:mb-2 sm:text-sm">
                   Start Time
                 </label>
 
@@ -451,12 +443,12 @@ function CreateTimetableContent() {
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 sm:px-4 sm:py-3 sm:text-base"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700 sm:mb-2 sm:text-sm">
                   End Time
                 </label>
 
@@ -464,17 +456,17 @@ function CreateTimetableContent() {
                   type="time"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 sm:px-4 sm:py-3 sm:text-base"
                 />
               </div>
             </div>
           )}
 
           {/* Classes */}
-          <div className="mt-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+          <div className="mt-5 sm:mt-6">
+            <div className="mb-2 flex flex-col gap-2 sm:mb-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
               <div>
-                <label className="block text-sm font-semibold text-slate-700">
+                <label className="block text-xs font-semibold text-slate-700 sm:text-sm">
                   Select Classes
                 </label>
 
@@ -487,7 +479,7 @@ function CreateTimetableContent() {
                 <button
                   type="button"
                   onClick={selectAllClasses}
-                  className="px-3 py-2 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 text-sm font-medium hover:bg-blue-100"
+                  className="rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 sm:text-sm"
                 >
                   Select All
                 </button>
@@ -495,7 +487,7 @@ function CreateTimetableContent() {
                 <button
                   type="button"
                   onClick={clearAllClasses}
-                  className="px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50"
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 sm:text-sm"
                 >
                   Clear
                 </button>
@@ -507,7 +499,7 @@ function CreateTimetableContent() {
                 No student classes found.
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4">
                 {classes.map((className) => {
                   const selected = selectedClasses.includes(className);
 
@@ -516,7 +508,7 @@ function CreateTimetableContent() {
                       key={className}
                       type="button"
                       onClick={() => toggleClass(className)}
-                      className={`rounded-xl border px-4 py-3 text-sm font-semibold transition ${
+                      className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition sm:px-4 sm:py-3 sm:text-sm ${
                         selected
                           ? "border-blue-600 bg-blue-600 text-white"
                           : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
@@ -529,21 +521,33 @@ function CreateTimetableContent() {
               </div>
             )}
 
-            <div className="mt-3 text-sm text-slate-500">
+            <div className="mt-2 text-xs text-slate-500 sm:mt-3 sm:text-sm">
               Selected classes:{" "}
-              <span className="font-semibold text-slate-800">
-                {selectedClasses.length}
-              </span>
+              <span className="font-semibold text-slate-800">{selectedClasses.length}</span>
+            </div>
+            <div className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50/70 p-3 sm:mt-4 sm:flex sm:items-center sm:justify-between sm:gap-4 sm:p-4">
+              <div>
+                <p className="text-xs font-bold text-indigo-950 sm:text-sm">Apply this {isHoliday ? "holiday" : "time"} to all students</p>
+                <p className="mt-1 text-xs leading-5 text-indigo-800">Save the {dayOfWeek} schedule for all {classes.length} active student classes at once.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleSave(classes)}
+                disabled={saving || classes.length === 0}
+                className="mt-2 w-full shrink-0 rounded-xl bg-indigo-700 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-800 disabled:cursor-not-allowed disabled:bg-slate-400 sm:mt-0 sm:w-auto sm:px-5 sm:py-3 sm:text-sm"
+              >
+                {saving ? "Applying…" : `Apply to all students · ${dayOfWeek}`}
+              </button>
             </div>
           </div>
 
           {/* Save */}
-          <div className="mt-7 pt-5 border-t border-slate-200 flex flex-col sm:flex-row gap-3">
+          <div className="mt-5 flex flex-col gap-2 border-t border-slate-200 pt-4 sm:mt-7 sm:flex-row sm:gap-3 sm:pt-5">
             <button
               type="button"
-              onClick={handleSave}
+              onClick={() => handleSave()}
               disabled={saving}
-              className={`flex-1 sm:flex-none px-6 py-3 rounded-xl text-white font-semibold ${
+              className={`flex-1 rounded-xl px-5 py-2.5 text-sm font-semibold text-white sm:flex-none sm:px-6 sm:py-3 ${
                 saving
                   ? "bg-slate-400 cursor-not-allowed"
                   : "bg-blue-600 hover:bg-blue-700"
@@ -559,7 +563,7 @@ function CreateTimetableContent() {
             <button
               type="button"
               onClick={() => router.push("/teacher/timetable")}
-              className="flex-1 sm:flex-none px-6 py-3 rounded-xl border border-slate-300 bg-white text-slate-700 font-semibold hover:bg-slate-50"
+              className="flex-1 rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:flex-none sm:px-6 sm:py-3"
             >
               Cancel
             </button>
