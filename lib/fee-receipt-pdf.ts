@@ -29,9 +29,9 @@ function drawField(doc: jsPDF, label: string, value: string, x: number, y: numbe
   doc.text(lines, x, y + 6);
 }
 
-async function loadSealDataUrl() {
-  const response = await fetch("/racer-academy-official-seal.png", { cache: "force-cache" });
-  if (!response.ok) throw new Error("RACER ACADEMY official seal could not be loaded.");
+async function loadReceiptImageDataUrl(path: string, description: string) {
+  const response = await fetch(path, { cache: "force-cache" });
+  if (!response.ok) throw new Error(`RACER ACADEMY ${description} could not be loaded.`);
   const bytes = new Uint8Array(await response.arrayBuffer());
   let binary = "";
   const chunkSize = 0x8000;
@@ -46,7 +46,10 @@ export async function buildFeeReceiptPdf(details: FeeReceiptDetails) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 14;
-  const seal = await loadSealDataUrl();
+  const [seal, digitalMark] = await Promise.all([
+    loadReceiptImageDataUrl("/racer-academy-official-seal.png", "official seal"),
+    loadReceiptImageDataUrl("/racer-academy-digital-mark.png", "digital mark"),
+  ]);
 
   doc.setFillColor(246, 249, 253);
   doc.rect(0, 0, pageWidth, pageHeight, "F");
@@ -78,104 +81,95 @@ export async function buildFeeReceiptPdf(details: FeeReceiptDetails) {
   doc.setFontSize(10);
   doc.text(doc.splitTextToSize(details.receiptNumber, 52).slice(0, 2), 138, 25);
 
-  doc.setFillColor(255, 255, 255);
-  doc.setDrawColor(222, 231, 242);
-  doc.roundedRect(margin, 57, pageWidth - margin * 2, 43, 4, 4, "FD");
-  doc.setTextColor(99, 119, 145);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  doc.text("AMOUNT RECEIVED", 21, 68);
-  doc.setTextColor(12, 67, 126);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(27);
-  doc.text(`INR ${Number(details.amount || 0).toLocaleString("en-IN")}`, 21, 84);
-  doc.setTextColor(102, 120, 143);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.text(`Fee period: ${details.feePeriod}`, 21, 93);
-
   const normalizedStatus = details.paymentStatus.toUpperCase();
   const statusColor: [number, number, number] = normalizedStatus.includes("REFUND")
     ? [155, 66, 76]
     : [28, 125, 91];
-  doc.setFillColor(normalizedStatus.includes("REFUND") ? 255 : 232, normalizedStatus.includes("REFUND") ? 239 : 248, normalizedStatus.includes("REFUND") ? 240 : 240);
-  doc.roundedRect(153, 65, 38, 12, 6, 6, "F");
-  doc.setTextColor(...statusColor);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  doc.text(normalizedStatus || "PAID", 172, 73, { align: "center", maxWidth: 34 });
 
-  const cardY = 106;
-  const cardHeight = 103;
-  const cardGap = 8;
-  const cardWidth = (pageWidth - margin * 2 - cardGap) / 2;
+  // Keep the receipt in a single page: student identity first, payment second.
   doc.setFillColor(255, 255, 255);
   doc.setDrawColor(222, 231, 242);
-  doc.roundedRect(margin, cardY, cardWidth, cardHeight, 4, 4, "FD");
-  doc.roundedRect(margin + cardWidth + cardGap, cardY, cardWidth, cardHeight, 4, 4, "FD");
-
+  doc.roundedRect(margin, 56, pageWidth - margin * 2, 82, 4, 4, "FD");
   doc.setTextColor(20, 54, 96);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
-  doc.text("STUDENT DETAILS", margin + 8, cardY + 13);
-  doc.text("PAYMENT DETAILS", margin + cardWidth + cardGap + 8, cardY + 13);
+  doc.text("STUDENT DETAILS", 22, 68);
   doc.setDrawColor(230, 236, 244);
-  doc.line(margin + 8, cardY + 18, margin + cardWidth - 8, cardY + 18);
-  doc.line(margin + cardWidth + cardGap + 8, cardY + 18, pageWidth - margin - 8, cardY + 18);
-
-  drawField(doc, "Student Name", details.studentName, margin + 8, cardY + 29, cardWidth - 16);
-  drawField(doc, "Father's Name", details.fatherName || "—", margin + 8, cardY + 48, 36);
-  drawField(doc, "Mother's Name", details.motherName || "—", margin + 48, cardY + 48, 34);
-  drawField(doc, "Class", details.className || "—", margin + 8, cardY + 68, 34);
-  drawField(doc, "Roll No.", details.rollNumber || "—", margin + 48, cardY + 68, 34);
-  drawField(doc, "Student ID / Username", details.username, margin + 8, cardY + 87, cardWidth - 16);
-  drawField(doc, "Fee Period", details.feePeriod, margin + cardWidth + cardGap + 8, cardY + 29, cardWidth - 16);
-  drawField(doc, "Payment Mode", details.paymentMode, margin + cardWidth + cardGap + 8, cardY + 50, cardWidth - 16);
-  drawField(doc, "Payment Date", details.paymentDate, margin + cardWidth + cardGap + 8, cardY + 71, cardWidth - 16);
+  doc.line(22, 73, pageWidth - 22, 73);
+  drawField(doc, "Student Name", details.studentName, 22, 84, 166);
+  drawField(doc, "Father's Name", details.fatherName || "—", 22, 103, 78);
+  drawField(doc, "Mother's Name", details.motherName || "—", 111, 103, 77);
+  drawField(doc, "Class", details.className || "—", 22, 122, 42);
+  drawField(doc, "Roll No.", details.rollNumber || "—", 76, 122, 36);
+  drawField(doc, "Student ID / Username", details.username, 124, 122, 64);
 
   doc.setFillColor(255, 255, 255);
   doc.setDrawColor(222, 231, 242);
-  doc.roundedRect(margin, 216, pageWidth - margin * 2, 25, 4, 4, "FD");
-  drawField(doc, "Transaction ID", details.transactionId, margin + 8, 226, 92);
-  drawField(doc, "Receipt Date", new Date().toLocaleDateString("en-IN"), 126, 226, 60);
+  doc.roundedRect(margin, 146, pageWidth - margin * 2, 86, 4, 4, "FD");
+  doc.setTextColor(20, 54, 96);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text("PAYMENT DETAILS", 22, 158);
+  doc.setDrawColor(230, 236, 244);
+  doc.line(22, 163, pageWidth - 22, 163);
+
+  doc.setTextColor(99, 119, 145);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.text("FEE PERIOD", 22, 175);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(26, 48, 77);
+  doc.text(doc.splitTextToSize(details.feePeriod, 66).slice(0, 2), 22, 182);
+
+  doc.setFillColor(normalizedStatus.includes("REFUND") ? 255 : 232, normalizedStatus.includes("REFUND") ? 239 : 248, normalizedStatus.includes("REFUND") ? 240 : 240);
+  doc.roundedRect(146, 168, 44, 12, 6, 6, "F");
+  doc.setTextColor(...statusColor);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.text(normalizedStatus || "PAID", 168, 176, { align: "center", maxWidth: 40 });
+
+  doc.setTextColor(99, 119, 145);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.text("AMOUNT RECEIVED", 22, 198);
+  doc.setTextColor(12, 67, 126);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(21);
+  doc.text(`INR ${Number(details.amount || 0).toLocaleString("en-IN")}`, 22, 211);
+  drawField(doc, "Payment Mode", details.paymentMode, 111, 181, 77);
+  drawField(doc, "Payment Date", details.paymentDate, 111, 202, 77);
+  drawField(doc, "Transaction ID", details.transactionId, 22, 223, 96);
+  drawField(doc, "Receipt Date", new Date().toLocaleDateString("en-IN"), 124, 223, 64);
 
   if (details.remarks && details.remarks !== "—") {
     doc.setFillColor(255, 255, 255);
     doc.setDrawColor(222, 231, 242);
-    doc.roundedRect(margin, 247, 113, 20, 4, 4, "FD");
+    doc.roundedRect(margin, 240, 113, 22, 4, 4, "FD");
     doc.setTextColor(111, 128, 151);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
-    doc.text("REMARKS", margin + 8, 255);
+    doc.text("REMARKS", 22, 249);
     doc.setTextColor(54, 72, 95);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8.5);
-    doc.text(doc.splitTextToSize(details.remarks, 96).slice(0, 2), margin + 8, 262);
+    doc.setFontSize(8);
+    doc.text(doc.splitTextToSize(details.remarks, 96).slice(0, 2), 22, 257);
   }
 
-  doc.setDrawColor(50, 73, 105);
-  doc.setLineWidth(0.35);
-  doc.line(margin + 5, 277, 97, 277);
-  doc.setTextColor(44, 62, 85);
+  // The supplied script sheet is used as a clearly labeled, computer-generated academy wordmark.
+  doc.addImage(digitalMark, "PNG", 20, 264, 69, 22);
+  doc.setTextColor(91, 108, 131);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  doc.text("Authorized Signatory", margin + 5, 283);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
-  doc.setTextColor(117, 132, 151);
-  doc.text("For RACER ACADEMY", margin + 5, 287);
-
-  doc.addImage(seal, "PNG", 151, 232, 42, 42);
-  doc.setTextColor(72, 91, 117);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(6.5);
-  doc.text("OFFICIAL ACADEMY SEAL", 172, 278, { align: "center" });
+  doc.setFontSize(6.4);
+  doc.text("COMPUTER-GENERATED ACADEMY MARK", 54.5, 289, { align: "center" });
+  doc.addImage(seal, "PNG", 155, 246, 38, 38);
+  doc.text("OFFICIAL ACADEMY SEAL", 174, 289, { align: "center" });
 
   doc.setDrawColor(220, 229, 240);
-  doc.line(margin, 291, pageWidth - margin, 291);
+  doc.line(margin, 292, pageWidth - margin, 292);
   doc.setTextColor(117, 132, 151);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
-  doc.text("Computer-generated receipt · Keep this document for your records.", pageWidth / 2, 295, { align: "center" });
+  doc.setFontSize(6.5);
+  doc.text("Computer-generated one-page receipt · RACER ACADEMY", pageWidth / 2, 296, { align: "center" });
   return doc;
 }
