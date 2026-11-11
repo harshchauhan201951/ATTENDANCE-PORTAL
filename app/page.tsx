@@ -2487,17 +2487,35 @@ export default function HomePage() {
                   <div className="mobile-welcome-copy">
                     <strong>
                       {loginType === "student"
-                        ? "Ready to learn?"
-                        : "Your classroom, in your pocket."}
+                        ? "Ready, superstar?"
+                        : "Your students are ready to shine."}
                     </strong>
                     <span>
                       {loginType === "student"
-                        ? "Your academy is just a sign in away."
-                        : "Classes, attendance and results, wherever you are."}
+                        ? "Big ideas, brave questions and fun learning start here."
+                        : "Make every class count, wherever you are."}
                     </span>
                   </div>
                   <div className="mobile-welcome-art" aria-hidden="true">
-                    <Image src="/racer-academy-icon.png" alt="" width={92} height={92} />
+                    <svg className="learning-buddy" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <ellipse cx="61" cy="106" rx="31" ry="7" fill="#171A5C" fillOpacity=".2" />
+                      <path d="M59 8c-14 12-24 31-24 53 0 21 11 34 26 34s26-13 26-34C87 39 75 17 59 8Z" fill="url(#buddy-body)" stroke="white" strokeOpacity=".8" strokeWidth="2" />
+                      <path d="M37 62 20 78c-3 3-1 8 3 8h16m47-24 16 16c3 3 1 8-3 8H83" fill="url(#buddy-fin)" stroke="white" strokeOpacity=".65" strokeWidth="2" strokeLinejoin="round" />
+                      <path d="M48 87 39 101c-2 4 0 7 4 7h12l5-13m8-8 9 14c2 4 0 7-4 7H61l-4-13" fill="url(#buddy-fin)" stroke="white" strokeOpacity=".65" strokeWidth="2" strokeLinejoin="round" />
+                      <path d="M59 8V2m0 0c-5 0-8 4-8 8h16c0-4-3-8-8-8Z" fill="#FFD86E" stroke="white" strokeWidth="2" strokeLinejoin="round" />
+                      <ellipse cx="61" cy="57" rx="18" ry="16" fill="#FFFDF8" />
+                      <ellipse cx="54" cy="55" rx="2.6" ry="3.6" fill="#25345F" />
+                      <ellipse cx="68" cy="55" rx="2.6" ry="3.6" fill="#25345F" />
+                      <path d="M54 63c4 6 10 6 14 0" stroke="#E97872" strokeWidth="2.6" strokeLinecap="round" />
+                      <ellipse cx="48" cy="61" rx="3" ry="1.8" fill="#FF9F9D" fillOpacity=".8" />
+                      <ellipse cx="74" cy="61" rx="3" ry="1.8" fill="#FF9F9D" fillOpacity=".8" />
+                      <path d="m96 23 2.3 5.7L104 31l-5.7 2.3L96 39l-2.3-5.7L88 31l5.7-2.3L96 23Z" fill="#FFE487" stroke="white" strokeOpacity=".8" />
+                      <path d="m25 34 1.6 3.9 3.9 1.6-3.9 1.6-1.6 3.9-1.6-3.9-3.9-1.6 3.9-1.6 1.6-3.9Z" fill="#A8F3E1" />
+                      <defs>
+                        <linearGradient id="buddy-body" x1="37" y1="14" x2="84" y2="88" gradientUnits="userSpaceOnUse"><stop stopColor="#9B8BFF" /><stop offset=".55" stopColor="#6559DB" /><stop offset="1" stopColor="#414DB3" /></linearGradient>
+                        <linearGradient id="buddy-fin" x1="35" y1="61" x2="80" y2="102" gradientUnits="userSpaceOnUse"><stop stopColor="#66DDEB" /><stop offset="1" stopColor="#4777DC" /></linearGradient>
+                      </defs>
+                    </svg>
                   </div>
                 </div>
 
@@ -5644,6 +5662,67 @@ export default function HomePage() {
 }
 @media(max-width:700px) and (max-height:760px) {
   .racer-login-page { background:linear-gradient(160deg,#f4f8ff,#edf3ff 58%,#fff7eb)!important; }
+}
+
+/* Cinematic, playful 3D finish for the learner welcome scene. */
+.racer-login-page {
+  perspective:1600px!important;
+  background:
+    radial-gradient(ellipse at 9% 8%,rgba(255,190,111,.34),transparent 30%),
+    radial-gradient(ellipse at 92% 13%,rgba(139,132,255,.28),transparent 34%),
+    radial-gradient(ellipse at 75% 92%,rgba(83,216,203,.22),transparent 30%),
+    linear-gradient(135deg,#f8fbff 0%,#edf3ff 52%,#fff7ec 100%)!important;
+}
+.background-orb { animation: login-orb-drift 12s ease-in-out infinite alternate; }
+.orb-two { animation-delay:-5s; }
+.racer-login-card {
+  transform:perspective(1500px) rotateX(.35deg)!important;
+  transform-style:preserve-3d!important;
+  border:1px solid rgba(100,132,197,.2)!important;
+  background:linear-gradient(145deg,rgba(255,255,255,.99),rgba(248,251,255,.97) 58%,rgba(255,252,245,.98))!important;
+  box-shadow:0 38px 100px rgba(54,78,137,.2),0 12px 28px rgba(102,103,181,.09),0 0 0 1px rgba(255,255,255,.85),inset 0 1px #fff!important;
+}
+.mobile-welcome-panel {
+  isolation:isolate!important;
+  transform:perspective(900px) rotateY(1deg) rotateX(1deg)!important;
+  transform-style:preserve-3d!important;
+  border:1px solid rgba(255,255,255,.72)!important;
+  box-shadow:inset 0 1px rgba(255,255,255,.7),0 26px 48px rgba(76,85,181,.24),0 8px 18px rgba(51,78,148,.12)!important;
+}
+.racer-login-card--student .mobile-welcome-panel {
+  background:radial-gradient(circle at 17% 12%,rgba(255,255,255,.48),transparent 34%),radial-gradient(circle at 90% 92%,rgba(255,225,128,.54),transparent 36%),linear-gradient(145deg,#479bfa 0%,#655ee5 54%,#984fd3 100%)!important;
+}
+.racer-login-card--teacher .mobile-welcome-panel {
+  background:radial-gradient(circle at 17% 12%,rgba(255,255,255,.5),transparent 34%),radial-gradient(circle at 92% 92%,rgba(255,232,155,.54),transparent 36%),linear-gradient(145deg,#ffb15c 0%,#f47774 52%,#aa60cf 100%)!important;
+}
+.mobile-welcome-art {
+  display:grid!important;
+  place-items:center!important;
+  overflow:visible!important;
+  transform:translateZ(34px) rotate(4deg)!important;
+  border:1px solid rgba(255,255,255,.9)!important;
+  background:linear-gradient(145deg,#f7fbff,#dce8ff)!important;
+  box-shadow:0 0 0 7px rgba(255,255,255,.25),0 22px 42px rgba(36,39,117,.3),inset 0 2px 5px rgba(255,255,255,.9)!important;
+}
+.mobile-welcome-art:before {
+  position:absolute;inset:-10px;border:1px dashed rgba(255,255,255,.7);border-radius:inherit;content:"";animation:buddy-orbit 18s linear infinite;pointer-events:none;
+}
+.learning-buddy {
+  display:block!important;width:100%!important;height:100%!important;overflow:visible!important;
+  filter:drop-shadow(0 8px 5px rgba(32,42,111,.24));
+  animation:buddy-bob 3.8s ease-in-out infinite;
+}
+.login-switch { box-shadow:inset 0 1px #fff,0 5px 14px rgba(41,67,116,.06)!important; }
+.switch-button { transition:transform .18s ease,background .18s ease,box-shadow .18s ease!important; }
+.switch-button:active { transform:translateY(1px) scale(.98)!important; }
+.racer-login-card .input-box { box-shadow:inset 0 1px 2px rgba(27,55,93,.045),0 3px 8px rgba(37,68,113,.035)!important; }
+.racer-login-card .login-button { transform:translateZ(10px)!important; }
+@keyframes buddy-bob { 0%,100%{transform:translateY(0) rotate(-2deg)} 50%{transform:translateY(-5px) rotate(2deg)} }
+@keyframes buddy-orbit { to{transform:rotate(360deg)} }
+@keyframes login-orb-drift { to{transform:translate3d(14px,-12px,0) scale(1.04)} }
+@media(prefers-reduced-motion:reduce) {
+  .background-orb,.learning-buddy,.mobile-welcome-art:before { animation:none!important; }
+  .racer-login-card,.mobile-welcome-panel { transform:none!important; }
 }
 
 `}</style>
