@@ -18,7 +18,7 @@
     },
     {
       "path": "/api/cron/scheduled-homework",
-      "schedule": "0 * * * *"
+      "schedule": "30 11 * * *"
     },
     {
       "path": "/api/cron/student-upcoming-events",
