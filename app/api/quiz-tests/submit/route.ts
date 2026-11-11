@@ -111,8 +111,8 @@ async function notifySubmittedQuiz(requestUrl: string, result: any, quiz: any, s
       body: JSON.stringify({
         studentId,
         category: "quiz",
-        title: "Quiz Result Ready",
-        message: `${quiz?.title || "Your quiz"} is submitted. Score: ${percentage.toFixed(1)}% (${score} / ${total} marks), ${String(result.result_status || "COMPLETED").toUpperCase()}.`,
+        title: "RACER ACADEMY: आपका Quiz Result तैयार है",
+        message: `${quiz?.title || "आपका Quiz"} submit हो गया है। आपका Score ${percentage.toFixed(1)}% (${score} / ${total} marks) है। पूरा Result देखने के लिए Quiz Results section खोलें।`,
         url: `/student/quiz-tests/results?quizId=${Number(result.quiz_id)}&resultId=${Number(result.id)}`,
         notificationKey: `quiz-result:${Number(result.id)}`,
         metadata: { source: "quiz_submission", quizId: Number(result.quiz_id), resultId: Number(result.id), percentage, resultStatus: String(result.result_status || "COMPLETED") },

@@ -108,7 +108,7 @@ export async function POST(
       ? Array.from(new Set(body.studentIds.map((value: unknown) => Number(value)).filter((value: number) => Number.isInteger(value) && value > 0)))
       : [];
     const targetClasses = Array.isArray(body?.targetClasses)
-      ? Array.from(new Set(body.targetClasses.map((value: unknown) => String(value ?? "").trim().replace(/\s+/g, " ").toUpperCase()).filter(Boolean)))
+      ? Array.from(new Set(body.targetClasses.map((value: unknown) => String(value ?? "").trim().replace(/\s+/g, " ").toUpperCase().replace(/^CLASS\s+/, "")).filter(Boolean)))
       : [];
 
     const category = body?.category || "general";
@@ -158,7 +158,7 @@ export async function POST(
         if (targetStudentsError) {
           return NextResponse.json({ success: false, error: targetStudentsError.message }, { status: 500 });
         }
-        const normalizeTargetClass = (value: unknown) => String(value ?? "").trim().replace(/\s+/g, " ").toUpperCase();
+        const normalizeTargetClass = (value: unknown) => String(value ?? "").trim().replace(/\s+/g, " ").toUpperCase().replace(/^CLASS\s+/, "");
         const targetStudentIds = Array.from(new Set((targetStudents || [])
           .filter((student: { id: number; class_name: string | null }) => targetClasses.includes(normalizeTargetClass(student.class_name)))
           .map((student: { id: number }) => Number(student.id))
@@ -265,7 +265,7 @@ export async function POST(
     if (studentId !== null) recipientStudentIds = [Number(studentId)];
     else if (Array.isArray(body?.studentIds)) recipientStudentIds = requestedStudentIds;
     else if (Array.isArray(body?.targetClasses)) {
-      const normalized = (value: unknown) => String(value ?? "").trim().replace(/\s+/g, " ").toUpperCase();
+      const normalized = (value: unknown) => String(value ?? "").trim().replace(/\s+/g, " ").toUpperCase().replace(/^CLASS\s+/, "");
       const { data: matchingStudents, error: matchingError } = await supabaseAdmin.from("students").select("id,class_name").or("is_active.eq.true,is_active.is.null");
       if (matchingError) return NextResponse.json({ success: false, error: matchingError.message }, { status: 500 });
       recipientStudentIds = Array.from(new Set((matchingStudents || []).filter((student: { id: number; class_name: string | null }) => targetClasses.includes(normalized(student.class_name))).map((student: { id: number }) => Number(student.id))));

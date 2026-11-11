@@ -210,6 +210,26 @@ export async function POST(request: NextRequest) {
       uploaded_by: teacherId,
     }).select("id").single();
     if (error) throw new Error(error.message);
+
+    try {
+      const notification = await fetch(new URL("/api/push/send", request.url), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: `RACER ACADEMY: नया Study Material — ${title}`,
+          message: `RACER ACADEMY द्वारा ${title} Study Material upload किया गया है। यह ${classNames.join(", ")} class के लिए उपलब्ध है। File: ${file.name}। Material देखने के लिए Study Material section खोलें।`,
+          category: "study_material",
+          url: "/student/study-material",
+          targetClasses: classNames,
+          notificationKey: `study-material:${data.id}`,
+          metadata: { source: "teacher_study_material_upload", materialId: Number(data.id), title, classNames, fileName: file.name },
+        }),
+      });
+      if (!notification.ok) console.error("Study material notification failed:", await notification.json().catch(() => null));
+    } catch (notificationError) {
+      console.error("Study material notification request failed:", notificationError);
+    }
+
     return NextResponse.json({ success: true, id: data.id, classes: classNames });
   } catch (error) {
     if (uploadedPaths.length && admin) await admin.storage.from(BUCKET).remove(uploadedPaths).catch(() => undefined);

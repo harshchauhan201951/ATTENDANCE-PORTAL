@@ -25,8 +25,8 @@ async function notifyMonthlyResult(request: Request, monthKey: string) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        title: "Monthly Result Published",
-        message: "Your monthly academic result is now available in RACER ACADEMY. Tap to view your result.",
+        title: "RACER ACADEMY: मासिक MahaTest Result जारी",
+        message: `${monthKey} का मासिक MahaTest Result RACER ACADEMY ने जारी कर दिया है। अपना Result देखने के लिए Monthly Result section खोलें।`,
         category: "result",
         url: "/student/monthly-result",
         notificationKey: `monthly-result-announcement-v2:${monthKey}`,

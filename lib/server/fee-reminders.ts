@@ -31,8 +31,8 @@ export async function sendPendingFeeReminder(requestUrl: string, studentId: numb
     body: JSON.stringify({
       studentId,
       category: "fee_pending",
-      title: "Pending Fee Reminder",
-      message: `Your fee payment of ₹${total.toLocaleString("en-IN")} is pending for ${periods}. Please check your Fees page.`,
+      title: "RACER ACADEMY: फीस जमा करने की याद दिलाई जा रही है",
+      message: `आपकी ${periods} की ₹${total.toLocaleString("en-IN")} फीस अभी जमा होना बाकी है। कृपया RACER ACADEMY के Fees section में विवरण देखें।`,
       url: "/student/fees",
       notificationKey,
       metadata: { source: "daily_fee_reminder", pendingFeeIds: pending.map((fee: any) => Number(fee.id)), reminderDate: indiaDateKey(), reminderSlot },

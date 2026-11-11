@@ -266,10 +266,10 @@ function CreateTimetableContent() {
 
       try {
         const classList = [...classesToSave].sort().join(",");
-        const title = isHoliday ? `Holiday Notice · ${dayOfWeek}` : `Timetable Updated · ${subject.trim()}`;
+        const title = isHoliday ? `RACER ACADEMY: ${dayOfWeek} की Holiday सूचना` : `RACER ACADEMY: Timetable Update · ${subject.trim()}`;
         const message = isHoliday
-          ? `There will be no classes on ${dayOfWeek}. Please check the academic calendar for details.`
-          : `Your ${subject.trim()} class is scheduled on ${dayOfWeek}, ${startTime}–${endTime}.`;
+          ? `${dayOfWeek} को class नहीं होगी। अधिक जानकारी के लिए Academic Calendar देखें।`
+          : `${subject.trim()} class का समय ${dayOfWeek}, ${startTime}–${endTime} तय किया गया है। पूरा Timetable देखने के लिए Timetable section खोलें।`;
         const notificationResponse = await fetch("/api/push/send", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

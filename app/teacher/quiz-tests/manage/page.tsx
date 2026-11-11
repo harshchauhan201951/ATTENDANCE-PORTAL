@@ -248,8 +248,8 @@ export default function ManageQuizzesPage() {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                title: `New Quiz: ${quiz.title}`,
-                message: `${quiz.title} is published for your class. Scheduled: ${quiz.scheduled_date || "See Quiz Tests"}${quiz.scheduled_time ? ` at ${quiz.scheduled_time}` : ""}. Open RACER ACADEMY to check whether it is upcoming or ready to attempt.`,
+                title: `RACER ACADEMY द्वारा नया Quiz: ${quiz.title}`,
+                message: `RACER ACADEMY द्वारा ${quiz.title} Quiz डाल दिया गया है। यह ${quizClasses.join(", ")} class के लिए है। Subject: ${quiz.subject || "सामान्य"}। तारीख: ${quiz.scheduled_date || "Quiz section में देखें"}${quiz.scheduled_time ? ` · समय: ${quiz.scheduled_time}` : ""}। Quiz देखने और attempt करने के लिए Quiz section खोलें।`,
                 category: "quiz",
                 url: "/student/quiz-tests",
                 targetClasses: quizClasses,

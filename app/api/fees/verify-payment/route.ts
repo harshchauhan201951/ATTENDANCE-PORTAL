@@ -347,8 +347,8 @@ export async function POST(
         body: JSON.stringify({
           studentId: Number(updatedFee.student_id),
           category: "fee_paid",
-          title: "Online Fee Payment Successful",
-          message: `Your fee payment of ₹${Number(updatedFee.amount).toLocaleString("en-IN")} has been received successfully.`,
+          title: "RACER ACADEMY: Online Fee Payment सफल",
+          message: `आपकी ₹${Number(updatedFee.amount).toLocaleString("en-IN")} की online फीस RACER ACADEMY को सफलतापूर्वक मिल गई है। Receipt देखने के लिए Fees section खोलें।`,
           url: "/student/fees",
           notificationKey: `fee-online-paid:${razorpay_payment_id}`,
           metadata: { source: "verified_online_fee_payment", feeId: Number(updatedFee.id), paymentId: String(razorpay_payment_id), amount: Number(updatedFee.amount) },

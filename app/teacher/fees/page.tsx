@@ -1471,8 +1471,8 @@ export default function TeacherFeesPage() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              title: refunded ? "Fee Refund Updated" : feePaid ? "Fee Payment Confirmed" : "Fee Status Updated",
-              message: `Your ${getMonthName(Number(month))} ${year} fee status is ${refunded ? "REFUNDED" : feePaid ? "PAID" : status}. Amount: ₹${Number(amount).toLocaleString("en-IN")}.`,
+              title: refunded ? "RACER ACADEMY: Fee Refund अपडेट" : feePaid ? "RACER ACADEMY: Fee Payment दर्ज" : "RACER ACADEMY: Fee Status अपडेट",
+              message: `${getMonthName(Number(month))} ${year} की आपकी ₹${Number(amount).toLocaleString("en-IN")} फीस ${refunded ? "वापस कर दी गई है" : feePaid ? "जमा हो गई है" : `का status ${status} है`}। अधिक जानकारी के लिए Fees section खोलें।`,
               studentId: Number(studentId),
               category: refunded ? "fee_refunded" : feePaid ? "fee_paid" : "fee_pending",
               url: "/student/fees",

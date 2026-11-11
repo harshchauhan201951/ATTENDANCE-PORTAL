@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { createStudentSessionToken, isSameOriginRequest, readStudentSession, STUDENT_SESSION_COOKIE, STUDENT_SESSION_MAX_AGE_SECONDS } from "../../../../lib/server/student-session";
+import { sendPendingFeeReminder } from "../../../../lib/server/fee-reminders";
 
 export const runtime = "nodejs";
 
@@ -42,6 +43,12 @@ export async function POST(request: Request) {
       last_seen_at: loggedInAt,
     });
     if (activityError) console.error("Student login activity session could not be recorded:", activityError.message);
+
+    try {
+      await sendPendingFeeReminder(request.url, studentId, "login");
+    } catch (feeReminderError) {
+      console.error("Pending fee login reminder could not be sent:", feeReminderError);
+    }
 
     const response = NextResponse.json({ success: true, activityRecorded: !activityError });
     response.cookies.set(STUDENT_SESSION_COOKIE, createStudentSessionToken(studentId, verifiedUsername, sessionId, deviceType), {

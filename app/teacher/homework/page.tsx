@@ -382,20 +382,22 @@ export default function TeacherHomeworkPage() {
           ...previous,
         ]);
         try {
-          const homeworkPush = await fetch("/api/push/send", {
+          if (!scheduledAt || new Date(scheduledAt).getTime() <= Date.now()) {
+            const homeworkPush = await fetch("/api/push/send", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              title: `New Assignment: ${data.title}`,
-              message: `${data.subject} assignment: ${data.title}. Due ${data.due_date}. Open RACER ACADEMY to read the instructions.`,
+              title: `RACER ACADEMY द्वारा नया Homework: ${data.title}`,
+              message: `RACER ACADEMY द्वारा ${data.title} Homework डाल दिया गया है। यह ${selectedClasses.join(", ")} class के लिए है। Subject: ${data.subject}। जमा करने की अंतिम तारीख: ${data.due_date}। पूरे निर्देश देखने के लिए Homework section खोलें।`,
               category: "homework",
               url: "/student/homework",
               targetClasses: selectedClasses,
               notificationKey: `homework-published:${data.id}`,
               metadata: { source: "teacher_homework_publish", homeworkId: data.id, dueDate: data.due_date, subject: data.subject },
             }),
-          });
-          if (!homeworkPush.ok) console.warn("Assignment notification was not sent:", await homeworkPush.json().catch(() => null));
+            });
+            if (!homeworkPush.ok) console.warn("Assignment notification was not sent:", await homeworkPush.json().catch(() => null));
+          }
         } catch (homeworkPushError) {
           console.error("Assignment notification request failed:", homeworkPushError);
         }

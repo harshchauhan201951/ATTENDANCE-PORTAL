@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const reminderSlot = "07:00";
+    const reminderSlot = "09:00";
     const reminders = await sendAllPendingFeeReminders(request.url, reminderSlot);
     return NextResponse.json({ success: true, reminderSlot, checkedAt: new Date().toISOString(), studentsWithPendingFees: reminders.length, reminders });
   } catch (error) {

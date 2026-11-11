@@ -897,7 +897,7 @@ export default function TeacherReportsPage() {
         const absent = item.attendanceStatus === "ABSENT";
         const noTest = item.attendanceStatus === "NO_TEST";
         const score = absent || noTest ? item.attendanceStatus : `${Number(item.obtainedMarks)} / ${total} marks`;
-        const resultMessage = `${trimmedName}: ${noTest ? "No test was recorded for you." : absent ? "You were marked absent." : `Your score is ${score}.`}${item.subject ? ` Subject: ${item.subject}.` : ""}`;
+        const resultMessage = `RACER ACADEMY द्वारा आपका Saturday Weekly Test Result अपडेट किया गया है। ${noTest ? "इस test का record उपलब्ध नहीं है।" : absent ? "आपको अनुपस्थित दर्ज किया गया है।" : `आपका score ${score} है।`}${item.subject ? ` Subject: ${item.subject}.` : ""} अपना Result देखने के लिए Weekly Tests section खोलें।`;
         const keyPart = encodeURIComponent(trimmedName.toLowerCase()).slice(0, 48);
         return fetch("/api/push/send", {
           method: "POST",
@@ -905,7 +905,7 @@ export default function TeacherReportsPage() {
           body: JSON.stringify({
             studentId: item.studentId,
             category: "weekly_test",
-            title: "Saturday Weekly Test Result",
+            title: "RACER ACADEMY: Saturday Weekly Test Result",
             message: resultMessage,
             url: "/student/exams/weekly-tests",
             notificationKey: `weekly-test:${testDate}:${keyPart}:${item.studentId}:${encodeURIComponent(score)}`,

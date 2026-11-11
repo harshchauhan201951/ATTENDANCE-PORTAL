@@ -10,6 +10,29 @@ function positiveInt(value: unknown): number | null {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
+async function notifyStudentAccountStatus(request: NextRequest, studentId: number, studentName: string, isActive: boolean) {
+  try {
+    const response = await fetch(new URL("/api/push/send", request.url), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        studentId,
+        category: "student_account",
+        title: isActive ? "RACER ACADEMY: आपका account सक्रिय है" : "RACER ACADEMY: आपका account निष्क्रिय किया गया है",
+        message: isActive
+          ? `नमस्ते ${studentName}, आपका RACER ACADEMY student account फिर से सक्रिय कर दिया गया है। अब आप portal में login कर सकते हैं।`
+          : `नमस्ते ${studentName}, आपका RACER ACADEMY student account अभी निष्क्रिय है। सहायता के लिए RACER ACADEMY से संपर्क करें।`,
+        url: "/student/dashboard",
+        notificationKey: `student-account:${studentId}:${isActive ? "active" : "inactive"}:${Math.floor(Date.now() / 60000)}`,
+        metadata: { source: "teacher_account_status", studentId, isActive },
+      }),
+    });
+    if (!response.ok) console.error("Student account status notification failed:", await response.json().catch(() => null));
+  } catch (error) {
+    console.error("Student account status notification request failed:", error);
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     if (!supabaseAdmin) return NextResponse.json({ success: false, error: "Supabase service configuration is missing." }, { status: 500 });
@@ -43,6 +66,7 @@ export async function POST(request: NextRequest) {
           .maybeSingle();
         if (deactivateError) return NextResponse.json({ success: false, error: deactivateError.message }, { status: 500 });
         if (!deactivatedStudent) return NextResponse.json({ success: false, error: "Student was not found." }, { status: 404 });
+        await notifyStudentAccountStatus(request, studentId, String(deactivatedStudent.student_name || `Student #${studentId}`), false);
         return NextResponse.json({ success: true, student: { ...deactivatedStudent, admission_history: [] } });
       }
       return NextResponse.json({ success: false, error: missingHistoryColumn ? "Apply the student admission history database migration before changing student account status." : currentStudentError.message }, { status: 500 });
@@ -81,6 +105,9 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
     if (updateError) return NextResponse.json({ success: false, error: updateError.message }, { status: 500 });
     if (!student) return NextResponse.json({ success: false, error: "Student was not found." }, { status: 404 });
+    if (Boolean(currentStudent.is_active) !== isActive) {
+      await notifyStudentAccountStatus(request, studentId, String(student.student_name || `Student #${studentId}`), isActive);
+    }
     return NextResponse.json({ success: true, student });
   } catch (error) {
     return NextResponse.json({ success: false, error: error instanceof Error ? error.message : "Unable to update account status." }, { status: 500 });

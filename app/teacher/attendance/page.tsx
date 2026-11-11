@@ -183,8 +183,8 @@ export default function TeacherAttendancePage() {
           body: JSON.stringify({
             studentId,
             category: "attendance",
-            title: "Attendance Updated",
-            message: `Your attendance for ${formatDate(selectedDate)} has been marked ${status}.`,
+            title: "RACER ACADEMY: Attendance अपडेट",
+            message: `${formatDate(selectedDate)} की आपकी Attendance ${status.toLowerCase() === "present" ? "उपस्थित" : status.toLowerCase() === "absent" ? "अनुपस्थित" : status} दर्ज की गई है। विवरण देखने के लिए Attendance History खोलें।`,
             url: "/student/attendance-history",
             notificationKey: `attendance:${studentId}:${selectedDate}:${status.toLowerCase()}:${Math.floor(Date.now() / 60000)}`,
             metadata: { source: "teacher_attendance", attendanceDate: selectedDate, status },
@@ -314,8 +314,8 @@ export default function TeacherAttendancePage() {
           body: JSON.stringify({
             studentIds: changedStudentIds,
             category: "attendance",
-            title: "Attendance Updated",
-            message: `Your attendance for ${formatDate(selectedDate)} has been marked ${status}.`,
+            title: "RACER ACADEMY: Attendance अपडेट",
+            message: `${formatDate(selectedDate)} की आपकी Attendance ${status.toLowerCase() === "present" ? "उपस्थित" : status.toLowerCase() === "absent" ? "अनुपस्थित" : status} दर्ज की गई है। विवरण देखने के लिए Attendance History खोलें।`,
             url: "/student/attendance-history",
             notificationKey: `attendance:${selectedDate}:${status.toLowerCase()}:${Math.floor(Date.now() / 60000)}`,
             metadata: { source: "teacher_attendance_bulk", attendanceDate: selectedDate, status },

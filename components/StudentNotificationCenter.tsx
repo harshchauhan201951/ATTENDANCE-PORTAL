@@ -13,6 +13,8 @@ type StudentNotice = {
   url: string | null;
   category: string;
   created_at: string;
+  is_read?: boolean;
+  metadata?: Record<string, unknown> | null;
 };
 
 function decodeVapidKey(value: string) {
@@ -31,6 +33,42 @@ export default function StudentNotificationCenter() {
   const audioContext = useRef<AudioContext | null>(null);
   const notificationAudio = useRef<HTMLAudioElement | null>(null);
   const lastId = useRef<number | null>(null);
+  const notificationQueue = useRef<StudentNotice[]>([]);
+  const popupTimer = useRef<number | null>(null);
+
+  const playNotificationSound = useCallback(() => {
+    const audio = notificationAudio.current;
+    if (!audio) return;
+    audio.currentTime = 0;
+    void audio.play().catch(() => {
+      const context = audioContext.current;
+      if (!context || context.state !== "running") return;
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, context.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.11, context.currentTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.22);
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.start();
+      oscillator.stop(context.currentTime + 0.23);
+    });
+  }, []);
+
+  const showNextNotification = useCallback(() => {
+    if (popupTimer.current !== null) return;
+    const next = notificationQueue.current.shift();
+    if (!next) return;
+    setNotice(next);
+    playNotificationSound();
+    popupTimer.current = window.setTimeout(() => {
+      popupTimer.current = null;
+      setNotice(null);
+      showNextNotification();
+    }, 7000);
+  }, [playNotificationSound]);
 
   const refresh = useCallback(async (allowPopup = true) => {
     if (!identity) return;
@@ -43,39 +81,33 @@ export default function StudentNotificationCenter() {
       const newestId = latest.reduce((maximum, item) => Math.max(maximum, Number(item.id) || 0), 0);
       if (lastId.current === null) {
         lastId.current = newestId;
+        const recentLoginFeeReminders = latest
+          .filter((item) => item.category === "fee_pending"
+            && item.metadata?.source === "daily_fee_reminder"
+            && item.metadata?.reminderSlot === "login"
+            && !item.is_read
+            && Date.now() - new Date(item.created_at).getTime() < 10 * 60 * 1000
+            && !sessionStorage.getItem(`racer-notice-shown:${item.id}`))
+          .sort((left, right) => Number(left.id) - Number(right.id));
+        for (const item of recentLoginFeeReminders) {
+          notificationQueue.current.push(item);
+          sessionStorage.setItem(`racer-notice-shown:${item.id}`, "1");
+        }
+        showNextNotification();
         return;
       }
       if (allowPopup) {
-        const arriving = latest.find((item) => Number(item.id) > (lastId.current || 0));
-        if (arriving) {
-          setNotice(arriving);
-          const audio = notificationAudio.current;
-          if (audio) {
-            audio.currentTime = 0;
-            void audio.play().catch(() => {
-              const context = audioContext.current;
-              if (!context || context.state !== "running") return;
-              const oscillator = context.createOscillator();
-              const gain = context.createGain();
-              oscillator.type = "sine";
-              oscillator.frequency.value = 880;
-              gain.gain.setValueAtTime(0.0001, context.currentTime);
-              gain.gain.exponentialRampToValueAtTime(0.11, context.currentTime + 0.02);
-              gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.22);
-              oscillator.connect(gain);
-              gain.connect(context.destination);
-              oscillator.start();
-              oscillator.stop(context.currentTime + 0.23);
-            });
-          }
-          window.setTimeout(() => setNotice((current) => current?.id === arriving.id ? null : current), 9000);
-        }
+        const arriving = latest
+          .filter((item) => Number(item.id) > (lastId.current || 0))
+          .sort((left, right) => Number(left.id) - Number(right.id));
+        notificationQueue.current.push(...arriving);
+        showNextNotification();
       }
       lastId.current = Math.max(lastId.current || 0, newestId);
     } catch {
       // The OS push notification remains available even if the inbox refresh is offline.
     }
-  }, [identity]);
+  }, [identity, showNextNotification]);
 
   useEffect(() => {
     let cancelled = false;
@@ -122,6 +154,9 @@ export default function StudentNotificationCenter() {
       window.clearInterval(timer);
       window.removeEventListener("focus", onFocus);
       navigator.serviceWorker?.removeEventListener("message", onWorkerMessage);
+      if (popupTimer.current !== null) window.clearTimeout(popupTimer.current);
+      popupTimer.current = null;
+      notificationQueue.current = [];
     };
   }, [identity, refresh]);
 
@@ -228,7 +263,7 @@ export default function StudentNotificationCenter() {
   if (!identity) return null;
   return <>
     {!nativeApp && permission !== "granted" && <div style={{ position: "fixed", zIndex: 10001, right: 16, bottom: 18, display: "flex", alignItems: "center", gap: 10, maxWidth: "calc(100vw - 32px)", padding: "10px 13px", border: "1px solid #bfd8f3", borderRadius: 14, background: "#fff", boxShadow: "0 8px 28px #17395824", color: "#24415f", font: "600 12px/1.4 Arial,sans-serif" }}>
-      <span>{permission === "unsupported" ? "This browser does not support push notifications." : permission === "denied" ? "Allow RACER notifications in your browser settings." : "Get class, test, fee and result updates instantly."}</span>
+      <span>{permission === "unsupported" ? "This browser does not support push notifications." : permission === "denied" ? "Allow RACER notifications in your browser settings." : "Enable alerts for announcements, quizzes, homework, fees, timetable and special wishes."}</span>
       {permission === "default" && <button type="button" disabled={busy} onClick={() => void enableNotifications()} style={{ flex: "0 0 auto", border: 0, borderRadius: 9, padding: "9px 11px", background: "#155ba2", color: "#fff", fontWeight: 800, cursor: "pointer" }}>{busy ? "Enabling…" : "Enable alerts"}</button>}
       <button type="button" aria-label="Dismiss notification prompt" onClick={(event) => event.currentTarget.parentElement?.remove()} style={{ border: 0, background: "transparent", color: "#71839a", fontSize: 18, cursor: "pointer" }}>×</button>
     </div>}

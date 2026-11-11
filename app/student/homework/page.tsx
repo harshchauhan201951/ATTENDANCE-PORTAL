@@ -19,6 +19,7 @@ type Homework = {
   due_date: string;
   class_name: string;
   created_at: string | null;
+  scheduled_at?: string | null;
 };
 
 type HomeworkTab = "all" | "today";
@@ -209,7 +210,7 @@ export default function StudentHomeworkPage() {
         await supabase
           .from("homework")
           .select(
-            "id, subject, title, description, due_date, class_name, created_at"
+            "id, subject, title, description, due_date, class_name, created_at, scheduled_at"
           )
           .order("created_at", {
             ascending: false,
@@ -232,6 +233,7 @@ export default function StudentHomeworkPage() {
       const assignedHomework = (
         (homeworkData || []) as Homework[]
       ).filter((item) => {
+        if (item.scheduled_at && new Date(item.scheduled_at).getTime() > Date.now()) return false;
         const assignedClasses = item.class_name
           .split(",")
           .map((classItem) =>

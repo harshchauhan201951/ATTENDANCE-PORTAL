@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
           .map((row: { id: number }) => Number(row.id)).filter((id: number) => Number.isInteger(id) && id > 0);
         const title = offset === 0 ? `Today: ${event.title}` : `Tomorrow: ${event.title}`;
         const lead = offset === 0 ? "Today" : "Tomorrow";
-        const message = `${event.title} is ${offset === 0 ? "today" : `on ${dayName}, ${dateKey}`}. ${event.description}${classSpecificHoliday ? ` This notice is for classes ${targetClasses.join(", ")}.` : ""}`;
+        const message = `${event.title} ${offset === 0 ? "आज है" : `${dayName}, ${dateKey} को है`}। जानकारी के लिए Academic Calendar खोलें।${classSpecificHoliday ? ` यह सूचना ${targetClasses.join(", ")} classes के लिए है।` : ""}`;
         const payload: Record<string, unknown> = {
           category: "academic_calendar", title, message, url: "/student/calendar",
           notificationKey: `calendar-event:${lead.toLowerCase()}:${dateKey}:${event.type}:${event.title}`,

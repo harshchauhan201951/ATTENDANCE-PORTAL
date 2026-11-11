@@ -13,6 +13,9 @@ import { supabase } from "../../../lib/supabase";
 type Quiz = {
   id: number;
   title: string;
+  class_name: string | null;
+  target_classes: string[] | null;
+  subject: string | null;
   description: string | null;
   scheduled_date: string;
   scheduled_time: string;
@@ -249,7 +252,7 @@ function TeacherQuizQuestionsContent() {
       const { data: quizData, error: quizError } = await supabase
         .from("quiz_tests")
         .select(
-          "id,title,description,scheduled_date,scheduled_time,duration_minutes,marks_per_question,negative_marks,pass_percentage,is_published"
+          "id,title,class_name,target_classes,subject,description,scheduled_date,scheduled_time,duration_minutes,marks_per_question,negative_marks,pass_percentage,is_published"
         )
         .eq("id", quizId)
         .maybeSingle();
@@ -1018,6 +1021,32 @@ function TeacherQuizQuestionsContent() {
 
       setQuestions(finalQuestions);
       setQuiz((current) => current ? { ...current, is_published: true } : current);
+      if (!quiz.is_published) {
+        const quizClasses = Array.from(new Set([
+          ...(Array.isArray(quiz.target_classes) ? quiz.target_classes : []),
+          ...(!Array.isArray(quiz.target_classes) || quiz.target_classes.length === 0 ? [quiz.class_name || ""] : []),
+        ].map((value) => String(value || "").trim()).filter(Boolean)));
+        if (quizClasses.length) {
+          try {
+            const response = await fetch("/api/push/send", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                title: `RACER ACADEMY द्वारा नया Quiz: ${quiz.title}`,
+                message: `RACER ACADEMY द्वारा ${quiz.title} Quiz डाल दिया गया है। यह ${quizClasses.join(", ")} class के लिए है। Subject: ${quiz.subject || "सामान्य"}। तारीख: ${quiz.scheduled_date || "Quiz section में देखें"}${quiz.scheduled_time ? ` · समय: ${quiz.scheduled_time}` : ""}। Quiz देखने और attempt करने के लिए Quiz section खोलें।`,
+                category: "quiz",
+                url: "/student/quiz-tests",
+                targetClasses: quizClasses,
+                notificationKey: `quiz-published:${quiz.id}`,
+                metadata: { source: "teacher_quiz_publish", quizId: quiz.id, scheduledDate: quiz.scheduled_date, scheduledTime: quiz.scheduled_time },
+              }),
+            });
+            if (!response.ok) console.warn("Quiz announcement notification failed:", await response.json().catch(() => null));
+          } catch (notificationError) {
+            console.error("Quiz announcement notification request failed:", notificationError);
+          }
+        }
+      }
       setMessage(
         `${finalQuestions.length} question${
           finalQuestions.length === 1 ? "" : "s"

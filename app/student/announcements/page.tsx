@@ -11,6 +11,16 @@ type Announcement = {
   created_at: string;
   likeCount: number;
   likedByMe: boolean;
+  isAutomatic?: boolean;
+};
+
+type StudentNotification = {
+  id: number;
+  category: string;
+  title: string;
+  message: string;
+  created_at: string;
+  metadata?: Record<string, unknown> | null;
 };
 
 function isWithinLatest24Hours(createdAt: string) {
@@ -108,7 +118,8 @@ export default function StudentAnnouncementsPage() {
     );
 
     await loadAnnouncements(
-      resolvedId
+      resolvedId,
+      savedUsername
     );
   }
 
@@ -152,7 +163,8 @@ export default function StudentAnnouncementsPage() {
 
   async function loadAnnouncements(
     currentStudentId:
-      number | null
+      number | null,
+    currentUsername = username
   ) {
     setLoading(true);
 
@@ -183,32 +195,18 @@ export default function StudentAnnouncementsPage() {
       const rows =
         announcementData || [];
 
-      if (rows.length === 0) {
-        setAnnouncements([]);
-
-        return;
-      }
-
       const ids =
         rows.map(
           (announcement) =>
             announcement.id
         );
 
-      const {
-        data: likesData,
-        error: likesError,
-      } = await supabase
-        .from(
-          "announcement_likes"
-        )
-        .select(
-          "announcement_id, student_id"
-        )
-        .in(
-          "announcement_id",
-          ids
-        );
+      const { data: likesData, error: likesError } = ids.length
+        ? await supabase
+            .from("announcement_likes")
+            .select("announcement_id, student_id")
+            .in("announcement_id", ids)
+        : { data: [], error: null };
 
       if (likesError) {
         console.error(
@@ -220,7 +218,7 @@ export default function StudentAnnouncementsPage() {
       const likes =
         likesData || [];
 
-      const formatted =
+      const formatted: Announcement[] =
         rows.map(
           (announcement) => {
             const announcementLikes =
@@ -258,12 +256,37 @@ export default function StudentAnnouncementsPage() {
               likeCount:
                 announcementLikes.length,
               likedByMe,
+              isAutomatic: false,
             };
           }
         );
 
+      let automaticAnnouncements: Announcement[] = [];
+      if (currentStudentId && currentUsername) {
+        const response = await fetch(
+          `/api/student/notifications?studentId=${encodeURIComponent(String(currentStudentId))}&studentUsername=${encodeURIComponent(currentUsername)}`,
+          { cache: "no-store" }
+        );
+        const result = await response.json().catch(() => null);
+        if (response.ok && result?.success && Array.isArray(result.notifications)) {
+          automaticAnnouncements = (result.notifications as StudentNotification[])
+            .filter((item) => item.category !== "announcement" && item.title && item.message)
+            .map((item) => ({
+              id: -Math.abs(Number(item.id)),
+              title: item.title,
+              message: item.message,
+              created_at: item.created_at,
+              likeCount: 0,
+              likedByMe: false,
+              isAutomatic: true,
+            }));
+        }
+      }
+
       setAnnouncements(
-        formatted
+        [...formatted, ...automaticAnnouncements].sort(
+          (left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
+        )
       );
     } catch (error) {
       console.error(
@@ -333,6 +356,8 @@ export default function StudentAnnouncementsPage() {
     if (!selected) {
       return;
     }
+
+    if (selected.isAutomatic) return;
 
     setLikingId(
       announcementId
@@ -858,10 +883,10 @@ export default function StudentAnnouncementsPage() {
                         styles.everyone
                       }
                     >
-                      👥 For all students
+                      {announcement.isAutomatic ? "🔔 RACER ACADEMY अपडेट" : "👥 For all students"}
                     </span>
 
-                    <button
+                    {!announcement.isAutomatic && <button
                       type="button"
                       onClick={() =>
                         toggleLike(
@@ -902,7 +927,7 @@ export default function StudentAnnouncementsPage() {
                           announcement.likeCount
                         }
                       </span>
-                    </button>
+                    </button>}
                   </div>
                 </article>
                 );
