@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@supabase/supabase-js";
@@ -389,6 +389,32 @@ function withoutPasswordFields(value: any): any {
     .map(([key, nested]) => [key, withoutPasswordFields(nested)]));
 }
 
+type BuddyMood = "welcome" | "id-ready" | "password" | "checking" | "oops" | "success";
+
+function LearningBuddy({ mood }: { mood: BuddyMood }) {
+  const gradientId = `racer-buddy-${useId().replace(/:/g, "")}`;
+  return (
+    <svg className="learning-buddy" data-expression={mood} viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <ellipse cx="60" cy="106" rx="31" ry="7" fill="#171A5C" fillOpacity=".2" />
+      {mood === "checking" && <circle className="buddy-scan-ring" cx="60" cy="57" r="31" stroke="#A8F3E1" strokeWidth="2" strokeDasharray="6 6" />}
+      <path d="M59 8c-14 12-24 31-24 53 0 21 11 34 26 34s26-13 26-34C87 39 75 17 59 8Z" fill={`url(#${gradientId})`} stroke="white" strokeOpacity=".88" strokeWidth="2" />
+      <path d="M37 62 20 78c-3 3-1 8 3 8h16m47-24 16 16c3 3 1 8-3 8H83" fill="#63CFE5" stroke="white" strokeOpacity=".72" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M48 87 39 101c-2 4 0 7 4 7h12l5-13m8-8 9 14c2 4 0 7-4 7H61l-4-13" fill="#5181D8" stroke="white" strokeOpacity=".72" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M59 8V2m0 0c-5 0-8 4-8 8h16c0-4-3-8-8-8Z" fill="#FFD86E" stroke="white" strokeWidth="2" strokeLinejoin="round" />
+      <ellipse cx="61" cy="57" rx="18" ry="16" fill="#FFFDF8" />
+      <ellipse className="buddy-pupil" cx="54" cy="55" rx="2.6" ry="3.6" fill="#25345F" />
+      <ellipse className="buddy-pupil" cx="68" cy="55" rx="2.6" ry="3.6" fill="#25345F" />
+      {mood === "success" ? <ellipse cx="61" cy="64" rx="4" ry="5" fill="#E97872" /> : <path className="buddy-mouth" d={mood === "oops" ? "M54 66c4-5 10-5 14 0" : "M54 63c4 6 10 6 14 0"} stroke="#E97872" strokeWidth="2.7" strokeLinecap="round" />}
+      <ellipse cx="48" cy="61" rx="3" ry="1.8" fill="#FF9F9D" fillOpacity=".8" />
+      <ellipse cx="74" cy="61" rx="3" ry="1.8" fill="#FF9F9D" fillOpacity=".8" />
+      <path d="m96 23 2.3 5.7L104 31l-5.7 2.3L96 39l-2.3-5.7L88 31l5.7-2.3L96 23Z" fill="#FFE487" stroke="white" strokeOpacity=".8" />
+      <path d="m25 34 1.6 3.9 3.9 1.6-3.9 1.6-1.6 3.9-1.6-3.9-3.9-1.6 3.9-1.6 1.6-3.9Z" fill="#A8F3E1" />
+      {mood === "success" && <g className="buddy-thumbs-up" stroke="white" strokeWidth="1.6" strokeLinejoin="round"><path d="M89 51v-9c0-2 2-3 3-5l2-5c.5-1.3 2.5-1 2.7.5.2 1.4-.4 3.2-1 5.3h7c1.7 0 2.7 1.4 2.4 3l-1.6 9.4a3 3 0 0 1-3 2.5h-8.5c-1.7 0-3-1-3-2.7Z" fill="#32B981" /><path d="M86 43h3v10h-3a1.5 1.5 0 0 1-1.5-1.5v-7A1.5 1.5 0 0 1 86 43Z" fill="#FFFDF8" /></g>}
+      <defs><linearGradient id={gradientId} x1="37" y1="14" x2="84" y2="88" gradientUnits="userSpaceOnUse"><stop stopColor="#9B8BFF" /><stop offset=".55" stopColor="#6559DB" /><stop offset="1" stopColor="#414DB3" /></linearGradient></defs>
+    </svg>
+  );
+}
+
 export default function HomePage() {
   const router = useRouter();
   const [sessionChecked, setSessionChecked] = useState(false);
@@ -408,7 +434,9 @@ export default function HomePage() {
     useState(false);
   const [loading, setLoading] = useState(false);
   const [loginVerified, setLoginVerified] = useState(false);
+  const [welcomeName, setWelcomeName] = useState("");
   const [error, setError] = useState("");
+  const buddyMood: BuddyMood = loginVerified ? "success" : loading ? "checking" : error ? "oops" : password ? "password" : loginType === "student" && username.trim().length >= studentUsernamePrefix.length + 2 ? "id-ready" : "welcome";
 
   const [academy, setAcademy] =
     useState<AcademyProfile>(
@@ -668,6 +696,7 @@ export default function HomePage() {
 
     setError("");
     setLoginVerified(false);
+    setWelcomeName("");
 
     const cleanUsername = username.trim();
     const cleanPassword = password;
@@ -805,6 +834,8 @@ export default function HomePage() {
             "Student"
         );
 
+        setWelcomeName(String(userData.student_name || "Student").trim());
+
         localStorage.setItem(
           "student_username",
           userData.student_username ||
@@ -818,7 +849,7 @@ export default function HomePage() {
         );
 
         setLoginVerified(true);
-        await new Promise((resolve) => window.setTimeout(resolve, 850));
+        await new Promise((resolve) => window.setTimeout(resolve, 2400));
         setPassword("");
         router.push(
           "/student/dashboard"
@@ -911,6 +942,8 @@ export default function HomePage() {
         String(
           userData.teacher_username
         ).trim();
+
+      setWelcomeName(String(userData.teacher_name || userData.name || teacherUsername || "Teacher").trim());
 
       void offerBrowserPasswordSave("teacher", cleanUsername, cleanPassword);
 
@@ -1059,7 +1092,7 @@ export default function HomePage() {
       // =========================================================
 
       setLoginVerified(true);
-      await new Promise((resolve) => window.setTimeout(resolve, 850));
+      await new Promise((resolve) => window.setTimeout(resolve, 2400));
       setPassword("");
       router.replace("/teacher/dashboard");
 
@@ -2487,35 +2520,17 @@ export default function HomePage() {
                   <div className="mobile-welcome-copy">
                     <strong>
                       {loginType === "student"
-                        ? "Ready, superstar?"
-                        : "Your students are ready to shine."}
+                        ? error ? "No worries, superstar!" : password ? "Secret password time!" : username.trim().length >= studentUsernamePrefix.length + 2 ? "Looking sharp!" : "Ready, superstar?"
+                        : error ? "Let’s try that again." : password ? "Almost there, teacher!" : "Your students are ready to shine."}
                     </strong>
                     <span>
                       {loginType === "student"
-                        ? "Big ideas, brave questions and fun learning start here."
-                        : "Make every class count, wherever you are."}
+                        ? error ? "Check your details and give it another go." : password ? "Our buddy is cheering you on." : username.trim().length >= studentUsernamePrefix.length + 2 ? "Nice! Now enter your password." : "Big ideas, brave questions and fun learning start here."
+                        : error ? "Double-check your details and try once more." : password ? "Your classroom is nearly ready." : "Make every class count, wherever you are."}
                     </span>
                   </div>
                   <div className="mobile-welcome-art" aria-hidden="true">
-                    <svg className="learning-buddy" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <ellipse cx="61" cy="106" rx="31" ry="7" fill="#171A5C" fillOpacity=".2" />
-                      <path d="M59 8c-14 12-24 31-24 53 0 21 11 34 26 34s26-13 26-34C87 39 75 17 59 8Z" fill="url(#buddy-body)" stroke="white" strokeOpacity=".8" strokeWidth="2" />
-                      <path d="M37 62 20 78c-3 3-1 8 3 8h16m47-24 16 16c3 3 1 8-3 8H83" fill="url(#buddy-fin)" stroke="white" strokeOpacity=".65" strokeWidth="2" strokeLinejoin="round" />
-                      <path d="M48 87 39 101c-2 4 0 7 4 7h12l5-13m8-8 9 14c2 4 0 7-4 7H61l-4-13" fill="url(#buddy-fin)" stroke="white" strokeOpacity=".65" strokeWidth="2" strokeLinejoin="round" />
-                      <path d="M59 8V2m0 0c-5 0-8 4-8 8h16c0-4-3-8-8-8Z" fill="#FFD86E" stroke="white" strokeWidth="2" strokeLinejoin="round" />
-                      <ellipse cx="61" cy="57" rx="18" ry="16" fill="#FFFDF8" />
-                      <ellipse cx="54" cy="55" rx="2.6" ry="3.6" fill="#25345F" />
-                      <ellipse cx="68" cy="55" rx="2.6" ry="3.6" fill="#25345F" />
-                      <path d="M54 63c4 6 10 6 14 0" stroke="#E97872" strokeWidth="2.6" strokeLinecap="round" />
-                      <ellipse cx="48" cy="61" rx="3" ry="1.8" fill="#FF9F9D" fillOpacity=".8" />
-                      <ellipse cx="74" cy="61" rx="3" ry="1.8" fill="#FF9F9D" fillOpacity=".8" />
-                      <path d="m96 23 2.3 5.7L104 31l-5.7 2.3L96 39l-2.3-5.7L88 31l5.7-2.3L96 23Z" fill="#FFE487" stroke="white" strokeOpacity=".8" />
-                      <path d="m25 34 1.6 3.9 3.9 1.6-3.9 1.6-1.6 3.9-1.6-3.9-3.9-1.6 3.9-1.6 1.6-3.9Z" fill="#A8F3E1" />
-                      <defs>
-                        <linearGradient id="buddy-body" x1="37" y1="14" x2="84" y2="88" gradientUnits="userSpaceOnUse"><stop stopColor="#9B8BFF" /><stop offset=".55" stopColor="#6559DB" /><stop offset="1" stopColor="#414DB3" /></linearGradient>
-                        <linearGradient id="buddy-fin" x1="35" y1="61" x2="80" y2="102" gradientUnits="userSpaceOnUse"><stop stopColor="#66DDEB" /><stop offset="1" stopColor="#4777DC" /></linearGradient>
-                      </defs>
-                    </svg>
+                    <LearningBuddy mood={buddyMood} />
                   </div>
                 </div>
 
@@ -2637,6 +2652,13 @@ export default function HomePage() {
                       />
                     </div>
                     <small className="credential-hint">{loginType === "student" ? "STU10 fixed · apne username ke baaki characters likhein" : "Har character ke saath username box badhega"}</small>
+                    {loginType === "student" && username.trim().length >= studentUsernamePrefix.length + 2 && (
+                      <div className="student-id-reveal" aria-live="polite">
+                        <span>STUDENT ID</span>
+                        <strong>{username.trim().toUpperCase()}</strong>
+                        <i aria-hidden="true">✓</i>
+                      </div>
+                    )}
                   </div>
 
                   <div className="input-group">
@@ -2823,6 +2845,33 @@ export default function HomePage() {
             </span>
           </footer>
         </div>
+        {loading && !loginVerified && (
+          <div className="login-fetch-overlay" role="status" aria-live="polite" aria-busy="true">
+            <div className="login-fetch-card">
+              <div className="fetch-buddy-stage"><LearningBuddy mood="checking" /></div>
+              <div className="login-fetch-brand"><Image src="/racer-academy-icon.png" alt="" width={38} height={38} priority /><span>RACER <b>ACADEMY</b></span></div>
+              <h2>Let’s check that, {loginType === "student" ? "superstar" : "teacher"}!</h2>
+              <p>Securely checking your details and fetching your profile from RACER ACADEMY.</p>
+              <div className="fetch-activity"><i /><i /><i /><span>CONNECTING TO RACER ACADEMY</span></div>
+              <small>Your password stays private.</small>
+            </div>
+          </div>
+        )}
+        {loginVerified && (
+          <div className={`login-success-overlay login-success-overlay--${loginType}`} role="status" aria-live="assertive">
+            <div className="login-success-card">
+              <div className="login-success-spark login-success-spark--one" aria-hidden="true">✦</div>
+              <div className="login-success-spark login-success-spark--two" aria-hidden="true">✧</div>
+              <div className="login-success-logo"><Image src="/racer-academy-icon.png" alt="" width={82} height={82} priority /></div>
+              <span className="login-success-eyebrow">RACER ACADEMY · VERIFIED</span>
+              <h1>WOW, {welcomeName || (loginType === "student" ? "Superstar" : "Teacher")}!</h1>
+              <p>Welcome to RACER ACADEMY. Your next great {loginType === "student" ? "learning adventure" : "classroom moment"} starts now.</p>
+              <div className="login-success-vip"><span aria-hidden="true">✦</span>{loginType === "student" ? "VIP LEARNER" : "VIP EDUCATOR"}<span aria-hidden="true">✦</span></div>
+              <div className="login-success-progress"><i /></div>
+              <small>Opening your {loginType} dashboard…</small>
+            </div>
+          </div>
+        )}
       </main>
 
       {activeModal && (
@@ -5664,66 +5713,65 @@ export default function HomePage() {
   .racer-login-page { background:linear-gradient(160deg,#f4f8ff,#edf3ff 58%,#fff7eb)!important; }
 }
 
-/* Cinematic, playful 3D finish for the learner welcome scene. */
-.racer-login-page {
-  perspective:1600px!important;
-  background:
-    radial-gradient(ellipse at 9% 8%,rgba(255,190,111,.34),transparent 30%),
-    radial-gradient(ellipse at 92% 13%,rgba(139,132,255,.28),transparent 34%),
-    radial-gradient(ellipse at 75% 92%,rgba(83,216,203,.22),transparent 30%),
-    linear-gradient(135deg,#f8fbff 0%,#edf3ff 52%,#fff7ec 100%)!important;
-}
-.background-orb { animation: login-orb-drift 12s ease-in-out infinite alternate; }
-.orb-two { animation-delay:-5s; }
-.racer-login-card {
-  transform:perspective(1500px) rotateX(.35deg)!important;
-  transform-style:preserve-3d!important;
-  border:1px solid rgba(100,132,197,.2)!important;
-  background:linear-gradient(145deg,rgba(255,255,255,.99),rgba(248,251,255,.97) 58%,rgba(255,252,245,.98))!important;
-  box-shadow:0 38px 100px rgba(54,78,137,.2),0 12px 28px rgba(102,103,181,.09),0 0 0 1px rgba(255,255,255,.85),inset 0 1px #fff!important;
-}
-.mobile-welcome-panel {
-  isolation:isolate!important;
-  transform:perspective(900px) rotateY(1deg) rotateX(1deg)!important;
-  transform-style:preserve-3d!important;
-  border:1px solid rgba(255,255,255,.72)!important;
-  box-shadow:inset 0 1px rgba(255,255,255,.7),0 26px 48px rgba(76,85,181,.24),0 8px 18px rgba(51,78,148,.12)!important;
-}
-.racer-login-card--student .mobile-welcome-panel {
-  background:radial-gradient(circle at 17% 12%,rgba(255,255,255,.48),transparent 34%),radial-gradient(circle at 90% 92%,rgba(255,225,128,.54),transparent 36%),linear-gradient(145deg,#479bfa 0%,#655ee5 54%,#984fd3 100%)!important;
-}
-.racer-login-card--teacher .mobile-welcome-panel {
-  background:radial-gradient(circle at 17% 12%,rgba(255,255,255,.5),transparent 34%),radial-gradient(circle at 92% 92%,rgba(255,232,155,.54),transparent 36%),linear-gradient(145deg,#ffb15c 0%,#f47774 52%,#aa60cf 100%)!important;
-}
-.mobile-welcome-art {
-  display:grid!important;
-  place-items:center!important;
-  overflow:visible!important;
-  transform:translateZ(34px) rotate(4deg)!important;
-  border:1px solid rgba(255,255,255,.9)!important;
-  background:linear-gradient(145deg,#f7fbff,#dce8ff)!important;
-  box-shadow:0 0 0 7px rgba(255,255,255,.25),0 22px 42px rgba(36,39,117,.3),inset 0 2px 5px rgba(255,255,255,.9)!important;
-}
-.mobile-welcome-art:before {
-  position:absolute;inset:-10px;border:1px dashed rgba(255,255,255,.7);border-radius:inherit;content:"";animation:buddy-orbit 18s linear infinite;pointer-events:none;
-}
-.learning-buddy {
-  display:block!important;width:100%!important;height:100%!important;overflow:visible!important;
-  filter:drop-shadow(0 8px 5px rgba(32,42,111,.24));
-  animation:buddy-bob 3.8s ease-in-out infinite;
-}
-.login-switch { box-shadow:inset 0 1px #fff,0 5px 14px rgba(41,67,116,.06)!important; }
-.switch-button { transition:transform .18s ease,background .18s ease,box-shadow .18s ease!important; }
-.switch-button:active { transform:translateY(1px) scale(.98)!important; }
-.racer-login-card .input-box { box-shadow:inset 0 1px 2px rgba(27,55,93,.045),0 3px 8px rgba(37,68,113,.035)!important; }
-.racer-login-card .login-button { transform:translateZ(10px)!important; }
-@keyframes buddy-bob { 0%,100%{transform:translateY(0) rotate(-2deg)} 50%{transform:translateY(-5px) rotate(2deg)} }
-@keyframes buddy-orbit { to{transform:rotate(360deg)} }
-@keyframes login-orb-drift { to{transform:translate3d(14px,-12px,0) scale(1.04)} }
-@media(prefers-reduced-motion:reduce) {
-  .background-orb,.learning-buddy,.mobile-welcome-art:before { animation:none!important; }
-  .racer-login-card,.mobile-welcome-panel { transform:none!important; }
-}
+.student-id-reveal { display:flex!important;align-items:center!important;gap:7px!important;width:max-content!important;max-width:100%!important;margin:8px 2px 0!important;padding:6px 9px!important;border:1px solid #cfe8db!important;border-radius:999px!important;background:linear-gradient(110deg,#f0fff7,#ecf7ff)!important;color:#597487!important;animation:student-id-slide .42s cubic-bezier(.2,.8,.2,1) both; }
+.student-id-reveal span { color:#719080!important;font-size:8px!important;font-weight:900!important;letter-spacing:.65px!important; }
+.student-id-reveal strong { color:#234a67!important;font-size:11px!important;font-weight:950!important;letter-spacing:.55px!important; }
+.student-id-reveal i { display:grid!important;width:16px!important;height:16px!important;place-items:center!important;border-radius:50%!important;background:#2cab72!important;color:#fff!important;font-size:10px!important;font-style:normal!important;font-weight:900!important; }
+.login-success-overlay { position:fixed!important;inset:0!important;z-index:99999!important;display:grid!important;place-items:center!important;padding:22px!important;background:radial-gradient(ellipse at 50% 0%,rgba(255,226,142,.38),transparent 43%),rgba(20,35,78,.48)!important;backdrop-filter:blur(18px) saturate(135%)!important;animation:login-success-fade .28s ease-out both; }
+.login-success-card { position:relative!important;display:flex!important;width:min(440px,100%)!important;flex-direction:column!important;align-items:center!important;overflow:hidden!important;padding:34px 28px 27px!important;border:1px solid rgba(255,255,255,.9)!important;border-radius:32px!important;background:radial-gradient(circle at 50% 0%,rgba(255,239,194,.58),transparent 35%),linear-gradient(150deg,#fff 0%,#f6f9ff 55%,#fff9ee 100%)!important;box-shadow:0 40px 100px rgba(8,20,61,.32),0 0 0 8px rgba(255,255,255,.2),inset 0 1px #fff!important;text-align:center!important;animation:login-success-pop .6s cubic-bezier(.16,1.12,.38,1) both; }
+.login-success-card:before { position:absolute;inset:0 0 auto;height:6px;background:linear-gradient(90deg,#4b9af6,#7860e5,#ffac63,#54c8ae);content:""; }
+.login-success-logo { display:grid!important;width:86px!important;height:86px!important;place-items:center!important;overflow:hidden!important;margin:4px 0 17px!important;border:3px solid #fff!important;border-radius:26px!important;background:linear-gradient(145deg,#ffe494,#f3b938)!important;box-shadow:0 0 0 5px rgba(239,189,76,.16),0 16px 30px rgba(95,79,173,.2)!important;transform:rotate(-5deg)!important; }
+.login-success-logo img { width:100%!important;height:100%!important;object-fit:cover!important; }
+.login-success-eyebrow { color:#667da5!important;font-size:9px!important;font-weight:950!important;letter-spacing:1.5px!important; }
+.login-success-card h1 { margin:11px 0 6px!important;color:#273c71!important;font-size:clamp(29px,7vw,42px)!important;font-weight:950!important;line-height:1.08!important;letter-spacing:-1.1px!important;overflow-wrap:anywhere!important; }
+.login-success-card p { max-width:330px!important;margin:5px 0 17px!important;color:#65758f!important;font-size:14px!important;line-height:1.55!important; }
+.login-success-vip { display:flex!important;align-items:center!important;gap:9px!important;padding:9px 15px!important;border:1px solid #f4daa0!important;border-radius:999px!important;background:linear-gradient(110deg,#fff5d6,#ffedbd)!important;color:#895e12!important;font-size:10px!important;font-weight:950!important;letter-spacing:1px!important;box-shadow:0 7px 16px rgba(213,164,54,.13)!important; }
+.login-success-vip span { color:#dc9f22!important;font-size:14px!important; }
+.login-success-progress { width:min(250px,88%)!important;height:5px!important;overflow:hidden!important;margin-top:22px!important;border-radius:99px!important;background:#e7edf8!important; }
+.login-success-progress i { display:block!important;width:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,#4b94f2,#7960df,#f2aa4d);animation:login-success-progress 2.4s linear forwards; }
+.login-success-card > small { margin-top:9px!important;color:#8795aa!important;font-size:10px!important;font-weight:700!important; }
+.login-success-spark { position:absolute!important;color:#f1b83f!important;text-shadow:0 4px 12px rgba(220,158,37,.28)!important;animation:login-spark-pop 1.8s ease-in-out infinite alternate; }
+.login-success-spark--one { top:42px!important;left:35px!important;font-size:26px!important; }
+.login-success-spark--two { top:77px!important;right:36px!important;color:#5d91ed!important;font-size:20px!important;animation-delay:-.8s; }
+.login-success-overlay--teacher .login-success-vip { border-color:#ffd7b5!important;background:linear-gradient(110deg,#fff0df,#ffe3cc)!important;color:#9a5531!important; }
+@keyframes student-id-slide { from{opacity:0;transform:translateY(-7px) scale(.96)} to{opacity:1;transform:translateY(0) scale(1)} }
+@keyframes login-success-fade { from{opacity:0} to{opacity:1} }
+@keyframes login-success-pop { from{opacity:0;transform:translateY(18px) scale(.9) rotateX(8deg)} to{opacity:1;transform:translateY(0) scale(1) rotateX(0)} }
+@keyframes login-success-progress { to{width:100%} }
+@keyframes login-spark-pop { from{opacity:.45;transform:scale(.8) rotate(-10deg)} to{opacity:1;transform:scale(1.15) rotate(10deg)} }
+@media(prefers-reduced-motion:reduce) { .student-id-reveal,.login-success-overlay,.login-success-card,.login-success-spark,.login-success-progress i { animation:none!important; } .login-success-progress i { width:100%!important; } }
+
+.learning-buddy { overflow:visible!important;transform-origin:center; }
+.learning-buddy .buddy-pupil { transform-box:fill-box;transform-origin:center;transition:transform .24s ease; }
+.learning-buddy[data-expression="id-ready"] .buddy-pupil { transform:translate(2px,1px); }
+.learning-buddy[data-expression="password"] .buddy-pupil { transform:translate(-1px,-2px) scale(.92); }
+.learning-buddy[data-expression="checking"] { animation:buddy-check-bob .9s ease-in-out infinite alternate!important; }
+.learning-buddy[data-expression="checking"] .buddy-pupil { animation:buddy-eye-scan 1.15s ease-in-out infinite alternate; }
+.learning-buddy[data-expression="checking"] .buddy-scan-ring { transform-origin:60px 57px;animation:buddy-scan 2s linear infinite; }
+.learning-buddy[data-expression="oops"] { animation:buddy-oops .55s ease-in-out both; }
+.learning-buddy[data-expression="success"] { animation:buddy-celebrate .45s cubic-bezier(.2,1.3,.5,1) both; }
+.buddy-thumbs-up { transform-origin:96px 45px;animation:buddy-thumb-pop .45s cubic-bezier(.2,1.3,.5,1) both; }
+.login-fetch-overlay { position:fixed!important;inset:0!important;z-index:99998!important;display:grid!important;place-items:center!important;padding:22px!important;background:radial-gradient(circle at 50% 12%,rgba(120,155,255,.38),transparent 40%),rgba(19,35,80,.58)!important;backdrop-filter:blur(20px) saturate(135%)!important;animation:login-success-fade .22s ease-out both; }
+.login-fetch-card { display:flex!important;width:min(390px,100%)!important;flex-direction:column!important;align-items:center!important;padding:25px 24px 22px!important;border:1px solid rgba(255,255,255,.86)!important;border-radius:30px!important;background:linear-gradient(150deg,#fff,#f1f5ff 65%,#fff9ed)!important;box-shadow:0 38px 100px rgba(4,14,48,.38),0 0 0 8px rgba(255,255,255,.16),inset 0 1px #fff!important;text-align:center!important;animation:login-success-pop .48s cubic-bezier(.16,1.12,.38,1) both; }
+.fetch-buddy-stage { display:grid!important;width:144px!important;height:128px!important;place-items:center!important;margin:-2px 0 8px!important;border:1px solid rgba(130,161,226,.2)!important;border-radius:28px!important;background:radial-gradient(circle at 50% 20%,#fff,#eaf2ff 72%)!important;box-shadow:inset 0 1px #fff,0 10px 24px rgba(83,108,166,.1)!important; }
+.fetch-buddy-stage .learning-buddy { width:116px!important;height:116px!important;filter:drop-shadow(0 10px 8px rgba(42,52,119,.25)); }
+.login-fetch-brand { display:flex!important;align-items:center!important;gap:9px!important;color:#24416e!important;font-size:14px!important;font-weight:950!important;letter-spacing:.45px!important; }
+.login-fetch-brand img { display:block!important;width:38px!important;height:38px!important;border-radius:12px!important;box-shadow:0 5px 12px rgba(57,87,147,.18)!important; }
+.login-fetch-brand b { color:#637de0!important; }
+.login-fetch-card h2 { margin:15px 0 5px!important;color:#263b70!important;font-size:clamp(20px,6vw,25px)!important;font-weight:950!important;letter-spacing:-.4px!important; }
+.login-fetch-card p { max-width:300px!important;margin:0!important;color:#647692!important;font-size:12px!important;line-height:1.5!important; }
+.fetch-activity { display:flex!important;align-items:center!important;gap:5px!important;margin-top:19px!important;color:#6680b7!important;font-size:8px!important;font-weight:950!important;letter-spacing:.9px!important; }
+.fetch-activity i { display:block!important;width:6px!important;height:6px!important;border-radius:50%!important;background:#59bda2!important;animation:fetch-pulse .9s ease-in-out infinite alternate; }
+.fetch-activity i:nth-child(2) { animation-delay:.2s; }.fetch-activity i:nth-child(3) { animation-delay:.4s;margin-right:5px!important; }
+.login-fetch-card > small { margin-top:9px!important;color:#8a98ac!important;font-size:9px!important; }
+@keyframes buddy-check-bob { to{transform:translateY(-4px) rotate(2deg)} }
+@keyframes buddy-eye-scan { from{transform:translateX(-2px)} to{transform:translateX(2px)} }
+@keyframes buddy-scan { to{transform:rotate(360deg)} }
+@keyframes buddy-oops { 0%{transform:rotate(0)} 35%{transform:rotate(-7deg)} 70%{transform:rotate(5deg)} 100%{transform:rotate(0)} }
+@keyframes buddy-celebrate { 0%{transform:scale(.88) rotate(-8deg)} 65%{transform:scale(1.14) rotate(5deg)} 100%{transform:scale(1) rotate(0)} }
+@keyframes buddy-thumb-pop { from{opacity:0;transform:scale(.25) translateY(12px)} to{opacity:1;transform:scale(1) translateY(0)} }
+@keyframes fetch-pulse { from{opacity:.3;transform:scale(.75)} to{opacity:1;transform:scale(1.35)} }
+@media(prefers-reduced-motion:reduce) { .learning-buddy,.learning-buddy[data-expression],.learning-buddy .buddy-pupil,.learning-buddy .buddy-scan-ring,.buddy-thumbs-up,.fetch-activity i { animation:none!important;transition:none!important; } }
 
 `}</style>
     </>
