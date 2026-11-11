@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import RacerPageActions from "../../components/RacerPageActions"; import { supabase } from "../../lib/supabase";
 import StudentNotificationCenter from "../../components/StudentNotificationCenter";
+import "./student-laptop.css";
 
 const items = [
   { href: "/student/dashboard", label: "Home", icon: "home" },
@@ -228,7 +229,7 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
             <div className="racer-student-module-heading-copy"><h1>{desktopModule.title}</h1><p>{desktopModule.subtitle}</p></div>
             <div className="racer-student-module-time"><small>LOCAL TIME</small><strong>{headerTime || "--:--:--"}</strong></div>
           </div>
-          <div className="racer-portal-content racer-module-page racer-student-content-area" data-student-route={desktopModule.key} style={{ paddingTop: isDashboard ? "0px" : "72px" }}>{children}</div>
+          <div className="racer-portal-content racer-module-page racer-student-content-area" data-student-route={desktopModule.key}>{children}</div>
         </div>
       </div>
 

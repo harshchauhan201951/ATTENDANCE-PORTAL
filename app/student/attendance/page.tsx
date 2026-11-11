@@ -1030,7 +1030,7 @@ export default function StudentAttendancePage() {
 
         {/* STUDENT INFO */}
 
-        <section style={styles.studentCard}>
+        <section className="student-attendance-profile-card" style={styles.studentCard}>
           <div style={styles.avatar}>
             🎓
           </div>

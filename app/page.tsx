@@ -2530,7 +2530,7 @@ export default function HomePage() {
                     </span>
                   </div>
                   <div className="mobile-welcome-art" aria-hidden="true">
-                    <LearningBuddy mood={buddyMood} />
+                    <Image src="/racer-academy-icon.png" alt="" width={112} height={112} priority />
                   </div>
                 </div>
 
@@ -5512,6 +5512,11 @@ export default function HomePage() {
 .mobile-welcome-copy strong { text-wrap:balance!important;text-shadow:0 4px 18px rgba(2,15,50,.2)!important; }
 .mobile-welcome-art { position:relative!important;overflow:hidden!important;border:1px solid rgba(255,233,175,.66)!important;box-shadow:0 0 0 7px rgba(255,255,255,.06),0 20px 44px rgba(0,0,0,.28)!important; }
 .mobile-welcome-art:after { position:absolute;inset:0;border-radius:inherit;background:linear-gradient(145deg,rgba(255,255,255,.22),transparent 48%);content:"";pointer-events:none; }
+.mobile-welcome-art { perspective:700px!important;transform-style:preserve-3d!important;background:linear-gradient(145deg,#f9e8ae,#d2a43d 48%,#fff1b8)!important;animation:ra-logo-float 4s ease-in-out infinite!important; }
+.mobile-welcome-art img { transform:translateZ(10px) rotateY(-9deg) rotateX(5deg) scale(.88)!important;filter:drop-shadow(0 12px 10px rgba(10,20,48,.42))!important; }
+.mobile-welcome-art:before { position:absolute!important;inset:-40% auto -40% -65%!important;z-index:2!important;width:38%!important;transform:rotate(20deg)!important;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent)!important;content:""!important;animation:ra-logo-shine 4.5s ease-in-out infinite!important;pointer-events:none!important; }
+@keyframes ra-logo-float { 0%,100%{transform:translateY(0) rotateY(0)} 50%{transform:translateY(-4px) rotateY(4deg)} }
+@keyframes ra-logo-shine { 0%,30%{left:-65%;opacity:0} 46%{opacity:1} 70%,100%{left:135%;opacity:0} }
 .racer-login-card--student .mobile-welcome-panel { background:radial-gradient(circle at 20% 14%,rgba(255,255,255,.17),transparent 34%),radial-gradient(circle at 100% 100%,rgba(36,199,218,.22),transparent 38%),linear-gradient(145deg,#2364cd 0%,#183f91 52%,#111f58 100%)!important; }
 .racer-login-card--teacher .mobile-welcome-panel { background:radial-gradient(circle at 20% 14%,rgba(255,255,255,.15),transparent 34%),radial-gradient(circle at 100% 100%,rgba(235,178,62,.2),transparent 38%),linear-gradient(145deg,#45647e 0%,#203c57 52%,#111f35 100%)!important; }
 .login-switch { border:1px solid rgba(255,255,255,.1)!important;background:rgba(255,255,255,.045)!important;box-shadow:inset 0 1px rgba(255,255,255,.035)!important; }
@@ -5751,6 +5756,8 @@ export default function HomePage() {
 .learning-buddy[data-expression="oops"] { animation:buddy-oops .55s ease-in-out both; }
 .learning-buddy[data-expression="success"] { animation:buddy-celebrate .45s cubic-bezier(.2,1.3,.5,1) both; }
 .buddy-thumbs-up { transform-origin:96px 45px;animation:buddy-thumb-pop .45s cubic-bezier(.2,1.3,.5,1) both; }
+.mobile-welcome-art img { transform:translate3d(0,-3px,10px) rotateY(-6deg) rotateX(4deg) scale(.9)!important; }
+.mobile-welcome-art { animation:ra-logo-float 4.5s ease-in-out infinite!important; }
 .login-fetch-overlay { position:fixed!important;inset:0!important;z-index:99998!important;display:grid!important;place-items:center!important;padding:22px!important;background:radial-gradient(circle at 50% 12%,rgba(120,155,255,.38),transparent 40%),rgba(19,35,80,.58)!important;backdrop-filter:blur(20px) saturate(135%)!important;animation:login-success-fade .22s ease-out both; }
 .login-fetch-card { display:flex!important;width:min(390px,100%)!important;flex-direction:column!important;align-items:center!important;padding:25px 24px 22px!important;border:1px solid rgba(255,255,255,.86)!important;border-radius:30px!important;background:linear-gradient(150deg,#fff,#f1f5ff 65%,#fff9ed)!important;box-shadow:0 38px 100px rgba(4,14,48,.38),0 0 0 8px rgba(255,255,255,.16),inset 0 1px #fff!important;text-align:center!important;animation:login-success-pop .48s cubic-bezier(.16,1.12,.38,1) both; }
 .fetch-buddy-stage { display:grid!important;width:144px!important;height:128px!important;place-items:center!important;margin:-2px 0 8px!important;border:1px solid rgba(130,161,226,.2)!important;border-radius:28px!important;background:radial-gradient(circle at 50% 20%,#fff,#eaf2ff 72%)!important;box-shadow:inset 0 1px #fff,0 10px 24px rgba(83,108,166,.1)!important; }
@@ -5771,7 +5778,7 @@ export default function HomePage() {
 @keyframes buddy-celebrate { 0%{transform:scale(.88) rotate(-8deg)} 65%{transform:scale(1.14) rotate(5deg)} 100%{transform:scale(1) rotate(0)} }
 @keyframes buddy-thumb-pop { from{opacity:0;transform:scale(.25) translateY(12px)} to{opacity:1;transform:scale(1) translateY(0)} }
 @keyframes fetch-pulse { from{opacity:.3;transform:scale(.75)} to{opacity:1;transform:scale(1.35)} }
-@media(prefers-reduced-motion:reduce) { .learning-buddy,.learning-buddy[data-expression],.learning-buddy .buddy-pupil,.learning-buddy .buddy-scan-ring,.buddy-thumbs-up,.fetch-activity i { animation:none!important;transition:none!important; } }
+@media(prefers-reduced-motion:reduce) { .mobile-welcome-art,.learning-buddy,.learning-buddy[data-expression],.learning-buddy .buddy-pupil,.learning-buddy .buddy-scan-ring,.buddy-thumbs-up,.fetch-activity i { animation:none!important;transition:none!important; } }
 
 `}</style>
     </>
