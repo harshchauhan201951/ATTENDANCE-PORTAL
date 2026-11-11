@@ -1939,6 +1939,147 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
     setError("");
     setMessage(`${kind === "paid" ? "Paid" : "Pending"} fees Excel downloaded (${exportRows.length} records).`);
   }
+
+  function downloadFeePdf(kind: "paid" | "pending", scope: "month" | "overall") {
+    const wantedStatus = kind === "paid"
+      ? ["SUBMITTED", "PAID", "PAID ONLINE"]
+      : ["PENDING"];
+    const rows = fees.filter((fee) => {
+      const normalized = String(fee.status || "").toUpperCase();
+      const statusMatches = wantedStatus.includes(normalized);
+      const monthMatches = scope === "overall" ||
+        (Number(fee.month) === Number(month) && Number(fee.year) === Number(year));
+      return statusMatches && monthMatches;
+    });
+
+    const period = scope === "month"
+      ? `${getMonthName(Number(month))} ${year}`
+      : "All fee history";
+    if (rows.length === 0) {
+      setMessage("");
+      setError(`No ${kind} fee records found for ${scope === "month" ? period : "overall history"}.`);
+      return;
+    }
+
+    try {
+      const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 10;
+      const columns = [
+        { title: "#", width: 8 },
+        { title: "Student", width: 34 },
+        { title: "Username / ID", width: 25 },
+        { title: "Class", width: 18 },
+        { title: "Period", width: 22 },
+        { title: "Fee (INR)", width: 20 },
+        { title: "Paid (INR)", width: 20 },
+        { title: "Due (INR)", width: 20 },
+        { title: "Status", width: 22 },
+        { title: "Mode", width: 19 },
+        { title: "Payment Date", width: 28 },
+        { title: "Transaction ID", width: 21 },
+      ];
+      const isPaid = (fee: Fee) => ["SUBMITTED", "PAID", "PAID ONLINE"].includes(String(fee.status || "").toUpperCase());
+      const totals = rows.reduce((total, fee) => {
+        const amountValue = Number(fee.amount || 0);
+        total.fee += amountValue;
+        if (isPaid(fee)) total.paid += amountValue;
+        if (String(fee.status || "").toUpperCase() === "PENDING") total.due += amountValue;
+        return total;
+      }, { fee: 0, paid: 0, due: 0 });
+
+      const drawTableHeader = (y: number) => {
+        doc.setFillColor(17, 57, 102);
+        doc.roundedRect(margin, y - 5, pageWidth - margin * 2, 9, 1.5, 1.5, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7);
+        doc.setTextColor(255, 255, 255);
+        let x = margin;
+        columns.forEach((column) => {
+          doc.text(column.title, x + 1, y, { maxWidth: column.width - 2 });
+          x += column.width;
+        });
+      };
+
+      const drawPageHeading = () => {
+        doc.setFillColor(12, 76, 145);
+        doc.rect(0, 0, pageWidth, 29, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(16);
+        doc.text("RACER ACADEMY", margin, 12);
+        doc.setFontSize(10);
+        doc.text(`${kind === "paid" ? "PAID" : "PENDING"} FEE HISTORY`, margin, 20);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.text(`Period: ${period}  |  Records: ${rows.length}`, pageWidth - margin, 13, { align: "right" });
+        doc.text(`Fee: INR ${totals.fee.toLocaleString("en-IN")}   Paid: INR ${totals.paid.toLocaleString("en-IN")}   Due: INR ${totals.due.toLocaleString("en-IN")}`, pageWidth - margin, 21, { align: "right" });
+        doc.setTextColor(35, 52, 74);
+        drawTableHeader(38);
+        return 43;
+      };
+
+      let y = drawPageHeading();
+      rows.forEach((fee, index) => {
+        if (y + 9 > pageHeight - 13) {
+          doc.addPage();
+          y = drawPageHeading();
+        }
+        if (index % 2 === 0) {
+          doc.setFillColor(242, 247, 253);
+          doc.rect(margin, y - 5, pageWidth - margin * 2, 9, "F");
+        }
+        const student = allStudents.find((item) => Number(item.id) === Number(fee.student_id));
+        const amountValue = Number(fee.amount || 0);
+        const normalized = String(fee.status || "").toUpperCase();
+        const cells = [
+          String(index + 1),
+          getStudentName(fee.student_id),
+          getStudentUsername(fee.student_id) || "—",
+          student ? getStudentClass(student) : "—",
+          `${getMonthName(Number(fee.month))} ${fee.year}`,
+          amountValue.toLocaleString("en-IN"),
+          isPaid(fee) ? amountValue.toLocaleString("en-IN") : "0",
+          normalized === "PENDING" ? amountValue.toLocaleString("en-IN") : "0",
+          normalized,
+          String(fee.payment_mode || "—").toUpperCase(),
+          fee.payment_date || "—",
+          fee.transaction_id || "—",
+        ];
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6.8);
+        doc.setTextColor(38, 54, 74);
+        let x = margin;
+        cells.forEach((cell, cellIndex) => {
+          const column = columns[cellIndex];
+          const lines = doc.splitTextToSize(String(cell), column.width - 2).slice(0, 2);
+          doc.text(lines, x + 1, y - (lines.length > 1 ? 1 : 0));
+          x += column.width;
+        });
+        y += 9;
+      });
+
+      const pageCount = doc.getNumberOfPages();
+      for (let page = 1; page <= pageCount; page += 1) {
+        doc.setPage(page);
+        doc.setDrawColor(220, 229, 240);
+        doc.line(margin, pageHeight - 9, pageWidth - margin, pageHeight - 9);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7);
+        doc.setTextColor(112, 128, 148);
+        doc.text(`Generated ${new Date().toLocaleString("en-IN")} · RACER ACADEMY`, margin, pageHeight - 4);
+        doc.text(`Page ${page} of ${pageCount}`, pageWidth - margin, pageHeight - 4, { align: "right" });
+      }
+
+      const periodFile = scope === "month" ? `${String(month).padStart(2, "0")}-${year}` : "OVERALL";
+      downloadPdfFile(doc, `RACER-ACADEMY-${kind.toUpperCase()}-FEES-${periodFile}.pdf`);
+      setError("");
+      setMessage(`${kind === "paid" ? "Paid" : "Pending"} fees PDF downloaded (${rows.length} records).`);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Fee PDF could not be downloaded.");
+    }
+  }
   const totalSubmitted =
     fees
       .filter(
@@ -2162,7 +2303,22 @@ if (loading) {
         </details>
 
         <section className="racer-vip-fee-history">
-          <div className="racer-vip-history-toolbar"><div><h2>Fee History</h2><p>Complete student fee records</p></div><div className="racer-fee-export-actions" style={{ display: "flex", flexWrap: "wrap", gap: "8px", justifyContent: "flex-end" }}><button type="button" className="racer-vip-refresh-fee" onClick={() => downloadFeeExcel("paid", "month")}>Paid Excel (Month)</button><button type="button" className="racer-vip-refresh-fee" onClick={() => downloadFeeExcel("paid", "overall")}>Paid Excel (All)</button><button type="button" className="racer-vip-refresh-fee" onClick={() => downloadFeeExcel("pending", "month")}>Pending Excel (Month)</button><button type="button" className="racer-vip-refresh-fee" onClick={() => downloadFeeExcel("pending", "overall")}>Pending Excel (All)</button><button type="button" className="racer-vip-refresh-fee" onClick={() => loadData(true)}>Refresh</button><button type="button" className="racer-vip-refresh-fee" onClick={() => setMonthlyReportOpen(true)}>Monthly-wise Fee</button><button type="button" className="racer-vip-refresh-fee" onClick={() => { const feeEntry = document.getElementById("racer-fee-entry") as HTMLDetailsElement | null; if (feeEntry) { feeEntry.open = true; feeEntry.scrollIntoView({ behavior: "smooth", block: "start" }); } }}>Add Fee</button></div></div>
+          <div className="racer-vip-history-toolbar">
+            <div><h2>Fee History</h2><p>Complete student fee records</p></div>
+            <div className="racer-fee-export-actions" style={{ display: "flex", flexWrap: "wrap", gap: "8px", justifyContent: "flex-end" }}>
+              <button type="button" className="racer-vip-refresh-fee" onClick={() => downloadFeeExcel("paid", "month")}>Paid Excel (Month)</button>
+              <button type="button" className="racer-vip-refresh-fee" onClick={() => downloadFeeExcel("paid", "overall")}>Paid Excel (All)</button>
+              <button type="button" className="racer-vip-refresh-fee" onClick={() => downloadFeeExcel("pending", "month")}>Pending Excel (Month)</button>
+              <button type="button" className="racer-vip-refresh-fee" onClick={() => downloadFeeExcel("pending", "overall")}>Pending Excel (All)</button>
+              <button type="button" className="racer-vip-refresh-fee racer-vip-pdf-export" onClick={() => downloadFeePdf("paid", "month")}>Paid PDF (Month)</button>
+              <button type="button" className="racer-vip-refresh-fee racer-vip-pdf-export" onClick={() => downloadFeePdf("paid", "overall")}>Paid PDF (All)</button>
+              <button type="button" className="racer-vip-refresh-fee racer-vip-pdf-export" onClick={() => downloadFeePdf("pending", "month")}>Pending PDF (Month)</button>
+              <button type="button" className="racer-vip-refresh-fee racer-vip-pdf-export" onClick={() => downloadFeePdf("pending", "overall")}>Pending PDF (All)</button>
+              <button type="button" className="racer-vip-refresh-fee" onClick={() => loadData(true)}>Refresh</button>
+              <button type="button" className="racer-vip-refresh-fee" onClick={() => setMonthlyReportOpen(true)}>Monthly-wise Fee</button>
+              <button type="button" className="racer-vip-refresh-fee" onClick={() => { const feeEntry = document.getElementById("racer-fee-entry") as HTMLDetailsElement | null; if (feeEntry) { feeEntry.open = true; feeEntry.scrollIntoView({ behavior: "smooth", block: "start" }); } }}>Add Fee</button>
+            </div>
+          </div>
           <div className="racer-vip-search-wrap"><Icon name="search" /><input value={feeSearch} onChange={(e) => { setFeeSearch(e.target.value); setFeePage(1); }} placeholder="Search student by name or ID..." /></div>
           <div className="racer-vip-fee-filter-row">
             <button type="button" className={feeFilter === "all" ? "active" : ""} onClick={() => { setFeeFilter("all"); setFeePage(1); }}>All</button>

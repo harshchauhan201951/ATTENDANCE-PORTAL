@@ -9156,6 +9156,18 @@ main[data-racer-vip-module="homework"] .homeworkList .deleteButton { border-radi
   .racer-student-shell .student-announcement-section[data-update-type="birthday"] .student-update-detail { font-size: 10px !important; line-height: 1.3 !important; }
 }
 
+/* Fee-history PDF exports use a distinct, readable action style. */
+.racer-vip-module-page .racer-vip-pdf-export {
+  border: 1px solid #e6c7c1 !important;
+  background: linear-gradient(135deg, #fff7f4, #fce9e5) !important;
+  color: #9e4037 !important;
+}
+.racer-vip-module-page .racer-vip-pdf-export:hover {
+  border-color: #dca69d !important;
+  background: #fff0ec !important;
+  color: #7e2d27 !important;
+}
+
 /* Bring the timetable's own heading closer to the fixed teacher app header on mobile. */
 @media (max-width: 640px) {
   .racer-teacher-shell .racer-shared-teacher-module-content[data-teacher-module="timetable"] {
