@@ -5,6 +5,7 @@ import { supabase } from "../../lib/supabase";
 import * as XLSX from "xlsx"; // RACER_FEES_EXCEL_EXPORT_V1
 import jsPDF from "jspdf";
 import { downloadPdfFile } from "../../../lib/download-pdf";
+import { buildFeeReceiptPdf } from "../../../lib/fee-receipt-pdf";
 import { isStudentFeePeriodVisible } from "../../../lib/admission-date";
 
 type Student = {
@@ -1723,29 +1724,29 @@ export default function TeacherFeesPage() {
     );
   }
 
-  function downloadReceipt(fee: Fee) {
+  async function downloadReceipt(fee: Fee) {
     try {
-      const doc = new jsPDF({ unit: "mm", format: "a4" });
       const studentName = getStudentName(fee.student_id) || "Student";
       const username = getStudentUsername(fee.student_id);
+      const student = allStudents.find((item) => Number(item.id) === Number(fee.student_id));
       const monthName = getMonthName(fee.month);
       const receiptNumber = `RA-${fee.year}-${String(fee.month).padStart(2, "0")}-${fee.id}`;
-      doc.setFillColor(12, 76, 145); doc.rect(0, 0, 210, 43, "F");
-      doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.text("RACER ACADEMY", 15, 18);
-      doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text("OFFICIAL FEE RECEIPT", 15, 28); doc.text(receiptNumber, 195, 28, { align: "right" });
-      doc.setTextColor(25, 43, 68); let y = 60;
-      const rows: Array<[string, string]> = [
-        ["Student", studentName], ["Username", username], ["Fee period", `${monthName} ${fee.year}`],
-        ["Amount", `INR ${Number(fee.amount || 0).toLocaleString("en-IN")}`], ["Payment status", String(fee.status || "").toUpperCase()],
-        ["Payment mode", String(fee.payment_mode || "—").toUpperCase()], ["Payment date", String(fee.payment_date || "—")],
-        ["Transaction ID", String(fee.transaction_id || "—")], ["Remarks", String(fee.remarks || "—")],
-      ];
-      rows.forEach(([label, value], index) => {
-        doc.setFillColor(index % 2 ? 255 : 242, index % 2 ? 255 : 247, index % 2 ? 255 : 253); doc.roundedRect(15, y - 6, 180, 15, 2, 2, "F");
-        doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(85, 103, 125); doc.text(label, 20, y);
-        doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(25, 43, 68); doc.text(doc.splitTextToSize(value, 120), 72, y); y += 18;
+      const doc = await buildFeeReceiptPdf({
+        receiptNumber,
+        studentName,
+        username,
+        className: student ? getStudentClass(student) : "—",
+        rollNumber: String(student?.roll_number || "—"),
+        fatherName: String(student?.father_name || "—"),
+        motherName: String(student?.mother_name || "—"),
+        feePeriod: `${monthName} ${fee.year}`,
+        amount: Number(fee.amount || 0),
+        paymentStatus: String(fee.status || "PAID").toUpperCase(),
+        paymentMode: String(fee.payment_mode || "—").toUpperCase(),
+        paymentDate: String(fee.payment_date || "—"),
+        transactionId: String(fee.transaction_id || "—"),
+        remarks: String(fee.remarks || "—"),
       });
-      doc.setFontSize(8); doc.setTextColor(100, 116, 139); doc.text("Computer-generated receipt · RACER ACADEMY", 105, 282, { align: "center" });
       downloadPdfFile(doc, `RACER_ACADEMY_${receiptNumber}.pdf`);
     } catch (error) { setError(error instanceof Error ? error.message : "Receipt PDF could not be downloaded."); }
   }
