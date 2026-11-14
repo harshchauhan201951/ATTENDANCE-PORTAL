@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import { isSameOriginRequest, readStudentSession } from "../../../../../lib/server/student-session";
+import { createStudentSessionToken, isSameOriginRequest, readStudentSession, STUDENT_SESSION_COOKIE, STUDENT_SESSION_MAX_AGE_SECONDS } from "../../../../../lib/server/student-session";
 
 export const runtime = "nodejs";
 
@@ -26,5 +26,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false }, { status: 503 });
   }
 
-  return NextResponse.json({ success: true }, { headers: { "Cache-Control": "no-store" } });
+  const response = NextResponse.json({ success: true }, { headers: { "Cache-Control": "no-store" } });
+  // Refresh the durable cookie while the student is actively using the portal.
+  response.cookies.set(STUDENT_SESSION_COOKIE, createStudentSessionToken(session.studentId, session.username, session.sessionId, session.deviceType), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: STUDENT_SESSION_MAX_AGE_SECONDS,
+  });
+  return response;
 }

@@ -486,6 +486,7 @@ export default function HomePage() {
 
   useEffect(() => {
     const teacherLoggedIn =
+      localStorage.getItem("teacherLoggedIn") === "true" ||
       sessionStorage.getItem("teacherLoggedIn") === "true";
     const teacherId =
       localStorage.getItem("teacherId") ||
@@ -969,6 +970,10 @@ export default function HomePage() {
         "teacherLoggedIn",
         "true"
       );
+
+      // Persist the teacher session through browser/tab restarts. The explicit
+      // Logout controls clear this key from both storage areas.
+      localStorage.setItem("teacherLoggedIn", "true");
 
       localStorage.setItem(
         "teacherUsername",

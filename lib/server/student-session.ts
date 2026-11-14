@@ -1,7 +1,9 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 export const STUDENT_SESSION_COOKIE = "racer_student_session";
-export const STUDENT_SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
+// Keep the signed-in student session across browser restarts. The explicit
+// Logout action clears the cookie; this long expiry is a recovery ceiling.
+export const STUDENT_SESSION_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
 
 export type StudentSession = { studentId: number; username: string; expiresAt: number; sessionId?: string; deviceType?: "Mobile" | "Desktop" };
 

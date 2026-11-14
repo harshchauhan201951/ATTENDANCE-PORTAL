@@ -361,6 +361,7 @@ function TeacherQuizResultsContent() {
       localStorage.removeItem("teacher_username");
       localStorage.removeItem("teacherUsername");
       sessionStorage.removeItem("teacherLoggedIn");
+      localStorage.removeItem("teacherLoggedIn");
       localStorage.removeItem("attendance_role");
       localStorage.removeItem("attendance_username");
       localStorage.removeItem("attendance_teacher_id");
