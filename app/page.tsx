@@ -12,6 +12,7 @@ const supabase = createClient(
 
 type LoginType = "student" | "teacher";
 type FeeMedium = "Hindi Medium" | "English Medium";
+type FeeDuration = "one-hour" | "one-half-hour";
 
 type AcademyProfile = {
   academy_name: string;
@@ -90,16 +91,16 @@ type InfoModal =
 
 const defaultAcademyProfile: AcademyProfile = {
   academy_name: "RACER ACADEMY",
-  tagline: "Learn  �  Grow  �  Achieve",
+  tagline: "Learn · Grow · Achieve",
 
   about_text:
     "Welcome to RACER ACADEMY. We provide focused academic support and tuition for students from Nursery to Class 10. We focus on concept clarity, regular practice, doubt solving, discipline and individual attention so every child can learn with confidence.",
 
   classes_text:
-    "Nursery to Class 10\nHindi Medium  �  English Medium\nSubjects: Hindi, English, Mathematics, Science, Social Science and General Knowledge.\nRegular practice, doubt solving, revision and tests.",
+    "Nursery to Class 10\nHindi Medium · English Medium\nSubjects: Hindi, English, Mathematics, Science, Social Science and General Knowledge.\nRegular practice, doubt solving, revision and tests.",
 
   facilities_text:
-    " �  Child-friendly learning environment\n �  Individual attention\n �  Regular tests and revision\n �  Doubt-solving support\n �  Homework and practice guidance\n �  Progress monitoring\n �  Parent-friendly academic communication",
+    " ·  Child-friendly learning environment\n ·  Individual attention\n ·  Regular tests and revision\n ·  Doubt-solving support\n ·  Homework and practice guidance\n ·  Progress monitoring\n ·  Parent-friendly academic communication",
 
   timings_text:
     "Monday-Saturday\nHindi: 04:00 PM - 05:00 PM\nEnglish: 05:00 PM - 06:00 PM\nMathematics: 06:00 PM - 07:00 PM\nAdditional 1.5-hour subject sessions can be arranged at 50% additional fee.",
@@ -229,7 +230,7 @@ const defaultAcademyFees: AcademyFee[] = defaultClassNames.flatMap(
             fee_period: "Monthly",
 
             description:
-              "Per subject  �  1 hour session  �  1.5 hour session available at 50% additional fee  �  No admission fee  �  No yearly charge",
+              "Per subject  ·  1 hour session  ·  1.5 hour session available at 50% additional fee  ·  No admission fee  ·  No yearly charge",
           })
         )
     )
@@ -288,7 +289,7 @@ const defaultTimings: AcademyTiming[] = [
     start_time: "04:00 PM",
     end_time: "05:00 PM",
     description:
-      "1 hour session  �  Monthly  �  1.5 hour session available at 50% additional fee.",
+      "1 hour session  ·  Monthly  ·  1.5 hour session available at 50% additional fee.",
   },
   {
     id: 2,
@@ -297,7 +298,7 @@ const defaultTimings: AcademyTiming[] = [
     start_time: "05:00 PM",
     end_time: "06:00 PM",
     description:
-      "1 hour session  �  Monthly  �  1.5 hour session available at 50% additional fee.",
+      "1 hour session  ·  Monthly  ·  1.5 hour session available at 50% additional fee.",
   },
   {
     id: 3,
@@ -306,7 +307,7 @@ const defaultTimings: AcademyTiming[] = [
     start_time: "06:00 PM",
     end_time: "07:00 PM",
     description:
-      "1 hour session  �  Monthly  �  1.5 hour session available at 50% additional fee.",
+      "1 hour session  ·  Monthly  ·  1.5 hour session available at 50% additional fee.",
   },
 ];
 
@@ -425,11 +426,6 @@ export default function HomePage() {
   const [username, setUsername] = useState("STU10");
   const [password, setPassword] = useState("");
   const studentUsernamePrefix = "STU10";
-  const usernameRemainder = loginType === "student" ? username.slice(studentUsernamePrefix.length) : username;
-  const usernameCharacters = Array.from(usernameRemainder);
-  const usernameBoxCount = Math.max(loginType === "teacher" ? 12 : 2, usernameCharacters.length);
-  const passwordCharacters = Array.from(password);
-  const passwordBoxCount = Math.max(10, passwordCharacters.length);
   const [showPassword, setShowPassword] =
     useState(false);
   const [loading, setLoading] = useState(false);
@@ -473,6 +469,8 @@ export default function HomePage() {
 
   const [selectedMedium, setSelectedMedium] =
     useState<FeeMedium>("Hindi Medium");
+  const [selectedFeeDuration, setSelectedFeeDuration] =
+    useState<FeeDuration>("one-hour");
 
   const selectedMediumFees = useMemo(
     () =>
@@ -1143,6 +1141,7 @@ export default function HomePage() {
 
     if (modal === "fees") {
       setSelectedMedium("Hindi Medium");
+      setSelectedFeeDuration("one-hour");
     }
   };
 
@@ -1281,321 +1280,65 @@ export default function HomePage() {
 
           <div className="selected-medium-heading">
             <div>
-              <span>
-                {selectedMedium ===
-                "Hindi Medium"
-                  ? "🇮🇳"
-                  : "🇬🇧"}
-              </span>
-
+              <span>{selectedMedium === "Hindi Medium" ? "🇮🇳" : "🇬🇧"}</span>
               <div>
-                <strong>
-                  {selectedMedium}
-                </strong>
-
-                <small>
-                  Nursery to Class 10  � 
-                  Monthly  �  Per Subject
-                </small>
+                <strong>{selectedMedium}</strong>
+                <small>Choose a class to view monthly fees per subject</small>
               </div>
             </div>
-
-            <span>
-              1 Hour + 1.5 Hours
-            </span>
+            <span>{defaultClassNames.length} classes</span>
           </div>
 
-          <div className="fee-info-strip">
-            <div>
-              <strong>
-                1 HOUR
-              </strong>
-
-              <span>
-                Standard monthly class
-              </span>
-            </div>
-
-            <div>
-              <strong>
-                1.5 HOURS
-              </strong>
-
-              <span>
-                50% additional fee
-              </span>
-            </div>
-
-            <div>
-              <strong>
-                COMBO
-              </strong>
-
-              <span>
-                Any 2 subjects  �  2 hours
-              </span>
-            </div>
+          <div className="fee-duration-selector" role="group" aria-label="Choose class duration">
+            <button type="button" className={selectedFeeDuration === "one-hour" ? "fee-duration-option active" : "fee-duration-option"} onClick={() => setSelectedFeeDuration("one-hour")} aria-pressed={selectedFeeDuration === "one-hour"}>
+              <span className="fee-duration-icon">◷</span>
+              <span><strong>1 Hour</strong><small>Standard monthly class</small></span>
+              <b>{selectedFeeDuration === "one-hour" ? "✓" : "→"}</b>
+            </button>
+            <button type="button" className={selectedFeeDuration === "one-half-hour" ? "fee-duration-option active extended" : "fee-duration-option extended"} onClick={() => setSelectedFeeDuration("one-half-hour")} aria-pressed={selectedFeeDuration === "one-half-hour"}>
+              <span className="fee-duration-icon">◴</span>
+              <span><strong>1.5 Hours</strong><small>Standard fee + 50%</small></span>
+              <b>{selectedFeeDuration === "one-half-hour" ? "✓" : "→"}</b>
+            </button>
           </div>
 
-          <div className="fee-notice-card">
-            <div className="fee-notice-icon">
-              💡
-            </div>
-
-            <div>
-              <strong>
-                Easy to understand
-              </strong>
-
-              <span>
-                Each class has its own fee
-                box. One-hour and one-and-a-half-hour
-                fees are shown separately.
-              </span>
-            </div>
-          </div>
-
+          <div className="fee-class-list-heading"><div><strong>{selectedFeeDuration === "one-hour" ? "1-hour classes" : "1.5-hour classes"}</strong><span>Tap a class to see its subject-wise fee</span></div><span>Monthly · Per subject</span></div>
           <div className="class-fee-list">
-            {defaultClassNames.map(
-              (
-                className,
-                classIndex
-              ) => {
-                const classFees =
-                  currentFees.filter(
-                    (fee) =>
-                      getClassNameFromFee(
-                        fee
-                      ) === className
-                  );
-
-                const rows =
-                  defaultSubjects.map(
-                    (
-                      subject,
-                      subjectIndex
-                    ) => {
-                      const databaseFee =
-                        classFees.find(
-                          (item) =>
-                            item.subject_name
-                              .trim()
-                              .toLowerCase() ===
-                            subject
-                              .trim()
-                              .toLowerCase()
-                        );
-
-                      return (
-                        databaseFee || {
-                          id:
-                            900000 +
-                            classIndex * 100 +
-                            subjectIndex,
-
-                          class_name: `${className} - ${selectedMedium}`,
-
-                          subject_name:
-                            subject,
-
-                          fee_amount:
-                            getDefaultFeeAmount(
-                              className,
-                              selectedMedium
-                            ),
-
-                          fee_period:
-                            "Monthly",
-
-                          description:
-                            "Per subject",
-                        }
-                      );
-                    }
-                  );
-
-                return (
-                  <div
-                    className="class-fee-card"
-                    key={`${selectedMedium}-${className}`}
-                  >
-                    <div className="class-fee-card-header">
-                      <div className="class-title-wrap">
-                        <span className="class-number">
-                          {String(
-                            classIndex + 1
-                          ).padStart(
-                            2,
-                            "0"
-                          )}
-                        </span>
-
-                        <div>
-                          <strong>
-                            {className}
-                          </strong>
-
-                          <small>
-                            {selectedMedium}
-                          </small>
-                        </div>
-                      </div>
-
-                      <div className="class-header-price">
-                        <span>
-                          From
-                        </span>
-
-                        <strong>
-                          ₹
-                          {Number(
-                            rows[0]
-                              ?.fee_amount ||
-                              getDefaultFeeAmount(
-                                className,
-                                selectedMedium
-                              )
-                          ).toLocaleString(
-                            "en-IN"
-                          )}
-                        </strong>
-                      </div>
-                    </div>
-
-                    <div className="fee-session-grid">
-                      <div className="fee-session-card one-hour">
-                        <div className="fee-session-heading">
-                          <span>
-                            ⏱
-                          </span>
-
-                          <div>
-                            <strong>
-                              1 HOUR CLASS
-                            </strong>
-
-                            <small>
-                              Monthly  �  per
-                              subject
-                            </small>
-                          </div>
-                        </div>
-
-                        <div className="subject-fee-list">
-                          {rows.map(
-                            (
-                              fee
-                            ) => {
-                              const amount =
-                                Number(
-                                  fee.fee_amount
-                                ) ||
-                                getDefaultFeeAmount(
-                                  className,
-                                  selectedMedium
-                                );
-
-                              return (
-                                <div
-                                  className="subject-fee-row"
-                                  key={`${selectedMedium}-${className}-one-${fee.subject_name}`}
-                                >
-                                  <span>
-                                    {
-                                      fee.subject_name
-                                    }
-                                  </span>
-
-                                  <strong>
-                                    ₹
-                                    {amount.toLocaleString(
-                                      "en-IN"
-                                    )}
-                                  </strong>
-                                </div>
-                              );
-                            }
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="fee-session-card one-half-hour">
-                        <div className="fee-session-heading">
-                          <span>
-                            🕐
-                          </span>
-
-                          <div>
-                            <strong>
-                              1.5 HOUR CLASS
-                            </strong>
-
-                            <small>
-                              50% additional
-                            </small>
-                          </div>
-                        </div>
-
-                        <div className="subject-fee-list">
-                          {rows.map(
-                            (
-                              fee
-                            ) => {
-                              const amount =
-                                Number(
-                                  fee.fee_amount
-                                ) ||
-                                getDefaultFeeAmount(
-                                  className,
-                                  selectedMedium
-                                );
-
-                              const oneHalf =
-                                Math.round(
-                                  amount *
-                                    1.5
-                                );
-
-                              return (
-                                <div
-                                  className="subject-fee-row"
-                                  key={`${selectedMedium}-${className}-half-${fee.subject_name}`}
-                                >
-                                  <span>
-                                    {
-                                      fee.subject_name
-                                    }
-                                  </span>
-
-                                  <strong>
-                                    ₹
-                                    {oneHalf.toLocaleString(
-                                      "en-IN"
-                                    )}
-                                  </strong>
-                                </div>
-                              );
-                            }
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="class-fee-note">
-                      <span>
-                        ✓
-                      </span>
-
-                      <span>
-                        No admission fee  �  No
-                        yearly charge  � 
-                        Monthly fee
-                      </span>
-                    </div>
+            {defaultClassNames.map((className, classIndex) => {
+              const classFees = currentFees.filter((fee) => getClassNameFromFee(fee) === className);
+              const rows = defaultSubjects.map((subject, subjectIndex) => {
+                const databaseFee = classFees.find((item) => item.subject_name.trim().toLowerCase() === subject.trim().toLowerCase());
+                return databaseFee || {
+                  id: 900000 + classIndex * 100 + subjectIndex,
+                  class_name: `${className} - ${selectedMedium}`,
+                  subject_name: subject,
+                  fee_amount: getDefaultFeeAmount(className, selectedMedium),
+                  fee_period: "Monthly",
+                  description: "Per subject",
+                };
+              });
+              const baseAmount = Number(rows[0]?.fee_amount) || getDefaultFeeAmount(className, selectedMedium);
+              const shownFrom = selectedFeeDuration === "one-hour" ? baseAmount : Math.round(baseAmount * 1.5);
+              return (
+                <details className="class-fee-accordion" key={`${selectedMedium}-${selectedFeeDuration}-${className}`}>
+                  <summary>
+                    <span className="fee-class-index">{String(classIndex + 1).padStart(2, "0")}</span>
+                    <span className="fee-class-name"><strong>{className}</strong><small>{selectedMedium} · {selectedFeeDuration === "one-hour" ? "1 hour" : "1.5 hours"}</small></span>
+                    <span className="fee-class-starting"><small>Starting at</small><strong>₹{shownFrom.toLocaleString("en-IN")}</strong></span>
+                    <span className="fee-class-chevron" aria-hidden="true">⌄</span>
+                  </summary>
+                  <div className="fee-class-detail">
+                    <div className="fee-detail-caption"><span>SUBJECT</span><span>MONTHLY FEE</span></div>
+                    {rows.map((fee) => {
+                      const amount = Number(fee.fee_amount) || getDefaultFeeAmount(className, selectedMedium);
+                      const displayAmount = selectedFeeDuration === "one-hour" ? amount : Math.round(amount * 1.5);
+                      return <div className="subject-fee-row" key={`${selectedMedium}-${className}-${selectedFeeDuration}-${fee.subject_name}`}><span>{fee.subject_name}</span><strong>₹{displayAmount.toLocaleString("en-IN")}</strong></div>;
+                    })}
+                    <p className="fee-detail-footnote">Per subject · No admission fee · No yearly charge</p>
                   </div>
-                );
-              }
-            )}
+                </details>
+              );
+            })}
           </div>
 
           <div className="combo-offer-section">
@@ -1611,7 +1354,7 @@ export default function HomePage() {
                   </small>
 
                   <h3>
-                    Any 2 Subjects  �  2 Hours
+                    Any 2 Subjects  ·  2 Hours
                   </h3>
 
                   <p>
@@ -1674,7 +1417,7 @@ export default function HomePage() {
                       </div>
 
                       <div className="combo-detail">
-                        Any 2 subjects  � 
+                        Any 2 subjects  ·
                         2 total hours
                       </div>
                     </div>
@@ -1696,8 +1439,8 @@ export default function HomePage() {
               </strong>
 
               <span>
-                Any 2 subjects  �  2 hours
-                total  �  Monthly
+                Any 2 subjects  ·  2 hours
+                total  ·  Monthly
               </span>
             </div>
           </div>
@@ -1832,7 +1575,7 @@ export default function HomePage() {
                   />
                 ) : (
                   <div className="faculty-placeholder">
-                    Teacher 
+                    Teacher
                   </div>
                 )}
 
@@ -2155,13 +1898,7 @@ export default function HomePage() {
                   </div>
 
                   <h1>
-                    Learn.
-                    <br />
-                    Grow.
-                    <br />
-                    <span>
-                      Achieve.
-                    </span>
+                    Learn. Grow. <span>Achieve.</span>
                   </h1>
 
                   <p className="hero-description">
@@ -2219,21 +1956,11 @@ export default function HomePage() {
               </div>
 
               <div className="basic-info-card">
-                <div className="section-small-title">
-                  ACADEMY AT A GLANCE
-                </div>
+                <div className="section-small-title">RACER ACADEMY · LEARN WITH CONFIDENCE</div>
 
-                <h2>
-                  Everything you need,
-                  <br />
-                  <span>
-                    in one place.
-                  </span>
-                </h2>
+                <h2>Explore the Academy</h2>
 
-                <p>
-                  {academy.about_text}
-                </p>
+                <p>Choose a section to see classes, fees, facilities and more.</p>
 
                 <div className="option-grid">
                   <button
@@ -2243,9 +1970,7 @@ export default function HomePage() {
                     }
                     className="option-card option-blue"
                   >
-                    <span className="option-icon">
-                      
-                    </span>
+                    <span className="option-icon">✦</span>
 
                     <span>
                       <strong>
@@ -2258,7 +1983,7 @@ export default function HomePage() {
                     </span>
 
                     <b>
-                      
+
                     </b>
                   </button>
 
@@ -2284,7 +2009,7 @@ export default function HomePage() {
                     </span>
 
                     <b>
-                      
+
                     </b>
                   </button>
 
@@ -2305,13 +2030,12 @@ export default function HomePage() {
                       </strong>
 
                       <small>
-                        Hindi / English  � 
-                        Class-wise
+                        Hindi or English · Class-wise
                       </small>
                     </span>
 
                     <b>
-                      
+
                     </b>
                   </button>
 
@@ -2337,7 +2061,7 @@ export default function HomePage() {
                     </span>
 
                     <b>
-                      
+
                     </b>
                   </button>
 
@@ -2364,7 +2088,7 @@ export default function HomePage() {
                     </span>
 
                     <b>
-                      
+
                     </b>
                   </button>
 
@@ -2375,9 +2099,7 @@ export default function HomePage() {
                     }
                     className="option-card option-indigo"
                   >
-                    <span className="option-icon">
-                      Teacher 
-                    </span>
+                    <span className="option-icon">👩‍🏫</span>
 
                     <span>
                       <strong>
@@ -2391,7 +2113,7 @@ export default function HomePage() {
                     </span>
 
                     <b>
-                      
+
                     </b>
                   </button>
 
@@ -2419,7 +2141,7 @@ export default function HomePage() {
                     </span>
 
                     <b>
-                      
+
                     </b>
                   </button>
 
@@ -2445,7 +2167,7 @@ export default function HomePage() {
                     </span>
 
                     <b>
-                      
+
                     </b>
                   </button>
                 </div>
@@ -2589,7 +2311,7 @@ export default function HomePage() {
                   </div>
 
                   <h2>
-                    Welcome Back 
+                    Welcome Back
                   </h2>
 
                   <p>
@@ -2609,25 +2331,14 @@ export default function HomePage() {
                       Username
                     </label>
 
-                    <div className="input-box credential-box">
-                      <span>
-                        
-                      </span>
-
-                      <div className={`credential-cells credential-cells--username credential-cells--${loginType}`} aria-hidden="true">
-                        {loginType === "student" && Array.from(studentUsernamePrefix, (character, index) => (
-                          <span key={`prefix-${index}`} className="credential-cell is-fixed">{character}</span>
-                        ))}
-                        {Array.from({ length: usernameBoxCount }, (_, index) => (
-                          <span key={`user-${index}`} className={`credential-cell${loginType === "student" && index < 2 ? " is-student-entry" : loginType === "teacher" && index < 12 ? " is-teacher-entry" : ""}`}>{usernameCharacters[index] ?? ""}</span>
-                        ))}
-                      </div>
-
+                    <div className="input-box login-field">
+                      <span className="login-field-icon" aria-hidden="true">{loginType === "student" ? "♙" : "♧"}</span>
+                      {loginType === "student" && <span className="student-id-prefix" aria-hidden="true">STU10</span>}
                       <input
                         id="username"
                         name="username"
                         type="text"
-                        value={username}
+                        value={loginType === "student" ? username.slice(studentUsernamePrefix.length) : username}
                         onChange={(event) => {
                           const typedValue = event.target.value;
                           if (loginType === "student") {
@@ -2638,16 +2349,13 @@ export default function HomePage() {
                           } else {
                             setUsername(typedValue);
                           }
-                          const cells = event.currentTarget.closest(".credential-box")?.querySelector(".credential-cells");
-                          window.requestAnimationFrame(() => cells?.lastElementChild?.scrollIntoView({ block: "nearest", inline: "nearest" }));
                         }}
                         onKeyDown={(event) => {
                           if (loginType === "student" && event.key === "Backspace" && event.currentTarget.selectionStart === studentUsernamePrefix.length && event.currentTarget.selectionEnd === studentUsernamePrefix.length) event.preventDefault();
                         }}
-                        onFocus={(event) => event.currentTarget.setSelectionRange(event.currentTarget.value.length, event.currentTarget.value.length)}
-                        onClick={(event) => event.currentTarget.setSelectionRange(event.currentTarget.value.length, event.currentTarget.value.length)}
-                        className="credential-native-input"
+                        className="login-field-control"
                         aria-label={loginType === "student" ? "Username, STU10 is fixed" : "Teacher username"}
+                        placeholder={loginType === "student" ? "Enter your student ID" : "Enter your username"}
                         autoComplete="username"
                         autoCapitalize="none"
                         spellCheck={false}
@@ -2656,7 +2364,7 @@ export default function HomePage() {
                         }
                       />
                     </div>
-                    <small className="credential-hint">{loginType === "student" ? "STU10 fixed · apne username ke baaki characters likhein" : "Har character ke saath username box badhega"}</small>
+                    <small className="credential-hint">{loginType === "student" ? "Apne student ID ke baaki characters likhein" : "Apna teacher username likhein"}</small>
                     {loginType === "student" && username.trim().length >= studentUsernamePrefix.length + 2 && (
                       <div className="student-id-reveal" aria-live="polite">
                         <span>STUDENT ID</span>
@@ -2671,20 +2379,8 @@ export default function HomePage() {
                       Password
                     </label>
 
-                    <div className="input-box credential-box">
-                      <span>
-                        
-                      </span>
-
-                      <div className="credential-cells credential-cells--password" aria-hidden="true">
-                        {Array.from({ length: passwordBoxCount }, (_, index) => {
-                          const character = passwordCharacters[index];
-                          return <span key={index} className="credential-cell">
-                            {character ? (showPassword ? character : "•") : ""}
-                          </span>;
-                        })}
-                      </div>
-
+                    <div className="input-box login-field">
+                      <span className="login-field-icon login-field-icon--password" aria-hidden="true">✦</span>
                       <input
                         id="password"
                         name="password"
@@ -2694,15 +2390,10 @@ export default function HomePage() {
                             : "password"
                         }
                         value={password}
-                        onChange={(event) => {
-                          setPassword(event.target.value);
-                          const cells = event.currentTarget.closest(".credential-box")?.querySelector(".credential-cells");
-                          window.requestAnimationFrame(() => cells?.lastElementChild?.scrollIntoView({ block: "nearest", inline: "nearest" }));
-                        }}
-                        onFocus={(event) => event.currentTarget.setSelectionRange(event.currentTarget.value.length, event.currentTarget.value.length)}
-                        onClick={(event) => event.currentTarget.setSelectionRange(event.currentTarget.value.length, event.currentTarget.value.length)}
-                        className="credential-native-input"
+                        onChange={(event) => setPassword(event.target.value)}
+                        className="login-field-control"
                         aria-label="Password"
+                        placeholder="Enter your password"
                         autoComplete="current-password"
                         disabled={
                           loading
@@ -2728,13 +2419,14 @@ export default function HomePage() {
                             ? "Hide password"
                             : "Show password"
                         }
+                        aria-pressed={showPassword}
                       >
                         {showPassword
                           ? "🙈"
                           : "👁"}
                       </button>
                     </div>
-                    <small className="credential-hint">Password type karte hi boxes badhenge</small>
+                    <small className="credential-hint">👁 par tap karke password ko dekh sakte hain</small>
                   </div>
 
                   {error && (
@@ -2773,7 +2465,7 @@ export default function HomePage() {
                           : "Teacher"}
 
                         <span>
-                          
+
                         </span>
                       </>
                     )}
@@ -2786,7 +2478,7 @@ export default function HomePage() {
                   </span>
 
                   <span className="footer-separator">
-                     � 
+                     ·
                   </span>
 
                   <span>
@@ -2831,7 +2523,7 @@ export default function HomePage() {
                       )
                     }
                   >
-                    
+
                   </button>
                 </div>
               )}
@@ -2846,7 +2538,7 @@ export default function HomePage() {
             </span>
 
             <span>
-              Learn  �  Grow  �  Achieve
+              Learn  ·  Grow  ·  Achieve
             </span>
           </footer>
         </div>
@@ -5279,7 +4971,7 @@ export default function HomePage() {
             align-self: flex-start;
           }
         }
-      
+
 
 /* RACER ACADEMY PREMIUM MOBILE LOGIN 2026-09-30 */
 @media (max-width:700px){
@@ -5786,6 +5478,74 @@ export default function HomePage() {
 @keyframes buddy-thumb-pop { from{opacity:0;transform:scale(.25) translateY(12px)} to{opacity:1;transform:scale(1) translateY(0)} }
 @keyframes fetch-pulse { from{opacity:.3;transform:scale(.75)} to{opacity:1;transform:scale(1.35)} }
 @media(prefers-reduced-motion:reduce) { .mobile-welcome-art,.learning-buddy,.learning-buddy[data-expression],.learning-buddy .buddy-pupil,.learning-buddy .buddy-scan-ring,.buddy-thumbs-up,.fetch-activity i { animation:none!important;transition:none!important; } }
+
+        /* Compact academy overview and fee explorer */
+        .page-shell{width:min(1320px,calc(100% - 32px))!important;max-width:1320px!important}
+        .main-layout:not(.login-only-layout){width:100%!important;max-width:1320px!important;grid-template-columns:minmax(0,1.12fr) minmax(330px,.88fr)!important;align-items:start!important;gap:18px!important}
+        .academy-side{min-width:0!important;display:flex!important;flex-direction:column!important;gap:12px!important}
+        .academy-hero{min-height:245px!important;grid-template-columns:minmax(0,1.15fr) minmax(130px,.58fr)!important;border-radius:22px!important;overflow:hidden!important}
+        .hero-content{padding:22px!important}
+        .welcome-pill{margin-bottom:9px!important;padding:6px 10px!important;font-size:9px!important}
+        .hero-content h1{font-size:clamp(30px,3.2vw,45px)!important;line-height:1.05!important;letter-spacing:-1.6px!important}
+        .hero-description{display:-webkit-box!important;overflow:hidden!important;-webkit-box-orient:vertical!important;-webkit-line-clamp:2!important;margin-top:10px!important;font-size:12px!important;line-height:1.45!important}
+        .hero-mini-stats{gap:7px!important;margin-top:14px!important}
+        .hero-mini-stats div{padding:8px 9px!important;border-radius:11px!important}
+        .hero-mini-stats strong{font-size:13px!important}.hero-mini-stats span{font-size:9px!important}
+        .hero-image-wrap{min-height:210px!important;max-height:245px!important}
+        .image-badge{left:10px!important;right:10px!important;bottom:10px!important;padding:8px!important;font-size:9px!important}
+        .basic-info-card{margin:0!important;padding:16px!important;border-radius:18px!important}
+        .section-small-title{margin-bottom:3px!important;font-size:8px!important;letter-spacing:1px!important}
+        .basic-info-card h2{font-size:20px!important;line-height:1.2!important;letter-spacing:-.3px!important}
+        .basic-info-card>p{margin:4px 0 12px!important;font-size:10px!important;line-height:1.4!important}
+        .option-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important}
+        .option-card{min-width:0!important;min-height:68px!important;justify-content:flex-start!important;gap:9px!important;padding:9px!important;border-radius:13px!important}
+        .option-icon{width:32px!important;height:32px!important;flex:0 0 32px!important;border-radius:10px!important;font-size:16px!important}
+        .option-card strong{font-size:10px!important;line-height:1.2!important}.option-card small{font-size:8px!important;line-height:1.25!important}
+        .highlight-strip{gap:7px!important;padding:9px!important}.highlight-strip>div{min-height:34px!important;padding:6px!important;font-size:9px!important}
+        .bottom-options{gap:8px!important;margin-top:8px!important}.bottom-options button{min-height:36px!important;padding:7px 10px!important;font-size:9px!important}
+        .announcement-mini{margin-top:0!important;padding:9px 11px!important;border-radius:13px!important}
+        .modal-overlay{padding:14px!important}
+        .details-modal{width:min(760px,100%)!important;max-height:min(88dvh,850px)!important;border:1px solid #e3eaf3!important;border-radius:22px!important;box-shadow:0 28px 90px rgba(13,28,55,.3)!important}
+        .modal-header{padding:13px 17px!important}.modal-header h2{font-size:19px!important}.modal-body{min-height:0!important;overflow:auto!important;padding:14px 16px!important}.modal-footer{padding:8px 16px!important}
+        .modal-fees{max-width:680px!important;margin:0 auto!important}.fee-intro{min-height:70px!important;gap:10px!important;padding:10px 13px!important;margin-bottom:10px!important;border-radius:15px!important}.fee-intro-label{font-size:8px!important;letter-spacing:1px!important}.fee-intro h3{font-size:17px!important}.fee-intro p{margin-top:3px!important;font-size:10px!important}.fee-intro-badge{padding:7px 10px!important;font-size:9px!important}
+        .medium-selector{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important;margin-bottom:10px!important}
+        .medium-option{grid-template-columns:34px minmax(0,1fr) 22px!important;min-height:62px!important;gap:8px!important;padding:8px 10px!important;border-width:1px!important;border-radius:14px!important}
+        .medium-icon{width:34px!important;height:34px!important;border-radius:10px!important;font-size:20px!important}.medium-option strong{font-size:11px!important}.medium-option small{font-size:9px!important}.medium-option b{width:22px!important;height:22px!important}
+        .selected-medium-heading{min-height:52px!important;flex-direction:row!important;align-items:center!important;gap:8px!important;padding:9px 11px!important;margin-bottom:9px!important;border-radius:12px!important}.selected-medium-heading>div{gap:8px!important}.selected-medium-heading>div>span{font-size:19px!important}.selected-medium-heading strong{font-size:11px!important}.selected-medium-heading small{font-size:8px!important}.selected-medium-heading>span{padding:5px 8px!important;font-size:8px!important}
+        .fee-duration-selector{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important;margin:0 0 11px!important}
+        .fee-duration-option{display:grid!important;grid-template-columns:31px minmax(0,1fr) 18px!important;align-items:center!important;gap:8px!important;min-height:62px!important;padding:8px 10px!important;border:1px solid #dce5ef!important;border-radius:13px!important;background:#fff!important;color:#263b55!important;text-align:left!important;cursor:pointer!important;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease!important}
+        .fee-duration-option:hover{transform:translateY(-1px)!important;box-shadow:0 7px 18px rgba(19,45,81,.08)!important}.fee-duration-option.active{border-color:#2367cb!important;background:linear-gradient(130deg,#eef5ff,#fff)!important;box-shadow:0 5px 16px rgba(35,103,203,.1)!important}.fee-duration-option.extended.active{border-color:#8056d9!important;background:linear-gradient(130deg,#f5f0ff,#fff)!important}
+        .fee-duration-icon{display:grid!important;width:31px!important;height:31px!important;place-items:center!important;border-radius:10px!important;background:#edf4ff!important;color:#2769c7!important;font-size:19px!important}.fee-duration-option.extended .fee-duration-icon{background:#f2ecff!important;color:#7650cb!important}.fee-duration-option strong,.fee-duration-option small{display:block!important}.fee-duration-option strong{font-size:11px!important;color:#1b2e49!important}.fee-duration-option small{margin-top:2px!important;color:#75849a!important;font-size:8px!important;line-height:1.3!important}.fee-duration-option>b{color:#2468ca!important;font-size:12px!important}
+        .fee-class-list-heading{display:flex!important;align-items:end!important;justify-content:space-between!important;gap:8px!important;margin:2px 1px 7px!important}.fee-class-list-heading strong,.fee-class-list-heading span{display:block!important}.fee-class-list-heading strong{color:#182d4a!important;font-size:12px!important}.fee-class-list-heading div>span{margin-top:2px!important;color:#7b899d!important;font-size:8px!important}.fee-class-list-heading>span{color:#7b899d!important;font-size:8px!important}
+        .class-fee-list{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;align-items:start!important;gap:7px!important}
+        .class-fee-accordion{min-width:0!important;overflow:hidden!important;border:1px solid #e1e8f1!important;border-radius:12px!important;background:#fff!important;box-shadow:0 3px 9px rgba(27,50,79,.035)!important}
+        .class-fee-accordion[open]{grid-column:span 2!important;border-color:#9ab9e5!important;box-shadow:0 8px 22px rgba(35,83,144,.08)!important}
+        .class-fee-accordion summary{display:grid!important;grid-template-columns:25px minmax(0,1fr) auto 12px!important;align-items:center!important;gap:7px!important;min-height:54px!important;padding:7px 9px!important;list-style:none!important;cursor:pointer!important}.class-fee-accordion summary::-webkit-details-marker{display:none!important}
+        .fee-class-index{display:grid!important;width:24px!important;height:24px!important;place-items:center!important;border-radius:8px!important;background:#edf4ff!important;color:#2867bd!important;font-size:8px!important;font-weight:900!important}
+        .fee-class-name{min-width:0!important}.fee-class-name strong,.fee-class-name small,.fee-class-starting small,.fee-class-starting strong{display:block!important}.fee-class-name strong{overflow:hidden!important;color:#243954!important;font-size:10px!important;text-overflow:ellipsis!important;white-space:nowrap!important}.fee-class-name small{margin-top:2px!important;color:#8693a5!important;font-size:7px!important}
+        .fee-class-starting{text-align:right!important}.fee-class-starting small{color:#8491a3!important;font-size:7px!important}.fee-class-starting strong{margin-top:1px!important;color:#137957!important;font-size:10px!important}.fee-class-chevron{color:#7890ad!important;font-size:15px!important;transition:transform .16s ease!important}.class-fee-accordion[open] .fee-class-chevron{transform:rotate(180deg)!important}
+        .fee-class-detail{padding:0 10px 9px!important;border-top:1px solid #edf1f6!important}.fee-detail-caption{display:flex!important;justify-content:space-between!important;padding:8px 1px 4px!important;color:#8a96a7!important;font-size:7px!important;font-weight:900!important;letter-spacing:.55px!important}.fee-class-detail .subject-fee-row{min-height:28px!important;font-size:9px!important}.fee-class-detail .subject-fee-row strong{font-size:10px!important}.fee-detail-footnote{margin:7px 0 0!important;padding-top:6px!important;border-top:1px dashed #e2e8ef!important;color:#8491a2!important;font-size:7px!important}
+        .combo-offer-section{margin-top:11px!important;padding:12px!important;border-radius:15px!important}.combo-offer-heading h3{font-size:13px!important}.combo-offer-section p,.combo-offer-section span{font-size:9px!important}
+        .timing-modal-grid,.modal-card-grid,.faculty-modal-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:9px!important}.timing-modal-card,.info-modal-card,.faculty-modal-card{min-width:0!important;padding:12px!important;border:1px solid #e5ebf3!important;border-radius:14px!important;background:linear-gradient(145deg,#fff,#f7faff)!important;box-shadow:0 5px 16px rgba(22,48,82,.055)!important}.info-card-icon{width:34px!important;height:34px!important;display:grid!important;place-items:center!important;border-radius:11px!important;background:#eff5ff!important;font-size:18px!important}.info-modal-card h3,.timing-modal-card h3,.faculty-modal-body h3{margin:7px 0 4px!important;font-size:12px!important;color:#1e3552!important}.info-modal-card p,.timing-modal-card p,.faculty-modal-body p{margin:4px 0 0!important;font-size:9px!important;line-height:1.45!important;color:#67788e!important}.timing-time{font-size:12px!important;color:#2365bd!important}.timing-days{margin-top:5px!important;font-size:8px!important}.faculty-modal-card{padding:0!important;overflow:hidden!important}.faculty-modal-card>img,.faculty-placeholder{width:100%!important;height:118px!important;object-fit:cover!important}.faculty-placeholder{display:grid!important;place-items:center!important;background:linear-gradient(135deg,#edf4ff,#e6eafe)!important;color:#5272a0!important;font-size:11px!important}.faculty-modal-body{padding:10px!important}.faculty-modal-body>strong{font-size:9px!important;color:#5a4dc3!important}
+        .simple-detail-modal{padding:18px!important;border:1px solid #e4ebf3!important;border-radius:17px!important;background:linear-gradient(145deg,#fff,#f6f9ff)!important}.simple-detail-modal h3{font-size:17px!important}.simple-detail-modal>p{font-size:11px!important;line-height:1.6!important}.achievement-points{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important}.achievement-points div{padding:9px!important;border-radius:11px!important;background:#fff!important;font-size:9px!important}.rule-highlight,.why-box{padding:12px!important;border-radius:13px!important}
+        @media(max-width:900px){.main-layout:not(.login-only-layout){grid-template-columns:minmax(0,1fr)!important;max-width:720px!important}.academy-hero{min-height:210px!important}.hero-content{padding:18px!important}.hero-image-wrap{min-height:190px!important;max-height:210px!important}.option-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
+        @media(max-width:600px){.page-shell{width:calc(100% - 16px)!important}.main-layout:not(.login-only-layout){gap:10px!important}.academy-side{gap:9px!important}.academy-hero{min-height:0!important;grid-template-columns:minmax(0,1fr) 92px!important;border-radius:17px!important}.hero-content{padding:13px!important}.welcome-pill{padding:5px 8px!important;margin-bottom:7px!important;font-size:7px!important}.hero-content h1{font-size:clamp(22px,7vw,30px)!important;letter-spacing:-1px!important}.hero-description{margin-top:7px!important;font-size:9px!important;line-height:1.35!important;-webkit-line-clamp:2!important}.hero-mini-stats{gap:4px!important;margin-top:9px!important}.hero-mini-stats div{padding:6px!important;border-radius:8px!important}.hero-mini-stats strong{font-size:10px!important}.hero-mini-stats span{font-size:7px!important}.hero-image-wrap{min-height:130px!important;max-height:150px!important}.image-badge{left:5px!important;right:5px!important;bottom:5px!important;padding:5px!important;font-size:6px!important}.basic-info-card{padding:12px!important;border-radius:15px!important}.basic-info-card h2{font-size:17px!important}.basic-info-card>p{margin:3px 0 9px!important;font-size:9px!important}.option-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important}.option-card{min-height:57px!important;gap:7px!important;padding:7px!important;border-radius:11px!important}.option-icon{width:28px!important;height:28px!important;flex-basis:28px!important;font-size:14px!important}.option-card strong{font-size:9px!important}.option-card small{font-size:7px!important}.highlight-strip{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important}.highlight-strip>div{font-size:7px!important}.details-modal{max-height:90dvh!important;border-radius:17px!important}.modal-header{padding:10px 12px!important}.modal-header h2{font-size:16px!important}.modal-body{padding:10px!important}.modal-footer{padding:7px 10px!important}.fee-intro{min-height:58px!important;padding:8px 10px!important;margin-bottom:7px!important}.fee-intro h3{font-size:14px!important}.fee-intro p{font-size:8px!important}.fee-intro-badge{padding:5px 7px!important;font-size:7px!important}.medium-selector{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important}.medium-option{grid-template-columns:27px minmax(0,1fr)!important;min-height:54px!important;gap:6px!important;padding:6px!important;border-radius:11px!important}.medium-option>b{display:none!important}.medium-icon{width:27px!important;height:27px!important;font-size:16px!important}.medium-option strong{font-size:9px!important}.medium-option small{font-size:7px!important}.selected-medium-heading{min-height:44px!important;margin-bottom:7px!important;padding:7px 9px!important}.selected-medium-heading strong{font-size:9px!important}.selected-medium-heading small{font-size:7px!important}.selected-medium-heading>span{font-size:7px!important}.fee-duration-selector{gap:6px!important;margin-bottom:8px!important}.fee-duration-option{grid-template-columns:25px minmax(0,1fr)!important;min-height:52px!important;gap:6px!important;padding:6px!important;border-radius:10px!important}.fee-duration-option>b{display:none!important}.fee-duration-icon{width:25px!important;height:25px!important;font-size:15px!important}.fee-duration-option strong{font-size:9px!important}.fee-duration-option small{font-size:7px!important}.fee-class-list-heading{align-items:start!important;margin-bottom:5px!important}.fee-class-list-heading strong{font-size:10px!important}.fee-class-list-heading div>span,.fee-class-list-heading>span{font-size:7px!important}.class-fee-list{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:5px!important}.class-fee-accordion{border-radius:9px!important}.class-fee-accordion summary{grid-template-columns:19px minmax(0,1fr) auto!important;gap:4px!important;min-height:48px!important;padding:5px!important}.fee-class-index{width:19px!important;height:19px!important;border-radius:6px!important;font-size:7px!important}.fee-class-name strong{font-size:8px!important}.fee-class-name small,.fee-class-starting small{font-size:6px!important}.fee-class-starting strong{font-size:8px!important}.fee-class-chevron{display:none!important}.class-fee-accordion[open]{grid-column:span 2!important}.class-fee-detail{padding:0 8px 7px!important}.fee-detail-caption{font-size:6px!important}.fee-class-detail .subject-fee-row{min-height:25px!important;font-size:8px!important}.fee-class-detail .subject-fee-row strong{font-size:9px!important}.fee-detail-footnote{font-size:6px!important}.timing-modal-grid,.modal-card-grid,.faculty-modal-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important}.timing-modal-card,.info-modal-card{padding:9px!important;border-radius:11px!important}.info-modal-card h3,.timing-modal-card h3{font-size:10px!important}.info-modal-card p,.timing-modal-card p{font-size:8px!important}.faculty-modal-card>img,.faculty-placeholder{height:88px!important}.faculty-modal-body{padding:7px!important}.faculty-modal-body h3{font-size:10px!important}.faculty-modal-body p{font-size:7px!important}.simple-detail-modal{padding:13px!important}.simple-detail-modal h3{font-size:14px!important}.simple-detail-modal>p{font-size:9px!important}.achievement-points{gap:5px!important}.achievement-points div{padding:7px!important;font-size:7px!important}.announcement-mini{padding:7px!important}}
+        @media(prefers-reduced-motion:reduce){.fee-duration-option,.class-fee-chevron{transition:none!important}}
+
+        .login-field{position:relative!important;display:flex!important;align-items:center!important;gap:10px!important;min-height:58px!important;padding:0 15px!important;border:1px solid rgba(133,165,207,.35)!important;border-radius:17px!important;background:linear-gradient(145deg,rgba(255,255,255,.12),rgba(255,255,255,.055))!important;box-shadow:inset 0 1px rgba(255,255,255,.12),0 8px 22px rgba(0,0,0,.08)!important;transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease!important}
+        .login-field:focus-within{border-color:rgba(173,193,220,.58)!important;box-shadow:inset 0 1px rgba(255,255,255,.14),0 0 0 1px rgba(173,193,220,.12)!important;transform:none!important}
+        .login-field-icon{display:grid!important;width:30px!important;height:30px!important;flex:0 0 30px!important;place-items:center!important;border:1px solid rgba(133,178,246,.25)!important;border-radius:10px!important;background:rgba(65,123,215,.16)!important;color:#94baff!important;font-size:16px!important}
+        .login-field-icon--password{border-color:rgba(246,207,116,.22)!important;background:rgba(224,171,65,.12)!important;color:#f0ce7f!important}
+        .student-id-prefix{flex:0 0 auto!important;padding:7px 9px!important;border:1px solid rgba(119,168,244,.28)!important;border-radius:9px!important;background:rgba(71,126,221,.17)!important;color:#aac9ff!important;font-size:11px!important;font-weight:900!important;letter-spacing:.5px!important}
+        .login-field-control{position:relative!important;z-index:1!important;display:block!important;width:auto!important;min-width:0!important;height:100%!important;flex:1 1 0!important;padding:0!important;border:0!important;outline:0!important;background:transparent!important;color:#fff!important;font-family:inherit!important;font-size:15px!important;font-weight:600!important;line-height:1.2!important;letter-spacing:.15px!important;box-shadow:none!important}
+        .login-field-control::placeholder{color:rgba(188,205,229,.55)!important;font-weight:500!important}
+        .login-field-control:focus{outline:none!important;box-shadow:none!important}
+        .login-field .password-toggle{position:relative!important;z-index:4!important;display:grid!important;width:40px!important;height:40px!important;flex:0 0 40px!important;place-items:center!important;padding:0!important;border:1px solid rgba(176,194,220,.2)!important;border-radius:12px!important;background:rgba(255,255,255,.07)!important;color:#d7e2f1!important;font-size:17px!important;line-height:1!important;cursor:pointer!important;pointer-events:auto!important;touch-action:manipulation!important}
+        .login-field .password-toggle:hover:not(:disabled){border-color:rgba(201,215,234,.42)!important;background:rgba(255,255,255,.13)!important}
+        .login-field .password-toggle:active:not(:disabled){transform:scale(.96)!important}
+        .racer-login-card--teacher .student-id-prefix{border-color:rgba(241,196,91,.28)!important;background:rgba(224,171,65,.12)!important;color:#f3d58f!important}
+        @media(max-width:700px){.login-field{min-height:52px!important;padding:0 12px!important;border-radius:14px!important}.login-field-icon{width:27px!important;height:27px!important;flex-basis:27px!important;border-radius:9px!important;font-size:14px!important}.student-id-prefix{padding:6px 7px!important;font-size:10px!important}.login-field-control{font-size:14px!important}.login-field .password-toggle{width:42px!important;height:42px!important;flex-basis:42px!important;border-radius:12px!important}}
+        @media(prefers-reduced-motion:reduce){.login-field{transition:none!important}}
 
 `}</style>
     </>
