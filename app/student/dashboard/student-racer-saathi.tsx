@@ -1,19 +1,14 @@
 "use client";
-
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { isOnOrAfterAdmission } from "../../../lib/admission-date";
 import { getStudentCalendarEvent } from "../../../lib/student-calendar-events";
 import { filterMonthlySnapshotByAdmission } from "../../../lib/monthly-result";
-
 type Student = { id: number; student_name: string | null; class_name: string | null; admission_date: string | null };
 type MenuOption = { id: string; label: string; icon?: string };
 type ChatRow = { label: string; value: string };
 type Message = { from: "bot" | "student"; text: string; rows?: ChatRow[]; createdAt: number };
-type BrowserSpeechRecognition = { lang: string; interimResults: boolean; continuous: boolean; onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null; onerror: (() => void) | null; onend: (() => void) | null; start: () => void; stop: () => void };
-type VoiceCallStatus = "idle" | "connecting" | "connected";
 type Category = "attendance" | "fees" | "quiz" | "weekly" | "monthly" | "timetable" | "homework" | "calendar" | "support";
-
 const categories: Array<MenuOption & { category: Category }> = [
   { id: "attendance", category: "attendance", label: "अटेंडेंस", icon: "✅" },
   { id: "fees", category: "fees", label: "फीस", icon: "💳" },
@@ -26,7 +21,6 @@ const categories: Array<MenuOption & { category: Category }> = [
   { id: "support", category: "support", label: "टीचर से सहायता", icon: "👩‍🏫" },
 ];
 const mainOptions: MenuOption[] = [...categories, { id: "other", label: "कुछ और पूछें", icon: "💬" }];
-
 const todayKey = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
 const monthKey = (date = new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit" }).format(date);
 const addIstDays = (value: string, days: number) => {
@@ -46,11 +40,9 @@ const monthLabel = (value: string) => {
 const money = (value: number) => `₹${Math.round(value || 0).toLocaleString("en-IN")}`;
 const localDay = (value: string) => new Date(`${value}T00:00:00`).toLocaleDateString("en-US", { weekday: "long" });
 const monthOf = (value: string | null | undefined) => String(value || "").slice(0, 7);
-
 function RACreature({ compact = false }: { compact?: boolean }) {
   return <img className={`racer-mascot${compact ? " compact" : ""}`} src="/racer-saathi-mascot.png" alt="RACER साथी smiling robot" />;
 }
-
 export default function StudentRacerSaathi({ studentId }: { studentId: number | null }) {
   const [open, setOpen] = useState(false);
   const [student, setStudent] = useState<Student | null>(null);
@@ -63,17 +55,7 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
   const [typedQuestion, setTypedQuestion] = useState("");
   const [tutorMode, setTutorMode] = useState(false);
   const [serviceStatus, setServiceStatus] = useState<"checking" | "ready" | "setup" | "login" | "offline">("checking");
-  const [recording, setRecording] = useState(false);
-  const [transcribing, setTranscribing] = useState(false);
-  const [speaking, setSpeaking] = useState(false);
-  const [voiceCallStatus, setVoiceCallStatus] = useState<VoiceCallStatus>("idle");
-  const [voiceNotice, setVoiceNotice] = useState("");
-  const [autoSpeak, setAutoSpeak] = useState(false);
-  const [voiceSettingsOpen, setVoiceSettingsOpen] = useState(false);
   const [toolShelfOpen, setToolShelfOpen] = useState(false);
-  const [voice, setVoice] = useState("shimmer");
-  const [voiceSpeed, setVoiceSpeed] = useState(1);
-  const [voicePreferencesReady, setVoicePreferencesReady] = useState(false);
   const [savedAnswers, setSavedAnswers] = useState<string[]>([]);
   const [supportTeacher, setSupportTeacher] = useState("");
   const [supportTeacherContact, setSupportTeacherContact] = useState("");
@@ -81,90 +63,14 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const questionInputRef = useRef<HTMLTextAreaElement>(null);
   const aiAbortRef = useRef<AbortController | null>(null);
-  const speechAbortRef = useRef<AbortController | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const browserRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
-  const microphoneStreamRef = useRef<MediaStream | null>(null);
-  const voiceSettingsRef = useRef<HTMLDivElement>(null);
-  const voiceSettingsToggleRef = useRef<HTMLButtonElement>(null);
-  const voiceCallConnectionRef = useRef<RTCPeerConnection | null>(null);
-  const voiceCallChannelRef = useRef<RTCDataChannel | null>(null);
-  const voiceCallStreamRef = useRef<MediaStream | null>(null);
-  const voiceCallAudioRef = useRef<HTMLAudioElement | null>(null);
-  const voiceCallItemsRef = useRef(new Set<string>());
-  const voiceCallAbortRef = useRef<AbortController | null>(null);
-
-  const endVoiceCall = useCallback(() => {
-    voiceCallAbortRef.current?.abort();
-    voiceCallAbortRef.current = null;
-    const channel = voiceCallChannelRef.current;
-    if (channel?.readyState === "open") {
-      try { channel.send(JSON.stringify({ type: "session.close" })); } catch { /* The peer may already be closing. */ }
-    }
-    voiceCallChannelRef.current = null;
-    voiceCallConnectionRef.current?.close();
-    voiceCallConnectionRef.current = null;
-    voiceCallStreamRef.current?.getTracks().forEach((track) => track.stop());
-    voiceCallStreamRef.current = null;
-    if (voiceCallAudioRef.current) {
-      voiceCallAudioRef.current.pause();
-      voiceCallAudioRef.current.srcObject = null;
-      voiceCallAudioRef.current = null;
-    }
-    voiceCallItemsRef.current.clear();
-    setVoiceCallStatus("idle");
-  }, []);
-
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [messages, loading, options.length]);
-
-  useEffect(() => () => {
-    aiAbortRef.current?.abort();
-    speechAbortRef.current?.abort();
-    audioRef.current?.pause();
-    microphoneStreamRef.current?.getTracks().forEach((track) => track.stop());
-    voiceCallChannelRef.current?.close();
-    voiceCallConnectionRef.current?.close();
-    voiceCallStreamRef.current?.getTracks().forEach((track) => track.stop());
-    if (voiceCallAudioRef.current) voiceCallAudioRef.current.srcObject = null;
-  }, []);
-
+  useEffect(() => () => { aiAbortRef.current?.abort(); }, []);
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("racer-saathi-saved-answers") || "[]");
       if (Array.isArray(saved)) setSavedAnswers(saved.filter((item): item is string => typeof item === "string").slice(0, 50));
     } catch { localStorage.removeItem("racer-saathi-saved-answers"); }
   }, []);
-
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("racer-saathi-voice-preferences") || "null") as { voice?: unknown; speed?: unknown; autoSpeak?: unknown } | null;
-      if (saved && typeof saved === "object") {
-        if (typeof saved.voice === "string" && ["shimmer", "coral", "marin", "cedar"].includes(saved.voice)) setVoice(saved.voice);
-        if (typeof saved.speed === "number" && Number.isFinite(saved.speed)) setVoiceSpeed(Math.max(0.75, Math.min(1.25, saved.speed)));
-        if (typeof saved.autoSpeak === "boolean") setAutoSpeak(saved.autoSpeak);
-      }
-    } catch { localStorage.removeItem("racer-saathi-voice-preferences"); }
-    setVoicePreferencesReady(true);
-  }, []);
-
-  useEffect(() => {
-    if (!voiceSettingsOpen) return;
-    const dismissOnOutsidePress = (event: PointerEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (voiceSettingsRef.current?.contains(target) || voiceSettingsToggleRef.current?.contains(target)) return;
-      setVoiceSettingsOpen(false);
-    };
-    document.addEventListener("pointerdown", dismissOnOutsidePress);
-    return () => document.removeEventListener("pointerdown", dismissOnOutsidePress);
-  }, [voiceSettingsOpen]);
-
-  useEffect(() => {
-    if (!voicePreferencesReady) return;
-    localStorage.setItem("racer-saathi-voice-preferences", JSON.stringify({ voice, speed: voiceSpeed, autoSpeak }));
-  }, [voice, voiceSpeed, autoSpeak, voicePreferencesReady]);
-
   useEffect(() => {
     if (!open || !studentId) return;
     let active = true;
@@ -181,7 +87,6 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
       .catch(() => { if (active) setServiceStatus("offline"); });
     return () => { active = false; };
   }, [open, studentId]);
-
   useEffect(() => {
     if (!open || !studentId) return;
     const key = `racer-saathi-history:${studentId}`;
@@ -193,14 +98,12 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
     } catch { sessionStorage.removeItem(key); }
     setHistoryReadyFor(studentId);
   }, [open, studentId]);
-
   useEffect(() => {
     if (!studentId || historyReadyFor !== studentId || typeof window === "undefined") return;
     const key = `racer-saathi-history:${studentId}`;
     if (messages.length) sessionStorage.setItem(key, JSON.stringify(messages));
     else sessionStorage.removeItem(key);
   }, [messages, studentId, historyReadyFor]);
-
   useEffect(() => {
     const timer = window.setInterval(() => {
       const cutoff = Date.now() - 30 * 60 * 1000;
@@ -208,7 +111,6 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
     }, 15_000);
     return () => window.clearInterval(timer);
   }, []);
-
   useEffect(() => {
     if (!open || messages.length) return;
     setCategory(null);
@@ -216,7 +118,6 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
     setPicker(null);
     setToolShelfOpen(false);
   }, [open, messages.length]);
-
   useEffect(() => {
     if (!open || !studentId) return;
     let active = true;
@@ -225,7 +126,6 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
     });
     return () => { active = false; };
   }, [open, studentId]);
-
   const bot = (text: string, rows?: ChatRow[]) => setMessages((old) => [...old, { from: "bot", text, rows, createdAt: Date.now() }]);
   const studentSaid = (text: string) => setMessages((old) => [...old, { from: "student", text, createdAt: Date.now() }]);
   const menu = (items: MenuOption[], prompt?: string) => {
@@ -236,59 +136,10 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
   };
   const mainMenu = () => { setCategory(null); menu([], "किस जानकारी में मदद करूँ? नीचे से एक विकल्प चुनें।"); };
   const withMainMenu = (items: MenuOption[]) => [...items, { id: "main", label: "मुख्य मेनू", icon: "⌂" }];
-
-  const stopSpeech = () => {
-    speechAbortRef.current?.abort();
-    speechAbortRef.current = null;
-    const audio = audioRef.current;
-    if (audio) {
-      audio.pause();
-      if (audio.src.startsWith("blob:")) URL.revokeObjectURL(audio.src);
-      audioRef.current = null;
-    }
-    setSpeaking(false);
-  };
-
-  const playAnswer = async (text: string) => {
-    if (!text.trim()) return;
-    stopSpeech();
-    setVoiceNotice("");
-    const controller = new AbortController();
-    speechAbortRef.current = controller;
-    setSpeaking(true);
-    try {
-      const response = await fetch("/api/student/saathi/speech", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, voice, speed: voiceSpeed }),
-        signal: controller.signal,
-      });
-      if (!response.ok) {
-        const result = await response.json().catch(() => null);
-        throw new Error(result?.error || "Voice playback is unavailable right now.");
-      }
-      const audio = new Audio(URL.createObjectURL(await response.blob()));
-      audioRef.current = audio;
-      audio.playbackRate = voiceSpeed;
-      audio.onended = () => { if (audioRef.current === audio) audioRef.current = null; URL.revokeObjectURL(audio.src); setSpeaking(false); };
-      audio.onerror = () => { URL.revokeObjectURL(audio.src); setSpeaking(false); setVoiceNotice("आवाज़ नहीं चल पाई—फिर से दबाएँ।"); };
-      await audio.play();
-    } catch (error) {
-      if (controller.signal.aborted) return;
-      setSpeaking(false);
-      setVoiceNotice(error instanceof Error ? error.message : "Voice playback failed.");
-    } finally {
-      if (speechAbortRef.current === controller) speechAbortRef.current = null;
-    }
-  };
-
   const askAi = async (question: string, shownText = question) => {
     const cleanQuestion = question.trim().slice(0, 1_500);
     if (!cleanQuestion || loading) return;
     aiAbortRef.current?.abort();
-    stopSpeech();
-    setVoiceNotice("");
     setTutorMode(true);
     setCategory(null);
     setOptions([]);
@@ -340,7 +191,6 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
         if (done) break;
       }
       if (!answer.trim()) throw new Error("अभी जवाब नहीं आया। सवाल को थोड़ा बदलकर पूछें।");
-      if (autoSpeak) void playAnswer(answer);
     } catch (error) {
       if (controller.signal.aborted) return;
       const errorMessage = error instanceof Error ? error.message : "RACER साथी could not answer right now.";
@@ -350,256 +200,22 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
       setLoading(false);
     }
   };
-
-  const toggleRecording = async () => {
-    if (recording) {
-      if (browserRecognitionRef.current) { browserRecognitionRef.current.stop(); return; }
-      recorderRef.current?.stop();
-      setRecording(false);
-      return;
-    }
-    const speechWindow = window as Window & { SpeechRecognition?: new () => BrowserSpeechRecognition; webkitSpeechRecognition?: new () => BrowserSpeechRecognition };
-    const Recognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
-    if (Recognition) {
-      const recognition = new Recognition();
-      let transcript = "";
-      recognition.lang = "hi-IN";
-      recognition.interimResults = true;
-      recognition.continuous = true;
-      recognition.onresult = (event) => {
-        transcript = Array.from(event.results).map((result) => result[0]?.transcript || "").join(" ").trim();
-        if (transcript) setVoiceNotice(`सुना गया: ${transcript}`);
-      };
-      recognition.onerror = () => { browserRecognitionRef.current = null; setRecording(false); setVoiceNotice("Mic की आवाज़ समझ नहीं आई। फिर कोशिश करें या सवाल लिखें।"); };
-      recognition.onend = () => {
-        browserRecognitionRef.current = null; setRecording(false);
-        if (transcript) { setTypedQuestion(transcript); setVoiceNotice("आपकी बात नीचे लिख दी गई है—जाँचकर Send दबाएँ।"); } else setVoiceNotice("आवाज़ समझ नहीं आई। फिर कोशिश करें।");
-      };
-      browserRecognitionRef.current = recognition;
-      try {
-        recognition.start();
-        setRecording(true);
-        setVoiceNotice("साथी सुन रहा है… हिंदी, Hinglish या English में बोलें।");
-      } catch {
-        browserRecognitionRef.current = null;
-        setVoiceNotice("Mic शुरू नहीं हो पाया। Browser में microphone permission allow करें।");
-      }
-      return;
-    }
-    if (serviceStatus !== "ready") {
-      setVoiceNotice(serviceStatus === "login" ? "सुरक्षित voice chat के लिए sign in करें।" : "इस browser में native mic नहीं है; AI transcription setup होने के बाद mic चालू होगा।");
-      return;
-    }
-    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
-      setVoiceNotice("इस browser या Android WebView में voice input उपलब्ध नहीं है। आप सवाल टाइप कर सकते हैं।");
-      return;
-    }
-    setVoiceNotice("रिकॉर्डिंग शुरू करने पर आपका सवाल transcription के लिए AI provider को भेजा जाएगा; audio यहाँ save नहीं होगा।");
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      microphoneStreamRef.current = stream;
-      const recorder = new MediaRecorder(stream);
-      const chunks: BlobPart[] = [];
-      recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
-      recorder.onstop = async () => {
-        stream.getTracks().forEach((track) => track.stop());
-        microphoneStreamRef.current = null;
-        recorderRef.current = null;
-        if (!chunks.length) { setVoiceNotice("आवाज़ रिकॉर्ड नहीं हुई। फिर से कोशिश करें।"); return; }
-        setTranscribing(true);
-        try {
-          const audio = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
-          const form = new FormData();
-          form.set("audio", audio, "saathi-question.webm");
-          const response = await fetch("/api/student/saathi/transcribe", { method: "POST", credentials: "same-origin", body: form });
-          const result = await response.json().catch(() => null);
-          if (!response.ok || !result?.success) throw new Error(result?.error || "आवाज़ समझ नहीं आई।");
-          const transcript = String(result.text || "").trim();
-          if (!transcript) throw new Error("आवाज़ समझ नहीं आई। एक बार फिर कोशिश करें।");
-          setTypedQuestion(transcript);
-          setVoiceNotice("आपकी बात नीचे लिख दी गई है—जाँचकर Send दबाएँ। Audio recording save नहीं हुई।");
-        } catch (error) {
-          setVoiceNotice(error instanceof Error ? error.message : "Voice transcription failed.");
-        } finally { setTranscribing(false); }
-      };
-      recorder.onerror = () => setVoiceNotice("Recording में समस्या हुई। फिर कोशिश करें।");
-      recorderRef.current = recorder;
-      recorder.start();
-      setVoiceNotice("साथी सुन रहा है… रोकने के लिए mic फिर दबाएँ।");
-      setRecording(true);
-    } catch {
-      setVoiceNotice("Mic permission नहीं मिली। Android prompt में microphone allow करें, या सवाल टाइप करें।");
-    }
+  const toggleSavedAnswer = (text: string) => {
+    const next = savedAnswers.includes(text) ? savedAnswers.filter((item) => item !== text) : [text, ...savedAnswers].slice(0, 50);
+    setSavedAnswers(next);
+    localStorage.setItem("racer-saathi-saved-answers", JSON.stringify(next));
+    bot(next.includes(text) ? "उत्तर इस device पर save हो गया।" : "Saved answer हटा दिया गया।");
   };
-
-  const handleRealtimeEvent = async (rawEvent: string) => {
-    let event: Record<string, unknown>;
-    try { event = JSON.parse(rawEvent) as Record<string, unknown>; } catch { return; }
-    const eventType = String(event.type || "");
-    const itemId = typeof event.item_id === "string" ? event.item_id : "";
-    if (eventType === "conversation.item.input_audio_transcription.completed" && typeof event.transcript === "string" && event.transcript.trim()) {
-      if (!itemId || !voiceCallItemsRef.current.has(`user:${itemId}`)) {
-        if (itemId) voiceCallItemsRef.current.add(`user:${itemId}`);
-        studentSaid(event.transcript.trim());
-      }
-    }
-    if (eventType === "response.output_audio_transcript.done" && typeof event.transcript === "string" && event.transcript.trim()) {
-      if (!itemId || !voiceCallItemsRef.current.has(`assistant:${itemId}`)) {
-        if (itemId) voiceCallItemsRef.current.add(`assistant:${itemId}`);
-        bot(event.transcript.trim());
-      }
-    }
-    if (eventType === "response.function_call_arguments.done" && event.name === "get_student_school_data" && typeof event.call_id === "string") {
-      const callId = event.call_id;
-      const channel = voiceCallChannelRef.current;
-      if (!channel || channel.readyState !== "open") return;
-      let output: unknown;
-      try {
-        const args = JSON.parse(String(event.arguments || "{}")) as { question?: unknown };
-        const question = typeof args.question === "string" ? args.question.trim().slice(0, 1_000) : "";
-        const response = await fetch("/api/student/saathi/realtime/data", {
-          method: "POST",
-          credentials: "same-origin",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question }),
-        });
-        output = response.ok ? await response.json() : { context: { available: false } };
-      } catch {
-        output = { context: { available: false } };
-      }
-      if (channel.readyState === "open") {
-        channel.send(JSON.stringify({ type: "conversation.item.create", item: { type: "function_call_output", call_id: callId, output: JSON.stringify(output) } }));
-        channel.send(JSON.stringify({ type: "response.create" }));
-      }
-    }
-    if (eventType === "error") {
-      const message = (event.error as { message?: unknown } | undefined)?.message;
-      setVoiceNotice(typeof message === "string" ? `Voice call: ${message.slice(0, 180)}` : "Voice call hit an error. End the call and try again.");
-    }
-  };
-
-  const startVoiceCall = async () => {
-    if (voiceCallStatus !== "idle") { endVoiceCall(); return; }
-    if (serviceStatus !== "ready") {
-      setVoiceNotice(serviceStatus === "login" ? "सुरक्षित voice call के लिए sign out करके फिर sign in करें।" : "Live voice call के लिए AI provider setup आवश्यक है।");
-      return;
-    }
-    if (recording) { setVoiceNotice("Live call शुरू करने से पहले mic transcription पूरी होने दें।"); return; }
-    if (!studentId || !navigator.mediaDevices?.getUserMedia || typeof RTCPeerConnection === "undefined") {
-      setVoiceNotice("इस browser में live voice call उपलब्ध नहीं है। आप mic से सवाल बोलकर लिखवा सकते हैं।");
-      return;
-    }
-
-    const controller = new AbortController();
-    voiceCallAbortRef.current = controller;
-    stopSpeech();
-    setVoiceCallStatus("connecting");
-    setVoiceNotice("Mic audio live AI call के लिए भेजा जाएगा; कॉल रोकने के लिए End call दबाएँ।");
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
-      if (controller.signal.aborted) { stream.getTracks().forEach((track) => track.stop()); return; }
-      voiceCallStreamRef.current = stream;
-
-      const tokenResponse = await fetch("/api/student/saathi/realtime/session", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ voice }),
-        signal: controller.signal,
-      });
-      const tokenData = await tokenResponse.json().catch(() => null) as { value?: string; model?: string; error?: string } | null;
-      if (!tokenResponse.ok || !tokenData?.value) throw new Error(tokenData?.error || "Live voice session could not be created.");
-
-      const connection = new RTCPeerConnection();
-      voiceCallConnectionRef.current = connection;
-      const remoteAudio = new Audio();
-      remoteAudio.autoplay = true;
-      remoteAudio.setAttribute("playsinline", "");
-      voiceCallAudioRef.current = remoteAudio;
-      connection.ontrack = (event) => {
-        remoteAudio.srcObject = event.streams[0];
-        void remoteAudio.play().catch(() => setVoiceNotice("Call connected. Tap once to enable speaker audio if it stays silent."));
-      };
-      stream.getAudioTracks().forEach((track) => connection.addTrack(track, stream));
-
-      const channel = connection.createDataChannel("oai-events");
-      voiceCallChannelRef.current = channel;
-      channel.onmessage = (event) => { void handleRealtimeEvent(event.data); };
-      channel.onopen = () => {
-        setVoiceCallStatus("connected");
-        setVoiceNotice("Live call connected—बोलकर बात शुरू करें। साथी आपकी बात सुनकर आवाज़ में जवाब देगा।");
-        channel.send(JSON.stringify({ type: "response.create", response: { instructions: "Greet the student briefly in Hindi or the language they used most recently, then ask what they would like to learn or check." } }));
-      };
-      channel.onerror = () => setVoiceNotice("Voice call connection error. End the call and try again.");
-      connection.onconnectionstatechange = () => {
-        if (connection.connectionState === "failed") {
-          setVoiceNotice("Voice call disconnected. Check the network or microphone and try again.");
-          endVoiceCall();
-        }
-      };
-
-      const offer = await connection.createOffer();
-      await connection.setLocalDescription(offer);
-      if (connection.iceGatheringState !== "complete") {
-        await new Promise<void>((resolve, reject) => {
-          const timeout = window.setTimeout(() => { connection.removeEventListener("icegatheringstatechange", onIceGatheringChange); reject(new Error("Voice call network setup timed out.")); }, 10_000);
-          const onIceGatheringChange = () => {
-            if (connection.iceGatheringState !== "complete") return;
-            window.clearTimeout(timeout);
-            connection.removeEventListener("icegatheringstatechange", onIceGatheringChange);
-            resolve();
-          };
-          connection.addEventListener("icegatheringstatechange", onIceGatheringChange);
-          onIceGatheringChange();
-        });
-      }
-      if (controller.signal.aborted) return;
-      const sdp = connection.localDescription?.sdp;
-      if (!sdp) throw new Error("Could not prepare the voice connection.");
-      const response = await fetch(`https://api.openai.com/v1/realtime/calls?model=${encodeURIComponent(tokenData.model || "gpt-realtime-2.1")}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${tokenData.value}`, "Content-Type": "application/sdp" },
-        body: sdp,
-        signal: controller.signal,
-      });
-      if (!response.ok) throw new Error(response.status === 429 ? "Live voice is rate-limited. Wait a little before starting another call." : "The voice service could not connect this call.");
-      await connection.setRemoteDescription({ type: "answer", sdp: await response.text() });
-    } catch (error) {
-      if (controller.signal.aborted) return;
-      endVoiceCall();
-      setVoiceNotice(error instanceof Error ? error.message : "Could not start the voice call.");
-    } finally {
-      if (voiceCallAbortRef.current === controller) voiceCallAbortRef.current = null;
-    }
-  };
-
   const clearChat = () => {
-    endVoiceCall();
     aiAbortRef.current?.abort();
-    stopSpeech();
-    if (recording) recorderRef.current?.stop();
     sessionStorage.removeItem(`racer-saathi-history:${studentId}`);
-    setMessages([{ from: "bot", text: `नमस्ते${student?.student_name ? `, ${student.student_name.split(" ")[0]}` : ""}! मैं RACER साथी हूँ। मैं आपके RACER ACADEMY portal की जानकारी ढूँढने में मदद करूँगा। नीचे कोई विकल्प चुनें या mic दबाकर अपना सवाल बोलें—हिंदी, Hinglish या English में।`, createdAt: Date.now() }]);
+    setMessages([{ from: "bot", text: `नमस्ते${student?.student_name ? `, ${student.student_name.split(" ")[0]}` : ""}! मैं RACER साथी हूँ। मैं आपके RACER ACADEMY portal की जानकारी ढूँढने में मदद करूँगा। कोई सवाल लिखें या school information चुनें।`, createdAt: Date.now() }]);
     setTutorMode(false);
     setCategory(null);
     setToolShelfOpen(false);
     setOptions(mainOptions);
     setTypedQuestion("");
   };
-
-  const toggleSavedAnswer = (text: string) => {
-    const next = savedAnswers.includes(text) ? savedAnswers.filter((item) => item !== text) : [text, ...savedAnswers].slice(0, 50);
-    setSavedAnswers(next);
-    localStorage.setItem("racer-saathi-saved-answers", JSON.stringify(next));
-    setVoiceNotice(next.includes(text) ? "उत्तर इस device पर save हो गया।" : "Saved answer हटा दिया गया।");
-  };
-
-  const clearSavedAnswers = () => {
-    setSavedAnswers([]);
-    localStorage.removeItem("racer-saathi-saved-answers");
-    setVoiceNotice("इस device पर save किए answers हटा दिए।");
-  };
-
   const prepareSupportOptions = async () => {
     setLoading(true);
     setSupportTeacher("");
@@ -626,7 +242,6 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
       menu(withMainMenu([{ id: "issue", label: "समस्या दर्ज करें", icon: "🗂️" }]), "Teacher list अभी उपलब्ध नहीं है। अपनी समस्या लिखें, मैं उसे support folder में दर्ज करूँगा।");
     } finally { setLoading(false); }
   };
-
   const askCategory = (item: typeof categories[number], alreadySaid = false) => {
     if (!alreadySaid) studentSaid(`${item.icon}  ${item.label}`);
     setToolShelfOpen(false);
@@ -671,14 +286,12 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
       { id: "date", label: "किसी तारीख का इवेंट", icon: "⌕" },
     ]), "कैलेंडर में क्या देखना चाहेंगे?");
   };
-
   const showDatePicker = (mode: "date" | "month", prompt: string) => {
     studentSaid(mode === "month" ? "महीना चुनें" : "तारीख चुनें");
     setPicker(mode);
     setPickerValue(mode === "month" ? monthKey() : todayKey());
     bot(prompt);
   };
-
   const attendanceAnswer = async (period: string, exactDate?: string) => {
     if (!studentId) throw new Error("Student session not found.");
     const [regular, extra] = await Promise.all([
@@ -702,7 +315,6 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
       { label: "अवधि", value: period === "today" ? "आज" : period === "month" ? monthLabel(monthKey()) : period === "date" ? dateLabel(exactDate) : "Admission से अब तक" },
     ]);
   };
-
   const feesAnswer = async (kind: string, selectedMonth?: string) => {
     if (!studentId) throw new Error("Student session not found.");
     const { data, error } = await supabase.from("fees").select("month,year,amount,status").eq("student_id", studentId).order("year", { ascending: false }).order("month", { ascending: false }).limit(100);
@@ -733,7 +345,6 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
       { label: "बकाया महीनों की संख्या", value: String(dueRows.length) },
     ]);
   };
-
   const quizRows = async () => {
     if (!studentId) throw new Error("Student session not found.");
     const { data, error } = await supabase.from("quiz_results").select("quiz_id,obtained_marks,total_marks,percentage,submitted_at,created_at").eq("student_id", studentId).not("submitted_at", "is", null).order("submitted_at", { ascending: false, nullsFirst: false }).limit(100);
@@ -745,7 +356,6 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
     return (data || []).map((result) => ({ result, quiz: quizById.get(Number(result.quiz_id)) }))
       .filter((item) => isOnOrAfterAdmission(student?.admission_date, item.quiz?.scheduled_date));
   };
-
   const prepareWeeklyOptions = async () => {
     setCategory("weekly"); setLoading(true);
     try {
@@ -757,7 +367,6 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
     } catch (error) { reportError(error); }
     finally { setLoading(false); }
   };
-
   const prepareMonthlyOptions = async () => {
     setCategory("monthly"); setLoading(true);
     try {
@@ -770,13 +379,11 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
     } catch (error) { reportError(error); }
     finally { setLoading(false); }
   };
-
   const reportError = (error: unknown) => {
     console.error("Racer Saathi could not load student data:", error);
     bot("अभी जानकारी नहीं मिल पाई। एक बार फिर कोशिश करें या नीचे मुख्य मेनू चुनें।");
     setOptions(withMainMenu([]));
   };
-
   const detail = async (id: string) => {
     if (!category) return;
     if (id === "main") { mainMenu(); return; }
@@ -842,7 +449,7 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
           setSupportTeacherContact(contact);
           menu(withMainMenu([
             { id: "whatsapp_yes", label: "हाँ, WhatsApp पर contact करें", icon: "🟢" },
-            { id: "whatsapp_no", label: "नहीं, समस्या record करें", icon: "🎙️" },
+            { id: "whatsapp_no", label: "नहीं, समस्या लिखकर भेजें", icon: "✍️" },
           ]), `${teacher} से personal chat चाहिए? WhatsApp number configured है तो direct chat खुलेगी, वरना नीचे समस्या record करें।`);
           setTypedQuestion("");
         } else if (id === "whatsapp_yes") {
@@ -851,28 +458,23 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
             window.open(`https://wa.me/${phone}`, "_blank", "noopener,noreferrer");
             bot(`${supportTeacher} की personal WhatsApp chat खोल दी गई है। Group में नहीं, direct chat में सवाल भेजें।`);
           } else {
-            bot(`${supportTeacher} का personal WhatsApp number अभी configured नहीं है। नीचे mic दबाकर समस्या बोलें या लिखकर Send करें।`);
-            menu(withMainMenu([{ id: "record_issue", label: "Mic से समस्या record करें", icon: "🎙️" }, { id: "issue", label: "लिखकर समस्या भेजें", icon: "✍️" }]));
+            bot(`${supportTeacher} का personal WhatsApp number अभी configured नहीं है। आप अपनी समस्या लिखकर भेज सकते हैं।`);
+            menu(withMainMenu([{ id: "issue", label: "समस्या लिखकर भेजें", icon: "✍️" }]));
           }
         } else if (id === "whatsapp_no") {
-          bot("ठीक है। नीचे mic दबाकर अपनी समस्या बोलें, या लिखकर Send करें। आपकी पूरी समस्या teacher support folder में सुरक्षित होगी।");
-          menu(withMainMenu([{ id: "record_issue", label: "Mic से समस्या record करें", icon: "🎙️" }, { id: "issue", label: "लिखकर समस्या भेजें", icon: "✍️" }]));
-        } else if (id === "record_issue") {
-          bot("अब नीचे 🎙️ mic दबाएँ और पूरी समस्या बोलें। Mic बंद करने पर आपकी बात नीचे box में लिख जाएगी—जाँचकर Send दबाएँ।");
-          window.setTimeout(() => questionInputRef.current?.focus(), 0);
+          bot("ठीक है। अपनी समस्या लिखें; वह teacher support में सुरक्षित रूप से दर्ज होगी।");
+          menu(withMainMenu([{ id: "issue", label: "समस्या लिखकर भेजें", icon: "✍️" }]));
         } else if (id === "issue") {
-          bot("अपनी समस्या नीचे लिखें या mic से बोलकर भेजें। Mic बंद करने के बाद text नीचे दिखेगा—जाँचकर Send दबाएँ।");
+          bot("अपनी समस्या नीचे लिखें और Send दबाएँ।");
         }
       }
     } catch (error) { reportError(error); }
     finally { setLoading(false); }
   };
-
   const matchingTimetable = (rows: any[], className: string | null | undefined) => {
     const normalized = className?.trim().toLowerCase();
     return rows.filter((row) => Array.isArray(row.class_names) && row.class_names.some((name: string) => name.trim().toLowerCase() === normalized));
   };
-
   const timetableAnswer = async (date: string) => {
     const { data, error } = await supabase.from("timetables").select("teacher_name,class_names,day_of_week,subject,start_time,end_time,is_holiday");
     if (error) throw error;
@@ -880,7 +482,6 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
     const rows = matchingTimetable(data || [], student?.class_name).filter((row) => String(row.day_of_week).toLowerCase() === day.toLowerCase());
     bot(`${dateLabel(date)} का टाइमटेबल (${day})`, rows.length ? rows.map((row) => ({ label: row.is_holiday ? "छुट्टी" : row.subject || "क्लास", value: row.is_holiday ? "आज क्लास नहीं है" : `${row.start_time || "समय नहीं"}${row.end_time ? `–${row.end_time}` : ""}${row.teacher_name ? `  ›  ${row.teacher_name}` : ""}` })) : [{ label: "इस दिन की क्लास", value: "टाइमटेबल में नहीं मिली" }]);
   };
-
   const homeworkAnswer = async (period: string, exactDate?: string) => {
     const { data, error } = await supabase.from("homework").select("title,subject,description,due_date,class_name,created_at").order("created_at", { ascending: false }).limit(100);
     if (error) throw error;
@@ -895,7 +496,6 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
     if (period === "date") rows = rows.filter((row) => String(row.created_at || "").slice(0, 10) === exactDate || row.due_date === exactDate);
     bot(rows.length ? "आपकी क्लास का होमवर्क बोर्ड 📚" : "इस अवधि में आपकी क्लास के लिए होमवर्क नहीं मिला।", rows.slice(0, 8).map((row) => ({ label: `${row.title || row.subject || "होमवर्क"}${row.subject ? ` • ${row.subject}` : ""}`, value: `${row.due_date ? `जमा: ${dateLabel(row.due_date)}` : "जमा तारीख नहीं"}${row.description ? `  ›  ${row.description.slice(0, 70)}` : ""}` })));
   };
-
   const calendarAnswer = async (kind: string, exactDate?: string) => {
     const dates = kind === "date" && exactDate ? [new Date(`${exactDate}T12:00:00`)] : Array.from({ length: 120 }, (_, offset) => new Date(`${addIstDays(todayKey(), offset)}T12:00:00`));
     const events = dates.map((date) => getStudentCalendarEvent(date)).filter((event) => event && isOnOrAfterAdmission(student?.admission_date, event.date));
@@ -903,7 +503,6 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
     const match = upcoming.filter((event) => kind === "holidays" ? event!.type === "holiday" : kind === "tests" ? event!.type === "test" : true).slice(0, 10);
     bot(kind === "holidays" ? "आने वाली छुट्टियों की झलक 🌤" : kind === "tests" ? "आने वाले टेस्ट का ट्रैकर ✏️" : "अकादमिक कैलेंडर इवेंट ◇", match.length ? match.map((event) => ({ label: event!.title, value: `${dateLabel(event!.date)}  ›  ${event!.description}` })) : [{ label: "आगे का कैलेंडर", value: "इस चयन में कोई इवेंट नहीं है" }]);
   };
-
   const submitPicker = async () => {
     if (!category || !picker || !pickerValue) return;
     const value = pickerValue;
@@ -923,15 +522,13 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
     } catch (error) { reportError(error); }
     finally { setLoading(false); }
   };
-
   const start = () => {
     setOpen(true);
     if (!messages.length) {
-      bot(`नमस्ते${student?.student_name ? `, ${student.student_name.split(" ")[0]}` : ""}! मैं RACER साथी हूँ। Portal में अटेंडेंस, फीस, रिज़ल्ट, टाइमटेबल, होमवर्क, छुट्टियाँ या teacher support चाहिए तो नीचे विकल्प चुनें। Mic दबाकर सवाल बोलना भी शुरू कर सकते हैं।`);
+      bot(`नमस्ते${student?.student_name ? `, ${student.student_name.split(" ")[0]}` : ""}! मैं RACER साथी हूँ। Portal में अटेंडेंस, फीस, रिज़ल्ट, टाइमटेबल, होमवर्क, छुट्टियाँ या teacher support चाहिए तो नीचे विकल्प चुनें। अपना सवाल हिंदी, Hinglish या English में लिखें।`);
       setOptions(mainOptions);
     }
   };
-
   const submitQuestionText = async (text: string) => {
     const cleanText = text.trim();
     if (!cleanText || loading) return;
@@ -971,37 +568,21 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
     }
     void askAi(cleanText);
   };
-
   const submitTypedQuestion = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const text = typedQuestion.trim();
     if (!text || loading) return;
     setTypedQuestion("");
-    const normalized = text.toLowerCase();
-    const aliases: Array<[Category, string[]]> = [
-      ["attendance", ["attendance", "अटेंडेंस", "उपस्थिति", "हाजिरी"]],
-      ["fees", ["fees", "fee", "फीस", "भुगतान"]],
-      ["quiz", ["quiz", "क्विज़", "क्विज", "क्विज़"]],
-      ["weekly", ["weekly", "सैटरडे", "शनिवार", "वीकली", "weekly test"]],
-      ["monthly", ["monthly", "मंथली", "मासिक", "महा टेस्ट"]],
-      ["timetable", ["timetable", "time table", "टाइमटेबल", "समय सारणी"]],
-      ["homework", ["homework", "होमवर्क", "गृहकार्य"]],
-      ["calendar", ["calendar", "कैलेंडर", "छुट्टी", "holiday", "इवेंट", "कार्यक्रम"]],
-    ];
-    const match = tutorMode ? null : aliases.find(([, words]) => words.some((word) => normalized.includes(word)));
-    const selected = match ? categories.find((item) => item.category === match[0]) : undefined;
-    if (match && selected && !/आज|today|कल|yesterday|बीता|महीने|month|बकाया|due|बाकी|जमा|paid|अब तक|total/.test(normalized)) { studentSaid(text); askCategory(selected, true); }
-    else void submitQuestionText(text);
+    void submitQuestionText(text);
   };
-
   return <>
-    <button type="button" className="racer-saathi-launcher" onClick={() => { if (open) { endVoiceCall(); setOpen(false); } else start(); }} aria-label="RACER साथी AI खोलें">
+    <button type="button" className="racer-saathi-launcher" onClick={() => { if (open) { setOpen(false); } else start(); }} aria-label="RACER साथी AI खोलें">
       <span className="racer-saathi-launcher-face"><RACreature compact /></span>
       <span className="racer-saathi-launcher-label">RACER साथी</span>
     </button>
     {open && <section className="racer-saathi-panel" aria-label="रेसर साथी AI chat">
-      <header className="racer-saathi-header"><span className="racer-saathi-header-mascot"><RACreature compact /></span><div><strong>RACER साथी</strong><small>Your AI study companion</small></div><span className={`racer-saathi-online ${serviceStatus}`}><i />{serviceStatus === "ready" ? "Ready" : serviceStatus === "checking" ? "Connecting" : serviceStatus === "login" ? "Sign-in needed" : serviceStatus === "setup" ? "Setup needed" : "Offline"}</span><button type="button" onClick={clearChat} aria-label="नई chat शुरू करें" title="नई chat">＋</button><button type="button" className={`racer-saathi-voice-mode ${autoSpeak ? "voice-enabled" : ""}`} onClick={() => speaking ? stopSpeech() : setAutoSpeak((enabled) => !enabled)} aria-label={speaking ? "आवाज़ रोकें" : autoSpeak ? "Read aloud बंद करें" : "Read aloud चालू करें"} title="Text answers की आवाज़ चालू या बंद करें">{speaking ? "■" : "◖))"}<span>{autoSpeak ? "Auto on" : "Read"}</span></button><button ref={voiceSettingsToggleRef} type="button" onClick={() => setVoiceSettingsOpen((value) => !value)} aria-expanded={voiceSettingsOpen} aria-label="Voice settings" title="Voice settings">⚙</button><button type="button" onClick={() => { endVoiceCall(); setOpen(false); }} aria-label="बंद करें">×</button></header>
-      {serviceStatus === "setup" && <div className="racer-saathi-setup-note">AI setup pending. The school information menu works; free-form AI and voice need the academy’s provider key.</div>}
+      <header className="racer-saathi-header"><span className="racer-saathi-header-mascot"><RACreature compact /></span><div><strong>RACER साथी</strong><small>Your AI study companion</small></div><span className={`racer-saathi-online ${serviceStatus}`}><i />{serviceStatus === "ready" ? "Ready" : serviceStatus === "checking" ? "Connecting" : serviceStatus === "login" ? "Sign-in needed" : serviceStatus === "setup" ? "Setup needed" : "Offline"}</span><button type="button" onClick={clearChat} aria-label="नई chat शुरू करें" title="नई chat">＋</button><button type="button" onClick={() => setOpen(false)} aria-label="बंद करें">×</button></header>
+      {serviceStatus === "setup" && <div className="racer-saathi-setup-note">AI जवाब अभी उपलब्ध नहीं है। आप अपनी school information भी देख सकते हैं।</div>}
       {serviceStatus === "login" && <div className="racer-saathi-setup-note">सुरक्षित AI chat के लिए sign out करके दोबारा sign in करें।</div>}
       {serviceStatus === "offline" && <div className="racer-saathi-setup-note">AI service से संपर्क नहीं हो पाया। Internet जाँचें; चाहें तो school information menu इस्तेमाल करें।</div>}
       <div className="racer-saathi-chat-scroll">
@@ -1011,7 +592,7 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
           {message.from === "bot" && <span className="racer-saathi-message-avatar"><RACreature compact /></span>}
           <div className="racer-saathi-message-content"><div className="racer-saathi-message-text">{message.text}</div>
             {message.rows?.length ? <div className="racer-saathi-answer-card"><div className="racer-saathi-answer-cap"><span>RACER ACADEMY • STUDENT REPORT</span><span>↗</span></div>{message.rows.map((row, rowIndex) => <div className="racer-saathi-answer-row" key={`${row.label}-${rowIndex}`}><span>{row.label}</span><strong>{row.value}</strong></div>)}</div> : null}
-            {message.from === "bot" && message.text && !message.rows?.length && <div className="racer-saathi-message-actions"><button type="button" onClick={() => void playAnswer(message.text)} aria-label="उत्तर फिर से सुनें" title="उत्तर सुनें">🔊 सुनें</button><button type="button" onClick={() => { void navigator.clipboard?.writeText(message.text).then(() => setVoiceNotice("उत्तर copy हो गया।")).catch(() => setVoiceNotice("इस browser में copy उपलब्ध नहीं है।")); }} aria-label="उत्तर copy करें">Copy</button><button type="button" onClick={() => toggleSavedAnswer(message.text)} aria-label={savedAnswers.includes(message.text) ? "Saved answer हटाएँ" : "उत्तर save करें"}>{savedAnswers.includes(message.text) ? "★ Saved" : "☆ Save"}</button></div>}
+            {message.from === "bot" && message.text && !message.rows?.length && <div className="racer-saathi-message-actions"><button type="button" onClick={() => { void navigator.clipboard?.writeText(message.text).then(() => bot("उत्तर copy हो गया।")).catch(() => bot("इस browser में copy उपलब्ध नहीं है।")); }} aria-label="उत्तर copy करें">Copy</button><button type="button" onClick={() => toggleSavedAnswer(message.text)} aria-label={savedAnswers.includes(message.text) ? "Saved answer हटाएँ" : "उत्तर save करें"}>{savedAnswers.includes(message.text) ? "★ Saved" : "☆ Save"}</button></div>}
           </div>
         </div>)}
         {loading && (messages.at(-1)?.from !== "bot" || !messages.at(-1)?.text) && <div className="racer-saathi-message bot"><span className="racer-saathi-message-avatar"><RACreature compact /></span><div className="racer-saathi-message-content"><div className="racer-saathi-message-text">साथी सोच रहा है <span className="saathi-typing">•••</span></div></div></div>}
@@ -1028,13 +609,10 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
       </div>}
       </div>
       <div className="racer-saathi-compose-area">
-      {voiceNotice && <div className={`racer-saathi-voice-notice ${recording ? "listening" : speaking ? "speaking" : ""}`} role="status">{recording && <span className="racer-saathi-live-wave"><i/><i/><i/><i/><i/></span>}{voiceNotice}</div>}
-      {voiceSettingsOpen && <div className="racer-saathi-voice-settings-inline" ref={voiceSettingsRef}><div className="racer-saathi-settings-heading"><strong>Voice settings</strong><button type="button" onClick={() => setVoiceSettingsOpen(false)} aria-label="Close voice settings">×</button></div><label>AI voice<select value={voice} onChange={(event) => setVoice(event.target.value)}><option value="shimmer">Shimmer · default</option><option value="coral">Coral</option><option value="marin">Marin</option><option value="cedar">Cedar</option></select></label><label>Speed <strong>{voiceSpeed.toFixed(2)}×</strong><input type="range" min="0.75" max="1.25" step="0.05" value={voiceSpeed} onChange={(event) => setVoiceSpeed(Number(event.target.value))} /></label><span>Voice replies {autoSpeak ? "on" : "off"} · {savedAnswers.length} saved answers on this device.</span><div className="racer-saathi-settings-actions"><button type="button" className="racer-saathi-settings-save" onClick={() => { localStorage.setItem("racer-saathi-voice-preferences", JSON.stringify({ voice, speed: voiceSpeed, autoSpeak })); setVoiceSettingsOpen(false); }}>Save changes</button><button type="button" onClick={clearSavedAnswers} disabled={!savedAnswers.length}>Clear saved answers</button></div></div>}
-      <form className="racer-saathi-composer" onSubmit={submitTypedQuestion}>
+                  <form className="racer-saathi-composer" onSubmit={submitTypedQuestion}>
         <button type="button" className="racer-saathi-tools-toggle" onClick={() => { setToolShelfOpen((shown) => !shown); setCategory(null); setOptions(mainOptions); }} aria-expanded={toolShelfOpen || Boolean(category)} aria-label="School information and teacher support" title="School information and teacher support">＋</button>
-        <textarea ref={questionInputRef} value={typedQuestion} onChange={(event) => { setTypedQuestion(event.target.value); event.currentTarget.style.height = "auto"; event.currentTarget.style.height = `${Math.min(event.currentTarget.scrollHeight, 150)}px`; }} placeholder={recording ? "साथी सुन रहा है… mic रोकने के लिए फिर दबाएँ" : voiceCallStatus === "connected" ? "Live call चालू है—बोलकर बात करें" : "साथी से कुछ भी पूछें"} aria-label="रेसर साथी से सवाल पूछें" rows={1} disabled={voiceCallStatus !== "idle"} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} />
-        <button type="button" className={`racer-saathi-mic ${recording ? "recording" : ""}`} onClick={() => void toggleRecording()} disabled={voiceCallStatus !== "idle" || loading || transcribing} aria-label={recording ? "Recording रोकें" : transcribing ? "Voice transcription चल रही है" : "बोलकर सवाल भेजें"} title={recording ? "रोकें" : "बोलकर सवाल भेजें"}>{recording ? "■" : transcribing ? "…" : "🎙"}</button>
-        <button type="submit" className="racer-saathi-send" aria-label="सवाल भेजें" disabled={voiceCallStatus !== "idle" || !typedQuestion.trim() || loading}>{loading ? "…" : "↑"}</button>
+        <textarea ref={questionInputRef} value={typedQuestion} onChange={(event) => { setTypedQuestion(event.target.value); event.currentTarget.style.height = "auto"; event.currentTarget.style.height = `${Math.min(event.currentTarget.scrollHeight, 150)}px`; }} placeholder="साथी से कुछ भी पूछें" aria-label="रेसर साथी से सवाल पूछें" rows={1} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} />
+        <button type="submit" className="racer-saathi-send" aria-label="सवाल भेजें" disabled={!typedQuestion.trim() || loading}>{loading ? "…" : "↑"}</button>
       </form>
       <div className="racer-saathi-compose-hint">Enter से भेजें <i /> AI गलतियाँ कर सकता है—ज़रूरी जानकारी जाँचें</div>
       </div>
@@ -1051,7 +629,7 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
       @keyframes saathi-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}@keyframes saathi-pop{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes saathi-dots{to{opacity:.25;transform:translateY(-2px)}}
       @media(max-width:600px){.racer-saathi-launcher{right:12px;bottom:82px;padding:6px 12px 6px 6px}.racer-saathi-launcher-face{width:44px;height:44px}.racer-saathi-launcher strong{font-size:12px}.racer-saathi-panel{right:8px;bottom:130px;width:calc(100vw - 16px);height:min(720px,calc(100dvh - 155px));min-height:350px;border-radius:20px}.racer-saathi-menu{max-height:110px;gap:5px}.racer-saathi-menu button{padding:6px;font-size:8px}.racer-saathi-shortcuts button{min-height:42px}.racer-saathi-shortcuts button small{font-size:6.5px}.racer-saathi-answer-row{font-size:9px}}
       @media(prefers-reduced-motion:reduce){.racer-saathi-launcher,.saathi-typing{animation:none}.racer-saathi-menu button{transition:none}}
-      .racer-saathi-panel{box-sizing:border-box;right:18px;bottom:18px;width:min(455px,calc(100vw - 36px));height:min(820px,calc(100dvh - 36px));min-height:460px;border-radius:26px;background:#f7faff;box-shadow:0 22px 75px #102f5a44}
+      .racer-saathi-panel{box-sizing:border-box;right:18px;bottom:18px;width:min(520px,calc(100vw - 36px));height:min(820px,calc(100dvh - 36px));min-height:460px;border-radius:26px;background:#f7faff;box-shadow:0 22px 75px #102f5a44}
       .racer-saathi-header{min-height:68px;padding:9px 13px;background:linear-gradient(110deg,#063b7d,#0865bd);box-shadow:0 4px 16px #00356b25}
       .racer-saathi-header-mascot{width:48px;height:48px;border:1px solid #ffffff35;border-radius:50%;background:#ffffff16}
       .racer-saathi-header strong{font-size:13px;letter-spacing:.3px}.racer-saathi-header small{font-size:11px;font-weight:800}.racer-saathi-online{display:flex;align-items:center;gap:5px;font-size:9px;font-weight:800;opacity:.95}.racer-saathi-online i{width:8px;height:8px;border-radius:50%;background:#33e69b;box-shadow:0 0 0 3px #33e69b24}.racer-saathi-header button{border:1px solid #ffffff40;background:#ffffff16}
@@ -1069,7 +647,7 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
       .racer-saathi-message.bot{align-self:flex-start;width:100%}.racer-saathi-message.student{align-self:flex-end;max-width:84%;width:max-content}
       .racer-saathi-message-avatar{width:29px;height:29px;flex:none;border-radius:50%;display:grid;place-items:center;background:#e4f5ff;border:1px solid #cae8ff;box-shadow:0 2px 5px #1c4e7b14}.racer-saathi-message-avatar .racer-mascot{width:32px;height:32px}
       .racer-saathi-message-content{min-width:0;max-width:calc(100% - 35px);}.racer-saathi-message.student .racer-saathi-message-content{max-width:100%}
-      .racer-saathi-message-text{font-size:11px;line-height:1.55;padding:10px 12px}.racer-saathi-message.bot .racer-saathi-message-text{border:1px solid #d6e8f8;background:#edf6ff;border-radius:15px 15px 15px 5px;color:#18385f}.racer-saathi-message.student .racer-saathi-message-text{border-radius:15px 15px 5px 15px;background:linear-gradient(115deg,#0876f3,#218cff);color:#fff;box-shadow:0 5px 13px #1674df35}
+      .racer-saathi-message-text{font-size:14px;line-height:1.65;padding:12px 15px}.racer-saathi-message.bot .racer-saathi-message-text{border:1px solid #d6e8f8;background:#edf6ff;border-radius:15px 15px 15px 5px;color:#18385f}.racer-saathi-message.student .racer-saathi-message-text{border-radius:15px 15px 5px 15px;background:linear-gradient(115deg,#0876f3,#218cff);color:#fff;box-shadow:0 5px 13px #1674df35}
       .racer-saathi-answer-card{border:1px solid #cae2f8;border-radius:13px;background:#fff}.racer-saathi-answer-cap{font-size:7px;letter-spacing:.8px}.racer-saathi-answer-row{font-size:9px;padding:6px 1px}.racer-saathi-answer-row strong{font-size:10px}
       .racer-saathi-menu-label{padding:6px 12px 5px;color:#416589;font-size:9px;letter-spacing:.4px}
       .racer-saathi-menu{max-height:114px;padding:0 10px 6px;gap:6px}.racer-saathi-menu button{min-height:37px;padding:6px 8px;border-color:#cfe2f5;border-radius:11px;background:#fff;font-size:9px}.racer-saathi-menu button span{background:#eaf5ff;color:#1472d2}.racer-saathi-menu button b{color:#1378e8}
@@ -1081,24 +659,19 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
       .racer-saathi-shortcuts button small{font-size:8px;color:#173d72}
       .racer-saathi-picker{background:#fff;border-top:1px solid #e3edf8;padding:8px 12px}.racer-saathi-picker label{font-size:9px}.racer-saathi-picker input{height:38px;border-color:#cbdff4}.racer-saathi-picker>button{height:38px;background:linear-gradient(110deg,#0876f3,#218cff)}
       .racer-saathi-composer{padding:8px 10px max(10px,env(safe-area-inset-bottom));border-top:1px solid #dce9f6;background:#fff}.racer-saathi-composer input{height:40px;background:#f8fbff;border-color:#d5e5f6;font-size:10px}.racer-saathi-composer input::placeholder{color:#93a8c0}.racer-saathi-composer button{width:40px;height:40px;background:linear-gradient(120deg,#0876f3,#1375e8);box-shadow:0 5px 12px #1874dd35}
-      .racer-saathi-header{gap:7px}.racer-saathi-header>div{flex:1}.racer-saathi-header button{flex:none;width:31px;height:31px;padding:0;display:grid;place-items:center;font-size:16px}.racer-saathi-header button.voice-enabled{background:#ffffff34;color:#fff1a8}
+      .racer-saathi-header{gap:7px}.racer-saathi-header>div{flex:1}.racer-saathi-header button{flex:none;width:31px;height:31px;padding:0;display:grid;place-items:center;font-size:16px}
       .racer-saathi-online{white-space:nowrap;font-size:8px}.racer-saathi-online.setup i,.racer-saathi-online.login i,.racer-saathi-online.offline i{background:#ffd36c;box-shadow:0 0 0 3px #ffd36c24}.racer-saathi-online.login i,.racer-saathi-online.offline i{background:#ff8b91;box-shadow:0 0 0 3px #ff8b9124}
       .racer-saathi-welcome-card{min-height:124px}.racer-saathi-welcome-mascot{position:relative;z-index:1;width:104px;height:126px;flex:none;object-fit:contain;filter:drop-shadow(0 7px 8px #1162a522)}.racer-saathi-welcome-copy{position:relative;z-index:1;gap:6px}.racer-saathi-welcome-copy strong{font-size:14px}.racer-saathi-welcome-copy small{font-size:9px;line-height:1.5;color:#70849e}
       .racer-saathi-setup-note{padding:8px 12px;background:#fff8df;color:#735510;border-bottom:1px solid #f1e4b8;font-size:9px;line-height:1.5;font-weight:700}
       .racer-saathi-message-actions{display:flex;gap:6px;padding:4px 3px 0}.racer-saathi-message-actions button{border:0;background:transparent;color:#47749f;font:inherit;font-size:9px;font-weight:800;cursor:pointer}.racer-saathi-message-actions button:hover{color:#0876d8}
-      .racer-saathi-voice-settings-inline{display:grid;grid-template-columns:1fr 1.2fr;gap:8px 12px;padding:9px 12px;background:#eef7ff;border-top:1px solid #d5e8fa;color:#476789;font-size:9px}.racer-saathi-voice-settings-inline label{display:flex;align-items:center;gap:5px;font-weight:800}.racer-saathi-voice-settings-inline select{max-width:120px;border:1px solid #cadff4;border-radius:8px;padding:5px;background:white;color:#1b4f88;font-size:9px}.racer-saathi-voice-settings-inline input{width:86px;accent-color:#1685ee}.racer-saathi-voice-settings-inline>span{grid-column:1/-1;color:#70869d;font-size:8px;line-height:1.4}
-      .racer-saathi-settings-heading{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;color:#173d72;font-size:11px;font-weight:900}.racer-saathi-settings-heading button{width:28px;height:28px;border:1px solid #d5e4f2;border-radius:9px;background:#fff;color:#526b86;font-size:19px;line-height:1;cursor:pointer}.racer-saathi-settings-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:7px}.racer-saathi-settings-actions button{min-height:34px;padding:0 11px;border:1px solid #cadff4;border-radius:9px;background:#fff;color:#285081;font-size:9px;font-weight:850;cursor:pointer}.racer-saathi-settings-actions button:disabled{opacity:.5;cursor:not-allowed}.racer-saathi-settings-actions .racer-saathi-settings-save{border-color:#1768c1;background:#1768c1;color:#fff}
-      .racer-saathi-voice-notice{padding:5px 12px;background:#f0f8ff;color:#386894;font-size:8px;line-height:1.4}.racer-saathi-voice-notice.listening{background:#e9f9ff;color:#0873ae}.racer-saathi-voice-notice.speaking{background:#f0f1ff;color:#5058a9}
-      .racer-saathi-composer .racer-saathi-mic{flex:none;font-size:16px;background:#eaf5ff;color:#126bd0;box-shadow:none;border:1px solid #c9e1f8}.racer-saathi-composer .racer-saathi-mic.recording{background:#fff0f0;color:#bd2636;border-color:#ffc4c7;animation:mic-pulse .9s infinite alternate}.racer-saathi-composer .racer-saathi-mic:disabled{background:#edf1f6;color:#a2afbf;box-shadow:none}
-      @keyframes mic-pulse{to{box-shadow:0 0 0 5px #ff5d6b24}}
+      }
       @keyframes buddy-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}@keyframes buddy-wave{0%,100%{transform:rotate(-7deg)}50%{transform:rotate(17deg)}}
-      @media(max-width:600px){.racer-saathi-panel{inset:0;width:100vw;height:100dvh;min-height:0;right:auto;bottom:auto;border:0;border-radius:0;box-shadow:none;padding-top:env(safe-area-inset-top)}.racer-saathi-header{min-height:72px;padding:8px 9px;gap:5px}.racer-saathi-header-mascot{width:40px;height:40px;flex:none}.racer-saathi-header-mascot .racer-mascot{width:38px;height:38px}.racer-saathi-header button{width:28px;height:30px;font-size:14px}.racer-saathi-online{font-size:7px}.racer-saathi-messages{padding:12px 10px 8px}.racer-saathi-welcome-card{min-height:118px;padding:7px 9px}.racer-saathi-welcome-mascot{width:91px;height:112px}.racer-saathi-shortcuts{gap:5px;padding:0 9px 7px}.racer-saathi-shortcuts button{min-height:52px}.racer-saathi-menu{max-height:103px}.racer-saathi-panel .racer-saathi-menu-label{padding-top:5px}.racer-saathi-composer{padding-bottom:max(12px,env(safe-area-inset-bottom))}.racer-saathi-voice-settings-inline{grid-template-columns:1fr;gap:7px}.racer-saathi-voice-settings-inline>span{grid-column:auto}}
+      @media(max-width:600px){.racer-saathi-panel{inset:0;width:100vw;height:100dvh;min-height:0;right:auto;bottom:auto;border:0;border-radius:0;box-shadow:none;padding-top:env(safe-area-inset-top)}.racer-saathi-header{min-height:72px;padding:8px 9px;gap:5px}.racer-saathi-header-mascot{width:40px;height:40px;flex:none}.racer-saathi-header-mascot .racer-mascot{width:38px;height:38px}.racer-saathi-header button{width:28px;height:30px;font-size:14px}.racer-saathi-online{font-size:7px}.racer-saathi-messages{padding:12px 10px 8px}.racer-saathi-welcome-card{min-height:118px;padding:7px 9px}.racer-saathi-welcome-mascot{width:91px;height:112px}.racer-saathi-shortcuts{gap:5px;padding:0 9px 7px}.racer-saathi-shortcuts button{min-height:52px}.racer-saathi-menu{max-height:103px}.racer-saathi-panel .racer-saathi-menu-label{padding-top:5px}.racer-saathi-composer{padding-bottom:max(12px,env(safe-area-inset-bottom))}}
       @media(prefers-reduced-motion:reduce){.racer-saathi-buddy,.racer-saathi-wave-arm{animation:none}}
       .racer-saathi-panel{z-index:10050;inset:50% auto auto 50%;right:auto;bottom:auto;transform:translate(-50%,-50%);width:min(880px,calc(100vw - 48px));height:min(900px,calc(100dvh - 48px));min-height:560px;border:1px solid #dce8f6;border-radius:24px;background:#fff;box-shadow:0 30px 100px #0a214255}
       .racer-saathi-header{min-height:76px;padding:12px 20px;gap:12px;background:#fff;color:#14243b;border-bottom:1px solid #e9edf3;box-shadow:none}
       .racer-saathi-header-mascot{width:46px;height:46px;background:#edf7ff;border:1px solid #dbeeff}
-      .racer-saathi-header>div{flex:1}.racer-saathi-header strong{font-size:15px;color:#14243b}.racer-saathi-header small{color:#7b8798;opacity:1;font-size:11px}.racer-saathi-header button{width:38px;height:38px;border:1px solid #e5eaf0;background:#fff;color:#475569;font-size:18px;border-radius:12px}.racer-saathi-header button:hover{background:#f3f7fb}.racer-saathi-header button.voice-enabled{background:#e9f6ff;border-color:#b9e3ff;color:#0878d1}
-      .racer-saathi-header .racer-saathi-voice-mode{width:auto;min-width:78px;padding:0 10px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:15px}.racer-saathi-voice-mode span{font-size:10px;font-weight:850}
+      .racer-saathi-header>div{flex:1}.racer-saathi-header strong{font-size:15px;color:#14243b}.racer-saathi-header small{color:#7b8798;opacity:1;font-size:11px}.racer-saathi-header button{width:38px;height:38px;border:1px solid #e5eaf0;background:#fff;color:#475569;font-size:18px;border-radius:12px}.racer-saathi-header button:hover{background:#f3f7fb}
       .racer-saathi-online{color:#66758a;font-size:10px}.racer-saathi-online i{background:#23b578;box-shadow:0 0 0 3px #23b57819}.racer-saathi-online.setup i,.racer-saathi-online.login i,.racer-saathi-online.offline i{background:#efa92e;box-shadow:0 0 0 3px #efa92e22}
       .racer-saathi-chat-scroll{min-height:0;flex:1;display:flex;flex-direction:column;overflow:auto;background:#fff;scrollbar-color:#cbd5e1 transparent;scrollbar-width:thin}
       .racer-saathi-messages{width:min(100%,760px);margin:0 auto;flex:1 0 auto;overflow:visible;padding:30px 24px 16px;gap:22px;background:#fff}
@@ -1106,11 +679,9 @@ export default function StudentRacerSaathi({ studentId }: { studentId: number | 
       .racer-saathi-message{gap:11px}.racer-saathi-message.bot{width:100%}.racer-saathi-message.student{max-width:78%}.racer-saathi-message-avatar{width:34px;height:34px;margin-bottom:20px}.racer-saathi-message-content{max-width:calc(100% - 46px)}.racer-saathi-message-text{font-size:14px;line-height:1.72;padding:14px 17px;border-radius:18px!important;box-shadow:none}.racer-saathi-message.bot .racer-saathi-message-text{border:0;background:#f5f7fa;color:#1f2937}.racer-saathi-message.student .racer-saathi-message-text{background:#e8f3ff;color:#164e87;box-shadow:none}.racer-saathi-message-actions{gap:10px;padding:8px 4px 0}.racer-saathi-message-actions button{padding:4px 7px;border-radius:7px;font-size:11px;color:#69788c}.racer-saathi-message-actions button:hover{background:#f1f5f9}
       .racer-saathi-suggestions{width:min(100%,660px);margin:0 auto 24px;padding:0 0 12px}.racer-saathi-suggestions>span{display:block;margin-bottom:10px;color:#7b8798;font-size:11px;font-weight:700}.racer-saathi-suggestions>div{display:flex;flex-wrap:wrap;gap:9px}.racer-saathi-suggestions button{display:flex;align-items:center;gap:8px;padding:10px 13px;border:1px solid #e1e8f0;border-radius:14px;background:#fff;color:#355270;font-size:13px;cursor:pointer;transition:background .15s,border-color .15s,transform .15s}.racer-saathi-suggestions button:hover{background:#f4f9ff;border-color:#a8d5fb;transform:translateY(-1px)}
       .racer-saathi-tool-shelf{width:min(100%,700px);margin:0 auto 18px;padding:14px;border:1px solid #e5ebf2;border-radius:18px;background:#fbfcfe}.racer-saathi-tool-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;color:#30425a;font-size:12px}.racer-saathi-tool-heading button{border:0;background:transparent;color:#64748b;font-size:20px;cursor:pointer}.racer-saathi-menu{max-height:190px;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0}.racer-saathi-menu button{grid-template-columns:26px 1fr 13px;padding:9px 10px;border-radius:12px;font-size:11px;box-shadow:none}
-      .racer-saathi-picker{width:min(100%,700px);margin:0 auto;padding:8px 14px 16px}.racer-saathi-setup-note{padding:10px 20px;font-size:11px}.racer-saathi-compose-area{flex:none;padding:14px 20px 10px;border-top:1px solid #edf0f4;background:#fff}.racer-saathi-composer{width:min(100%,760px);margin:0 auto;padding:8px 9px;border:1px solid #d8e0ea;border-radius:20px;gap:9px;background:#fff;box-shadow:0 3px 12px #1a2a3b0a}.racer-saathi-composer textarea{flex:1;min-width:0;min-height:42px;max-height:150px;resize:none;overflow-y:auto;padding:11px 8px;border:0;outline:none;background:transparent;color:#172b45;font:inherit;font-size:14px;line-height:1.45}.racer-saathi-composer textarea:focus{box-shadow:none}.racer-saathi-composer button{width:40px;height:40px;flex:none}.racer-saathi-composer .racer-saathi-tools-toggle{border:0;background:#f2f5f8;color:#475569;font-size:22px}.racer-saathi-composer .racer-saathi-mic{border:0;background:#f2f5f8;color:#475569;font-size:17px}.racer-saathi-composer .racer-saathi-mic.recording{background:#fff0f0;color:#c62838;border:0}.racer-saathi-composer .racer-saathi-send{background:#164e87;color:#fff;font-size:22px;font-weight:800}.racer-saathi-compose-hint{width:min(100%,760px);margin:7px auto 0;text-align:center;color:#98a3b2;font-size:9px}.racer-saathi-compose-hint i{display:inline-block;width:3px;height:3px;margin:0 6px 2px;border-radius:50%;background:#aab4c0}
-      .racer-saathi-voice-settings-inline{width:min(100%,760px);margin:0 auto 10px;padding:12px 14px;border:1px solid #e4eaf1;border-radius:14px;background:#f8fafc;font-size:11px}.racer-saathi-voice-settings-inline>span{font-size:10px}.racer-saathi-voice-notice{display:flex;align-items:center;justify-content:center;gap:9px;width:min(100%,760px);margin:0 auto 8px;padding:8px 12px;border-radius:10px;font-size:10px}.racer-saathi-live-wave{height:15px;display:flex;align-items:center;gap:2px}.racer-saathi-live-wave i{display:block;width:3px;height:5px;border-radius:4px;background:#1685ee;animation:saathi-wave .8s ease-in-out infinite alternate}.racer-saathi-live-wave i:nth-child(2),.racer-saathi-live-wave i:nth-child(4){animation-delay:.2s}.racer-saathi-live-wave i:nth-child(3){animation-delay:.4s}.racer-saathi-compose-area .racer-saathi-voice-notice+.racer-saathi-voice-settings-inline{margin-top:0}
-      @keyframes saathi-wave{to{height:14px}}@media(max-width:600px){.racer-saathi-panel{inset:0;width:100vw;height:100dvh;min-height:0;transform:none;border:0;border-radius:0;padding-top:env(safe-area-inset-top)}.racer-saathi-header{min-height:64px;padding:8px 10px;gap:6px}.racer-saathi-header-mascot{width:38px;height:38px}.racer-saathi-header-mascot .racer-mascot{width:36px;height:36px}.racer-saathi-header strong{font-size:13px}.racer-saathi-header small{font-size:9px}.racer-saathi-header button{width:32px;height:32px;border-radius:10px;font-size:15px}.racer-saathi-header .racer-saathi-voice-mode{width:auto;min-width:65px;padding:0 6px;gap:3px}.racer-saathi-voice-mode span{font-size:8px}.racer-saathi-online{font-size:8px}.racer-saathi-messages{width:100%;padding:18px 14px 12px;gap:18px}.racer-saathi-welcome-card{min-height:112px;padding:8px 10px;margin-bottom:8px}.racer-saathi-welcome-mascot{width:82px;height:100px}.racer-saathi-welcome-copy strong{font-size:15px}.racer-saathi-welcome-copy small{font-size:10px}.racer-saathi-message-text{font-size:13px;padding:12px 14px}.racer-saathi-message.student{max-width:88%}.racer-saathi-suggestions{padding:0 14px;margin-bottom:18px}.racer-saathi-suggestions>div{gap:7px}.racer-saathi-suggestions button{padding:8px 10px;font-size:11px}.racer-saathi-tool-shelf{width:calc(100% - 20px);padding:10px}.racer-saathi-menu{grid-template-columns:repeat(2,minmax(0,1fr));max-height:30dvh;overflow:auto}.racer-saathi-menu button{font-size:10px}.racer-saathi-compose-area{padding:9px 10px max(9px,env(safe-area-inset-bottom))}.racer-saathi-composer{padding:5px;gap:5px;border-radius:18px}.racer-saathi-composer textarea{font-size:13px;min-height:39px;padding:10px 5px}.racer-saathi-composer button{width:36px;height:36px}.racer-saathi-compose-hint{font-size:8px}.racer-saathi-voice-settings-inline{grid-template-columns:1fr;gap:8px}.racer-saathi-voice-settings-inline>span{grid-column:auto}}
+      .racer-saathi-picker{width:min(100%,700px);margin:0 auto;padding:8px 14px 16px}.racer-saathi-setup-note{padding:10px 20px;font-size:11px}.racer-saathi-compose-area{flex:none;padding:14px 20px 10px;border-top:1px solid #edf0f4;background:#fff}.racer-saathi-composer{width:min(100%,760px);margin:0 auto;padding:8px 9px;border:1px solid #d8e0ea;border-radius:20px;gap:9px;background:#fff;box-shadow:0 3px 12px #1a2a3b0a}.racer-saathi-composer textarea{flex:1;min-width:0;min-height:42px;max-height:150px;resize:none;overflow-y:auto;padding:11px 8px;border:0;outline:none;background:transparent;color:#172b45;font:inherit;font-size:14px;line-height:1.45}.racer-saathi-composer textarea:focus{box-shadow:none}.racer-saathi-composer button{width:40px;height:40px;flex:none}.racer-saathi-composer .racer-saathi-tools-toggle{border:0;background:#f2f5f8;color:#475569;font-size:22px}.racer-saathi-composer .racer-saathi-send{background:#164e87;color:#fff;font-size:22px;font-weight:800}.racer-saathi-compose-hint{width:min(100%,760px);margin:7px auto 0;text-align:center;color:#98a3b2;font-size:9px}.racer-saathi-compose-hint i{display:inline-block;width:3px;height:3px;margin:0 6px 2px;border-radius:50%;background:#aab4c0}@media(max-width:600px){.racer-saathi-panel{inset:0;width:100vw;height:100dvh;min-height:0;transform:none;border:0;border-radius:0;padding-top:env(safe-area-inset-top)}.racer-saathi-header{min-height:64px;padding:8px 10px;gap:6px}.racer-saathi-header-mascot{width:38px;height:38px}.racer-saathi-header-mascot .racer-mascot{width:36px;height:36px}.racer-saathi-header strong{font-size:13px}.racer-saathi-header small{font-size:9px}.racer-saathi-header button{width:32px;height:32px;border-radius:10px;font-size:15px}.racer-saathi-online{font-size:8px}.racer-saathi-messages{width:100%;padding:18px 14px 12px;gap:18px}.racer-saathi-welcome-card{min-height:112px;padding:8px 10px;margin-bottom:8px}.racer-saathi-welcome-mascot{width:82px;height:100px}.racer-saathi-welcome-copy strong{font-size:15px}.racer-saathi-welcome-copy small{font-size:10px}.racer-saathi-message-text{font-size:13px;padding:12px 14px}.racer-saathi-message.student{max-width:88%}.racer-saathi-suggestions{padding:0 14px;margin-bottom:18px}.racer-saathi-suggestions>div{gap:7px}.racer-saathi-suggestions button{padding:8px 10px;font-size:11px}.racer-saathi-tool-shelf{width:calc(100% - 20px);padding:10px}.racer-saathi-menu{grid-template-columns:repeat(2,minmax(0,1fr));max-height:30dvh;overflow:auto}.racer-saathi-menu button{font-size:10px}.racer-saathi-compose-area{padding:9px 10px max(9px,env(safe-area-inset-bottom))}.racer-saathi-composer{padding:5px;gap:5px;border-radius:18px}.racer-saathi-composer textarea{font-size:13px;min-height:39px;padding:10px 5px}.racer-saathi-composer button{width:36px;height:36px}.racer-saathi-compose-hint{font-size:8px}}
       .racer-saathi-launcher{right:22px;bottom:22px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;color:#123f73;gap:7px;animation:none;text-align:center;isolation:isolate}.racer-saathi-launcher:hover{transform:translateY(-3px)}.racer-saathi-launcher-face{position:relative;z-index:2;width:58px;height:58px;border-radius:50%;background:radial-gradient(circle at 35% 25%,#fff 0,#e7f5ff 52%,#b8dbf7 100%);border:2px solid #fff;box-shadow:0 8px 22px #174b7c35;animation:saathi-robot-float 2.7s ease-in-out infinite}.racer-saathi-launcher-face:before{content:"";position:absolute;inset:-5px;border:1px solid #69c5ff80;border-radius:50%;box-shadow:0 0 0 4px #d9f2ff70,0 0 22px #42a9ef50;animation:saathi-robot-aura 2.4s ease-in-out infinite;z-index:-1}.racer-saathi-launcher-face .racer-mascot{width:54px;height:54px;filter:drop-shadow(0 5px 7px #0b4d8840);animation:saathi-robot-breathe 2.2s ease-in-out infinite}.racer-saathi-launcher-smile{position:absolute;left:22px;bottom:12px;width:13px;height:6px;border-bottom:2px solid #1680c9;border-radius:0 0 14px 14px;opacity:.8;animation:saathi-smile 3.5s ease-in-out infinite}.racer-saathi-launcher-orbit{position:absolute;z-index:1;left:4px;top:7px;width:50px;height:44px;border:1px solid #59b8f070;border-radius:50%;transform:rotate(-24deg);pointer-events:none;animation:saathi-orbit 5s linear infinite}.racer-saathi-launcher-orbit i{position:absolute;width:5px;height:5px;border-radius:50%;background:#32b7ff;box-shadow:0 0 8px #32b7ff;top:-3px;left:22px}.racer-saathi-launcher-orbit i:nth-child(2){top:auto;left:auto;right:-2px;bottom:8px;width:4px;height:4px;background:#8b7cff}.racer-saathi-launcher-orbit i:nth-child(3){top:auto;left:6px;bottom:-2px;width:3px;height:3px;background:#33d39a}.racer-saathi-launcher-label{display:block;font-size:11px;line-height:1;font-weight:950;letter-spacing:.2px;text-shadow:0 1px 0 #fff}.racer-saathi-launcher-thinking{position:absolute;right:63px;top:-23px;min-width:77px;padding:6px 9px;border:1px solid #cce8fb;border-radius:12px 12px 3px 12px;background:#fff;color:#39719d;font-size:9px;font-weight:850;box-shadow:0 5px 15px #29608c1c;white-space:nowrap;animation:saathi-thought 2.8s ease-in-out infinite}.racer-saathi-launcher-thinking:after{content:"";position:absolute;right:-5px;bottom:3px;width:8px;height:8px;background:#fff;border-right:1px solid #cce8fb;border-top:1px solid #cce8fb;transform:rotate(45deg)}.racer-saathi-thinking-dots{display:inline-block;margin-left:3px;letter-spacing:2px;color:#1685ee;animation:saathi-thinking-dots 1s steps(4,end) infinite}.racer-saathi-launcher-dot{left:44px;top:1px;width:10px;height:10px;background:#20bd78;border:2px solid #fff;box-shadow:0 2px 7px #16895755}
-      .racer-saathi-live-call-control{display:none}
+
       @keyframes saathi-robot-float{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-5px) rotate(1deg)}}@keyframes saathi-robot-breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}@keyframes saathi-robot-aura{0%,100%{opacity:.45;transform:scale(.96)}50%{opacity:1;transform:scale(1.05)}}@keyframes saathi-orbit{to{transform:rotate(336deg)}}@keyframes saathi-smile{0%,100%{transform:scaleX(.75);opacity:.55}50%{transform:scaleX(1.15);opacity:1}}@keyframes saathi-thought{0%,100%{transform:translateY(0);opacity:.82}50%{transform:translateY(-3px);opacity:1}}@keyframes saathi-thinking-dots{0%{opacity:.25}50%{opacity:1}100%{opacity:.25}}
       @media(max-width:600px){.racer-saathi-launcher{right:14px;bottom:72px}.racer-saathi-launcher-face{width:52px;height:52px}.racer-saathi-launcher-face .racer-mascot{width:48px;height:48px}.racer-saathi-launcher-label{font-size:10px}.racer-saathi-launcher-thinking{right:57px;top:-20px;font-size:8px}}
       @media(prefers-reduced-motion:reduce){.racer-saathi-launcher-face,.racer-saathi-launcher-face:before,.racer-saathi-launcher-face .racer-mascot,.racer-saathi-launcher-smile,.racer-saathi-launcher-orbit,.racer-saathi-launcher-thinking,.racer-saathi-thinking-dots{animation:none}}
