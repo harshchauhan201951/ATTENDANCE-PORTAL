@@ -49,6 +49,7 @@ function CreateTimetableContent() {
   const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
 
   const [dayOfWeek, setDayOfWeek] = useState("Monday");
+  const [applyToAllDays, setApplyToAllDays] = useState(false);
   const [isHoliday, setIsHoliday] = useState(false);
 
   const [subject, setSubject] = useState("");
@@ -190,6 +191,7 @@ function CreateTimetableContent() {
       setSubject("");
       setStartTime("");
       setEndTime("");
+      setApplyToAllDays(false);
     }
   };
 
@@ -226,11 +228,13 @@ function CreateTimetableContent() {
     setSaving(true);
 
     try {
-      const payload = {
+      const applyToEveryDay = !isHoliday && !editId && applyToAllDays;
+      const daysToSave = applyToEveryDay ? DAYS : [dayOfWeek];
+      const payloads = daysToSave.map((day) => ({
         teacher_id: teacherId,
         teacher_name: teacherName,
         class_names: classesToSave,
-        day_of_week: dayOfWeek,
+        day_of_week: day,
         is_holiday: isHoliday,
 
         // Holiday = NULL
@@ -238,21 +242,21 @@ function CreateTimetableContent() {
         subject: isHoliday ? null : subject.trim(),
         start_time: isHoliday ? null : startTime,
         end_time: isHoliday ? null : endTime,
-      };
+      }));
 
       let error = null;
 
       if (editId) {
         const result = await supabase
           .from("timetables")
-          .update(payload)
+          .update(payloads[0])
           .eq("id", editId);
 
         error = result.error;
       } else {
         const result = await supabase
           .from("timetables")
-          .insert(payload);
+          .insert(payloads);
 
         error = result.error;
       }
@@ -266,10 +270,11 @@ function CreateTimetableContent() {
 
       try {
         const classList = [...classesToSave].sort().join(",");
-        const title = isHoliday ? `RACER ACADEMY: ${dayOfWeek} की Holiday सूचना` : `RACER ACADEMY: Timetable Update · ${subject.trim()}`;
+        const scheduleDays = applyToEveryDay ? "Monday से Sunday" : dayOfWeek;
+        const title = isHoliday ? `RACER ACADEMY: ${scheduleDays} की Holiday सूचना` : `RACER ACADEMY: Timetable Update · ${subject.trim()}`;
         const message = isHoliday
-          ? `${dayOfWeek} को class नहीं होगी। अधिक जानकारी के लिए Academic Calendar देखें।`
-          : `${subject.trim()} class का समय ${dayOfWeek}, ${startTime}–${endTime} तय किया गया है। पूरा Timetable देखने के लिए Timetable section खोलें।`;
+          ? `${scheduleDays} को class नहीं होगी। अधिक जानकारी के लिए Academic Calendar देखें।`
+          : `${subject.trim()} class का समय ${scheduleDays}, ${startTime}–${endTime} तय किया गया है। पूरा Timetable देखने के लिए Timetable section खोलें।`;
         const notificationResponse = await fetch("/api/push/send", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -279,8 +284,8 @@ function CreateTimetableContent() {
             title,
             message,
             url: isHoliday ? "/student/calendar" : "/student/timetable",
-            notificationKey: `timetable:${editId || "new"}:${dayOfWeek}:${classList}:${isHoliday ? "holiday" : `${subject.trim()}:${startTime}:${endTime}`}`,
-            metadata: { source: "teacher_timetable_update", dayOfWeek, classNames: classesToSave, isHoliday, subject: subject.trim() || null, startTime: startTime || null, endTime: endTime || null },
+            notificationKey: `timetable:${editId || "new"}:${scheduleDays}:${classList}:${isHoliday ? "holiday" : `${subject.trim()}:${startTime}:${endTime}`}`,
+            metadata: { source: "teacher_timetable_update", dayOfWeek, daysOfWeek: daysToSave, applyToAllDays: applyToEveryDay, classNames: classesToSave, isHoliday, subject: subject.trim() || null, startTime: startTime || null, endTime: endTime || null },
           }),
         });
         if (!notificationResponse.ok) console.warn("Timetable notification failed:", await notificationResponse.json().catch(() => null));
@@ -291,7 +296,9 @@ function CreateTimetableContent() {
       alert(
         isHoliday
           ? "Holiday timetable saved successfully."
-          : "Timetable saved successfully."
+          : applyToEveryDay
+            ? "Same timetable time saved for all 7 days."
+            : "Timetable saved successfully."
       );
 
       router.push("/teacher/timetable");
@@ -460,6 +467,21 @@ function CreateTimetableContent() {
                 />
               </div>
             </div>
+          )}
+
+          {!isHoliday && !editId && (
+            <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-indigo-200 bg-indigo-50/70 p-3 sm:mt-5 sm:p-4">
+              <input
+                type="checkbox"
+                checked={applyToAllDays}
+                onChange={(event) => setApplyToAllDays(event.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-indigo-700"
+              />
+              <span>
+                <span className="block text-sm font-bold text-indigo-950">Apply same time to all 7 days</span>
+                <span className="mt-1 block text-xs leading-5 text-indigo-800">Save this subject, time and selected classes for Monday through Sunday.</span>
+              </span>
+            </label>
           )}
 
           {/* Classes */}
