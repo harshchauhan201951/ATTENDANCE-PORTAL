@@ -41,6 +41,7 @@ function CreateTimetableContent() {
   const searchParams = useSearchParams();
 
   const editId = searchParams.get("id");
+  const weeklyMode = searchParams.get("weekly") === "1";
 
   const [teacherId, setTeacherId] = useState("");
   const [teacherName, setTeacherName] = useState("");
@@ -50,6 +51,8 @@ function CreateTimetableContent() {
 
   const [dayOfWeek, setDayOfWeek] = useState("Monday");
   const [applyToAllDays, setApplyToAllDays] = useState(false);
+  const [weeklyPattern, setWeeklyPattern] = useState<"all" | "six">("all");
+  const [weeklyHolidayDay, setWeeklyHolidayDay] = useState("Sunday");
   const [isHoliday, setIsHoliday] = useState(false);
 
   const [subject, setSubject] = useState("");
@@ -228,9 +231,17 @@ function CreateTimetableContent() {
     setSaving(true);
 
     try {
-      const applyToEveryDay = !isHoliday && !editId && applyToAllDays;
-      const daysToSave = applyToEveryDay ? DAYS : [dayOfWeek];
-      const payloads = daysToSave.map((day) => ({
+      const sixDayWeeklyPattern = weeklyMode && !editId && weeklyPattern === "six";
+      const applyToEveryDay =
+        !isHoliday &&
+        !editId &&
+        (weeklyMode ? weeklyPattern === "all" : applyToAllDays);
+      const classDaysToSave = sixDayWeeklyPattern
+        ? DAYS.filter((day) => day !== weeklyHolidayDay)
+        : applyToEveryDay
+          ? DAYS
+          : [dayOfWeek];
+      const payloads = classDaysToSave.map((day) => ({
         teacher_id: teacherId,
         teacher_name: teacherName,
         class_names: classesToSave,
@@ -243,6 +254,19 @@ function CreateTimetableContent() {
         start_time: isHoliday ? null : startTime,
         end_time: isHoliday ? null : endTime,
       }));
+
+      if (sixDayWeeklyPattern) {
+        payloads.push({
+          teacher_id: teacherId,
+          teacher_name: teacherName,
+          class_names: classesToSave,
+          day_of_week: weeklyHolidayDay,
+          is_holiday: true,
+          subject: null,
+          start_time: null,
+          end_time: null,
+        });
+      }
 
       let error = null;
 
@@ -270,11 +294,15 @@ function CreateTimetableContent() {
 
       try {
         const classList = [...classesToSave].sort().join(",");
-        const scheduleDays = applyToEveryDay ? "Monday से Sunday" : dayOfWeek;
+        const scheduleDays = applyToEveryDay
+          ? "Monday से Sunday"
+          : sixDayWeeklyPattern
+            ? classDaysToSave.join(", ")
+            : dayOfWeek;
         const title = isHoliday ? `RACER ACADEMY: ${scheduleDays} की Holiday सूचना` : `RACER ACADEMY: Timetable Update · ${subject.trim()}`;
         const message = isHoliday
           ? `${scheduleDays} को class नहीं होगी। अधिक जानकारी के लिए Academic Calendar देखें।`
-          : `${subject.trim()} class का समय ${scheduleDays}, ${startTime}–${endTime} तय किया गया है। पूरा Timetable देखने के लिए Timetable section खोलें।`;
+          : `${subject.trim()} class का समय ${scheduleDays}, ${startTime}–${endTime} तय किया गया है.${sixDayWeeklyPattern ? ` ${weeklyHolidayDay} को weekly holiday रहेगा।` : ""} पूरा Timetable देखने के लिए Timetable section खोलें।`;
         const notificationResponse = await fetch("/api/push/send", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -284,8 +312,8 @@ function CreateTimetableContent() {
             title,
             message,
             url: isHoliday ? "/student/calendar" : "/student/timetable",
-            notificationKey: `timetable:${editId || "new"}:${scheduleDays}:${classList}:${isHoliday ? "holiday" : `${subject.trim()}:${startTime}:${endTime}`}`,
-            metadata: { source: "teacher_timetable_update", dayOfWeek, daysOfWeek: daysToSave, applyToAllDays: applyToEveryDay, classNames: classesToSave, isHoliday, subject: subject.trim() || null, startTime: startTime || null, endTime: endTime || null },
+            notificationKey: `timetable:${editId || "new"}:${scheduleDays}:${weeklyHolidayDay}:${classList}:${isHoliday ? "holiday" : `${subject.trim()}:${startTime}:${endTime}`}`,
+            metadata: { source: "teacher_timetable_update", dayOfWeek, daysOfWeek: classDaysToSave, weeklyHolidayDay: sixDayWeeklyPattern ? weeklyHolidayDay : null, applyToAllDays: applyToEveryDay, classNames: classesToSave, isHoliday, subject: subject.trim() || null, startTime: startTime || null, endTime: endTime || null },
           }),
         });
         if (!notificationResponse.ok) console.warn("Timetable notification failed:", await notificationResponse.json().catch(() => null));
@@ -296,7 +324,9 @@ function CreateTimetableContent() {
       alert(
         isHoliday
           ? "Holiday timetable saved successfully."
-          : applyToEveryDay
+          : sixDayWeeklyPattern
+            ? `Timetable saved for six days. ${weeklyHolidayDay} is set as a holiday.`
+            : applyToEveryDay
             ? "Same timetable time saved for all 7 days."
             : "Timetable saved successfully."
       );
@@ -334,10 +364,10 @@ function CreateTimetableContent() {
         <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div>
             <h1 className="text-xl font-bold text-slate-900 sm:text-3xl">
-              {editId ? "Edit Timetable" : "Create Timetable"}
+              {editId ? "Edit Timetable" : weeklyMode ? "Create Weekly Timetable" : "Create Timetable"}
             </h1>
             <p className="mt-1 text-xs text-slate-500 sm:text-sm">
-              Create the weekly timetable for your selected classes.
+              {weeklyMode ? "Set one subject and time across the week, with an optional weekly holiday." : "Create the weekly timetable for your selected classes."}
             </p>
           </div>
 
@@ -369,6 +399,58 @@ function CreateTimetableContent() {
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-7">
+          {weeklyMode && !editId ? (
+            <div className="mb-4 rounded-2xl border border-indigo-100 bg-indigo-50/60 p-3 sm:mb-5 sm:p-5">
+              <label className="mb-2 block text-xs font-semibold text-slate-700 sm:text-sm">
+                Weekly schedule pattern
+              </label>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition sm:p-4 ${weeklyPattern === "all" ? "border-indigo-500 bg-white shadow-sm" : "border-slate-200 bg-white/70 hover:border-indigo-200"}`}>
+                  <input
+                    type="radio"
+                    name="weeklyPattern"
+                    value="all"
+                    checked={weeklyPattern === "all"}
+                    onChange={() => setWeeklyPattern("all")}
+                    className="mt-0.5 h-4 w-4 accent-indigo-700"
+                  />
+                  <span>
+                    <span className="block text-sm font-bold text-indigo-950">Apply for all 7 days</span>
+                    <span className="mt-1 block text-xs leading-5 text-slate-600">Use the same subject and time Monday through Sunday.</span>
+                  </span>
+                </label>
+                <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition sm:p-4 ${weeklyPattern === "six" ? "border-indigo-500 bg-white shadow-sm" : "border-slate-200 bg-white/70 hover:border-indigo-200"}`}>
+                  <input
+                    type="radio"
+                    name="weeklyPattern"
+                    value="six"
+                    checked={weeklyPattern === "six"}
+                    onChange={() => setWeeklyPattern("six")}
+                    className="mt-0.5 h-4 w-4 accent-indigo-700"
+                  />
+                  <span>
+                    <span className="block text-sm font-bold text-indigo-950">Apply for 6 days + 1 holiday</span>
+                    <span className="mt-1 block text-xs leading-5 text-slate-600">Choose the weekly holiday; the same class time goes to the other six days.</span>
+                  </span>
+                </label>
+              </div>
+              {weeklyPattern === "six" && (
+                <div className="mt-3 max-w-sm">
+                  <label htmlFor="weekly-holiday-day" className="mb-1.5 block text-xs font-semibold text-slate-700 sm:text-sm">
+                    Select weekly holiday
+                  </label>
+                  <select
+                    id="weekly-holiday-day"
+                    value={weeklyHolidayDay}
+                    onChange={(event) => setWeeklyHolidayDay(event.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 sm:px-4 sm:py-3 sm:text-base"
+                  >
+                    {DAYS.map((day) => <option key={day} value={day}>{day}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
+          ) : (
           <div className="grid grid-cols-2 gap-3 sm:gap-5">
             {/* Day */}
             <div>
@@ -405,6 +487,7 @@ function CreateTimetableContent() {
               </select>
             </div>
           </div>
+          )}
 
           {/* Holiday Notice */}
           {isHoliday && (
@@ -469,7 +552,7 @@ function CreateTimetableContent() {
             </div>
           )}
 
-          {!isHoliday && !editId && (
+          {!isHoliday && !editId && !weeklyMode && (
             <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-indigo-200 bg-indigo-50/70 p-3 sm:mt-5 sm:p-4">
               <input
                 type="checkbox"

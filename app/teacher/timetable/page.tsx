@@ -231,12 +231,20 @@ export default function TeacherTimetablePage() {
                 Your classes, subjects and teaching hours—organized in one easy weekly view.
               </p>
             </div>
-            <button
-              onClick={() => router.push("/teacher/timetable/create")}
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3.5 text-sm font-black text-indigo-700 shadow-lg transition hover:-translate-y-0.5 hover:bg-cyan-50"
-            >
-              <span className="text-xl leading-none">+</span> Create timetable
-            </button>
+            <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+              <button
+                onClick={() => router.push("/teacher/timetable/create?weekly=1")}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/30 bg-indigo-800/35 px-5 py-3.5 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-indigo-800/60"
+              >
+                <span aria-hidden="true">◷</span> Weekly timetable
+              </button>
+              <button
+                onClick={() => router.push("/teacher/timetable/create")}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3.5 text-sm font-black text-indigo-700 shadow-lg transition hover:-translate-y-0.5 hover:bg-cyan-50"
+              >
+                <span className="text-xl leading-none">+</span> Create timetable
+              </button>
+            </div>
           </div>
         </section>
 
