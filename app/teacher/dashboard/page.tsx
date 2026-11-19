@@ -14,7 +14,7 @@ import "../../teacher-dashboard-refresh.css";
 type IconName =
   | "attendance" | "history" | "calendar" | "reports" | "fees" | "payments"
   | "homework" | "announcement" | "activity" | "profile" | "settings"
-  | "directory" | "extra" | "quiz" | "result" | "call" | "teachers" | "time"
+  | "directory" | "extra" | "quiz" | "result" | "call" | "teachers" | "time" | "calculator"
   | "home" | "bell" | "menu" | "modules" | "notification" | "bulb" | "chevron";
 
 const menuItems = [
@@ -24,6 +24,7 @@ const menuItems = [
   ["Reports", "/teacher/reports", "reports"],
   ["Fees", "/teacher/fees", "fees"],
   ["Payments", "/teacher/payments", "payments"],
+  ["Attendance Fee Calculator", "/teacher/finance/attendance-calculator", "calculator"],
   ["Homework", "/teacher/homework", "homework"],
   ["Study Samagri", "/teacher/study-material", "homework"],
   ["Announcements", "/teacher/announcements", "announcement"],
@@ -69,6 +70,8 @@ function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
       return <svg {...common}><ellipse cx="12" cy="7" rx="6.5" ry="3" /><path d="M5.5 7v5c0 1.7 2.9 3 6.5 3s6.5-1.3 6.5-3V7" /><path d="M5.5 12v5c0 1.7 2.9 3 6.5 3s6.5-1.3 6.5-3v-5" /></svg>;
     case "payments":
       return <svg {...common}><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 10h18M7 15h4" /></svg>;
+    case "calculator":
+      return <svg {...common}><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M8 7h8M8 11h2m4 0h2M8 15h2m4 0h2M8 18h2m4 0h2" /></svg>;
     case "homework":
       return <svg {...common}><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 0-3 3z" /><path d="M8 4v16M11 8h5M11 12h5M11 16h4" /></svg>;
     case "announcement":
@@ -118,7 +121,7 @@ const vipGroups = [
   { title: "Academics", sub: "Classes & learning", paths: ["/teacher/attendance", "/teacher/attendance-history", "/teacher/calendar", "/teacher/timetable", "/teacher/homework", "/teacher/study-material", "/teacher/extra-class", "/teacher/monthly-results"] },
   { title: "Exam Centre", sub: "Tests, MahaTest & quizzes", paths: ["/teacher/reports?section=assessment-create", "/teacher/monthly-results?view=mahatest", "/teacher/quiz-tests"] },
   { title: "Students", sub: "People & communication", paths: ["/teacher/student-directory", "/teacher/login-activity", "/teacher/reports", "/teacher/announcements"] },
-  { title: "Finance", sub: "Fees & payments", paths: ["/teacher/fees", "/teacher/payments"] },
+  { title: "Finance", sub: "Fees, payments & attendance billing", paths: ["/teacher/fees", "/teacher/payments", "/teacher/finance/attendance-calculator"] },
   { title: "Manage", sub: "Account & tools", paths: ["/teacher/voice-call", "/teacher/teachers", "/teacher/profile", "/teacher/settings"] },
 ];
 const vipTones = ["blue", "violet", "green", "orange", "pink", "cyan"];
