@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
 import { isOnOrAfterAdmission } from "../../../../lib/admission-date";
 import styles from "./attendance-calculator.module.css";
 
@@ -109,6 +111,109 @@ export default function AttendanceFeeCalculatorPage() {
     return sum + (Number.isFinite(feeAmount) && feeAmount > 0 ? feeAmount / daysInMonth : 0);
   }, 0), [billableDays, feeAmount]);
   const dateInvalid = Boolean(startDate && endDate && startDate > endDate);
+  const exportRows = recordedDays.map(({ date, status }) => {
+    const billable = status === "present" || includeAbsences;
+    const daysInMonth = new Date(Number(date.slice(0, 4)), Number(date.slice(5, 7)), 0).getDate();
+    const dailyAmount = feeAmount > 0 && billable ? feeAmount / daysInMonth : 0;
+    return {
+      date,
+      status: status === "present" ? "Present" : "Absent",
+      billing: billable ? "Included" : "Not included",
+      monthlyFee: feeAmount > 0 ? feeAmount : 0,
+      daysInMonth,
+      dailyAmount,
+    };
+  });
+  const exportDisabled = !student || loadingAttendance || dateInvalid;
+  const safeStudentName = (student?.student_username || student?.student_name || "student").replace(/[^a-z0-9-_]/gi, "_");
+
+  function exportExcel() {
+    if (exportDisabled || !student) return;
+    const summary = XLSX.utils.aoa_to_sheet([
+      ["RACER ACADEMY — ATTENDANCE FEE STATEMENT"],
+      ["Student", student.student_name || student.student_username],
+      ["Username", student.student_username],
+      ["Student ID", student.id],
+      ["Period", `${startDate} to ${endDate}`],
+      ["Monthly fee (INR)", feeAmount > 0 ? feeAmount : 0],
+      ["Include absent days", includeAbsences ? "Yes" : "No"],
+      ["Present days", presentCount],
+      ["Absent days", absentCount],
+      ["Billable days", billableDays.length],
+      ["Total fee (INR)", totalDue],
+      ["Calculation", "Monthly fee ÷ calendar days in each attendance month; summed for each billable day."],
+      ["Generated", new Date().toLocaleString("en-IN")],
+    ]);
+    summary["!cols"] = [{ wch: 35 }, { wch: 75 }];
+    const detail = XLSX.utils.json_to_sheet(exportRows.map((row) => ({
+      Date: row.date,
+      Status: row.status,
+      Billing: row.billing,
+      "Monthly fee (INR)": row.monthlyFee,
+      "Calendar days in month": row.daysInMonth,
+      "Daily charge (INR)": Number(row.dailyAmount.toFixed(2)),
+    })));
+    detail["!cols"] = [{ wch: 15 }, { wch: 13 }, { wch: 16 }, { wch: 20 }, { wch: 24 }, { wch: 20 }];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, summary, "Fee Summary");
+    XLSX.utils.book_append_sheet(workbook, detail, "Attendance Details");
+    XLSX.writeFile(workbook, `RACER_ACADEMY_FEE_STATEMENT_${safeStudentName}_${startDate}_${endDate}.xlsx`);
+  }
+
+  function exportPdf() {
+    if (exportDisabled || !student) return;
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    doc.setFillColor(12, 76, 145);
+    doc.rect(0, 0, pageWidth, 34, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("RACER ACADEMY", 14, 14);
+    doc.setFontSize(10);
+    doc.text("ATTENDANCE FEE STATEMENT", 14, 24);
+    doc.setTextColor(25, 43, 68);
+    doc.setFontSize(10);
+    doc.text(`Student: ${student.student_name || student.student_username}`, 14, 45);
+    doc.text(`Username / ID: ${student.student_username} / ${student.id}`, 14, 52);
+    doc.text(`Period: ${startDate} to ${endDate}`, 14, 59);
+    doc.text(`Monthly fee: INR ${feeAmount > 0 ? feeAmount.toFixed(2) : "0.00"}`, 14, 66);
+    doc.text(`Include absent days: ${includeAbsences ? "Yes" : "No"}`, 14, 73);
+    doc.text(`Present: ${presentCount}   Absent: ${absentCount}   Billable: ${billableDays.length}`, 14, 80);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.text(`TOTAL FEE: INR ${totalDue.toFixed(2)}`, 14, 91);
+    doc.setFontSize(8);
+    doc.text("Date", 14, 103);
+    doc.text("Status", 70, 103);
+    doc.text("Billing", 108, 103);
+    doc.text("Daily charge (INR)", 150, 103);
+    doc.setDrawColor(185, 198, 215);
+    doc.line(14, 106, pageWidth - 14, 106);
+    let y = 113;
+    for (const row of exportRows) {
+      if (y > 278) { doc.addPage(); y = 20; }
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(45, 63, 86);
+      doc.text(row.date, 14, y);
+      doc.text(row.status, 70, y);
+      doc.text(row.billing, 108, y);
+      doc.text(row.billing === "Included" && feeAmount > 0 ? row.dailyAmount.toFixed(2) : "—", 150, y);
+      y += 7;
+    }
+    if (exportRows.length === 0) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text("No attendance records found for this period.", 14, y);
+    }
+    y += 8;
+    if (y > 280) { doc.addPage(); y = 20; }
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text("Fee per billable day = monthly fee ÷ calendar days in that attendance month.", 14, y);
+    doc.save(`RACER_ACADEMY_FEE_STATEMENT_${safeStudentName}_${startDate}_${endDate}.pdf`);
+  }
 
   return (
     <main className={styles.page}>
@@ -152,7 +257,7 @@ export default function AttendanceFeeCalculatorPage() {
         </section>
 
         <section className={styles.attendance}>
-          <div className={styles.attendanceHead}><div><p className={styles.step}>RECORDED DAYS</p><h2>Attendance records</h2></div><span>{recordedDays.length} {recordedDays.length === 1 ? "day" : "days"}</span></div>
+          <div className={styles.attendanceHead}><div><p className={styles.step}>RECORDED DAYS</p><h2>Attendance records</h2></div><div className={styles.attendanceActions}><span>{recordedDays.length} {recordedDays.length === 1 ? "day" : "days"}</span><button type="button" className={styles.exportButton} onClick={exportPdf} disabled={exportDisabled}>Download PDF</button><button type="button" className={styles.exportButton} onClick={exportExcel} disabled={exportDisabled}>Download Excel</button></div></div>
           {!student ? <p className={styles.empty}>Choose a student to see attendance.</p> : loadingAttendance ? <p className={styles.empty}>Loading attendance…</p> : recordedDays.length === 0 ? <p className={styles.empty}>No attendance records found in this date range.</p> : <ul className={styles.dateList}>{recordedDays.map(({ date, status }) => { const charge = status === "present" || includeAbsences; const dailyRate = feeAmount > 0 ? feeAmount / new Date(Number(date.slice(0, 4)), Number(date.slice(5, 7)), 0).getDate() : 0; return <li key={date}><span className={`${styles.check} ${status === "absent" ? styles.absent : ""}`}>{status === "present" ? "✓" : "×"}</span><span>{new Date(`${date}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}<small className={styles.statusLabel}>{status === "present" ? "Present" : "Absent"}</small></span><strong className={charge ? "" : styles.excluded}>{charge ? (feeAmount > 0 ? money(dailyRate) : "Enter monthly fee") : "Not included"}</strong></li>; })}</ul>}
         </section>
       </div>
