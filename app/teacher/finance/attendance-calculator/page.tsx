@@ -23,6 +23,7 @@ export default function AttendanceFeeCalculatorPage() {
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
   const [monthlyFee, setMonthlyFee] = useState("");
+  const [includeAbsences, setIncludeAbsences] = useState(false);
   const [loadingStudents, setLoadingStudents] = useState(true);
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [error, setError] = useState("");
@@ -91,16 +92,22 @@ export default function AttendanceFeeCalculatorPage() {
   }, [studentId, startDate, endDate]);
 
   const student = students.find((item) => String(item.id) === studentId);
-  const presentDates = useMemo(() => {
+  const recordedDays = useMemo(() => {
     if (!student) return [];
-    return [...new Set(attendance.filter((row) => row.status.trim().toLowerCase() === "present" && isOnOrAfterAdmission(student.admission_date, row.attendance_date)).map((row) => row.attendance_date))].sort();
+    return [...new Map(attendance
+      .filter((row) => ["present", "absent"].includes(row.status.trim().toLowerCase()) && isOnOrAfterAdmission(student.admission_date, row.attendance_date))
+      .map((row) => [row.attendance_date, { date: row.attendance_date, status: row.status.trim().toLowerCase() }]))
+      .values()].sort((a, b) => a.date.localeCompare(b.date));
   }, [attendance, student]);
+  const presentCount = recordedDays.filter((day) => day.status === "present").length;
+  const absentCount = recordedDays.filter((day) => day.status === "absent").length;
+  const billableDays = recordedDays.filter((day) => day.status === "present" || (includeAbsences && day.status === "absent"));
   const feeAmount = Number(monthlyFee);
-  const totalDue = useMemo(() => presentDates.reduce((sum, date) => {
-    const [year, month] = date.split("-").map(Number);
+  const totalDue = useMemo(() => billableDays.reduce((sum, day) => {
+    const [year, month] = day.date.split("-").map(Number);
     const daysInMonth = new Date(year, month, 0).getDate();
     return sum + (Number.isFinite(feeAmount) && feeAmount > 0 ? feeAmount / daysInMonth : 0);
-  }, 0), [presentDates, feeAmount]);
+  }, 0), [billableDays, feeAmount]);
   const dateInvalid = Boolean(startDate && endDate && startDate > endDate);
 
   return (
@@ -109,7 +116,7 @@ export default function AttendanceFeeCalculatorPage() {
         <a className={styles.back} href="/teacher/dashboard">← Back to dashboard</a>
         <header className={styles.header}>
           <div className={styles.mark}>₹</div>
-          <div><p className={styles.eyebrow}>FINANCE · ATTENDANCE BILLING</p><h1>Attendance Fee Calculator</h1><p className={styles.subtitle}>Calculate a student’s fee from their recorded present days.</p></div>
+          <div><p className={styles.eyebrow}>FINANCE · ATTENDANCE BILLING</p><h1>Attendance Fee Calculator</h1><p className={styles.subtitle}>Calculate a student’s fee from their recorded attendance.</p></div>
         </header>
 
         <section className={styles.panel} aria-labelledby="calculator-heading">
@@ -123,6 +130,11 @@ export default function AttendanceFeeCalculatorPage() {
             <label className={styles.field}><span>End date</span><input type="date" value={endDate} min={startDate || undefined} onChange={(event) => setEndDate(event.target.value)} /></label>
             <label className={styles.field}><span>Monthly fee</span><div className={styles.moneyInput}><span>₹</span><input type="number" min="0" step="0.01" inputMode="decimal" placeholder="e.g. 2500" value={monthlyFee} onChange={(event) => setMonthlyFee(event.target.value)} /></div></label>
           </div>
+          <label className={styles.absenceOption}>
+            <input type="checkbox" checked={includeAbsences} onChange={(event) => setIncludeAbsences(event.target.checked)} />
+            <span className={styles.switch} aria-hidden="true" />
+            <span className={styles.optionCopy}><strong>Include absent days</strong><small>When on, recorded Present and Absent days are included in the fee.</small></span>
+          </label>
           {dateInvalid && <p className={styles.error}>End date must be on or after the starting date.</p>}
           {error && <p className={styles.error} role="alert">{error}</p>}
           {!loadingStudents && students.length === 0 && !error && <p className={styles.empty}>No active students are assigned to this teacher.</p>}
@@ -131,16 +143,17 @@ export default function AttendanceFeeCalculatorPage() {
         <section className={styles.result} aria-live="polite">
           <div className={styles.resultHead}><div><p className={styles.step}>ATTENDANCE SUMMARY</p><h2>{student ? student.student_name || student.student_username : "Select a student"}</h2><p>{student ? `${startDate} — ${endDate}` : "Your calculated total will appear here."}</p></div><div className={styles.amount}><span>Attendance based fee</span><strong>{money(totalDue)}</strong></div></div>
           <div className={styles.stats}>
-            <div><span>Present days</span><strong>{loadingAttendance ? "…" : presentDates.length}</strong></div>
+            <div><span>Present days</span><strong>{loadingAttendance ? "…" : presentCount}</strong></div>
+            <div><span>Absent days</span><strong>{loadingAttendance ? "…" : absentCount}</strong></div>
+            <div><span>Billable days</span><strong>{loadingAttendance ? "…" : billableDays.length}</strong></div>
             <div><span>Monthly fee</span><strong>{Number.isFinite(feeAmount) && feeAmount > 0 ? money(feeAmount) : "—"}</strong></div>
-            <div><span>Average per present day</span><strong>{presentDates.length > 0 ? money(totalDue / presentDates.length) : "—"}</strong></div>
           </div>
-          <p className={styles.note}>Only recorded “Present” days are counted. Each present day is charged at the monthly fee ÷ calendar days in that attendance month.</p>
+          <p className={styles.note}>{includeAbsences ? "Recorded Present and Absent days are counted." : "Only recorded Present days are counted; absent days are shown below but excluded from the fee."} Each billable day is charged at the monthly fee ÷ calendar days in that attendance month.</p>
         </section>
 
         <section className={styles.attendance}>
-          <div className={styles.attendanceHead}><div><p className={styles.step}>RECORDED DAYS</p><h2>Present attendance</h2></div><span>{presentDates.length} {presentDates.length === 1 ? "day" : "days"}</span></div>
-          {!student ? <p className={styles.empty}>Choose a student to see attendance.</p> : loadingAttendance ? <p className={styles.empty}>Loading attendance…</p> : presentDates.length === 0 ? <p className={styles.empty}>No present attendance found in this date range.</p> : <ul className={styles.dateList}>{presentDates.map((date) => <li key={date}><span className={styles.check}>✓</span><span>{new Date(`${date}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}</span><strong>{Number.isFinite(feeAmount) && feeAmount > 0 ? money(feeAmount / new Date(Number(date.slice(0, 4)), Number(date.slice(5, 7)), 0).getDate()) : "Enter monthly fee"}</strong></li>)}</ul>}
+          <div className={styles.attendanceHead}><div><p className={styles.step}>RECORDED DAYS</p><h2>Attendance records</h2></div><span>{recordedDays.length} {recordedDays.length === 1 ? "day" : "days"}</span></div>
+          {!student ? <p className={styles.empty}>Choose a student to see attendance.</p> : loadingAttendance ? <p className={styles.empty}>Loading attendance…</p> : recordedDays.length === 0 ? <p className={styles.empty}>No attendance records found in this date range.</p> : <ul className={styles.dateList}>{recordedDays.map(({ date, status }) => { const charge = status === "present" || includeAbsences; const dailyRate = feeAmount > 0 ? feeAmount / new Date(Number(date.slice(0, 4)), Number(date.slice(5, 7)), 0).getDate() : 0; return <li key={date}><span className={`${styles.check} ${status === "absent" ? styles.absent : ""}`}>{status === "present" ? "✓" : "×"}</span><span>{new Date(`${date}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}<small className={styles.statusLabel}>{status === "present" ? "Present" : "Absent"}</small></span><strong className={charge ? "" : styles.excluded}>{charge ? (feeAmount > 0 ? money(dailyRate) : "Enter monthly fee") : "Not included"}</strong></li>; })}</ul>}
         </section>
       </div>
     </main>
