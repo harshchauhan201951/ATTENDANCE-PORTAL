@@ -10,6 +10,7 @@ export type FeeReceiptDetails = {
   motherName: string;
   feePeriod: string;
   amount: number;
+  paid: number;
   dues: number;
   paymentStatus: string;
   paymentMode: string;
@@ -122,6 +123,7 @@ export async function buildFeeReceiptPdf(details: FeeReceiptDetails) {
   doc.setFontSize(11);
   doc.setTextColor(26, 48, 77);
   doc.text(doc.splitTextToSize(details.feePeriod, 66).slice(0, 2), 22, 182);
+  drawField(doc, "Monthly Fee", Number(details.amount || 0).toLocaleString("en-IN"), 22, 188, 66);
 
   doc.setFillColor(normalizedStatus.includes("REFUND") ? 255 : 232, normalizedStatus.includes("REFUND") ? 239 : 248, normalizedStatus.includes("REFUND") ? 240 : 240);
   doc.roundedRect(146, 168, 44, 12, 6, 6, "F");
@@ -133,11 +135,11 @@ export async function buildFeeReceiptPdf(details: FeeReceiptDetails) {
   doc.setTextColor(99, 119, 145);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
-  doc.text("AMOUNT RECEIVED", 22, 198);
+  doc.text("AMOUNT PAID", 22, 201);
   doc.setTextColor(12, 67, 126);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(21);
-  doc.text(`INR ${Number(details.amount || 0).toLocaleString("en-IN")}`, 22, 211);
+  doc.text(`INR ${Number(details.paid || 0).toLocaleString("en-IN")}`, 22, 214);
   drawField(doc, "Payment Mode", details.paymentMode, 111, 181, 77);
   drawField(doc, "Payment Date", details.paymentDate, 111, 202, 77);
   drawField(doc, "Dues", Number(details.dues || 0).toLocaleString("en-IN"), 22, 223, 40);

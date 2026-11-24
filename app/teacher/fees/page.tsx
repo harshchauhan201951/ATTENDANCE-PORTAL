@@ -7,6 +7,7 @@ import jsPDF from "jspdf";
 import { downloadPdfFile } from "../../../lib/download-pdf";
 import { buildFeeReceiptPdf } from "../../../lib/fee-receipt-pdf";
 import { isStudentFeePeriodVisible } from "../../../lib/admission-date";
+import { getFeeAmounts } from "../../../lib/fee-amounts";
 
 type Student = {
   id: number;
@@ -96,8 +97,9 @@ function getFeeAmount(student: Student, year: number, month: number): number {
     .replace(/^(?:class|grade)\s*/, "")
     .replace(/[.\s_-]/g, "");
   const effectiveFromOctober = year > 2026 || (year === 2026 && month >= 10);
+  const effectiveFromNovember = year > 2026 || (year === 2026 && month >= 11);
 
-  if (/^(?:9|9th|ninth|10|10th|tenth)(?:class)?(?:[a-z])?$/.test(studentClass)) return 300;
+  if (/^(?:9|9th|ninth|10|10th|tenth)(?:class)?(?:[a-z])?$/.test(studentClass)) return effectiveFromNovember ? 350 : 300;
 
   if (effectiveFromOctober) {
     if (/^(nursery|nur|lkg|lowerkg|lowerkindergarten|ukg|upperkg|upperkindergarten)(?:[a-z])?$/.test(studentClass)) return 200;
@@ -710,7 +712,7 @@ export default function TeacherFeesPage() {
     useRef(false);
 
   const [feeSearch, setFeeSearch] = useState("");
-  const [feeFilter, setFeeFilter] = useState<"all" | "paid" | "pending">("all");
+  const [feeFilter, setFeeFilter] = useState<"all" | "paid" | "pending" | "due">("all");
   const [feePage, setFeePage] = useState(1);
 
   useEffect(() => {
@@ -1735,6 +1737,7 @@ export default function TeacherFeesPage() {
       const student = allStudents.find((item) => Number(item.id) === Number(fee.student_id));
       const monthName = getMonthName(fee.month);
       const receiptNumber = `RA-${fee.year}-${String(fee.month).padStart(2, "0")}-${fee.id}`;
+      const feeAmounts = getFeeAmounts(fee);
       const doc = await buildFeeReceiptPdf({
         receiptNumber,
         studentName,
@@ -1744,8 +1747,9 @@ export default function TeacherFeesPage() {
         fatherName: String(student?.father_name || "—"),
         motherName: String(student?.mother_name || "—"),
         feePeriod: `${monthName} ${fee.year}`,
-        amount: Number(fee.amount || 0),
-        dues: Number(fee.dues_amount ?? 0),
+        amount: feeAmounts.amount,
+        paid: feeAmounts.paid,
+        dues: feeAmounts.dues,
         paymentStatus: String(fee.status || "PAID").toUpperCase(),
         paymentMode: String(fee.payment_mode || "—").toUpperCase(),
         paymentDate: String(fee.payment_date || "—"),
@@ -1768,9 +1772,7 @@ export default function TeacherFeesPage() {
     }
 
     const exportRows = rows.map((fee, index) => {
-      const normalized = String(fee.status || "").toUpperCase();
-      const isPaid = ["SUBMITTED", "PAID", "PAID ONLINE"].includes(normalized);
-      const amountValue = Number(fee.amount || 0);
+      const { amount: amountValue, paid, dues } = getFeeAmounts(fee);
       const student = allStudents.find((item) => Number(item.id) === Number(fee.student_id));
       return {
         "S.No.": index + 1,
@@ -1780,8 +1782,8 @@ export default function TeacherFeesPage() {
         "Month": getMonthName(Number(fee.month)),
         "Year": Number(fee.year),
         "Fee Amount (INR)": amountValue,
-        "Paid Amount (INR)": isPaid ? amountValue : 0,
-        "Due Amount (INR)": normalized === "PENDING" ? amountValue : 0,
+        "Paid Amount (INR)": paid,
+        "Due Amount (INR)": dues,
         "Status": fee.status || "",
         "Payment Mode": fee.payment_mode || "",
         "Payment Date": fee.payment_date || "",
@@ -1826,10 +1828,7 @@ export default function TeacherFeesPage() {
   function downloadSelectedMonthlyFeeReportExcel() {
     const period = `${getMonthName(Number(monthlyReportMonth))} ${monthlyReportYear}`;
     const exportRows = monthlyReportRows.map((row, index) => {
-      const statusValue = String(row.fee?.status || "NO ENTRY").toUpperCase();
-      const amountValue = Number(row.fee?.amount || 0);
-      const isSubmitted = ["SUBMITTED", "PAID", "PAID ONLINE"].includes(statusValue);
-      const isPending = statusValue === "PENDING";
+      const { amount: amountValue, paid, dues } = row.fee ? getFeeAmounts(row.fee) : { amount: 0, paid: 0, dues: 0 };
       return {
         "S.No.": index + 1,
         "Student Name": row.student.student_name || row.student.student_username,
@@ -1838,8 +1837,8 @@ export default function TeacherFeesPage() {
         "Month": getMonthName(Number(monthlyReportMonth)),
         "Year": Number(monthlyReportYear),
         "Fee Amount (INR)": row.fee ? amountValue : "",
-        "Paid / Submitted Amount (INR)": isSubmitted ? amountValue : 0,
-        "Pending Amount (INR)": isPending ? amountValue : 0,
+        "Paid Amount (INR)": row.fee ? paid : "",
+        "Due Amount (INR)": row.fee ? dues : "",
         "Status": row.fee?.status || "NO ENTRY",
         "Payment Mode": row.fee?.payment_mode || "",
         "Payment Date": row.fee?.payment_date || "",
@@ -1849,16 +1848,16 @@ export default function TeacherFeesPage() {
       };
     });
     const detailSheet = XLSX.utils.json_to_sheet(exportRows);
-    detailSheet["!cols"] = [{ wch: 8 }, { wch: 26 }, { wch: 24 }, { wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 24 }, { wch: 20 }, { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 24 }, { wch: 30 }, { wch: 14 }];
+    detailSheet["!cols"] = [{ wch: 8 }, { wch: 26 }, { wch: 24 }, { wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 24 }, { wch: 30 }, { wch: 14 }];
     const summarySheet = XLSX.utils.aoa_to_sheet([
       ["RACER ACADEMY - MONTHLY FEE REPORT"],
       ["Month", period],
       ["Total active students", students.length],
       ["Fee records in selected month", monthlyReportFeeRecords.length],
       ["Submitted / Paid records", monthlyReportSubmittedFees.length],
-      ["Submitted / Paid amount (INR)", monthlyReportSubmittedAmount],
+      ["Paid amount (INR)", monthlyReportPaidAmount],
       ["Pending records", monthlyReportPendingFees.length],
-      ["Pending amount (INR)", monthlyReportPendingAmount],
+      ["Due amount (INR)", monthlyReportDueAmount],
       ["Other status records", monthlyReportOtherFees.length],
       ["Students with no fee entry", monthlyReportNoEntryCount],
       ["Total recorded fee amount (INR)", monthlyReportTotalAmount],
@@ -1891,9 +1890,8 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
     }
 
     const exportRows = rows.map((fee, index) => {
-      const normalized = String(fee.status || "").toUpperCase();
-      const isPaid = ["SUBMITTED", "PAID", "PAID ONLINE"].includes(normalized);
       const student = allStudents.find((item) => Number(item.id) === Number(fee.student_id));
+      const { amount, paid, dues } = getFeeAmounts(fee);
       return {
         "S.No.": index + 1,
         "Student Name": getStudentName(fee.student_id),
@@ -1901,9 +1899,9 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
         "Class": student ? getStudentClass(student) : "",
         "Month": getMonthName(Number(fee.month)),
         "Year": Number(fee.year),
-        "Fee Amount (INR)": Number(fee.amount || 0),
-        "Paid Amount (INR)": isPaid ? Number(fee.amount || 0) : 0,
-        "Pending Amount (INR)": normalized === "PENDING" ? Number(fee.amount || 0) : 0,
+        "Fee Amount (INR)": amount,
+        "Paid Amount (INR)": paid,
+        "Due Amount (INR)": dues,
         "Status": fee.status || "",
         "Payment Mode": fee.payment_mode || "",
         "Payment Date": fee.payment_date || "",
@@ -1917,7 +1915,7 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
     worksheet["!cols"] = [
       { wch: 8 }, { wch: 26 }, { wch: 24 }, { wch: 12 },
       { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 18 },
-      { wch: 20 }, { wch: 14 }, { wch: 16 }, { wch: 16 },
+      { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 16 },
       { wch: 24 }, { wch: 32 }, { wch: 14 }
     ];
     const workbook = XLSX.utils.book_new();
@@ -1925,9 +1923,9 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
     const totals = exportRows.reduce((acc, row) => {
       acc.fee += Number(row["Fee Amount (INR)"] || 0);
       acc.paid += Number(row["Paid Amount (INR)"] || 0);
-      acc.pending += Number(row["Pending Amount (INR)"] || 0);
+      acc.due += Number(row["Due Amount (INR)"] || 0);
       return acc;
-    }, { fee: 0, paid: 0, pending: 0 });
+    }, { fee: 0, paid: 0, due: 0 });
     const summary = XLSX.utils.aoa_to_sheet([
       ["RACER ACADEMY - Fee Export"],
       ["Report Type", kind === "paid" ? "Paid Fees" : "Pending Fees"],
@@ -1935,7 +1933,7 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
       ["Records", exportRows.length],
       ["Total Fee Amount (INR)", totals.fee],
       ["Total Paid Amount (INR)", totals.paid],
-      ["Total Pending Amount (INR)", totals.pending],
+      ["Total Due Amount (INR)", totals.due],
       [],
       ["Generated At", new Date().toLocaleString("en-IN")]
     ]);
@@ -1986,12 +1984,11 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
         { title: "Payment Date", width: 28 },
         { title: "Transaction ID", width: 21 },
       ];
-      const isPaid = (fee: Fee) => ["SUBMITTED", "PAID", "PAID ONLINE"].includes(String(fee.status || "").toUpperCase());
       const totals = rows.reduce((total, fee) => {
-        const amountValue = Number(fee.amount || 0);
-        total.fee += amountValue;
-        if (isPaid(fee)) total.paid += amountValue;
-        if (String(fee.status || "").toUpperCase() === "PENDING") total.due += amountValue;
+        const amounts = getFeeAmounts(fee);
+        total.fee += amounts.amount;
+        total.paid += amounts.paid;
+        total.due += amounts.dues;
         return total;
       }, { fee: 0, paid: 0, due: 0 });
 
@@ -2037,7 +2034,7 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
           doc.rect(margin, y - 5, pageWidth - margin * 2, 9, "F");
         }
         const student = allStudents.find((item) => Number(item.id) === Number(fee.student_id));
-        const amountValue = Number(fee.amount || 0);
+        const { amount: amountValue, paid, dues } = getFeeAmounts(fee);
         const normalized = String(fee.status || "").toUpperCase();
         const cells = [
           String(index + 1),
@@ -2046,8 +2043,8 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
           student ? getStudentClass(student) : "—",
           `${getMonthName(Number(fee.month))} ${fee.year}`,
           amountValue.toLocaleString("en-IN"),
-          isPaid(fee) ? amountValue.toLocaleString("en-IN") : "0",
-          normalized === "PENDING" ? amountValue.toLocaleString("en-IN") : "0",
+          paid.toLocaleString("en-IN"),
+          dues.toLocaleString("en-IN"),
           normalized,
           String(fee.payment_mode || "—").toUpperCase(),
           fee.payment_date || "—",
@@ -2187,7 +2184,7 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
     const text = `${getStudentName(fee.student_id)} ${getStudentUsername(fee.student_id)} ${fee.month} ${fee.year}`.toLowerCase();
     const statusValue = String(fee.status || "").toUpperCase();
     const matchesSearch = !feeSearch.trim() || text.includes(feeSearch.trim().toLowerCase());
-    const matchesFilter = feeFilter === "all" || (feeFilter === "paid" && (statusValue === "SUBMITTED" || statusValue === "PAID" || statusValue === "PAID ONLINE")) || (feeFilter === "pending" && statusValue === "PENDING");
+    const matchesFilter = feeFilter === "all" || (feeFilter === "paid" && (statusValue === "SUBMITTED" || statusValue === "PAID" || statusValue === "PAID ONLINE")) || (feeFilter === "pending" && statusValue === "PENDING") || (feeFilter === "due" && getFeeAmounts(fee).dues > 0);
     return matchesSearch && matchesFilter;
   });
   const feePageSize = 10;
@@ -2214,8 +2211,8 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
     return !["SUBMITTED", "PAID", "PAID ONLINE", "PENDING"].includes(statusValue);
   });
   const monthlyReportTotalAmount = monthlyReportFeeRecords.reduce((sum, fee) => sum + Number(fee.amount || 0), 0);
-  const monthlyReportSubmittedAmount = monthlyReportSubmittedFees.reduce((sum, fee) => sum + Number(fee.amount || 0), 0);
-  const monthlyReportPendingAmount = monthlyReportPendingFees.reduce((sum, fee) => sum + Number(fee.amount || 0), 0);
+  const monthlyReportPaidAmount = monthlyReportFeeRecords.reduce((sum, fee) => sum + getFeeAmounts(fee).paid, 0);
+  const monthlyReportDueAmount = monthlyReportFeeRecords.reduce((sum, fee) => sum + getFeeAmounts(fee).dues, 0);
   const monthlyReportRows = allStudents.flatMap((student) => {
     const studentRecords = monthlyReportFeeRecords.filter((fee) => Number(fee.student_id) === Number(student.id));
     if (studentRecords.length === 0) {
@@ -2269,8 +2266,8 @@ if (loading) {
               <div style={{ fontSize: "14px", fontWeight: 900, marginBottom: "10px", color: "#0c54b8" }}>{getMonthName(Number(monthlyReportMonth))} {monthlyReportYear} · Monthly overview</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "8px", marginBottom: "12px" }}>
                 <div style={{ padding: "10px", borderRadius: "12px", border: "1px solid #c9e1ff", background: "#eaf4ff" }}><small style={{ display: "block", color: "#476c9c", fontSize: "10px", fontWeight: 800 }}>ALL STUDENTS</small><strong style={{ display: "block", fontSize: "23px", color: "#1557bd" }}>{allStudents.length}</strong><small>{monthlyReportFeeRecords.length} fee records</small></div>
-                <div style={{ padding: "10px", borderRadius: "12px", border: "1px solid #b9efd6", background: "#e9fff4" }}><small style={{ display: "block", color: "#287454", fontSize: "10px", fontWeight: 800 }}>SUBMITTED / PAID</small><strong style={{ display: "block", fontSize: "20px", color: "#07834c" }}>₹{monthlyReportSubmittedAmount.toLocaleString("en-IN")}</strong><small>{monthlyReportSubmittedFees.length} records</small></div>
-                <div style={{ padding: "10px", borderRadius: "12px", border: "1px solid #ffdca8", background: "#fff6e8" }}><small style={{ display: "block", color: "#a75b00", fontSize: "10px", fontWeight: 800 }}>TOTAL PENDING</small><strong style={{ display: "block", fontSize: "20px", color: "#d16a00" }}>₹{monthlyReportPendingAmount.toLocaleString("en-IN")}</strong><small>{monthlyReportPendingFees.length} records</small></div>
+                <div style={{ padding: "10px", borderRadius: "12px", border: "1px solid #b9efd6", background: "#e9fff4" }}><small style={{ display: "block", color: "#287454", fontSize: "10px", fontWeight: 800 }}>PAID</small><strong style={{ display: "block", fontSize: "20px", color: "#07834c" }}>₹{monthlyReportPaidAmount.toLocaleString("en-IN")}</strong><small>{monthlyReportSubmittedFees.length} submitted records</small></div>
+                <div style={{ padding: "10px", borderRadius: "12px", border: "1px solid #ffdca8", background: "#fff6e8" }}><small style={{ display: "block", color: "#a75b00", fontSize: "10px", fontWeight: 800 }}>TOTAL DUE</small><strong style={{ display: "block", fontSize: "20px", color: "#d16a00" }}>₹{monthlyReportDueAmount.toLocaleString("en-IN")}</strong><small>{monthlyReportPendingFees.length} pending records</small></div>
                 <div style={{ padding: "10px", borderRadius: "12px", border: "1px solid #d8c8ff", background: "#f3edff" }}><small style={{ display: "block", color: "#7150b2", fontSize: "10px", fontWeight: 800 }}>NO FEE ENTRY</small><strong style={{ display: "block", fontSize: "23px", color: "#7041c7" }}>{monthlyReportNoEntryCount}</strong><small>Students without an entry</small></div>
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "10px" }}>
@@ -2279,7 +2276,7 @@ if (loading) {
               <div style={{ overflowX: "auto", border: "1px solid #d7e4f5", borderRadius: "12px", background: "#fff", maxHeight: "42dvh", overflowY: "auto" }}>
                 <table style={{ borderCollapse: "collapse", width: "100%", minWidth: "740px", fontSize: "11px", textAlign: "left" }}>
                   <thead style={{ position: "sticky", top: 0, background: "#eaf2fc", color: "#183f75", zIndex: 1 }}><tr>{["#", "Student", "Class", "Fee", "Paid", "Due", "Status"].map((heading) => <th key={heading} style={{ padding: "9px 7px", borderBottom: "1px solid #d7e4f5", whiteSpace: "nowrap" }}>{heading}</th>)}</tr></thead>
-                  <tbody>{monthlyReportVisibleRows.map((row, index) => { const statusValue = String(row.fee?.status || "NO ENTRY").toUpperCase(); const isSubmitted = ["SUBMITTED", "PAID", "PAID ONLINE"].includes(statusValue); const isPending = statusValue === "PENDING"; const amountValue = Number(row.fee?.amount || 0); const badgeColor = isSubmitted ? { background: "#d9f9e8", color: "#087747" } : isPending ? { background: "#fff0d8", color: "#b65d00" } : row.fee ? { background: "#e9e1ff", color: "#6542b4" } : { background: "#edf1f6", color: "#62748b" }; return <tr key={row.key} style={{ borderBottom: "1px solid #edf2f8" }}><td style={{ padding: "8px 7px" }}>{index + 1}</td><td style={{ padding: "8px 7px", fontWeight: 800, minWidth: "145px" }}>{row.student.student_name || row.student.student_username}<small style={{ display: "block", color: "#7185a0", fontWeight: 500 }}>{row.student.student_username}</small></td><td style={{ padding: "8px 7px", whiteSpace: "nowrap" }}>{getStudentClass(row.student) || "-"}</td><td style={{ padding: "8px 7px", whiteSpace: "nowrap" }}>{row.fee ? `₹${amountValue.toLocaleString("en-IN")}` : "—"}</td><td style={{ padding: "8px 7px", whiteSpace: "nowrap", color: "#087747" }}>{isSubmitted ? `₹${amountValue.toLocaleString("en-IN")}` : "₹0"}</td><td style={{ padding: "8px 7px", whiteSpace: "nowrap", color: isPending ? "#b65d00" : "#244b7d" }}>{isPending ? `₹${amountValue.toLocaleString("en-IN")}` : "₹0"}</td><td style={{ padding: "8px 7px" }}><span style={{ display: "inline-block", padding: "4px 7px", borderRadius: "999px", fontSize: "9px", fontWeight: 900, whiteSpace: "nowrap", ...badgeColor }}>{row.fee?.status || "NO ENTRY"}</span></td></tr>; })}{monthlyReportVisibleRows.length === 0 && <tr><td colSpan={7} style={{ padding: "18px", textAlign: "center", color: "#7185a0" }}>No records for this filter.</td></tr>}</tbody>
+                  <tbody>{monthlyReportVisibleRows.map((row, index) => { const statusValue = String(row.fee?.status || "NO ENTRY").toUpperCase(); const isSubmitted = ["SUBMITTED", "PAID", "PAID ONLINE"].includes(statusValue); const isPending = statusValue === "PENDING"; const amounts = row.fee ? getFeeAmounts(row.fee) : { amount: 0, paid: 0, dues: 0 }; const badgeColor = isSubmitted ? { background: "#d9f9e8", color: "#087747" } : isPending ? { background: "#fff0d8", color: "#b65d00" } : row.fee ? { background: "#e9e1ff", color: "#6542b4" } : { background: "#edf1f6", color: "#62748b" }; return <tr key={row.key} style={{ borderBottom: "1px solid #edf2f8" }}><td style={{ padding: "8px 7px" }}>{index + 1}</td><td style={{ padding: "8px 7px", fontWeight: 800, minWidth: "145px" }}>{row.student.student_name || row.student.student_username}<small style={{ display: "block", color: "#7185a0", fontWeight: 500 }}>{row.student.student_username}</small></td><td style={{ padding: "8px 7px", whiteSpace: "nowrap" }}>{getStudentClass(row.student) || "-"}</td><td style={{ padding: "8px 7px", whiteSpace: "nowrap" }}>{row.fee ? `₹${amounts.amount.toLocaleString("en-IN")}` : "—"}</td><td style={{ padding: "8px 7px", whiteSpace: "nowrap", color: "#087747" }}>₹{amounts.paid.toLocaleString("en-IN")}</td><td style={{ padding: "8px 7px", whiteSpace: "nowrap", color: amounts.dues > 0 ? "#b65d00" : "#244b7d" }}>₹{amounts.dues.toLocaleString("en-IN")}</td><td style={{ padding: "8px 7px" }}><span style={{ display: "inline-block", padding: "4px 7px", borderRadius: "999px", fontSize: "9px", fontWeight: 900, whiteSpace: "nowrap", ...badgeColor }}>{row.fee?.status || "NO ENTRY"}</span></td></tr>; })}{monthlyReportVisibleRows.length === 0 && <tr><td colSpan={7} style={{ padding: "18px", textAlign: "center", color: "#7185a0" }}>No records for this filter.</td></tr>}</tbody>
                 </table>
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "8px", marginTop: "12px" }}><div style={{ fontSize: "11px", color: "#617997" }}>Total recorded fee: <strong>₹{monthlyReportTotalAmount.toLocaleString("en-IN")}</strong> · Other-status amount: <strong>₹{monthlyReportOtherFees.reduce((sum, fee) => sum + Number(fee.amount || 0), 0).toLocaleString("en-IN")}</strong></div><div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}><button type="button" onClick={downloadSelectedMonthlyFeeReportExcel} style={{ minHeight: "38px", padding: "8px 12px", border: 0, borderRadius: "10px", background: "#0c62d6", color: "#fff", fontWeight: 900, fontSize: "11px", cursor: "pointer" }}>Download Excel</button><button type="button" onClick={() => setMonthlyReportOpen(false)} style={{ minHeight: "38px", padding: "8px 14px", border: "1px solid #cbdcf3", borderRadius: "10px", background: "#fff", color: "#244b7d", fontWeight: 900, fontSize: "11px", cursor: "pointer" }}>Close</button></div></div>
@@ -2343,6 +2340,7 @@ if (loading) {
             <button type="button" className={feeFilter === "all" ? "active" : ""} onClick={() => { setFeeFilter("all"); setFeePage(1); }}>All</button>
             <button type="button" className={feeFilter === "paid" ? "active" : ""} onClick={() => { setFeeFilter("paid"); setFeePage(1); }}>Paid</button>
             <button type="button" className={feeFilter === "pending" ? "active" : ""} onClick={() => { setFeeFilter("pending"); setFeePage(1); }}>Pending</button>
+            <button type="button" className={feeFilter === "due" ? "active" : ""} onClick={() => { setFeeFilter("due"); setFeePage(1); }}>Dues</button>
           </div>
 
           {visibleVipFees.length === 0 ? (

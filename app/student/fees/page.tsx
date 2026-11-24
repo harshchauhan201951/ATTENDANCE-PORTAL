@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { downloadPdfFile } from "../../../lib/download-pdf";
 import { buildFeeReceiptPdf } from "../../../lib/fee-receipt-pdf";
+import { getFeeAmounts } from "../../../lib/fee-amounts";
 import StudentExportOptions from "../_components/student-export-options";
 
 type Student = {
@@ -1167,6 +1168,7 @@ export default function StudentFeesPage() {
       const monthName = months[fee.month] || `Month ${fee.month}`;
       const receiptNumber = `RA-FEE-${fee.id}-${fee.year}`;
       const studentName = localStorage.getItem("studentName") || localStorage.getItem("student_name") || "Student";
+      const feeAmounts = getFeeAmounts(fee);
       const doc = await buildFeeReceiptPdf({
         receiptNumber,
         studentName,
@@ -1176,8 +1178,9 @@ export default function StudentFeesPage() {
         fatherName: String(studentRecord?.father_name || "—"),
         motherName: String(studentRecord?.mother_name || "—"),
         feePeriod: `${monthName} ${fee.year}`,
-        amount: Number(fee.amount || 0),
-        dues: Number(fee.dues_amount ?? 0),
+        amount: feeAmounts.amount,
+        paid: feeAmounts.paid,
+        dues: feeAmounts.dues,
         paymentStatus: String(fee.status || "PAID").toUpperCase(),
         paymentMode: String(fee.payment_mode || "—").toUpperCase(),
         paymentDate: String(fee.payment_date || "—"),

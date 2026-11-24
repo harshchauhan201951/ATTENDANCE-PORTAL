@@ -258,11 +258,11 @@ export default function TeacherSettingsPage() {
               </div>
 
               <div>
-                <label style={styles.label}>Monthly Fees - Effective October 2026</label>
+                <label style={styles.label}>Monthly Fees - Updated November 2026</label>
                 <div style={{ ...styles.input, height: "auto", display: "grid", gap: 5, color: "#17345c", fontWeight: 700 }}>
                   <span>Nursery, LKG, UKG - Rs 200</span>
                   <span>Classes 1-8 - Rs 250</span>
-                  <span>Classes 9-10 - Rs 300</span>
+                  <span>Classes 9-10 - Rs 300 through October; Rs 350 from November 2026</span>
                 </div>
               </div>
 
@@ -349,8 +349,8 @@ export default function TeacherSettingsPage() {
             </div>
 
             <div style={styles.infoItem}>
-              <span style={styles.infoLabel}>Monthly Fees from October 2026</span>
-              <strong style={styles.infoValue}>Nursery-UKG Rs 200 | Classes 1-8 Rs 250 | Classes 9-10 Rs 300</strong>
+              <span style={styles.infoLabel}>Monthly Fees - updated November 2026</span>
+              <strong style={styles.infoValue}>Nursery-UKG Rs 200 | Classes 1-8 Rs 250 | Classes 9-10 Rs 300 through October, Rs 350 from November</strong>
             </div>
 
             <div style={styles.infoItem}>
