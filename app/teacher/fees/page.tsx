@@ -665,6 +665,9 @@ export default function TeacherFeesPage() {
     );
 
   const [amount, setAmount] =
+    useState("200");
+
+  const [duesAmount, setDuesAmount] =
     useState("");
 
   const [status, setStatus] =
@@ -1268,12 +1271,10 @@ export default function TeacherFeesPage() {
       return;
     }
 
-    if (
-      !amount ||
-      Number(amount) < 0
-    ) {
+    const feeAmountToSave = status === "PENDING" && duesAmount.trim() !== "" ? duesAmount : amount;
+    if (!feeAmountToSave || Number(feeAmountToSave) < 0) {
       setError(
-        "Please enter a valid amount."
+        "Please enter a valid fee amount or dues amount."
       );
       return;
     }
@@ -1339,7 +1340,7 @@ export default function TeacherFeesPage() {
       const teacherChangedAutomaticAmount = Boolean(
         existingFee &&
         String(existingFee.remarks || "").trim() === AUTOMATIC_FEE_REMARK &&
-        Number(existingFee.amount) !== Number(amount)
+        Number(existingFee.amount) !== Number(feeAmountToSave)
       );
 
       const feeData = {
@@ -1353,7 +1354,7 @@ export default function TeacherFeesPage() {
           Number(year),
 
         amount:
-          Number(amount),
+          Number(feeAmountToSave),
 
         status,
 
@@ -2122,6 +2123,7 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
     setMonth(String(fee.month));
     setYear(String(fee.year));
     setAmount(String(fee.amount ?? ""));
+    setDuesAmount(String(fee.status || "").toUpperCase() === "PENDING" ? String(fee.amount ?? "") : "");
     setStatus(fee.status || "PENDING");
     setPaymentDate(fee.payment_date || "");
     setTransactionId(fee.transaction_id || "");
@@ -2271,11 +2273,12 @@ if (loading) {
           <summary><span>Add / Update Fee</span><span>+</span></summary>
           <form onSubmit={saveFee} className="racer-vip-fee-form">
             <div className="racer-vip-fee-form-grid">
-              <label><span>Student</span><select value={studentId} onChange={(e) => { const selectedId = e.target.value; setStudentId(selectedId); const selectedStudent = allStudents.find((student) => String(student.id) === selectedId); setAmount(selectedStudent && status !== "PENDING" ? String(getFeeAmount(selectedStudent, Number(year), Number(month))) : ""); }}><option value="">Select Student</option>{feeEntryStudents.map((student) => <option key={student.id} value={student.id}>{student.student_name || student.student_username} ({student.student_username}){!student.is_active ? " · DEACTIVATED — PENDING DUES" : ""}</option>)}</select></label>
-              <label><span>Month</span><select value={month} onChange={(e) => setMonth(e.target.value)}>{months.map((monthName, index) => <option key={monthName} value={index + 1}>{monthName}</option>)}</select></label>
-              <label><span>Year</span><input type="number" value={year} onChange={(e) => setYear(e.target.value)} /></label>
-              <label><span>Dues</span><input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} /></label>
-              <label><span>Status</span><select value={status} onChange={(e) => { const nextStatus = e.target.value; const selectedStudent = allStudents.find((student) => String(student.id) === studentId); setStatus(nextStatus); if (nextStatus !== "SUBMITTED") { setPaymentMode(""); if (nextStatus === "PENDING") setAmount(""); } else if (!amount && selectedStudent) { setAmount(String(getFeeAmount(selectedStudent, Number(year), Number(month)))); } }}>{statuses.map((statusName) => <option key={statusName} value={statusName}>{statusName}</option>)}</select></label>
+              <label><span>Student</span><select value={studentId} onChange={(e) => { const selectedId = e.target.value; setStudentId(selectedId); const selectedStudent = allStudents.find((student) => String(student.id) === selectedId); setAmount(selectedStudent ? String(getFeeAmount(selectedStudent, Number(year), Number(month))) : "200"); setDuesAmount(""); }}><option value="">Select Student</option>{feeEntryStudents.map((student) => <option key={student.id} value={student.id}>{student.student_name || student.student_username} ({student.student_username}){!student.is_active ? " · DEACTIVATED — PENDING DUES" : ""}</option>)}</select></label>
+              <label><span>Month</span><select value={month} onChange={(e) => { const nextMonth = e.target.value; setMonth(nextMonth); const selectedStudent = allStudents.find((student) => String(student.id) === studentId); if (selectedStudent) setAmount(String(getFeeAmount(selectedStudent, Number(year), Number(nextMonth)))); }}>{months.map((monthName, index) => <option key={monthName} value={index + 1}>{monthName}</option>)}</select></label>
+              <label><span>Year</span><input type="number" value={year} onChange={(e) => { const nextYear = e.target.value; setYear(nextYear); const selectedStudent = allStudents.find((student) => String(student.id) === studentId); if (selectedStudent) setAmount(String(getFeeAmount(selectedStudent, Number(nextYear), Number(month)))); }} /></label>
+              <label><span>Amount</span><input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} /></label>
+              <label><span>Dues</span><input type="number" min="0" value={duesAmount} onChange={(e) => setDuesAmount(e.target.value)} /></label>
+              <label><span>Status</span><select value={status} onChange={(e) => { const nextStatus = e.target.value; const selectedStudent = allStudents.find((student) => String(student.id) === studentId); setStatus(nextStatus); if (nextStatus !== "SUBMITTED") setPaymentMode(""); else if (!amount && selectedStudent) setAmount(String(getFeeAmount(selectedStudent, Number(year), Number(month)))); }}>{statuses.map((statusName) => <option key={statusName} value={statusName}>{statusName}</option>)}</select></label>
               <label><span>Payment Mode</span><select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)}><option value="">Select Payment Mode</option><option value="CASH">CASH</option></select></label>
               <label><span>Payment Date</span><input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} /></label>
               <label><span>Transaction ID</span><input type="text" value={transactionId} onChange={(e) => setTransactionId(e.target.value)} placeholder="Optional" /></label>
