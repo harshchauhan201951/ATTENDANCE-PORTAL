@@ -668,6 +668,9 @@ export default function TeacherFeesPage() {
   const [amount, setAmount] =
     useState("200");
 
+  const [paidAmount, setPaidAmount] =
+    useState("0");
+
   const [duesAmount, setDuesAmount] =
     useState("");
 
@@ -1278,6 +1281,11 @@ export default function TeacherFeesPage() {
       setError(
         "Please enter a valid fee amount."
       );
+      return;
+    }
+
+    if (Number(paidAmount || 0) > Number(amount)) {
+      setError("Paid amount cannot be greater than the monthly fee.");
       return;
     }
 
@@ -2138,7 +2146,10 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
     setMonth(String(fee.month));
     setYear(String(fee.year));
     setAmount(String(fee.amount ?? ""));
-    setDuesAmount(String(fee.dues_amount ?? 0));
+    const savedAmount = Number(fee.amount || 0);
+    const savedDues = Number(fee.dues_amount ?? (String(fee.status).toUpperCase() === "PENDING" ? savedAmount : 0));
+    setDuesAmount(String(savedDues));
+    setPaidAmount(String(Math.max(0, savedAmount - savedDues)));
     setStatus(fee.status || "PENDING");
     setPaymentDate(fee.payment_date || "");
     setTransactionId(fee.transaction_id || "");
@@ -2163,8 +2174,12 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
     return statusValue === "SUBMITTED" || statusValue === "PAID" || statusValue === "PAID ONLINE";
   });
   const pendingVipFees = fees.filter((fee) => String(fee.status || "").toUpperCase() === "PENDING");
-  const vipCollectionTotal = paidVipFees.reduce((sum, fee) => sum + Number(fee.amount || 0), 0);
-  const vipPendingFeeTotal = pendingVipFees.reduce((sum, fee) => sum + Number(fee.amount || 0), 0); /* RACER_FEES_FIVE_SUMMARY_CARDS_MOBILE_FIX_V3 */
+  const vipCollectionTotal = fees.reduce((sum, fee) => {
+    const amountValue = Number(fee.amount || 0);
+    const dueValue = Number(fee.dues_amount ?? (String(fee.status || "").toUpperCase() === "PENDING" ? amountValue : 0));
+    return sum + Math.max(0, amountValue - dueValue);
+  }, 0);
+  const vipPendingFeeTotal = fees.reduce((sum, fee) => sum + Number(fee.dues_amount ?? (String(fee.status || "").toUpperCase() === "PENDING" ? fee.amount : 0)), 0); /* RACER_FEES_FIVE_SUMMARY_CARDS_MOBILE_FIX_V3 */
   const visibleVipFees = fees.filter((fee) => {
     const text = `${getStudentName(fee.student_id)} ${getStudentUsername(fee.student_id)} ${fee.month} ${fee.year}`.toLowerCase();
     const statusValue = String(fee.status || "").toUpperCase();
@@ -2289,11 +2304,12 @@ if (loading) {
           <form onSubmit={saveFee} className="racer-vip-fee-form">
             {editingFeeId !== null && <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "9px 12px", borderRadius: 10, background: "#eef5ff", color: "#244b7d", fontSize: 12, fontWeight: 800 }}>Editing saved fee history #{editingFeeId}<button type="button" onClick={() => setEditingFeeId(null)} style={{ border: "1px solid #c5d7ef", borderRadius: 8, background: "#fff", padding: "5px 9px", color: "#244b7d", fontWeight: 800, cursor: "pointer" }}>Cancel edit</button></div>}
             <div className="racer-vip-fee-form-grid">
-              <label><span>Student</span><select value={studentId} onChange={(e) => { const selectedId = e.target.value; setStudentId(selectedId); const selectedStudent = allStudents.find((student) => String(student.id) === selectedId); setAmount(selectedStudent ? String(getFeeAmount(selectedStudent, Number(year), Number(month))) : "200"); setDuesAmount(""); }}><option value="">Select Student</option>{feeEntryStudents.map((student) => <option key={student.id} value={student.id}>{student.student_name || student.student_username} ({student.student_username}){!student.is_active ? " · DEACTIVATED — PENDING DUES" : ""}</option>)}</select></label>
-              <label><span>Month</span><select value={month} onChange={(e) => { const nextMonth = e.target.value; setMonth(nextMonth); const selectedStudent = allStudents.find((student) => String(student.id) === studentId); if (selectedStudent) setAmount(String(getFeeAmount(selectedStudent, Number(year), Number(nextMonth)))); }}>{months.map((monthName, index) => <option key={monthName} value={index + 1}>{monthName}</option>)}</select></label>
-              <label><span>Year</span><input type="number" value={year} onChange={(e) => { const nextYear = e.target.value; setYear(nextYear); const selectedStudent = allStudents.find((student) => String(student.id) === studentId); if (selectedStudent) setAmount(String(getFeeAmount(selectedStudent, Number(nextYear), Number(month)))); }} /></label>
-              <label><span>Amount</span><input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} /></label>
-              <label><span>Dues</span><input type="number" min="0" value={duesAmount} onChange={(e) => setDuesAmount(e.target.value)} /></label>
+              <label><span>Student</span><select value={studentId} onChange={(e) => { const selectedId = e.target.value; setStudentId(selectedId); const selectedStudent = allStudents.find((student) => String(student.id) === selectedId); const nextAmount = selectedStudent ? getFeeAmount(selectedStudent, Number(year), Number(month)) : 200; setAmount(String(nextAmount)); setPaidAmount("0"); setDuesAmount(String(nextAmount)); }}><option value="">Select Student</option>{feeEntryStudents.map((student) => <option key={student.id} value={student.id}>{student.student_name || student.student_username} ({student.student_username}){!student.is_active ? " · DEACTIVATED — PENDING DUES" : ""}</option>)}</select></label>
+              <label><span>Month</span><select value={month} onChange={(e) => { const nextMonth = e.target.value; setMonth(nextMonth); const selectedStudent = allStudents.find((student) => String(student.id) === studentId); if (selectedStudent) { const nextAmount = getFeeAmount(selectedStudent, Number(year), Number(nextMonth)); setAmount(String(nextAmount)); setDuesAmount(String(Math.max(0, nextAmount - Number(paidAmount || 0)))); } }}>{months.map((monthName, index) => <option key={monthName} value={index + 1}>{monthName}</option>)}</select></label>
+              <label><span>Year</span><input type="number" value={year} onChange={(e) => { const nextYear = e.target.value; setYear(nextYear); const selectedStudent = allStudents.find((student) => String(student.id) === studentId); if (selectedStudent) { const nextAmount = getFeeAmount(selectedStudent, Number(nextYear), Number(month)); setAmount(String(nextAmount)); setDuesAmount(String(Math.max(0, nextAmount - Number(paidAmount || 0)))); } }} /></label>
+              <label><span>Monthly Fee (Amount)</span><input type="number" min="0" value={amount} onChange={(e) => { const nextAmount = e.target.value; setAmount(nextAmount); setDuesAmount(String(Math.max(0, Number(nextAmount || 0) - Number(paidAmount || 0)))); }} /></label>
+              <label><span>Paid</span><input type="number" min="0" max={amount || undefined} value={paidAmount} onChange={(e) => { const nextPaid = e.target.value; setPaidAmount(nextPaid); setDuesAmount(String(Math.max(0, Number(amount || 0) - Number(nextPaid || 0)))); }} /></label>
+              <label><span>Dues (Auto)</span><input type="number" min="0" value={duesAmount || "0"} readOnly /></label>
               <label><span>Status</span><select value={status} onChange={(e) => { const nextStatus = e.target.value; const selectedStudent = allStudents.find((student) => String(student.id) === studentId); setStatus(nextStatus); if (nextStatus !== "SUBMITTED") setPaymentMode(""); else if (!amount && selectedStudent) setAmount(String(getFeeAmount(selectedStudent, Number(year), Number(month)))); }}>{statuses.map((statusName) => <option key={statusName} value={statusName}>{statusName}</option>)}</select></label>
               <label><span>Payment Mode</span><select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)}><option value="">Select Payment Mode</option><option value="CASH">CASH</option></select></label>
               <label><span>Payment Date</span><input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} /></label>
@@ -2335,8 +2351,8 @@ if (loading) {
                 const normalizedStatus = String(fee.status || "").toUpperCase();
                 const isPaid = normalizedStatus === "SUBMITTED" || normalizedStatus === "PAID" || normalizedStatus === "PAID ONLINE";
                 const amountValue = Number(fee.amount || 0);
-                const paidValue = isPaid ? amountValue : 0;
                 const dueValue = Number(fee.dues_amount ?? (normalizedStatus === "PENDING" ? amountValue : 0));
+                const paidValue = Math.max(0, amountValue - dueValue);
                 return (
                   <div className="racer-vip-fee-grid" key={fee.id}>
                     <span>{(safeFeePage - 1) * feePageSize + index + 1}</span>
