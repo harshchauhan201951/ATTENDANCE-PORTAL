@@ -650,6 +650,8 @@ export default function TeacherFeesPage() {
   const [monthlyReportFilter, setMonthlyReportFilter] = useState<"all" | "submitted" | "pending" | "other" | "missing">("all");const [studentId, setStudentId] =
     useState("");
 
+  const [selectedDueFeeId, setSelectedDueFeeId] = useState("");
+
   const [month, setMonth] =
     useState(
       String(
@@ -1314,34 +1316,23 @@ export default function TeacherFeesPage() {
     setSaving(true);
 
     try {
+      let existingFeesQuery = supabase
+        .from("fees")
+        .select("id,status,amount,remarks")
+        .eq("student_id", Number(studentId))
+        .eq("month", Number(month))
+        .eq("year", Number(year))
+        .order("id", { ascending: false })
+        .limit(1);
+
+      if (selectedDueFeeId) {
+        existingFeesQuery = existingFeesQuery.eq("id", Number(selectedDueFeeId));
+      }
+
       const {
         data: existingFees,
-        error:
-          existingError,
-      } =
-        await supabase
-          .from("fees")
-          .select("id,status,amount,remarks")
-          .eq(
-            "student_id",
-            Number(studentId)
-          )
-          .eq(
-            "month",
-            Number(month)
-          )
-          .eq(
-            "year",
-            Number(year)
-          )
-          .order(
-            "id",
-            {
-              ascending:
-                false,
-            }
-          )
-          .limit(1);
+        error: existingError,
+      } = await existingFeesQuery;
 
       if (existingError) {
         setError(
@@ -1487,6 +1478,7 @@ export default function TeacherFeesPage() {
       }
 
       setPaymentMode("");
+      setSelectedDueFeeId("");
 
       await loadData(true);
     } catch (err) {
@@ -2216,6 +2208,13 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
   const feeEntryStudents = allStudents.filter((student) =>
     Boolean(student.is_active) || studentsWithPendingFees.has(Number(student.id))
   );
+  const latestFeeByStudentPeriod = new Map<string, Fee>();
+  for (const fee of [...fees].sort((a, b) => Number(a.id) - Number(b.id))) {
+    latestFeeByStudentPeriod.set(`${fee.student_id}-${fee.year}-${fee.month}`, fee);
+  }
+  const pendingDueOptions = [...latestFeeByStudentPeriod.values()]
+    .filter((fee) => Number(fee.student_id) === Number(studentId) && String(fee.status || "").toUpperCase() === "PENDING")
+    .sort((a, b) => Number(b.year) - Number(a.year) || Number(b.month) - Number(a.month));
   const monthlyReportVisibleRows = monthlyReportRows.filter((row) => {
     const statusValue = String(row.fee?.status || "").toUpperCase();
     if (monthlyReportFilter === "submitted") return ["SUBMITTED", "PAID", "PAID ONLINE"].includes(statusValue);
@@ -2289,9 +2288,10 @@ if (loading) {
           <summary><span>Add / Update Fee</span><span>+</span></summary>
           <form onSubmit={saveFee} className="racer-vip-fee-form">
             <div className="racer-vip-fee-form-grid">
-              <label><span>Student</span><select value={studentId} onChange={(e) => { const selectedId = e.target.value; setStudentId(selectedId); const selectedStudent = allStudents.find((student) => String(student.id) === selectedId); if (selectedStudent) setAmount(String(getFeeAmount(selectedStudent, Number(year), Number(month)))); }}><option value="">Select Student</option>{feeEntryStudents.map((student) => <option key={student.id} value={student.id}>{student.student_name || student.student_username} ({student.student_username}){!student.is_active ? " · DEACTIVATED — PENDING DUES" : ""}</option>)}</select></label>
-              <label><span>Month</span><select value={month} onChange={(e) => setMonth(e.target.value)}>{months.map((monthName, index) => <option key={monthName} value={index + 1}>{monthName}</option>)}</select></label>
-              <label><span>Year</span><input type="number" value={year} onChange={(e) => setYear(e.target.value)} /></label>
+              <label><span>Student</span><select value={studentId} onChange={(e) => { const selectedId = e.target.value; setStudentId(selectedId); setSelectedDueFeeId(""); const selectedStudent = allStudents.find((student) => String(student.id) === selectedId); if (selectedStudent) setAmount(String(getFeeAmount(selectedStudent, Number(year), Number(month)))); }}><option value="">Select Student</option>{feeEntryStudents.map((student) => <option key={student.id} value={student.id}>{student.student_name || student.student_username} ({student.student_username}){!student.is_active ? " · DEACTIVATED — PENDING DUES" : ""}</option>)}</select></label>
+              <label><span>Pending Dues (Optional)</span><select value={selectedDueFeeId} disabled={!studentId || pendingDueOptions.length === 0} onChange={(e) => { const dueId = e.target.value; setSelectedDueFeeId(dueId); const dueFee = pendingDueOptions.find((fee) => String(fee.id) === dueId); if (dueFee) { setMonth(String(dueFee.month)); setYear(String(dueFee.year)); setAmount(String(dueFee.amount)); setStatus("SUBMITTED"); setPaymentDate(""); setPaymentMode(""); setTransactionId(""); setRemarks(""); } }}><option value="">{studentId ? pendingDueOptions.length ? "Select a pending month to collect" : "No pending dues for this student" : "Select a student first"}</option>{pendingDueOptions.map((fee) => <option key={fee.id} value={fee.id}>{months[Number(fee.month) - 1]} {fee.year} · ₹{Number(fee.amount).toLocaleString("en-IN")} due</option>)}</select></label>
+              <label><span>Month</span><select value={month} onChange={(e) => { setMonth(e.target.value); setSelectedDueFeeId(""); }}>{months.map((monthName, index) => <option key={monthName} value={index + 1}>{monthName}</option>)}</select></label>
+              <label><span>Year</span><input type="number" value={year} onChange={(e) => { setYear(e.target.value); setSelectedDueFeeId(""); }} /></label>
               <label><span>Amount</span><input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} /></label>
               <label><span>Status</span><select value={status} onChange={(e) => { const nextStatus = e.target.value; setStatus(nextStatus); if (nextStatus !== "SUBMITTED") setPaymentMode(""); }}>{statuses.map((statusName) => <option key={statusName} value={statusName}>{statusName}</option>)}</select></label>
               <label><span>Payment Mode</span><select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)}><option value="">Select Payment Mode</option><option value="CASH">CASH</option></select></label>
