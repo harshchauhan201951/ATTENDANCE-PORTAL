@@ -2166,7 +2166,10 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
   function viewFeeRecord(fee: Fee) {
     const studentName = getStudentName(fee.student_id);
     const username = getStudentUsername(fee.student_id);
-    window.alert(`Student: ${studentName}\nUsername / ID: ${username}\nMonth: ${getMonthName(fee.month)} ${fee.year}\nAmount: ${Number(fee.amount || 0).toLocaleString("en-IN")}\nStatus: ${fee.status}\nPayment Mode: ${fee.payment_mode || "-"}\nPayment Date: ${fee.payment_date || "-"}\nTransaction ID: ${fee.transaction_id || "-"}\nRemarks: ${fee.remarks || "-"}`);
+    const amountValue = Number(fee.amount || 0);
+    const dueValue = Number(fee.dues_amount ?? (String(fee.status || "").toUpperCase() === "PENDING" ? amountValue : 0));
+    const paidValue = Math.max(0, amountValue - dueValue);
+    window.alert(`Student: ${studentName}\nUsername / ID: ${username}\nMonth: ${getMonthName(fee.month)} ${fee.year}\nMonthly Fee (Amount): ${amountValue.toLocaleString("en-IN")}\nPaid: ${paidValue.toLocaleString("en-IN")}\nDue: ${dueValue.toLocaleString("en-IN")}\nStatus: ${fee.status}\nPayment Mode: ${fee.payment_mode || "-"}\nPayment Date: ${fee.payment_date || "-"}\nTransaction ID: ${fee.transaction_id || "-"}\nRemarks: ${fee.remarks || "-"}`);
   }
 
   const paidVipFees = fees.filter((fee) => {
