@@ -23,6 +23,7 @@ type Fee = {
   month: number;
   year: number;
   amount: number;
+  dues_amount: number;
   status: string;
   payment_date: string | null;
   transaction_id: string | null;
@@ -670,6 +671,8 @@ export default function TeacherFeesPage() {
   const [duesAmount, setDuesAmount] =
     useState("");
 
+  const [editingFeeId, setEditingFeeId] = useState<number | null>(null);
+
   const [status, setStatus] =
     useState("PENDING");
 
@@ -1271,10 +1274,9 @@ export default function TeacherFeesPage() {
       return;
     }
 
-    const feeAmountToSave = status === "PENDING" && duesAmount.trim() !== "" ? duesAmount : amount;
-    if (!feeAmountToSave || Number(feeAmountToSave) < 0) {
+    if (!amount || Number(amount) < 0) {
       setError(
-        "Please enter a valid fee amount or dues amount."
+        "Please enter a valid fee amount."
       );
       return;
     }
@@ -1315,17 +1317,20 @@ export default function TeacherFeesPage() {
     setSaving(true);
 
     try {
-      const {
-        data: existingFees,
-        error: existingError,
-      } = await supabase
+      let existingFeesQuery = supabase
         .from("fees")
         .select("id,status,amount,remarks")
-        .eq("student_id", Number(studentId))
-        .eq("month", Number(month))
-        .eq("year", Number(year))
-        .order("id", { ascending: false })
-        .limit(1);
+        .order("id", { ascending: false });
+
+      existingFeesQuery = editingFeeId !== null
+        ? existingFeesQuery.eq("id", editingFeeId)
+        : existingFeesQuery
+            .eq("student_id", Number(studentId))
+            .eq("month", Number(month))
+            .eq("year", Number(year))
+            .limit(1);
+
+      const { data: existingFees, error: existingError } = await existingFeesQuery;
 
       if (existingError) {
         setError(
@@ -1337,10 +1342,14 @@ export default function TeacherFeesPage() {
       const existingFee = existingFees && existingFees.length > 0
         ? existingFees[0]
         : null;
+      if (editingFeeId !== null && !existingFee) {
+        setError("The selected fee history record was not found. Refresh the page and try again.");
+        return;
+      }
       const teacherChangedAutomaticAmount = Boolean(
         existingFee &&
         String(existingFee.remarks || "").trim() === AUTOMATIC_FEE_REMARK &&
-        Number(existingFee.amount) !== Number(feeAmountToSave)
+        Number(existingFee.amount) !== Number(amount)
       );
 
       const feeData = {
@@ -1354,7 +1363,10 @@ export default function TeacherFeesPage() {
           Number(year),
 
         amount:
-          Number(feeAmountToSave),
+          Number(amount),
+
+        dues_amount:
+          Number(duesAmount || 0),
 
         status,
 
@@ -1471,6 +1483,7 @@ export default function TeacherFeesPage() {
       }
 
       setPaymentMode("");
+      setEditingFeeId(null);
       await loadData(true);
     } catch (err) {
       console.error(err);
@@ -1724,6 +1737,7 @@ export default function TeacherFeesPage() {
         motherName: String(student?.mother_name || "—"),
         feePeriod: `${monthName} ${fee.year}`,
         amount: Number(fee.amount || 0),
+        dues: Number(fee.dues_amount ?? 0),
         paymentStatus: String(fee.status || "PAID").toUpperCase(),
         paymentMode: String(fee.payment_mode || "—").toUpperCase(),
         paymentDate: String(fee.payment_date || "—"),
@@ -2119,11 +2133,12 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
       );
 
   function editFeeRecord(fee: Fee) {
+    setEditingFeeId(fee.id);
     setStudentId(String(fee.student_id));
     setMonth(String(fee.month));
     setYear(String(fee.year));
     setAmount(String(fee.amount ?? ""));
-    setDuesAmount(String(fee.status || "").toUpperCase() === "PENDING" ? String(fee.amount ?? "") : "");
+    setDuesAmount(String(fee.dues_amount ?? 0));
     setStatus(fee.status || "PENDING");
     setPaymentDate(fee.payment_date || "");
     setTransactionId(fee.transaction_id || "");
@@ -2270,8 +2285,9 @@ if (loading) {
         </section>
 
         <details id="racer-fee-entry" className="racer-vip-fee-entry">
-          <summary><span>Add / Update Fee</span><span>+</span></summary>
+          <summary><span>{editingFeeId === null ? "Add / Update Fee" : `Edit Fee History · ${getStudentName(Number(studentId))} · ${getMonthName(Number(month))} ${year}`}</span><span>+</span></summary>
           <form onSubmit={saveFee} className="racer-vip-fee-form">
+            {editingFeeId !== null && <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "9px 12px", borderRadius: 10, background: "#eef5ff", color: "#244b7d", fontSize: 12, fontWeight: 800 }}>Editing saved fee history #{editingFeeId}<button type="button" onClick={() => setEditingFeeId(null)} style={{ border: "1px solid #c5d7ef", borderRadius: 8, background: "#fff", padding: "5px 9px", color: "#244b7d", fontWeight: 800, cursor: "pointer" }}>Cancel edit</button></div>}
             <div className="racer-vip-fee-form-grid">
               <label><span>Student</span><select value={studentId} onChange={(e) => { const selectedId = e.target.value; setStudentId(selectedId); const selectedStudent = allStudents.find((student) => String(student.id) === selectedId); setAmount(selectedStudent ? String(getFeeAmount(selectedStudent, Number(year), Number(month))) : "200"); setDuesAmount(""); }}><option value="">Select Student</option>{feeEntryStudents.map((student) => <option key={student.id} value={student.id}>{student.student_name || student.student_username} ({student.student_username}){!student.is_active ? " · DEACTIVATED — PENDING DUES" : ""}</option>)}</select></label>
               <label><span>Month</span><select value={month} onChange={(e) => { const nextMonth = e.target.value; setMonth(nextMonth); const selectedStudent = allStudents.find((student) => String(student.id) === studentId); if (selectedStudent) setAmount(String(getFeeAmount(selectedStudent, Number(year), Number(nextMonth)))); }}>{months.map((monthName, index) => <option key={monthName} value={index + 1}>{monthName}</option>)}</select></label>
@@ -2284,7 +2300,7 @@ if (loading) {
               <label><span>Transaction ID</span><input type="text" value={transactionId} onChange={(e) => setTransactionId(e.target.value)} placeholder="Optional" /></label>
               <label className="wide"><span>Remarks</span><input type="text" value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Optional" /></label>
             </div>
-            <button type="submit" disabled={saving} className="racer-vip-save-fee"><Icon name="receipt" />{saving ? "Saving..." : "Save Fee"}</button>
+            <button type="submit" disabled={saving} className="racer-vip-save-fee"><Icon name="receipt" />{saving ? "Saving..." : editingFeeId === null ? "Save Fee" : "Save Changes"}</button>
           </form>
         </details>
 
@@ -2320,7 +2336,7 @@ if (loading) {
                 const isPaid = normalizedStatus === "SUBMITTED" || normalizedStatus === "PAID" || normalizedStatus === "PAID ONLINE";
                 const amountValue = Number(fee.amount || 0);
                 const paidValue = isPaid ? amountValue : 0;
-                const dueValue = normalizedStatus === "PENDING" ? amountValue : 0;
+                const dueValue = Number(fee.dues_amount ?? (normalizedStatus === "PENDING" ? amountValue : 0));
                 return (
                   <div className="racer-vip-fee-grid" key={fee.id}>
                     <span>{(safeFeePage - 1) * feePageSize + index + 1}</span>

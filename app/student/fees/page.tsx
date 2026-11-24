@@ -21,6 +21,7 @@ type Fee = {
   month: number;
   year: number;
   amount: number;
+  dues_amount: number;
   status: string;
   payment_date: string | null;
   transaction_id: string | null;
@@ -477,6 +478,7 @@ function FeesReferenceVip({
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                 {[
                   ['Payment Mode', latestFee.payment_mode || '—'],
+                  ['Dues', formatAmount(Number(latestFee.dues_amount ?? 0))],
                   ['Payment Date', latestFee.payment_date || '—'],
                   ['Transaction ID', latestFee.transaction_id || '—'],
                   ['Remarks', latestFee.remarks || '—'],
@@ -502,12 +504,12 @@ function FeesReferenceVip({
             <StudentExportOptions
               title="Student Fee History"
               fileName="RACER_ACADEMY_STUDENT_FEE_HISTORY"
-              headers={["Month", "Year", "Amount (INR)", "Status", "Payment Date", "Payment Mode", "Transaction ID", "Remarks"]}
-              rows={fees.map((fee) => [formatMonth(fee), fee.year, Number(fee.amount || 0), statusText(fee), fee.payment_date || "—", fee.payment_mode || "—", fee.transaction_id || "—", fee.remarks || "—"])}
+              headers={["Month", "Year", "Amount (INR)", "Dues (INR)", "Status", "Payment Date", "Payment Mode", "Transaction ID", "Remarks"]}
+              rows={fees.map((fee) => [formatMonth(fee), fee.year, Number(fee.amount || 0), Number(fee.dues_amount ?? 0), statusText(fee), fee.payment_date || "—", fee.payment_mode || "—", fee.transaction_id || "—", fee.remarks || "—"])}
             />
           </div>
 
-          {fees.length === 0 ? <div style={{ padding: 16, textAlign: 'center', color: '#7284a4', fontSize: 8 }}>No payment history yet.</div> : fees.map((fee) => <article key={fee.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 8, borderTop: '1px solid #eef2f7' }}><div style={{ width: 31, height: 31, borderRadius: 10, background: String(fee.status).toUpperCase() === 'PENDING' ? '#fff3d8' : '#e4fbef', color: String(fee.status).toUpperCase() === 'PENDING' ? '#a56b00' : '#0a9662', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 10 }}>₹</div><div style={{ minWidth: 0, flex: 1 }}><strong style={{ display: 'block', fontSize: 8.5, color: '#1b356e' }}>{formatMonth(fee)} {fee.year}</strong><span style={{ display: 'block', marginTop: 2, fontSize: 6.5, color: '#7485a4' }}>{fee.payment_mode || '—'} • {fee.payment_date || 'Not paid'}</span></div><div style={{ textAlign: 'right' }}><strong style={{ display: 'block', fontSize: 9, color: '#1b356e' }}>{formatAmount(Number(fee.amount || 0))}</strong><span style={{ display: 'inline-block', marginTop: 2, padding: '4px 5px', borderRadius: 999, background: statusBg(fee), color: statusColor(fee), fontSize: 5.5, fontWeight: 900 }}>{statusText(fee)}</span></div></article>)}
+          {fees.length === 0 ? <div style={{ padding: 16, textAlign: 'center', color: '#7284a4', fontSize: 8 }}>No payment history yet.</div> : fees.map((fee) => <article key={fee.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 8, borderTop: '1px solid #eef2f7' }}><div style={{ width: 31, height: 31, borderRadius: 10, background: String(fee.status).toUpperCase() === 'PENDING' ? '#fff3d8' : '#e4fbef', color: String(fee.status).toUpperCase() === 'PENDING' ? '#a56b00' : '#0a9662', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 10 }}>₹</div><div style={{ minWidth: 0, flex: 1 }}><strong style={{ display: 'block', fontSize: 8.5, color: '#1b356e' }}>{formatMonth(fee)} {fee.year}</strong><span style={{ display: 'block', marginTop: 2, fontSize: 6.5, color: '#7485a4' }}>{fee.payment_mode || '—'} • {fee.payment_date || 'Not paid'}</span></div><div style={{ textAlign: 'right' }}><strong style={{ display: 'block', fontSize: 9, color: '#1b356e' }}>{formatAmount(Number(fee.amount || 0))}</strong><small style={{ display: 'block', marginTop: 2, color: '#7185a0', fontSize: 6.5 }}>Dues: {formatAmount(Number(fee.dues_amount ?? 0))}</small><span style={{ display: 'inline-block', marginTop: 2, padding: '4px 5px', borderRadius: 999, background: statusBg(fee), color: statusColor(fee), fontSize: 5.5, fontWeight: 900 }}>{statusText(fee)}</span></div></article>)}
         </section>
 
         <section style={{ background: 'linear-gradient(135deg,#f2edff,#f8fbff)', border: '1px solid #e2ddfb', borderRadius: 17, padding: 11, marginBottom: 9 }}>
@@ -1175,6 +1177,7 @@ export default function StudentFeesPage() {
         motherName: String(studentRecord?.mother_name || "—"),
         feePeriod: `${monthName} ${fee.year}`,
         amount: Number(fee.amount || 0),
+        dues: Number(fee.dues_amount ?? 0),
         paymentStatus: String(fee.status || "PAID").toUpperCase(),
         paymentMode: String(fee.payment_mode || "—").toUpperCase(),
         paymentDate: String(fee.payment_date || "—"),
@@ -1347,8 +1350,8 @@ export default function StudentFeesPage() {
             <StudentExportOptions
               title="Student Fee History"
               fileName="RACER_ACADEMY_STUDENT_FEE_HISTORY"
-              headers={["Month", "Year", "Amount (INR)", "Status", "Payment Date", "Payment Mode", "Transaction ID", "Remarks"]}
-              rows={fees.map((fee) => [months[fee.month] || `Month ${fee.month}`, fee.year, Number(fee.amount || 0), String(fee.status || "—"), fee.payment_date || "—", fee.payment_mode || "—", fee.transaction_id || "—", fee.remarks || "—"])}
+              headers={["Month", "Year", "Amount (INR)", "Dues (INR)", "Status", "Payment Date", "Payment Mode", "Transaction ID", "Remarks"]}
+              rows={fees.map((fee) => [months[fee.month] || `Month ${fee.month}`, fee.year, Number(fee.amount || 0), Number(fee.dues_amount ?? 0), String(fee.status || "—"), fee.payment_date || "—", fee.payment_mode || "—", fee.transaction_id || "—", fee.remarks || "—"])}
             />
           </div>
 
@@ -1684,6 +1687,7 @@ export default function StudentFeesPage() {
                                     "en-IN"
                                   )}
                                 </strong>
+                                <small style={{ display: "block", marginTop: 3, color: "#7185a0", fontSize: 10 }}>Dues: ₹{Number(fee.dues_amount ?? 0).toLocaleString("en-IN")}</small>
                               </td>
 
                               <td
@@ -1962,6 +1966,7 @@ export default function StudentFeesPage() {
                               ).toLocaleString(
                                 "en-IN"
                               )}
+                              <small style={{ display: "block", marginTop: 3, fontSize: 9, color: "#7185a0" }}>Dues: ₹{Number(fee.dues_amount ?? 0).toLocaleString("en-IN")}</small>
                             </div>
                           </div>
 

@@ -10,6 +10,7 @@ export type FeeReceiptDetails = {
   motherName: string;
   feePeriod: string;
   amount: number;
+  dues: number;
   paymentStatus: string;
   paymentMode: string;
   paymentDate: string;
@@ -139,8 +140,9 @@ export async function buildFeeReceiptPdf(details: FeeReceiptDetails) {
   doc.text(`INR ${Number(details.amount || 0).toLocaleString("en-IN")}`, 22, 211);
   drawField(doc, "Payment Mode", details.paymentMode, 111, 181, 77);
   drawField(doc, "Payment Date", details.paymentDate, 111, 202, 77);
-  drawField(doc, "Transaction ID", details.transactionId, 22, 223, 96);
-  drawField(doc, "Receipt Date", new Date().toLocaleDateString("en-IN"), 124, 223, 64);
+  drawField(doc, "Dues", Number(details.dues || 0).toLocaleString("en-IN"), 22, 223, 40);
+  drawField(doc, "Transaction ID", details.transactionId, 70, 223, 66);
+  drawField(doc, "Receipt Date", new Date().toLocaleDateString("en-IN"), 146, 223, 42);
 
   if (details.remarks && details.remarks !== "—") {
     doc.setFillColor(255, 255, 255);
