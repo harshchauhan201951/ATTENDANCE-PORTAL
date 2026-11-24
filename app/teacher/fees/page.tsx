@@ -8,6 +8,7 @@ import { downloadPdfFile } from "../../../lib/download-pdf";
 import { buildFeeReceiptPdf } from "../../../lib/fee-receipt-pdf";
 import { isStudentFeePeriodVisible } from "../../../lib/admission-date";
 import { getFeeAmounts } from "../../../lib/fee-amounts";
+import { getMonthlyFeeRate, getStudentClassLabel } from "../../../lib/fee-rates";
 
 type Student = {
   id: number;
@@ -68,46 +69,11 @@ function normalizeText(value: unknown): string {
 }
 
 function getStudentClass(student: Student): string {
-  const possibleKeys = [
-    "student_class",
-    "class",
-    "class_name",
-    "grade",
-    "standard",
-    "student_grade",
-  ];
-
-  for (const key of possibleKeys) {
-    const value = student[key];
-
-    if (
-      value !== undefined &&
-      value !== null &&
-      String(value).trim() !== ""
-    ) {
-      return String(value).trim();
-    }
-  }
-
-  return "";
+  return getStudentClassLabel(student);
 }
 
 function getFeeAmount(student: Student, year: number, month: number): number {
-  const studentClass = normalizeText(getStudentClass(student))
-    .replace(/^(?:class|grade)\s*/, "")
-    .replace(/[.\s_-]/g, "");
-  const effectiveFromOctober = year > 2026 || (year === 2026 && month >= 10);
-  const effectiveFromNovember = year > 2026 || (year === 2026 && month >= 11);
-
-  if (/^(?:9|9th|ninth|10|10th|tenth)(?:class)?(?:[a-z])?$/.test(studentClass)) return effectiveFromNovember ? 350 : 300;
-
-  if (effectiveFromOctober) {
-    if (/^(nursery|nur|lkg|lowerkg|lowerkindergarten|ukg|upperkg|upperkindergarten)(?:[a-z])?$/.test(studentClass)) return 200;
-    if (/^(?:[1-8](?:st|nd|rd|th)?|first|second|third|fourth|fifth|sixth|seventh|eighth|i|ii|iii|iv|v|vi|vii|viii)(?:class|grade)?(?:[a-z])?$/.test(studentClass)) return 250;
-  }
-
-  // Keep the historic rate for periods before October 2026 and unrecognized class labels.
-  return 200;
+  return getMonthlyFeeRate(getStudentClass(student), year, month);
 }
 
 function getAdmissionDate(student: Student): string {
@@ -1871,13 +1837,15 @@ export default function TeacherFeesPage() {
     setError("");
     setMessage(`Monthly fee report downloaded for ${period}.`);
   }
-function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") {
+function downloadFeeExcel(kind: "paid" | "pending" | "dues", scope: "month" | "overall") {
     const wantedStatus = kind === "paid"
       ? ["SUBMITTED", "PAID", "PAID ONLINE"]
       : ["PENDING"];
     const rows = fees.filter((fee) => {
       const normalized = String(fee.status || "").toUpperCase();
-      const statusMatches = wantedStatus.includes(normalized);
+      const statusMatches = kind === "dues"
+        ? getFeeAmounts(fee).dues > 0
+        : wantedStatus.includes(normalized);
       const monthMatches = scope === "overall" ||
         (Number(fee.month) === Number(month) && Number(fee.year) === Number(year));
       return statusMatches && monthMatches;
@@ -1885,7 +1853,7 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
 
     if (rows.length === 0) {
       setMessage("");
-      setError(`No ${kind} fee records found for ${scope === "month" ? `${getMonthName(Number(month))} ${year}` : "overall history"}.`);
+      setError(`No ${kind === "dues" ? "pending with dues" : kind} fee records found for ${scope === "month" ? `${getMonthName(Number(month))} ${year}` : "overall history"}.`);
       return;
     }
 
@@ -1919,7 +1887,8 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
       { wch: 24 }, { wch: 32 }, { wch: 14 }
     ];
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, kind === "paid" ? "Paid Fees" : "Pending Fees");
+    const reportLabel = kind === "dues" ? "Pending with Dues" : kind === "paid" ? "Paid Fees" : "Pending Fees";
+    XLSX.utils.book_append_sheet(workbook, worksheet, kind === "dues" ? "Pending with Dues" : kind === "paid" ? "Paid Fees" : "Pending Fees");
     const totals = exportRows.reduce((acc, row) => {
       acc.fee += Number(row["Fee Amount (INR)"] || 0);
       acc.paid += Number(row["Paid Amount (INR)"] || 0);
@@ -1928,7 +1897,7 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
     }, { fee: 0, paid: 0, due: 0 });
     const summary = XLSX.utils.aoa_to_sheet([
       ["RACER ACADEMY - Fee Export"],
-      ["Report Type", kind === "paid" ? "Paid Fees" : "Pending Fees"],
+      ["Report Type", reportLabel],
       ["Period", scope === "month" ? `${getMonthName(Number(month))} ${year}` : "Overall"],
       ["Records", exportRows.length],
       ["Total Fee Amount (INR)", totals.fee],
@@ -1939,18 +1908,20 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
     ]);
     XLSX.utils.book_append_sheet(workbook, summary, "Summary");
     const period = scope === "month" ? `${String(month).padStart(2, "0")}-${year}` : "OVERALL";
-    XLSX.writeFile(workbook, `RACER-ACADEMY-${kind.toUpperCase()}-FEES-${period}.xlsx`);
+    XLSX.writeFile(workbook, `RACER-ACADEMY-${kind === "dues" ? "PENDING-WITH-DUES" : kind.toUpperCase()}-FEES-${period}.xlsx`);
     setError("");
-    setMessage(`${kind === "paid" ? "Paid" : "Pending"} fees Excel downloaded (${exportRows.length} records).`);
+    setMessage(`${reportLabel} Excel downloaded (${exportRows.length} records).`);
   }
 
-  function downloadFeePdf(kind: "paid" | "pending", scope: "month" | "overall") {
+  function downloadFeePdf(kind: "paid" | "pending" | "dues", scope: "month" | "overall") {
     const wantedStatus = kind === "paid"
       ? ["SUBMITTED", "PAID", "PAID ONLINE"]
       : ["PENDING"];
     const rows = fees.filter((fee) => {
       const normalized = String(fee.status || "").toUpperCase();
-      const statusMatches = wantedStatus.includes(normalized);
+      const statusMatches = kind === "dues"
+        ? getFeeAmounts(fee).dues > 0
+        : wantedStatus.includes(normalized);
       const monthMatches = scope === "overall" ||
         (Number(fee.month) === Number(month) && Number(fee.year) === Number(year));
       return statusMatches && monthMatches;
@@ -1961,7 +1932,7 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
       : "All fee history";
     if (rows.length === 0) {
       setMessage("");
-      setError(`No ${kind} fee records found for ${scope === "month" ? period : "overall history"}.`);
+      setError(`No ${kind === "dues" ? "pending with dues" : kind} fee records found for ${scope === "month" ? period : "overall history"}.`);
       return;
     }
 
@@ -2013,7 +1984,7 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
         doc.setFontSize(16);
         doc.text("RACER ACADEMY", margin, 12);
         doc.setFontSize(10);
-        doc.text(`${kind === "paid" ? "PAID" : "PENDING"} FEE HISTORY`, margin, 20);
+        doc.text(`${kind === "paid" ? "PAID" : kind === "dues" ? "PENDING WITH DUES" : "PENDING"} FEE HISTORY`, margin, 20);
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8);
         doc.text(`Period: ${period}  |  Records: ${rows.length}`, pageWidth - margin, 13, { align: "right" });
@@ -2076,9 +2047,9 @@ function downloadFeeExcel(kind: "paid" | "pending", scope: "month" | "overall") 
       }
 
       const periodFile = scope === "month" ? `${String(month).padStart(2, "0")}-${year}` : "OVERALL";
-      downloadPdfFile(doc, `RACER-ACADEMY-${kind.toUpperCase()}-FEES-${periodFile}.pdf`);
+      downloadPdfFile(doc, `RACER-ACADEMY-${kind === "dues" ? "PENDING-WITH-DUES" : kind.toUpperCase()}-FEES-${periodFile}.pdf`);
       setError("");
-      setMessage(`${kind === "paid" ? "Paid" : "Pending"} fees PDF downloaded (${rows.length} records).`);
+      setMessage(`${kind === "dues" ? "Pending with Dues" : kind === "paid" ? "Paid" : "Pending"} fees PDF downloaded (${rows.length} records).`);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Fee PDF could not be downloaded.");
     }
@@ -2328,10 +2299,14 @@ if (loading) {
               <button type="button" className="racer-vip-refresh-fee" onClick={() => downloadFeeExcel("paid", "overall")}>Paid Excel (All)</button>
               <button type="button" className="racer-vip-refresh-fee" onClick={() => downloadFeeExcel("pending", "month")}>Pending Excel (Month)</button>
               <button type="button" className="racer-vip-refresh-fee" onClick={() => downloadFeeExcel("pending", "overall")}>Pending Excel (All)</button>
+              <button type="button" className="racer-vip-refresh-fee" onClick={() => downloadFeeExcel("dues", "month")}>Pending with Dues Excel (Month)</button>
+              <button type="button" className="racer-vip-refresh-fee" onClick={() => downloadFeeExcel("dues", "overall")}>Pending with Dues Excel (All)</button>
               <button type="button" className="racer-vip-refresh-fee racer-vip-pdf-export" onClick={() => downloadFeePdf("paid", "month")}>Paid PDF (Month)</button>
               <button type="button" className="racer-vip-refresh-fee racer-vip-pdf-export" onClick={() => downloadFeePdf("paid", "overall")}>Paid PDF (All)</button>
               <button type="button" className="racer-vip-refresh-fee racer-vip-pdf-export" onClick={() => downloadFeePdf("pending", "month")}>Pending PDF (Month)</button>
               <button type="button" className="racer-vip-refresh-fee racer-vip-pdf-export" onClick={() => downloadFeePdf("pending", "overall")}>Pending PDF (All)</button>
+              <button type="button" className="racer-vip-refresh-fee racer-vip-pdf-export" onClick={() => downloadFeePdf("dues", "month")}>Pending with Dues PDF (Month)</button>
+              <button type="button" className="racer-vip-refresh-fee racer-vip-pdf-export" onClick={() => downloadFeePdf("dues", "overall")}>Pending with Dues PDF (All)</button>
               <button type="button" className="racer-vip-refresh-fee" onClick={() => setMonthlyReportOpen(true)}>Monthly-wise Fee</button>
             </div>
           </div>
