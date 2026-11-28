@@ -5,6 +5,13 @@ export function getManagedAttendanceDate(remarks: string | null | undefined) {
   return remarks?.match(MANAGED_ATTENDANCE_TOKEN)?.[1] || null;
 }
 
+export function getEffectiveAttendanceDate(
+  attendanceDate: string | null | undefined,
+  remarks: string | null | undefined
+) {
+  return getManagedAttendanceDate(remarks) || String(attendanceDate || "").slice(0, 10);
+}
+
 export function getVisibleManagedAttendanceRemarks(remarks: string | null | undefined) {
   return (remarks || "")
     .replace(ALL_MANAGED_ATTENDANCE_TOKENS, "")

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import StudentExportOptions from "../_components/student-export-options";
+import { getEffectiveAttendanceDate } from "../../../lib/managed-attendance";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -101,7 +102,7 @@ function MobileAttendanceHistoryVIP({
   const extraMonthKeys = useMemo(
     () =>
       Array.from(
-        new Set(extraRecords.map((record) => monthKey(record.extra_class_date)).filter(Boolean))
+        new Set(extraRecords.map((record) => monthKey(getEffectiveAttendanceDate(record.extra_class_date, record.remarks))).filter(Boolean))
       ).sort((a, b) => b.localeCompare(a)),
     [extraRecords]
   );
@@ -124,14 +125,14 @@ function MobileAttendanceHistoryVIP({
   const percentage = totalCount ? Math.round((presentCount / totalCount) * 100) : 0;
 
   const selectedRegular = records.filter((record) => monthKey(record.attendance_date) === selectedMonth);
-  const selectedExtra = extraRecords.filter((record) => monthKey(record.extra_class_date) === selectedMonth);
+  const selectedExtra = extraRecords.filter((record) => monthKey(getEffectiveAttendanceDate(record.extra_class_date, record.remarks)) === selectedMonth);
   const selectedPresent = [...selectedRegular, ...selectedExtra].filter((record) => statusPresent(record.status)).length;
   const selectedTotal = selectedRegular.length + selectedExtra.length;
   const selectedPercentage = selectedTotal ? Math.round((selectedPresent / selectedTotal) * 100) : 0;
 
   const monthSummaries = monthKeys.map((key) => {
     const regular = records.filter((record) => monthKey(record.attendance_date) === key);
-    const extra = extraRecords.filter((record) => monthKey(record.extra_class_date) === key);
+    const extra = extraRecords.filter((record) => monthKey(getEffectiveAttendanceDate(record.extra_class_date, record.remarks)) === key);
     const present = [...regular, ...extra].filter((record) => statusPresent(record.status)).length;
     return {
       key,
@@ -150,7 +151,7 @@ function MobileAttendanceHistoryVIP({
   })).concat(
     selectedExtra.map((record) => ({
       id: `extra-${record.id}`,
-      date: record.extra_class_date,
+      date: getEffectiveAttendanceDate(record.extra_class_date, record.remarks),
       status: record.status,
       extra: true,
       subject: record.subject,
@@ -250,7 +251,7 @@ function MobileAttendanceHistoryVIP({
                     <strong>{safeDate(item.date)?.toLocaleDateString("en-IN", { weekday: "long" }) ?? "Attendance"}</strong>
                     <span>{item.extra ? `${(item as { subject?: string }).subject || "Extra Class"} • Extra Class` : "Regular Class"}</span>
                   </div>
-                  <div className={`rah-vip-day-status ${statusPresent(item.status) ? "present" : "absent"}`}>
+                  <div className={`rah-vip-day-status ${item.extra ? "extra" : statusPresent(item.status) ? "present" : "absent"}`} style={item.extra ? { background: "#e0f2fe", color: "#0369a1", border: "1px solid #7dd3fc" } : undefined}>
                     {item.extra && <b>★</b>}
                     <span>{statusPresent(item.status) ? "P" : "A"}</span>
                   </div>
@@ -414,13 +415,13 @@ export default function StudentAttendanceHistoryPage() {
             title="Attendance History"
             fileName="RACER_ACADEMY_ATTENDANCE_HISTORY"
             headers={["Date", "Class Type", "Subject", "Status"]}
-            rows={[...records.map((record) => [record.attendance_date, "Regular Class", "—", statusPresent(record.status) ? "Present" : "Absent"] as Array<string | number>), ...extraRecords.map((record) => [record.extra_class_date, "Extra Class", record.subject || "—", statusPresent(record.status) ? "Present" : "Absent"] as Array<string | number>)]}
+            rows={[...records.map((record) => [record.attendance_date, "Regular Class", "—", statusPresent(record.status) ? "Present" : "Absent"] as Array<string | number>), ...extraRecords.map((record) => [getEffectiveAttendanceDate(record.extra_class_date, record.remarks), "Extra Class", record.subject || "—", statusPresent(record.status) ? "Present" : "Absent"] as Array<string | number>)]}
           />
         </div>
         <section style={desktopStyles.card}>
           <h2 style={desktopStyles.sectionTitle}>Attendance History</h2>
           <div style={{overflowX:"auto"}}><table style={desktopStyles.table}><thead><tr><th>Date</th><th>Class</th><th>Status</th></tr></thead><tbody>
-            {loading ? <tr><td colSpan={3} style={desktopStyles.td}>Loading...</td></tr> : [...records.map((record) => ({id:`regular-${record.id ?? record.attendance_date}`, date:record.attendance_date, status:record.status, label:"Regular Class"})), ...extraRecords.map((record) => ({id:`extra-${record.id}`, date:record.extra_class_date, status:record.status, label:`${record.subject || "Extra Class"} · Extra Class`}))].sort((a,b)=>b.date.localeCompare(a.date)).map((record) => <tr key={record.id}><td style={desktopStyles.td}>{safeDate(record.date)?.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"})}</td><td style={desktopStyles.td}>{record.label}</td><td style={desktopStyles.td}><span style={{...desktopStyles.badge,background:statusPresent(record.status)?"#dcfce7":"#fee2e2",color:statusPresent(record.status)?"#166534":"#991b1b"}}>{statusPresent(record.status)?"Present":"Absent"}</span></td></tr>)}</tbody></table></div>
+            {loading ? <tr><td colSpan={3} style={desktopStyles.td}>Loading...</td></tr> : [...records.map((record) => ({id:`regular-${record.id ?? record.attendance_date}`, date:record.attendance_date, status:record.status, label:"Regular Class"})), ...extraRecords.map((record) => ({id:`extra-${record.id}`, date:getEffectiveAttendanceDate(record.extra_class_date, record.remarks), status:record.status, label:`${record.subject || "Extra Class"} · Extra Class`}))].sort((a,b)=>b.date.localeCompare(a.date)).map((record) => <tr key={record.id}><td style={desktopStyles.td}>{safeDate(record.date)?.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"})}</td><td style={desktopStyles.td}>{record.label}</td><td style={desktopStyles.td}><span style={{...desktopStyles.badge,background:record.id.startsWith("extra-")?"#e0f2fe":statusPresent(record.status)?"#dcfce7":"#fee2e2",color:record.id.startsWith("extra-")?"#0369a1":statusPresent(record.status)?"#166534":"#991b1b"}}>{record.id.startsWith("extra-")?(statusPresent(record.status)?"P":"A"):(statusPresent(record.status)?"Present":"Absent")}</span></td></tr>)}</tbody></table></div>
         </section>
       </div>
     </main>

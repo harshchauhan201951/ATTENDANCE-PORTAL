@@ -7,6 +7,7 @@ import { getStudentCalendarEvents, type CalendarEvent } from "../../../lib/stude
 import { isHiddenStudentTimetableTeacher } from "../../../lib/student-timetable";
 import { isOnOrAfterAdmission } from "../../../lib/admission-date";
 import { filterMonthlySnapshotByAdmission } from "../../../lib/monthly-result";
+import { getEffectiveAttendanceDate } from "../../../lib/managed-attendance";
 import StudentBirthdayWish from "../../../components/StudentBirthdayWish";
 import FestivalCelebrationSlides from "../../../components/FestivalCelebrationSlides";
 import StudentRacerSaathi from "./student-racer-saathi";
@@ -161,7 +162,7 @@ export default function StudentDashboardPage() {
       const admissionDate = studentMeta?.admission_date || null;
       const [attendanceResult, extraAttendanceResult, feeResult, quizResult, weeklyRecordsResult] = await Promise.all([
         supabase.from("attendance").select("attendance_date,status").eq("student_id", studentId).order("attendance_date", { ascending: false }).order("id", { ascending: false }),
-        supabase.from("extra_class_attendance").select("extra_class_date,status,subject").eq("student_id", studentId).order("extra_class_date", { ascending: false }).order("id", { ascending: false }),
+        supabase.from("extra_class_attendance").select("extra_class_date,status,subject,remarks").eq("student_id", studentId).order("extra_class_date", { ascending: false }).order("id", { ascending: false }),
         supabase.from("fees").select("month,year,amount,status").eq("student_id", studentId).order("year", { ascending: false }).order("month", { ascending: false }).limit(12),
         supabase.from("quiz_results").select("quiz_id,total_marks,obtained_marks,percentage,submitted_at,created_at").eq("student_id", studentId).not("submitted_at", "is", null).order("submitted_at", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false }).limit(100),
         supabase.from("academy_assessments").select("id,test_name,test_date,total_marks,obtained_marks,subject,attendance_status").eq("student_id", studentId).order("id", { ascending: false }).limit(100),
@@ -220,7 +221,7 @@ export default function StudentDashboardPage() {
           const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
           const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
           const baseEvents = getStudentCalendarEvents(date);
-          const extraClass = (extraAttendanceResult.data || []).find((row: any) => String(row.extra_class_date || "").slice(0, 10) === dateKey);
+          const extraClass = (extraAttendanceResult.data || []).find((row: any) => getEffectiveAttendanceDate(row.extra_class_date, row.remarks) === dateKey);
           const extraEvent: CalendarEvent | null = extraClass
             ? { date: dateKey, title: `Extra Class · ${attendanceStatusLabel(extraClass.status)}`, type: "class", description: `Teacher held an Extra Class; your attendance is ${attendanceStatusLabel(extraClass.status)}.` }
             : null;
@@ -256,8 +257,8 @@ export default function StudentDashboardPage() {
       const attendancePercentage = totalClasses ? Math.round((presentCount / totalClasses) * 100) : 0;
       const todayAttendance = attendanceRows.find((row) => row.attendance_date === today);
       const overallAttendance = `Overall ${attendancePercentage}% · ${presentCount}/${totalClasses} present · ${absentCount} absent.`;
-      const extraAttendanceRows = extraAttendanceResult.data || [];
-      const todayExtraAttendanceRows = extraAttendanceRows.filter((row) => row.extra_class_date === today);
+      const extraAttendanceRows = [...(extraAttendanceResult.data || [])].sort((a, b) => getEffectiveAttendanceDate(b.extra_class_date, b.remarks).localeCompare(getEffectiveAttendanceDate(a.extra_class_date, a.remarks)));
+      const todayExtraAttendanceRows = extraAttendanceRows.filter((row) => getEffectiveAttendanceDate(row.extra_class_date, row.remarks) === today);
       const todayExtraAttendanceFact = extraAttendanceResult.error
         ? "Extra-class status unavailable."
         : todayExtraAttendanceRows.length
@@ -268,7 +269,7 @@ export default function StudentDashboardPage() {
       const extraAttendanceFact = extraAttendanceResult.error
         ? "Extra-class attendance is unavailable right now."
         : latestExtraAttendance
-          ? `Latest: ${String(latestExtraAttendance.status || "Marked")} · ${latestExtraAttendance.subject || "Extra Class"} · ${dashboardDate(latestExtraAttendance.extra_class_date)}. ${extraAttendanceRows.length} extra class record${extraAttendanceRows.length === 1 ? "" : "s"} total.`
+          ? `Latest: ${String(latestExtraAttendance.status || "Marked")} · ${latestExtraAttendance.subject || "Extra Class"} · ${dashboardDate(getEffectiveAttendanceDate(latestExtraAttendance.extra_class_date, latestExtraAttendance.remarks))}. ${extraAttendanceRows.length} extra class record${extraAttendanceRows.length === 1 ? "" : "s"} total.`
           : "No extra-class attendance has been marked yet.";
 
       const pendingFees = (feeResult.data || []).filter((fee: any) => String(fee.status || "").toUpperCase() === "PENDING");

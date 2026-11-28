@@ -603,7 +603,7 @@ export default function ExtraClassPage() {
 
       setManageDateClass(null);
       await loadData();
-      showMessage("Managed Attendance marked. The Extra Class date and attendance history were kept unchanged.", "success");
+      showMessage("Managed attendance date saved. The original Extra Class date is preserved, and attendance history now shows the managed date.", "success");
     } catch (error) {
       console.error("Manage attendance date error:", error);
       showMessage(

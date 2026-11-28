@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { getMonthlyCalendarEvents, getMonthlyCalendarEvent } from "../../lib/monthly-calendar";
+import { getEffectiveAttendanceDate } from "../../lib/managed-attendance";
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
@@ -176,11 +177,11 @@ export default function AcademicCalendarPage() {
         if (!username) return;
         const { data: student } = await supabase.from("students").select("id").ilike("student_username", username.trim()).maybeSingle();
         if (!student?.id) return;
-        const { data, error } = await supabase.from("extra_class_attendance").select("extra_class_date,status").eq("student_id", student.id);
+        const { data, error } = await supabase.from("extra_class_attendance").select("extra_class_date,status,remarks").eq("student_id", student.id);
         if (error) throw error;
         const rows: Record<string, string[]> = {};
         for (const row of data || []) {
-          const date = String(row.extra_class_date || "").slice(0, 10);
+          const date = getEffectiveAttendanceDate(row.extra_class_date, row.remarks);
           if (/^\d{4}-\d{2}-\d{2}$/.test(date)) (rows[date] ||= []).push(String(row.status || ""));
         }
         if (active) setExtraClassByDate(Object.fromEntries(Object.entries(rows).map(([date, statuses]) => [date, statuses.some((status) => status.toLowerCase() === "present") ? "Present" : "Absent"])));

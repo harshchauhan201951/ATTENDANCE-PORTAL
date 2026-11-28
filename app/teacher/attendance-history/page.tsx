@@ -6,6 +6,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import { downloadPdfFile } from "../../../lib/download-pdf";
 import { isStudentRecordVisibleOnDate } from "../../../lib/admission-date";
+import { getEffectiveAttendanceDate } from "../../../lib/managed-attendance";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,6 +28,8 @@ type AttendanceRecord = {
   status: string;
   source: "regular" | "extra";
   subject?: string | null;
+  originalClassDate?: string;
+  managedDate?: boolean;
 };
 
 type HistoryRow = {
@@ -84,7 +87,7 @@ export default function AttendanceHistoryPage() {
       }
 
       let attendanceQuery = supabase.from("attendance").select("id, student_id, attendance_date, status").order("attendance_date", { ascending: false });
-      let extraAttendanceQuery = supabase.from("extra_class_attendance").select("id, student_id, extra_class_date, status, subject").order("extra_class_date", { ascending: false });
+      let extraAttendanceQuery = supabase.from("extra_class_attendance").select("id, student_id, extra_class_date, status, subject, remarks").order("extra_class_date", { ascending: false });
       if (savedTeacherId !== 1 && assignedStudentIds.length > 0) { attendanceQuery = attendanceQuery.in("student_id", assignedStudentIds); }
       if (savedTeacherId !== 1 && assignedStudentIds.length > 0) { extraAttendanceQuery = extraAttendanceQuery.in("student_id", assignedStudentIds); }
 
@@ -101,8 +104,9 @@ export default function AttendanceHistoryPage() {
       }).map((record) => ({ ...record, source: "regular" as const }));
       const extraRecords: AttendanceRecord[] = (extraAttendanceResult.data || []).filter((record) => {
         const student = studentsById.get(Number(record.student_id));
-        return studentIds.has(Number(record.student_id)) && isStudentRecordVisibleOnDate(student?.admission_date, student?.admission_history, record.extra_class_date);
-      }).map((record) => ({ id: record.id, student_id: record.student_id, attendance_date: record.extra_class_date, status: record.status, subject: record.subject, source: "extra" as const }));
+        const effectiveDate = getEffectiveAttendanceDate(record.extra_class_date, record.remarks);
+        return studentIds.has(Number(record.student_id)) && isStudentRecordVisibleOnDate(student?.admission_date, student?.admission_history, effectiveDate);
+      }).map((record) => ({ id: record.id, student_id: record.student_id, attendance_date: getEffectiveAttendanceDate(record.extra_class_date, record.remarks), originalClassDate: record.extra_class_date, managedDate: getEffectiveAttendanceDate(record.extra_class_date, record.remarks) !== record.extra_class_date, status: record.status, subject: record.subject, source: "extra" as const }));
       setRecords([...regularRecords, ...extraRecords].sort((a, b) => b.attendance_date.localeCompare(a.attendance_date) || b.id - a.id));
     } catch (error) {
       console.error("Load attendance history error:", error);
@@ -797,8 +801,8 @@ export default function AttendanceHistoryPage() {
               <div style={{ display: "grid", gap: 8 }}>
                 {selectedStudentRecords.length === 0 ? <p style={{ color: "#64748b" }}>No attendance records for this month.</p> : selectedStudentRecords.map((record) => (
                   <div key={`${record.source}-${record.id}`} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", alignItems: "center", gap: 10, padding: "11px 12px", border: "1px solid #e5ebf3", borderRadius: 12 }}>
-                    <strong style={{ color: "#334b68", fontSize: 13 }}>{formatDate(record.attendance_date)}{record.source === "extra" ? <small style={{ display: "block", color: "#a15b12", marginTop: 3 }}>{record.subject || "Extra Class"} · Extra Class</small> : <small style={{ display: "block", color: "#64748b", marginTop: 3 }}>Regular Class</small>}</strong>
-                    <span style={{ color: record.status.toLowerCase() === "present" ? "#16804c" : "#c43d45", fontSize: 12, fontWeight: 800 }}>{record.status}</span>
+                    <strong style={{ color: "#334b68", fontSize: 13 }}>{formatDate(record.attendance_date)}{record.source === "extra" ? <small style={{ display: "block", color: "#0369a1", marginTop: 3 }}>{record.subject || "Extra Class"} · Extra Class{record.managedDate ? ` · Class held ${formatDate(record.originalClassDate || "")}` : ""}</small> : <small style={{ display: "block", color: "#64748b", marginTop: 3 }}>Regular Class</small>}</strong>
+                    <span style={record.source === "extra" ? { background: "#e0f2fe", color: "#0369a1", border: "1px solid #7dd3fc", borderRadius: 999, padding: "5px 8px", fontSize: 12, fontWeight: 800 } : { color: record.status.toLowerCase() === "present" ? "#16804c" : "#c43d45", fontSize: 12, fontWeight: 800 }}>{record.source === "extra" ? (record.status.toLowerCase() === "present" ? "P" : "A") : record.status}</span>
                     <button type="button" disabled={deleting === `${record.source}-${record.id}`} onClick={() => void deleteAttendance(record)} style={{ border: "1px solid #f0d0d0", borderRadius: 8, padding: "6px 9px", background: "#fff7f7", color: "#b4232d", cursor: "pointer" }}>Delete</button>
                   </div>
                 ))}

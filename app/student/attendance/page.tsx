@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { getStudentCalendarEvent, getStudentCalendarEvents, getStudentCalendarEventEmoji } from "../../../lib/student-calendar-events";
-import { getManagedAttendanceDate, getVisibleManagedAttendanceRemarks } from "../../../lib/managed-attendance";
+import { getEffectiveAttendanceDate, getManagedAttendanceDate, getVisibleManagedAttendanceRemarks } from "../../../lib/managed-attendance";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -281,7 +281,7 @@ export default function StudentAttendancePage() {
       extraClassRecords.map((record) => ({
         id: `extra-${record.id}`,
         student_id: record.student_id,
-        attendance_date: record.extra_class_date,
+        attendance_date: getEffectiveAttendanceDate(record.extra_class_date, record.remarks),
         status: record.status,
         attendance_type: "extra",
         extra_class_id: record.extra_class_id,
@@ -585,10 +585,14 @@ export default function StudentAttendancePage() {
    * STATUS STYLE
    * ---------------------------------------------------------
    */
-  function getStatusStyle(status: string) {
+  function getStatusStyle(status: string, isExtraClass = false) {
     const value = String(status || "")
       .trim()
       .toUpperCase();
+
+    if (isExtraClass) {
+      return { background: "#e0f2fe", color: "#0369a1", border: "1px solid #7dd3fc" };
+    }
 
     if (isPresent(value)) {
       return {
@@ -842,7 +846,8 @@ export default function StudentAttendancePage() {
                         : holidayEmoji
                         ? "is-holiday-day"
                         : "is-empty") +
-                      (isManagedAttendanceDate && status ? " is-managed-attendance" : "")
+                      (isManagedAttendanceDate && status ? " is-managed-attendance" : "") +
+                      (hasExtra ? " is-extra-class-attendance" : "")
                     }
                     key={key}
                   >
@@ -1466,7 +1471,7 @@ export default function StudentAttendancePage() {
                                   styles.extraBadge
                                 }
                               >
-                                {record.remarks?.startsWith("Managed extra class date")
+                                {getManagedAttendanceDate(record.remarks)
                                   ? "↻ MANAGED EXTRA"
                                   : "⭐ EXTRA"}
                               </span>
@@ -1542,19 +1547,14 @@ export default function StudentAttendancePage() {
                               style={{
                                 ...styles.badge,
                                 ...getStatusStyle(
-                                  recordStatus
+                                  recordStatus,
+                                  isExtra
                                 ),
                               }}
                             >
-                              {isPresent(
-                                recordStatus
-                              ) && "✓ "}
-
-                              {isAbsent(
-                                recordStatus
-                              ) && "✕ "}
-
-                              {record.status}
+                              {isExtra
+                                ? (isPresent(recordStatus) ? "P" : "A")
+                                : <>{isPresent(recordStatus) && "✓ "}{isAbsent(recordStatus) && "✕ "}{record.status}</>}
                             </span>
                           </td>
                         </tr>
@@ -1616,7 +1616,7 @@ export default function StudentAttendancePage() {
                           styles.extraSmallLabel
                         }
                       >
-                        {record.remarks?.startsWith("Managed extra class date")
+                        {getManagedAttendanceDate(record.remarks)
                           ? "↻ MANAGED EXTRA CLASS"
                           : "⭐ EXTRA CLASS"}
                       </span>
@@ -1635,19 +1635,12 @@ export default function StudentAttendancePage() {
                       style={{
                         ...styles.badge,
                         ...getStatusStyle(
-                          record.status
+                          record.status,
+                          true
                         ),
                       }}
                     >
-                      {isPresent(
-                        record.status
-                      )
-                        ? "✓ Present"
-                        : isAbsent(
-                            record.status
-                          )
-                        ? "✕ Absent"
-                        : record.status}
+                      {isPresent(record.status) ? "P" : isAbsent(record.status) ? "A" : record.status}
                     </span>
                   </div>
 
@@ -1659,18 +1652,15 @@ export default function StudentAttendancePage() {
                     <div>
                       <span>DATE</span>
                       <strong>
-                        {formatDate(
-                          record.extra_class_date
-                        )}
+                        {formatDate(getEffectiveAttendanceDate(record.extra_class_date, record.remarks))}
+                        {getManagedAttendanceDate(record.remarks) && <small style={{ display: "block", color: "#64748b", fontWeight: 600 }}>Class held {formatDate(record.extra_class_date)}</small>}
                       </strong>
                     </div>
 
                     <div>
                       <span>DAY</span>
                       <strong>
-                        {getDayName(
-                          record.extra_class_date
-                        )}
+                        {getDayName(getEffectiveAttendanceDate(record.extra_class_date, record.remarks))}
                       </strong>
                     </div>
 
@@ -3289,6 +3279,9 @@ export default function StudentAttendancePage() {
           .vip-week-event-name { margin-top: 2px !important; color: #725d45 !important; font-size: 5px !important; line-height: 1 !important; }
           .vip-week-day.is-present .vip-week-event-name.has-attendance { color: #087d59 !important; font-size: 5.5px !important; font-weight: 900 !important; }
           .vip-week-day.is-absent .vip-week-event-name.has-attendance { color: #bd3047 !important; font-size: 5.5px !important; font-weight: 900 !important; }
+          .vip-week-day.is-extra-class-attendance { border-color: #7dd3fc !important; background: #e0f2fe !important; color: #075985 !important; }
+          .vip-week-day.is-extra-class-attendance em { border: 1px solid #7dd3fc !important; background: #bae6fd !important; color: #075985 !important; }
+          .vip-week-day.is-extra-class-attendance .vip-week-event-name.has-attendance { color: #0369a1 !important; }
           .vip-week-holiday-marker { position: absolute !important; top: 29px !important; left: 50% !important; z-index: 3 !important; display: grid !important; width: 10px !important; height: 10px !important; place-items: center !important; transform: translateX(-13px) !important; border: 1px solid #e7c5a1 !important; border-radius: 50% !important; background: #fff !important; font-size: 7px !important; line-height: 1 !important; }
           .vip-recent-list { gap: 7px !important; }
           .vip-recent-row { min-height: 62px !important; padding: 9px !important; border: 1px solid #e4ebf4 !important; border-radius: 13px !important; background: #fff !important; }
